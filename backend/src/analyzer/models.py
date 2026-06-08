@@ -259,6 +259,12 @@ class NewsItem(BaseModel):
     title: str
     source: str | None = None
     url: str | None = None
+    summary: str | None = None  # 摘要/正文片段
+    sentiment: str | None = None  # 情绪标签（部分源提供：positive/negative/neutral）
+    tickers: list[str] = Field(default_factory=list)  # 相关标的
+    categories: list[str] = Field(default_factory=list)  # 分类/频道/标签
+    image_url: str | None = None
+    provider: str | None = None  # 来源 API：cryptocompare/newsapi/finnhub/benzinga
 
 
 class EtfFlow(BaseModel):

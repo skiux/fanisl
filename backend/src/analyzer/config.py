@@ -86,11 +86,17 @@ class Settings(BaseSettings):
     fred_api_key: str = ""  # 宏观日历（FRED）
     coinmarketcal_api_key: str = ""  # 币圈事件（CoinMarketCal）
     cryptocompare_api_key: str = ""  # 新闻（CoinDesk Data，原 CryptoCompare）
+    # 新闻聚合（多源，填了哪个就启用哪个，结果合并去重）
+    newsapi_api_key: str = ""  # NewsAPI.org
+    finnhub_api_key: str = ""  # Finnhub
+    benzinga_api_key: str = ""  # Benzinga
     default_symbol: str = "BTC/USDT"
     default_timeframes: list[str] = ["1h", "4h", "1d"]
     ohlcv_limit: int = 600  # 拉多少根 K 线（≥600 让 EMA200 充分收敛；超 300 自动分页）
 
-    # 存储
+    # 存储：PostgreSQL + TimescaleDB（libpq conninfo；默认走本地 socket + 当前用户）
+    pg_conninfo: str = "dbname=fanisl"
+    # 旧 SQLite 文件路径，仅供一次性数据迁移 migrate_sqlite 读取
     db_path: str = "fanisl.db"
 
     # 数据采集（后台调度，写时间序列）
@@ -104,6 +110,11 @@ class Settings(BaseSettings):
     collector_enabled: bool = True
     collect_market_interval_s: int = 900  # 价格/衍生品/情绪/链上：15 分钟
     collect_catalysts_interval_s: int = 86400  # 解锁/宏观/新闻：每天
+
+    # 保留 / 压缩：交给 TimescaleDB 原生策略（hypertable + 压缩 + retention）
+    retention_days: int = 365  # 超过此天数的原始样本自动 drop_chunks
+    compress_after_days: int = 7  # 超过此天数的 chunk 自动列式压缩（~10x，节省空间）
+    runs_keep: int = 500  # 采集日志最多保留行数（log_run 内顺带裁剪）
 
     thresholds: IndicatorThresholds = Field(default_factory=IndicatorThresholds)
 

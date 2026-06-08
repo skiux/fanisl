@@ -2,12 +2,11 @@
 
 from analyzer import collector
 from analyzer.config import Settings
-from analyzer.marketstore import MarketStore
 from analyzer.models import CatalystReport, MacroEvent
 
 
-def test_collect_market_writes_series(tmp_path, monkeypatch, make_snapshot):
-    st = MarketStore(str(tmp_path / "t.db"))
+def test_collect_market_writes_series(store, monkeypatch, make_snapshot):
+    st = store
     monkeypatch.setattr(
         collector, "get_market_snapshot",
         lambda sym, tfs, r, s, sent: make_snapshot(sym, price=123.0),
@@ -23,8 +22,8 @@ def test_collect_market_writes_series(tmp_path, monkeypatch, make_snapshot):
     assert "2/2 ok" in status["note"]
 
 
-def test_collect_market_best_effort_on_failure(tmp_path, monkeypatch, make_snapshot):
-    st = MarketStore(str(tmp_path / "t.db"))
+def test_collect_market_best_effort_on_failure(store, monkeypatch, make_snapshot):
+    st = store
 
     def flaky(sym, tfs, r, s, sent):
         if sym == "ETH/USDT":
@@ -41,8 +40,8 @@ def test_collect_market_best_effort_on_failure(tmp_path, monkeypatch, make_snaps
     assert run["ok"] == 0 and "ETH/USDT" in run["note"]  # 记录失败
 
 
-def test_collect_catalysts_writes_once_for_macro(tmp_path, monkeypatch):
-    st = MarketStore(str(tmp_path / "t.db"))
+def test_collect_catalysts_writes_once_for_macro(store, monkeypatch):
+    st = store
     monkeypatch.setattr(
         collector, "get_catalysts",
         lambda sym, cat: CatalystReport(

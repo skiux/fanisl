@@ -1,7 +1,7 @@
-"""时间序列摘要 + get_metric_history 单测（临时 SQLite，不联网）。"""
+"""时间序列摘要 + get_metric_history 单测（summarize 纯函数；history 用 store 夹具）。"""
 
 from analyzer.analytics import summarize_series
-from analyzer.marketstore import GLOBAL, MarketStore, Sample
+from analyzer.marketstore import GLOBAL, Sample
 from analyzer.tools.history import get_metric_history
 
 
@@ -39,8 +39,8 @@ def test_summarize_downsamples():
     assert s["trajectory"][0][1] == 0 and s["trajectory"][-1][1] == 39  # 保留首尾
 
 
-def test_get_metric_history_reads_store(tmp_path):
-    st = MarketStore(str(tmp_path / "t.db"))
+def test_get_metric_history_reads_store(store):
+    st = store
     for i, v in enumerate([1.0, 2.0, 3.0]):
         st.write_samples([Sample("symbol", "BTC/USDT", "funding_rate", v)], f"2026-06-0{1 + i}T00:00:00+00:00")
     st.write_samples([Sample("global", GLOBAL, "fear_greed", 12.0)], "2026-06-07T00:00:00+00:00")
@@ -54,7 +54,7 @@ def test_get_metric_history_reads_store(tmp_path):
     assert g["metrics"]["fear_greed"]["current"] == 12.0
 
 
-def test_get_metric_history_missing_metric(tmp_path):
-    st = MarketStore(str(tmp_path / "t.db"))
+def test_get_metric_history_missing_metric(store):
+    st = store
     out = get_metric_history("BTC/USDT", ["nope"], "7d", st)
     assert out["metrics"]["nope"] == {"samples": 0}

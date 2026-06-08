@@ -11,11 +11,15 @@ from .alternativeme_source import AlternativeMeSource
 from .blockchaininfo_source import BlockchainInfoSource
 from .catalysts import Catalysts
 from .ccxt_source import CCXTSource
+from .benzinga_source import BenzingaNewsSource
 from .coinalyze_source import CoinalyzeSource
 from .cryptocompare_source import CryptoCompareNewsSource
 from .defillama_source import DefiLlamaOnChain, DefiLlamaSource
 from .deribit_source import DeribitSource
+from .finnhub_source import FinnhubNewsSource
 from .fred_source import FREDSource
+from .news_aggregate import MultiNewsProvider
+from .newsapi_source import NewsAPISource
 from .derivatives import CryptoSentiment
 from .instruments import Resolver
 from .oanda_source import OANDASource
@@ -61,11 +65,23 @@ def build_catalysts(settings: Settings) -> Catalysts:
     return Catalysts(
         unlocks=DefiLlamaSource(),  # 无需 key
         macro=FREDSource(settings.fred_api_key) if settings.fred_api_key else None,
-        news=(
-            CryptoCompareNewsSource(settings.cryptocompare_api_key)
-            if settings.cryptocompare_api_key
-            else None
-        ),
+        news=_build_news(settings),
         # events=...     # 币圈事件：CoinMarketCal API 转付费、Coindar 需另注册——见 data-gaps
         # etf_flows=...  # 无干净免费源，见 data-gaps（待订阅）
     )
+
+
+def _build_news(settings: Settings):
+    """组装多源新闻：填了哪个 key 就启用哪个，结果合并去重。都没有则 None。"""
+    providers = []
+    if settings.cryptocompare_api_key:
+        providers.append(CryptoCompareNewsSource(settings.cryptocompare_api_key))
+    if settings.newsapi_api_key:
+        providers.append(NewsAPISource(settings.newsapi_api_key))
+    if settings.finnhub_api_key:
+        providers.append(FinnhubNewsSource(settings.finnhub_api_key))
+    if settings.benzinga_api_key:
+        providers.append(BenzingaNewsSource(settings.benzinga_api_key))
+    if not providers:
+        return None
+    return MultiNewsProvider(providers) if len(providers) > 1 else providers[0]

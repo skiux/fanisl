@@ -1,7 +1,17 @@
-"""共享测试夹具：构造最小但合法的 MarketSnapshot（给 flatten/collector 测试用）。"""
+"""共享测试夹具：PG 连接池 + 隔离的存储夹具 + 最小合法 MarketSnapshot。
 
+测试库默认 dbname=fanisl_test（本地 socket）；可用 FANISL_TEST_CONNINFO 覆盖。
+每个用例前 TRUNCATE 相关表做隔离（pytest 默认串行执行）。
+"""
+
+import os
+
+import psycopg
 import pytest
 
+from analyzer.db import make_pool
+from analyzer.marketstore import MarketStore
+from analyzer.storage import Storage
 from analyzer.models import (
     ChainTVL,
     Derivatives,
@@ -31,6 +41,48 @@ def _tfview(price: float, rsi: float) -> TimeframeView:
         volume=VolumeView(vs_avg20=1.0, state="normal"),
         key_levels=KeyLevels(recent_swing_high=1.0, recent_swing_low=1.0, bb_upper=1.0, bb_lower=1.0),
     )
+
+
+def _bootstrap_conninfo() -> str:
+    """确保测试库 + timescaledb 扩展存在，返回 conninfo。"""
+    if "FANISL_TEST_CONNINFO" in os.environ:
+        return os.environ["FANISL_TEST_CONNINFO"]
+    with psycopg.connect("dbname=postgres", autocommit=True) as c:
+        exists = c.execute(
+            "SELECT 1 FROM pg_database WHERE datname='fanisl_test'"
+        ).fetchone()
+        if not exists:
+            c.execute("CREATE DATABASE fanisl_test")
+    with psycopg.connect("dbname=fanisl_test", autocommit=True) as c:
+        c.execute("CREATE EXTENSION IF NOT EXISTS timescaledb")
+    return "dbname=fanisl_test"
+
+
+@pytest.fixture(scope="session")
+def pool():
+    p = make_pool(_bootstrap_conninfo())
+    yield p
+    p.close()
+
+
+@pytest.fixture
+def store(pool):
+    """隔离的 MarketStore：建表后清空时间序列/催化剂/日志。"""
+    st = MarketStore(pool)
+    with pool.connection() as conn:
+        conn.execute(
+            "TRUNCATE metric_samples, catalyst_items, collection_runs RESTART IDENTITY"
+        )
+    return st
+
+
+@pytest.fixture
+def conv_store(pool):
+    """隔离的 Storage：建表后清空对话/消息。"""
+    s = Storage(pool)
+    with pool.connection() as conn:
+        conn.execute("TRUNCATE conversations, messages RESTART IDENTITY CASCADE")
+    return s
 
 
 @pytest.fixture

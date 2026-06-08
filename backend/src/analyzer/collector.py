@@ -16,8 +16,9 @@ from .flatten import flatten_catalysts, flatten_snapshot
 from .marketstore import MarketStore
 from .tools.catalysts import get_catalysts
 from .tools.market import get_market_snapshot
+from .validate import clean_samples
 
-_COLLECT_TFS = ["1h", "1d"]  # 采集只需价格(1h)+日线RSI；减轻 OHLCV 负载
+_COLLECT_TFS = ["1h", "4h", "1d"]  # 全周期指标历史化（write_changed 去重，慢周期不会重复落库）
 
 
 def _cycle_ts() -> str:
@@ -33,16 +34,22 @@ def collect_market(
 ) -> None:
     """采一轮 watchlist 行情快照 → 时间序列。"""
     ts = _cycle_ts()
-    ok, fails = 0, []
+    ok, fails, rejected = 0, [], []
     for sym in settings.watchlist:
         try:
             snap = get_market_snapshot(sym, _COLLECT_TFS, resolver, settings, sentiment)
-            store.write_samples(flatten_snapshot(snap), ts)
+            samples, bad = clean_samples(flatten_snapshot(snap))  # 入库前挡脏值
+            rejected.extend(bad)
+            store.write_changed(samples, ts)  # 按各指标自身节奏落库
             ok += 1
         except Exception as e:  # noqa: BLE001 — best-effort per symbol
             fails.append(f"{sym}:{str(e)[:60]}")
-    store.log_run("market", not fails, f"{ok}/{len(settings.watchlist)} ok"
-                  + (f"; fail {'; '.join(fails)}" if fails else ""))
+    note = f"{ok}/{len(settings.watchlist)} ok"
+    if fails:
+        note += f"; fail {'; '.join(fails)}"
+    if rejected:
+        note += f"; 丢弃脏值 {len(rejected)}: {'; '.join(rejected[:5])}"
+    store.log_run("market", not fails, note)
 
 
 def collect_catalysts(

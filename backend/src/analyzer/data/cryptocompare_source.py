@@ -48,13 +48,19 @@ def _parse_news(data: dict) -> list[dict]:
         return []
     out = []
     for a in arts[:_LIMIT]:
-        ts = a.get("published_on")
+        body = a.get("body") or ""
+        cats = a.get("categories") or ""
         out.append(
             {
-                "published_at": _iso(ts),
+                "published_at": _iso(a.get("published_on")),
                 "title": a.get("title") or "",
                 "source": (a.get("source_info") or {}).get("name") or a.get("source"),
                 "url": a.get("url"),
+                "summary": body[:600] or None,
+                "tickers": [c for c in cats.split("|") if c][:8],  # CryptoCompare 用币种当分类
+                "categories": [c for c in cats.split("|") if c][:8],
+                "image_url": a.get("imageurl"),
+                "provider": "cryptocompare",
             }
         )
     return out

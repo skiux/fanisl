@@ -81,11 +81,17 @@ TOOLS: list[dict] = [
             "现在 12 处于历史什么分位」「稳定币供应/TVL 的方向」「现价在近 30 天什么位置」等。\n"
             "返回每个指标的：当前值、窗口内 min/max/mean、当前值的窗口分位、起止变化、方向"
             "(rising/falling/flat)、稀疏轨迹。\n"
-            "可用 metrics——单币(symbol 传 BTC/USDT 等)：price, rsi_1d, funding_rate, "
-            "open_interest_usd, lsr, top_trader_lsr, basis_perp, basis_quarterly, dvol, atm_iv, "
-            "put_call_ratio, max_pain, liq_long_24h, liq_short_24h, chain_tvl, active_addresses, "
-            "tx_count, fees_usd；全市场(symbol 传 GLOBAL)：fear_greed, stablecoin_total。\n"
-            "注意：采集起步阶段样本可能很少(samples 小)，据实说明、别过度解读。"
+            "可用 metrics——单币(symbol 传 BTC/USDT 等)：\n"
+            "  • 技术(每周期带后缀 _1h/_4h/_1d)：rsi_, macd_hist_, atr_, atr_pct_, vol_ratio_, "
+            "change_pct_, bb_upper_, bb_lower_；以及 price。\n"
+            "  • 衍生品：funding_rate, funding_annualized, funding_percentile, open_interest_usd, "
+            "oi_change_24h, lsr, lsr_percentile, top_trader_lsr, top_trader_percentile, basis_perp, "
+            "basis_quarterly, dvol, atm_iv, put_call_ratio, iv_skew, max_pain, options_total_oi, "
+            "liq_long_24h, liq_short_24h, liq_total_24h。\n"
+            "  • 链上：chain_tvl, chain_tvl_change_30d, active_addresses, tx_count, fees_usd。\n"
+            "全市场(symbol 传 GLOBAL)：fear_greed, stablecoin_total, stablecoin_change_7d, stablecoin_change_30d。\n"
+            "注意：采集按各指标自身节奏落库(值不变就不重复记)，所以慢变量(日线/链上/恐惧贪婪)"
+            "的点会比较稀疏、那是正常的；起步阶段样本可能很少(samples 小)，据实说明、别过度解读。"
         ),
         "input_schema": {
             "type": "object",

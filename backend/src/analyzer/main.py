@@ -17,13 +17,20 @@ from .agent import Agent, final_text
 from .collector import collect_catalysts, collect_market
 from .config import get_settings
 from .data.factory import build_catalysts, build_crypto_sentiment, build_resolver
+from .db import make_pool
 from .marketstore import GLOBAL, MarketStore
 from .scheduler import Scheduler
 from .storage import Storage, display_messages
 
 settings = get_settings()
-storage = Storage(settings.db_path)
-market_store = MarketStore(settings.db_path)
+pool = make_pool(settings.pg_conninfo)
+storage = Storage(pool)
+market_store = MarketStore(
+    pool,
+    retention_days=settings.retention_days,
+    compress_after_days=settings.compress_after_days,
+    runs_keep=settings.runs_keep,
+)
 resolver = build_resolver(settings)
 sentiment = build_crypto_sentiment(settings)
 catalysts = build_catalysts(settings)
@@ -51,6 +58,7 @@ def _start_collector() -> None:
 def _stop_collector() -> None:
     if settings.collector_enabled:
         _scheduler.stop()
+    pool.close()
 
 # 本地前端开发用：放开 CORS
 app.add_middleware(
