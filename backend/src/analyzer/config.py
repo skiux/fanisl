@@ -68,8 +68,8 @@ class Settings(BaseSettings):
     stream_chunk: int = 4  # 每个 delta 的字符数
     stream_delay_ms: int = 10  # 每个 delta 之间的间隔；设 0 则瞬间吐完
 
-    # 行情（默认 OKX：Binance 在部分地区被封锁）
-    exchange: str = "okx"
+    # 行情（默认 Binance：数据维度最全；网络可达后从 OKX 切回。可用 EXCHANGE 切换）
+    exchange: str = "binance"
 
     # OANDA（金属 XAU/XAG）。demo 账户填 token，practice=True 走模拟盘域名
     oanda_api_token: str = ""
@@ -102,12 +102,14 @@ class Settings(BaseSettings):
     db_path: str = "fanisl.db"
 
     # 数据采集（后台调度，写时间序列）
+    # 高频采集(15min)只跑加密——Binance 实时、无频控；TradFi 分析走 Polygon/OANDA
+    # (EOD/有频控)，在交易决策时按需取，不进高频采集，避免 429。
     watchlist: list[str] = [
         "BTC/USDT",
         "ETH/USDT",
         "SOL/USDT",
         "BNB/USDT",
-        "XRP/USDT",
+        "ZEC/USDT",
     ]
     collector_enabled: bool = True
     collect_market_interval_s: int = 900  # 价格/衍生品/情绪/链上：15 分钟
@@ -134,6 +136,13 @@ class Settings(BaseSettings):
     # 持仓中：价格进入「距止损或某止盈 ≤ 此比例」的带 → 触发 Claude 重评
     trading_reeval_band_pct: float = 0.5
     trading_time_stop_hours: float = 0.0        # >0 则超过此持仓时长触发一次重评（0=关闭）
+
+    # 自主扫描：Claude 定期在全标的里找机会，受仓位/风险上限约束
+    trading_scan_enabled: bool = True
+    trading_scan_interval_s: int = 14400        # 每 4 小时扫一次（与 4h 结构周期对齐）
+    trading_max_positions: int = 3              # 最多同时持仓笔数
+    trading_max_total_risk_pct: float = 5.0     # 所有持仓在险合计 ≤ 权益的此百分比
+    trading_scan_timeframes: list[str] = ["1d", "4h"]  # triage 摘要用的精简周期
 
     thresholds: IndicatorThresholds = Field(default_factory=IndicatorThresholds)
 

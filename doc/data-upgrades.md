@@ -4,13 +4,29 @@
 项目核心是数据——这份表用来在预算就绪时按价值排序逐个升级。抽象层已就位，
 换源 = 实现对应 Source/Provider + 在 `data/factory.py` 挂上，其余代码不动。
 
-更新于 2026-06-07。
+更新于 2026-06-08。
+
+## 2026-06-08 变更（部署前）
+
+- **默认交易所 OKX → Binance**（网络解封）。ccxt 统一 `binance`（现货+永续），衍生品走
+  `fapiData*` 公共端点，维度比 OKX 全。`EXCHANGE=okx` 可切回（OKX 分支保留）。
+- **新增数据维度**：① 主动买卖量比 `taker`（吃单买/卖压力，带历史分位）；② 盘口微观结构
+  `microstructure`（spread_bps / 买卖深度 / imbalance，**填补现货流动性盲区**）；
+  大户多空比改用**持仓比**(资金加权)。
+- **TradFi 执行源拆分**：Binance 上线股票/ETF/商品/金属/Pre-IPO 永续（`XXX/USDT:USDT`），
+  但历史仅 2.5~6 个月、闭市 flatline → **分析走 Polygon(股/指/ETF/WTI)/OANDA(金属)，
+  下单+盯市+止损止盈以 Binance 永续为准**（Brent/Pre-IPO 无外部源，分析也用 Binance）。
+- **可交易标的**：加密(含 ZEC/BNB，去 XRP) + NVDA/TSLA/MU/CRCL/SNDK/AAPL/MSFT/META/AMZN/
+  GOOGL/COIN/MSTR/QQQ/SPY + CL(WTI)/BZ(Brent)/XAU/XAG + SPCX(Pre-IPO)。高频采集(15min)
+  只跑加密；TradFi 在交易决策时按需取（Polygon 有频控，不进高频采集）。
+- **交易评测台**：自主扫描（每 4h，全标的 triage→完整分析，受 ≤3 持仓/≤5% 在险约束）、
+  Claude 自声明结构化唤醒条件（价/盈亏/时长，引擎确定性监测）、强制交易开关、持仓实时面板。
 
 ## Part 1 · 持仓与衍生品
 
 | 维度 | 当前（免费/临时） | 局限 | 后期订阅（提质） |
 |---|---|---|---|
-| 资金费率 / OI / 多空比 / 大户多空比 / 基差 | **OKX 单所**（CCXT，无 key） | 只反映 OKX 一家，非全市场聚合 | **Coinglass** V4（30+ 所聚合）/ Coinalyze 付费档 |
+| 资金费率 / OI / 多空比 / 大户持仓比 / 基差 / taker / 盘口 | **Binance 单所**（CCXT，无 key） | 只反映 Binance 一家，非全市场聚合 | **Coinglass** V4（30+ 所聚合）/ Coinalyze 付费档 |
 | 期权情绪（PCR/max pain/DVOL/IV skew/行权价 OI） | **Deribit** 公开 API（无 key） | 仅 Deribit（虽是主场）；无多源聚合 | Amberdata / Coinglass options / Laevitas（多源 + 历史曲面） |
 | 爆仓数据（多/空 24h、主导方、尖峰） | **Coinalyze**（免费 key，40/min） | 限速低；无热力图 | **Coinglass** V4（更高频 + 热力图） |
 | **爆仓热力图（磁吸位/清算压力堆积模型）** | ❌ **无免费源** | 完全缺失 | **Coinglass** Hobbyist **$29/月**起（独家模型；首选升级项） |

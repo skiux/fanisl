@@ -43,6 +43,22 @@ def _long_plan(**over) -> TradePlan:
     return TradePlan.model_validate(base)
 
 
+def test_wake_condition_triggers_reeval(trading_store, acct):
+    # 计划声明"价≥108 唤醒我"；价格涨到 108 → 引擎记 needs_review
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    plan = _long_plan(wake_conditions=[{"type": "price_above", "value": 108.0}])
+    tid = eng.open_trade(acct["id"], plan)["trade_id"]
+    price["v"] = 106.0
+    eng.tick(acct["id"])
+    evs1 = [e for e in trading_store.events(tid) if e["kind"] == "needs_review"]
+    price["v"] = 108.5
+    eng.tick(acct["id"])
+    evs2 = [e for e in trading_store.events(tid) if e["kind"] == "needs_review"]
+    assert len(evs1) == 0 and len(evs2) == 1
+    assert any("价≥108" in r for r in evs2[0]["payload"]["reasons"])
+
+
 def test_open_market_trade(trading_store, acct):
     price = {"v": 100.0}
     eng = _engine(trading_store, price)

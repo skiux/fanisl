@@ -17,6 +17,7 @@ from ..models import MarketSnapshot, SnapshotMeta
 from ..snapshot.builder import (
     build_derivatives,
     build_onchain,
+    build_order_book,
     build_sentiment,
     build_timeframe_view,
 )
@@ -50,12 +51,16 @@ def get_market_snapshot(
             f"{r.canonical} 数据不可用: {'; '.join(warnings) or '未知原因'}"
         )
 
+    # 盘口微观结构（分析源支持才有：加密=Binance 有；股票/金属源返回 None）
+    microstructure = build_order_book(r.source.fetch_order_book_stats(r.provider_symbol))
+
     derivatives = None
     if r.supports_derivatives:
         funding = r.source.fetch_funding_rate(r.provider_symbol)
         oi = r.source.fetch_open_interest(r.provider_symbol)
         lsr = r.source.fetch_long_short_ratio(r.provider_symbol)
         top_trader = r.source.fetch_top_trader_lsr(r.provider_symbol)
+        taker = r.source.fetch_taker_volume(r.provider_symbol)
         basis = r.source.fetch_basis(r.provider_symbol)
 
         base = r.canonical.split("/")[0]  # 期权/爆仓按币种 base 取，不绑交易所
@@ -79,6 +84,7 @@ def get_market_snapshot(
             ("未平仓量", oi),
             ("多空比", lsr),
             ("大户多空比", top_trader),
+            ("主动买卖量比", taker),
             ("基差/期限结构", basis),
             ("爆仓数据", liquidations),
         ]
@@ -95,6 +101,7 @@ def get_market_snapshot(
             _reference_change(views),
             th,
             top_trader=top_trader,
+            taker=taker,
             basis=basis,
             options=options,
             liquidations=liquidations,
@@ -135,6 +142,7 @@ def get_market_snapshot(
             data_warnings=warnings,
         ),
         timeframes=views,
+        microstructure=microstructure,
         derivatives=derivatives,
         sentiment=sentiment_view,
         onchain=onchain_view,

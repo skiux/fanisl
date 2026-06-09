@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     max_leverage     DOUBLE PRECISION NOT NULL,
     margin_mode      TEXT NOT NULL,
     default_risk_pct DOUBLE PRECISION NOT NULL,
+    force_trade      BOOLEAN NOT NULL DEFAULT false,  -- 开启后 Claude 不能选择"不交易"
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -147,6 +148,11 @@ class TradingStore:
     def init_db(self) -> None:
         with self.pool.connection() as conn:
             conn.execute(_SCHEMA)
+            # 老库补列（CREATE TABLE IF NOT EXISTS 不会给已存在的表加列）
+            conn.execute(
+                "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS "
+                "force_trade BOOLEAN NOT NULL DEFAULT false"
+            )
 
     # --- 账户 -------------------------------------------------------------
 
@@ -168,6 +174,12 @@ class TradingStore:
     def get_account(self, account_id: int) -> dict | None:
         with self.pool.connection() as conn:
             return conn.execute("SELECT * FROM accounts WHERE id=%s", (account_id,)).fetchone()
+
+    def set_force_trade(self, account_id: int, enabled: bool) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                "UPDATE accounts SET force_trade=%s WHERE id=%s", (enabled, account_id)
+            )
 
     def adjust_balance(self, account_id: int, delta: float) -> None:
         with self.pool.connection() as conn:
@@ -322,6 +334,13 @@ class TradingStore:
             return conn.execute(
                 "SELECT * FROM position_snapshots WHERE trade_id=%s ORDER BY ts", (trade_id,)
             ).fetchall()
+
+    def latest_position_snapshot(self, trade_id: int) -> dict | None:
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "SELECT * FROM position_snapshots WHERE trade_id=%s ORDER BY ts DESC LIMIT 1",
+                (trade_id,),
+            ).fetchone()
 
     def add_event(self, trade_id: int, kind: str, actor: str, payload: dict | None = None) -> None:
         with self.pool.connection() as conn:

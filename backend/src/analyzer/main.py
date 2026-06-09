@@ -46,8 +46,10 @@ trading_store = TradingStore(trading_pool)
 
 
 def _live_price(symbol: str) -> float:
+    # 执行/盯市价以执行源(统一 Binance 永续)为准；TradFi 分析虽走 Polygon/OANDA，
+    # 但下单与止损止盈按 Binance 成交价计。
     r = resolver.resolve(symbol)
-    return float(r.source.fetch_ticker(r.provider_symbol)["last"])
+    return float(r.exec_source.fetch_ticker(r.exec_symbol)["last"])
 
 
 trade_engine = TradingEngine(
@@ -57,7 +59,7 @@ trade_engine = TradingEngine(
     time_stop_hours=settings.trading_time_stop_hours,
 )
 trade_agent = TradeAgent(settings, resolver, sentiment, catalysts, market_store)
-trading_service = TradingService(trading_store, trade_engine, trade_agent)
+trading_service = TradingService(trading_store, trade_engine, trade_agent, settings=settings)
 _account = trading_store.ensure_account(
     "main", initial_balance=settings.trading_initial_balance,
     max_leverage=settings.trading_max_leverage, margin_mode=settings.trading_margin_mode,
@@ -77,6 +79,10 @@ if settings.trading_enabled:
                   lambda: trading_service.mark(ACCOUNT_ID)))
     _jobs.append(("trading_manage", settings.trading_tick_interval_s,
                   lambda: trading_service.manage_and_review(ACCOUNT_ID)))
+    if settings.trading_scan_enabled:
+        # 自主扫描：每 4h Claude 在全标的里找机会（受仓位/风险上限约束）
+        _jobs.append(("trading_scan", settings.trading_scan_interval_s,
+                      lambda: trading_service.scan(ACCOUNT_ID)))
 _scheduler = Scheduler(_jobs)
 
 app = FastAPI(title="fanisl", version="0.1.0")
@@ -267,12 +273,38 @@ def trading_tick() -> dict:
     return trading_service.cycle(ACCOUNT_ID)
 
 
+@app.post("/trading/scan")
+def trading_scan() -> dict:
+    """手动触发一次自主扫描（同调度器的 4h 任务）。同步调用 Claude，可能耗时。"""
+    try:
+        return trading_service.scan(ACCOUNT_ID)
+    except anthropic.APIError as e:
+        raise HTTPException(status_code=502, detail=f"Claude API 错误: {e}") from e
+
+
+@app.get("/trading/positions")
+def trading_positions() -> list[dict]:
+    """持仓实时状态：每笔未平仓交易的最新盯市快照 + 计划止损止盈。"""
+    return trading_service.open_positions(ACCOUNT_ID)
+
+
 @app.get("/trading/account")
 def trading_account() -> dict:
     return {
         "summary": trading_service.account_summary(ACCOUNT_ID),
         "scorecard": trading_store.scorecard(ACCOUNT_ID),
     }
+
+
+class ForceTradeRequest(BaseModel):
+    enabled: bool
+
+
+@app.patch("/trading/account/force")
+def trading_set_force(req: ForceTradeRequest) -> dict:
+    """强制交易开关：开启后 Claude 进场决策不允许"不交易"。"""
+    trading_store.set_force_trade(ACCOUNT_ID, req.enabled)
+    return {"force_trade": req.enabled}
 
 
 @app.get("/trading/trades")

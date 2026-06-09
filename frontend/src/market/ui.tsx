@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 // --- 容器 -------------------------------------------------------------------
 
 export function Panel({ title, right, children, className = '' }: {
-  title?: string
+  title?: ReactNode
   right?: ReactNode
   children: ReactNode
   className?: string

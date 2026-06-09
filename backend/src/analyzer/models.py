@@ -83,6 +83,19 @@ class LongShortRatio(BaseModel):
     vs_history: str  # elevated | depressed | normal | unknown（相对自身历史）
 
 
+class TakerVolume(BaseModel):
+    """主动成交买卖量比(taker buy/sell)：吃单方向的即时主动性买/卖压力。
+
+    >1=主动买量更大(买方更激进)、<1=主动卖压更大。短期动能/确认信号，别单独依赖。
+    bias=绝对方向(buy/sell/neutral)；vs_history=相对自身近期分位(elevated/depressed/normal)。
+    """
+
+    value: float  # buyVol / sellVol
+    bias: str  # buy | sell | neutral
+    percentile: float | None = None  # 当前值在近期历史中的分位 0~1
+    vs_history: str  # elevated | depressed | normal | unknown
+
+
 class Basis(BaseModel):
     """基差 / 期限结构：永续相对现货的溢价、季度合约的年化基差。
 
@@ -122,13 +135,30 @@ class Liquidations(BaseModel):
     recent_spike: bool = False  # 最近一根是否出现明显爆仓尖峰
 
 
+class OrderBook(BaseModel):
+    """盘口微观结构（L2 深度快照）：填补"现货/合约流动性"维度。
+
+    spread_bps=买卖价差(基点)，越大越不流动；depth=mid 上下 0.5% 内的挂单名义额(USD)；
+    imbalance=(买深-卖深)/(买深+卖深)，正=买盘更厚(支撑)、负=卖盘更厚(压制)。
+    瞬时快照，易被刷单/冰山影响，**当执行/流动性参考与短期确认用,别单独依赖**。
+    """
+
+    mid: float
+    spread_bps: float
+    bid_depth_usd: float  # mid 下 0.5% 内买单名义额
+    ask_depth_usd: float  # mid 上 0.5% 内卖单名义额
+    imbalance: float  # -1..1，正=买盘厚
+    pressure: str  # bid_heavy | ask_heavy | balanced
+
+
 class Derivatives(BaseModel):
     funding_rate: FundingRate | None = None
     open_interest: OpenInterest | None = None
     # 价量背离四象限：price_up_oi_up | price_up_oi_down | price_down_oi_up | price_down_oi_down
     oi_price_divergence: str | None = None
     long_short_ratio: LongShortRatio | None = None
-    top_trader_lsr: LongShortRatio | None = None  # 大户多空账户比（聪明钱方向）
+    top_trader_lsr: LongShortRatio | None = None  # 大户持仓比/账户比（聪明钱方向）
+    taker_volume: TakerVolume | None = None  # 主动买卖量比（即时买/卖压力，仅 Binance）
     basis: Basis | None = None
     options: OptionsSummary | None = None
     liquidations: Liquidations | None = None
@@ -209,6 +239,7 @@ class SnapshotMeta(BaseModel):
 class MarketSnapshot(BaseModel):
     meta: SnapshotMeta
     timeframes: dict[str, TimeframeView]
+    microstructure: OrderBook | None = None  # 盘口深度/价差/失衡（执行与流动性参考）
     derivatives: Derivatives | None = None
     sentiment: Sentiment | None = None  # 情绪与注意力（仅加密）
     onchain: OnChain | None = None  # 链上数据（仅加密）

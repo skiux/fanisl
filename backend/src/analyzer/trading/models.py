@@ -36,6 +36,23 @@ class TpTarget(BaseModel):
     reduce_pct: float = Field(description="到此目标平掉仓位的百分比 0~100")
 
 
+WakeType = Literal[
+    "price_above", "price_below",       # mark 价穿越某位
+    "pnl_pct_above", "pnl_pct_below",   # 未实现盈亏(占保证金%)穿越
+    "time_elapsed_hours",               # 开仓后经过 N 小时
+]
+
+
+class WakeCondition(BaseModel):
+    """Claude 自己声明的「在什么条件下唤醒我重评」。引擎确定性监测，命中即触发重评。
+
+    都用 mark 价 / 未实现盈亏% / 持仓时长 这些引擎能直接算的量，便宜、精确、可审计。
+    """
+    type: WakeType
+    value: float = Field(description="阈值：价格 / 盈亏百分比 / 小时数")
+    note: str | None = Field(default=None, description="为什么盯这个条件")
+
+
 class MtfAnalysis(BaseModel):
     """多周期分析：大周期方向 / 交易周期结构 / 入场周期信号 / 是否共振。"""
     higher_tf: str = Field(description="大周期方向（日线/4H 趋势与结构）")
@@ -70,8 +87,26 @@ class TradePlan(BaseModel):
 
     tp_targets: list[TpTarget] = Field(description="一个或多个止盈目标及各自减仓比例")
 
+    wake_conditions: list[WakeCondition] = Field(
+        default_factory=list,
+        description="希望在哪些条件下被唤醒重评（价穿位/盈亏到阈值/到时）。空=只靠引擎默认(逼近止损止盈)兜底。",
+    )
+
     confidence_pct: float | None = Field(default=None, description="主观胜率/信心 0~100，用于校准")
     notes: str | None = None
+
+
+class ScanCandidate(BaseModel):
+    symbol: str
+    reason: str = Field(description="为什么这个标的值得做完整分析")
+
+
+class ScanResult(BaseModel):
+    """自主扫描的 triage 结果：从全标的精简摘要里挑出值得做完整分析的候选（宁缺毋滥）。"""
+    candidates: list[ScanCandidate] = Field(
+        default_factory=list, description="值得进一步完整分析的标的；没有就留空"
+    )
+    market_note: str | None = Field(default=None, description="对当前全局盘面的一句话观察")
 
 
 class DeclineDecision(BaseModel):
@@ -90,6 +125,9 @@ class Adjustment(BaseModel):
     new_sl_price: float | None = Field(default=None, description="move_sl 时的新止损")
     reduce_pct: float | None = Field(default=None, description="partial_exit 时减仓百分比 0~100")
     add_qty_pct: float | None = Field(default=None, description="add 时加仓量（占原仓位%）")
+    wake_conditions: list[WakeCondition] | None = Field(
+        default=None, description="重设唤醒条件（None=沿用原计划的）",
+    )
 
 
 # --- 复盘 -----------------------------------------------------------------

@@ -17,11 +17,16 @@ from ..data.catalysts import Catalysts
 from ..data.derivatives import CryptoSentiment
 from ..data.instruments import Resolver
 from ..marketstore import MarketStore
-from ..prompts import ENTRY_SYSTEM_PROMPT, MANAGE_SYSTEM_PROMPT, REVIEW_SYSTEM_PROMPT
+from ..prompts import (
+    ENTRY_SYSTEM_PROMPT,
+    MANAGE_SYSTEM_PROMPT,
+    REVIEW_SYSTEM_PROMPT,
+    SCAN_SYSTEM_PROMPT,
+)
 from ..tools.catalysts import get_catalysts
 from ..tools.market import get_market_snapshot
 from ..tools.registry import TOOLS, dispatch_tool
-from .models import Adjustment, DeclineDecision, Review, TradePlan
+from .models import Adjustment, DeclineDecision, Review, ScanResult, TradePlan
 
 _CACHE = {"type": "ephemeral"}
 _MAX_ITERS = 8
@@ -37,6 +42,7 @@ ENTRY_TERMINALS = [
 ]
 MANAGE_TERMINALS = [_term_tool("submit_adjustment", "提交持仓调整决策。", Adjustment)]
 REVIEW_TERMINALS = [_term_tool("submit_review", "提交结构化复盘。", Review)]
+SCAN_TERMINALS = [_term_tool("submit_scan", "提交扫描候选（值得做完整分析的标的，可为空）。", ScanResult)]
 
 
 class TradeAgent:
@@ -57,19 +63,81 @@ class TradeAgent:
 
     # --- 公开入口 --------------------------------------------------------
 
-    def decide_entry(self, symbol: str, account_summary: dict) -> dict:
-        """让 Claude 决定是否进场。返回 {kind: plan|decline, plan|decline, inputs, transcript}。"""
+    def decide_entry(self, symbol: str, account_summary: dict, *, force: bool = False) -> dict:
+        """让 Claude 决定是否进场。返回 {kind: plan|decline, plan|decline, inputs, transcript}。
+
+        force=True（强制交易模式）：不提供 decline_trade 终结工具，Claude 必须给出可执行计划。
+        """
         context = self._entry_context(symbol, account_summary)
+        terminals = [ENTRY_TERMINALS[0]] if force else ENTRY_TERMINALS
+        note = (
+            "\n\n**强制交易模式已开启**：本次必须给出一份可执行的进场计划(submit_trade_plan)，"
+            "不允许不交易；即便信号一般，也要选出相对最优的方向与结构，并如实说明置信度与风险。"
+            if force else ""
+        )
         first = (
             f"请评估是否在 {symbol} 开一笔交易。下面是已为你预取的决策上下文(JSON)，"
-            f"可再用工具补充历史/分位等。\n\n```json\n{json.dumps(context, ensure_ascii=False)}\n```"
+            f"可再用工具补充历史/分位等。{note}\n\n```json\n{json.dumps(context, ensure_ascii=False)}\n```"
         )
-        name, payload, transcript = self._run(ENTRY_SYSTEM_PROMPT, first, ENTRY_TERMINALS)
+        name, payload, transcript = self._run(ENTRY_SYSTEM_PROMPT, first, terminals)
         if name == "submit_trade_plan":
             plan = TradePlan.model_validate({**payload, "symbol": symbol})
             return {"kind": "plan", "plan": plan, "inputs": context, "transcript": transcript}
         decline = DeclineDecision.model_validate({**payload, "symbol": symbol})
         return {"kind": "decline", "decline": decline, "inputs": context, "transcript": transcript}
+
+    def scan(self, symbols: list[str], max_candidates: int) -> dict:
+        """triage：给一批标的精简盘面，挑出值得做完整分析的候选。返回 {result, digests, transcript}。
+
+        逐标的 best-effort 取精简快照（单源失败/限流即跳过），只把摘要喂给 Claude，不让它在
+        triage 阶段调数据工具（控成本）。返回 ScanResult。
+        """
+        digests, skipped = self._scan_digests(symbols)
+        if not digests:
+            return {"result": ScanResult(), "digests": {}, "transcript": [], "skipped": skipped}
+        first = (
+            f"当前可用持仓额度：最多再挑 {max_candidates} 个。下面是各标的精简盘面摘要(JSON)，"
+            f"做 triage 挑出值得完整分析的候选；没有像样机会就返回空。"
+            f"\n\n```json\n{json.dumps(digests, ensure_ascii=False, default=str)}\n```"
+        )
+        system = SCAN_SYSTEM_PROMPT.replace("{max_candidates}", str(max_candidates))
+        _, payload, transcript = self._run(system, first, SCAN_TERMINALS, allow_data_tools=False)
+        return {
+            "result": ScanResult.model_validate(payload),
+            "digests": digests, "transcript": transcript, "skipped": skipped,
+        }
+
+    def _scan_digests(self, symbols: list[str]) -> tuple[dict, list[str]]:
+        digests: dict[str, dict] = {}
+        skipped: list[str] = []
+        tfs = self.settings.trading_scan_timeframes
+        for sym in symbols:
+            try:
+                snap = get_market_snapshot(sym, tfs, self.resolver, self.settings, self.sentiment)
+                digests[sym] = self._digest(snap)
+            except Exception as e:  # noqa: BLE001 — 限流/无数据即跳过
+                skipped.append(f"{sym}:{str(e)[:40]}")
+        return digests, skipped
+
+    @staticmethod
+    def _digest(snap) -> dict:
+        """从完整快照抽精简摘要（控 token）：逐周期趋势/RSI/涨跌 + 衍生品要点。"""
+        d: dict = {"asset_class": snap.meta.asset_class}
+        ref = snap.timeframes.get("1d") or next(iter(snap.timeframes.values()), None)
+        if ref is not None:
+            d["price"] = ref.last_price
+        d["tf"] = {
+            tf: {"trend": v.trend.ema_alignment, "rsi": v.momentum.rsi, "chg%": v.change_pct}
+            for tf, v in snap.timeframes.items()
+        }
+        dv = snap.derivatives
+        if dv:
+            if dv.funding_rate: d["funding"] = dv.funding_rate.value
+            if dv.long_short_ratio: d["lsr_bias"] = dv.long_short_ratio.bias
+            if dv.oi_price_divergence: d["oi_div"] = dv.oi_price_divergence
+        if snap.meta.data_warnings:
+            d["warn"] = len(snap.meta.data_warnings)
+        return d
 
     def decide_management(self, trade: dict, plan: dict, position: dict) -> dict:
         """持仓中被唤醒：返回 {adjustment, inputs, transcript}。"""

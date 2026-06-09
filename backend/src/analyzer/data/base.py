@@ -61,6 +61,14 @@ class MarketDataSource(ABC):
         """基差/期限结构：永续相对现货溢价 + 季度合约年化基差。"""
         return None
 
+    def fetch_taker_volume(self, symbol: str) -> dict | None:
+        """主动成交买卖量比(taker buy/sell)：吃单方向的即时买/卖压力。"""
+        return None
+
+    def fetch_order_book_stats(self, symbol: str) -> dict | None:
+        """L2 盘口微观结构：价差 + 深度 + 失衡。"""
+        return None
+
     def fetch_ticker(self, symbol: str) -> dict:
         """{'symbol','last','change_pct_24h'}；价格条用。"""
         raise NotImplementedError

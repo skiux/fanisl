@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowsClockwise, Brain, Prohibit, Receipt } from '@phosphor-icons/react'
+import { ArrowsClockwise, Brain, Lightning, MagnifyingGlass, Prohibit, Pulse, Receipt } from '@phosphor-icons/react'
 import {
   fetchDeclines,
+  fetchPositions,
   fetchTradeTimeline,
   fetchTrades,
   fetchTradingAccount,
   openTrade,
+  scanTrading,
+  setForceTrade,
   tickTrading,
 } from '../../api'
 import { Badge, EmptyState, Kpi, KpiRow, Panel, PageShell } from '../ui'
@@ -15,6 +18,12 @@ const usd = (n: number | null | undefined) =>
 const num = (n: number | null | undefined, d = 2) =>
   n == null ? '—' : Number(n).toFixed(d)
 const pct = (n: number | null | undefined) => (n == null ? '—' : `${Number(n).toFixed(2)}%`)
+const dur = (s: number | null | undefined) => {
+  if (s == null) return '—'
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  return h > 0 ? `${h}h${m}m` : `${m}m`
+}
 const when = (ts?: string) => {
   if (!ts) return ''
   const d = new Date(ts)
@@ -35,6 +44,7 @@ const SKILL_LUCK: Record<string, string> = {
 export default function Trading() {
   const [account, setAccount] = useState<any>(null)
   const [trades, setTrades] = useState<any[]>([])
+  const [positions, setPositions] = useState<any[]>([])
   const [declines, setDeclines] = useState<any[]>([])
   const [selected, setSelected] = useState<number | null>(null)
   const [timeline, setTimeline] = useState<any>(null)
@@ -43,9 +53,12 @@ export default function Trading() {
   const [msg, setMsg] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    const [a, t, d] = await Promise.all([fetchTradingAccount(), fetchTrades(), fetchDeclines()])
+    const [a, t, p, d] = await Promise.all([
+      fetchTradingAccount(), fetchTrades(), fetchPositions(), fetchDeclines(),
+    ])
     setAccount(a)
     setTrades(t)
+    setPositions(p)
     setDeclines(d)
   }, [])
 
@@ -76,6 +89,35 @@ export default function Trading() {
       setMsg(`失败：${e.message || e}`)
     } finally {
       setBusy(false)
+    }
+  }
+
+  const onScan = async () => {
+    setBusy(true)
+    setMsg('Claude 正在扫描全标的找机会，可能需要几分钟…')
+    try {
+      const r = await scanTrading()
+      if (r.note) setMsg(`未开新仓：${r.note}`)
+      else {
+        const opened = (r.opened || []).filter((o: any) => o.trade_id)
+        setMsg(`扫描 ${r.scanned} 个标的，候选 ${(r.candidates || []).length}，开仓 ${opened.length}${r.market_note ? `；${r.market_note}` : ''}`)
+      }
+      await refresh()
+    } catch (e: any) {
+      setMsg(`失败：${e.message || e}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onToggleForce = async () => {
+    const next = !(account?.summary?.force_trade ?? false)
+    try {
+      await setForceTrade(next)
+      setMsg(next ? '强制交易已开启：Claude 本次起不能选择不交易' : '强制交易已关闭：Claude 可自行决定不交易')
+      await refresh()
+    } catch (e: any) {
+      setMsg(`失败：${e.message || e}`)
     }
   }
 
@@ -117,11 +159,32 @@ export default function Trading() {
             <Brain size={15} weight="bold" /> 让 Claude 评估
           </button>
           <button
+            onClick={onScan}
+            disabled={busy}
+            title="Claude 在全标的里自主扫描机会(受持仓/风险上限约束)"
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-[13px] font-medium text-zinc-600 transition-colors hover:bg-zinc-100 active:translate-y-px disabled:opacity-40"
+          >
+            <MagnifyingGlass size={15} weight="bold" /> 自主扫描
+          </button>
+          <button
             onClick={onTick}
             disabled={busy}
             className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-[13px] font-medium text-zinc-600 transition-colors hover:bg-zinc-100 active:translate-y-px disabled:opacity-40"
           >
             <ArrowsClockwise size={15} weight="bold" /> 推进一拍
+          </button>
+          <button
+            onClick={onToggleForce}
+            disabled={busy}
+            title="开启后 Claude 进场决策不允许「不交易」，必须给出可执行计划"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors active:translate-y-px disabled:opacity-40 ${
+              s.force_trade
+                ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                : 'border border-zinc-200 text-zinc-600 hover:bg-zinc-100'
+            }`}
+          >
+            <Lightning size={15} weight={s.force_trade ? 'fill' : 'bold'} />
+            强制交易{s.force_trade ? '·开' : '·关'}
           </button>
         </div>
       }
@@ -148,6 +211,47 @@ export default function Trading() {
           sub={sc.avg_r != null ? `平均 ${num(sc.avg_r)}R` : undefined}
         />
       </KpiRow>
+
+      <div className="mt-3">
+        <Panel title={<span className="flex items-center gap-1.5"><Pulse size={15} weight="bold" className="text-emerald-600" />持仓实时状态</span>}>
+          {positions.length === 0 ? (
+            <EmptyState icon={<Pulse size={26} weight="thin" />} title="当前无持仓" hint="开仓后这里实时显示盯市状态" />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="text-left text-xs text-zinc-400">
+                    <th className="py-1.5 pr-3 font-medium">标的</th>
+                    <th className="py-1.5 pr-3 font-medium">方向</th>
+                    <th className="py-1.5 pr-3 text-right font-medium">标记价</th>
+                    <th className="py-1.5 pr-3 text-right font-medium">均价</th>
+                    <th className="py-1.5 pr-3 text-right font-medium">浮动盈亏</th>
+                    <th className="py-1.5 pr-3 text-right font-medium">距止损</th>
+                    <th className="py-1.5 pr-3 text-right font-medium">距止盈</th>
+                    <th className="py-1.5 pr-3 text-right font-medium">强平价</th>
+                    <th className="py-1.5 pr-3 text-right font-medium">持仓时长</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100 font-mono">
+                  {positions.map((p) => (
+                    <tr key={p.trade_id} className="text-zinc-700">
+                      <td className="py-2 pr-3 font-sans font-medium text-zinc-800">{p.symbol}</td>
+                      <td className="py-2 pr-3 font-sans"><Badge tone={p.side === 'long' ? 'accent' : 'neutral'}>{SIDE(p.side)} {num(p.leverage, 0)}x</Badge></td>
+                      <td className="py-2 pr-3 text-right">{num(p.mark, 4)}</td>
+                      <td className="py-2 pr-3 text-right text-zinc-500">{num(p.avg_entry, 4)}</td>
+                      <td className={`py-2 pr-3 text-right font-medium ${(p.upnl ?? 0) > 0 ? 'text-emerald-600' : (p.upnl ?? 0) < 0 ? 'text-rose-600' : ''}`}>{usd(p.upnl)}</td>
+                      <td className="py-2 pr-3 text-right text-zinc-500">{num(p.dist_sl, 4)}</td>
+                      <td className="py-2 pr-3 text-right text-zinc-500">{p.dist_tp == null ? '—' : num(p.dist_tp, 4)}</td>
+                      <td className="py-2 pr-3 text-right text-rose-500/80">{num(p.liquidation_price, 4)}</td>
+                      <td className="py-2 pr-3 text-right text-zinc-500">{dur(p.holding_s)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-5">
         {/* 左：交易列表 + 不交易记录 */}

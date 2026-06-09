@@ -89,6 +89,28 @@ export async function openTrade(symbol: string): Promise<any> {
   return r.json()
 }
 
+export async function fetchPositions(): Promise<any[]> {
+  const r = await fetch(`${API}/trading/positions`)
+  if (!r.ok) throw new Error(`positions ${r.status}`)
+  return r.json()
+}
+
+export async function scanTrading(): Promise<any> {
+  const r = await fetch(`${API}/trading/scan`, { method: 'POST' })
+  if (!r.ok) throw new Error(`scan ${r.status}`)
+  return r.json()
+}
+
+export async function setForceTrade(enabled: boolean): Promise<any> {
+  const r = await fetch(`${API}/trading/account/force`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  })
+  if (!r.ok) throw new Error(`force ${r.status}`)
+  return r.json()
+}
+
 export async function tickTrading(): Promise<any> {
   const r = await fetch(`${API}/trading/tick`, { method: 'POST' })
   if (!r.ok) throw new Error(`tick ${r.status}`)

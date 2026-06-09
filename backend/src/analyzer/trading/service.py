@@ -6,16 +6,22 @@
 
 from __future__ import annotations
 
+from ..config import Settings
+from ..data.instruments import tradeable_canonicals
 from .engine import TradingEngine
 from .store import TradingStore
 from .trade_agent import TradeAgent
 
 
 class TradingService:
-    def __init__(self, store: TradingStore, engine: TradingEngine, agent: TradeAgent) -> None:
+    def __init__(
+        self, store: TradingStore, engine: TradingEngine, agent: TradeAgent,
+        settings: Settings | None = None,
+    ) -> None:
         self.store = store
         self.engine = engine
         self.agent = agent
+        self.settings = settings
 
     # --- 账户概览 --------------------------------------------------------
 
@@ -30,6 +36,7 @@ class TradingService:
             "used_margin": round(self.store.used_margin(account_id), 2),
             "max_leverage": acct["max_leverage"],
             "default_risk_pct": acct["default_risk_pct"],
+            "force_trade": bool(acct["force_trade"]),
             "open_positions": [
                 {"symbol": t["symbol"], "side": t["side"], "qty": t["qty"], "avg_entry": t["avg_entry"]}
                 for t in opens
@@ -40,7 +47,8 @@ class TradingService:
 
     def open_trade(self, account_id: int, symbol: str) -> dict:
         summary = self.account_summary(account_id)
-        d = self.agent.decide_entry(symbol, summary)
+        force = bool(summary.get("force_trade"))
+        d = self.agent.decide_entry(symbol, summary, force=force)
         if d["kind"] == "plan":
             res = self.engine.open_trade(
                 account_id, d["plan"], inputs=d["inputs"], response=d["transcript"]
@@ -52,6 +60,72 @@ class TradingService:
             inputs=d["inputs"], transcript=d["transcript"],
         )
         return {"kind": "decline", "decline_id": did, "reason": decline.reason}
+
+    def open_positions(self, account_id: int) -> list[dict]:
+        """持仓实时状态：每笔未平仓交易 + 最新盯市快照 + 计划止损止盈。给前端面板。"""
+        out: list[dict] = []
+        for t in self.store.list_open_trades(account_id):
+            snap = self.store.latest_position_snapshot(t["id"])
+            plan = (self.store.active_plan(t["id"]) or {}).get("plan", {})
+            out.append({
+                "trade_id": t["id"], "symbol": t["symbol"], "side": t["side"],
+                "leverage": t["leverage"], "qty": t["qty"], "avg_entry": t["avg_entry"],
+                "liquidation_price": t["liquidation_price"], "opened_at": t["opened_at"],
+                "sl_price": plan.get("sl_price"),
+                "tp_targets": plan.get("tp_targets"),
+                "wake_conditions": plan.get("wake_conditions"),
+                "mark": (snap or {}).get("mark"),
+                "upnl": (snap or {}).get("upnl"),
+                "dist_sl": (snap or {}).get("dist_sl"),
+                "dist_tp": (snap or {}).get("dist_tp"),
+                "holding_s": (snap or {}).get("holding_s"),
+                "snapshot_ts": (snap or {}).get("ts"),
+            })
+        return out
+
+    # --- 自主扫描（定期在全标的里找机会，受仓位/风险上限约束）-----------
+
+    def _scan_universe(self) -> list[str]:
+        wl = list(self.settings.watchlist) if self.settings else []
+        return list(dict.fromkeys(wl + tradeable_canonicals()))
+
+    def scan(self, account_id: int) -> dict:
+        """一轮自主扫描：triage 选候选 → 在容量内逐个做完整决策并开仓。"""
+        if self.settings is None:
+            return {"error": "settings 未注入"}
+        open_trades = self.store.list_open_trades(account_id)
+        max_pos = self.settings.trading_max_positions
+        pos_cap = max_pos - len(open_trades)
+        equity = self.account_summary(account_id).get("equity") or 0.0
+        deployed = 0.0
+        for t in open_trades:
+            ap = self.store.active_plan(t["id"]) or {}
+            deployed += (ap.get("plan", {}).get("computed", {}) or {}).get("risk_amount") or 0.0
+        risk_budget = equity * self.settings.trading_max_total_risk_pct / 100.0 - deployed
+        if pos_cap <= 0 or risk_budget <= 0:
+            return {"scanned": 0, "candidates": [], "opened": [],
+                    "note": f"已达上限(持仓 {len(open_trades)}/{max_pos}, 在险预算剩 {round(risk_budget,2)})"}
+
+        open_syms = {t["symbol"] for t in open_trades}
+        universe = [s for s in self._scan_universe() if s not in open_syms]
+        sc = self.agent.scan(universe, max_candidates=pos_cap)
+        result = sc["result"]
+
+        opened: list[dict] = []
+        for cand in result.candidates[:pos_cap]:
+            if len(self.store.list_open_trades(account_id)) >= max_pos:
+                break
+            try:
+                r = self.open_trade(account_id, cand.symbol)
+                opened.append({"symbol": cand.symbol, "kind": r.get("kind"),
+                               "trade_id": r.get("trade_id"), "reason": r.get("reason")})
+            except Exception as e:  # noqa: BLE001
+                opened.append({"symbol": cand.symbol, "error": str(e)[:60]})
+        return {
+            "scanned": len(universe),
+            "candidates": [c.model_dump() for c in result.candidates],
+            "opened": opened, "market_note": result.market_note, "skipped": sc.get("skipped"),
+        }
 
     # --- 持仓中自主管理 --------------------------------------------------
 

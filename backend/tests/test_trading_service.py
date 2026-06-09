@@ -40,13 +40,21 @@ def _plan() -> TradePlan:
 
 class FakeAgent:
     """按预设返回的假 Claude，签名与 TradeAgent 对齐。"""
-    def __init__(self, *, entry=None, adjustment=None, review=None):
+    def __init__(self, *, entry=None, adjustment=None, review=None, scan=None):
         self._entry = entry
         self._adjustment = adjustment
         self._review = review
+        self._scan = scan or []
 
-    def decide_entry(self, symbol, summary):
+    def decide_entry(self, symbol, summary, *, force=False):
+        self.last_force = force
         return {**self._entry, "inputs": {"ctx": 1}, "transcript": [{"role": "assistant", "content": "x"}]}
+
+    def scan(self, symbols, max_candidates):
+        from analyzer.trading.models import ScanCandidate, ScanResult
+        self.last_universe = symbols
+        cands = [ScanCandidate(symbol=s, reason="x") for s in self._scan[:max_candidates]]
+        return {"result": ScanResult(candidates=cands), "digests": {}, "transcript": [], "skipped": []}
 
     def decide_management(self, trade, plan, position):
         return {"adjustment": self._adjustment, "inputs": {}, "transcript": []}
@@ -104,6 +112,29 @@ def test_mark_skips_when_flat_and_ticks_when_open(trading_store, acct):
     price["v"] = 94.0
     svc.mark(acct["id"])  # 有持仓 → 盯市触发止损
     assert trading_store.get_trade(tid)["status"] == "closed"
+
+
+def test_scan_opens_candidate_and_respects_cap(trading_store, acct):
+    from analyzer.config import Settings
+    price = {"v": 100.0}
+    agent = FakeAgent(entry={"kind": "plan", "plan": _plan()}, scan=["ETH/USDT", "SOL/USDT"])
+    st = Settings(trading_max_positions=1, trading_max_total_risk_pct=50.0)
+    svc = TradingService(trading_store, _engine(trading_store, price), agent, settings=st)
+    r = svc.scan(acct["id"])
+    # 上限=1，只应开 1 笔（即便 triage 给了 2 个候选）
+    opened = [o for o in r["opened"] if o.get("trade_id")]
+    assert len(opened) == 1 and opened[0]["symbol"] == "ETH/USDT"
+    # 再扫一次：已达上限 → 不再开
+    r2 = svc.scan(acct["id"])
+    assert r2["scanned"] == 0 and "上限" in r2.get("note", "")
+
+
+def test_force_trade_flag_flows_to_agent(trading_store, acct):
+    agent = FakeAgent(entry={"kind": "plan", "plan": _plan()})
+    svc = TradingService(trading_store, _engine(trading_store, {"v": 100.0}), agent)
+    trading_store.set_force_trade(acct["id"], True)
+    svc.open_trade(acct["id"], "BTC/USDT")
+    assert agent.last_force is True  # 账户开关传到了 decide_entry
 
 
 def test_manage_pending_applies_adjustment(trading_store, acct):

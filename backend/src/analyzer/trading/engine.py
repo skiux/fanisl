@@ -229,6 +229,9 @@ class TradingEngine:
         elif adj.action == "add" and adj.add_qty_pct:
             self._add(tr, plan, adj.add_qty_pct, now)
 
+        if adj.wake_conditions is not None:  # 重设唤醒条件
+            new_plan["wake_conditions"] = [w.model_dump() for w in adj.wake_conditions]
+
         ver = self.store.next_plan_version(trade_id)
         new_plan["adjustment"] = adj.model_dump()
         self.store.add_plan(trade_id, new_plan, version=ver, make_active=True)
@@ -331,8 +334,32 @@ class TradingEngine:
         if self.time_stop_hours > 0 and tr["opened_at"]:
             if (now - tr["opened_at"]).total_seconds() >= self.time_stop_hours * 3600:
                 reasons.append("到时间止损")
+        reasons += self._wake_hits(tr, plan, mark, now)  # Claude 自定义唤醒条件
         if reasons:
             self.store.add_event(tr["id"], "needs_review", "engine", {"reasons": reasons, "mark": mark})
+
+    def _wake_hits(self, tr: dict, plan: dict, mark: float, now) -> list[str]:
+        """评估计划里 Claude 声明的结构化唤醒条件，返回命中的描述。"""
+        conds = plan.get("wake_conditions") or []
+        if not conds:
+            return []
+        margin = tr.get("margin") or 0.0
+        upnl_pct = (
+            calc.pnl(tr["side"], tr["avg_entry"], mark, tr["qty"]) / margin * 100.0
+            if margin > 0 else 0.0
+        )
+        elapsed_h = (now - tr["opened_at"]).total_seconds() / 3600.0 if tr["opened_at"] else 0.0
+        hits = []
+        for c in conds:
+            t, v = c.get("type"), c.get("value")
+            if v is None:
+                continue
+            if t == "price_above" and mark >= v: hits.append(f"价≥{v}")
+            elif t == "price_below" and mark <= v: hits.append(f"价≤{v}")
+            elif t == "pnl_pct_above" and upnl_pct >= v: hits.append(f"浮盈≥{v}%")
+            elif t == "pnl_pct_below" and upnl_pct <= v: hits.append(f"浮亏≤{v}%")
+            elif t == "time_elapsed_hours" and elapsed_h >= v: hits.append(f"持仓≥{v}h")
+        return hits
 
     def _has_open_reeval(self, trade_id: int) -> bool:
         evs = self.store.events(trade_id)

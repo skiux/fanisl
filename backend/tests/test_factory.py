@@ -9,5 +9,5 @@ def test_build_resolver_routes_each_asset_class():
     assert r.resolve("XAU").source.name == "oanda"
     assert r.resolve("CL").source.name == "polygon"
     crypto = r.resolve("BTC/USDT")
-    assert crypto.source.name == "okx"
+    assert crypto.source.name == "binance"  # 默认所已切到 Binance
     assert crypto.supports_derivatives is True

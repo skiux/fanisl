@@ -20,10 +20,12 @@ from ..models import (
     NetworkActivity,
     OnChain,
     OpenInterest,
+    OrderBook,
     OptionsSummary,
     Sentiment,
     SocialMetrics,
     StablecoinSupply,
+    TakerVolume,
     TimeframeView,
     TrendView,
     VolatilityView,
@@ -141,6 +143,7 @@ def build_derivatives(
     th: IndicatorThresholds,
     *,
     top_trader: dict | None = None,
+    taker: dict | None = None,
     basis: dict | None = None,
     options: dict | None = None,
     liquidations: dict | None = None,
@@ -149,13 +152,15 @@ def build_derivatives(
     oi_view = _open_interest(oi, th)
     lsr_view = _long_short(lsr, th)
     top_view = _long_short(top_trader, th)
+    taker_view = _taker(taker, th)
     basis_view = _basis(basis, th)
     options_view = _options(options, th)
     liq_view = _liquidations(liquidations)
     divergence = _divergence(price_change_pct, oi, th.oi_divergence_deadband_pct)
 
     if not any(
-        [funding_view, oi_view, lsr_view, top_view, basis_view, options_view, liq_view, divergence]
+        [funding_view, oi_view, lsr_view, top_view, taker_view, basis_view,
+         options_view, liq_view, divergence]
     ):
         return None
     return Derivatives(
@@ -164,6 +169,7 @@ def build_derivatives(
         oi_price_divergence=divergence,
         long_short_ratio=lsr_view,
         top_trader_lsr=top_view,
+        taker_volume=taker_view,
         basis=basis_view,
         options=options_view,
         liquidations=liq_view,
@@ -324,6 +330,43 @@ def _long_short(lsr: dict | None, th: IndicatorThresholds) -> LongShortRatio | N
         vs_history = "normal"
     return LongShortRatio(
         value=round(v, 2),
+        bias=bias,
+        percentile=round(pct, 2) if pct is not None else None,
+        vs_history=vs_history,
+    )
+
+
+def build_order_book(ob: dict | None) -> OrderBook | None:
+    if not ob or ob.get("mid") is None:
+        return None
+    imb = float(ob.get("imbalance") or 0.0)
+    pressure = "bid_heavy" if imb >= 0.15 else "ask_heavy" if imb <= -0.15 else "balanced"
+    return OrderBook(
+        mid=round(float(ob["mid"]), 4),
+        spread_bps=float(ob.get("spread_bps") or 0.0),
+        bid_depth_usd=float(ob.get("bid_depth_usd") or 0.0),
+        ask_depth_usd=float(ob.get("ask_depth_usd") or 0.0),
+        imbalance=imb,
+        pressure=pressure,
+    )
+
+
+def _taker(taker: dict | None, th: IndicatorThresholds) -> TakerVolume | None:
+    if not taker or taker.get("value") is None:
+        return None
+    v = float(taker["value"])
+    bias = "buy" if v >= 1.05 else "sell" if v <= 0.95 else "neutral"
+    pct = taker.get("percentile")
+    if pct is None:
+        vs_history = "unknown"
+    elif pct >= th.lsr_crowded_pct:
+        vs_history = "elevated"
+    elif pct <= 1 - th.lsr_crowded_pct:
+        vs_history = "depressed"
+    else:
+        vs_history = "normal"
+    return TakerVolume(
+        value=round(v, 4),
         bias=bias,
         percentile=round(pct, 2) if pct is not None else None,
         vs_history=vs_history,

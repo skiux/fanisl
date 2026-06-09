@@ -207,40 +207,116 @@ class CCXTSource(MarketDataSource):
         return _ratio_with_percentile(rows)
 
     def _binance_long_short(self, sym: str) -> dict | None:
-        market_id = self.exchange.market(sym)["id"]  # e.g. BTCUSDT
-        method = getattr(
-            self.exchange, "fapiDataGetGlobalLongShortAccountRatio", None
+        mid = self.exchange.market(sym)["id"]  # e.g. BTCUSDT
+        return self._binance_ratio_series(
+            "fapiDataGetGlobalLongShortAccountRatio", mid, "longShortRatio"
         )
+
+    def _binance_ratio_series(
+        self, method_name: str, market_id: str, key: str
+    ) -> dict | None:
+        """Binance futures-data 比值端点 → {value, percentile}。
+
+        响应是按时间**升序**的 dict 列表（最新在末），取 100 根算当前值的历史分位。
+        三个端点同形：全市场多空账户比 / 大户持仓比 / 主动买卖量比。
+        """
+        method = getattr(self.exchange, method_name, None)
         if method is None:
             return None
         data = self._with_retry(
-            lambda: method({"symbol": market_id, "period": "1h", "limit": 1})
+            lambda: method({"symbol": market_id, "period": "1h", "limit": 100})
         )
         if not data:
             return None
-        ratio = data[-1].get("longShortRatio")
-        return {"value": float(ratio)} if ratio is not None else None
+        vals: list[float] = []
+        for r in data:
+            v = r.get(key)
+            if v is not None:
+                try:
+                    vals.append(float(v))
+                except (TypeError, ValueError):
+                    pass
+        if not vals:
+            return None
+        current = vals[-1]
+        pct = (
+            round(sum(1 for v in vals if v < current) / len(vals), 3)
+            if len(vals) >= 10
+            else None
+        )
+        return {"value": current, "percentile": pct}
 
     # --- 大户多空比（聪明钱）---------------------------------------------
 
     def fetch_top_trader_lsr(self, symbol: str) -> dict | None:
         try:
             sym = self._perp_symbol(symbol)
-            if not self.name.startswith("okx"):
-                return None  # 目前只接 OKX 的精英账户口径
-            inst_id = self.exchange.market(sym)["id"]  # e.g. BTC-USDT-SWAP
-            method = getattr(
-                self.exchange,
-                "publicGetRubikStatContractsLongShortAccountRatioContractTopTrader",
-                None,
-            )
-            if method is None:
+            if self.name.startswith("binance"):
+                # 大户**持仓比**(资金加权)，比账户比更能代表聪明钱的真实仓位
+                mid = self.exchange.market(sym)["id"]
+                return self._binance_ratio_series(
+                    "fapiDataGetTopLongShortPositionRatio", mid, "longShortRatio"
+                )
+            if self.name.startswith("okx"):
+                inst_id = self.exchange.market(sym)["id"]  # e.g. BTC-USDT-SWAP
+                method = getattr(
+                    self.exchange,
+                    "publicGetRubikStatContractsLongShortAccountRatioContractTopTrader",
+                    None,
+                )
+                if method is None:
+                    return None
+                data = self._with_retry(
+                    lambda: method({"instId": inst_id, "period": "1H"})
+                )
+                rows = data.get("data") if isinstance(data, dict) else data
+                return _ratio_with_percentile(rows)  # OKX [[ts, ratio], ...] 最新在前
+            return None
+        except Exception:
+            return None
+
+    # --- 主动买卖量比 (taker buy/sell，仅 Binance) -----------------------
+
+    def fetch_taker_volume(self, symbol: str) -> dict | None:
+        """主动成交买卖量比：吃单方向的即时买/卖压力。>1=主动买量更大。"""
+        try:
+            sym = self._perp_symbol(symbol)
+            if not self.name.startswith("binance"):
                 return None
-            data = self._with_retry(
-                lambda: method({"instId": inst_id, "period": "1H"})
+            mid = self.exchange.market(sym)["id"]
+            return self._binance_ratio_series(
+                "fapiDataGetTakerlongshortRatio", mid, "buySellRatio"
             )
-            rows = data.get("data") if isinstance(data, dict) else data
-            return _ratio_with_percentile(rows)  # OKX 返回 [[ts, ratio], ...] 最新在前
+        except Exception:
+            return None
+
+    # --- 盘口微观结构 (L2 深度快照) -------------------------------------
+
+    def fetch_order_book_stats(self, symbol: str) -> dict | None:
+        """L2 盘口 → 价差(bps) + mid 上下 0.5% 内买/卖深度(USD) + 失衡。"""
+        try:
+            sym = self._perp_symbol(symbol)
+            ob = self._with_retry(lambda: self.exchange.fetch_order_book(sym, limit=50))
+            bids, asks = ob.get("bids") or [], ob.get("asks") or []
+            if not bids or not asks:
+                return None
+            best_bid, best_ask = float(bids[0][0]), float(asks[0][0])
+            if best_bid <= 0 or best_ask <= 0:
+                return None
+            mid = (best_bid + best_ask) / 2.0
+            spread_bps = (best_ask - best_bid) / mid * 1e4
+            lo, hi = mid * 0.995, mid * 1.005
+            bid_usd = sum(float(p) * float(q) for p, q in bids if float(p) >= lo)
+            ask_usd = sum(float(p) * float(q) for p, q in asks if float(p) <= hi)
+            tot = bid_usd + ask_usd
+            imb = (bid_usd - ask_usd) / tot if tot > 0 else 0.0
+            return {
+                "mid": mid,
+                "spread_bps": round(spread_bps, 3),
+                "bid_depth_usd": round(bid_usd, 2),
+                "ask_depth_usd": round(ask_usd, 2),
+                "imbalance": round(imb, 3),
+            }
         except Exception:
             return None
 

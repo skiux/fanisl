@@ -37,6 +37,14 @@ def flatten_snapshot(snap: MarketSnapshot) -> list[Sample]:
         add(f"bb_upper_{tf}", v.key_levels.bb_upper)
         add(f"bb_lower_{tf}", v.key_levels.bb_lower)
 
+    # --- 盘口微观结构 ---
+    mb = snap.microstructure
+    if mb is not None:
+        add("spread_bps", mb.spread_bps)
+        add("ob_imbalance", mb.imbalance)
+        add("ob_bid_depth_usd", mb.bid_depth_usd)
+        add("ob_ask_depth_usd", mb.ask_depth_usd)
+
     # --- 衍生品（含分位/子项）---
     d = snap.derivatives
     if d is not None:
@@ -53,6 +61,9 @@ def flatten_snapshot(snap: MarketSnapshot) -> list[Sample]:
         if d.top_trader_lsr:
             add("top_trader_lsr", d.top_trader_lsr.value)
             add("top_trader_percentile", d.top_trader_lsr.percentile)
+        if d.taker_volume:
+            add("taker_buy_sell_ratio", d.taker_volume.value)
+            add("taker_percentile", d.taker_volume.percentile)
         if d.basis:
             add("basis_perp", d.basis.perp_vs_spot_pct)
             add("basis_quarterly", d.basis.quarterly_annualized_pct)
