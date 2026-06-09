@@ -12,6 +12,7 @@ import pytest
 from analyzer.db import make_pool
 from analyzer.marketstore import MarketStore
 from analyzer.storage import Storage
+from analyzer.trading.store import TradingStore
 from analyzer.models import (
     ChainTVL,
     Derivatives,
@@ -83,6 +84,19 @@ def conv_store(pool):
     with pool.connection() as conn:
         conn.execute("TRUNCATE conversations, messages RESTART IDENTITY CASCADE")
     return s
+
+
+@pytest.fixture
+def trading_store(pool):
+    """隔离的 TradingStore（复用 fanisl_test 库，交易表与行情表不冲突）。"""
+    st = TradingStore(pool)
+    with pool.connection() as conn:
+        conn.execute(
+            "TRUNCATE accounts, trades, trade_plans, decision_inputs, orders, "
+            "position_snapshots, trade_events, trade_results, trade_reviews, declines "
+            "RESTART IDENTITY CASCADE"
+        )
+    return st
 
 
 @pytest.fixture

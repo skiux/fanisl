@@ -96,6 +96,8 @@ class Settings(BaseSettings):
 
     # 存储：PostgreSQL + TimescaleDB（libpq conninfo；默认走本地 socket + 当前用户）
     pg_conninfo: str = "dbname=fanisl"
+    # 交易评测台：独立库（账户/计划/持仓/复盘/打分），与行情库分离
+    pg_trading_conninfo: str = "dbname=fanisl_trading"
     # 旧 SQLite 文件路径，仅供一次性数据迁移 migrate_sqlite 读取
     db_path: str = "fanisl.db"
 
@@ -115,6 +117,23 @@ class Settings(BaseSettings):
     retention_days: int = 365  # 超过此天数的原始样本自动 drop_chunks
     compress_after_days: int = 7  # 超过此天数的 chunk 自动列式压缩（~10x，节省空间）
     runs_keep: int = 500  # 采集日志最多保留行数（log_run 内顺带裁剪）
+
+    # 交易评测台（纸面永续 + 杠杆，实时前向）
+    trading_enabled: bool = True
+    trading_initial_balance: float = 10_000.0  # USDT
+    trading_default_risk_pct: float = 1.0       # 单笔默认风险占权益%
+    trading_max_leverage: float = 10.0
+    trading_margin_mode: str = "isolated"       # isolated | cross
+    trading_taker_fee_bps: float = 5.0          # 成交手续费（基点，1bp=0.01%）
+    trading_slippage_bps: float = 2.0           # 市价成交滑点（基点）
+    trading_min_rr: float = 2.0                 # 建议最小盈亏比（记录不硬卡）
+    trading_tick_interval_s: int = 60           # 慢节奏：自主管理(重评)+ 自动复盘(调 Claude)
+    trading_mark_interval_s: int = 15           # 快节奏：开仓时盯市/止损止盈检查（无持仓则跳过）
+    # 决策用的完整多周期：大周期方向(1w/1d) → 交易结构(4h/1h) → 入场信号(15m/5m)
+    trading_decision_timeframes: list[str] = ["1w", "1d", "4h", "1h", "15m", "5m"]
+    # 持仓中：价格进入「距止损或某止盈 ≤ 此比例」的带 → 触发 Claude 重评
+    trading_reeval_band_pct: float = 0.5
+    trading_time_stop_hours: float = 0.0        # >0 则超过此持仓时长触发一次重评（0=关闭）
 
     thresholds: IndicatorThresholds = Field(default_factory=IndicatorThresholds)
 

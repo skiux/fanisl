@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ChartLineUp, ChatCircle, CurrencyBtc, Lightning, Pulse } from '@phosphor-icons/react'
+import { ChartLineUp, ChatCircle, CurrencyBtc, Lightning, Pulse, Strategy } from '@phosphor-icons/react'
 import PriceTicker from './components/PriceTicker'
 import Sidebar from './components/Sidebar'
 import ChatView from './components/ChatView'
@@ -8,11 +8,13 @@ import Derivatives from './market/pages/Derivatives'
 import Catalysts from './market/pages/Catalysts'
 import Sentiment from './market/pages/Sentiment'
 import Onchain from './market/pages/Onchain'
+import Trading from './market/pages/Trading'
 
-type View = 'chat' | 'derivatives' | 'catalysts' | 'sentiment' | 'onchain'
+type View = 'chat' | 'trading' | 'derivatives' | 'catalysts' | 'sentiment' | 'onchain'
 
 const NAV: { key: View; label: string; icon: ReactNode }[] = [
   { key: 'chat', label: '对话', icon: <ChatCircle size={16} weight="bold" /> },
+  { key: 'trading', label: '交易评测', icon: <Strategy size={16} weight="bold" /> },
   { key: 'derivatives', label: '持仓·衍生品', icon: <ChartLineUp size={16} weight="bold" /> },
   { key: 'catalysts', label: '事件·催化', icon: <Lightning size={16} weight="bold" /> },
   { key: 'sentiment', label: '情绪·注意力', icon: <Pulse size={16} weight="bold" /> },
@@ -77,6 +79,7 @@ export default function App() {
             onActivity={refresh}
           />
         </div>
+        {view === 'trading' && <Trading />}
         {view === 'derivatives' && <Derivatives />}
         {view === 'catalysts' && <Catalysts />}
         {view === 'sentiment' && <Sentiment />}

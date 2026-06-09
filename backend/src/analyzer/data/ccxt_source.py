@@ -102,7 +102,9 @@ class CCXTSource(MarketDataSource):
             for row in batch:
                 merged[row[0]] = row
             nxt = batch[-1][0] + tf_ms
-            if nxt <= cursor or len(batch) < per_call:
+            # 仅在游标无法前进时停（短批次不代表到头——OKX 对 since 锚定请求会回小批，
+            # 早停会把游标卡在旧段，导致长周期 tail 取到多年前的旧价）。
+            if nxt <= cursor:
                 break
             cursor = nxt
         rows = [merged[k] for k in sorted(merged)]

@@ -25,14 +25,11 @@ def get_metric_history(
 ) -> dict:
     win = window if window in _WINDOW_HOURS else "30d"
     hours = _WINDOW_HOURS[win]
-    since = (
-        (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
-        if hours is not None
-        else None
-    )
+    now = datetime.now(timezone.utc)
+    since = (now - timedelta(hours=hours)).isoformat() if hours is not None else None
     series = store.get_series(symbol, metrics, since)
     return {
         "symbol": symbol,
         "window": win,
-        "metrics": {m: summarize_series(series.get(m) or []) for m in metrics},
+        "metrics": {m: summarize_series(series.get(m) or [], now=now) for m in metrics},
     }

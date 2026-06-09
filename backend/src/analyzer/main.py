@@ -21,6 +21,10 @@ from .db import make_pool
 from .marketstore import GLOBAL, MarketStore
 from .scheduler import Scheduler
 from .storage import Storage, display_messages
+from .trading.engine import TradingEngine
+from .trading.service import TradingService
+from .trading.store import TradingStore
+from .trading.trade_agent import TradeAgent
 
 settings = get_settings()
 pool = make_pool(settings.pg_conninfo)
@@ -36,21 +40,51 @@ sentiment = build_crypto_sentiment(settings)
 catalysts = build_catalysts(settings)
 agent = Agent(settings, resolver, sentiment, catalysts, market_store)
 
-_scheduler = Scheduler(
-    [
-        ("market", settings.collect_market_interval_s,
-         lambda: collect_market(resolver, settings, sentiment, market_store)),
-        ("catalysts", settings.collect_catalysts_interval_s,
-         lambda: collect_catalysts(catalysts, settings, market_store)),
-    ]
+# --- 交易评测台（独立库）---------------------------------------------------
+trading_pool = make_pool(settings.pg_trading_conninfo)
+trading_store = TradingStore(trading_pool)
+
+
+def _live_price(symbol: str) -> float:
+    r = resolver.resolve(symbol)
+    return float(r.source.fetch_ticker(r.provider_symbol)["last"])
+
+
+trade_engine = TradingEngine(
+    trading_store, price_fn=_live_price,
+    taker_fee_bps=settings.trading_taker_fee_bps, slippage_bps=settings.trading_slippage_bps,
+    min_rr=settings.trading_min_rr, reeval_band_pct=settings.trading_reeval_band_pct,
+    time_stop_hours=settings.trading_time_stop_hours,
 )
+trade_agent = TradeAgent(settings, resolver, sentiment, catalysts, market_store)
+trading_service = TradingService(trading_store, trade_engine, trade_agent)
+_account = trading_store.ensure_account(
+    "main", initial_balance=settings.trading_initial_balance,
+    max_leverage=settings.trading_max_leverage, margin_mode=settings.trading_margin_mode,
+    default_risk_pct=settings.trading_default_risk_pct,
+)
+ACCOUNT_ID = int(_account["id"])
+
+_jobs = [
+    ("market", settings.collect_market_interval_s,
+     lambda: collect_market(resolver, settings, sentiment, market_store)),
+    ("catalysts", settings.collect_catalysts_interval_s,
+     lambda: collect_catalysts(catalysts, settings, market_store)),
+]
+if settings.trading_enabled:
+    # 快节奏确定性盯市（开仓时才真正干活）+ 慢节奏 Claude 管理/复盘，两个节奏分开
+    _jobs.append(("trading_mark", settings.trading_mark_interval_s,
+                  lambda: trading_service.mark(ACCOUNT_ID)))
+    _jobs.append(("trading_manage", settings.trading_tick_interval_s,
+                  lambda: trading_service.manage_and_review(ACCOUNT_ID)))
+_scheduler = Scheduler(_jobs)
 
 app = FastAPI(title="fanisl", version="0.1.0")
 
 
 @app.on_event("startup")
 def _start_collector() -> None:
-    if settings.collector_enabled:
+    if settings.collector_enabled or settings.trading_enabled:
         _scheduler.start()
 
 
@@ -59,6 +93,7 @@ def _stop_collector() -> None:
     if settings.collector_enabled:
         _scheduler.stop()
     pool.close()
+    trading_pool.close()
 
 # 本地前端开发用：放开 CORS
 app.add_middleware(
@@ -205,6 +240,57 @@ def stored_catalysts(symbol: str | None = None) -> list[dict]:
 @app.get("/collection/status")
 def collection_status() -> dict:
     return {"enabled": settings.collector_enabled, "runs": market_store.status()}
+
+
+# --- 交易评测台 -----------------------------------------------------------
+
+
+class OpenTradeRequest(BaseModel):
+    symbol: str
+
+
+@app.post("/trading/open")
+def trading_open(req: OpenTradeRequest) -> dict:
+    """让 Claude 评估并（若值得）开一笔交易。同步调用 Claude，可能耗时较久。"""
+    sym = req.symbol.strip()
+    if not sym:
+        raise HTTPException(status_code=400, detail="symbol 不能为空")
+    try:
+        return trading_service.open_trade(ACCOUNT_ID, sym)
+    except anthropic.APIError as e:
+        raise HTTPException(status_code=502, detail=f"Claude API 错误: {e}") from e
+
+
+@app.post("/trading/tick")
+def trading_tick() -> dict:
+    """手动推进一拍：撮合/盯市/止损止盈 + 触发的自主管理/复盘。"""
+    return trading_service.cycle(ACCOUNT_ID)
+
+
+@app.get("/trading/account")
+def trading_account() -> dict:
+    return {
+        "summary": trading_service.account_summary(ACCOUNT_ID),
+        "scorecard": trading_store.scorecard(ACCOUNT_ID),
+    }
+
+
+@app.get("/trading/trades")
+def trading_trades() -> list[dict]:
+    return trading_store.list_trades(ACCOUNT_ID)
+
+
+@app.get("/trading/trades/{trade_id}")
+def trading_trade(trade_id: int) -> dict:
+    tl = trading_store.timeline(trade_id)
+    if tl["trade"] is None:
+        raise HTTPException(status_code=404, detail="交易不存在")
+    return tl
+
+
+@app.get("/trading/declines")
+def trading_declines() -> list[dict]:
+    return trading_store.list_declines(ACCOUNT_ID)
 
 
 @app.get("/conversations")

@@ -53,6 +53,48 @@ export async function fetchCollectionStatus(): Promise<CollectionStatus> {
   return r.json()
 }
 
+// --- 交易评测台 -------------------------------------------------------------
+
+export async function fetchTradingAccount(): Promise<any> {
+  const r = await fetch(`${API}/trading/account`)
+  if (!r.ok) throw new Error(`account ${r.status}`)
+  return r.json()
+}
+
+export async function fetchTrades(): Promise<any[]> {
+  const r = await fetch(`${API}/trading/trades`)
+  if (!r.ok) throw new Error(`trades ${r.status}`)
+  return r.json()
+}
+
+export async function fetchTradeTimeline(id: number): Promise<any> {
+  const r = await fetch(`${API}/trading/trades/${id}`)
+  if (!r.ok) throw new Error(`trade ${r.status}`)
+  return r.json()
+}
+
+export async function fetchDeclines(): Promise<any[]> {
+  const r = await fetch(`${API}/trading/declines`)
+  if (!r.ok) throw new Error(`declines ${r.status}`)
+  return r.json()
+}
+
+export async function openTrade(symbol: string): Promise<any> {
+  const r = await fetch(`${API}/trading/open`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ symbol }),
+  })
+  if (!r.ok) throw new Error(`open ${r.status}`)
+  return r.json()
+}
+
+export async function tickTrading(): Promise<any> {
+  const r = await fetch(`${API}/trading/tick`, { method: 'POST' })
+  if (!r.ok) throw new Error(`tick ${r.status}`)
+  return r.json()
+}
+
 // --- 会话管理 ---------------------------------------------------------------
 
 export async function listConversations(): Promise<Conversation[]> {

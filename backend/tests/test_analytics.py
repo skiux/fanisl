@@ -1,5 +1,7 @@
 """时间序列摘要 + get_metric_history 单测（summarize 纯函数；history 用 store 夹具）。"""
 
+from datetime import datetime, timezone
+
 from analyzer.analytics import summarize_series
 from analyzer.marketstore import GLOBAL, Sample
 from analyzer.tools.history import get_metric_history
@@ -13,14 +15,30 @@ def _pts(values, start_h=0):
 
 
 def test_summarize_basic_rising():
+    # 等距点：末点权重默认按前面间隔均值估计 → 各点等权，与按点计数同结果
     s = summarize_series(_pts([10, 20, 30, 40, 50]))
     assert s["samples"] == 5
     assert s["current"] == 50 and s["first"] == 10
-    assert s["min"] == 10 and s["max"] == 50 and s["mean"] == 30
+    assert s["min"] == 10 and s["max"] == 50 and s["time_weighted_mean"] == 30
     assert s["direction"] == "rising"
-    assert s["percentile_in_window"] == 0.8  # 4/5 小于 50
+    assert s["time_weighted_percentile"] == 0.8  # 4/5 的时间低于 50
     assert s["change_pct"] == 400.0
     assert len(s["trajectory"]) == 5
+
+
+def test_summarize_time_weighted():
+    # 10 持续 8 天后跳到 90、90 只持续 1 天 → 时长加权分位/均值远不同于按点计数
+    pts = [
+        {"ts": "2026-06-01T00:00:00+00:00", "value": 10.0},
+        {"ts": "2026-06-09T00:00:00+00:00", "value": 90.0},
+    ]
+    now = datetime(2026, 6, 10, tzinfo=timezone.utc)  # 末点持续到此=1 天
+    s = summarize_series(pts, now=now)
+    # 低于当前(90)的时间 = 8 天 / 9 天 ≈ 0.889（按点计数会是 0.5）
+    assert s["time_weighted_percentile"] == 0.889
+    # 加权均值 = (10*8 + 90*1)/9 ≈ 18.89（按点会是 50）
+    assert abs(s["time_weighted_mean"] - 170 / 9) < 1e-3
+    assert s["span_hours"] == 216.0  # 9 天
 
 
 def test_summarize_flat_within_deadband():
