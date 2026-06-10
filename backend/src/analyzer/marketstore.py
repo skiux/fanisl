@@ -130,6 +130,25 @@ class MarketStore:
             )
         return len(rows)
 
+    def write_history(self, rows: list[tuple]) -> int:
+        """回填用：批量写「自带时间戳」的历史样本。rows=[(scope,symbol,metric,ts,value)...]。
+
+        与 write_samples 的区别：每行各自的 ts（一次回填跨成百上千根 K 线），分块 executemany。
+        ON CONFLICT 覆盖，整条命令可重复跑（幂等）。
+        """
+        if not rows:
+            return 0
+        norm = [(s, sym, m, ts, float(v)) for (s, sym, m, ts, v) in rows]
+        with self.pool.connection() as conn, conn.cursor() as cur:
+            for i in range(0, len(norm), 5000):
+                cur.executemany(
+                    "INSERT INTO metric_samples(scope, symbol, metric, ts, value) "
+                    "VALUES (%s,%s,%s,%s,%s) "
+                    "ON CONFLICT (scope, symbol, metric, ts) DO UPDATE SET value = EXCLUDED.value",
+                    norm[i : i + 5000],
+                )
+        return len(norm)
+
     def write_changed(self, samples: list[Sample], ts) -> int:
         """只写「与该指标最近一条值不同」的样本——让各指标按自身变化节奏落库。
 
@@ -162,6 +181,25 @@ class MarketStore:
             for r in conn.execute(sql, params).fetchall():
                 out[r["metric"]].append({"ts": _iso(r["ts"]), "value": r["value"]})
         return out
+
+    def metric_coverage(self, symbol: str) -> list[dict]:
+        """某 symbol 各 metric 的覆盖情况：{metric, samples, first_ts, last_ts, last_value}。
+
+        给前端数据浏览器用——知道哪些指标有数据、历史多深。
+        """
+        sql = (
+            "SELECT metric, count(*) AS samples, min(ts) AS first_ts, max(ts) AS last_ts, "
+            "(array_agg(value ORDER BY ts DESC))[1] AS last_value "
+            "FROM metric_samples WHERE symbol=%s GROUP BY metric ORDER BY metric"
+        )
+        with self.pool.connection() as conn:
+            rows = conn.execute(sql, (symbol,)).fetchall()
+        return [
+            {"metric": r["metric"], "samples": r["samples"],
+             "first_ts": _iso(r["first_ts"]), "last_ts": _iso(r["last_ts"]),
+             "last_value": r["last_value"]}
+            for r in rows
+        ]
 
     def latest_metrics(self, symbol: str) -> dict[str, dict]:
         """某 symbol 每个 metric 的最新一条 {metric: {ts, value}}。"""

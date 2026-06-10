@@ -41,6 +41,22 @@ class AlternativeMeSource(FearGreedProvider):
         except Exception:  # noqa: BLE001 — best-effort
             return None
 
+    def fetch_history(self, limit: int = 0) -> list[dict]:
+        """历史恐惧贪婪：[{ts(ISO UTC), value}]。limit=0 取全量（2018 至今，日级）。回填用。"""
+        from datetime import datetime, timezone
+        try:
+            data = get_json("Alternative.me", _BASE, params={"limit": limit})
+            out = []
+            for r in data.get("data") or []:
+                try:
+                    ts = datetime.fromtimestamp(int(r["timestamp"]), tz=timezone.utc).isoformat()
+                    out.append({"ts": ts, "value": int(r["value"])})
+                except (KeyError, ValueError, TypeError):
+                    continue
+            return out
+        except Exception:  # noqa: BLE001
+            return []
+
 
 def _bucket(value: int) -> str:
     """没有分类文案时按数值兜底分桶。"""

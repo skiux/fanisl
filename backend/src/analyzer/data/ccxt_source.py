@@ -135,6 +135,55 @@ class CCXTSource(MarketDataSource):
         except Exception:
             return None
 
+    def fetch_funding_history(self, symbol: str, limit: int = 1000) -> list[dict]:
+        """历史资金费率：[{ts(ISO UTC), value}]（每结算周期一点，回填用）。"""
+        try:
+            sym = self._perp_symbol(symbol)
+            hist = self._with_retry(
+                lambda: self.exchange.fetch_funding_rate_history(sym, limit=limit)
+            )
+            out = []
+            for h in hist:
+                v, t = h.get("fundingRate"), h.get("timestamp")
+                if v is None or t is None:
+                    continue
+                out.append({"ts": self.exchange.iso8601(t), "value": float(v)})
+            return out
+        except Exception:  # noqa: BLE001
+            return []
+
+    # 衍生品历史端点（Binance fapiData，period=1h 约 20 天）：metric 名 → (方法, 取值字段)
+    _DERIV_HIST = {
+        "open_interest_usd": ("fapiDataGetOpenInterestHist", "sumOpenInterestValue"),
+        "lsr": ("fapiDataGetGlobalLongShortAccountRatio", "longShortRatio"),
+        "top_trader_lsr": ("fapiDataGetTopLongShortPositionRatio", "longShortRatio"),
+        "taker_buy_sell_ratio": ("fapiDataGetTakerlongshortRatio", "buySellRatio"),
+    }
+
+    def fetch_deriv_history(self, symbol: str, metric: str, limit: int = 500) -> list[dict]:
+        """衍生品时点指标的可得历史 [{ts, value}]（OI/多空比/大户持仓比/taker，仅 Binance）。"""
+        spec = self._DERIV_HIST.get(metric)
+        if spec is None or not self.name.startswith("binance"):
+            return []
+        method_name, key = spec
+        method = getattr(self.exchange, method_name, None)
+        if method is None:
+            return []
+        try:
+            mid = self.exchange.market(self._perp_symbol(symbol))["id"]
+            data = self._with_retry(
+                lambda: method({"symbol": mid, "period": "1h", "limit": limit})
+            )
+            out = []
+            for r in data or []:
+                v, t = r.get(key), r.get("timestamp")
+                if v is None or t is None:
+                    continue
+                out.append({"ts": self.exchange.iso8601(int(t)), "value": float(v)})
+            return out
+        except Exception:  # noqa: BLE001
+            return []
+
     def _funding_percentile(self, sym: str, current: float) -> float | None:
         """当前资金费率在近期历史中的分位（0~1），拿不到历史返回 None。"""
         try:

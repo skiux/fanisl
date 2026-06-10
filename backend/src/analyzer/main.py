@@ -13,91 +13,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from .agent import Agent, final_text
-from .collector import collect_catalysts, collect_market
-from .config import get_settings
-from .data.factory import build_catalysts, build_crypto_sentiment, build_resolver
-from .db import make_pool
-from .marketstore import GLOBAL, MarketStore
-from .scheduler import Scheduler
-from .storage import Storage, display_messages
-from .trading.engine import TradingEngine
-from .trading.service import TradingService
-from .trading.store import TradingStore
-from .trading.trade_agent import TradeAgent
-
-settings = get_settings()
-pool = make_pool(settings.pg_conninfo)
-storage = Storage(pool)
-market_store = MarketStore(
+from . import metrics as metrics_registry
+from .agent import final_text
+from .marketstore import GLOBAL
+from .runtime import (
+    ACCOUNT_ID,
+    agent,
+    market_store,
     pool,
-    retention_days=settings.retention_days,
-    compress_after_days=settings.compress_after_days,
-    runs_keep=settings.runs_keep,
+    resolver,
+    settings,
+    storage,
+    trading_pool,
+    trading_service,
+    trading_store,
 )
-resolver = build_resolver(settings)
-sentiment = build_crypto_sentiment(settings)
-catalysts = build_catalysts(settings)
-agent = Agent(settings, resolver, sentiment, catalysts, market_store)
+from .storage import display_messages
 
-# --- 交易评测台（独立库）---------------------------------------------------
-trading_pool = make_pool(settings.pg_trading_conninfo)
-trading_store = TradingStore(trading_pool)
-
-
-def _live_price(symbol: str) -> float:
-    # 执行/盯市价以执行源(统一 Binance 永续)为准；TradFi 分析虽走 Polygon/OANDA，
-    # 但下单与止损止盈按 Binance 成交价计。
-    r = resolver.resolve(symbol)
-    return float(r.exec_source.fetch_ticker(r.exec_symbol)["last"])
-
-
-trade_engine = TradingEngine(
-    trading_store, price_fn=_live_price,
-    taker_fee_bps=settings.trading_taker_fee_bps, slippage_bps=settings.trading_slippage_bps,
-    min_rr=settings.trading_min_rr, reeval_band_pct=settings.trading_reeval_band_pct,
-    time_stop_hours=settings.trading_time_stop_hours,
-)
-trade_agent = TradeAgent(settings, resolver, sentiment, catalysts, market_store)
-trading_service = TradingService(trading_store, trade_engine, trade_agent, settings=settings)
-_account = trading_store.ensure_account(
-    "main", initial_balance=settings.trading_initial_balance,
-    max_leverage=settings.trading_max_leverage, margin_mode=settings.trading_margin_mode,
-    default_risk_pct=settings.trading_default_risk_pct,
-)
-ACCOUNT_ID = int(_account["id"])
-
-_jobs = [
-    ("market", settings.collect_market_interval_s,
-     lambda: collect_market(resolver, settings, sentiment, market_store)),
-    ("catalysts", settings.collect_catalysts_interval_s,
-     lambda: collect_catalysts(catalysts, settings, market_store)),
-]
-if settings.trading_enabled:
-    # 快节奏确定性盯市（开仓时才真正干活）+ 慢节奏 Claude 管理/复盘，两个节奏分开
-    _jobs.append(("trading_mark", settings.trading_mark_interval_s,
-                  lambda: trading_service.mark(ACCOUNT_ID)))
-    _jobs.append(("trading_manage", settings.trading_tick_interval_s,
-                  lambda: trading_service.manage_and_review(ACCOUNT_ID)))
-    if settings.trading_scan_enabled:
-        # 自主扫描：每 4h Claude 在全标的里找机会（受仓位/风险上限约束）
-        _jobs.append(("trading_scan", settings.trading_scan_interval_s,
-                      lambda: trading_service.scan(ACCOUNT_ID)))
-_scheduler = Scheduler(_jobs)
+# 注意：API 进程**不起后台调度器**。采集/交易由独立的 collector / trader worker 进程跑
+# （见 worker_collector.py / worker_trader.py），所以 API 可以多 worker、独立部署重启。
 
 app = FastAPI(title="fanisl", version="0.1.0")
 
 
-@app.on_event("startup")
-def _start_collector() -> None:
-    if settings.collector_enabled or settings.trading_enabled:
-        _scheduler.start()
-
-
 @app.on_event("shutdown")
-def _stop_collector() -> None:
-    if settings.collector_enabled:
-        _scheduler.stop()
+def _close_pools() -> None:
     pool.close()
     trading_pool.close()
 
@@ -236,6 +176,18 @@ def metrics(symbol: str, names: str, since: str | None = None) -> dict:
     """多指标时间序列。names 逗号分隔；symbol=GLOBAL 取全市场指标。"""
     wanted = [n.strip() for n in names.split(",") if n.strip()]
     return {"symbol": symbol, "series": market_store.get_series(symbol, wanted, since)}
+
+
+@app.get("/metrics/catalog")
+def metrics_catalog() -> dict:
+    """全量 metric 目录（登记表 SSOT）：name/category/unit/scope/label/ts_meaning。给前端枚举展示用。"""
+    return {"timeframes": list(metrics_registry.TIMEFRAMES), "metrics": metrics_registry.catalog()}
+
+
+@app.get("/metrics/available")
+def metrics_available(symbol: str) -> dict:
+    """某 symbol 实际有数据的 metric 及覆盖（样本数/起止/最新值）。前端据此知道该展示什么、历史多深。"""
+    return {"symbol": symbol, "coverage": market_store.metric_coverage(symbol)}
 
 
 @app.get("/catalysts/stored")

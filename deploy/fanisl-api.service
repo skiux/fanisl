@@ -1,5 +1,5 @@
 [Unit]
-Description=fanisl API + 后台采集/交易调度 (FastAPI/uvicorn)
+Description=fanisl API (FastAPI/uvicorn，仅请求服务，不起后台调度)
 After=network-online.target postgresql.service
 Wants=network-online.target
 
@@ -9,11 +9,11 @@ User=fanisl
 Group=fanisl
 WorkingDirectory=/opt/fanisl/backend
 # .env 在 WorkingDirectory 下，pydantic-settings 自动读取
-# 关键：单 worker。采集器/交易调度是 app 启动起的后台线程，多 worker 会重复采集+重复自主交易。
+# 服务拆分后 API 不再起采集/交易调度（那些在 fanisl-collector / fanisl-trader）。
+# 因此这里可以安全地用多 worker 扩并发（如 --workers 2/4）；后台单实例的约束在 worker 单元里。
 ExecStart=/opt/fanisl/backend/.venv/bin/uvicorn analyzer.main:app --host 127.0.0.1 --port 8000 --workers 1
 Restart=always
 RestartSec=5
-# 优雅停机：让调度器 shutdown 钩子停掉后台线程
 KillSignal=SIGINT
 TimeoutStopSec=30
 

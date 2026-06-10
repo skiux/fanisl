@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from ._http import get_json
 from .onchain import NetworkActivityProvider
 
@@ -33,13 +35,32 @@ class BlockchainInfoSource(NetworkActivityProvider):
             return None
         return out
 
+    def fetch_network_history(self, base: str) -> dict:
+        """BTC 网络使用度全历史：{metric: [{ts, value}]}（日级，多年）。回填用。"""
+        if base.upper() != "BTC":
+            return {}
+        out: dict = {}
+        for metric, chart in (
+            ("active_addresses", "n-unique-addresses"),
+            ("tx_count", "n-transactions"),
+            ("fees_usd", "transaction-fees-usd"),
+        ):
+            vals = _chart_values(chart, timespan="all")
+            if vals:
+                out[metric] = [
+                    {"ts": datetime.fromtimestamp(int(p["x"]), tz=timezone.utc).isoformat(),
+                     "value": float(p["y"])}
+                    for p in vals if p.get("x") is not None and p.get("y") is not None
+                ]
+        return out
 
-def _chart_values(chart: str) -> list | None:
+
+def _chart_values(chart: str, timespan: str = "10days") -> list | None:
     try:
         data = get_json(
             "Blockchain.info",
             f"{_CHARTS}/{chart}",
-            params={"timespan": "10days", "format": "json", "cors": "true"},
+            params={"timespan": timespan, "format": "json", "cors": "true"},
         )
         return data.get("values") or None
     except Exception:  # noqa: BLE001

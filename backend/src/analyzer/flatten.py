@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from .marketstore import GLOBAL, Sample
+from .metrics import TF_METRICS
 from .models import CatalystReport, MarketSnapshot
 
 
@@ -28,14 +29,8 @@ def flatten_snapshot(snap: MarketSnapshot) -> list[Sample]:
     if ref is not None:
         add("price", ref.last_price)
     for tf, v in snap.timeframes.items():
-        add(f"change_pct_{tf}", v.change_pct)
-        add(f"rsi_{tf}", v.momentum.rsi)
-        add(f"macd_hist_{tf}", v.momentum.macd_hist)
-        add(f"atr_{tf}", v.volatility.atr)
-        add(f"atr_pct_{tf}", v.volatility.atr_percentile)
-        add(f"vol_ratio_{tf}", v.volume.vs_avg20)
-        add(f"bb_upper_{tf}", v.key_levels.bb_upper)
-        add(f"bb_lower_{tf}", v.key_levels.bb_lower)
+        for m in TF_METRICS:  # 逐周期指标名/取值统一由登记表定义
+            add(f"{m.base}_{tf}", m.from_view(v))
 
     # --- 盘口微观结构 ---
     mb = snap.microstructure

@@ -13,6 +13,7 @@ from ..data.catalysts import Catalysts
 from ..data.derivatives import CryptoSentiment
 from ..data.instruments import Resolver, registered_symbols
 from ..marketstore import MarketStore
+from ..metrics import metric_vocab
 from ..models import GetCatalystsInput, GetMarketSnapshotInput, GetMetricHistoryInput
 from .catalysts import get_catalysts
 from .history import get_metric_history
@@ -88,17 +89,8 @@ TOOLS: list[dict] = [
             "的分位（当前值之下的时间占比）。因为序列按变化落库(sample-and-hold)，必须按时长加权，"
             "否则只存在几分钟的尖峰会被高估。time_weighted_mean 同理。span_hours 是实际覆盖时长，"
             "样本少/覆盖短就据此说明不确定。\n"
-            "可用 metrics——单币(symbol 传 BTC/USDT 等)：\n"
-            "  • 技术(每周期带后缀 _1h/_4h/_1d)：rsi_, macd_hist_, atr_, atr_pct_, vol_ratio_, "
-            "change_pct_, bb_upper_, bb_lower_；以及 price。\n"
-            "  • 衍生品：funding_rate, funding_annualized, funding_percentile, open_interest_usd, "
-            "oi_change_24h, lsr, lsr_percentile, top_trader_lsr, top_trader_percentile, "
-            "taker_buy_sell_ratio, taker_percentile, basis_perp, "
-            "basis_quarterly, dvol, atm_iv, put_call_ratio, iv_skew, max_pain, options_total_oi, "
-            "liq_long_24h, liq_short_24h, liq_total_24h。\n"
-            "  • 盘口微观结构：spread_bps, ob_imbalance, ob_bid_depth_usd, ob_ask_depth_usd。\n"
-            "  • 链上：chain_tvl, chain_tvl_change_30d, active_addresses, tx_count, fees_usd。\n"
-            "全市场(symbol 传 GLOBAL)：fear_greed, stablecoin_total, stablecoin_change_7d, stablecoin_change_30d。\n"
+            "可用 metrics（自动与数据登记表同步；单币传 BTC/USDT 等，全市场宏观/情绪传 GLOBAL）：\n"
+            + metric_vocab() + "\n"
             "注意：采集按各指标自身节奏落库(值不变就不重复记)，所以慢变量(日线/链上/恐惧贪婪)"
             "的点会比较稀疏、那是正常的；起步阶段样本可能很少(samples 小)，据实说明、别过度解读。"
         ),

@@ -55,6 +55,33 @@ class DefiLlamaSource(UnlockProvider):
         except Exception:  # noqa: BLE001 — best-effort
             return None
 
+    def fetch_unlock_history(self, symbol: str) -> list[dict]:
+        """已发生的解锁事件 [{ts, tokens, pct_of_max_supply}]（供给冲击历史）。回填用。"""
+        try:
+            base = symbol.split("/")[0].split(":")[0].upper()
+            self._ensure_map()
+            slug = (self._sym2slug or {}).get(base)
+            if slug is None:
+                return []
+            data = get_json("DefiLlama", f"{_DATASETS}/emissions/{slug}")
+            md = data.get("metadata") or {}
+            supply = (data.get("supplyMetrics") or {}).get("maxSupply") or md.get("total")
+            now = int(time.time())
+            out = []
+            for e in md.get("events") or []:
+                ts = e.get("timestamp")
+                if not isinstance(e, dict) or not ts or ts > now:
+                    continue  # 只要已发生的
+                tok = float(sum(e.get("noOfTokens") or []))
+                out.append({
+                    "ts": datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(),
+                    "tokens": tok,
+                    "pct_of_max_supply": round(tok / supply * 100, 4) if supply else None,
+                })
+            return out
+        except Exception:  # noqa: BLE001
+            return []
+
 
 class DefiLlamaOnChain(StablecoinProvider, ChainTvlProvider):
     """DefiLlama 链上免费数据（无 key）：全市场稳定币供应 + 公链 TVL。"""
@@ -95,6 +122,46 @@ class DefiLlamaOnChain(StablecoinProvider, ChainTvlProvider):
             return _parse_chain_tvl(chain, hist)
         except Exception:  # noqa: BLE001
             return None
+
+    # --- 历史回填 ---
+
+    def fetch_stablecoin_history(self) -> list[dict]:
+        """全市场稳定币供应(USD)全历史 [{ts, value}]（日级，回到 2017）。"""
+        try:
+            data = get_json(
+                "DefiLlama", f"{_STABLECOINS}/stablecoincharts/all",
+                params={"includePrices": "false"},
+            )
+            out = []
+            for r in data or []:
+                v = (r.get("totalCirculatingUSD") or {}).get("peggedUSD")
+                ts = r.get("date")
+                if v is None or ts is None:
+                    continue
+                out.append({"ts": _unix_iso(int(ts)), "value": float(v)})
+            return out
+        except Exception:  # noqa: BLE001
+            return []
+
+    def fetch_chain_tvl_history(self, base: str) -> list[dict]:
+        """某公链 DeFi TVL 全历史 [{ts, value}]（日级）。非 L1 原生币返回空。"""
+        try:
+            self._ensure_chains()
+            chain = (self._sym2chain or {}).get(base.upper())
+            if chain is None:
+                return []
+            hist = get_json("DefiLlama", f"{_API}/v2/historicalChainTvl/{chain}")
+            return [
+                {"ts": _unix_iso(int(h["date"])), "value": float(h["tvl"])}
+                for h in (hist or [])
+                if h.get("date") is not None and h.get("tvl") is not None
+            ]
+        except Exception:  # noqa: BLE001
+            return []
+
+
+def _unix_iso(ts: int) -> str:
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
 
 
 def _pct(now: float, then: float | None) -> float | None:

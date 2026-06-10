@@ -99,6 +99,33 @@ def atr(df: pd.DataFrame, length: int = 14) -> pd.Series:
     return rma(tr, length)
 
 
+# --- 逐周期存库指标的整条序列（回填用；快照取末值用，单一定义避免两处漂移）---------
+
+
+def indicator_series(closed: pd.DataFrame, atr_percentile_window: int = 100) -> dict:
+    """已收盘 OHLCV → {base 名: 整条 Series}。
+
+    这是"哪些逐周期指标入库 + 怎么算"的**单一定义**。key 必须与 metrics.TF_BASES 一致
+    （test_metrics 守护）。回填按每根 K 线落库；快照可取 .iloc[-1]。不含 price（=close 本身）。
+    """
+    close = closed["close"]
+    _, _, macd_hist = macd(close)
+    bb_upper, _, bb_lower = bollinger(close)
+    atr_s = atr(closed)
+    return {
+        "change_pct": close.pct_change() * 100.0,
+        "rsi": rsi(close),
+        "macd_hist": macd_hist,
+        "atr": atr_s,
+        "atr_pct": atr_s.rolling(atr_percentile_window, min_periods=10).apply(
+            lambda w: (w[:-1] < w[-1]).mean(), raw=True
+        ),
+        "vol_ratio": closed["volume"] / closed["volume"].rolling(20).mean(),
+        "bb_upper": bb_upper,
+        "bb_lower": bb_lower,
+    }
+
+
 # --- 组装 ---------------------------------------------------------------------
 
 
