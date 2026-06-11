@@ -40,6 +40,36 @@ export async function fetchMetrics(
   return d.series ?? {}
 }
 
+export interface CatalogMetric {
+  name: string
+  category: string
+  unit: string
+  scope: string
+  label: string
+  ts_meaning: string
+}
+
+export interface MetricCoverage {
+  metric: string
+  samples: number
+  first_ts: string
+  last_ts: string
+  last_value: number | null
+}
+
+export async function fetchCatalog(): Promise<{ timeframes: string[]; metrics: CatalogMetric[] }> {
+  const r = await fetch(`${API}/metrics/catalog`)
+  if (!r.ok) throw new Error(`catalog ${r.status}`)
+  return r.json()
+}
+
+export async function fetchAvailable(symbol: string): Promise<MetricCoverage[]> {
+  const r = await fetch(`${API}/metrics/available?symbol=${encodeURIComponent(symbol)}`)
+  if (!r.ok) throw new Error(`available ${r.status}`)
+  const d = await r.json()
+  return d.coverage ?? []
+}
+
 export async function fetchStoredCatalysts(symbol?: string): Promise<CatalystItem[]> {
   const q = symbol ? `?symbol=${encodeURIComponent(symbol)}` : ''
   const r = await fetch(`${API}/catalysts/stored${q}`)
@@ -55,14 +85,32 @@ export async function fetchCollectionStatus(): Promise<CollectionStatus> {
 
 // --- 交易评测台 -------------------------------------------------------------
 
-export async function fetchTradingAccount(): Promise<any> {
-  const r = await fetch(`${API}/trading/account`)
+const acctQ = (account?: string) => (account ? `?account=${encodeURIComponent(account)}` : '')
+
+export interface TradingAccount {
+  name: string
+  id: number
+  force: boolean
+  managed: boolean
+  mirror_of: string | null
+  summary: any
+  scorecard: any
+}
+
+export async function fetchTradingAccounts(): Promise<TradingAccount[]> {
+  const r = await fetch(`${API}/trading/accounts`)
+  if (!r.ok) throw new Error(`accounts ${r.status}`)
+  return r.json()
+}
+
+export async function fetchTradingAccount(account?: string): Promise<any> {
+  const r = await fetch(`${API}/trading/account${acctQ(account)}`)
   if (!r.ok) throw new Error(`account ${r.status}`)
   return r.json()
 }
 
-export async function fetchTrades(): Promise<any[]> {
-  const r = await fetch(`${API}/trading/trades`)
+export async function fetchTrades(account?: string): Promise<any[]> {
+  const r = await fetch(`${API}/trading/trades${acctQ(account)}`)
   if (!r.ok) throw new Error(`trades ${r.status}`)
   return r.json()
 }
@@ -73,46 +121,59 @@ export async function fetchTradeTimeline(id: number): Promise<any> {
   return r.json()
 }
 
-export async function fetchDeclines(): Promise<any[]> {
-  const r = await fetch(`${API}/trading/declines`)
+export async function cancelTrade(id: number): Promise<any> {
+  const r = await fetch(`${API}/trading/trades/${id}/cancel`, { method: 'POST' })
+  if (!r.ok) throw new Error(`cancel ${r.status}`)
+  return r.json()
+}
+
+export async function fetchDeclines(account?: string): Promise<any[]> {
+  const r = await fetch(`${API}/trading/declines${acctQ(account)}`)
   if (!r.ok) throw new Error(`declines ${r.status}`)
   return r.json()
 }
 
-export async function openTrade(symbol: string): Promise<any> {
+export async function openTrade(symbol: string, account?: string): Promise<any> {
   const r = await fetch(`${API}/trading/open`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ symbol }),
+    body: JSON.stringify({ symbol, account }),
   })
   if (!r.ok) throw new Error(`open ${r.status}`)
   return r.json()
 }
 
-export async function fetchPositions(): Promise<any[]> {
-  const r = await fetch(`${API}/trading/positions`)
+export async function fetchTradingSymbols(): Promise<string[]> {
+  const r = await fetch(`${API}/trading/symbols`)
+  if (!r.ok) throw new Error(`symbols ${r.status}`)
+  const d = await r.json()
+  return d.symbols ?? []
+}
+
+export async function fetchPositions(account?: string): Promise<any[]> {
+  const r = await fetch(`${API}/trading/positions${acctQ(account)}`)
   if (!r.ok) throw new Error(`positions ${r.status}`)
   return r.json()
 }
 
-export async function scanTrading(): Promise<any> {
-  const r = await fetch(`${API}/trading/scan`, { method: 'POST' })
+export async function scanTrading(account?: string): Promise<any> {
+  const r = await fetch(`${API}/trading/scan${acctQ(account)}`, { method: 'POST' })
   if (!r.ok) throw new Error(`scan ${r.status}`)
   return r.json()
 }
 
-export async function setForceTrade(enabled: boolean): Promise<any> {
+export async function setForceTrade(enabled: boolean, account?: string): Promise<any> {
   const r = await fetch(`${API}/trading/account/force`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ enabled }),
+    body: JSON.stringify({ enabled, account }),
   })
   if (!r.ok) throw new Error(`force ${r.status}`)
   return r.json()
 }
 
-export async function tickTrading(): Promise<any> {
-  const r = await fetch(`${API}/trading/tick`, { method: 'POST' })
+export async function tickTrading(account?: string): Promise<any> {
+  const r = await fetch(`${API}/trading/tick${acctQ(account)}`, { method: 'POST' })
   if (!r.ok) throw new Error(`tick ${r.status}`)
   return r.json()
 }

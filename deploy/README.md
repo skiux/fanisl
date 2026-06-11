@@ -140,3 +140,18 @@ sudo nginx -t && sudo systemctl reload nginx
 - 改了配置（上限/频率/key）：`systemctl restart fanisl-api fanisl-collector fanisl-trader`。
 - **迁移现有部署**：拉新代码后，先 `daemon-reload` 装好三个单元，再
   `systemctl stop fanisl-api`（旧的单进程版）→ enable 新三件套。旧 API 一停，后台调度即随之停。
+
+## 交易评测升级（多账户 / 全仓，2026-06）
+
+代码升级后，交易评测从单账户改为**多账户对照实验**，每户 1000 USDT、全仓(cross)：
+- `main`（A·自然，保留拒绝权）、`forced`（B·强制交易）、`main_shadow`（影子，机械镜像 main、不被 Claude 管理）。
+- 账户在 `config.trading_accounts` 配置；启动时自动建好。`ensure_account` 只对**没交易过**的空账户采用新条款，
+  **绝不改动已在跑的账户**——所以老部署里已有交易的 `main` 会保留它原来的逐仓/余额，
+  新账户 `forced`/`main_shadow` 才是 cross/1000。想让 main 也走新条款：先清空它的交易（或换个账户名）。
+- trader 现在**对所有账户盯市**、对被管理账户（main/forced）各跑一遍 manage/scan——
+  **Claude 调用量随被管理账户数成倍增加**（2 个 ≈ 2×）。要省成本就减少 managed 账户或关掉 forced。
+- 接口都加了 `?account=<name>`（默认 main）；`/trading/accounts` 列全部账户；
+  `/trading/trades/{id}/cancel` 撤限价挂单。前端交易页顶部可切账户。
+
+确定性裁决全部下沉引擎（仓位/同向/在险上限、事件邻近风险打折、TP 可达性、失效价执行、限价单 TTL、
+复评宽限/冷却/一次性）——相关阈值见 `config.py` 的 `trading_*`。

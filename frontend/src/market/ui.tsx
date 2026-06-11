@@ -23,23 +23,26 @@ export function Panel({ title, right, children, className = '' }: {
   )
 }
 
+// 页面骨架：页头固定不滚，内容区独立滚动
 export function PageShell({ title, sub, controls, children }: {
-  title: string
+  title: ReactNode
   sub?: string
   controls?: ReactNode
   children: ReactNode
 }) {
   return (
-    <div className="flex-1 overflow-y-auto bg-zinc-50">
-      <div className="mx-auto max-w-[1400px] px-5 py-5">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight text-zinc-900">{title}</h1>
+    <div className="flex h-full min-w-0 flex-1 flex-col bg-zinc-50">
+      <div className="shrink-0 border-b border-zinc-200/60 px-5 py-3">
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-[15px] font-semibold tracking-tight text-zinc-900">{title}</h1>
             {sub && <p className="mt-0.5 text-xs text-zinc-400">{sub}</p>}
           </div>
           {controls && <div className="flex flex-wrap items-center gap-2">{controls}</div>}
         </div>
-        {children}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-[1400px] px-5 py-4">{children}</div>
       </div>
     </div>
   )
@@ -56,9 +59,14 @@ export function SectionTitle({ children, sub }: { children: ReactNode; sub?: str
 
 // --- KPI 条（用分隔线而非卡片堆叠）-----------------------------------------
 
-export function KpiRow({ children }: { children: ReactNode }) {
+export function KpiRow({ children, cols = 6 }: { children: ReactNode; cols?: 4 | 6 | 8 }) {
+  const grid = {
+    4: 'sm:grid-cols-2 lg:grid-cols-4',
+    6: 'sm:grid-cols-3 lg:grid-cols-6',
+    8: 'sm:grid-cols-4 lg:grid-cols-8',
+  }[cols]
   return (
-    <div className="grid grid-cols-2 divide-x divide-zinc-200/70 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white sm:grid-cols-3 lg:grid-cols-6">
+    <div className={`grid grid-cols-2 divide-x divide-zinc-200/70 overflow-hidden rounded-2xl border border-zinc-200/70 bg-white ${grid}`}>
       {children}
     </div>
   )
@@ -105,6 +113,62 @@ export function SegTabs<T extends string>({ options, value, onChange, size = 'md
           </button>
         )
       })}
+    </div>
+  )
+}
+
+// --- 迷你折线（纯 SVG，轻量，适合大量并排）---------------------------------
+
+export function Sparkline({ values, width = 104, height = 30 }: {
+  values: number[]
+  width?: number
+  height?: number
+}) {
+  if (!values || values.length < 2) {
+    return <div style={{ width, height }} className="rounded bg-zinc-50" />
+  }
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  const pad = 2
+  const pts = values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * (width - pad * 2) + pad
+      const y = height - pad - ((v - min) / span) * (height - pad * 2)
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
+  const up = values[values.length - 1] >= values[0]
+  const color = up ? '#10b981' : '#f43f5e'
+  return (
+    <svg width={width} height={height} className="block">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.4} strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+// --- 下拉选择（原生 select，样式化）----------------------------------------
+
+export function Select({ value, onChange, options, className = '' }: {
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string }[]
+  className?: string
+}) {
+  return (
+    <div className={`relative ${className}`}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full appearance-none rounded-lg border border-zinc-200 bg-white py-1.5 pl-3 pr-8 text-[13px] font-medium text-zinc-800 outline-none transition-colors hover:border-zinc-300 focus:border-zinc-400"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      <svg className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+      </svg>
     </div>
   )
 }
