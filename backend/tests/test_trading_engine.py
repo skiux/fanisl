@@ -173,6 +173,47 @@ def test_adjustment_move_sl_versions_plan(trading_store, acct):
     assert len(trading_store.plan_versions(tid)) == 2
 
 
+def test_invalidation_price_closes_deterministically(trading_store, acct):
+    # 失效价在止损内侧：价格跌到失效价（但未到止损）→ 引擎直接平仓，无需 Claude 重评
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    plan = _long_plan(sl_price=95.0, invalidation_price=97.0)
+    tid = eng.open_trade(acct["id"], plan)["trade_id"]
+    price["v"] = 96.5  # < 97 失效，但 > 95 止损
+    eng.tick(acct["id"])
+    tr = trading_store.get_trade(tid)
+    assert tr["status"] == "closed"
+    res = trading_store.get_result(tid)
+    assert res["exit_reason"] == "thesis_invalidated"
+
+
+def test_invalidation_wrong_side_ignored(trading_store, acct):
+    # 多单失效价填在进场之上（方向错）→ 忽略 + flag，不应在开仓瞬间触发
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    plan = _long_plan(invalidation_price=105.0)
+    res = eng.open_trade(acct["id"], plan)
+    tid = res["trade_id"]
+    assert trading_store.get_trade(tid)["status"] == "open"  # 没被秒平
+    plan_doc = trading_store.active_plan(tid)["plan"]
+    assert plan_doc["invalidation_price"] is None
+    assert any("失效价" in f for f in plan_doc["computed"]["flags"])
+
+
+def test_event_risk_haircut_reduces_position(trading_store, acct):
+    # 同一计划，risk_factor=0.5 → 仓位减半、风险额减半
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    full = eng.open_trade(acct["id"], _long_plan())
+    price["v"] = 100.0
+    # 第二笔的权益已被第一笔占用而略变，故用相对容差（重点是减半）
+    half = eng.open_trade(acct["id"], _long_plan(), risk_factor=0.5, risk_note="CPI 还有 3h")
+    assert half["qty"] == pytest.approx(full["qty"] / 2, rel=0.01)
+    plan_doc = trading_store.active_plan(half["trade_id"])["plan"]
+    assert plan_doc["computed"]["effective_risk_pct"] == pytest.approx(0.5)
+    assert any("事件邻近" in f for f in plan_doc["computed"]["flags"])
+
+
 def test_scorecard_aggregates(trading_store, acct):
     price = {"v": 100.0}
     eng = _engine(trading_store, price)

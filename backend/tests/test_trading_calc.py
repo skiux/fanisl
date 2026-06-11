@@ -1,13 +1,17 @@
 """交易确定性数学单测（纯函数，不联网/不碰 DB）。"""
 
+from datetime import datetime, timedelta, timezone
+
 from analyzer.trading.calc import (
     apply_slippage,
+    event_risk_factor,
     fee,
     liquidation_price,
     margin_required,
     pnl,
     position_size,
     reward_risk,
+    tp_reachable,
     validate_plan,
 )
 from analyzer.trading.models import TpTarget
@@ -92,3 +96,28 @@ def test_validate_plan_margin_exceeds_available():
         max_leverage=10.0, min_rr=2.0,
     )
     assert not c.ok and any("保证金" in i for i in c.issues)
+
+
+def test_event_risk_factor_graduated():
+    now = datetime(2026, 6, 10, 0, 0, tzinfo=timezone.utc)
+    cal_far = [{"date": (now + timedelta(hours=20)).isoformat(), "name": "CPI", "importance": "high"}]
+    cal_near = [{"date": (now + timedelta(hours=6)).isoformat(), "name": "CPI", "importance": "high"}]
+    cal_at = [{"date": now.isoformat(), "name": "CPI", "importance": "high"}]
+    cal_low = [{"date": (now + timedelta(hours=2)).isoformat(), "name": "x", "importance": "low"}]
+    # 20h > 12h blackout → 不打折
+    assert event_risk_factor(cal_far, now, blackout_hours=12, haircut=0.5)[0] == 1.0
+    # 6h：线性 0.5 + 0.5×(6/12) = 0.75
+    f, note = event_risk_factor(cal_near, now, blackout_hours=12, haircut=0.5)
+    assert f == 0.75 and "CPI" in note
+    # 事件时刻 = haircut 下限
+    assert event_risk_factor(cal_at, now, blackout_hours=12, haircut=0.5)[0] == 0.5
+    # 低影响事件忽略
+    assert event_risk_factor(cal_low, now, blackout_hours=12, haircut=0.5)[0] == 1.0
+
+
+def test_tp_reachable():
+    # ATR 日 100，持有 24h → 预期幅度 100；k=1.5 → 阈值 150
+    assert tp_reachable(1000, 1120, 100, 24, 1.5)[0] is True   # 距 120 ≤ 150
+    assert tp_reachable(1000, 1200, 100, 24, 1.5)[0] is False  # 距 200 > 150
+    # 数据缺失 → 不拦
+    assert tp_reachable(1000, 9999, 0, 24, 1.5)[0] is True

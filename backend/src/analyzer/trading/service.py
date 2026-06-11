@@ -6,8 +6,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from ..config import Settings
 from ..data.instruments import tradeable_canonicals
+from . import calc
 from .engine import TradingEngine
 from .store import TradingStore
 from .trade_agent import TradeAgent
@@ -61,15 +64,37 @@ class TradingService:
             return {"kind": "decline", "decline_id": did, "reason": decline.reason}
 
         plan = d["plan"]
+        risk_factor, risk_note, atr_daily = self._decision_signals(d["inputs"], plan)
         # 临界区：容量/风险裁决 + 开仓，账户级串行化（防并发越过上限）
         with self.store.account_lock(account_id):
             cap = self._check_capacity(account_id, plan)
             if not cap["ok"]:
                 return {"kind": "rejected", "rejected": True, "reason": cap["reason"], "by": "capacity"}
             res = self.engine.open_trade(
-                account_id, plan, inputs=d["inputs"], response=d["transcript"]
+                account_id, plan, inputs=d["inputs"], response=d["transcript"],
+                risk_factor=risk_factor, risk_note=risk_note, atr_daily=atr_daily,
             )
         return {"kind": "plan", **res}
+
+    def _decision_signals(self, inputs: dict, plan) -> tuple[float, str | None, float | None]:
+        """从冻结的决策上下文里提取确定性裁决信号：事件邻近风险打折系数 + 日线 ATR。
+
+        用 Claude 当时看到的同一份数据（catalysts/snapshot），保证可审计、可复现。
+        """
+        risk_factor, risk_note = 1.0, None
+        # 事件邻近打折——event_driven 策略是冲着事件去的，豁免
+        if self.settings is not None and plan.strategy_type != "event_driven":
+            macro = ((inputs or {}).get("catalysts") or {}).get("macro_calendar") or []
+            risk_factor, risk_note = calc.event_risk_factor(
+                macro, datetime.now(timezone.utc),
+                blackout_hours=self.settings.trading_event_blackout_hours,
+                haircut=self.settings.trading_event_risk_haircut,
+            )
+        # 日线 ATR（TP 可达性校验用）
+        atr_daily = None
+        tfs = ((inputs or {}).get("snapshot") or {}).get("timeframes") or {}
+        atr_daily = ((tfs.get("1d") or {}).get("volatility") or {}).get("atr")
+        return risk_factor, risk_note, atr_daily
 
     def _check_capacity(self, account_id: int, plan) -> dict:
         """确定性容量/风险裁决（Claude 提议、引擎裁决）。返回 {ok, reason}。"""

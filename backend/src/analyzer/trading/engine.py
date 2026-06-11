@@ -49,27 +49,48 @@ class TradingEngine:
     def open_trade(
         self, account_id: int, plan: TradePlan, *,
         inputs: dict | None = None, prompt: str | None = None, response=None,
+        risk_factor: float = 1.0, risk_note: str | None = None,
+        atr_daily: float | None = None,
     ) -> dict:
-        """按计划开仓。校验不过 → 记为无效计划(planned)、不执行；过 → 市价/挂单进场。"""
+        """按计划开仓。校验不过 → 记为无效计划(planned)、不执行；过 → 市价/挂单进场。
+
+        risk_factor：事件邻近等外部风险调节（<1 自动给本笔风险打折，引擎裁决、非 Claude 决定）。
+        atr_daily：日线 ATR，用于 TP 可达性校验。
+        """
         acct = self.store.get_account(account_id)
         if acct is None:
             return {"ok": False, "error": "账户不存在"}
 
+        eff_risk_pct = plan.risk_pct * risk_factor  # 事件邻近打折后的实际风险
+        equity = self._equity(account_id)
         check = calc.validate_plan(
             side=plan.side, entry=plan.entry_price, sl=plan.sl_price, tps=plan.tp_targets,
-            leverage=plan.leverage, risk_pct=plan.risk_pct,
-            equity=self._equity(account_id), available_margin=acct["balance"],
+            leverage=plan.leverage, risk_pct=eff_risk_pct,
+            equity=equity, available_margin=acct["balance"],
             max_leverage=acct["max_leverage"], min_rr=self.min_rr,
+            atr_daily=atr_daily, holding_hours=plan.expected_holding_hours,
         )
-        risk_amount = self._equity(account_id) * (plan.risk_pct / 100.0)
+        risk_amount = equity * (eff_risk_pct / 100.0)
         plan_doc = {
             **plan.model_dump(),
             "computed": {
                 "qty": check.qty, "notional": check.notional, "margin": check.margin,
                 "rr": check.rr, "liquidation_price": check.liquidation_price,
                 "risk_amount": risk_amount, "flags": check.flags,
+                "risk_factor": risk_factor, "effective_risk_pct": round(eff_risk_pct, 4),
             },
         }
+        if risk_factor < 1.0 and risk_note:
+            check.flags.append(f"事件邻近（{risk_note}）：风险自动打折 {plan.risk_pct}%→{eff_risk_pct:.3f}%")
+        # 失效价方向校验：放错边会在开仓瞬间触发，直接忽略并记 flag
+        inv = plan.invalidation_price
+        if inv is not None and (
+            (plan.side == "long" and inv >= plan.entry_price)
+            or (plan.side == "short" and inv <= plan.entry_price)
+        ):
+            check.flags.append(f"失效价 {inv} 在进场不利侧之外（方向不对，已忽略）")
+            plan_doc["invalidation_price"] = None
+        plan_doc["computed"]["flags"] = check.flags
 
         trade_id = self.store.create_trade(
             account_id, plan.symbol, plan.side, plan.strategy_type, plan.leverage
@@ -184,6 +205,12 @@ class TradingEngine:
             fill = calc.apply_slippage(sl, side, self.slippage_bps, is_entry=False)
             self._close(tr, fill, "sl", "engine", now)
             return [{"trade_id": tid, "action": "stop_loss", "price": fill}]
+        # 2.5) 结构失效价：穿越即逻辑被证伪，引擎确定性平仓（不等 Claude 重评，省掉慢回路损耗）
+        inv = plan.get("invalidation_price")
+        if inv is not None and ((side == "long" and mark <= inv) or (side == "short" and mark >= inv)):
+            fill = calc.apply_slippage(mark, side, self.slippage_bps, is_entry=False)
+            self._close(tr, fill, "thesis_invalidated", "engine", now)
+            return [{"trade_id": tid, "action": "invalidated", "price": fill}]
         # 3) 止盈（逐目标，按原始数量比例减仓）
         acts += self._check_take_profit(tr, plan, mark, now)
         tr = self.store.get_trade(tid)  # 减仓后刷新
