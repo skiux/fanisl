@@ -214,10 +214,16 @@ class TradingService:
                 versions = self.store.plan_versions(tr["id"])
                 if not versions:
                     continue
+                v1 = versions[0]["plan"]
                 try:
-                    plan = TradePlan.model_validate(versions[0]["plan"])
+                    plan = TradePlan.model_validate(v1)
                 except Exception:  # noqa: BLE001 — 计划无法重建则跳过
                     continue
+                # 镜像源实际进场的规模：源若被事件风险打折过，影子也用打折后的有效风险，
+                # 否则影子会比源大一倍，污染"管理 vs 不管理"的对照
+                eff = (v1.get("computed") or {}).get("effective_risk_pct")
+                if eff is not None:
+                    plan = plan.model_copy(update={"risk_pct": eff})
                 with self.store.account_lock(shadow_id):
                     cap = self._check_capacity(shadow_id, plan)
                     if not cap["ok"]:

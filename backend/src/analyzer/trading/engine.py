@@ -374,7 +374,6 @@ class TradingEngine:
         fees = sum(o["fee"] for o in orders)
         pnl_net = realized - fees
         risk_amount = plan["computed"].get("risk_amount") or 0.0
-        entry_margin = next((o for o in entries), None)
         margin0 = plan["computed"].get("margin") or 0.0
         opened = tr["opened_at"]
         holding_s = (now - opened).total_seconds() if opened else 0.0
@@ -388,11 +387,16 @@ class TradingEngine:
         mfe_r, mae_r = calc.mfe_mae_r(upnls, risk_amount)
         exit_eff = round(realized_r / mfe_r, 4) if (realized_r is not None and mfe_r and mfe_r > 0) else None
         tp1 = (plan["tp_targets"][0]["price"] if plan.get("tp_targets") else None)
+        # 反事实「不管理」基准：① 用**原始**进场(加仓属管理，不算基准) ② 把实际出场价补进价序列——
+        # 引擎在 SL/TP 触发那拍直接平仓、不写快照，不补的话反事实会漏掉"价格其实碰到了 SL/TP"
+        orig = next((o for o in entries if o["kind"] == "entry"), None)
+        exit_px = closes[-1]["price"] if closes else None
+        cf_marks = marks + ([exit_px] if exit_px is not None else [])
         cf_r = mgmt = None
-        if marks and risk_amount:
+        if orig and cf_marks and risk_amount:
             cf_r = calc.counterfactual_r(
-                side, vwap_entry, plan["sl_price"], tp1, marks,
-                qty=ent_qty, last_mark=marks[-1], risk_amount=risk_amount,
+                side, orig["price"], plan["sl_price"], tp1, cf_marks,
+                qty=orig["qty"], last_mark=cf_marks[-1], risk_amount=risk_amount,
             )
             if cf_r is not None and realized_r is not None:
                 mgmt = round(realized_r - cf_r, 4)

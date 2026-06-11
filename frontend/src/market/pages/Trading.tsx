@@ -37,17 +37,20 @@ export default function Trading() {
   const managed = accounts.find((a) => a.name === acct)?.managed ?? true
 
   const refresh = useCallback(async () => {
-    const [a, t, p, d, accs] = await Promise.all([
+    const [a, t, p, d] = await Promise.all([
       fetchTradingAccount(acct), fetchTrades(acct), fetchPositions(acct), fetchDeclines(acct),
-      fetchTradingAccounts().catch(() => []),
     ])
     setAccount(a); setTrades(t); setPositions(p); setDeclines(d)
-    if (accs.length) setAccounts(accs)
   }, [acct])
+
+  // 账户列表只用于切换标签（基本不变），拉一次即可——它会对所有账户重算权益/计分卡，别每 15s 拉
+  useEffect(() => {
+    fetchTradingAccounts().then((accs) => accs.length && setAccounts(accs)).catch(() => {})
+    fetchTradingSymbols().then((s) => s.length && setSymbols(s)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     refresh().catch(() => {})
-    fetchTradingSymbols().then((s) => s.length && setSymbols(s)).catch(() => {})
     const id = setInterval(() => refresh().catch(() => {}), 15000)
     return () => clearInterval(id)
   }, [refresh])

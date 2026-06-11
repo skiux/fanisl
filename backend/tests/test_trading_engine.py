@@ -153,6 +153,9 @@ def test_stop_loss_loss(trading_store, acct):
     assert tr["status"] == "closed"
     res = trading_store.get_result(tid)
     assert res["exit_reason"] == "sl" and res["outcome"] == "loss" and res["pnl_abs"] < 0
+    # 反事实必须看到价格碰到了 SL（出场价补进价序列）→ 基准≈-1R、管理贡献≈0（引擎止损非管理）
+    assert res["counterfactual_r"] == -1.0
+    assert abs(res["mgmt_contribution_r"]) < 0.1
 
 
 def test_liquidation(trading_store, acct):
