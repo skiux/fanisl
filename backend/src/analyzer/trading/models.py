@@ -85,14 +85,37 @@ class TradePlan(BaseModel):
     sl_basis: str = Field(description="止损依据（结构破位/百分比/ATR倍数）")
     sl_type: SlType = "hard"
 
+    invalidation_price: float | None = Field(
+        default=None,
+        description="结构失效价：价格穿越即说明这笔的逻辑已被证伪，引擎会确定性平仓（不等你重评）。"
+        "通常设在硬止损内侧——失效位是'逻辑错了'，硬止损是'最后防线'。无清晰结构失效位则留空。",
+    )
+
     tp_targets: list[TpTarget] = Field(description="一个或多个止盈目标及各自减仓比例")
+
+    expected_holding_hours: float | None = Field(
+        default=None,
+        description="预期持有时长（小时）。引擎据此用 ATR 校验 TP1 在该时长内结构上是否可达——"
+        "目标要真实，别为凑盈亏比把止盈画到够不着的地方。",
+    )
+    entry_ttl_hours: float | None = Field(
+        default=None,
+        description="限价单有效期（小时），仅 limit 单用。超时未成交引擎自动撤单作废（论点会过期）。"
+        "按入场周期定，如 15m 入场通常 2~8h。留空用引擎默认。",
+    )
 
     wake_conditions: list[WakeCondition] = Field(
         default_factory=list,
-        description="希望在哪些条件下被唤醒重评（价穿位/盈亏到阈值/到时）。空=只靠引擎默认(逼近止损止盈)兜底。",
+        description="希望在哪些条件下被唤醒重评（价穿位/盈亏到阈值/到时）。空=只靠引擎默认(逼近止损止盈)兜底。"
+        "价格唤醒位放在结构位（确认/失效位，一般距入场 ≥0.8R），别设在噪声里；"
+        "time_elapsed_hours 是一次性检查点（如 24h 还没动就重估），不是轮询周期。",
     )
 
-    confidence_pct: float | None = Field(default=None, description="主观胜率/信心 0~100，用于校准")
+    confidence_pct: float | None = Field(
+        default=None,
+        description="主观胜率/信心 0~100，会与实际胜率做校准对比，所以要诚实拉开差异、别老写中间值。"
+        "参考锚点：<45 信号太弱就不该提交计划；45~55 勉强；55~65 良好；>65 强信号。",
+    )
     notes: str | None = None
 
 
@@ -114,6 +137,15 @@ class DeclineDecision(BaseModel):
     symbol: str
     reason: str = Field(description="为什么这笔不该做")
     watch_for: str | None = Field(default=None, description="出现什么条件会让你重新考虑")
+    recheck_after_hours: float | None = Field(
+        default=None,
+        description="多少小时后值得重新评估这个标的（引擎到期会用行情自动校验这次拒绝对不对）。",
+    )
+    bias_if_forced: Side | None = Field(
+        default=None,
+        description="若被强制必须做，你会选哪个方向（long/short）。用于评测'拒绝'判断的质量——"
+        "拒绝后价格若朝你的 bias 反方向走说明拒绝是对的。无明确方向可留空。",
+    )
 
 
 # --- 持仓中调整 -----------------------------------------------------------
@@ -123,7 +155,10 @@ class Adjustment(BaseModel):
     reason: str
     thesis_still_valid: bool = Field(description="原始逻辑是否还成立（不成立应退出）")
     new_sl_price: float | None = Field(default=None, description="move_sl 时的新止损")
-    reduce_pct: float | None = Field(default=None, description="partial_exit 时减仓百分比 0~100")
+    reduce_pct: float | None = Field(
+        default=None,
+        description="partial_exit 时减仓百分比 0~100，按**当前剩余仓位**算（如剩余 80% 仓再减 50% = 减到 40%）。",
+    )
     add_qty_pct: float | None = Field(default=None, description="add 时加仓量（占原仓位%）")
     wake_conditions: list[WakeCondition] | None = Field(
         default=None, description="重设唤醒条件（None=沿用原计划的）",

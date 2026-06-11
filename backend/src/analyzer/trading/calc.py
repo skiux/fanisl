@@ -7,10 +7,59 @@ Claude 不参与这些计算——它只给点位与依据，数字由这里算�
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from .models import Side, TpTarget
 
 MAINT_MARGIN_RATE = 0.005  # 维持保证金率（强平价近似用）
+
+
+def _parse_iso(s: str) -> datetime | None:
+    try:
+        dt = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return None
+
+
+def event_risk_factor(
+    macro_calendar: list[dict], now: datetime, *,
+    blackout_hours: float, haircut: float,
+) -> tuple[float, str | None]:
+    """高影响宏观事件临近 → 线性风险打折系数（非粗暴拒绝）。
+
+    返回 (factor, note)。factor∈[haircut,1]：事件还有 blackout_hours 以上 → 1.0（不打折）；
+    越临近越接近 haircut（事件时刻 = haircut）。只看 importance=high 且在未来的事件。
+    """
+    nearest_h: float | None = None
+    nearest_name = ""
+    for ev in macro_calendar or []:
+        if str(ev.get("importance", "")).lower() != "high":
+            continue
+        dt = _parse_iso(ev.get("date"))
+        if dt is None:
+            continue
+        hours = (dt - now).total_seconds() / 3600.0
+        if 0 <= hours <= blackout_hours and (nearest_h is None or hours < nearest_h):
+            nearest_h, nearest_name = hours, ev.get("name", "事件")
+    if nearest_h is None:
+        return 1.0, None
+    factor = haircut + (1.0 - haircut) * (nearest_h / blackout_hours)
+    return round(factor, 4), f"{nearest_name} 还有 {nearest_h:.1f}h"
+
+
+def tp_reachable(
+    entry: float, tp1: float, atr_daily: float, holding_hours: float, k: float,
+) -> tuple[bool, float]:
+    """TP1 在预期持有期内结构上是否够得着。
+
+    预期波动幅度 ≈ ATR(日) × √(持有小时/24)；可达 = |TP1-entry| ≤ k × 预期幅度。
+    返回 (reachable, expected_range)。数据不足（atr/holding 缺）时按可达处理（不拦）。
+    """
+    if not atr_daily or not holding_hours or holding_hours <= 0:
+        return True, 0.0
+    expected = atr_daily * (holding_hours / 24.0) ** 0.5
+    return abs(tp1 - entry) <= k * expected, expected
 
 
 def position_size(equity: float, risk_pct: float, entry: float, sl: float) -> float:
@@ -79,6 +128,39 @@ def reward_risk(entry: float, sl: float, tps: list[TpTarget], side: Side) -> flo
     return reward / risk
 
 
+def mfe_mae_r(upnls: list[float], risk_amount: float) -> tuple[float | None, float | None]:
+    """从盯市浮盈亏序列算最大有利/不利波动（以风险额 R 为单位）。"""
+    if not upnls or risk_amount <= 0:
+        return None, None
+    return round(max(upnls) / risk_amount, 4), round(min(upnls) / risk_amount, 4)
+
+
+def counterfactual_r(
+    side: Side, entry: float, sl: float, tp1: float | None,
+    marks: list[float], qty: float, last_mark: float, risk_amount: float,
+) -> float | None:
+    """反事实「不做任何管理」基准 R：从入场起走盯市价，原始 SL / TP1 谁先到。
+
+    SL 先到 → -1R；TP1 先到 → 计划到 TP1 的盈亏比；都没到 → 按最后一帧标记价核算。
+    管理层贡献 = 实际 R − 反事实 R（提前砍/移损/减仓相对"拿住不动"赚了多少）。
+    """
+    if risk_amount <= 0:
+        return None
+    risk_dist = abs(entry - sl)
+    for m in marks:
+        if side == "long":
+            if m <= sl:
+                return -1.0
+            if tp1 is not None and m >= tp1:
+                return round(abs(tp1 - entry) / risk_dist, 4) if risk_dist else None
+        else:
+            if m >= sl:
+                return -1.0
+            if tp1 is not None and m <= tp1:
+                return round(abs(tp1 - entry) / risk_dist, 4) if risk_dist else None
+    return round(pnl(side, entry, last_mark, qty) / risk_amount, 4)
+
+
 @dataclass
 class PlanCheck:
     ok: bool
@@ -103,6 +185,9 @@ def validate_plan(
     available_margin: float,
     max_leverage: float,
     min_rr: float,
+    atr_daily: float | None = None,
+    holding_hours: float | None = None,
+    tp_reach_k: float = 1.5,
 ) -> PlanCheck:
     """校验进场计划并算出仓位/保证金/盈亏比/强平价。
 
@@ -144,6 +229,15 @@ def validate_plan(
         issues.append(f"所需保证金 {margin:.2f} 超过可用 {available_margin:.2f}")
     if rr is not None and rr < min_rr:
         flags.append(f"盈亏比 {rr:.2f} 低于建议 {min_rr}")
+
+    # TP1 可达性：目标要在预期持有期内结构上够得着，别为凑盈亏比画太远
+    if tps and atr_daily and holding_hours:
+        reachable, expected = tp_reachable(entry, tps[0].price, atr_daily, holding_hours, tp_reach_k)
+        if not reachable:
+            flags.append(
+                f"TP1 距入场 {abs(tps[0].price - entry):.2f}，超过 {holding_hours:.0f}h 预期幅度"
+                f"{expected:.2f}×{tp_reach_k}（目标可能够不着）"
+            )
 
     return PlanCheck(
         ok=not issues,

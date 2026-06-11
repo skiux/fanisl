@@ -50,13 +50,31 @@ trade_engine = TradingEngine(
     taker_fee_bps=settings.trading_taker_fee_bps, slippage_bps=settings.trading_slippage_bps,
     min_rr=settings.trading_min_rr, reeval_band_pct=settings.trading_reeval_band_pct,
     time_stop_hours=settings.trading_time_stop_hours,
+    entry_ttl_hours=settings.trading_entry_ttl_hours,
+    reeval_cooldown_min=settings.trading_reeval_cooldown_min,
+    reeval_grace_min=settings.trading_reeval_grace_min,
 )
 trade_agent = TradeAgent(settings, resolver, sentiment, catalysts, market_store)
 trading_service = TradingService(trading_store, trade_engine, trade_agent, settings=settings)
 
-_account = trading_store.ensure_account(
-    "main", initial_balance=settings.trading_initial_balance,
-    max_leverage=settings.trading_max_leverage, margin_mode=settings.trading_margin_mode,
-    default_risk_pct=settings.trading_default_risk_pct,
-)
-ACCOUNT_ID = int(_account["id"])
+
+def _build_accounts() -> list[dict]:
+    """按 config.trading_accounts 建好全部评测账户（幂等），返回带 spec + id 的行列表。"""
+    out: list[dict] = []
+    for spec in settings.trading_accounts:
+        acct = trading_store.ensure_account(
+            spec.name, initial_balance=settings.trading_initial_balance,
+            max_leverage=settings.trading_max_leverage, margin_mode=settings.trading_margin_mode,
+            default_risk_pct=settings.trading_default_risk_pct,
+        )
+        # 强制交易标志由 spec 固定（A/B 对照），每次启动对齐
+        trading_store.set_force_trade(acct["id"], spec.force)
+        out.append({**acct, "spec": spec, "id": int(acct["id"]),
+                    "managed": spec.managed, "mirror_of": spec.mirror_of})
+    return out
+
+
+ACCOUNTS = _build_accounts()
+ACCOUNT_IDS = {a["spec"].name: a["id"] for a in ACCOUNTS}
+# 默认账户（向后兼容：无 account 参数的旧接口/单账户调用都指向 main）
+ACCOUNT_ID = ACCOUNT_IDS.get("main", ACCOUNTS[0]["id"])

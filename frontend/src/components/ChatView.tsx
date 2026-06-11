@@ -90,7 +90,7 @@ export default function ChatView({
             setStatus(null)
             appendToLast(t)
           },
-          onError: (d) => appendToLast(`\n\n⚠️ 出错了：${d}`),
+          onError: (d) => appendToLast(`\n\n**出错了：** ${d}`),
         },
         controller.signal,
       )
@@ -99,7 +99,7 @@ export default function ChatView({
         // 用户主动停止：保留已生成的内容，标注一下
         appendToLast('\n\n（已停止）')
       } else {
-        appendToLast(`\n\n⚠️ 连接失败：${e?.message ?? e}`)
+        appendToLast(`\n\n**连接失败：** ${e?.message ?? e}`)
       }
     } finally {
       abortRef.current = null

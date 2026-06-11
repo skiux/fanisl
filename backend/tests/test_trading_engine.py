@@ -59,6 +59,53 @@ def test_wake_condition_triggers_reeval(trading_store, acct):
     assert any("价≥108" in r for r in evs2[0]["payload"]["reasons"])
 
 
+def test_wake_condition_is_one_shot(trading_store, acct):
+    # 同一唤醒条件命中过一次后不再重复触发（一次性，治理复评风暴）
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    eng.reeval_cooldown_min = 0.0  # 关掉冷却，单独验证一次性
+    plan = _long_plan(wake_conditions=[{"type": "price_above", "value": 108.0}])
+    tid = eng.open_trade(acct["id"], plan)["trade_id"]
+    price["v"] = 108.5
+    eng.tick(acct["id"])
+    # 模拟已被处理（adjust），否则 _has_open_reeval 会挡住后续
+    trading_store.add_event(tid, "adjust_hold", "claude", {"reason": "x"})
+    price["v"] = 109.0
+    eng.tick(acct["id"])  # 条件仍满足，但已触发过 → 不再触发
+    needs = [e for e in trading_store.events(tid) if e["kind"] == "needs_review"]
+    assert len(needs) == 1
+
+
+def test_reeval_cooldown_suppresses_storm(trading_store, acct):
+    # "逼近止损" 是电平条件：冷却窗内不应每拍重复触发
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)  # 时钟每拍 +60s，冷却默认 30min
+    tid = eng.open_trade(acct["id"], _long_plan())["trade_id"]  # sl=95
+    price["v"] = 95.3  # 进入逼近止损带
+    eng.tick(acct["id"])
+    trading_store.add_event(tid, "adjust_hold", "claude", {"reason": "再看"})
+    # 连推几拍，仍在带内，但冷却 + 宽限应抑制重复触发
+    for _ in range(5):
+        eng.tick(acct["id"])
+    needs = [e for e in trading_store.events(tid) if e["kind"] == "needs_review"]
+    assert len(needs) == 1
+
+
+def test_post_adjust_grace_blocks_immediate_reeval(trading_store, acct):
+    # 刚 adjust 完，宽限窗内不立刻再触发重评
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    eng.reeval_cooldown_min = 0.0
+    eng.reeval_grace_min = 30.0
+    tid = eng.open_trade(acct["id"], _long_plan())["trade_id"]
+    price["v"] = 95.3
+    eng.tick(acct["id"])
+    trading_store.add_event(tid, "adjust_move_sl", "claude", {"reason": "保本"})
+    eng.tick(acct["id"])  # 紧接着的一拍处在宽限窗内
+    needs = [e for e in trading_store.events(tid) if e["kind"] == "needs_review"]
+    assert len(needs) == 1  # 没有因宽限被立刻再叫
+
+
 def test_open_market_trade(trading_store, acct):
     price = {"v": 100.0}
     eng = _engine(trading_store, price)
@@ -106,6 +153,9 @@ def test_stop_loss_loss(trading_store, acct):
     assert tr["status"] == "closed"
     res = trading_store.get_result(tid)
     assert res["exit_reason"] == "sl" and res["outcome"] == "loss" and res["pnl_abs"] < 0
+    # 反事实必须看到价格碰到了 SL（出场价补进价序列）→ 基准≈-1R、管理贡献≈0（引擎止损非管理）
+    assert res["counterfactual_r"] == -1.0
+    assert abs(res["mgmt_contribution_r"]) < 0.1
 
 
 def test_liquidation(trading_store, acct):
@@ -117,6 +167,42 @@ def test_liquidation(trading_store, acct):
     eng.tick(acct["id"])
     res = trading_store.get_result(tid)
     assert res["exit_reason"] == "liquidation" and res["outcome"] == "loss"
+
+
+@pytest.fixture
+def cross_acct(trading_store):
+    return trading_store.ensure_account(
+        "cross", initial_balance=1_000.0, max_leverage=10.0,
+        margin_mode="cross", default_risk_pct=1.0,
+    )
+
+
+def test_cross_position_has_no_isolated_liq_and_survives_deeper(trading_store, cross_acct):
+    # 全仓：单仓没有 isolated 强平价，浮亏由整个账户缓冲，不在逐仓 liq 价被打掉
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    plan = _long_plan(sl_price=80.0, leverage=10.0,
+                      tp_targets=[TpTarget(price=130, reduce_pct=100)])
+    tid = eng.open_trade(cross_acct["id"], plan)["trade_id"]
+    assert trading_store.get_trade(tid)["liquidation_price"] is None
+    price["v"] = 91.0  # 逐仓 10x 早该爆(~90.5)，但全仓账户权益仍充足 → 不强平
+    eng.tick(cross_acct["id"])
+    assert trading_store.get_trade(tid)["status"] == "open"
+
+
+def test_cross_account_level_liquidation(trading_store, cross_acct):
+    # 全仓：止损放得极远、仓位占满保证金 → 价格大跌吃穿账户权益 → 账户级强平
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    # sl=10 形同无止损、满仓（margin≈本金），用大 risk_pct 把仓位顶到保证金上限
+    plan = _long_plan(risk_pct=850.0, leverage=10.0, sl_price=10.0,
+                      tp_targets=[TpTarget(price=200, reduce_pct=100)])
+    tid = eng.open_trade(cross_acct["id"], plan)["trade_id"]
+    assert trading_store.get_trade(tid)["status"] == "open"
+    price["v"] = 80.0  # 远未触及 sl=10，但浮亏吃穿账户 → 账户级强平
+    eng.tick(cross_acct["id"])
+    res = trading_store.get_result(tid)
+    assert res is not None and res["exit_reason"] == "liquidation"
 
 
 def test_invalid_plan_recorded_not_executed(trading_store, acct):
@@ -131,6 +217,36 @@ def test_invalid_plan_recorded_not_executed(trading_store, acct):
     assert "plan_rejected" in kinds
 
 
+def test_partial_exit_uses_remaining_basis(trading_store, acct):
+    # 连续两次「减 50%」应按当前剩余仓位算：20 → 10 → 5（而不是第二次清零）
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    tid = eng.open_trade(acct["id"], _long_plan())["trade_id"]
+    assert trading_store.get_trade(tid)["qty"] == pytest.approx(20.0)
+
+    eng.apply_adjustment(tid, Adjustment(action="partial_exit", reason="减半", thesis_still_valid=True, reduce_pct=50))
+    assert trading_store.get_trade(tid)["qty"] == pytest.approx(10.0)
+    eng.apply_adjustment(tid, Adjustment(action="partial_exit", reason="再减半", thesis_still_valid=True, reduce_pct=50))
+    tr = trading_store.get_trade(tid)
+    assert tr["qty"] == pytest.approx(5.0) and tr["status"] == "open"  # 没被清零
+
+
+def test_limit_order_expires_after_ttl(trading_store, acct):
+    # 限价单挂着、价格不触发、超过 TTL → 引擎撤单作废
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    eng.entry_ttl_hours = 0.0001  # ~0.36s；_engine 的时钟每拍 +60s，必然超时
+    # 限价多单挂在现价(100)下方且止损更低，结构合法、但价格不回踩 → 不成交
+    plan = _long_plan(entry_type="limit", entry_price=90.0, sl_price=85.0)
+    tid = eng.open_trade(acct["id"], plan)["trade_id"]
+    assert trading_store.get_trade(tid)["status"] == "planned"
+    eng.tick(acct["id"])  # 推进一拍，时钟前进 → 超时撤单
+    tr = trading_store.get_trade(tid)
+    assert tr["status"] == "cancelled"
+    kinds = {e["kind"] for e in trading_store.events(tid)}
+    assert "entry_expired" in kinds
+
+
 def test_adjustment_move_sl_versions_plan(trading_store, acct):
     price = {"v": 100.0}
     eng = _engine(trading_store, price)
@@ -141,6 +257,47 @@ def test_adjustment_move_sl_versions_plan(trading_store, acct):
     active = trading_store.active_plan(tid)
     assert active["version"] == 2 and active["plan"]["sl_price"] == 99.0
     assert len(trading_store.plan_versions(tid)) == 2
+
+
+def test_invalidation_price_closes_deterministically(trading_store, acct):
+    # 失效价在止损内侧：价格跌到失效价（但未到止损）→ 引擎直接平仓，无需 Claude 重评
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    plan = _long_plan(sl_price=95.0, invalidation_price=97.0)
+    tid = eng.open_trade(acct["id"], plan)["trade_id"]
+    price["v"] = 96.5  # < 97 失效，但 > 95 止损
+    eng.tick(acct["id"])
+    tr = trading_store.get_trade(tid)
+    assert tr["status"] == "closed"
+    res = trading_store.get_result(tid)
+    assert res["exit_reason"] == "thesis_invalidated"
+
+
+def test_invalidation_wrong_side_ignored(trading_store, acct):
+    # 多单失效价填在进场之上（方向错）→ 忽略 + flag，不应在开仓瞬间触发
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    plan = _long_plan(invalidation_price=105.0)
+    res = eng.open_trade(acct["id"], plan)
+    tid = res["trade_id"]
+    assert trading_store.get_trade(tid)["status"] == "open"  # 没被秒平
+    plan_doc = trading_store.active_plan(tid)["plan"]
+    assert plan_doc["invalidation_price"] is None
+    assert any("失效价" in f for f in plan_doc["computed"]["flags"])
+
+
+def test_event_risk_haircut_reduces_position(trading_store, acct):
+    # 同一计划，risk_factor=0.5 → 仓位减半、风险额减半
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    full = eng.open_trade(acct["id"], _long_plan())
+    price["v"] = 100.0
+    # 第二笔的权益已被第一笔占用而略变，故用相对容差（重点是减半）
+    half = eng.open_trade(acct["id"], _long_plan(), risk_factor=0.5, risk_note="CPI 还有 3h")
+    assert half["qty"] == pytest.approx(full["qty"] / 2, rel=0.01)
+    plan_doc = trading_store.active_plan(half["trade_id"])["plan"]
+    assert plan_doc["computed"]["effective_risk_pct"] == pytest.approx(0.5)
+    assert any("事件邻近" in f for f in plan_doc["computed"]["flags"])
 
 
 def test_scorecard_aggregates(trading_store, acct):

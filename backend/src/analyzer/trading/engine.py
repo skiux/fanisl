@@ -28,7 +28,9 @@ class TradingEngine:
         self, store: TradingStore, *, price_fn: PriceFn,
         taker_fee_bps: float = 5.0, slippage_bps: float = 2.0,
         min_rr: float = 2.0, reeval_band_pct: float = 0.5,
-        time_stop_hours: float = 0.0, now_fn: Callable[[], datetime] = _now,
+        time_stop_hours: float = 0.0, entry_ttl_hours: float = 8.0,
+        reeval_cooldown_min: float = 30.0, reeval_grace_min: float = 15.0,
+        now_fn: Callable[[], datetime] = _now,
     ) -> None:
         self.store = store
         self.price_fn = price_fn
@@ -37,6 +39,9 @@ class TradingEngine:
         self.min_rr = min_rr
         self.reeval_band_pct = reeval_band_pct
         self.time_stop_hours = time_stop_hours
+        self.entry_ttl_hours = entry_ttl_hours
+        self.reeval_cooldown_min = reeval_cooldown_min
+        self.reeval_grace_min = reeval_grace_min
         self.now_fn = now_fn
 
     # --- 进场 -------------------------------------------------------------
@@ -44,27 +49,48 @@ class TradingEngine:
     def open_trade(
         self, account_id: int, plan: TradePlan, *,
         inputs: dict | None = None, prompt: str | None = None, response=None,
+        risk_factor: float = 1.0, risk_note: str | None = None,
+        atr_daily: float | None = None,
     ) -> dict:
-        """按计划开仓。校验不过 → 记为无效计划(planned)、不执行；过 → 市价/挂单进场。"""
+        """按计划开仓。校验不过 → 记为无效计划(planned)、不执行；过 → 市价/挂单进场。
+
+        risk_factor：事件邻近等外部风险调节（<1 自动给本笔风险打折，引擎裁决、非 Claude 决定）。
+        atr_daily：日线 ATR，用于 TP 可达性校验。
+        """
         acct = self.store.get_account(account_id)
         if acct is None:
             return {"ok": False, "error": "账户不存在"}
 
+        eff_risk_pct = plan.risk_pct * risk_factor  # 事件邻近打折后的实际风险
+        equity = self._equity(account_id)
         check = calc.validate_plan(
             side=plan.side, entry=plan.entry_price, sl=plan.sl_price, tps=plan.tp_targets,
-            leverage=plan.leverage, risk_pct=plan.risk_pct,
-            equity=self._equity(account_id), available_margin=acct["balance"],
+            leverage=plan.leverage, risk_pct=eff_risk_pct,
+            equity=equity, available_margin=acct["balance"],
             max_leverage=acct["max_leverage"], min_rr=self.min_rr,
+            atr_daily=atr_daily, holding_hours=plan.expected_holding_hours,
         )
-        risk_amount = self._equity(account_id) * (plan.risk_pct / 100.0)
+        risk_amount = equity * (eff_risk_pct / 100.0)
         plan_doc = {
             **plan.model_dump(),
             "computed": {
                 "qty": check.qty, "notional": check.notional, "margin": check.margin,
                 "rr": check.rr, "liquidation_price": check.liquidation_price,
                 "risk_amount": risk_amount, "flags": check.flags,
+                "risk_factor": risk_factor, "effective_risk_pct": round(eff_risk_pct, 4),
             },
         }
+        if risk_factor < 1.0 and risk_note:
+            check.flags.append(f"事件邻近（{risk_note}）：风险自动打折 {plan.risk_pct}%→{eff_risk_pct:.3f}%")
+        # 失效价方向校验：放错边会在开仓瞬间触发，直接忽略并记 flag
+        inv = plan.invalidation_price
+        if inv is not None and (
+            (plan.side == "long" and inv >= plan.entry_price)
+            or (plan.side == "short" and inv <= plan.entry_price)
+        ):
+            check.flags.append(f"失效价 {inv} 在进场不利侧之外（方向不对，已忽略）")
+            plan_doc["invalidation_price"] = None
+        plan_doc["computed"]["flags"] = check.flags
 
         trade_id = self.store.create_trade(
             account_id, plan.symbol, plan.side, plan.strategy_type, plan.leverage
@@ -87,18 +113,26 @@ class TradingEngine:
             self.store.add_order(
                 trade_id, kind="entry", price=plan.entry_price, qty=check.qty, fee=0.0,
                 actor="engine", status="pending", reason="限价挂单等待成交",
+                placed_at=self.now_fn(),
             )
             self.store.add_event(trade_id, "entry_pending", "engine",
                                  {"price": plan.entry_price, "qty": check.qty})
         return {"ok": True, "trade_id": trade_id, "rejected": False,
                 "qty": check.qty, "rr": check.rr, "flags": check.flags}
 
+    def _liq_price(self, account_id: int, entry: float, leverage: float, side: str) -> float | None:
+        """逐仓：算单仓强平价；全仓：返回 None——强平是账户级的（见 _cross_liq_check）。"""
+        acct = self.store.get_account(account_id)
+        if acct and acct["margin_mode"] == "cross":
+            return None
+        return calc.liquidation_price(entry, leverage, side)
+
     def _fill_entry(self, account_id, trade_id, plan: TradePlan, check, ref_price: float, *, slip: bool) -> None:
         fill = calc.apply_slippage(ref_price, plan.side, self.slippage_bps, is_entry=True) if slip else ref_price
         notional = calc.notional(check.qty, fill)
         entry_fee = calc.fee(notional, self.taker_fee_bps)
         margin = calc.margin_required(check.qty, fill, plan.leverage)
-        liq = calc.liquidation_price(fill, plan.leverage, plan.side)
+        liq = self._liq_price(account_id, fill, plan.leverage, plan.side)
         now = self.now_fn()
 
         self.store.adjust_balance(account_id, -(margin + entry_fee))
@@ -116,10 +150,38 @@ class TradingEngine:
         actions: list[dict] = []
         for tr in self.store.list_open_trades(account_id):
             actions.extend(self._tick_one(tr))
+        # 全仓模式：账户级强平（共享保证金，单仓不在 _tick_one 里逐仓爆）
+        if account_id is not None:
+            actions.extend(self._cross_liq_check(account_id))
         # 撮合待成交的限价进场
         for tr in self._planned_with_pending(account_id):
             actions.extend(self._try_fill_limit(tr))
         return actions
+
+    def _cross_liq_check(self, account_id: int) -> list[dict]:
+        """全仓强平：账户权益 ≤ 全部持仓维持保证金合计 → 一次性平掉所有持仓。"""
+        acct = self.store.get_account(account_id)
+        if acct is None or acct["margin_mode"] != "cross":
+            return []
+        opens = self.store.list_open_trades(account_id)
+        if not opens:
+            return []
+        now = self.now_fn()
+        maint = upnl = 0.0
+        marks: dict[int, float] = {}
+        for tr in opens:
+            mark = self.price_fn(tr["symbol"])
+            marks[tr["id"]] = mark
+            maint += calc.notional(tr["qty"], mark) * calc.MAINT_MARGIN_RATE
+            upnl += calc.pnl(tr["side"], tr["avg_entry"], mark, tr["qty"])
+        equity = acct["balance"] + self.store.used_margin(account_id) + upnl
+        if equity > maint:
+            return []
+        acts = []
+        for tr in opens:
+            self._close(tr, marks[tr["id"]], "liquidation", "engine", now)
+            acts.append({"trade_id": tr["id"], "action": "liquidation", "price": marks[tr["id"]]})
+        return acts
 
     def _planned_with_pending(self, account_id) -> list[dict]:
         trades = self.store.list_trades(account_id) if account_id else []
@@ -137,6 +199,16 @@ class TradingEngine:
 
     def _try_fill_limit(self, tr: dict) -> list[dict]:
         plan = self.store.active_plan(tr["id"])["plan"]
+        now = self.now_fn()
+        pend = next((o for o in self.store.orders(tr["id"])
+                     if o["kind"] == "entry" and o["status"] == "pending"), None)
+        # 限价单超时未成交 → 撤单作废（过时论点不应隔夜/隔周成交）
+        ttl_h = plan.get("entry_ttl_hours") or self.entry_ttl_hours
+        if pend and pend["placed_at"] and (now - pend["placed_at"]).total_seconds() >= ttl_h * 3600:
+            self.store.cancel_pending_entry(tr["id"], reason="限价单超时未成交")
+            self.store.add_event(tr["id"], "entry_expired", "engine",
+                                 {"ttl_hours": ttl_h, "entry_price": plan["entry_price"]})
+            return [{"trade_id": tr["id"], "action": "entry_expired"}]
         price = self.price_fn(tr["symbol"])
         entry = plan["entry_price"]
         side = tr["side"]
@@ -144,11 +216,7 @@ class TradingEngine:
         if not crossed:
             return []
         check = SimpleNamespace(**plan["computed"])  # 复用已算好的 qty
-        # 原 pending 进场单作废，按限价精确成交（不吃滑点）
-        for o in self.store.orders(tr["id"]):
-            if o["kind"] == "entry" and o["status"] == "pending":
-                with self.store.pool.connection() as conn:
-                    conn.execute("UPDATE orders SET status='cancelled' WHERE id=%s", (o["id"],))
+        self.store.void_pending_entry(tr["id"])  # 原挂单作废，按限价精确成交（不吃滑点）
         tp = TradePlan.model_validate(plan)
         self._fill_entry(tr["account_id"], tr["id"], tp, check, entry, slip=False)
         return [{"trade_id": tr["id"], "action": "limit_filled", "price": entry}]
@@ -163,8 +231,8 @@ class TradingEngine:
         liq = tr["liquidation_price"]
         acts: list[dict] = []
 
-        # 1) 强平
-        if (side == "long" and mark <= liq) or (side == "short" and mark >= liq):
+        # 1) 强平（逐仓：单仓 liq 价；全仓 liq 为 None，强平在 _cross_liq_check 账户级处理）
+        if liq is not None and ((side == "long" and mark <= liq) or (side == "short" and mark >= liq)):
             self._close(tr, liq, "liquidation", "engine", now)
             return [{"trade_id": tid, "action": "liquidation", "price": liq}]
         # 2) 止损
@@ -172,6 +240,12 @@ class TradingEngine:
             fill = calc.apply_slippage(sl, side, self.slippage_bps, is_entry=False)
             self._close(tr, fill, "sl", "engine", now)
             return [{"trade_id": tid, "action": "stop_loss", "price": fill}]
+        # 2.5) 结构失效价：穿越即逻辑被证伪，引擎确定性平仓（不等 Claude 重评，省掉慢回路损耗）
+        inv = plan.get("invalidation_price")
+        if inv is not None and ((side == "long" and mark <= inv) or (side == "short" and mark >= inv)):
+            fill = calc.apply_slippage(mark, side, self.slippage_bps, is_entry=False)
+            self._close(tr, fill, "thesis_invalidated", "engine", now)
+            return [{"trade_id": tid, "action": "invalidated", "price": fill}]
         # 3) 止盈（逐目标，按原始数量比例减仓）
         acts += self._check_take_profit(tr, plan, mark, now)
         tr = self.store.get_trade(tid)  # 减仓后刷新
@@ -223,7 +297,8 @@ class TradingEngine:
         elif adj.action == "move_sl" and adj.new_sl_price is not None:
             new_plan["sl_price"] = adj.new_sl_price
         elif adj.action == "partial_exit" and adj.reduce_pct:
-            qty = min(plan["computed"]["qty"] * adj.reduce_pct / 100.0, tr["qty"])
+            # 按**当前剩余仓位**算（不是原始仓位）——"减剩余的 50%" 不应在已减半后变成清仓
+            qty = min(tr["qty"] * adj.reduce_pct / 100.0, tr["qty"])
             if qty > 0:
                 self._reduce(tr, self.price_fn(tr["symbol"]), qty, "reduce", "claude", now)
         elif adj.action == "add" and adj.add_qty_pct:
@@ -248,7 +323,7 @@ class TradingEngine:
         new_qty = tr["qty"] + add_qty
         new_avg = (tr["avg_entry"] * tr["qty"] + price * add_qty) / new_qty
         new_margin = tr["margin"] + calc.margin_required(add_qty, price, tr["leverage"])
-        liq = calc.liquidation_price(new_avg, tr["leverage"], side)
+        liq = self._liq_price(tr["account_id"], new_avg, tr["leverage"], side)
         self.store.adjust_balance(tr["account_id"], -(calc.margin_required(add_qty, price, tr["leverage"]) + fee))
         self.store.update_position(tr["id"], qty=new_qty, avg_entry=new_avg, margin=new_margin, liq=liq)
         self.store.add_order(tr["id"], kind="add", price=price, qty=add_qty, fee=fee,
@@ -299,26 +374,66 @@ class TradingEngine:
         fees = sum(o["fee"] for o in orders)
         pnl_net = realized - fees
         risk_amount = plan["computed"].get("risk_amount") or 0.0
-        entry_margin = next((o for o in entries), None)
         margin0 = plan["computed"].get("margin") or 0.0
         opened = tr["opened_at"]
         holding_s = (now - opened).total_seconds() if opened else 0.0
         outcome = "win" if pnl_net > 1e-6 else "loss" if pnl_net < -1e-6 else "breakeven"
+        realized_r = round(pnl_net / risk_amount, 4) if risk_amount else None
+
+        # 评测度量 v2：MFE/MAE/出场效率 + 不管理反事实 + 管理层贡献（从盯市快照算）
+        snaps = self.store.position_snapshots(trade_id)
+        upnls = [s["upnl"] for s in snaps if s["upnl"] is not None]
+        marks = [s["mark"] for s in snaps if s["mark"] is not None]
+        mfe_r, mae_r = calc.mfe_mae_r(upnls, risk_amount)
+        exit_eff = round(realized_r / mfe_r, 4) if (realized_r is not None and mfe_r and mfe_r > 0) else None
+        tp1 = (plan["tp_targets"][0]["price"] if plan.get("tp_targets") else None)
+        # 反事实「不管理」基准：① 用**原始**进场(加仓属管理，不算基准) ② 把实际出场价补进价序列——
+        # 引擎在 SL/TP 触发那拍直接平仓、不写快照，不补的话反事实会漏掉"价格其实碰到了 SL/TP"
+        orig = next((o for o in entries if o["kind"] == "entry"), None)
+        exit_px = closes[-1]["price"] if closes else None
+        cf_marks = marks + ([exit_px] if exit_px is not None else [])
+        cf_r = mgmt = None
+        if orig and cf_marks and risk_amount:
+            cf_r = calc.counterfactual_r(
+                side, orig["price"], plan["sl_price"], tp1, cf_marks,
+                qty=orig["qty"], last_mark=cf_marks[-1], risk_amount=risk_amount,
+            )
+            if cf_r is not None and realized_r is not None:
+                mgmt = round(realized_r - cf_r, 4)
+
         self.store.save_result(
             trade_id,
             pnl_abs=round(pnl_net, 4),
             pnl_pct=round(pnl_net / margin0 * 100, 4) if margin0 else 0.0,
-            realized_r=round(pnl_net / risk_amount, 4) if risk_amount else None,
+            realized_r=realized_r,
             planned_r=plan["computed"].get("rr"),
+            mfe_r=mfe_r, mae_r=mae_r, exit_efficiency=exit_eff,
+            counterfactual_r=cf_r, mgmt_contribution_r=mgmt,
             holding_s=holding_s, exit_reason=reason, outcome=outcome, fees=round(fees, 4),
         )
 
     # --- 触发重评 / 快照 -------------------------------------------------
 
     def _maybe_flag_reeval(self, tr: dict, plan: dict, mark: float, now) -> None:
-        """价格逼近止损/最近止盈，或到时间止损 → 记一条待重评事件（去重，不重复刷）。"""
-        if self._has_open_reeval(tr["id"]):
+        """触发待重评——治理过电平触发造成的复评风暴：
+
+        - 已有未处理的重评 → 不叠加；
+        - 刚 adjust 过（宽限窗内）→ 不打扰，让动作生效；
+        - 距上次重评不足冷却窗 → 不再 storm；
+        - Claude 自定义唤醒条件**一次性**（命中过的同一条件不再重复触发）。
+        """
+        evs = self.store.events(tr["id"])
+        if self._has_open_reeval(evs):
             return
+        # 调整后宽限：刚动过手，给它生效时间，别立刻再叫
+        last_adjust = self._last_event_time(evs, lambda k: k.startswith("adjust_"))
+        if last_adjust and (now - last_adjust).total_seconds() < self.reeval_grace_min * 60:
+            return
+        # 冷却：距上次重评太近就别再触发（电平条件不该每拍刷）
+        last_need = self._last_event_time(evs, lambda k: k == "needs_review")
+        if last_need and (now - last_need).total_seconds() < self.reeval_cooldown_min * 60:
+            return
+
         reasons = []
         band = self.reeval_band_pct / 100.0
         sl = plan["sl_price"]
@@ -334,9 +449,25 @@ class TradingEngine:
         if self.time_stop_hours > 0 and tr["opened_at"]:
             if (now - tr["opened_at"]).total_seconds() >= self.time_stop_hours * 3600:
                 reasons.append("到时间止损")
-        reasons += self._wake_hits(tr, plan, mark, now)  # Claude 自定义唤醒条件
+        # Claude 自定义唤醒条件：命中过的同一条件不再重复触发（一次性）
+        fired = self._fired_wake_reasons(evs)
+        reasons += [r for r in self._wake_hits(tr, plan, mark, now) if r not in fired]
         if reasons:
             self.store.add_event(tr["id"], "needs_review", "engine", {"reasons": reasons, "mark": mark})
+
+    @staticmethod
+    def _last_event_time(evs: list[dict], pred) -> "datetime | None":
+        ts = [e["ts"] for e in evs if pred(e["kind"])]
+        return max(ts) if ts else None
+
+    @staticmethod
+    def _fired_wake_reasons(evs: list[dict]) -> set[str]:
+        fired: set[str] = set()
+        for e in evs:
+            if e["kind"] == "needs_review":
+                for r in (e.get("payload") or {}).get("reasons", []):
+                    fired.add(r)
+        return fired
 
     def _wake_hits(self, tr: dict, plan: dict, mark: float, now) -> list[str]:
         """评估计划里 Claude 声明的结构化唤醒条件，返回命中的描述。"""
@@ -361,8 +492,7 @@ class TradingEngine:
             elif t == "time_elapsed_hours" and elapsed_h >= v: hits.append(f"持仓≥{v}h")
         return hits
 
-    def _has_open_reeval(self, trade_id: int) -> bool:
-        evs = self.store.events(trade_id)
+    def _has_open_reeval(self, evs: list[dict]) -> bool:
         last_review = max((i for i, e in enumerate(evs) if e["kind"].startswith("adjust_")), default=-1)
         last_need = max((i for i, e in enumerate(evs) if e["kind"] == "needs_review"), default=-1)
         return last_need > last_review

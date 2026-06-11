@@ -639,7 +639,7 @@ const MarkdownRenderer = memo(
                     </div>
                   </div>
 
-                  <style jsx>{`
+                  <style>{`
                     .openai-code-container .overflow-x-auto::-webkit-scrollbar {
                       height: 8px;
                     }

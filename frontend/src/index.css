@@ -10,6 +10,7 @@ body,
 
 body {
   margin: 0;
+  overflow: hidden; /* 整页不滚动：导航栏固定，滚动只发生在各页内容区 */
   background: #f9fafb;
   color: #18181b;
   font-family: 'Geist Sans', system-ui, -apple-system, sans-serif;

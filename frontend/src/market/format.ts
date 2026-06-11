@@ -23,6 +23,34 @@ export function fmtSignedPct(v: number | null | undefined, digits = 2): string {
   return `${v >= 0 ? '+' : ''}${v.toFixed(digits)}%`
 }
 
+// 按登记表的 unit 格式化数值（前端展示用）
+export function fmtByUnit(v: number | null | undefined, unit: string): string {
+  if (v == null || Number.isNaN(v)) return '—'
+  switch (unit) {
+    case 'usd': return fmtUsd(v)
+    case 'price': return fmtNum(v)
+    case 'pct': return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
+    case 'rate': return (v * 100).toFixed(4) + '%'
+    case 'bps': return v.toFixed(3) + ' bps'
+    case 'score': return v.toFixed(0)
+    case 'ratio01': return v.toFixed(3)
+    case 'ratio': return v.toFixed(2) + '×'
+    case 'count': return fmtNum(v)
+    case 'tokens': return fmtNum(v)
+    case 'index': return v.toFixed(2)
+    default: return fmtNum(v)
+  }
+}
+
+// 历史跨度（天数 → 友好文字）
+export function fmtSpan(first?: string, last?: string): string {
+  if (!first || !last) return '—'
+  const days = (new Date(last).getTime() - new Date(first).getTime()) / 86400000
+  if (days >= 365) return `${(days / 365).toFixed(1)} 年`
+  if (days >= 1) return `${Math.round(days)} 天`
+  return '<1 天'
+}
+
 export function fmtTime(ts: string): string {
   const d = new Date(ts)
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(
