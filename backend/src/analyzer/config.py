@@ -10,6 +10,14 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class AccountSpec(BaseModel):
+    """评测账户规格。多账户做对照实验：A=自然(保留拒绝权)、B=强制交易、影子=机械镜像不被管理。"""
+    name: str
+    force: bool = False          # 强制交易模式（不允许"不交易"）
+    managed: bool = True         # Claude 是否参与持仓管理/复盘（影子账户=False，纯机械执行）
+    mirror_of: str | None = None # 影子账户镜像哪个真实账户的进场计划
+
+
 class IndicatorThresholds(BaseModel):
     """阈值化参数：raw 指标 → 语义标签。
 
@@ -122,10 +130,16 @@ class Settings(BaseSettings):
 
     # 交易评测台（纸面永续 + 杠杆，实时前向）
     trading_enabled: bool = True
-    trading_initial_balance: float = 10_000.0  # USDT
+    trading_initial_balance: float = 1_000.0    # USDT（每个评测账户）
     trading_default_risk_pct: float = 1.0       # 单笔默认风险占权益%
     trading_max_leverage: float = 10.0
-    trading_margin_mode: str = "isolated"       # isolated | cross
+    trading_margin_mode: str = "cross"          # isolated | cross（全仓：共享保证金、策略空间更大）
+    # 多账户对照实验：A=自然(保留拒绝权)、B=强制交易、影子=机械镜像 A 不被 Claude 管理
+    trading_accounts: list[AccountSpec] = [
+        AccountSpec(name="main"),
+        AccountSpec(name="forced", force=True),
+        AccountSpec(name="main_shadow", managed=False, mirror_of="main"),
+    ]
     trading_taker_fee_bps: float = 5.0          # 成交手续费（基点，1bp=0.01%）
     trading_slippage_bps: float = 2.0           # 市价成交滑点（基点）
     trading_min_rr: float = 2.0                 # 建议最小盈亏比（记录不硬卡）
@@ -145,6 +159,8 @@ class Settings(BaseSettings):
     # 事件邻近风险调节：高影响宏观事件临近时自动给单笔风险打折（而非粗暴拒绝）
     trading_event_blackout_hours: float = 12.0  # 高影响事件前此小时内进场 → 风险打折
     trading_event_risk_haircut: float = 0.5     # 打折系数：邻近事件时 risk_pct 上限 = 原计划 × 此值
+    # 拒绝力评测：到期后用价格变动校验"不交易"判断（朝 bias 方向走超过此 % = 错过 = 判错）
+    trading_decline_move_threshold_pct: float = 0.5
 
     # 自主扫描：Claude 定期在全标的里找机会，受仓位/风险上限约束
     trading_scan_enabled: bool = True

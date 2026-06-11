@@ -173,6 +173,48 @@ def test_force_trade_flag_flows_to_agent(trading_store, acct):
     assert agent.last_force is True  # 账户开关传到了 decide_entry
 
 
+def test_verify_declines_judges_against_bias(trading_store, acct):
+    from analyzer.config import Settings
+    price = {"v": 110.0}  # 现价比拒绝时(100)涨了 10%
+    st = Settings(trading_decline_move_threshold_pct=0.5)
+    svc = TradingService(trading_store, _engine(trading_store, price), FakeAgent(), settings=st)
+    # 拒绝时快照价 100，bias=long，立即可校验（recheck 0h）
+    inputs = {"snapshot": {"timeframes": {"1h": {"last_price": 100.0}}}}
+    trading_store.record_decline(acct["id"], "BTC/USDT", "结构不清",
+                                 recheck_after_hours=0.0, bias_if_forced="long", inputs=inputs)
+    out = svc.verify_declines(acct["id"])
+    assert len(out) == 1
+    # bias=long 且涨了 10% > 阈值 → 错过机会 → 拒绝判错
+    assert out[0]["correct"] is False and out[0]["move_pct"] == pytest.approx(10.0, rel=0.01)
+    # 已校验，不重复
+    assert svc.verify_declines(acct["id"]) == []
+
+
+def test_sync_shadows_mirrors_entry(trading_store, acct):
+    from analyzer.config import AccountSpec, Settings
+    price = {"v": 100.0}
+    shadow = trading_store.ensure_account(
+        "main_shadow", initial_balance=1_000.0, max_leverage=10.0,
+        margin_mode="cross", default_risk_pct=1.0,
+    )
+    st = Settings(trading_max_positions=9, trading_max_same_direction=9, trading_max_total_risk_pct=90.0)
+    svc = TradingService(trading_store, _engine(trading_store, price),
+                         FakeAgent(entry={"kind": "plan", "plan": _plan()}), settings=st)
+    src_tid = svc.open_trade(acct["id"], "BTC/USDT")["trade_id"]
+
+    accounts = [
+        {"id": acct["id"], "spec": AccountSpec(name="test"), "managed": True, "mirror_of": None},
+        {"id": shadow["id"], "spec": AccountSpec(name="main_shadow", managed=False, mirror_of="test"),
+         "managed": False, "mirror_of": "test"},
+    ]
+    out = svc.sync_shadows(accounts)
+    assert len(out) == 1 and out[0]["source_trade_id"] == src_tid
+    # 影子账户里多了一笔持仓
+    assert len(trading_store.list_open_trades(shadow["id"])) == 1
+    # 再同步一次不重复镜像
+    assert svc.sync_shadows(accounts) == []
+
+
 def test_manage_pending_applies_adjustment(trading_store, acct):
     price = {"v": 100.0}
     adj = Adjustment(action="move_sl", reason="保本", thesis_still_valid=True, new_sl_price=99.0)

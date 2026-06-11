@@ -114,6 +114,11 @@ CREATE TABLE IF NOT EXISTS trade_results (
     pnl_pct     DOUBLE PRECISION NOT NULL,     -- 相对初始保证金
     realized_r  DOUBLE PRECISION,              -- 实际盈亏 / 计划风险额
     planned_r   DOUBLE PRECISION,              -- 计划盈亏比
+    mfe_r       DOUBLE PRECISION,              -- 最大有利波动（R）
+    mae_r       DOUBLE PRECISION,              -- 最大不利波动（R）
+    exit_efficiency  DOUBLE PRECISION,         -- 实际R / MFE_R：吃到了多少有利波动
+    counterfactual_r DOUBLE PRECISION,         -- 不管理基准（原SL/TP谁先到）
+    mgmt_contribution_r DOUBLE PRECISION,      -- 管理层贡献 = 实际R − 反事实R
     holding_s   DOUBLE PRECISION NOT NULL,
     exit_reason TEXT NOT NULL,
     outcome     TEXT NOT NULL,                 -- win|loss|breakeven
@@ -166,6 +171,9 @@ class TradingStore:
                 ("recheck_outcome", "JSONB"),
             ]:
                 conn.execute(f"ALTER TABLE declines ADD COLUMN IF NOT EXISTS {col} {typ}")
+            for col in ("mfe_r", "mae_r", "exit_efficiency", "counterfactual_r",
+                        "mgmt_contribution_r"):
+                conn.execute(f"ALTER TABLE trade_results ADD COLUMN IF NOT EXISTS {col} DOUBLE PRECISION")
 
     # --- 账户 -------------------------------------------------------------
 
@@ -173,16 +181,31 @@ class TradingStore:
         self, name: str, *, initial_balance: float, max_leverage: float,
         margin_mode: str, default_risk_pct: float,
     ) -> dict:
-        """按 name 取或建账户（幂等）。返回账户行。"""
+        """按 name 取或建账户。新建时用给定条款；已存在但**还没交易过**则采用新条款
+        （让 config 对空账户有权威性，又绝不改动已在跑的账户，免得损坏进行中的实验）。
+        """
         with self.pool.connection() as conn:
             row = conn.execute("SELECT * FROM accounts WHERE name=%s", (name,)).fetchone()
-            if row:
-                return row
-            return conn.execute(
-                "INSERT INTO accounts(name, initial_balance, balance, max_leverage, "
-                "margin_mode, default_risk_pct) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
-                (name, initial_balance, initial_balance, max_leverage, margin_mode, default_risk_pct),
+            if row is None:
+                return conn.execute(
+                    "INSERT INTO accounts(name, initial_balance, balance, max_leverage, "
+                    "margin_mode, default_risk_pct) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
+                    (name, initial_balance, initial_balance, max_leverage, margin_mode, default_risk_pct),
+                ).fetchone()
+            traded = conn.execute(
+                "SELECT 1 FROM trades WHERE account_id=%s LIMIT 1", (row["id"],)
             ).fetchone()
+            if traded is None and (
+                row["margin_mode"] != margin_mode
+                or row["initial_balance"] != initial_balance
+                or row["max_leverage"] != max_leverage
+            ):
+                return conn.execute(
+                    "UPDATE accounts SET initial_balance=%s, balance=%s, max_leverage=%s, "
+                    "margin_mode=%s, default_risk_pct=%s WHERE id=%s RETURNING *",
+                    (initial_balance, initial_balance, max_leverage, margin_mode, default_risk_pct, row["id"]),
+                ).fetchone()
+            return row
 
     def get_account(self, account_id: int) -> dict | None:
         with self.pool.connection() as conn:
@@ -220,6 +243,17 @@ class TradingStore:
                 yield
             finally:
                 conn.execute("SELECT pg_advisory_unlock(%s, %s)", (_LOCK_NS, account_id))
+
+    def mirrored_source_ids(self, shadow_account_id: int) -> set[int]:
+        """影子账户里已镜像过的源交易 id 集合（避免重复镜像）。"""
+        with self.pool.connection() as conn:
+            rows = conn.execute(
+                "SELECT (e.payload->>'source_trade_id')::bigint AS src "
+                "FROM trade_events e JOIN trades t ON t.id=e.trade_id "
+                "WHERE t.account_id=%s AND e.kind='mirrored'",
+                (shadow_account_id,),
+            ).fetchall()
+        return {int(r["src"]) for r in rows if r["src"] is not None}
 
     def committed_trades(self, account_id: int) -> list[dict]:
         """占用账户额度的交易：持仓中 + 挂着限价进场单的（都算已承诺）。"""
@@ -429,11 +463,18 @@ class TradingStore:
         with self.pool.connection() as conn:
             conn.execute(
                 "INSERT INTO trade_results(trade_id, pnl_abs, pnl_pct, realized_r, planned_r, "
-                "holding_s, exit_reason, outcome, fees) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) "
+                "mfe_r, mae_r, exit_efficiency, counterfactual_r, mgmt_contribution_r, "
+                "holding_s, exit_reason, outcome, fees) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
                 "ON CONFLICT (trade_id) DO UPDATE SET pnl_abs=EXCLUDED.pnl_abs, pnl_pct=EXCLUDED.pnl_pct, "
-                "realized_r=EXCLUDED.realized_r, planned_r=EXCLUDED.planned_r, holding_s=EXCLUDED.holding_s, "
-                "exit_reason=EXCLUDED.exit_reason, outcome=EXCLUDED.outcome, fees=EXCLUDED.fees",
+                "realized_r=EXCLUDED.realized_r, planned_r=EXCLUDED.planned_r, mfe_r=EXCLUDED.mfe_r, "
+                "mae_r=EXCLUDED.mae_r, exit_efficiency=EXCLUDED.exit_efficiency, "
+                "counterfactual_r=EXCLUDED.counterfactual_r, mgmt_contribution_r=EXCLUDED.mgmt_contribution_r, "
+                "holding_s=EXCLUDED.holding_s, exit_reason=EXCLUDED.exit_reason, "
+                "outcome=EXCLUDED.outcome, fees=EXCLUDED.fees",
                 (trade_id, f["pnl_abs"], f["pnl_pct"], f.get("realized_r"), f.get("planned_r"),
+                 f.get("mfe_r"), f.get("mae_r"), f.get("exit_efficiency"),
+                 f.get("counterfactual_r"), f.get("mgmt_contribution_r"),
                  f["holding_s"], f["exit_reason"], f["outcome"], f.get("fees", 0.0)),
             )
 
@@ -470,6 +511,23 @@ class TradingStore:
                  Json(transcript) if transcript is not None else None),
             ).fetchone()
         return int(row["id"])
+
+    def declines_due_recheck(self, account_id: int, now) -> list[dict]:
+        """到期可校验的不交易决策：设了 recheck_after_hours、已过期、还没校验过、且有 bias。"""
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "SELECT id, symbol, bias_if_forced, inputs, created_at FROM declines "
+                "WHERE account_id=%s AND recheck_after_hours IS NOT NULL "
+                "AND bias_if_forced IS NOT NULL AND recheck_outcome IS NULL "
+                "AND created_at + (recheck_after_hours * interval '1 hour') <= %s",
+                (account_id, now),
+            ).fetchall()
+
+    def save_decline_outcome(self, decline_id: int, outcome: dict) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                "UPDATE declines SET recheck_outcome=%s WHERE id=%s", (Json(outcome), decline_id)
+            )
 
     def list_declines(self, account_id: int) -> list[dict]:
         with self.pool.connection() as conn:
@@ -511,14 +569,20 @@ class TradingStore:
         }
 
     def scorecard(self, account_id: int) -> dict:
-        """账户级评测聚合：笔数/胜率/期望R/盈利因子/平均R/总盈亏/最大回撤/纪律率/校准（现算）。"""
+        """账户级评测聚合 v2：胜率/期望R/盈利因子/回撤 + 出场效率/管理贡献/置信度校准/拒绝力。"""
         with self.pool.connection() as conn:
             results = conn.execute(
-                "SELECT r.* FROM trade_results r JOIN trades t ON t.id=r.trade_id "
+                "SELECT r.*, p.plan->>'confidence_pct' AS conf "
+                "FROM trade_results r JOIN trades t ON t.id=r.trade_id "
+                "LEFT JOIN trade_plans p ON p.trade_id=t.id AND p.version=1 "
                 "WHERE t.account_id=%s ORDER BY r.closed_at",
                 (account_id,),
             ).fetchall()
             acct = conn.execute("SELECT * FROM accounts WHERE id=%s", (account_id,)).fetchone()
+            declines = conn.execute(
+                "SELECT recheck_outcome FROM declines "
+                "WHERE account_id=%s AND recheck_outcome IS NOT NULL", (account_id,)
+            ).fetchall()
         n = len(results)
         if n == 0:
             return {"account_id": account_id, "closed_trades": 0,
@@ -528,6 +592,8 @@ class TradingStore:
         gross_win = sum(r["pnl_abs"] for r in wins)
         gross_loss = -sum(r["pnl_abs"] for r in losses)
         rs = [r["realized_r"] for r in results if r["realized_r"] is not None]
+        effs = [r["exit_efficiency"] for r in results if r["exit_efficiency"] is not None]
+        mgmts = [r["mgmt_contribution_r"] for r in results if r["mgmt_contribution_r"] is not None]
         # 最大回撤：按平仓顺序累计权益曲线
         eq = acct["initial_balance"] if acct else 0.0
         peak, max_dd = eq, 0.0
@@ -535,14 +601,52 @@ class TradingStore:
             eq += r["pnl_abs"]
             peak = max(peak, eq)
             max_dd = max(max_dd, peak - eq)
+
+        def _avg(xs):
+            return round(sum(xs) / len(xs), 3) if xs else None
+
         return {
             "account_id": account_id,
             "closed_trades": n,
             "win_rate": round(len(wins) / n, 3),
-            "avg_r": round(sum(rs) / len(rs), 3) if rs else None,
-            "expectancy_r": round(sum(rs) / len(rs), 3) if rs else None,
+            "avg_r": _avg(rs),
+            "expectancy_r": _avg(rs),
             "profit_factor": round(gross_win / gross_loss, 3) if gross_loss > 0 else None,
             "total_pnl": round(sum(r["pnl_abs"] for r in results), 2),
             "max_drawdown": round(max_dd, 2),
             "balance": acct["balance"] if acct else None,
+            # v2：出场效率（吃到多少有利波动）+ 管理层相对"不管理"的总贡献
+            "avg_exit_efficiency": _avg(effs),
+            "total_mgmt_contribution_r": round(sum(mgmts), 3) if mgmts else None,
+            "calibration": self._calibration(results),
+            "decline_accuracy": self._decline_accuracy(declines),
         }
+
+    @staticmethod
+    def _calibration(results: list[dict]) -> list[dict]:
+        """置信度校准：按 confidence 分桶对比实际胜率（理想应贴近对角线）。"""
+        buckets = [("<45", 0, 45), ("45-55", 45, 55), ("55-65", 55, 65), (">65", 65, 101)]
+        out = []
+        for label, lo, hi in buckets:
+            grp = []
+            for r in results:
+                try:
+                    c = float(r["conf"]) if r["conf"] is not None else None
+                except (TypeError, ValueError):
+                    c = None
+                if c is not None and lo <= c < hi:
+                    grp.append(r)
+            if grp:
+                wr = sum(1 for r in grp if r["outcome"] == "win") / len(grp)
+                out.append({"bucket": label, "n": len(grp), "win_rate": round(wr, 3)})
+        return out
+
+    @staticmethod
+    def _decline_accuracy(declines: list[dict]) -> dict | None:
+        """拒绝力：到期已校验的不交易决策里，判对的比例（recheck_outcome.correct）。"""
+        verified = [d["recheck_outcome"] for d in declines if d["recheck_outcome"]]
+        if not verified:
+            return None
+        correct = sum(1 for o in verified if o.get("correct"))
+        return {"verified": len(verified), "correct": correct,
+                "accuracy": round(correct / len(verified), 3)}

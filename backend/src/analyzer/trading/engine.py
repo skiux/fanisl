@@ -120,12 +120,19 @@ class TradingEngine:
         return {"ok": True, "trade_id": trade_id, "rejected": False,
                 "qty": check.qty, "rr": check.rr, "flags": check.flags}
 
+    def _liq_price(self, account_id: int, entry: float, leverage: float, side: str) -> float | None:
+        """逐仓：算单仓强平价；全仓：返回 None——强平是账户级的（见 _cross_liq_check）。"""
+        acct = self.store.get_account(account_id)
+        if acct and acct["margin_mode"] == "cross":
+            return None
+        return calc.liquidation_price(entry, leverage, side)
+
     def _fill_entry(self, account_id, trade_id, plan: TradePlan, check, ref_price: float, *, slip: bool) -> None:
         fill = calc.apply_slippage(ref_price, plan.side, self.slippage_bps, is_entry=True) if slip else ref_price
         notional = calc.notional(check.qty, fill)
         entry_fee = calc.fee(notional, self.taker_fee_bps)
         margin = calc.margin_required(check.qty, fill, plan.leverage)
-        liq = calc.liquidation_price(fill, plan.leverage, plan.side)
+        liq = self._liq_price(account_id, fill, plan.leverage, plan.side)
         now = self.now_fn()
 
         self.store.adjust_balance(account_id, -(margin + entry_fee))
@@ -143,10 +150,38 @@ class TradingEngine:
         actions: list[dict] = []
         for tr in self.store.list_open_trades(account_id):
             actions.extend(self._tick_one(tr))
+        # 全仓模式：账户级强平（共享保证金，单仓不在 _tick_one 里逐仓爆）
+        if account_id is not None:
+            actions.extend(self._cross_liq_check(account_id))
         # 撮合待成交的限价进场
         for tr in self._planned_with_pending(account_id):
             actions.extend(self._try_fill_limit(tr))
         return actions
+
+    def _cross_liq_check(self, account_id: int) -> list[dict]:
+        """全仓强平：账户权益 ≤ 全部持仓维持保证金合计 → 一次性平掉所有持仓。"""
+        acct = self.store.get_account(account_id)
+        if acct is None or acct["margin_mode"] != "cross":
+            return []
+        opens = self.store.list_open_trades(account_id)
+        if not opens:
+            return []
+        now = self.now_fn()
+        maint = upnl = 0.0
+        marks: dict[int, float] = {}
+        for tr in opens:
+            mark = self.price_fn(tr["symbol"])
+            marks[tr["id"]] = mark
+            maint += calc.notional(tr["qty"], mark) * calc.MAINT_MARGIN_RATE
+            upnl += calc.pnl(tr["side"], tr["avg_entry"], mark, tr["qty"])
+        equity = acct["balance"] + self.store.used_margin(account_id) + upnl
+        if equity > maint:
+            return []
+        acts = []
+        for tr in opens:
+            self._close(tr, marks[tr["id"]], "liquidation", "engine", now)
+            acts.append({"trade_id": tr["id"], "action": "liquidation", "price": marks[tr["id"]]})
+        return acts
 
     def _planned_with_pending(self, account_id) -> list[dict]:
         trades = self.store.list_trades(account_id) if account_id else []
@@ -196,8 +231,8 @@ class TradingEngine:
         liq = tr["liquidation_price"]
         acts: list[dict] = []
 
-        # 1) 强平
-        if (side == "long" and mark <= liq) or (side == "short" and mark >= liq):
+        # 1) 强平（逐仓：单仓 liq 价；全仓 liq 为 None，强平在 _cross_liq_check 账户级处理）
+        if liq is not None and ((side == "long" and mark <= liq) or (side == "short" and mark >= liq)):
             self._close(tr, liq, "liquidation", "engine", now)
             return [{"trade_id": tid, "action": "liquidation", "price": liq}]
         # 2) 止损
@@ -288,7 +323,7 @@ class TradingEngine:
         new_qty = tr["qty"] + add_qty
         new_avg = (tr["avg_entry"] * tr["qty"] + price * add_qty) / new_qty
         new_margin = tr["margin"] + calc.margin_required(add_qty, price, tr["leverage"])
-        liq = calc.liquidation_price(new_avg, tr["leverage"], side)
+        liq = self._liq_price(tr["account_id"], new_avg, tr["leverage"], side)
         self.store.adjust_balance(tr["account_id"], -(calc.margin_required(add_qty, price, tr["leverage"]) + fee))
         self.store.update_position(tr["id"], qty=new_qty, avg_entry=new_avg, margin=new_margin, liq=liq)
         self.store.add_order(tr["id"], kind="add", price=price, qty=add_qty, fee=fee,
@@ -344,12 +379,32 @@ class TradingEngine:
         opened = tr["opened_at"]
         holding_s = (now - opened).total_seconds() if opened else 0.0
         outcome = "win" if pnl_net > 1e-6 else "loss" if pnl_net < -1e-6 else "breakeven"
+        realized_r = round(pnl_net / risk_amount, 4) if risk_amount else None
+
+        # 评测度量 v2：MFE/MAE/出场效率 + 不管理反事实 + 管理层贡献（从盯市快照算）
+        snaps = self.store.position_snapshots(trade_id)
+        upnls = [s["upnl"] for s in snaps if s["upnl"] is not None]
+        marks = [s["mark"] for s in snaps if s["mark"] is not None]
+        mfe_r, mae_r = calc.mfe_mae_r(upnls, risk_amount)
+        exit_eff = round(realized_r / mfe_r, 4) if (realized_r is not None and mfe_r and mfe_r > 0) else None
+        tp1 = (plan["tp_targets"][0]["price"] if plan.get("tp_targets") else None)
+        cf_r = mgmt = None
+        if marks and risk_amount:
+            cf_r = calc.counterfactual_r(
+                side, vwap_entry, plan["sl_price"], tp1, marks,
+                qty=ent_qty, last_mark=marks[-1], risk_amount=risk_amount,
+            )
+            if cf_r is not None and realized_r is not None:
+                mgmt = round(realized_r - cf_r, 4)
+
         self.store.save_result(
             trade_id,
             pnl_abs=round(pnl_net, 4),
             pnl_pct=round(pnl_net / margin0 * 100, 4) if margin0 else 0.0,
-            realized_r=round(pnl_net / risk_amount, 4) if risk_amount else None,
+            realized_r=realized_r,
             planned_r=plan["computed"].get("rr"),
+            mfe_r=mfe_r, mae_r=mae_r, exit_efficiency=exit_eff,
+            counterfactual_r=cf_r, mgmt_contribution_r=mgmt,
             holding_s=holding_s, exit_reason=reason, outcome=outcome, fees=round(fees, 4),
         )
 

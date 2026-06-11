@@ -12,6 +12,7 @@ from ..config import Settings
 from ..data.instruments import tradeable_canonicals
 from . import calc
 from .engine import TradingEngine
+from .models import TradePlan
 from .store import TradingStore
 from .trade_agent import TradeAgent
 
@@ -39,6 +40,7 @@ class TradingService:
             "equity": round(self.engine._equity(account_id), 2),
             "used_margin": round(self.store.used_margin(account_id), 2),
             "max_leverage": acct["max_leverage"],
+            "margin_mode": acct["margin_mode"],
             "default_risk_pct": acct["default_risk_pct"],
             "force_trade": bool(acct["force_trade"]),
             "open_positions": [
@@ -189,6 +191,44 @@ class TradingService:
             "opened": opened, "market_note": result.market_note, "skipped": sc.get("skipped"),
         }
 
+    # --- 影子账户：机械镜像（免费对照组，无 Claude）---------------------
+
+    def sync_shadows(self, accounts: list[dict]) -> list[dict]:
+        """把被镜像账户的新开仓机械复制到影子账户：同样的 v1 计划、引擎自动执行，
+        全程无 Claude 管理。这样每笔真实交易都有一个"不管理"的精确对照（管理增益逐笔可算）。
+        """
+        name_to_id = {a["spec"].name: a["id"] for a in accounts}
+        out: list[dict] = []
+        for a in accounts:
+            spec = a["spec"]
+            if spec.managed or not spec.mirror_of:
+                continue
+            src_id = name_to_id.get(spec.mirror_of)
+            if src_id is None:
+                continue
+            shadow_id = a["id"]
+            mirrored = self.store.mirrored_source_ids(shadow_id)
+            for tr in self.store.list_open_trades(src_id):
+                if tr["id"] in mirrored:
+                    continue
+                versions = self.store.plan_versions(tr["id"])
+                if not versions:
+                    continue
+                try:
+                    plan = TradePlan.model_validate(versions[0]["plan"])
+                except Exception:  # noqa: BLE001 — 计划无法重建则跳过
+                    continue
+                with self.store.account_lock(shadow_id):
+                    cap = self._check_capacity(shadow_id, plan)
+                    if not cap["ok"]:
+                        continue
+                    res = self.engine.open_trade(shadow_id, plan, inputs={"mirror_of": tr["id"]})
+                if res.get("trade_id"):
+                    self.store.add_event(res["trade_id"], "mirrored", "engine",
+                                         {"source_trade_id": tr["id"], "source_account": src_id})
+                    out.append({"shadow_trade_id": res["trade_id"], "source_trade_id": tr["id"]})
+        return out
+
     # --- 持仓中自主管理 --------------------------------------------------
 
     def manage_pending(self, account_id: int) -> list[dict]:
@@ -204,6 +244,43 @@ class TradingService:
             except Exception as e:  # noqa: BLE001 — best-effort，引擎撮合不受影响
                 self.store.add_event(tr["id"], "manage_error", "engine", {"error": str(e)[:200]})
         return acted
+
+    # --- 拒绝力校验：到期后用价格变动判"不交易"对错 -------------------
+
+    def verify_declines(self, account_id: int) -> list[dict]:
+        """到期的不交易决策：朝 bias_if_forced 方向走超过阈值 = 错过机会（判错），否则判对。"""
+        from datetime import datetime, timezone
+        thr = (self.settings.trading_decline_move_threshold_pct if self.settings else 0.5) / 100.0
+        out: list[dict] = []
+        for d in self.store.declines_due_recheck(account_id, datetime.now(timezone.utc)):
+            price_then = self._inputs_last_price(d.get("inputs"))
+            if not price_then:
+                continue
+            try:
+                price_now = self.engine.price_fn(d["symbol"])
+            except Exception:  # noqa: BLE001 — 取价失败下次再校验
+                continue
+            ret = (price_now - price_then) / price_then
+            move = ret if d["bias_if_forced"] == "long" else -ret  # 朝 bias 方向的收益
+            # 朝该方向显著上涨 = 本可赚 = 拒绝判错（错过）；否则拒绝判对（避开了）
+            correct = move <= thr
+            outcome = {"correct": correct, "price_then": price_then, "price_now": price_now,
+                       "move_pct": round(move * 100, 3), "bias": d["bias_if_forced"]}
+            self.store.save_decline_outcome(d["id"], outcome)
+            out.append({"decline_id": d["id"], **outcome})
+        return out
+
+    @staticmethod
+    def _inputs_last_price(inputs) -> float | None:
+        tfs = ((inputs or {}).get("snapshot") or {}).get("timeframes") or {}
+        for tf in ("5m", "15m", "1h", "4h", "1d"):
+            lp = (tfs.get(tf) or {}).get("last_price")
+            if lp:
+                return float(lp)
+        for v in tfs.values():
+            if v.get("last_price"):
+                return float(v["last_price"])
+        return None
 
     # --- 平仓后自动复盘 --------------------------------------------------
 
@@ -228,10 +305,11 @@ class TradingService:
         return self.engine.tick(account_id)
 
     def manage_and_review(self, account_id: int) -> dict:
-        """低频 Claude 部分：响应待重评 + 复盘已平仓（best-effort）。"""
+        """低频部分：响应待重评 + 复盘已平仓（调 Claude）+ 校验到期的不交易决策（纯算）。"""
         return {
             "managed": self.manage_pending(account_id),
             "reviewed": self.review_closed(account_id),
+            "declines_verified": self.verify_declines(account_id),
         }
 
     def cycle(self, account_id: int) -> dict:

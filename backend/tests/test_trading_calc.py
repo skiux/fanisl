@@ -4,10 +4,12 @@ from datetime import datetime, timedelta, timezone
 
 from analyzer.trading.calc import (
     apply_slippage,
+    counterfactual_r,
     event_risk_factor,
     fee,
     liquidation_price,
     margin_required,
+    mfe_mae_r,
     pnl,
     position_size,
     reward_risk,
@@ -121,3 +123,27 @@ def test_tp_reachable():
     assert tp_reachable(1000, 1200, 100, 24, 1.5)[0] is False  # 距 200 > 150
     # 数据缺失 → 不拦
     assert tp_reachable(1000, 9999, 0, 24, 1.5)[0] is True
+
+
+def test_mfe_mae_r():
+    # 浮盈亏序列 [+50,-30,+80]，风险额 100 → MFE 0.8R、MAE -0.3R
+    assert mfe_mae_r([50, -30, 80], 100) == (0.8, -0.3)
+    assert mfe_mae_r([], 100) == (None, None)
+
+
+def test_counterfactual_r_sl_first():
+    # 多单 entry100 sl95 tp110；先跌到 94（破SL）→ 反事实 -1R
+    assert counterfactual_r("long", 100, 95, 110, [98, 94, 112], qty=20,
+                            last_mark=112, risk_amount=100) == -1.0
+
+
+def test_counterfactual_r_tp_first():
+    # 先涨到 110（到TP1）→ 反事实 = 计划盈亏比 |110-100|/|100-95| = 2.0
+    assert counterfactual_r("long", 100, 95, 110, [102, 111, 96], qty=20,
+                            last_mark=96, risk_amount=100) == 2.0
+
+
+def test_counterfactual_r_neither_marks_to_last():
+    # 都没碰到 → 按最后一帧标记价：(105-100)*20/100 = 1.0R
+    assert counterfactual_r("long", 100, 95, 120, [101, 103, 105], qty=20,
+                            last_mark=105, risk_amount=100) == 1.0

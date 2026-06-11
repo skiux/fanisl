@@ -128,6 +128,39 @@ def reward_risk(entry: float, sl: float, tps: list[TpTarget], side: Side) -> flo
     return reward / risk
 
 
+def mfe_mae_r(upnls: list[float], risk_amount: float) -> tuple[float | None, float | None]:
+    """从盯市浮盈亏序列算最大有利/不利波动（以风险额 R 为单位）。"""
+    if not upnls or risk_amount <= 0:
+        return None, None
+    return round(max(upnls) / risk_amount, 4), round(min(upnls) / risk_amount, 4)
+
+
+def counterfactual_r(
+    side: Side, entry: float, sl: float, tp1: float | None,
+    marks: list[float], qty: float, last_mark: float, risk_amount: float,
+) -> float | None:
+    """反事实「不做任何管理」基准 R：从入场起走盯市价，原始 SL / TP1 谁先到。
+
+    SL 先到 → -1R；TP1 先到 → 计划到 TP1 的盈亏比；都没到 → 按最后一帧标记价核算。
+    管理层贡献 = 实际 R − 反事实 R（提前砍/移损/减仓相对"拿住不动"赚了多少）。
+    """
+    if risk_amount <= 0:
+        return None
+    risk_dist = abs(entry - sl)
+    for m in marks:
+        if side == "long":
+            if m <= sl:
+                return -1.0
+            if tp1 is not None and m >= tp1:
+                return round(abs(tp1 - entry) / risk_dist, 4) if risk_dist else None
+        else:
+            if m >= sl:
+                return -1.0
+            if tp1 is not None and m <= tp1:
+                return round(abs(tp1 - entry) / risk_dist, 4) if risk_dist else None
+    return round(pnl(side, entry, last_mark, qty) / risk_amount, 4)
+
+
 @dataclass
 class PlanCheck:
     ok: bool

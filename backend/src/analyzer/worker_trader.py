@@ -19,20 +19,34 @@ def main() -> None:
     if not rt.settings.trading_enabled:
         raise SystemExit("trading_enabled=false，trader 不启动。")
     acquire_single_instance(rt.trading_pool, LOCK_TRADER, "trader")
-    svc, acct = rt.trading_service, rt.ACCOUNT_ID
+    svc = rt.trading_service
+    all_ids = [a["id"] for a in rt.ACCOUNTS]
+    managed_ids = [a["id"] for a in rt.ACCOUNTS if a["managed"]]
 
-    # 快线程：盯市（确定性，必须及时）
+    def mark_all() -> list:
+        out = []
+        for aid in all_ids:
+            out += svc.mark(aid)
+        # 影子账户：把被镜像账户的新计划机械复制过来（无 Claude）
+        svc.sync_shadows(rt.ACCOUNTS)
+        return out
+
+    def manage_all() -> list:
+        return [svc.manage_and_review(aid) for aid in managed_ids]
+
+    def scan_all() -> list:
+        return [svc.scan(aid) for aid in managed_ids]
+
+    # 快线程：盯市（确定性，必须及时）——所有账户
     fast = Scheduler([
-        ("trading_mark", rt.settings.trading_mark_interval_s, lambda: svc.mark(acct)),
+        ("trading_mark", rt.settings.trading_mark_interval_s, mark_all),
     ])
-    # 慢线程：Claude 决策（管理 + 扫描），可阻塞，不碰盯市
+    # 慢线程：Claude 决策（管理 + 扫描），可阻塞，不碰盯市——仅被管理账户
     decision_jobs = [
-        ("trading_manage", rt.settings.trading_tick_interval_s, lambda: svc.manage_and_review(acct)),
+        ("trading_manage", rt.settings.trading_tick_interval_s, manage_all),
     ]
     if rt.settings.trading_scan_enabled:
-        decision_jobs.append(
-            ("trading_scan", rt.settings.trading_scan_interval_s, lambda: svc.scan(acct))
-        )
+        decision_jobs.append(("trading_scan", rt.settings.trading_scan_interval_s, scan_all))
     slow = Scheduler(decision_jobs)
 
     run_workers([fast, slow], name="trader")

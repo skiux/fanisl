@@ -18,6 +18,8 @@ from .agent import final_text
 from .marketstore import GLOBAL
 from .runtime import (
     ACCOUNT_ID,
+    ACCOUNT_IDS,
+    ACCOUNTS,
     agent,
     market_store,
     pool,
@@ -203,8 +205,35 @@ def collection_status() -> dict:
 # --- 交易评测台 -----------------------------------------------------------
 
 
+def _resolve_account(account: str | None) -> int:
+    """account 名 → id（默认 main，向后兼容无参调用）。未知名 → 400。"""
+    if not account:
+        return ACCOUNT_ID
+    if account in ACCOUNT_IDS:
+        return ACCOUNT_IDS[account]
+    if account.isdigit() and int(account) in ACCOUNT_IDS.values():
+        return int(account)
+    raise HTTPException(status_code=400, detail=f"未知账户 {account}")
+
+
+@app.get("/trading/accounts")
+def trading_accounts() -> list[dict]:
+    """全部评测账户（多账户对照实验：A 自然 / B 强制 / 影子）。前端账户切换用。"""
+    out = []
+    for a in ACCOUNTS:
+        spec = a["spec"]
+        out.append({
+            "name": spec.name, "id": a["id"],
+            "force": spec.force, "managed": spec.managed, "mirror_of": spec.mirror_of,
+            "summary": trading_service.account_summary(a["id"]),
+            "scorecard": trading_store.scorecard(a["id"]),
+        })
+    return out
+
+
 class OpenTradeRequest(BaseModel):
     symbol: str
+    account: str | None = None
 
 
 @app.post("/trading/open")
@@ -214,30 +243,30 @@ def trading_open(req: OpenTradeRequest) -> dict:
     if not sym:
         raise HTTPException(status_code=400, detail="symbol 不能为空")
     try:
-        return trading_service.open_trade(ACCOUNT_ID, sym)
+        return trading_service.open_trade(_resolve_account(req.account), sym)
     except anthropic.APIError as e:
         raise HTTPException(status_code=502, detail=f"Claude API 错误: {e}") from e
 
 
 @app.post("/trading/tick")
-def trading_tick() -> dict:
+def trading_tick(account: str | None = None) -> dict:
     """手动推进一拍：撮合/盯市/止损止盈 + 触发的自主管理/复盘。"""
-    return trading_service.cycle(ACCOUNT_ID)
+    return trading_service.cycle(_resolve_account(account))
 
 
 @app.post("/trading/scan")
-def trading_scan() -> dict:
+def trading_scan(account: str | None = None) -> dict:
     """手动触发一次自主扫描（同调度器的 4h 任务）。同步调用 Claude，可能耗时。"""
     try:
-        return trading_service.scan(ACCOUNT_ID)
+        return trading_service.scan(_resolve_account(account))
     except anthropic.APIError as e:
         raise HTTPException(status_code=502, detail=f"Claude API 错误: {e}") from e
 
 
 @app.get("/trading/positions")
-def trading_positions() -> list[dict]:
+def trading_positions(account: str | None = None) -> list[dict]:
     """持仓实时状态：每笔未平仓交易的最新盯市快照 + 计划止损止盈。"""
-    return trading_service.open_positions(ACCOUNT_ID)
+    return trading_service.open_positions(_resolve_account(account))
 
 
 @app.get("/trading/symbols")
@@ -247,27 +276,30 @@ def trading_symbols() -> dict:
 
 
 @app.get("/trading/account")
-def trading_account() -> dict:
+def trading_account(account: str | None = None) -> dict:
+    aid = _resolve_account(account)
     return {
-        "summary": trading_service.account_summary(ACCOUNT_ID),
-        "scorecard": trading_store.scorecard(ACCOUNT_ID),
+        "summary": trading_service.account_summary(aid),
+        "scorecard": trading_store.scorecard(aid),
     }
 
 
 class ForceTradeRequest(BaseModel):
     enabled: bool
+    account: str | None = None
 
 
 @app.patch("/trading/account/force")
 def trading_set_force(req: ForceTradeRequest) -> dict:
     """强制交易开关：开启后 Claude 进场决策不允许"不交易"。"""
-    trading_store.set_force_trade(ACCOUNT_ID, req.enabled)
+    aid = _resolve_account(req.account)
+    trading_store.set_force_trade(aid, req.enabled)
     return {"force_trade": req.enabled}
 
 
 @app.get("/trading/trades")
-def trading_trades() -> list[dict]:
-    return trading_store.list_trades(ACCOUNT_ID)
+def trading_trades(account: str | None = None) -> list[dict]:
+    return trading_store.list_trades(_resolve_account(account))
 
 
 @app.get("/trading/trades/{trade_id}")
@@ -291,8 +323,8 @@ def trading_cancel(trade_id: int) -> dict:
 
 
 @app.get("/trading/declines")
-def trading_declines() -> list[dict]:
-    return trading_store.list_declines(ACCOUNT_ID)
+def trading_declines(account: str | None = None) -> list[dict]:
+    return trading_store.list_declines(_resolve_account(account))
 
 
 @app.get("/conversations")

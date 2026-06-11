@@ -166,6 +166,42 @@ def test_liquidation(trading_store, acct):
     assert res["exit_reason"] == "liquidation" and res["outcome"] == "loss"
 
 
+@pytest.fixture
+def cross_acct(trading_store):
+    return trading_store.ensure_account(
+        "cross", initial_balance=1_000.0, max_leverage=10.0,
+        margin_mode="cross", default_risk_pct=1.0,
+    )
+
+
+def test_cross_position_has_no_isolated_liq_and_survives_deeper(trading_store, cross_acct):
+    # 全仓：单仓没有 isolated 强平价，浮亏由整个账户缓冲，不在逐仓 liq 价被打掉
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    plan = _long_plan(sl_price=80.0, leverage=10.0,
+                      tp_targets=[TpTarget(price=130, reduce_pct=100)])
+    tid = eng.open_trade(cross_acct["id"], plan)["trade_id"]
+    assert trading_store.get_trade(tid)["liquidation_price"] is None
+    price["v"] = 91.0  # 逐仓 10x 早该爆(~90.5)，但全仓账户权益仍充足 → 不强平
+    eng.tick(cross_acct["id"])
+    assert trading_store.get_trade(tid)["status"] == "open"
+
+
+def test_cross_account_level_liquidation(trading_store, cross_acct):
+    # 全仓：止损放得极远、仓位占满保证金 → 价格大跌吃穿账户权益 → 账户级强平
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    # sl=10 形同无止损、满仓（margin≈本金），用大 risk_pct 把仓位顶到保证金上限
+    plan = _long_plan(risk_pct=850.0, leverage=10.0, sl_price=10.0,
+                      tp_targets=[TpTarget(price=200, reduce_pct=100)])
+    tid = eng.open_trade(cross_acct["id"], plan)["trade_id"]
+    assert trading_store.get_trade(tid)["status"] == "open"
+    price["v"] = 80.0  # 远未触及 sl=10，但浮亏吃穿账户 → 账户级强平
+    eng.tick(cross_acct["id"])
+    res = trading_store.get_result(tid)
+    assert res is not None and res["exit_reason"] == "liquidation"
+
+
 def test_invalid_plan_recorded_not_executed(trading_store, acct):
     price = {"v": 100.0}
     eng = _engine(trading_store, price)
