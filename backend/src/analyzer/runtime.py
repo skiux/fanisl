@@ -50,6 +50,9 @@ trade_engine = TradingEngine(
     taker_fee_bps=settings.trading_taker_fee_bps, slippage_bps=settings.trading_slippage_bps,
     min_rr=settings.trading_min_rr, reeval_band_pct=settings.trading_reeval_band_pct,
     time_stop_hours=settings.trading_time_stop_hours,
+    entry_ttl_hours=settings.trading_entry_ttl_hours,
+    reeval_cooldown_min=settings.trading_reeval_cooldown_min,
+    reeval_grace_min=settings.trading_reeval_grace_min,
 )
 trade_agent = TradeAgent(settings, resolver, sentiment, catalysts, market_store)
 trading_service = TradingService(trading_store, trade_engine, trade_agent, settings=settings)

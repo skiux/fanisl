@@ -28,7 +28,9 @@ class TradingEngine:
         self, store: TradingStore, *, price_fn: PriceFn,
         taker_fee_bps: float = 5.0, slippage_bps: float = 2.0,
         min_rr: float = 2.0, reeval_band_pct: float = 0.5,
-        time_stop_hours: float = 0.0, now_fn: Callable[[], datetime] = _now,
+        time_stop_hours: float = 0.0, entry_ttl_hours: float = 8.0,
+        reeval_cooldown_min: float = 30.0, reeval_grace_min: float = 15.0,
+        now_fn: Callable[[], datetime] = _now,
     ) -> None:
         self.store = store
         self.price_fn = price_fn
@@ -37,6 +39,9 @@ class TradingEngine:
         self.min_rr = min_rr
         self.reeval_band_pct = reeval_band_pct
         self.time_stop_hours = time_stop_hours
+        self.entry_ttl_hours = entry_ttl_hours
+        self.reeval_cooldown_min = reeval_cooldown_min
+        self.reeval_grace_min = reeval_grace_min
         self.now_fn = now_fn
 
     # --- 进场 -------------------------------------------------------------
@@ -87,6 +92,7 @@ class TradingEngine:
             self.store.add_order(
                 trade_id, kind="entry", price=plan.entry_price, qty=check.qty, fee=0.0,
                 actor="engine", status="pending", reason="限价挂单等待成交",
+                placed_at=self.now_fn(),
             )
             self.store.add_event(trade_id, "entry_pending", "engine",
                                  {"price": plan.entry_price, "qty": check.qty})
@@ -137,6 +143,16 @@ class TradingEngine:
 
     def _try_fill_limit(self, tr: dict) -> list[dict]:
         plan = self.store.active_plan(tr["id"])["plan"]
+        now = self.now_fn()
+        pend = next((o for o in self.store.orders(tr["id"])
+                     if o["kind"] == "entry" and o["status"] == "pending"), None)
+        # 限价单超时未成交 → 撤单作废（过时论点不应隔夜/隔周成交）
+        ttl_h = plan.get("entry_ttl_hours") or self.entry_ttl_hours
+        if pend and pend["placed_at"] and (now - pend["placed_at"]).total_seconds() >= ttl_h * 3600:
+            self.store.cancel_pending_entry(tr["id"], reason="限价单超时未成交")
+            self.store.add_event(tr["id"], "entry_expired", "engine",
+                                 {"ttl_hours": ttl_h, "entry_price": plan["entry_price"]})
+            return [{"trade_id": tr["id"], "action": "entry_expired"}]
         price = self.price_fn(tr["symbol"])
         entry = plan["entry_price"]
         side = tr["side"]
@@ -144,11 +160,7 @@ class TradingEngine:
         if not crossed:
             return []
         check = SimpleNamespace(**plan["computed"])  # 复用已算好的 qty
-        # 原 pending 进场单作废，按限价精确成交（不吃滑点）
-        for o in self.store.orders(tr["id"]):
-            if o["kind"] == "entry" and o["status"] == "pending":
-                with self.store.pool.connection() as conn:
-                    conn.execute("UPDATE orders SET status='cancelled' WHERE id=%s", (o["id"],))
+        self.store.void_pending_entry(tr["id"])  # 原挂单作废，按限价精确成交（不吃滑点）
         tp = TradePlan.model_validate(plan)
         self._fill_entry(tr["account_id"], tr["id"], tp, check, entry, slip=False)
         return [{"trade_id": tr["id"], "action": "limit_filled", "price": entry}]
@@ -223,7 +235,8 @@ class TradingEngine:
         elif adj.action == "move_sl" and adj.new_sl_price is not None:
             new_plan["sl_price"] = adj.new_sl_price
         elif adj.action == "partial_exit" and adj.reduce_pct:
-            qty = min(plan["computed"]["qty"] * adj.reduce_pct / 100.0, tr["qty"])
+            # 按**当前剩余仓位**算（不是原始仓位）——"减剩余的 50%" 不应在已减半后变成清仓
+            qty = min(tr["qty"] * adj.reduce_pct / 100.0, tr["qty"])
             if qty > 0:
                 self._reduce(tr, self.price_fn(tr["symbol"]), qty, "reduce", "claude", now)
         elif adj.action == "add" and adj.add_qty_pct:

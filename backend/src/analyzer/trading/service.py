@@ -32,6 +32,7 @@ class TradingService:
         opens = self.store.list_open_trades(account_id)
         return {
             "balance": round(acct["balance"], 2),
+            "initial_balance": acct["initial_balance"],
             "equity": round(self.engine._equity(account_id), 2),
             "used_margin": round(self.store.used_margin(account_id), 2),
             "max_leverage": acct["max_leverage"],
@@ -48,18 +49,54 @@ class TradingService:
     def open_trade(self, account_id: int, symbol: str) -> dict:
         summary = self.account_summary(account_id)
         force = bool(summary.get("force_trade"))
-        d = self.agent.decide_entry(symbol, summary, force=force)
-        if d["kind"] == "plan":
-            res = self.engine.open_trade(
-                account_id, d["plan"], inputs=d["inputs"], response=d["transcript"]
+        d = self.agent.decide_entry(symbol, summary, force=force)  # Claude（慢），不持锁
+        if d["kind"] != "plan":
+            decline = d["decline"]
+            did = self.store.record_decline(
+                account_id, symbol, decline.reason, watch_for=decline.watch_for,
+                recheck_after_hours=getattr(decline, "recheck_after_hours", None),
+                bias_if_forced=getattr(decline, "bias_if_forced", None),
+                inputs=d["inputs"], transcript=d["transcript"],
             )
-            return {"kind": "plan", **res}
-        decline = d["decline"]
-        did = self.store.record_decline(
-            account_id, symbol, decline.reason, watch_for=decline.watch_for,
-            inputs=d["inputs"], transcript=d["transcript"],
-        )
-        return {"kind": "decline", "decline_id": did, "reason": decline.reason}
+            return {"kind": "decline", "decline_id": did, "reason": decline.reason}
+
+        plan = d["plan"]
+        # 临界区：容量/风险裁决 + 开仓，账户级串行化（防并发越过上限）
+        with self.store.account_lock(account_id):
+            cap = self._check_capacity(account_id, plan)
+            if not cap["ok"]:
+                return {"kind": "rejected", "rejected": True, "reason": cap["reason"], "by": "capacity"}
+            res = self.engine.open_trade(
+                account_id, plan, inputs=d["inputs"], response=d["transcript"]
+            )
+        return {"kind": "plan", **res}
+
+    def _check_capacity(self, account_id: int, plan) -> dict:
+        """确定性容量/风险裁决（Claude 提议、引擎裁决）。返回 {ok, reason}。"""
+        if self.settings is None:
+            return {"ok": True}
+        committed = self.store.committed_trades(account_id)
+        max_pos = self.settings.trading_max_positions
+        if len(committed) >= max_pos:
+            return {"ok": False, "reason": f"已达最大持仓数 {max_pos}"}
+
+        # 同方向集中度上限（避免名义分散实为一注）
+        max_same = self.settings.trading_max_same_direction
+        if sum(1 for t in committed if t["side"] == plan.side) >= max_same:
+            return {"ok": False, "reason": f"同方向({plan.side})持仓已达上限 {max_same}（相关性集中）"}
+
+        # 总在险预算
+        equity = self.account_summary(account_id).get("equity") or 0.0
+        deployed = 0.0
+        for t in committed:
+            ap = self.store.active_plan(t["id"]) or {}
+            deployed += (ap.get("plan", {}).get("computed", {}) or {}).get("risk_amount") or 0.0
+        this_risk = equity * (plan.risk_pct / 100.0)
+        budget = equity * self.settings.trading_max_total_risk_pct / 100.0
+        if deployed + this_risk > budget + 1e-6:
+            return {"ok": False,
+                    "reason": f"超总在险预算（已用 {deployed:.0f}＋本笔 {this_risk:.0f} ＞ 上限 {budget:.0f}）"}
+        return {"ok": True}
 
     def open_positions(self, account_id: int) -> list[dict]:
         """持仓实时状态：每笔未平仓交易 + 最新盯市快照 + 计划止损止盈。给前端面板。"""

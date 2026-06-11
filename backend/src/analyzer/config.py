@@ -136,12 +136,20 @@ class Settings(BaseSettings):
     # 持仓中：价格进入「距止损或某止盈 ≤ 此比例」的带 → 触发 Claude 重评
     trading_reeval_band_pct: float = 0.5
     trading_time_stop_hours: float = 0.0        # >0 则超过此持仓时长触发一次重评（0=关闭）
+    trading_entry_ttl_hours: float = 8.0        # 限价进场单默认有效期（计划未指定 entry_ttl_hours 时用）
+    # 复评治理：触发后冷却窗口 + 调整后宽限窗口（抑制电平触发造成的复评风暴）
+    trading_reeval_cooldown_min: float = 30.0   # 同一条件触发重评后，此分钟内不再因同类条件重触发
+    trading_reeval_grace_min: float = 15.0      # 任一 adjust 之后，此分钟内不触发新的重评（让动作生效）
+    # 事件邻近风险调节：高影响宏观事件临近时自动给单笔风险打折（而非粗暴拒绝）
+    trading_event_blackout_hours: float = 12.0  # 高影响事件前此小时内进场 → 风险打折
+    trading_event_risk_haircut: float = 0.5     # 打折系数：邻近事件时 risk_pct 上限 = 原计划 × 此值
 
     # 自主扫描：Claude 定期在全标的里找机会，受仓位/风险上限约束
     trading_scan_enabled: bool = True
     trading_scan_interval_s: int = 14400        # 每 4 小时扫一次（与 4h 结构周期对齐）
     trading_max_positions: int = 3              # 最多同时持仓笔数
     trading_max_total_risk_pct: float = 5.0     # 所有持仓在险合计 ≤ 权益的此百分比
+    trading_max_same_direction: int = 2         # 同方向持仓上限（相关性集中度约束，避免名义分散实为一注）
     trading_scan_timeframes: list[str] = ["1d", "4h"]  # triage 摘要用的精简周期
 
     thresholds: IndicatorThresholds = Field(default_factory=IndicatorThresholds)

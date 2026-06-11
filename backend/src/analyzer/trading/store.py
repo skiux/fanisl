@@ -6,10 +6,14 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import Any
 
 from psycopg.types.json import Json
 from psycopg_pool import ConnectionPool
+
+# advisory lock 命名空间：把「容量检查 + 开仓」串行化到账户维度（防并发越过仓位/风险上限）
+_LOCK_NS = 0x7A11
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS accounts (
@@ -129,6 +133,9 @@ CREATE TABLE IF NOT EXISTS declines (
     symbol     TEXT NOT NULL,
     reason     TEXT NOT NULL,
     watch_for  TEXT,
+    recheck_after_hours DOUBLE PRECISION,   -- 多久后值得重评（到期自动用行情校验拒绝对错）
+    bias_if_forced      TEXT,               -- 若被强制会做哪边（long/short），用于评测拒绝判断
+    recheck_outcome     JSONB,              -- 到期校验结果（引擎回填）
     inputs     JSONB,
     transcript JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -153,6 +160,12 @@ class TradingStore:
                 "ALTER TABLE accounts ADD COLUMN IF NOT EXISTS "
                 "force_trade BOOLEAN NOT NULL DEFAULT false"
             )
+            for col, typ in [
+                ("recheck_after_hours", "DOUBLE PRECISION"),
+                ("bias_if_forced", "TEXT"),
+                ("recheck_outcome", "JSONB"),
+            ]:
+                conn.execute(f"ALTER TABLE declines ADD COLUMN IF NOT EXISTS {col} {typ}")
 
     # --- 账户 -------------------------------------------------------------
 
@@ -194,6 +207,29 @@ class TradingStore:
                 (account_id,),
             ).fetchone()
         return float(row["m"])
+
+    @contextmanager
+    def account_lock(self, account_id: int):
+        """账户级 advisory 锁：把「容量检查 + 开仓」串行化，避免并发越过仓位/在险上限。
+
+        只该包住快速的临界区（检查+建仓），**不要**把 Claude 决策放进来——那会长时间占用连接。
+        """
+        with self.pool.connection() as conn:
+            conn.execute("SELECT pg_advisory_lock(%s, %s)", (_LOCK_NS, account_id))
+            try:
+                yield
+            finally:
+                conn.execute("SELECT pg_advisory_unlock(%s, %s)", (_LOCK_NS, account_id))
+
+    def committed_trades(self, account_id: int) -> list[dict]:
+        """占用账户额度的交易：持仓中 + 挂着限价进场单的（都算已承诺）。"""
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "SELECT DISTINCT t.* FROM trades t "
+                "LEFT JOIN orders o ON o.trade_id=t.id AND o.kind='entry' AND o.status='pending' "
+                "WHERE t.account_id=%s AND (t.status='open' OR o.id IS NOT NULL) ORDER BY t.id",
+                (account_id,),
+            ).fetchall()
 
     # --- 交易与计划 -------------------------------------------------------
 
@@ -280,6 +316,29 @@ class TradingStore:
                 (status, closed_at, trade_id),
             )
 
+    def void_pending_entry(self, trade_id: int) -> None:
+        """作废挂着的限价进场单（不动 trade 状态）——用于即将成交前清掉旧挂单。"""
+        with self.pool.connection() as conn:
+            conn.execute(
+                "UPDATE orders SET status='cancelled' "
+                "WHERE trade_id=%s AND kind='entry' AND status='pending'",
+                (trade_id,),
+            )
+
+    def cancel_pending_entry(self, trade_id: int, *, reason: str = "撤单") -> bool:
+        """撤掉限价进场挂单并把 planned 交易置为 cancelled。返回是否确有挂单被撤。"""
+        with self.pool.connection() as conn:
+            n = conn.execute(
+                "UPDATE orders SET status='cancelled', reason=%s "
+                "WHERE trade_id=%s AND kind='entry' AND status='pending'",
+                (reason, trade_id),
+            ).rowcount
+            conn.execute(
+                "UPDATE trades SET status='cancelled' WHERE id=%s AND status='planned'",
+                (trade_id,),
+            )
+        return n > 0
+
     def get_trade(self, trade_id: int) -> dict | None:
         with self.pool.connection() as conn:
             return conn.execute("SELECT * FROM trades WHERE id=%s", (trade_id,)).fetchone()
@@ -287,7 +346,13 @@ class TradingStore:
     def list_trades(self, account_id: int) -> list[dict]:
         with self.pool.connection() as conn:
             return conn.execute(
-                "SELECT * FROM trades WHERE account_id=%s ORDER BY id DESC", (account_id,)
+                "SELECT t.*, r.pnl_abs, r.pnl_pct, r.realized_r, r.outcome, r.exit_reason, "
+                "r.holding_s, rv.review->>'skill_vs_luck' AS skill_vs_luck "
+                "FROM trades t "
+                "LEFT JOIN trade_results r ON r.trade_id = t.id "
+                "LEFT JOIN trade_reviews rv ON rv.trade_id = t.id "
+                "WHERE t.account_id=%s ORDER BY t.id DESC",
+                (account_id,),
             ).fetchall()
 
     def list_open_trades(self, account_id: int | None = None) -> list[dict]:
@@ -302,13 +367,16 @@ class TradingStore:
 
     def add_order(
         self, trade_id: int, *, kind: str, price: float, qty: float, fee: float,
-        actor: str, status: str = "filled", reason: str | None = None, filled_at=None,
+        actor: str, status: str = "filled", reason: str | None = None,
+        filled_at=None, placed_at=None,
     ) -> int:
+        # placed_at 显式传引擎时钟（保持与盯市/TTL 同一时间基准）；不传则用 DB now()
         with self.pool.connection() as conn:
             row = conn.execute(
-                "INSERT INTO orders(trade_id, kind, price, qty, fee, status, actor, reason, filled_at) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                (trade_id, kind, price, qty, fee, status, actor, reason, filled_at),
+                "INSERT INTO orders(trade_id, kind, price, qty, fee, status, actor, reason, "
+                "filled_at, placed_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,COALESCE(%s, now())) "
+                "RETURNING id",
+                (trade_id, kind, price, qty, fee, status, actor, reason, filled_at, placed_at),
             ).fetchone()
         return int(row["id"])
 
@@ -389,13 +457,15 @@ class TradingStore:
 
     def record_decline(
         self, account_id: int, symbol: str, reason: str, *,
-        watch_for: str | None = None, inputs: dict | None = None, transcript=None,
+        watch_for: str | None = None, recheck_after_hours: float | None = None,
+        bias_if_forced: str | None = None, inputs: dict | None = None, transcript=None,
     ) -> int:
         with self.pool.connection() as conn:
             row = conn.execute(
-                "INSERT INTO declines(account_id, symbol, reason, watch_for, inputs, transcript) "
-                "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
-                (account_id, symbol, reason, watch_for,
+                "INSERT INTO declines(account_id, symbol, reason, watch_for, recheck_after_hours, "
+                "bias_if_forced, inputs, transcript) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                (account_id, symbol, reason, watch_for, recheck_after_hours, bias_if_forced,
                  Json(inputs) if inputs is not None else None,
                  Json(transcript) if transcript is not None else None),
             ).fetchone()
@@ -404,7 +474,8 @@ class TradingStore:
     def list_declines(self, account_id: int) -> list[dict]:
         with self.pool.connection() as conn:
             return conn.execute(
-                "SELECT id, account_id, symbol, reason, watch_for, created_at "
+                "SELECT id, account_id, symbol, reason, watch_for, recheck_after_hours, "
+                "bias_if_forced, recheck_outcome, created_at "
                 "FROM declines WHERE account_id=%s ORDER BY id DESC", (account_id,)
             ).fetchall()
 

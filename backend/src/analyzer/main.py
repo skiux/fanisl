@@ -240,6 +240,12 @@ def trading_positions() -> list[dict]:
     return trading_service.open_positions(ACCOUNT_ID)
 
 
+@app.get("/trading/symbols")
+def trading_symbols() -> dict:
+    """可交易标的（给前端下拉选择，替代键盘输入）。"""
+    return {"symbols": trading_service._scan_universe()}
+
+
 @app.get("/trading/account")
 def trading_account() -> dict:
     return {
@@ -270,6 +276,18 @@ def trading_trade(trade_id: int) -> dict:
     if tl["trade"] is None:
         raise HTTPException(status_code=404, detail="交易不存在")
     return tl
+
+
+@app.post("/trading/trades/{trade_id}/cancel")
+def trading_cancel(trade_id: int) -> dict:
+    """撤销挂着的限价进场单（仅 planned 状态可撤）。"""
+    tr = trading_store.get_trade(trade_id)
+    if tr is None:
+        raise HTTPException(status_code=404, detail="交易不存在")
+    if tr["status"] != "planned":
+        raise HTTPException(status_code=409, detail=f"交易状态为 {tr['status']}，不可撤单")
+    ok = trading_store.cancel_pending_entry(trade_id, reason="用户手动撤单")
+    return {"cancelled": ok, "trade_id": trade_id}
 
 
 @app.get("/trading/declines")

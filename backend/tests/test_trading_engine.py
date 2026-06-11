@@ -131,6 +131,36 @@ def test_invalid_plan_recorded_not_executed(trading_store, acct):
     assert "plan_rejected" in kinds
 
 
+def test_partial_exit_uses_remaining_basis(trading_store, acct):
+    # 连续两次「减 50%」应按当前剩余仓位算：20 → 10 → 5（而不是第二次清零）
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    tid = eng.open_trade(acct["id"], _long_plan())["trade_id"]
+    assert trading_store.get_trade(tid)["qty"] == pytest.approx(20.0)
+
+    eng.apply_adjustment(tid, Adjustment(action="partial_exit", reason="减半", thesis_still_valid=True, reduce_pct=50))
+    assert trading_store.get_trade(tid)["qty"] == pytest.approx(10.0)
+    eng.apply_adjustment(tid, Adjustment(action="partial_exit", reason="再减半", thesis_still_valid=True, reduce_pct=50))
+    tr = trading_store.get_trade(tid)
+    assert tr["qty"] == pytest.approx(5.0) and tr["status"] == "open"  # 没被清零
+
+
+def test_limit_order_expires_after_ttl(trading_store, acct):
+    # 限价单挂着、价格不触发、超过 TTL → 引擎撤单作废
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    eng.entry_ttl_hours = 0.0001  # ~0.36s；_engine 的时钟每拍 +60s，必然超时
+    # 限价多单挂在现价(100)下方且止损更低，结构合法、但价格不回踩 → 不成交
+    plan = _long_plan(entry_type="limit", entry_price=90.0, sl_price=85.0)
+    tid = eng.open_trade(acct["id"], plan)["trade_id"]
+    assert trading_store.get_trade(tid)["status"] == "planned"
+    eng.tick(acct["id"])  # 推进一拍，时钟前进 → 超时撤单
+    tr = trading_store.get_trade(tid)
+    assert tr["status"] == "cancelled"
+    kinds = {e["kind"] for e in trading_store.events(tid)}
+    assert "entry_expired" in kinds
+
+
 def test_adjustment_move_sl_versions_plan(trading_store, acct):
     price = {"v": 100.0}
     eng = _engine(trading_store, price)

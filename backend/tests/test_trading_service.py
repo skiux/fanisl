@@ -129,6 +129,42 @@ def test_scan_opens_candidate_and_respects_cap(trading_store, acct):
     assert r2["scanned"] == 0 and "上限" in r2.get("note", "")
 
 
+def test_open_trade_rejected_at_max_positions(trading_store, acct):
+    from analyzer.config import Settings
+    price = {"v": 100.0}
+    st = Settings(trading_max_positions=2, trading_max_same_direction=9, trading_max_total_risk_pct=90.0)
+    svc = TradingService(trading_store, _engine(trading_store, price),
+                         FakeAgent(entry={"kind": "plan", "plan": _plan()}), settings=st)
+    assert svc.open_trade(acct["id"], "BTC/USDT")["kind"] == "plan"
+    assert svc.open_trade(acct["id"], "ETH/USDT")["kind"] == "plan"
+    r = svc.open_trade(acct["id"], "SOL/USDT")  # 第 3 笔越过仓位上限
+    assert r["kind"] == "rejected" and "最大持仓数" in r["reason"]
+
+
+def test_open_trade_rejected_same_direction_cap(trading_store, acct):
+    from analyzer.config import Settings
+    price = {"v": 100.0}
+    st = Settings(trading_max_positions=9, trading_max_same_direction=2, trading_max_total_risk_pct=90.0)
+    svc = TradingService(trading_store, _engine(trading_store, price),
+                         FakeAgent(entry={"kind": "plan", "plan": _plan()}), settings=st)  # _plan 是 long
+    svc.open_trade(acct["id"], "BTC/USDT")
+    svc.open_trade(acct["id"], "ETH/USDT")
+    r = svc.open_trade(acct["id"], "SOL/USDT")  # 第 3 笔同向 long → 拦
+    assert r["kind"] == "rejected" and "同方向" in r["reason"]
+
+
+def test_open_trade_rejected_over_risk_budget(trading_store, acct):
+    from analyzer.config import Settings
+    price = {"v": 100.0}
+    # 每笔风险 1%（默认 risk_pct=1），总预算 1.5% → 第 2 笔就超
+    st = Settings(trading_max_positions=9, trading_max_same_direction=9, trading_max_total_risk_pct=1.5)
+    svc = TradingService(trading_store, _engine(trading_store, price),
+                         FakeAgent(entry={"kind": "plan", "plan": _plan()}), settings=st)
+    assert svc.open_trade(acct["id"], "BTC/USDT")["kind"] == "plan"
+    r = svc.open_trade(acct["id"], "ETH/USDT")
+    assert r["kind"] == "rejected" and "在险预算" in r["reason"]
+
+
 def test_force_trade_flag_flows_to_agent(trading_store, acct):
     agent = FakeAgent(entry={"kind": "plan", "plan": _plan()})
     svc = TradingService(trading_store, _engine(trading_store, {"v": 100.0}), agent)
