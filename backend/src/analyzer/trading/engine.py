@@ -356,9 +356,25 @@ class TradingEngine:
     # --- 触发重评 / 快照 -------------------------------------------------
 
     def _maybe_flag_reeval(self, tr: dict, plan: dict, mark: float, now) -> None:
-        """价格逼近止损/最近止盈，或到时间止损 → 记一条待重评事件（去重，不重复刷）。"""
-        if self._has_open_reeval(tr["id"]):
+        """触发待重评——治理过电平触发造成的复评风暴：
+
+        - 已有未处理的重评 → 不叠加；
+        - 刚 adjust 过（宽限窗内）→ 不打扰，让动作生效；
+        - 距上次重评不足冷却窗 → 不再 storm；
+        - Claude 自定义唤醒条件**一次性**（命中过的同一条件不再重复触发）。
+        """
+        evs = self.store.events(tr["id"])
+        if self._has_open_reeval(evs):
             return
+        # 调整后宽限：刚动过手，给它生效时间，别立刻再叫
+        last_adjust = self._last_event_time(evs, lambda k: k.startswith("adjust_"))
+        if last_adjust and (now - last_adjust).total_seconds() < self.reeval_grace_min * 60:
+            return
+        # 冷却：距上次重评太近就别再触发（电平条件不该每拍刷）
+        last_need = self._last_event_time(evs, lambda k: k == "needs_review")
+        if last_need and (now - last_need).total_seconds() < self.reeval_cooldown_min * 60:
+            return
+
         reasons = []
         band = self.reeval_band_pct / 100.0
         sl = plan["sl_price"]
@@ -374,9 +390,25 @@ class TradingEngine:
         if self.time_stop_hours > 0 and tr["opened_at"]:
             if (now - tr["opened_at"]).total_seconds() >= self.time_stop_hours * 3600:
                 reasons.append("到时间止损")
-        reasons += self._wake_hits(tr, plan, mark, now)  # Claude 自定义唤醒条件
+        # Claude 自定义唤醒条件：命中过的同一条件不再重复触发（一次性）
+        fired = self._fired_wake_reasons(evs)
+        reasons += [r for r in self._wake_hits(tr, plan, mark, now) if r not in fired]
         if reasons:
             self.store.add_event(tr["id"], "needs_review", "engine", {"reasons": reasons, "mark": mark})
+
+    @staticmethod
+    def _last_event_time(evs: list[dict], pred) -> "datetime | None":
+        ts = [e["ts"] for e in evs if pred(e["kind"])]
+        return max(ts) if ts else None
+
+    @staticmethod
+    def _fired_wake_reasons(evs: list[dict]) -> set[str]:
+        fired: set[str] = set()
+        for e in evs:
+            if e["kind"] == "needs_review":
+                for r in (e.get("payload") or {}).get("reasons", []):
+                    fired.add(r)
+        return fired
 
     def _wake_hits(self, tr: dict, plan: dict, mark: float, now) -> list[str]:
         """评估计划里 Claude 声明的结构化唤醒条件，返回命中的描述。"""
@@ -401,8 +433,7 @@ class TradingEngine:
             elif t == "time_elapsed_hours" and elapsed_h >= v: hits.append(f"持仓≥{v}h")
         return hits
 
-    def _has_open_reeval(self, trade_id: int) -> bool:
-        evs = self.store.events(trade_id)
+    def _has_open_reeval(self, evs: list[dict]) -> bool:
         last_review = max((i for i, e in enumerate(evs) if e["kind"].startswith("adjust_")), default=-1)
         last_need = max((i for i, e in enumerate(evs) if e["kind"] == "needs_review"), default=-1)
         return last_need > last_review

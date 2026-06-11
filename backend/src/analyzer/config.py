@@ -133,6 +133,8 @@ class Settings(BaseSettings):
     trading_mark_interval_s: int = 15           # 快节奏：开仓时盯市/止损止盈检查（无持仓则跳过）
     # 决策用的完整多周期：大周期方向(1w/1d) → 交易结构(4h/1h) → 入场信号(15m/5m)
     trading_decision_timeframes: list[str] = ["1w", "1d", "4h", "1h", "15m", "5m"]
+    # 持仓重评用精简周期（控成本：大周期定调 + 交易/入场周期看当下，不必每次全量 6 周期）
+    trading_manage_timeframes: list[str] = ["1d", "1h", "15m"]
     # 持仓中：价格进入「距止损或某止盈 ≤ 此比例」的带 → 触发 Claude 重评
     trading_reeval_band_pct: float = 0.5
     trading_time_stop_hours: float = 0.0        # >0 则超过此持仓时长触发一次重评（0=关闭）

@@ -59,6 +59,53 @@ def test_wake_condition_triggers_reeval(trading_store, acct):
     assert any("价≥108" in r for r in evs2[0]["payload"]["reasons"])
 
 
+def test_wake_condition_is_one_shot(trading_store, acct):
+    # 同一唤醒条件命中过一次后不再重复触发（一次性，治理复评风暴）
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    eng.reeval_cooldown_min = 0.0  # 关掉冷却，单独验证一次性
+    plan = _long_plan(wake_conditions=[{"type": "price_above", "value": 108.0}])
+    tid = eng.open_trade(acct["id"], plan)["trade_id"]
+    price["v"] = 108.5
+    eng.tick(acct["id"])
+    # 模拟已被处理（adjust），否则 _has_open_reeval 会挡住后续
+    trading_store.add_event(tid, "adjust_hold", "claude", {"reason": "x"})
+    price["v"] = 109.0
+    eng.tick(acct["id"])  # 条件仍满足，但已触发过 → 不再触发
+    needs = [e for e in trading_store.events(tid) if e["kind"] == "needs_review"]
+    assert len(needs) == 1
+
+
+def test_reeval_cooldown_suppresses_storm(trading_store, acct):
+    # "逼近止损" 是电平条件：冷却窗内不应每拍重复触发
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)  # 时钟每拍 +60s，冷却默认 30min
+    tid = eng.open_trade(acct["id"], _long_plan())["trade_id"]  # sl=95
+    price["v"] = 95.3  # 进入逼近止损带
+    eng.tick(acct["id"])
+    trading_store.add_event(tid, "adjust_hold", "claude", {"reason": "再看"})
+    # 连推几拍，仍在带内，但冷却 + 宽限应抑制重复触发
+    for _ in range(5):
+        eng.tick(acct["id"])
+    needs = [e for e in trading_store.events(tid) if e["kind"] == "needs_review"]
+    assert len(needs) == 1
+
+
+def test_post_adjust_grace_blocks_immediate_reeval(trading_store, acct):
+    # 刚 adjust 完，宽限窗内不立刻再触发重评
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    eng.reeval_cooldown_min = 0.0
+    eng.reeval_grace_min = 30.0
+    tid = eng.open_trade(acct["id"], _long_plan())["trade_id"]
+    price["v"] = 95.3
+    eng.tick(acct["id"])
+    trading_store.add_event(tid, "adjust_move_sl", "claude", {"reason": "保本"})
+    eng.tick(acct["id"])  # 紧接着的一拍处在宽限窗内
+    needs = [e for e in trading_store.events(tid) if e["kind"] == "needs_review"]
+    assert len(needs) == 1  # 没有因宽限被立刻再叫
+
+
 def test_open_market_trade(trading_store, acct):
     price = {"v": 100.0}
     eng = _engine(trading_store, price)

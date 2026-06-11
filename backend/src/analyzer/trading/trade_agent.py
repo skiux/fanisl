@@ -226,8 +226,9 @@ class TradeAgent:
         }
 
     def _manage_context(self, symbol: str, plan: dict, position: dict) -> dict:
+        # 重评用精简周期（控 token/成本），大周期定调 + 交易/入场周期看当下即可
         snap = get_market_snapshot(
-            symbol, self.settings.trading_decision_timeframes,
+            symbol, self.settings.trading_manage_timeframes,
             self.resolver, self.settings, self.sentiment,
         )
         return {"symbol": symbol, "original_plan": plan, "position": position, "snapshot": snap.model_dump()}
