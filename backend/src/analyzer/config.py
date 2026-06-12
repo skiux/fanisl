@@ -65,6 +65,15 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
+    @classmethod
+    def settings_customise_sources(cls, settings_cls, init_settings, env_settings,
+                                   dotenv_settings, file_secret_settings):
+        # 让 .env 覆盖 shell 环境变量：本地 shell 里常有残留的 `export ANTHROPIC_BASE_URL=...`
+        # /`ANTHROPIC_API_KEY=...`（给 Claude Code 等用的），默认会劫持本项目的 .env 配置，
+        # 导致 app 把 .env 里的 key 发到了错误的 endpoint（典型现象：401→502）。
+        # 把 dotenv 提到 env 之前，.env 即为本项目配置的唯一权威来源。init 仍最高（测试/显式覆盖有效）。
+        return (init_settings, dotenv_settings, env_settings, file_secret_settings)
+
     # Anthropic
     anthropic_api_key: str = ""
     # 调用 Claude 的重试/超时（第三方代理偶发"无可用账号"/限流/慢，重试可自愈；单请求封顶避免长挂）
