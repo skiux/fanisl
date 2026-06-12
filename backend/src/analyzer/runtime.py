@@ -22,6 +22,16 @@ from .trading.trade_agent import TradeAgent
 
 settings = get_settings()
 
+# 启动即打印实际生效的 Claude 配置（key 脱敏）——一眼看出请求会发到哪个 endpoint，
+# 避免再被 shell 残留的 ANTHROPIC_* 环境变量悄悄劫持还查不出来。
+_k = settings.anthropic_api_key
+print(
+    f"[fanisl] Claude endpoint={settings.anthropic_base_url or 'https://api.anthropic.com(官方默认)'}"
+    f" | model={settings.model}"
+    f" | key={(_k[:8] + '…(len%d)' % len(_k)) if _k else '(空)'}",
+    flush=True,
+)
+
 # --- 行情库（行情时间序列 + 对话）---
 pool = make_pool(settings.pg_conninfo)
 storage = Storage(pool)
