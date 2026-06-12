@@ -173,11 +173,13 @@ class TradeAgent:
 
         for i in range(_MAX_ITERS):
             force = i == _MAX_ITERS - 1  # 最后一轮强制收尾
+            # 最后一轮**只留终结工具**：否则 tool_choice=any 可能又去调数据工具，导致跑满轮数仍没
+            # 结构化结果 → RuntimeError → 整个请求 500、白烧若干次 Claude 调用、什么都没落库。
             resp = self.client.messages.create(
                 model=self.settings.model,
                 max_tokens=self.settings.max_tokens,
                 system=system,
-                tools=tools,
+                tools=terminals if force else tools,
                 thinking={"type": "adaptive"},
                 output_config={"effort": "high"},
                 tool_choice={"type": "any"} if force else {"type": "auto"},
