@@ -87,6 +87,17 @@ export async function fetchCollectionStatus(): Promise<CollectionStatus> {
 
 const acctQ = (account?: string) => (account ? `?account=${encodeURIComponent(account)}` : '')
 
+// 出错时尽量带出后端的 detail（如 502 的"Claude API 错误: No available accounts"），而非只给状态码
+async function errText(r: Response, label: string): Promise<string> {
+  try {
+    const d = await r.json()
+    if (d?.detail) return `${label} ${r.status}：${d.detail}`
+  } catch {
+    /* 非 JSON 响应，忽略 */
+  }
+  return `${label} ${r.status}`
+}
+
 export interface TradingAccount {
   name: string
   id: number
@@ -139,7 +150,7 @@ export async function openTrade(symbol: string, account?: string): Promise<any> 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ symbol, account }),
   })
-  if (!r.ok) throw new Error(`open ${r.status}`)
+  if (!r.ok) throw new Error(await errText(r, '开仓'))
   return r.json()
 }
 
@@ -158,7 +169,7 @@ export async function fetchPositions(account?: string): Promise<any[]> {
 
 export async function scanTrading(account?: string): Promise<any> {
   const r = await fetch(`${API}/trading/scan${acctQ(account)}`, { method: 'POST' })
-  if (!r.ok) throw new Error(`scan ${r.status}`)
+  if (!r.ok) throw new Error(await errText(r, '扫描'))
   return r.json()
 }
 
@@ -174,7 +185,7 @@ export async function setForceTrade(enabled: boolean, account?: string): Promise
 
 export async function tickTrading(account?: string): Promise<any> {
   const r = await fetch(`${API}/trading/tick${acctQ(account)}`, { method: 'POST' })
-  if (!r.ok) throw new Error(`tick ${r.status}`)
+  if (!r.ok) throw new Error(await errText(r, '推进'))
   return r.json()
 }
 

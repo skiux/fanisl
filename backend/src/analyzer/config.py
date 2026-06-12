@@ -67,6 +67,9 @@ class Settings(BaseSettings):
 
     # Anthropic
     anthropic_api_key: str = ""
+    # 调用 Claude 的重试/超时（第三方代理偶发"无可用账号"/限流/慢，重试可自愈；单请求封顶避免长挂）
+    anthropic_max_retries: int = 4
+    anthropic_timeout_s: float = 180.0
     # 留空走官方 api.anthropic.com；第三方中转填基址（不带 /v1），如 https://vip.aipro.love
     anthropic_base_url: str = ""
     model: str = "claude-opus-4-8"

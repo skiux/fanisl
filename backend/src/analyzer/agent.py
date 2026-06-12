@@ -44,6 +44,8 @@ class Agent:
         self.client = anthropic.Anthropic(
             api_key=settings.anthropic_api_key or None,
             base_url=settings.anthropic_base_url or None,
+            max_retries=settings.anthropic_max_retries,  # 第三方代理偶发限流/池空，多重试几次自愈
+            timeout=settings.anthropic_timeout_s,
         )
 
     # --- 静态前缀（缓存 tools + system）---------------------------------
