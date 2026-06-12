@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+import atexit
+import threading
+
 from .agent import Agent
 from .config import get_settings
 from .data.factory import build_catalysts, build_crypto_sentiment, build_resolver
@@ -78,3 +81,25 @@ ACCOUNTS = _build_accounts()
 ACCOUNT_IDS = {a["spec"].name: a["id"] for a in ACCOUNTS}
 # 默认账户（向后兼容：无 account 参数的旧接口/单账户调用都指向 main）
 ACCOUNT_ID = ACCOUNT_IDS.get("main", ACCOUNTS[0]["id"])
+
+
+# --- 进程退出时干净地关连接池 ---------------------------------------------
+# 连接池在 import 时就开了（模块级单例），任何 import 本模块的进程（api / api 的 --reload
+# 父进程 / collector / trader）都各持一份。若不显式 close，psycopg_pool 会在 __del__ 时
+# 对非守护工作线程做 5s join，join 不掉就告警、并拖慢进程退出——表现为「Ctrl+C 停不下来、要 kill」。
+# atexit 在每个进程的解释器退出时跑一次，保证各自的池都被关掉。
+_pools_closed = threading.Event()
+
+
+def shutdown_pools() -> None:
+    if _pools_closed.is_set():
+        return
+    _pools_closed.set()
+    for p in (pool, trading_pool):
+        try:
+            p.close()
+        except Exception:  # noqa: BLE001 — 关池失败不应阻塞退出
+            pass
+
+
+atexit.register(shutdown_pools)

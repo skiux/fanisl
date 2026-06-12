@@ -16,17 +16,18 @@ from pydantic import BaseModel
 from . import metrics as metrics_registry
 from .agent import final_text
 from .marketstore import GLOBAL
+from contextlib import asynccontextmanager
+
 from .runtime import (
     ACCOUNT_ID,
     ACCOUNT_IDS,
     ACCOUNTS,
     agent,
     market_store,
-    pool,
     resolver,
     settings,
+    shutdown_pools,
     storage,
-    trading_pool,
     trading_service,
     trading_store,
 )
@@ -35,13 +36,13 @@ from .storage import display_messages
 # 注意：API 进程**不起后台调度器**。采集/交易由独立的 collector / trader worker 进程跑
 # （见 worker_collector.py / worker_trader.py），所以 API 可以多 worker、独立部署重启。
 
-app = FastAPI(title="fanisl", version="0.1.0")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    yield
+    shutdown_pools()  # 优雅关闭时关池（atexit 兜底其余进程，见 runtime.shutdown_pools）
 
 
-@app.on_event("shutdown")
-def _close_pools() -> None:
-    pool.close()
-    trading_pool.close()
+app = FastAPI(title="fanisl", version="0.1.0", lifespan=_lifespan)
 
 # 本地前端开发用：放开 CORS
 app.add_middleware(
