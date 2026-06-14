@@ -5,6 +5,39 @@
 
 ---
 
+## 多资产扩张（项目方向修正：实盘主做股票/金银油，非 crypto）  ｜ 2026-06-14 起
+
+用户指出资产标的几乎只有 crypto，缺股票/金银油。已确认架构本就有多资产骨架（`instruments.py` 登记
+股/指/ETF/金属/油 + asset_class + Binance 永续 exec_symbol），缺的是**数据深度**（非加密只有 price+news+FRED 宏观）。
+目标 = 服务量化研究 harness（回测级时点正确）。设计见对话；按"数据域 × 资产类"拆多子项目，逐个 spec→实现。
+**第一切片 = C1 COT 持仓（金/银/油）。**
+
+### C1 数据切片：已交付
+- 新 `data/cftc_source.py`（CFTC Socrata disaggregated 报告，码 GOLD 088691/SILVER 084691/WTI 067651，
+  字段实地核验）+ `research/backfill_cot.py`（COT 周度 2006+ ~1044 周/标的；**入库 ts 偏移到周五发布时刻**
+  = report 周二+3 天，杜绝 3 天未来函数）。
+- 长历史价（前向收益）：WTI 走 FRED DCOILWTICO（1986+），金银走 OANDA 日线 count=5000（2008+）。
+  → **第一次有跨多 regime 的真 holdout 能力**（治 crypto 六 H 的"单一 regime"命门）。
+
+### H8 — COT 管理基金净/OI 滚动3y分位极值(≥0.9/≤0.1) → fade +4周  ｜ 状态：**KILLED（带 holdout）**
+- 预注册 `doc/phase3-H8-cot-positioning-prereg.md`（阈值锁死，contrarian fade，in-sample<2019 / holdout≥2019）。
+- 结果：
+
+  | 段 | N(多/空) | 净 | CI下限 | 命中 | 标的正 |
+  |---|---|---|---|---|---|
+  | in-sample <2019 | 164(82/82) | -0.0004 | -0.0088 | 52.4% | 1/3 |
+  | **holdout ≥2019** | 89(49/40) | **-0.0073** | -0.0215 | 46.1% | 1/3 |
+  | full 2006-now | 253 | -0.0033 | -0.0106 | 50.2% | 1/3 |
+
+  in-sample ②③⑤ FAIL、holdout 净为负 → **KILLED**。COT 管理基金极值 → 4 周反转在金银油不成立
+  （与 crypto fade 家族死法一致）。仅白银两段都微正（in +0.0044 / ho +0.0058），1/3、且小——单标的，不claim。
+- **方法论升级兑现**：第一次用**真 holdout** 判生死。即便不挪判据，holdout 负也独立否掉它——这正是
+  crypto 六 H 缺的纪律，现在补上了。
+- **探索线索（不可claim、未预注册为主）**：in-sample 各持有 `1w=+0.0018 → 2w=+0.0036 → 4w=-0.0004`，
+  contrarian 效应似乎在 **1-2 周**有微弱正、4 周衰减没。→ 可另立预注册 H（2 周主 horizon），**不在 H8 上挪判据**。
+
+---
+
 ## H1 — 资金费率极端负 → 4h 均值回归（做多）  ｜ 状态：**KILLED（2026-06-14）**
 
 - **预注册**：`doc/phase0-H1-funding-reversion-prereg.md`

@@ -101,6 +101,25 @@ def test_h7_trail_no_lookahead():
     assert h7._trail([(T0, 100.0), (T0 + timedelta(days=7), 107.0)][1:], t) is None
 
 
+def test_cot_publish_ts_no_lookahead():
+    # COT report 周二 as-of → 入库必须偏移到周五发布时刻（+3天 21:00 UTC），否则 3 天未来函数
+    from analyzer.research.backfill_cot import _publish_ts
+    ts = _publish_ts("2026-06-09")              # 2026-06-09 是周二
+    parsed = datetime.fromisoformat(ts)
+    assert parsed.year == 2026 and parsed.month == 6 and parsed.day == 12   # 周五
+    assert parsed.hour == 21 and parsed.tzinfo is not None
+
+
+def test_h8_pnl_direction():
+    from analyzer.research.h8 import _pnl, COST
+    # 进场=信号后首根(+1d,100)，出场+28d(110，+10%)
+    price = [(T0, 99.0), (T0 + timedelta(days=1), 100.0), (T0 + timedelta(days=29), 110.0)]
+    long_pnl = _pnl(price, T0, "long", 28)
+    short_pnl = _pnl(price, T0, "short", 28)
+    assert abs(long_pnl - (0.10 - COST)) < 1e-9
+    assert abs(short_pnl - (-0.10 - COST)) < 1e-9
+
+
 def test_spearman_and_pvalue():
     assert abs(stats.spearman([1, 2, 3, 4], [1, 2, 3, 4]) - 1.0) < 1e-9   # 完全正相关
     assert abs(stats.spearman([1, 2, 3, 4], [4, 3, 2, 1]) + 1.0) < 1e-9   # 完全负相关
