@@ -19,6 +19,29 @@
 - 长历史价（前向收益）：WTI 走 FRED DCOILWTICO（1986+），金银走 OANDA 日线 count=5000（2008+）。
   → **第一次有跨多 regime 的真 holdout 能力**（治 crypto 六 H 的"单一 regime"命门）。
 
+### C2 切片：E1 美股 PEAD —— 数据已交付（全程无 key）
+- 新 `data/yahoo_source.py`（Yahoo chart 复权日线，无 key，2010+）+ `data/edgar_source.py`
+  （SEC EDGAR ticker→CIK + 10-Q/10-K 备案日，无 key，深、精确、PIT 干净）+ `research/backfill_equity.py`。
+- 入库：10 只大盘股 price（复权，2010+）+ SPY 基准 + earn_filing 事件（NVDA 107/AAPL 126/MSFT 130…共 ~870）。
+- **印证用户 directive**：没 key/key 不行 → 抓取/原始数据照样把深历史搞定（Yahoo+EDGAR 替掉付费 Finnhub/Polygon）。
+
+### H9 — 财报后漂移 PEAD（公告 5d CAR → 顺势 +40 交易日，市场中性）  ｜ 状态：**KILLED（带 holdout，但边界/代理受限）**
+- 预注册 `doc/phase3-H9-pead-prereg.md`（surprise=公告窗口相对 SPY 的 CAR，不需一致预期；不调参）。
+- 结果：
+
+  | 段 | 事件(多/空) | 净 | CI下限 | 命中 | 标的正 | 零分布上限 |
+  |---|---|---|---|---|---|---|
+  | in-sample <2019 | 290 | +0.0030 | -0.0080 | 50.0% | 4/10 | 0.0182 |
+  | holdout ≥2019 | 281 | +0.0207 | +0.0043 | 51.6% | 6/10 | 0.0318 |
+  | full 2010-now | 571 | +0.0117 | +0.0018 | 50.8% | **9/10** | 0.0188 |
+
+  裁决锁在 in-sample（不挪门）：②③④⑤ FAIL → **KILLED**。
+- **诚实的边界**：full 样本 **9/10 标的正、CI 下限>0**，有 PEAD 该有的微弱正向；但**所有段都没过 ③**
+  （40 日单股漂移方差大、零分布上限 +0.018~0.032，小幅 PEAD 盖不过）。最可能因 **surprise 代理太糙**：
+  10-Q 备案日（非 8-K 盈利新闻稿精确日）+ 符号方向。这是"代理受限"非"PEAD 被干净证伪"。
+- **精细化线索（未预注册、不可 claim）**：用 8-K Item 2.02 精确公告日 + 横截面 decile 多空（靠分散压方差）
+  是 PEAD 的标准做法 → 可另立预注册 H，不在 H9 上挪判据。
+
 ### H8 — COT 管理基金净/OI 滚动3y分位极值(≥0.9/≤0.1) → fade +4周  ｜ 状态：**KILLED（带 holdout）**
 - 预注册 `doc/phase3-H8-cot-positioning-prereg.md`（阈值锁死，contrarian fade，in-sample<2019 / holdout≥2019）。
 - 结果：

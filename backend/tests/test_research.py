@@ -120,6 +120,18 @@ def test_h8_pnl_direction():
     assert abs(short_pnl - (-0.10 - COST)) < 1e-9
 
 
+def test_h9_drift_pnl_market_neutral():
+    # 市场中性：个股 +10%、SPY +2% → 相对 +8%。long 取 +0.08−COST，short 取 −0.08−COST
+    from datetime import date
+    from analyzer.research.h9 import _drift_pnl, COST
+    d0, d1 = date(2026, 1, 5), date(2026, 1, 6)
+    px = [(datetime(2026, 1, 5, tzinfo=timezone.utc), 100.0),
+          (datetime(2026, 1, 6, tzinfo=timezone.utc), 110.0)]
+    spy = {d0: 100.0, d1: 102.0}
+    assert abs(_drift_pnl(px, spy, 0, "long", 1) - (0.08 - COST)) < 1e-9
+    assert abs(_drift_pnl(px, spy, 0, "short", 1) - (-0.08 - COST)) < 1e-9
+
+
 def test_spearman_and_pvalue():
     assert abs(stats.spearman([1, 2, 3, 4], [1, 2, 3, 4]) - 1.0) < 1e-9   # 完全正相关
     assert abs(stats.spearman([1, 2, 3, 4], [4, 3, 2, 1]) + 1.0) < 1e-9   # 完全负相关
