@@ -1,0 +1,75 @@
+"""研究/回测纯函数单测（不联网、不碰库）：point-in-time 助手 + 统计。
+
+回测的有效性命门是"无未来函数"，这些函数必须可单测且行为确定。
+"""
+
+from datetime import datetime, timedelta, timezone
+
+from analyzer.research import pit, stats
+
+T0 = datetime(2026, 6, 1, tzinfo=timezone.utc)
+
+
+def _pts(*vals):
+    # (小时偏移, 值) → Point
+    return [(T0 + timedelta(hours=h), v) for h, v in vals]
+
+
+def test_asof_is_point_in_time():
+    pts = _pts((0, 1.0), (2, 2.0), (5, 3.0))
+    assert pit.asof(pts, T0 - timedelta(hours=1)) is None      # 早于一切
+    assert pit.asof(pts, T0) == 1.0                            # 恰在首点
+    assert pit.asof(pts, T0 + timedelta(hours=1)) == 1.0       # 持有到下一点
+    assert pit.asof(pts, T0 + timedelta(hours=2)) == 2.0
+    assert pit.asof(pts, T0 + timedelta(hours=99)) == 3.0      # 末点持续
+
+
+def test_first_after_strict():
+    pts = _pts((0, 1.0), (2, 2.0), (5, 3.0))
+    assert pit.first_after(pts, T0)[1] == 2.0                  # 严格之后
+    assert pit.first_after(pts, T0 + timedelta(hours=2))[1] == 3.0
+    assert pit.first_after(pts, T0 + timedelta(hours=5)) is None
+
+
+def test_value_at_or_after_tolerance():
+    pts = _pts((0, 10.0), (4, 14.0), (10, 20.0))
+    # 找 +4h 处的点，容差 90min → 命中 4h 点
+    got = pit.value_at_or_after(pts, T0 + timedelta(hours=4), timedelta(minutes=90))
+    assert got[1] == 14.0
+    # 找 +6h，最近的是 +10h（差 4h）> 容差 → None
+    assert pit.value_at_or_after(pts, T0 + timedelta(hours=6), timedelta(minutes=90)) is None
+
+
+def test_dedup_by_gap():
+    times = [T0, T0 + timedelta(hours=3), T0 + timedelta(hours=13), T0 + timedelta(hours=20)]
+    kept = pit.dedup_by_gap(times, timedelta(hours=12))
+    # 0h 保留；3h 距 0h<12h 丢；13h 距 0h≥12h 保留；20h 距 13h<12h?(7h) 丢
+    assert kept == [T0, T0 + timedelta(hours=13)]
+
+
+def test_tw_percentile_low_value_low_pct():
+    # 30 天里大部分时间值=1，最后一点突降到 -5（极低）→ 时间加权分位应很低
+    pts = [(T0 + timedelta(days=d), 1.0) for d in range(0, 30)]
+    t = T0 + timedelta(days=30)
+    pts.append((t, -5.0))
+    p = pit.tw_percentile_at(pts, t, timedelta(days=30), min_points=10)
+    assert p is not None and p < 0.1            # 当前值低于几乎所有历史
+    # 历史不足（回看跨度太短）→ None
+    short = _pts((0, 1.0), (1, 1.0), (2, -5.0))
+    assert pit.tw_percentile_at(short, T0 + timedelta(hours=2), timedelta(days=30)) is None
+
+
+def test_stats_mean_hit_bootstrap():
+    assert stats.mean([1, 2, 3]) == 2
+    assert stats.hit_rate([1, -1, 2, -3]) == 0.5
+    lo, hi = stats.bootstrap_ci([0.01] * 50)     # 常数 → CI 收敛到该值
+    assert abs(lo - 0.01) < 1e-9 and abs(hi - 0.01) < 1e-9
+    lo, hi = stats.bootstrap_ci([0.0, 0.02], n=2000)  # CI 应夹住均值 0.01
+    assert lo <= 0.01 <= hi
+
+
+def test_random_null_upper_separates_signal():
+    pool = [0.0] * 100          # 基线全 0
+    # 从全 0 池抽样均值恒为 0 → 上分位≈0；真信号均值>它即"非随机"
+    upper = stats.random_null_upper(pool, size=30)
+    assert abs(upper) < 1e-9
