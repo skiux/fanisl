@@ -10,6 +10,7 @@ Coinalyze 没有"聚合符号"，要先 /future-markets 列出某币各所的永
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 
 from ._http import get_json
 from .derivatives import LiquidationProvider
@@ -28,13 +29,32 @@ class CoinalyzeSource(LiquidationProvider):
     def _headers(self) -> dict:
         return {"api_key": self._key}
 
+    def _get(self, path: str, params: dict | None = None, *,
+             retries: int = 5, backoff: float = 18.0):
+        """带限流退避的 GET：免费档 40/min，超限时 Coinalyze 返回 {"message":"Too Many..."}
+        而非 HTTP 错误，这里识别并退避重试。失败/异常返回 None（best-effort）。"""
+        for i in range(retries):
+            try:
+                data = get_json("Coinalyze", f"{_BASE}/{path}",
+                                params=params or {}, headers=self._headers())
+            except Exception:  # noqa: BLE001 — 429 走 HTTP 异常路径，也当限流退避重试
+                if i < retries - 1:
+                    time.sleep(backoff)
+                    continue
+                return None
+            if isinstance(data, dict) and "Too Many" in str(data.get("message", "")):
+                time.sleep(backoff)
+                continue
+            return data
+        return None
+
     def _perp_symbols(self, base: str) -> list[str]:
         """该币各所的永续合约符号（Coinalyze 自有符号，如 BTCUSDT_PERP.A）。"""
         if self._markets is None:
-            data = get_json(
-                "Coinalyze", f"{_BASE}/future-markets", headers=self._headers()
-            )
-            self._markets = data if isinstance(data, list) else []
+            data = self._get("future-markets")
+            if not isinstance(data, list):
+                return []  # 限流/失败不缓存空结果，下次重试
+            self._markets = data
         out = []
         for m in self._markets:
             if (
@@ -70,6 +90,43 @@ class CoinalyzeSource(LiquidationProvider):
             return _aggregate(data)
         except Exception:  # noqa: BLE001 — best-effort
             return None
+
+    def fetch_liquidation_history(
+        self, base: str, *, days: int = 180, interval: str = "1hour", max_symbols: int = 20,
+    ) -> list[tuple[datetime, float, float]]:
+        """回填用：跨所聚合的**逐桶**爆仓历史。返回 [(ts_utc, long_usd, short_usd)] 升序。
+
+        与 fetch_liquidations(近24h聚合) 不同——这里给每个时间桶的多/空被爆金额（USD），
+        用于研究/回测（爆仓级联是 H3 的信号）。免费档 1hour 实测可回看 ~180 天。best-effort 返回 []。
+        """
+        if not self._key:
+            return []
+        symbols = self._perp_symbols(base)
+        if not symbols:
+            return []
+        now = int(time.time())
+        data = self._get("liquidation-history", {
+            "symbols": ",".join(symbols[:max_symbols]),
+            "interval": interval,
+            "from": now - days * 86400,
+            "to": now,
+            "convert_to_usd": "true",
+        })
+        if not isinstance(data, list):
+            return []
+        buckets: dict[int, list[float]] = {}  # t -> [long, short]
+        for series in data:
+            for pt in series.get("history") or []:
+                t = pt.get("t")
+                if t is None:
+                    continue
+                b = buckets.setdefault(int(t), [0.0, 0.0])
+                b[0] += float(pt.get("l") or 0.0)
+                b[1] += float(pt.get("s") or 0.0)
+        return [
+            (datetime.fromtimestamp(t, tz=timezone.utc), lo, sh)
+            for t, (lo, sh) in sorted(buckets.items())
+        ]
 
 
 def _aggregate(data: list) -> dict | None:

@@ -34,3 +34,19 @@
 - **下一步**：H1 死。二选一——(a) 就 ZEC 线索另立 **H1b** 预注册（小盘/高 funding 波动 + 样本外），
   或 (b) 转 **H2/H3/H4**：H2=OI 去杠杆背离（待 OI 历史更长）、H3=爆仓级联反转（待 liquidations 积累）、
   H4=taker/CVD 订单流（待补数据）。**不在死掉的 H1 上反复调参找显著。**
+
+---
+
+## H3 — 爆仓级联 → 短时反转（symmetric fade）  ｜ 状态：**数据已补齐，待测（2026-06-14）**
+
+- **预注册**：`doc/phase0-H3-liquidation-reversal-prereg.md`
+- **为什么选它**：H1 死时最缺、且机制最强（强平=非知情强制流→过冲→回归）。
+- **数据缺口已填**（本轮主要工作）：
+  - 逐小时爆仓流 liq_long/short/total_1h，Coinalyze 聚合 30+ 所，**~180d ~3600 桶/标的**
+    （`research/backfill_liq.py`，新增 `CoinalyzeSource.fetch_liquidation_history`，含 429 退避）。
+  - price/atr 加深到 ~182d（Binance 回填）。→ H3 测试窗 ~180d ≈ H1 的 2.5 倍，功效更好。
+  - 顺手修了 Coinalyze 源的限流处理（旧 `_perp_symbols` 把 dict 错误envelope当空、不重试 → 静默无数据）。
+- **信号（锁定）**：liq_total_1h 的 30d 时间加权分位 ≥0.98 且 ≥$500k 且单向占优≥70% → fade（被爆方向）。
+  主 horizon +4h，扣 14bps，去重叠 12h。
+- **裁决判据**：|S|≥40、净期望>0 且 bootstrap CI下限>0、超随机择时零分布、命中>50%、≥3/5标的正。
+- **下一步**：实现 `research/h3.py`（复用 Phase 1 harness：pit/stats），跑出 yes/no，记此处。
