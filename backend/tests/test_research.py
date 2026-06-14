@@ -75,6 +75,21 @@ def test_random_null_upper_separates_signal():
     assert abs(upper) < 1e-9
 
 
+def test_h4_oi_chg_no_lookahead():
+    # OI 序列：t-3h=100, t=95（下降 5%）。oi_chg 只能用 ≤t 的点，符号必须为负（去杠杆）。
+    from analyzer.research.h4 import _asof_fresh, _oi_chg, OI_TOL
+    oi = _pts((0, 100.0), (3, 95.0), (4, 200.0))   # +4h 处暴涨，但绝不能被 oi_chg(t=+3h) 看到
+    t = T0 + timedelta(hours=3)
+    chg = _oi_chg(oi, t)
+    assert chg is not None and abs(chg - (-0.05)) < 1e-9   # (95-100)/100，没看未来的 200
+    # 陈旧/缺值：基准点距 t-3h 太远 → None
+    sparse = _pts((0, 100.0))                       # 只有 1 个点，t=+3h 处基准(t-3h=0h)在，但当前点也=0h
+    assert _asof_fresh(sparse, T0 + timedelta(hours=10), OI_TOL) is None  # 距 10h 远超容差
+    # 基准为 0 → None（不能除）
+    zero = _pts((0, 0.0), (3, 50.0))
+    assert _oi_chg(zero, T0 + timedelta(hours=3)) is None
+
+
 def test_h3_pnl_direction_sign():
     # 价格 +1h 进场=100，+5h 出场=110（涨 10%）；fade 方向 sign 不能写反
     from analyzer.research.h3 import _pnl, COST

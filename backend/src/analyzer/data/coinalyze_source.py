@@ -128,6 +128,41 @@ class CoinalyzeSource(LiquidationProvider):
             for t, (lo, sh) in sorted(buckets.items())
         ]
 
+    def fetch_oi_history(
+        self, base: str, *, days: int = 180, interval: str = "1hour", max_symbols: int = 20,
+    ) -> list[tuple[datetime, float]]:
+        """回填用：跨所聚合的逐桶持仓量（USD）。返回 [(ts_utc, oi_usd)] 升序。
+
+        Coinalyze /open-interest-history 返回各所 OI 的 OHLC（convert_to_usd），这里对齐桶
+        **求和各所 close**得到全市场 OI。供 H4（级联 × OI 去杠杆）用。best-effort 返回 []。
+        """
+        if not self._key:
+            return []
+        symbols = self._perp_symbols(base)
+        if not symbols:
+            return []
+        now = int(time.time())
+        data = self._get("open-interest-history", {
+            "symbols": ",".join(symbols[:max_symbols]),
+            "interval": interval,
+            "from": now - days * 86400,
+            "to": now,
+            "convert_to_usd": "true",
+        })
+        if not isinstance(data, list):
+            return []
+        buckets: dict[int, float] = {}  # t -> Σ各所 close OI
+        for series in data:
+            for pt in series.get("history") or []:
+                t = pt.get("t")
+                if t is None:
+                    continue
+                buckets[int(t)] = buckets.get(int(t), 0.0) + float(pt.get("c") or 0.0)
+        return [
+            (datetime.fromtimestamp(t, tz=timezone.utc), oi)
+            for t, oi in sorted(buckets.items())
+        ]
+
 
 def _aggregate(data: list) -> dict | None:
     """跨所、跨时间桶求和近 24h 多/空被爆金额，并标记最近是否有尖峰。
