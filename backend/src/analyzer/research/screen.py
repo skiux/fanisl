@@ -123,15 +123,16 @@ def _screen_one(per_symbol: dict, horizon_h: int) -> dict:
             "same_sign": same_sign, "sym_ics": sym_ics, "leak_auto": leak}
 
 
-def run(pool) -> list[dict]:
+def run(pool, universe: list[str] | None = None) -> list[dict]:
+    uni = universe or UNIVERSE
     # 预载每标的价格 + 各特征序列
-    price = {s: pit.load_series(pool, s, "price") for s in UNIVERSE}
+    price = {s: pit.load_series(pool, s, "price") for s in uni}
     rows = []
     for feat in FEATURES:
-        series = {s: pit.load_series(pool, s, feat) for s in UNIVERSE}
+        series = {s: pit.load_series(pool, s, feat) for s in uni}
         for h in HORIZONS_H:
             per = {}
-            for s in UNIVERSE:
+            for s in uni:
                 if series[s] and price[s]:
                     per[s] = _pairs(series[s], price[s], h)
             r = _screen_one(per, h)          # 设 r["leak_auto"]（前向>>后向 自动守卫）

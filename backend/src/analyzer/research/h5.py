@@ -88,8 +88,8 @@ def run_symbol(pool, symbol: str) -> dict:
     }
 
 
-def run(pool) -> dict:
-    per = [run_symbol(pool, s) for s in UNIVERSE]
+def run(pool, universe: list[str] | None = None) -> dict:
+    per = [run_symbol(pool, s) for s in (universe or UNIVERSE)]
     per = [r for r in per if not r.get("skipped")]
     S = [x for r in per for x in r["s_pnl"][PRIMARY_H]]
     S_radj = [x for r in per for x in r["s_radj"]]
