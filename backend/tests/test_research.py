@@ -90,6 +90,17 @@ def test_h4_oi_chg_no_lookahead():
     assert _oi_chg(zero, T0 + timedelta(hours=3)) is None
 
 
+def test_h7_trail_no_lookahead():
+    # 过去 7d 收益只能用 ≤t 的价：t=+7d 处 = price(t)/price(t-7d)-1，绝不看 t 之后
+    from analyzer.research import h7
+    pts = [(T0 + timedelta(days=d), 100.0 + d) for d in range(0, 9)]  # 每天 +1
+    t = T0 + timedelta(days=7)            # price=107
+    r = h7._trail(pts, t)                 # base = t-7d = T0(100) → 107/100-1
+    assert r is not None and abs(r - 0.07) < 1e-9
+    # 基准点缺失（无 t-7d 附近的价）→ None
+    assert h7._trail([(T0, 100.0), (T0 + timedelta(days=7), 107.0)][1:], t) is None
+
+
 def test_spearman_and_pvalue():
     assert abs(stats.spearman([1, 2, 3, 4], [1, 2, 3, 4]) - 1.0) < 1e-9   # 完全正相关
     assert abs(stats.spearman([1, 2, 3, 4], [4, 3, 2, 1]) + 1.0) < 1e-9   # 完全负相关
