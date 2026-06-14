@@ -62,6 +62,17 @@
   做**横截面组合 PEAD**（按 surprise 分位多空一篮子），把 idiosyncratic 方差分散掉 → 同样 +1.3%/名在组合层应显著。
   这是 H9→H11→H12 的连贯递进，不是换信号。
 
+### H12 — PEAD 横截面组合（扩 40 股 + 季度桶分散）  ｜ 状态：**KILLED（决定性，揭穿 H11 选择偏差）**
+- 扩 universe 到 40 只跨板块流动大盘股（Yahoo+EDGAR 回填，~3300 个 8-K 公告事件）。预注册 `doc/phase3-H12-pead-portfolio-prereg.md`。
+- 事件信号沿用 H11；分散 = 按入场季度分桶平均（桶内 ≥5 事件），检验桶均值序列 + 随机符号零分布 + holdout。
+- 结果：in-sample 桶 36，grand=**+0.0034**（CI 下限 -0.0021，不显著）；随机符号零分布上限 +0.0039（**没过**）；
+  >0 桶占比 **47%**；**holdout grand=-0.0024（负）**。②③④⑤全 FAIL → **KILLED**。
+- **决定性揭示**：H11 在 10 只科技 megacap 上的"+1.3% 最强线索"**主要是 universe 选择偏差**。扩到 40 只
+  跨板块后 PEAD 缩到 +0.34%（淹没在随机符号噪声）、holdout 转负、不到一半季度为正——**surprise 符号没跑赢随机符号**。
+  纪律（扩 universe+holdout+随机符号零分布）成功揭穿了一个看似最强的伪线索。
+- **诚实边界**：学术 PEAD 真实存在，但靠 SUE（一致预期标准化）+ 数千只（尤其小盘）+ 横截面 decile；本"公告反应符号
+  + 40 大盘股"免费代理版不成立 = "代理/universe 受限"，非"PEAD 不存在"。要真做须 SUE 深历史（付费/更难抓）+ 小盘宽 universe。
+
 ### C4 切片：H10 — 实际利率(10y TIPS)变动 → 金/银 反向漂移  ｜ 状态：**KILLED（带 holdout）**
 - 数据：FRED DFII10 → `research/backfill_macro.py` 写 scope=global `real_rate_10y`（2003+）+ 金银价（已在库）。零新 key。
 - 预注册 `doc/phase3-H10-gold-realrate-prereg.md`（Δr(30天)<0→做多金，sign-only，不调参）。

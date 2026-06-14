@@ -17,8 +17,15 @@ from ..data import edgar_source, yahoo_source
 from ..db import make_pool
 from ..marketstore import MarketStore
 
-# 深历史、流动的大盘股；SPY 作市场基准（PEAD 用市场调整收益）
-EQUITY = ["NVDA", "AAPL", "TSLA", "MSFT", "META", "AMZN", "GOOGL", "COIN", "MSTR", "MU"]
+# 深历史、流动的大盘股篮子（~36，跨板块）；SPY 作市场基准（PEAD 用市场调整收益）。
+# H12 横截面组合 PEAD 需要足够宽的 universe 来分散单股 idiosyncratic 方差（H11 的 ③ 命门）。
+EQUITY = [
+    "NVDA", "AAPL", "TSLA", "MSFT", "META", "AMZN", "GOOGL", "AVGO", "AMD", "MU",
+    "QCOM", "TXN", "ORCL", "CSCO", "ADBE", "CRM", "NFLX", "INTC",
+    "JPM", "BAC", "V", "MA", "GS", "WFC",
+    "JNJ", "UNH", "LLY", "MRK", "ABBV", "PFE",
+    "XOM", "CVX", "WMT", "PG", "KO", "HD", "MCD", "DIS", "CAT", "COST",
+]
 BENCH = "SPY"
 FILING_HOUR_UTC = 21    # 美股收盘(~20:00 UTC)后，次日进场
 
