@@ -62,6 +62,26 @@
   做**横截面组合 PEAD**（按 surprise 分位多空一篮子），把 idiosyncratic 方差分散掉 → 同样 +1.3%/名在组合层应显著。
   这是 H9→H11→H12 的连贯递进，不是换信号。
 
+### H13 — SUE-based PEAD（免费 XBRL 季节性 SUE）  ｜ 状态：**PASS（首个！）但 holdout 衰减 → live edge 在小盘**
+- "想尽办法获取"：绕开付费一致预期，用 **SEC EDGAR XBRL 实际 EPS**（免费深到 2009）构造 Foster-Olsen-Shevlin
+  季节性随机游走 SUE = (EPS−去年同季)/σ(近8季季节性差)。新 `edgar_source.fetch_eps_quarterly` + `backfill_eps.py`（~39股×~50季）。
+- 预注册 `doc/phase3-H13-sue-pead-prereg.md`。**唯一相对 H12 的改动 = 信号 sign(公告反应)→sign(SUE)**，其余全同（干净对照）。
+- 结果：
+
+  | 段 | 桶 | grand | bootstrap CI | 超随机符号零分布 | >0桶 |
+  |---|---|---|---|---|---|
+  | **in-sample <2019** | 31 | **+0.0101** | [+0.0037,+0.0165] | ✓(+0.0101>+0.0051) | 74% |
+  | holdout ≥2019 | 26 | +0.0019 | [-0.0084,+0.0131] | ✗(<+0.0069) | 58% |
+  | full 2008-now | 57 | +0.0063 | [+0.0002,+0.0126] | ✓(>+0.0037) | 67% |
+
+  预注册判据①②③④⑤全 PASS（⑤仅要 holdout grand>0，+0.0019 达标）→ **裁决：PASS，项目首个**。
+- **但诚实的完整画面**：in-sample/full **真实显著且 SUE 方向跑赢随机符号**（信号是真的）；**holdout(2019-2026) 衰减到不独立显著**
+  （CI 含 0、没过自身随机符号门）。与文献一致：**PEAD 被广泛知晓后、尤其流动大盘股上近十年大幅衰减/被套利。**
+- **意义**：(1) 12 杀后首个真信号；(2) 证明免费 XBRL 自造 SUE 可行、**proper SUE（+1.01%）远胜 H12 的 return 代理（+0.34% fail）**；
+  (3) 不是今天可裸部署的大盘股 edge（近期衰减），但**精确指向 live edge 在小盘**（PEAD 未被套利殆尽）+ 极端 SUE。
+- **下一步 H14（direction 1 续）**：扩**小盘股 universe** 跑 SUE-PEAD（Yahoo+EDGAR+XBRL 管线已就绪、无 key，只是回填量大）
+  + 极端 |SUE| 三分位。验证 PEAD 是否在小盘 holdout 里仍活。
+
 ### H12 — PEAD 横截面组合（扩 40 股 + 季度桶分散）  ｜ 状态：**KILLED（决定性，揭穿 H11 选择偏差）**
 - 扩 universe 到 40 只跨板块流动大盘股（Yahoo+EDGAR 回填，~3300 个 8-K 公告事件）。预注册 `doc/phase3-H12-pead-portfolio-prereg.md`。
 - 事件信号沿用 H11；分散 = 按入场季度分桶平均（桶内 ≥5 事件），检验桶均值序列 + 随机符号零分布 + holdout。

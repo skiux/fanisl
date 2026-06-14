@@ -64,3 +64,48 @@ def fetch_filing_dates(cik: str) -> list[str]:
 def fetch_8k_earnings_dates(cik: str) -> list[str]:
     """8-K **Item 2.02（业绩发布）** 的备案日（升序）= 精确盈利公告日。"""
     return sorted({dt for f, dt, it in _all_rows(cik) if f == "8-K" and "2.02" in (it or "")})
+
+
+_CONCEPT = "https://data.sec.gov/api/xbrl/companyconcept/CIK{cik}/us-gaap/{tag}.json"
+_EPS_TAGS = ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"]
+
+
+def _days(start: str, end: str) -> int | None:
+    from datetime import date
+    try:
+        return (date.fromisoformat(end) - date.fromisoformat(start)).days
+    except (TypeError, ValueError):
+        return None
+
+
+def fetch_eps_quarterly(cik: str) -> list[tuple[str, float]]:
+    """季度摊薄 EPS 历史 [(period_end, eps)] 升序（XBRL 原始财报，免费深到 ~2009）。
+
+    取 fp∈{Q1,Q2,Q3} 的 3 个月期 EPS；同一 (fy,fp) 取**最早 filed**（原始申报、非重述）。
+    供 H13 构造季节性 SUE（当季 vs ~1 年前同季）。best-effort 返回 []。
+    """
+    data = None
+    for tag in _EPS_TAGS:
+        try:
+            data = get_json("EDGAR", _CONCEPT.format(cik=cik, tag=tag), headers=_UA, timeout=30.0)
+            if data.get("units"):
+                break
+        except Exception:  # noqa: BLE001
+            data = None
+    if not data:
+        return []
+    facts = (data.get("units") or {}).get("USD/shares") or []
+    best: dict[tuple, dict] = {}   # (fy,fp) -> 最早 filed 的 fact
+    for f in facts:
+        fp = f.get("fp")
+        if fp not in ("Q1", "Q2", "Q3"):
+            continue
+        d = _days(f.get("start"), f.get("end"))
+        if d is None or d > 100 or f.get("val") is None or not f.get("end"):
+            continue
+        key = (f.get("fy"), fp)
+        cur = best.get(key)
+        if cur is None or (f.get("filed") or "9") < (cur.get("filed") or "9"):
+            best[key] = f
+    out = [(f["end"], float(f["val"])) for f in best.values()]
+    return sorted(out)
