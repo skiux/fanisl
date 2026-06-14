@@ -90,6 +90,30 @@ def test_h4_oi_chg_no_lookahead():
     assert _oi_chg(zero, T0 + timedelta(hours=3)) is None
 
 
+def test_spearman_and_pvalue():
+    assert abs(stats.spearman([1, 2, 3, 4], [1, 2, 3, 4]) - 1.0) < 1e-9   # 完全正相关
+    assert abs(stats.spearman([1, 2, 3, 4], [4, 3, 2, 1]) + 1.0) < 1e-9   # 完全负相关
+    # 单调非线性仍秩相关=1（Spearman 的意义）
+    assert abs(stats.spearman([1, 2, 3, 4], [1, 4, 9, 16]) - 1.0) < 1e-9
+    # 强相关 p 小，n 越大越小
+    assert stats.corr_pvalue(0.9, 50) < 0.001
+    assert stats.corr_pvalue(0.05, 50) > 0.5      # 弱相关不显著
+
+
+def test_ranks_handles_ties():
+    # 并列取平均秩：两个并列的 10 占第 2、3 位 → 平均秩 2.5
+    assert stats.ranks([5, 10, 10, 20]) == [1.0, 2.5, 2.5, 4.0]
+
+
+def test_bh_fdr():
+    # 一个极显著 + 一堆噪声 → 至少最显著的过；全噪声 → 全不过
+    flags = stats.bh_fdr([0.001, 0.4, 0.5, 0.6, 0.9], q=0.10)
+    assert flags[0] is True and not any(flags[1:])
+    assert stats.bh_fdr([0.4, 0.5, 0.6], q=0.10) == [False, False, False]
+    # nan 跳过、不报显著
+    assert stats.bh_fdr([float("nan"), 0.9])[0] is False
+
+
 def test_h5_breakout_detection():
     # 构造：先 30h 横盘=100，第 31h 跳到 110（创新高=long），之后回落不再触发
     from analyzer.research import h5
