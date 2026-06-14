@@ -73,3 +73,13 @@ def test_random_null_upper_separates_signal():
     # 从全 0 池抽样均值恒为 0 → 上分位≈0；真信号均值>它即"非随机"
     upper = stats.random_null_upper(pool, size=30)
     assert abs(upper) < 1e-9
+
+
+def test_h3_pnl_direction_sign():
+    # 价格 +1h 进场=100，+5h 出场=110（涨 10%）；fade 方向 sign 不能写反
+    from analyzer.research.h3 import _pnl, COST
+    price = [(T0, 100.0), (T0 + timedelta(hours=1), 100.0), (T0 + timedelta(hours=5), 110.0)]
+    long_pnl = _pnl(price, T0, "long", 4)      # 进场=first_after(T0)=+1h(100)，出场+4h=+5h(110)
+    short_pnl = _pnl(price, T0, "short", 4)
+    assert abs(long_pnl - (0.10 - COST)) < 1e-9     # 做多涨10% 减成本
+    assert abs(short_pnl - (-0.10 - COST)) < 1e-9   # 做空亏
