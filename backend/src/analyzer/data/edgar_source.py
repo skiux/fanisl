@@ -29,27 +29,38 @@ def ticker_cik_map() -> dict[str, str]:
     return out
 
 
-def _dates_from_block(block: dict) -> list[str]:
+def _rows_from_block(block: dict) -> list[tuple[str, str, str]]:
+    """(form, filingDate, items) 三元组。items 为 8-K 的事项列表（如 '2.02,9.01'）。"""
     forms = block.get("form") or []
     dates = block.get("filingDate") or []
-    return [dt for f, dt in zip(forms, dates) if f in _EARN_FORMS]
+    items = block.get("items") or [""] * len(forms)
+    return list(zip(forms, dates, items))
 
 
-def fetch_filing_dates(cik: str) -> list[str]:
-    """某 CIK 的全部 10-Q/10-K 备案日（升序，YYYY-MM-DD）。含 recent + 更早的 files 分块。"""
+def _all_rows(cik: str) -> list[tuple[str, str, str]]:
+    """recent + 更早 files 分块合并的全部 (form, date, items)。一次网络往返集合，供多个筛选复用。"""
     try:
         d = get_json("EDGAR", f"{_SUB}CIK{cik}.json", headers=_UA, timeout=30.0)
     except Exception:  # noqa: BLE001
         return []
     filings = d.get("filings") or {}
-    dates = _dates_from_block(filings.get("recent") or {})
+    rows = _rows_from_block(filings.get("recent") or {})
     for f in (filings.get("files") or []):
         name = f.get("name")
         if not name:
             continue
         try:
-            older = get_json("EDGAR", f"{_SUB}{name}", headers=_UA, timeout=30.0)
-            dates += _dates_from_block(older)
+            rows += _rows_from_block(get_json("EDGAR", f"{_SUB}{name}", headers=_UA, timeout=30.0))
         except Exception:  # noqa: BLE001
             continue
-    return sorted(set(dates))
+    return rows
+
+
+def fetch_filing_dates(cik: str) -> list[str]:
+    """全部 10-Q/10-K 备案日（升序）。"""
+    return sorted({dt for f, dt, _ in _all_rows(cik) if f in _EARN_FORMS})
+
+
+def fetch_8k_earnings_dates(cik: str) -> list[str]:
+    """8-K **Item 2.02（业绩发布）** 的备案日（升序）= 精确盈利公告日。"""
+    return sorted({dt for f, dt, it in _all_rows(cik) if f == "8-K" and "2.02" in (it or "")})
