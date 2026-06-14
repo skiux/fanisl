@@ -90,6 +90,21 @@ def test_h4_oi_chg_no_lookahead():
     assert _oi_chg(zero, T0 + timedelta(hours=3)) is None
 
 
+def test_h5_breakout_detection():
+    # 构造：先 30h 横盘=100，第 31h 跳到 110（创新高=long），之后回落不再触发
+    from analyzer.research import h5
+    # 50h 横盘=100（满足 MIN_BARS=24 且跨度≥0.8·48h），第 50h 跳到 110（创新高=long）
+    pts = [(T0 + timedelta(hours=h), 100.0) for h in range(50)]
+    pts.append((T0 + timedelta(hours=50), 110.0))   # 突破
+    pts += [(T0 + timedelta(hours=h), 105.0) for h in range(51, 60)]  # 回落，不破新高
+    trig = h5._breakouts(pts)
+    assert len(trig) == 1 and trig[0][1] == "long"
+    assert trig[0][0] == T0 + timedelta(hours=50)
+    # 历史不足（<MIN_BARS / 跨度不够）不触发：只有几根就跳高
+    short = [(T0 + timedelta(hours=h), 100.0) for h in range(5)] + [(T0 + timedelta(hours=5), 200.0)]
+    assert h5._breakouts(short) == []
+
+
 def test_h3_pnl_direction_sign():
     # 价格 +1h 进场=100，+5h 出场=110（涨 10%）；fade 方向 sign 不能写反
     from analyzer.research.h3 import _pnl, COST
