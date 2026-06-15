@@ -82,6 +82,18 @@
 - **下一步 H14（direction 1 续）**：扩**小盘股 universe** 跑 SUE-PEAD（Yahoo+EDGAR+XBRL 管线已就绪、无 key，只是回填量大）
   + 极端 |SUE| 三分位。验证 PEAD 是否在小盘 holdout 里仍活。
 
+### H14 / H15 — SUE-PEAD 在小盘（追 live edge）  ｜ 状态：**双双 KILLED（小盘没救活，且修正对冲后仍负）**
+- H14：H13 的 SUE-PEAD 换成 ~72 只小/中盘股池（Yahoo+EDGAR+XBRL 回填，全程无 key）。结果：in-sample grand
+  **-0.0022**、holdout **-0.0101**、桶正 48%/31% → KILLED（负）。
+- **识别方法学硬伤**：H14 沿用 SPY 对冲，但 **SPY(大盘) 对冲小盘 = 残留 size 因子**；2019-2026 小盘跑输把结果拖负。
+- H15（修正）：唯一改动 = 基准 **SPY→IWM(罗素2000)**，正确剥离小盘市场。预注册 `doc/phase3-H15-smallcap-sue-iwm-prereg.md`。
+  结果：in-sample grand **-0.0034**、holdout **-0.0069**、桶正 44%/35% → **仍 KILLED（负）**。
+- **决定性结论**：IWM 对冲后小盘 SUE-PEAD **仍为负** → H14 的负非 size 污染，**小盘 SUE-PEAD 真不成立**
+  （可能小盘财报过度反应后反转）。"PEAD 在小盘持续"的假说被**证伪**。
+- **PEAD 全线索收尾（H9→H11→H12→H13→H14→H15）**：唯一正信号是 H13 大盘 in-sample(+1.01%)，但 holdout 衰减；
+  扩universe(H12)/精确日(H11,选择偏差)/小盘(H14/H15,负) 都不产生可部署 live edge。
+  **净：PEAD 历史真实，但在免费数据可及的流动 universe 里今天已被套利殆尽或不成立。**
+
 ### H12 — PEAD 横截面组合（扩 40 股 + 季度桶分散）  ｜ 状态：**KILLED（决定性，揭穿 H11 选择偏差）**
 - 扩 universe 到 40 只跨板块流动大盘股（Yahoo+EDGAR 回填，~3300 个 8-K 公告事件）。预注册 `doc/phase3-H12-pead-portfolio-prereg.md`。
 - 事件信号沿用 H11；分散 = 按入场季度分桶平均（桶内 ≥5 事件），检验桶均值序列 + 随机符号零分布 + holdout。

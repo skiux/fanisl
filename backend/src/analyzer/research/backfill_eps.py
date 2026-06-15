@@ -15,10 +15,12 @@ from ..config import get_settings
 from ..data import edgar_source
 from ..db import make_pool
 from ..marketstore import MarketStore
-from .backfill_equity import EQUITY
+from .backfill_equity import EQUITY, SMALLCAP
 
 
 def main() -> None:
+    import sys
+    syms = SMALLCAP if "smallcap" in sys.argv[1:] else EQUITY
     pool = make_pool(get_settings().pg_conninfo)
     store = MarketStore(pool)
     try:
@@ -26,7 +28,7 @@ def main() -> None:
         if not cik:
             raise SystemExit("EDGAR ticker→CIK 取失败")
         total = 0
-        for sym in EQUITY:
+        for sym in syms:
             c = cik.get(sym)
             if not c:
                 print(f"  {sym:<6} 无 CIK，跳过")

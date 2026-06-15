@@ -90,11 +90,12 @@ def _stdev(xs: list[float]) -> float:
     return (sum((x - m) ** 2 for x in xs) / len(xs)) ** 0.5
 
 
-def collect(pool, window: tuple | None = None) -> dict:
-    spy = _spy_by_date(pool)
+def collect(pool, window: tuple | None = None, universe: list | None = None,
+            bench: str = "SPY") -> dict:
+    spy = {t.date(): c for t, c in pit.load_series(pool, bench, "price")}  # 基准（大盘 SPY/小盘 IWM）
     since, until = window or (None, None)
     buckets: dict[tuple, list] = {}
-    for sym in EQUITY:
+    for sym in (universe or EQUITY):
         for entry_ts, rel, sign in _events(pool, sym, spy):
             if (since and entry_ts < since) or (until and entry_ts >= until):
                 continue
@@ -102,8 +103,8 @@ def collect(pool, window: tuple | None = None) -> dict:
     return buckets
 
 
-def run(pool) -> dict:
-    ins, hold = collect(pool, (None, SPLIT)), collect(pool, (SPLIT, None))
+def run(pool, universe: list | None = None) -> dict:
+    ins, hold = collect(pool, (None, SPLIT), universe), collect(pool, (SPLIT, None), universe)
     im, hm = _bucket_means(ins), _bucket_means(hold)
     p = {
         "n_buckets": len(im), "n_events": sum(len(v) for v in ins.values()),

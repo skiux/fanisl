@@ -29,6 +29,19 @@ EQUITY = [
 BENCH = "SPY"
 FILING_HOUR_UTC = 21    # 美股收盘(~20:00 UTC)后，次日进场
 
+# 小/中盘篮子（~75，跨板块，10年+历史、机构覆盖较少 → PEAD 套利不充分，H14 验 SUE-PEAD 在小盘 holdout 是否仍活）。
+# 注：手挑现存名单有 survivorship 偏差（PEAD 是 within-stock 方向效应，受影响较小，但作 SCREEN 看待）。回填失败者自动剔除。
+SMALLCAP = [
+    "MPWR", "SWKS", "QRVO", "LSCC", "SLAB", "POWI", "FORM", "MKSI", "ONTO", "COHU",
+    "PLAB", "UCTT", "AMKR", "SMTC", "NTAP", "JNPR", "FFIV", "AKAM", "CIEN", "VSAT",
+    "CROX", "DECK", "WING", "TXRH", "CAKE", "PLAY", "FIVE", "BOOT", "SHAK", "FOXF",
+    "YETI", "HELE", "CHEF", "MUSA",
+    "AAON", "MLI", "BMI", "FELE", "ALG", "GGG", "NDSN", "WTS", "AGCO", "OSK", "TRN", "EXP",
+    "WAL", "PB", "CATY", "CVBF", "FFIN", "OZK", "GBCI", "UMBF", "WTFC", "SFNC",
+    "HALO", "MMSI", "SUPN", "AMPH", "CORT", "LNTH", "ENSG", "AMED", "CHE",
+    "MTDR", "SM", "MGY", "CMC", "KWR", "AVNT", "SCL",
+]
+
 
 def _price_rows(symbol: str) -> tuple[list[tuple], str]:
     px = yahoo_source.fetch_daily_adjclose(symbol)
@@ -54,6 +67,9 @@ def _earn_rows(symbol: str, cik: str) -> tuple[list[tuple], int, int]:
 
 
 def main() -> None:
+    import sys
+    smallcap = "smallcap" in sys.argv[1:]
+    syms = SMALLCAP if smallcap else [BENCH, *EQUITY]   # SPY 大盘回填时已入库，小盘模式不重复
     pool = make_pool(get_settings().pg_conninfo)
     store = MarketStore(pool)
     try:
@@ -61,7 +77,7 @@ def main() -> None:
         if not cik:
             raise SystemExit("EDGAR ticker→CIK 取失败")
         total = 0
-        for sym in [BENCH, *EQUITY]:
+        for sym in syms:
             prows, span = _price_rows(sym)
             n_px = store.write_history(prows)
             n_10, n_8k = 0, 0
