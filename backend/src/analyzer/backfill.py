@@ -32,18 +32,29 @@ def _emit(rows: list, scope: str, symbol: str, metric: str, ts_series, val_serie
 # 整条序列回填时把这段丢掉。快照路径只取最后一根、本就不受影响。
 _WARMUP = 35
 
+# bar 开盘时间 → 收盘时间的偏移。ccxt 的 ts 是**开盘**时间，而收盘派生值（close/RSI/MACD…）
+# 要到收盘才已知——按开盘打戳就是未来函数（screen.py 曾实测抓到：change_pct_1d 与前向收益
+# 相关 0.95）。落库一律加上本偏移，戳在"值已知"的时刻。
+_TF_CLOSE_OFFSET = {
+    "5m": pd.Timedelta(minutes=5), "15m": pd.Timedelta(minutes=15),
+    "1h": pd.Timedelta(hours=1), "4h": pd.Timedelta(hours=4),
+    "1d": pd.Timedelta(days=1), "1w": pd.Timedelta(days=7), "1wk": pd.Timedelta(days=7),
+}
+
 
 def indicator_rows(symbol: str, tf: str, df: pd.DataFrame, *, with_price: bool) -> list[tuple]:
     """一份历史 OHLCV → 该周期的历史指标样本（与 flatten 同名，带 _{tf} 后缀）。
 
     指标集合与算法由 `indicator_series` 单一定义（与快照共用），这里只负责加 _{tf} 后缀、
-    丢预热段、按时间戳落库。
+    丢预热段、**戳到 bar 收盘时刻**、落库。
     """
+    offset = _TF_CLOSE_OFFSET.get(tf)
+    if offset is None:
+        raise ValueError(f"未知周期 {tf}，无法确定收盘时刻")
     closed = df.iloc[:-1]  # 丢掉未收盘那根（与 compute_indicators 一致）
     if len(closed) < _WARMUP + 5:
         return []
-    ts = closed["ts"]
-    t = ts.iloc[_WARMUP:]  # 全部指标都从预热段之后开始落库
+    t = (closed["ts"] + offset).iloc[_WARMUP:]  # 收盘时刻 = 值已知的时刻（无未来函数）
 
     rows: list[tuple] = []
 

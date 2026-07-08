@@ -25,12 +25,15 @@ def test_indicator_rows_emits_suffixed_metrics():
     # 都是 symbol scope，ts 是 ISO 字符串，丢了最后一根未收盘
     assert all(r[0] == "symbol" and r[1] == "BTC/USDT" for r in rows)
     assert all("T" in r[3] for r in rows)
-    last_closed_ts = df["ts"].iloc[-2].isoformat()
-    assert any(r[3] == last_closed_ts for r in rows)
-    assert df["ts"].iloc[-1].isoformat() not in {r[3] for r in rows}  # 未收盘那根不写
-    # 预热段(前 35 根)丢掉：最早落库点应是第 35 根
+    # **戳在 bar 收盘时刻**(开盘+1d)——收盘派生值在开盘时未知，按开盘打戳曾造成 lookahead 污染
+    one_day = pd.Timedelta(days=1)
+    last_closed_close_ts = (df["ts"].iloc[-2] + one_day).isoformat()
+    assert any(r[3] == last_closed_close_ts for r in rows)
+    all_ts = {r[3] for r in rows}
+    assert (df["ts"].iloc[-1] + one_day).isoformat() not in all_ts  # 未收盘那根不写
+    # 预热段(前 35 根)丢掉：最早落库点应是第 35 根的收盘
     price_ts = sorted(r[3] for r in rows if r[2] == "price")
-    assert price_ts[0] == df["ts"].iloc[35].isoformat()
+    assert price_ts[0] == (df["ts"].iloc[35] + one_day).isoformat()
 
 
 def test_no_price_when_flag_off():

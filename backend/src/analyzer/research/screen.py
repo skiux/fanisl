@@ -37,14 +37,11 @@ FEATURES = [
 HORIZONS_H = [4, 24]
 BAR_TOL = timedelta(minutes=90)
 
-# 审计确认/高度疑似 **bar 时点污染** 的窗口聚合特征（4h/1d 时间框）：存储按 bar 打戳却含整根 bar，
-# 前向 IC ≈ 或 > 后向 IC 且量级不真实（rsi_1d 前向 0.347≈后向 0.350、change_pct_1d 前向 0.952）。
-# 一律剔除出 edge 评判，禁止喂回测/喂 Claude 当"当前值"，须按时点重算后才可用。
-SUSPECT_BAR = {
-    "change_pct_4h", "change_pct_1d", "rsi_4h", "rsi_1d",
-    "macd_hist_4h", "macd_hist_1d", "atr_pct_4h", "atr_pct_1d",
-    "vol_ratio_4h", "vol_ratio_1d",
-}
+# bar 时点污染隔离区——2026-07-08 已修复并验证为空：backfill.indicator_rows 改为按 bar **收盘**
+# 打戳（值已知的时刻），污染行已删除重填，trailing/forward 审计确认干净
+# （change_pct_1d 前向相关 0.952→-0.028、change_pct_4h 0.733→-0.026）。
+# 集合保留为空作为机制占位：再发现污染特征时加进来即整类隔离；自动守卫（前向>>后向）仍是后盾。
+SUSPECT_BAR: set[str] = set()
 FDR_Q = 0.10
 MIN_N = 60          # 单标的样本下限（去重叠后）
 MIN_TOTAL = 150     # 合并样本下限，IC 才进 FDR
