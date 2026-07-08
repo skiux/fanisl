@@ -101,6 +101,22 @@ def test_h7_trail_no_lookahead():
     assert h7._trail([(T0, 100.0), (T0 + timedelta(days=7), 107.0)][1:], t) is None
 
 
+def test_h17_gate_and_pnl_pit():
+    from analyzer.research.h17 import _daily_closes, _sma_pit, _long_pnl, COST
+    # 重采样:同一天多点取最晚
+    pts = [(T0, 1.0), (T0 + timedelta(hours=3), 2.0), (T0 + timedelta(days=1), 3.0)]
+    d = _daily_closes(pts)
+    assert len(d) == 2 and d[0][1] == 2.0 and d[1][1] == 3.0
+    # SMA point-in-time:只用 ≤j 的收盘;历史不足(<SMA_MIN)返回 None
+    closes = [100.0] * 160
+    assert _sma_pit(closes, 159) == 100.0
+    assert _sma_pit(closes, 100) is None          # 只有 101 个 < 150
+    # PnL:进场 i、持有 3 bar、扣成本;越界返回 None
+    c = [100.0, 100.0, 100.0, 100.0, 110.0]
+    assert abs(_long_pnl(c, 1, 3) - (0.10 - COST)) < 1e-9
+    assert _long_pnl(c, 3, 3) is None
+
+
 def test_cot_publish_ts_no_lookahead():
     # COT report 周二 as-of → 入库必须偏移到周五发布时刻（+3天 21:00 UTC），否则 3 天未来函数
     from analyzer.research.backfill_cot import _publish_ts

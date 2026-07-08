@@ -128,6 +128,65 @@ class CoinalyzeSource(LiquidationProvider):
             for t, (lo, sh) in sorted(buckets.items())
         ]
 
+    def fetch_funding_history_daily(self, base: str, *, years: int = 5) -> list[tuple[datetime, float]]:
+        """回填用：Binance 永续的**日线资金费历史**。返回 [(bucket_close_ts_utc, close_rate)] 升序。
+
+        Coinalyze daily interval 可回溯 ~5 年（远深于 fapi 分页，且 fapi 已被 451 地域封锁——
+        本方法同时是资金费的冗余源）。桶按开盘时间 t 返回、值为当日最后一次结算费率（close），
+        **入库时间戳 = t+24h（桶收盘）**，杜绝"开盘打戳装收盘值"的 lookahead。best-effort 返回 []。
+        """
+        if not self._key:
+            return []
+        sym = f"{base.upper()}USDT_PERP.A"          # Coinalyze 的 Binance USDT 永续符号
+        if sym not in self._perp_symbols(base):     # 无该符号（未上 Binance 等）→ 放弃
+            candidates = [s for s in self._perp_symbols(base) if s.endswith(".A") and "USDT" in s]
+            if not candidates:
+                return []
+            sym = candidates[0]
+        now = int(time.time())
+        data = self._get("funding-rate-history", {
+            "symbols": sym, "interval": "daily",
+            "from": now - years * 365 * 86400, "to": now,
+        })
+        if not isinstance(data, list) or not data:
+            return []
+        out = []
+        for pt in data[0].get("history") or []:
+            t, c = pt.get("t"), pt.get("c")
+            if t is None or c is None:
+                continue
+            out.append((datetime.fromtimestamp(int(t) + 86400, tz=timezone.utc), float(c)))
+        return sorted(out)
+
+    def fetch_price_history_daily(self, base: str, *, years: int = 5) -> list[tuple[datetime, float]]:
+        """回填用：Binance 永续的**日线收盘价**（与 fetch_funding_history_daily 同符号、同深度 ~5 年）。
+
+        返回 [(bucket_close_ts_utc, close)] 升序，ts=桶收盘（开盘+24h），无 lookahead。
+        Binance spot/fapi 均被 451 时的价格冗余源。best-effort 返回 []。
+        """
+        if not self._key:
+            return []
+        sym = f"{base.upper()}USDT_PERP.A"
+        if sym not in self._perp_symbols(base):
+            candidates = [s for s in self._perp_symbols(base) if s.endswith(".A") and "USDT" in s]
+            if not candidates:
+                return []
+            sym = candidates[0]
+        now = int(time.time())
+        data = self._get("ohlcv-history", {
+            "symbols": sym, "interval": "daily",
+            "from": now - years * 365 * 86400, "to": now,
+        })
+        if not isinstance(data, list) or not data:
+            return []
+        out = []
+        for pt in data[0].get("history") or []:
+            t, c = pt.get("t"), pt.get("c")
+            if t is None or c is None:
+                continue
+            out.append((datetime.fromtimestamp(int(t) + 86400, tz=timezone.utc), float(c)))
+        return sorted(out)
+
     def fetch_oi_history(
         self, base: str, *, days: int = 180, interval: str = "1hour", max_symbols: int = 20,
     ) -> list[tuple[datetime, float]]:
