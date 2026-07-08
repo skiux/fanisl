@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ArrowsClockwise, Brain, CaretRight, Lightning, MagnifyingGlass, Prohibit, Pulse, Receipt,
+  ArrowsClockwise, Brain, CaretRight, Crosshair, Lightning, MagnifyingGlass, Prohibit, Pulse, Receipt,
 } from '@phosphor-icons/react'
 import {
   Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import {
-  fetchDeclines, fetchPositions, fetchTrades, fetchTradingAccount, fetchTradingAccounts,
-  fetchTradingSymbols, openTrade, scanTrading, setForceTrade, tickTrading,
+  detectSetups, fetchDeclines, fetchPositions, fetchTrades, fetchTradingAccount,
+  fetchTradingAccounts, fetchTradingSymbols, openTrade, scanTrading, setForceTrade, tickTrading,
   type TradingAccount,
 } from '../../api'
 import { Badge, EmptyState, Kpi, KpiRow, PageShell, Panel, SegTabs, Select } from '../ui'
@@ -17,8 +17,11 @@ import {
   OUTCOME, SIDE, SKILL_LUCK_SHORT, STATUS, STRATEGY,
 } from '../trading'
 import TradeDetail from './TradeDetail'
+import SetupsPanel from './SetupsPanel'
 
-const ACCT_LABEL: Record<string, string> = { main: 'A · 自然', forced: 'B · 强制', main_shadow: '影子 · 不管理' }
+const ACCT_LABEL: Record<string, string> = {
+  main: 'A · 自然', forced: 'B · 强制', main_shadow: '影子 · 不管理', setups: 'Setup · playbook',
+}
 
 export default function Trading() {
   const [account, setAccount] = useState<any>(null)
@@ -31,10 +34,14 @@ export default function Trading() {
   const [msg, setMsg] = useState<string | null>(null)
   // 交易详情是独立页面：选中即整页切换，返回回到总览
   const [tradeId, setTradeId] = useState<number | null>(null)
-  // 多账户对照：A 自然 / B 强制 / 影子
+  // 多账户对照：A 自然 / B 强制 / 影子 / setup(playbook 驱动 · Claude=闸门)
   const [accounts, setAccounts] = useState<TradingAccount[]>([])
   const [acct, setAcct] = useState('main')
-  const managed = accounts.find((a) => a.name === acct)?.managed ?? true
+  const cur = accounts.find((a) => a.name === acct)
+  const managed = cur?.managed ?? true
+  const isSetups = cur?.setups ?? false
+  // 手动探测后让 SetupsPanel 重取
+  const [setupsKey, setSetupsKey] = useState(0)
 
   const refresh = useCallback(async () => {
     const [a, t, p, d] = await Promise.all([
@@ -79,6 +86,13 @@ export default function Trading() {
     const r = await tickTrading(acct)
     return `推进完成：成交/止盈止损 ${(r.actions || []).length} 项，管理 ${(r.managed || []).length}，复盘 ${(r.reviewed || []).length}`
   })
+  const onDetect = () => run('探测中：规则求值 → 触发则 Claude 闸门裁决，可能需要 1~2 分钟…', async () => {
+    const r = await detectSetups(acct)
+    setSetupsKey((k) => k + 1)
+    const d = r.detected || []
+    if (d.length === 0) return `本轮无触发（冷却/已持仓/信号未变化）；到期 veto 校验 ${(r.vetoes_verified || []).length} 条`
+    return d.map((x: any) => `${x.setup}@${x.symbol}: ${x.verdict}${x.trade_id ? ` #${x.trade_id}` : ''}`).join('；')
+  })
   const onToggleForce = async () => {
     const next = !(account?.summary?.force_trade ?? false)
     try { await setForceTrade(next, acct); setMsg(next ? '强制交易已开启：Claude 不能选择不交易' : '强制交易已关闭'); await refresh() }
@@ -114,7 +128,7 @@ export default function Trading() {
   return (
     <PageShell
       title="交易评测"
-      sub="Claude 在纸面永续账户全自主交易 · 实时前向 · 评测判断力与策略质量"
+      sub="纸面永续 · 多账户对照 · setup=规则触发+Claude 闸门（按 setup 类型评 edge）· 酌情账户=对照组"
       controls={
         <div className="flex flex-wrap items-center gap-2">
           {accounts.length > 1 && (
@@ -143,8 +157,13 @@ export default function Trading() {
                 <ArrowsClockwise size={15} weight="bold" />
               </button>
             </>
+          ) : isSetups ? (
+            <button onClick={onDetect} disabled={busy} title="手动跑一轮 setup 探测（规则触发 → Claude 闸门 → 引擎执行）"
+              className="flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-zinc-800 active:translate-y-px disabled:opacity-40">
+              <Crosshair size={15} weight="bold" /> 探测一轮
+            </button>
           ) : (
-            <span className="text-[12px] text-zinc-400">影子账户：机械镜像 {accounts.find((a) => a.name === acct)?.mirror_of ?? 'main'} 的进场，不接受手动操作</span>
+            <span className="text-[12px] text-zinc-400">影子账户：机械镜像 {cur?.mirror_of ?? 'main'} 的进场，不接受手动操作</span>
           )}
         </div>
       }
@@ -195,6 +214,13 @@ export default function Trading() {
               <span className="text-zinc-300">/{c.n}</span>
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Setup 账户：playbook 评测板（按 setup 评 edge）+ 信号流 */}
+      {isSetups && (
+        <div className="mt-3">
+          <SetupsPanel account={acct} refreshKey={setupsKey} onOpenTrade={setTradeId} />
         </div>
       )}
 
@@ -303,7 +329,11 @@ export default function Trading() {
                       <td className="py-2 pr-3 font-mono text-xs text-zinc-400">{t.id}</td>
                       <td className="py-2 pr-3 font-medium text-zinc-800">{sym(t.symbol)}</td>
                       <td className="py-2 pr-3"><Badge tone={t.side === 'long' ? 'accent' : 'neutral'}>{SIDE[t.side] ?? t.side} {num(t.leverage, 0)}x</Badge></td>
-                      <td className="py-2 pr-3 text-zinc-500">{STRATEGY[t.strategy_type] ?? t.strategy_type ?? '—'}</td>
+                      <td className="py-2 pr-3 text-zinc-500">
+                        {t.setup_key
+                          ? <span className="font-mono text-[11.5px] text-zinc-600">{t.setup_key}</span>
+                          : (STRATEGY[t.strategy_type] ?? t.strategy_type ?? '—')}
+                      </td>
                       <td className="py-2 pr-3">
                         <span className={t.status === 'open' ? 'font-medium text-emerald-600' : 'text-zinc-400'}>{STATUS[t.status] ?? t.status}</span>
                       </td>
@@ -336,7 +366,8 @@ export default function Trading() {
         </Panel>
       </div>
 
-      {/* 不交易也是要评测的判断 */}
+      {/* 不交易也是要评测的判断（setup 账户没有酌情拒绝，隐藏）*/}
+      {!isSetups && (
       <div className="mt-3">
         <Panel title={`不交易记录 · ${declines.length}`}>
           {declines.length === 0 ? (
@@ -357,6 +388,7 @@ export default function Trading() {
           )}
         </Panel>
       </div>
+      )}
     </PageShell>
   )
 }

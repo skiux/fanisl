@@ -605,11 +605,16 @@ class TradingStore:
             )
 
     def last_signal_at(self, account_id: int, setup_key: str, symbol: str):
-        """同 setup×标的 最近一次触发时刻（不分裁决结果）——冷却去重用。"""
+        """同 setup×标的 最近一次触发时刻——冷却去重用。
+
+        排除 verdict='error'（闸门瞬时故障不该消耗整个冷却窗，下一轮探测即重试）；
+        confirmed/vetoed/skipped 与 NULL（裁决进行中）都算已触发。
+        """
         with self.pool.connection() as conn:
             row = conn.execute(
                 "SELECT max(created_at) AS ts FROM setup_signals "
-                "WHERE account_id=%s AND setup_key=%s AND symbol=%s",
+                "WHERE account_id=%s AND setup_key=%s AND symbol=%s "
+                "AND (verdict IS NULL OR verdict != 'error')",
                 (account_id, setup_key, symbol),
             ).fetchone()
         return row["ts"]

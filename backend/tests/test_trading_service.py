@@ -374,3 +374,26 @@ def test_scorecard_by_setup_groups_and_funnels(trading_store, acct, pool, fake_s
     assert fs["avg_net_return"] is not None and fs["avg_net_return"] < 0
     assert fs["avg_bh_r"] is not None
     assert rows["discretionary"]["closed_trades"] == 1
+
+
+def test_detect_gate_error_does_not_consume_cooldown(trading_store, acct, pool, fake_setup):
+    # 闸门瞬时故障 → 记 error，但不消耗 168h 冷却：下一轮探测应重试并成功
+    class FlakyGate(GateAgent):
+        def __init__(self):
+            super().__init__(SetupGateDecision(verdict="confirm", reasoning="ok"))
+            self.fail_next = True
+
+        def gate_setup(self, setup, signal, plan_summary):
+            if self.fail_next:
+                self.fail_next = False
+                raise RuntimeError("Claude API 超时")
+            return super().gate_setup(setup, signal, plan_summary)
+
+    gate = FlakyGate()
+    svc = _svc(trading_store, {"v": 100.0}, gate, pool)
+    out1 = svc.detect_setups(acct["id"], specs=[fake_setup])
+    assert out1[0]["verdict"] == "error"
+    out2 = svc.detect_setups(acct["id"], specs=[fake_setup])  # 重试成功
+    assert out2[0]["verdict"] == "confirmed"
+    sigs = trading_store.list_setup_signals(acct["id"])
+    assert [s["verdict"] for s in sigs] == ["confirmed", "error"]  # 倒序

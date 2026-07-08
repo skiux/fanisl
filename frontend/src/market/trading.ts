@@ -92,6 +92,19 @@ export const ORDER_KIND: Record<string, string> = {
   reduce: '减仓', exit: '出场', liquidation: '强平',
 }
 
+export const SETUP_STATUS: Record<string, string> = {
+  candidate: '候选（仅纸面）', validated: '已验证', retired: '退役',
+}
+
+export const VERDICT: Record<string, string> = {
+  confirmed: '确认', vetoed: '否决', skipped: '容量满', error: '出错',
+}
+
+export const VETO_CATEGORY: Record<string, string> = {
+  imminent_event: '临近事件', data_anomaly: '数据异常',
+  signal_contradiction: '信号矛盾', other: '其他',
+}
+
 export const EVENT_KIND: Record<string, string> = {
   entry_pending: '挂单等待', opened: '开仓', closed: '平仓',
   plan_rejected: '计划被拒', plan_flagged: '计划被标记',

@@ -104,6 +104,7 @@ export interface TradingAccount {
   force: boolean
   managed: boolean
   mirror_of: string | null
+  setups: boolean
   summary: any
   scorecard: any
 }
@@ -186,6 +187,26 @@ export async function setForceTrade(enabled: boolean, account?: string): Promise
 export async function tickTrading(account?: string): Promise<any> {
   const r = await fetch(`${API}/trading/tick${acctQ(account)}`, { method: 'POST' })
   if (!r.ok) throw new Error(await errText(r, '推进'))
+  return r.json()
+}
+
+// --- Setup 评测（playbook 触发 → 闸门 → 按 setup 聚合）---------------------
+
+export interface SetupsView {
+  registry: Record<string, any>
+  scorecard: any[]
+  signals: any[]
+}
+
+export async function fetchSetups(account?: string): Promise<SetupsView> {
+  const r = await fetch(`${API}/trading/setups${acctQ(account)}`)
+  if (!r.ok) throw new Error(`setups ${r.status}`)
+  return r.json()
+}
+
+export async function detectSetups(account?: string): Promise<any> {
+  const r = await fetch(`${API}/trading/detect${acctQ(account)}`, { method: 'POST' })
+  if (!r.ok) throw new Error(await errText(r, '探测'))
   return r.json()
 }
 

@@ -78,7 +78,9 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
               <span className="text-[15px] font-semibold tracking-tight text-zinc-900">{sym(t.symbol)}</span>
               <Badge tone={t.side === 'long' ? 'accent' : 'neutral'}>{SIDE[t.side] ?? t.side} {num(t.leverage, 0)}x</Badge>
               <Badge tone={t.status === 'open' ? 'accent' : 'neutral'}>{STATUS[t.status] ?? t.status}</Badge>
-              <span className="text-[12px] text-zinc-400">{STRATEGY[t.strategy_type] ?? t.strategy_type}</span>
+              {t.setup_key
+                ? <Badge tone="accent">setup · {t.setup_key}</Badge>
+                : <span className="text-[12px] text-zinc-400">{STRATEGY[t.strategy_type] ?? t.strategy_type}</span>}
               {t.status === 'planned' && (
                 <button onClick={() => cancelTrade(t.id).then(load).catch(() => {})}
                   className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[12px] font-medium text-rose-600 transition-colors hover:bg-rose-100 active:translate-y-px">
@@ -176,9 +178,9 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
                   </div>
                 </Panel>
 
-                {/* 决策依据（v1 原始计划） */}
+                {/* 决策依据（v1 原始计划）——setup 交易由模板确定性生成，酌情分析字段为空 */}
                 {v1 && (
-                  <Panel title="决策依据（开仓时的原始计划）"
+                  <Panel title={v1.setup_key ? 'Setup 模板计划（规则生成 · Claude 仅闸门）' : '决策依据（开仓时的原始计划）'}
                     right={v1.confidence_pct != null ? <Badge>置信 {v1.confidence_pct}%</Badge> : undefined}>
                     <blockquote className="rounded-lg bg-zinc-50 px-3 py-2.5 text-[13px] leading-relaxed text-zinc-700">
                       {v1.thesis}
@@ -194,19 +196,26 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
                       <Row k="数量 / 保证金" v={`${num(v1.computed?.qty, 4)} / ${usd(v1.computed?.margin)}`} />
                       <Row k="强平价" v={num(v1.computed?.liquidation_price)} />
                     </div>
-                    <div className="mt-3 space-y-1.5 border-t border-zinc-100 pt-3 text-[12.5px] leading-relaxed text-zinc-600">
-                      <p>
-                        <span className="text-zinc-400">多周期：</span>
-                        {v1.mtf?.aligned ? '三周期共振' : '未共振'}
-                        <span className="ml-2 font-mono text-[11.5px] text-zinc-500">
-                          大 {v1.mtf?.higher_tf} · 中 {v1.mtf?.trading_tf} · 入 {v1.mtf?.entry_tf}
-                        </span>
-                      </p>
-                      {v1.macro_context && <p><span className="text-zinc-400">宏观：</span>{v1.macro_context}</p>}
-                      {v1.risk_events && <p><span className="text-zinc-400">风险事件：</span>{v1.risk_events}</p>}
-                      {v1.risk_appetite && <p><span className="text-zinc-400">风险偏好：</span>{v1.risk_appetite}</p>}
-                      {v1.notes && <p><span className="text-zinc-400">备注：</span>{v1.notes}</p>}
-                    </div>
+                    {(v1.mtf || v1.macro_context || v1.risk_events || v1.risk_appetite || v1.notes) && (
+                      <div className="mt-3 space-y-1.5 border-t border-zinc-100 pt-3 text-[12.5px] leading-relaxed text-zinc-600">
+                        {v1.mtf && (
+                          <p>
+                            <span className="text-zinc-400">多周期：</span>
+                            {v1.mtf.aligned ? '三周期共振' : '未共振'}
+                            <span className="ml-2 font-mono text-[11.5px] text-zinc-500">
+                              大 {v1.mtf.higher_tf} · 中 {v1.mtf.trading_tf} · 入 {v1.mtf.entry_tf}
+                            </span>
+                          </p>
+                        )}
+                        {v1.macro_context && <p><span className="text-zinc-400">宏观：</span>{v1.macro_context}</p>}
+                        {v1.risk_events && <p><span className="text-zinc-400">风险事件：</span>{v1.risk_events}</p>}
+                        {v1.risk_appetite && <p><span className="text-zinc-400">风险偏好：</span>{v1.risk_appetite}</p>}
+                        {v1.notes && <p><span className="text-zinc-400">备注：</span>{v1.notes}</p>}
+                      </div>
+                    )}
+                    {v1.time_exit_hours != null && (
+                      <p className="mt-2 text-[12px] text-zinc-400">到时平仓：持仓 {v1.time_exit_hours}h 引擎确定性退出（setup 主要出场方式）</p>
+                    )}
                   </Panel>
                 )}
 
@@ -266,13 +275,14 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
                       <Row k="结果" v={OUTCOME[result.outcome] ?? result.outcome} tone={result.outcome === 'win' ? 'up' : result.outcome === 'loss' ? 'down' : undefined} />
                       <Row k="持仓 / 手续费" v={`${dur(result.holding_s)} / ${usd(result.fees)}`} />
                     </div>
-                    {(result.mfe_r != null || result.counterfactual_r != null) && (
+                    {(result.mfe_r != null || result.counterfactual_r != null || result.bh_r != null) && (
                       <div className="mt-2 grid grid-cols-2 gap-x-6 border-t border-zinc-100 pt-2">
                         <Row k="MFE / MAE" v={`${rr(result.mfe_r)} / ${rr(result.mae_r)}`} />
                         <Row k="出场效率" v={result.exit_efficiency != null ? `${(result.exit_efficiency * 100).toFixed(0)}%` : '—'} />
                         <Row k="不管理基准 R" v={rr(result.counterfactual_r)} />
                         <Row k="管理层贡献" v={rr(result.mgmt_contribution_r)}
                           tone={(result.mgmt_contribution_r ?? 0) > 0 ? 'up' : (result.mgmt_contribution_r ?? 0) < 0 ? 'down' : undefined} />
+                        <Row k="买入持有基准 R（同窗口）" v={rr(result.bh_r)} />
                       </div>
                     )}
                   </Panel>
