@@ -71,7 +71,7 @@ class MarketStore:
         self,
         pool: ConnectionPool,
         *,
-        retention_days: int = 365,
+        retention_days: int = 0,
         compress_after_days: int = 7,
         runs_keep: int = 500,
     ) -> None:
@@ -108,11 +108,18 @@ class MarketStore:
             "compress_after => make_interval(days => %s), if_not_exists => TRUE)",
             (self.compress_after_days,),
         )
-        conn.execute(
-            "SELECT add_retention_policy('metric_samples', "
-            "drop_after => make_interval(days => %s), if_not_exists => TRUE)",
-            (self.retention_days,),
-        )
+        if self.retention_days > 0:
+            conn.execute(
+                "SELECT add_retention_policy('metric_samples', "
+                "drop_after => make_interval(days => %s), if_not_exists => TRUE)",
+                (self.retention_days,),
+            )
+        else:
+            # 研究平台需要永久历史：retention=0 时不注册，且**主动移除**历史上注册过的策略
+            # （365 天策略曾整体吃掉 2006+ 深回填——2026-07 事故）。
+            conn.execute(
+                "SELECT remove_retention_policy('metric_samples', if_exists => TRUE)"
+            )
 
     # --- 时间序列 --------------------------------------------------------
 

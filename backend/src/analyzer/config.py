@@ -135,8 +135,10 @@ class Settings(BaseSettings):
     collect_market_interval_s: int = 900  # 价格/衍生品/情绪/链上：15 分钟
     collect_catalysts_interval_s: int = 86400  # 解锁/宏观/新闻：每天
 
-    # 保留 / 压缩：交给 TimescaleDB 原生策略（hypertable + 压缩 + retention）
-    retention_days: int = 365  # 超过此天数的原始样本自动 drop_chunks
+    # 保留 / 压缩：交给 TimescaleDB 原生策略（hypertable + 压缩）
+    # retention 默认关闭(0)：研究平台需要**永久**历史——365 天策略曾把 2006+ COT / 2010+ 股价等
+    # 深回填整体吃掉（2026-07 事故，见 research-log）。>0 才注册 drop_chunks；0 = 不注册并移除已有策略。
+    retention_days: int = 0
     compress_after_days: int = 7  # 超过此天数的 chunk 自动列式压缩（~10x，节省空间）
     runs_keep: int = 500  # 采集日志最多保留行数（log_run 内顺带裁剪）
 

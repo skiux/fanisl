@@ -58,10 +58,15 @@ def test_summarize_downsamples():
 
 
 def test_get_metric_history_reads_store(store):
+    # 时间戳相对 now 生成——写死日历日期会随时间老化滑出 30d 窗口(2026-07 踩过)
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(tz=timezone.utc)
     st = store
     for i, v in enumerate([1.0, 2.0, 3.0]):
-        st.write_samples([Sample("symbol", "BTC/USDT", "funding_rate", v)], f"2026-06-0{1 + i}T00:00:00+00:00")
-    st.write_samples([Sample("global", GLOBAL, "fear_greed", 12.0)], "2026-06-07T00:00:00+00:00")
+        st.write_samples([Sample("symbol", "BTC/USDT", "funding_rate", v)],
+                         (now - timedelta(days=6 - i)).isoformat())
+    st.write_samples([Sample("global", GLOBAL, "fear_greed", 12.0)],
+                     (now - timedelta(days=1)).isoformat())
 
     out = get_metric_history("BTC/USDT", ["funding_rate"], "all", st)
     assert out["window"] == "all"
