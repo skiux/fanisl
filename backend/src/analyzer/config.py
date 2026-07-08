@@ -11,11 +11,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AccountSpec(BaseModel):
-    """评测账户规格。多账户做对照实验：A=自然(保留拒绝权)、B=强制交易、影子=机械镜像不被管理。"""
+    """评测账户规格。多账户做对照实验：A=自然(保留拒绝权)、B=强制交易、影子=机械镜像不被管理、
+    setups=playbook 驱动（确定性触发 + Claude 闸门）。"""
     name: str
     force: bool = False          # 强制交易模式（不允许"不交易"）
     managed: bool = True         # Claude 是否参与持仓管理/复盘（影子账户=False，纯机械执行）
     mirror_of: str | None = None # 影子账户镜像哪个真实账户的进场计划
+    setups: bool = False         # setup 探测账户：playbook 触发→闸门→开仓，出场由模板确定性执行
 
 
 class IndicatorThresholds(BaseModel):
@@ -148,11 +150,13 @@ class Settings(BaseSettings):
     trading_default_risk_pct: float = 1.0       # 单笔默认风险占权益%
     trading_max_leverage: float = 10.0
     trading_margin_mode: str = "cross"          # isolated | cross（全仓：共享保证金、策略空间更大）
-    # 多账户对照实验：A=自然(保留拒绝权)、B=强制交易、影子=机械镜像 A 不被 Claude 管理
+    # 多账户对照实验：A=自然(保留拒绝权)、B=强制交易、影子=机械镜像 A 不被 Claude 管理、
+    # setups=playbook 驱动（确定性触发 + Claude 闸门，不参与酌情管理/复盘——按 setup 聚合评测）
     trading_accounts: list[AccountSpec] = [
         AccountSpec(name="main"),
         AccountSpec(name="forced", force=True),
         AccountSpec(name="main_shadow", managed=False, mirror_of="main"),
+        AccountSpec(name="setups", managed=False, setups=True),
     ]
     trading_taker_fee_bps: float = 5.0          # 成交手续费（基点，1bp=0.01%）
     trading_slippage_bps: float = 2.0           # 市价成交滑点（基点）
@@ -176,9 +180,13 @@ class Settings(BaseSettings):
     # 拒绝力评测：到期后用价格变动校验"不交易"判断（朝 bias 方向走超过此 % = 错过 = 判错）
     trading_decline_move_threshold_pct: float = 0.5
 
-    # 自主扫描：Claude 定期在全标的里找机会，受仓位/风险上限约束
-    trading_scan_enabled: bool = True
+    # 自主扫描（酌情模式，已降级）：研究结论=快照酌情判断无 edge（18 个 H 全 KILLED），
+    # 默认关闭；代码保留作对照实验用，手动 /trading/open 入口不受影响。
+    trading_scan_enabled: bool = False
     trading_scan_interval_s: int = 14400        # 每 4 小时扫一次（与 4h 结构周期对齐）
+    # Setup 探测（重定位后的主进场路径）：确定性规则触发 → Claude 闸门 → 引擎执行
+    trading_setups_enabled: bool = True
+    trading_setup_interval_s: int = 3600        # 每小时探测一轮（长 horizon setup 足够）
     trading_max_positions: int = 3              # 最多同时持仓笔数
     trading_max_total_risk_pct: float = 5.0     # 所有持仓在险合计 ≤ 权益的此百分比
     trading_max_same_direction: int = 2         # 同方向持仓上限（相关性集中度约束，避免名义分散实为一注）

@@ -93,7 +93,8 @@ class TradingEngine:
         plan_doc["computed"]["flags"] = check.flags
 
         trade_id = self.store.create_trade(
-            account_id, plan.symbol, plan.side, plan.strategy_type, plan.leverage
+            account_id, plan.symbol, plan.side, plan.strategy_type, plan.leverage,
+            setup_key=plan.setup_key,
         )
         self.store.add_plan(trade_id, plan_doc, version=1, make_active=True)
         self.store.save_decision_inputs(
@@ -251,6 +252,12 @@ class TradingEngine:
         tr = self.store.get_trade(tid)  # 减仓后刷新
         if tr["status"] != "open":
             return acts
+        # 3.5) 到时平仓（setup 模板的主要出场：长 horizon 持有到期，确定性、不经 Claude）
+        teh = plan.get("time_exit_hours")
+        if teh and tr["opened_at"] and (now - tr["opened_at"]).total_seconds() >= teh * 3600:
+            fill = calc.apply_slippage(mark, side, self.slippage_bps, is_entry=False)
+            self._close(tr, fill, "time_stop", "engine", now)
+            return acts + [{"trade_id": tid, "action": "time_exit", "price": fill}]
 
         # 盯市快照 + 触发重评
         self._snapshot(tid, mark, now)
@@ -349,8 +356,8 @@ class TradingEngine:
     def _close(self, tr: dict, price: float, reason: str, actor: str, now) -> None:
         """全平：把剩余仓位按 price 平掉并结算。"""
         if tr["qty"] > 0:
-            self._reduce(tr, price, tr["qty"], "exit" if reason in ("manual", "thesis_invalidated") else reason,
-                         actor, now)
+            kind = "exit" if reason in ("manual", "thesis_invalidated", "time_stop") else reason
+            self._reduce(tr, price, tr["qty"], kind, actor, now)
         self._finalize_close(tr["id"], reason, now)
 
     def _finalize_close(self, trade_id: int, reason: str, now) -> None:
@@ -400,6 +407,14 @@ class TradingEngine:
             )
             if cf_r is not None and realized_r is not None:
                 mgmt = round(realized_r - cf_r, 4)
+        # 逐笔配对基准：同窗口、同名义规模 buy&hold 该标的（永远做多，扣同费率的双边手续费）。
+        # 与 realized_r 同为 R 单位——这笔到底赢没赢过"什么都不判断、买了拿着"。
+        bh_r = None
+        if orig and exit_px is not None and risk_amount:
+            bh_pnl = calc.pnl("long", orig["price"], exit_px, orig["qty"])
+            bh_fees = (calc.fee(calc.notional(orig["qty"], orig["price"]), self.taker_fee_bps)
+                       + calc.fee(calc.notional(orig["qty"], exit_px), self.taker_fee_bps))
+            bh_r = round((bh_pnl - bh_fees) / risk_amount, 4)
 
         self.store.save_result(
             trade_id,
@@ -408,7 +423,7 @@ class TradingEngine:
             realized_r=realized_r,
             planned_r=plan["computed"].get("rr"),
             mfe_r=mfe_r, mae_r=mae_r, exit_efficiency=exit_eff,
-            counterfactual_r=cf_r, mgmt_contribution_r=mgmt,
+            counterfactual_r=cf_r, mgmt_contribution_r=mgmt, bh_r=bh_r,
             holding_s=holding_s, exit_reason=reason, outcome=outcome, fees=round(fees, 4),
         )
 

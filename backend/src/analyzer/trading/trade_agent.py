@@ -19,6 +19,7 @@ from ..data.instruments import Resolver
 from ..marketstore import MarketStore
 from ..prompts import (
     ENTRY_SYSTEM_PROMPT,
+    GATE_SYSTEM_PROMPT,
     MANAGE_SYSTEM_PROMPT,
     REVIEW_SYSTEM_PROMPT,
     SCAN_SYSTEM_PROMPT,
@@ -26,7 +27,14 @@ from ..prompts import (
 from ..tools.catalysts import get_catalysts
 from ..tools.market import get_market_snapshot
 from ..tools.registry import TOOLS, dispatch_tool
-from .models import Adjustment, DeclineDecision, Review, ScanResult, TradePlan
+from .models import (
+    Adjustment,
+    DeclineDecision,
+    Review,
+    ScanResult,
+    SetupGateDecision,
+    TradePlan,
+)
 
 _CACHE = {"type": "ephemeral"}
 _MAX_ITERS = 8
@@ -43,6 +51,11 @@ ENTRY_TERMINALS = [
 MANAGE_TERMINALS = [_term_tool("submit_adjustment", "提交持仓调整决策。", Adjustment)]
 REVIEW_TERMINALS = [_term_tool("submit_review", "提交结构化复盘。", Review)]
 SCAN_TERMINALS = [_term_tool("submit_scan", "提交扫描候选（值得做完整分析的标的，可为空）。", ScanResult)]
+GATE_TERMINALS = [_term_tool(
+    "submit_gate_decision",
+    "提交 setup 闸门裁决（confirm=干净实例放行 / veto=给出类别与依据）+ 事件标注。",
+    SetupGateDecision,
+)]
 
 
 class TradeAgent:
@@ -142,6 +155,32 @@ class TradeAgent:
         if snap.meta.data_warnings:
             d["warn"] = len(snap.meta.data_warnings)
         return d
+
+    def gate_setup(self, setup: dict, signal: dict, plan_summary: dict) -> dict:
+        """Setup 闸门（收窄角色）：确定性触发后只判「干净实例 + 定性否决」。
+
+        输入：setup 定义与回测先验（信念来源）、触发时特征值、模板计划摘要。
+        上下文预取催化剂/新闻（非结构化部分，Claude 的长处）；数据工具保留给数据异常核查。
+        返回 {decision: SetupGateDecision, inputs, transcript}。
+        """
+        symbol = signal["symbol"]
+        cat = get_catalysts(symbol, self.catalysts)
+        context = {
+            "setup": setup,
+            "signal": signal,
+            "plan_summary": plan_summary,
+            "catalysts": cat.model_dump(),
+        }
+        first = (
+            f"setup「{setup.get('key')}」在 {symbol} 确定性触发（方向与点位已由规则给定）。"
+            f"请按闸门职责裁决：是否干净实例、有无定性否决理由。触发上下文(JSON)：\n\n"
+            f"```json\n{json.dumps(context, ensure_ascii=False, default=str)}\n```"
+        )
+        _, payload, transcript = self._run(GATE_SYSTEM_PROMPT, first, GATE_TERMINALS)
+        return {
+            "decision": SetupGateDecision.model_validate(payload),
+            "inputs": context, "transcript": transcript,
+        }
 
     def decide_management(self, trade: dict, plan: dict, position: dict) -> dict:
         """持仓中被唤醒：返回 {adjustment, inputs, transcript}。"""

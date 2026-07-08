@@ -62,17 +62,26 @@ class MtfAnalysis(BaseModel):
 
 
 class TradePlan(BaseModel):
-    """Claude 进场提交。仓位与盈亏比由引擎按风险%和止损距离反推/核算，这里给依据与点位。"""
+    """进场计划。仓位与盈亏比由引擎按风险%和止损距离反推/核算，这里给依据与点位。
+
+    两类来源：Claude 酌情提交（分析字段应填全，提示词里仍是强制要求），或 playbook 按
+    setup 模板确定性构造（带 setup_key，分析字段留空——机器计划不伪造酌情分析）。
+    """
     symbol: str
     side: Side
     strategy_type: StrategyType
     thesis: str = Field(description="一句话能说清的交易逻辑/理由")
 
-    mtf: MtfAnalysis
-    macro_context: str = Field(description="相关宏观/基本面背景")
-    risk_events: str = Field(description="临近的风险事件（数据/会议/解锁），无则写无")
-    regime: Regime = Field(description="当前是趋势市还是震荡市")
-    risk_appetite: str = Field(description="整体风险偏好 risk-on/off 与相关资产在做什么")
+    setup_key: str | None = Field(
+        default=None,
+        description="来自 playbook 哪个 setup（None=酌情交易）。评测按 setup 聚合 edge 的关联键。",
+    )
+
+    mtf: MtfAnalysis | None = Field(default=None, description="多周期分析（酌情交易必填）")
+    macro_context: str | None = Field(default=None, description="相关宏观/基本面背景")
+    risk_events: str | None = Field(default=None, description="临近的风险事件（数据/会议/解锁），无则写无")
+    regime: Regime = Field(default="unknown", description="当前是趋势市还是震荡市")
+    risk_appetite: str | None = Field(default=None, description="整体风险偏好 risk-on/off 与相关资产在做什么")
 
     entry_type: EntryType
     entry_price: float = Field(description="进场价位（市价单也给参考价）")
@@ -102,6 +111,11 @@ class TradePlan(BaseModel):
         default=None,
         description="限价单有效期（小时），仅 limit 单用。超时未成交引擎自动撤单作废（论点会过期）。"
         "按入场周期定，如 15m 入场通常 2~8h。留空用引擎默认。",
+    )
+    time_exit_hours: float | None = Field(
+        default=None,
+        description="持仓到此小时数引擎确定性平仓（exit_reason=time_stop）。setup 模板的主要出场方式"
+        "（长 horizon 持有到期），酌情交易一般留空。",
     )
 
     wake_conditions: list[WakeCondition] = Field(
@@ -162,6 +176,45 @@ class Adjustment(BaseModel):
     add_qty_pct: float | None = Field(default=None, description="add 时加仓量（占原仓位%）")
     wake_conditions: list[WakeCondition] | None = Field(
         default=None, description="重设唤醒条件（None=沿用原计划的）",
+    )
+
+
+# --- Setup 闸门（Claude 的收窄角色：受约束否决 + 读非结构化事件）-----------
+
+VetoCategory = Literal[
+    "imminent_event",        # 临近二元事件（宏观数据/监管裁决/解锁），信号可能被事件碾过
+    "data_anomaly",          # 触发数据可疑（陈旧/单点尖刺/来源异常），不是干净实例
+    "signal_contradiction",  # 新闻/事件与 setup 方向直接矛盾（如做多信号撞上负面突发）
+    "other",
+]
+
+EventKind = Literal["macro", "regulatory", "listing", "unlock", "exchange", "narrative", "other"]
+Severity = Literal["low", "medium", "high"]
+
+
+class EventAnnotation(BaseModel):
+    """Claude 读非结构化事件后产出的结构化标注——喂回特征库的"文档即数据"通道。
+
+    无论 confirm 还是 veto，看到值得记录的事件都应标注（不只为否决服务）。
+    """
+    kind: EventKind
+    severity: Severity
+    note: str = Field(description="一句话说清事件是什么、为什么值得记录")
+    symbol: str | None = Field(default=None, description="关联标的；全市场事件留空")
+    event_ts: str | None = Field(default=None, description="事件（预计）发生时刻 ISO8601，未知留空")
+
+
+class SetupGateDecision(BaseModel):
+    """Setup 触发后 Claude 的闸门裁决。不回答"该不该交易"——先验来自回测；
+    只回答"是不是干净实例 + 有无定性否决理由"。"""
+    verdict: Literal["confirm", "veto"]
+    veto_category: VetoCategory | None = Field(
+        default=None, description="veto 时必填的否决类别；confirm 留空"
+    )
+    reasoning: str = Field(description="一两句话：confirm 说明为何干净，veto 说明否决依据")
+    event_annotations: list[EventAnnotation] = Field(
+        default_factory=list,
+        description="本次看到的值得结构化记录的事件（可为空；confirm 也可以有标注）",
     )
 
 

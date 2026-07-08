@@ -317,3 +317,73 @@ def test_scorecard_aggregates(trading_store, acct):
     assert sc["closed_trades"] == 2
     assert 0.0 <= sc["win_rate"] <= 1.0
     assert sc["max_drawdown"] >= 0
+
+
+# --- 评测台重定位：setup 关联 / 时间出场 / 配对 buy&hold 基准 ----------------
+
+def _short_plan(**over):
+    base = dict(
+        symbol="BTC/USDT", side="short", strategy_type="trend", thesis="t",
+        entry_type="market", entry_price=100.0, entry_trigger="setup",
+        leverage=2.0, risk_pct=1.0, sl_price=105.0, sl_basis="模板",
+        tp_targets=[TpTarget(price=90, reduce_pct=100)],
+    )
+    base.update(over)
+    return TradePlan.model_validate(base)
+
+
+def test_setup_key_persisted_on_trade(trading_store, acct):
+    eng = _engine(trading_store, {"v": 100.0})
+    tid = eng.open_trade(acct["id"], _long_plan(setup_key="tsmom_7d"))["trade_id"]
+    assert trading_store.get_trade(tid)["setup_key"] == "tsmom_7d"
+    # 酌情交易（无 setup_key）为 NULL
+    tid2 = eng.open_trade(acct["id"], _long_plan(symbol="ETH/USDT"))["trade_id"]
+    assert trading_store.get_trade(tid2)["setup_key"] is None
+
+
+def test_time_exit_closes_at_horizon(trading_store, acct):
+    # 可控时钟：开仓后拨到持有期之后，tick 应按 time_stop 确定性平仓
+    clock = {"t": datetime(2026, 6, 8, tzinfo=timezone.utc)}
+    price = {"v": 100.0}
+    eng = TradingEngine(trading_store, price_fn=lambda s: price["v"],
+                        now_fn=lambda: clock["t"])
+    tid = eng.open_trade(acct["id"], _long_plan(time_exit_hours=168.0))["trade_id"]
+
+    clock["t"] += timedelta(hours=167)
+    eng.tick(acct["id"])
+    assert trading_store.get_trade(tid)["status"] == "open"  # 未到期不动
+
+    clock["t"] += timedelta(hours=2)
+    acts = eng.tick(acct["id"])
+    assert any(a["action"] == "time_exit" for a in acts)
+    assert trading_store.get_trade(tid)["status"] == "closed"
+    res = trading_store.get_result(tid)
+    assert res["exit_reason"] == "time_stop"
+    # 到时平仓的成交要计入 PnL（kind 映射为 exit，不能漏结算）
+    assert res["pnl_abs"] != 0 or res["outcome"] == "breakeven"
+
+
+def test_bh_r_pairs_against_buy_and_hold(trading_store, acct):
+    # 空单在下跌中止盈：实际 R 为正，同窗口 buy&hold（永远做多）基准应为负
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    tid = eng.open_trade(acct["id"], _short_plan())["trade_id"]
+    price["v"] = 89.0
+    eng.tick(acct["id"])  # TP 90 触发全平
+    res = trading_store.get_result(tid)
+    assert res["realized_r"] is not None and res["realized_r"] > 0
+    assert res["bh_r"] is not None and res["bh_r"] < 0
+    # 量级对齐：空单赚的 ≈ 多头拿着亏的（同窗口同名义，差手续费/滑点）
+    assert res["bh_r"] == pytest.approx(-res["realized_r"], abs=0.2)
+
+
+def test_bh_r_matches_long_hold(trading_store, acct):
+    # 多单一路持有到止盈：bh_r 应与 realized_r 同号且接近
+    price = {"v": 100.0}
+    eng = _engine(trading_store, price)
+    tid = eng.open_trade(acct["id"], _long_plan(tp_targets=[TpTarget(price=110, reduce_pct=100)]))["trade_id"]
+    price["v"] = 111.0
+    eng.tick(acct["id"])
+    res = trading_store.get_result(tid)
+    assert res["bh_r"] is not None and res["bh_r"] > 0
+    assert res["bh_r"] == pytest.approx(res["realized_r"], abs=0.2)

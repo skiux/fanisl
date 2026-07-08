@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 from ..config import Settings
 from ..data.instruments import tradeable_canonicals
-from . import calc
+from . import calc, playbook
 from .engine import TradingEngine
 from .models import TradePlan
 from .store import TradingStore
@@ -20,12 +20,13 @@ from .trade_agent import TradeAgent
 class TradingService:
     def __init__(
         self, store: TradingStore, engine: TradingEngine, agent: TradeAgent,
-        settings: Settings | None = None,
+        settings: Settings | None = None, market_pool=None,
     ) -> None:
         self.store = store
         self.engine = engine
         self.agent = agent
         self.settings = settings
+        self.market_pool = market_pool  # 行情库连接池：setup 探测器读时点序列用
 
     # --- 账户概览 --------------------------------------------------------
 
@@ -190,6 +191,113 @@ class TradingService:
             "candidates": [c.model_dump() for c in result.candidates],
             "opened": opened, "market_note": result.market_note, "skipped": sc.get("skipped"),
         }
+
+    # --- Setup 驱动进场（评测台重定位的主路径）---------------------------
+    # 确定性探测器触发 → 代码按模板构造计划 → Claude 只做闸门（干净实例 + 定性否决）
+    # → 引擎执行。方向/点位/仓位全由 setup 规则给出，先验来自回测。
+
+    def detect_setups(self, account_id: int, *, specs=None) -> list[dict]:
+        """一轮 setup 探测：对每个 active setup × 标的求值，触发则走闸门→开仓。
+
+        specs 参数供测试注入；生产用 playbook.active_setups()。
+        单个 setup×标的 失败不影响其余（best-effort），引擎侧的容量/锁逻辑复用酌情路径。
+        """
+        if self.market_pool is None:
+            return []
+        now = datetime.now(timezone.utc)
+        out: list[dict] = []
+        for spec in (specs if specs is not None else playbook.active_setups()):
+            for sym in spec.symbols:
+                try:
+                    r = self._detect_one(account_id, spec, sym, now)
+                except Exception as e:  # noqa: BLE001 — 单标的失败不拖垮整轮
+                    r = {"setup": spec.key, "symbol": sym, "error": str(e)[:120]}
+                if r is not None:
+                    out.append(r)
+        return out
+
+    def _detect_one(self, account_id: int, spec, sym: str, now) -> dict | None:
+        # 去重：已有活跃仓位 / 冷却窗内已触发过（不分裁决结果，防电平信号反复叫闸门）
+        if self.store.has_active_setup_trade(account_id, spec.key, sym):
+            return None
+        last = self.store.last_signal_at(account_id, spec.key, sym)
+        if last is not None and (now - last).total_seconds() < spec.cooldown_hours * 3600:
+            return None
+        sig = playbook.detect(spec, self.market_pool, sym, now)
+        if sig is None:
+            return None
+
+        plan = playbook.build_plan(spec, sym, sig)
+        signal_id = self.store.record_setup_signal(
+            account_id, setup_key=spec.key, symbol=sym, side=sig.side,
+            features=sig.features, prior=spec.prior.model_dump(),
+            hypo_entry_price=sig.ref_price, hypo_horizon_hours=spec.holding_hours,
+        )
+        base = {"setup": spec.key, "symbol": sym, "signal_id": signal_id, "side": sig.side}
+
+        # 闸门（Claude，慢）——不持账户锁
+        try:
+            g = self.agent.gate_setup(
+                spec.model_dump(), {"symbol": sym, **sig.features},
+                {k: plan.model_dump()[k] for k in
+                 ("side", "entry_price", "sl_price", "tp_targets", "risk_pct",
+                  "leverage", "time_exit_hours")},
+            )
+        except Exception as e:  # noqa: BLE001 — 闸门失败按 error 记录，不静默开仓
+            self.store.set_signal_verdict(signal_id, "error", reasoning=str(e)[:200])
+            return {**base, "verdict": "error"}
+        dec = g["decision"]
+        if dec.event_annotations:
+            self.store.add_event_annotations(
+                [a.model_dump() for a in dec.event_annotations],
+                source=f"gate:{spec.key}", signal_id=signal_id,
+            )
+        if dec.verdict == "veto":
+            self.store.set_signal_verdict(
+                signal_id, "vetoed", veto_category=dec.veto_category,
+                reasoning=dec.reasoning, gate_response=g["transcript"],
+            )
+            return {**base, "verdict": "vetoed", "veto_category": dec.veto_category}
+
+        with self.store.account_lock(account_id):
+            cap = self._check_capacity(account_id, plan)
+            if not cap["ok"]:
+                self.store.set_signal_verdict(
+                    signal_id, "skipped", reasoning=cap["reason"], gate_response=g["transcript"]
+                )
+                return {**base, "verdict": "skipped", "reason": cap["reason"]}
+            res = self.engine.open_trade(
+                account_id, plan, inputs=g["inputs"], response=g["transcript"],
+                atr_daily=sig.atr_daily,
+            )
+        self.store.set_signal_verdict(
+            signal_id, "confirmed", reasoning=dec.reasoning,
+            trade_id=res.get("trade_id"), gate_response=g["transcript"],
+        )
+        return {**base, "verdict": "confirmed", "trade_id": res.get("trade_id"),
+                "opened": res.get("ok", False)}
+
+    def verify_vetoes(self, account_id: int) -> list[dict]:
+        """到期的 veto 假想校验：按 setup 模板算「若没被否决」的净收益，评否决力。
+
+        成本按引擎参数（双边手续费 + 双边滑点）。avoided_loss = 假想净收益 ≤ 0（否决是对的）。
+        """
+        cost = 2 * (self.engine.taker_fee_bps + self.engine.slippage_bps) / 10_000.0
+        out: list[dict] = []
+        for s in self.store.vetoes_due_verify(account_id, datetime.now(timezone.utc)):
+            try:
+                price_now = self.engine.price_fn(s["symbol"])
+            except Exception:  # noqa: BLE001 — 取价失败下次再校验
+                continue
+            ret = (price_now - s["hypo_entry_price"]) / s["hypo_entry_price"]
+            move = ret if s["side"] == "long" else -ret
+            net = move - cost
+            outcome = {"hypo_net_return": round(net, 5), "avoided_loss": net <= 0,
+                       "price_then": s["hypo_entry_price"], "price_now": price_now}
+            self.store.save_veto_outcome(s["id"], outcome)
+            out.append({"signal_id": s["id"], "setup": s["setup_key"],
+                        "symbol": s["symbol"], **outcome})
+        return out
 
     # --- 影子账户：机械镜像（免费对照组，无 Claude）---------------------
 

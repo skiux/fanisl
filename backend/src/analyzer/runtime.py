@@ -68,7 +68,10 @@ trade_engine = TradingEngine(
     reeval_grace_min=settings.trading_reeval_grace_min,
 )
 trade_agent = TradeAgent(settings, resolver, sentiment, catalysts, market_store)
-trading_service = TradingService(trading_store, trade_engine, trade_agent, settings=settings)
+trading_service = TradingService(
+    trading_store, trade_engine, trade_agent, settings=settings,
+    market_pool=pool,  # setup 探测器读行情库的时点序列
+)
 
 
 def _build_accounts() -> list[dict]:

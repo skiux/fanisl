@@ -93,8 +93,8 @@ def trading_store(pool):
     with pool.connection() as conn:
         conn.execute(
             "TRUNCATE accounts, trades, trade_plans, decision_inputs, orders, "
-            "position_snapshots, trade_events, trade_results, trade_reviews, declines "
-            "RESTART IDENTITY CASCADE"
+            "position_snapshots, trade_events, trade_results, trade_reviews, declines, "
+            "setup_signals, event_annotations RESTART IDENTITY CASCADE"
         )
     return st
 

@@ -22,6 +22,7 @@ def main() -> None:
     svc = rt.trading_service
     all_ids = [a["id"] for a in rt.ACCOUNTS]
     managed_ids = [a["id"] for a in rt.ACCOUNTS if a["managed"]]
+    setup_ids = [a["id"] for a in rt.ACCOUNTS if a["spec"].setups]
 
     def mark_all() -> list:
         out = []
@@ -37,6 +38,11 @@ def main() -> None:
     def scan_all() -> list:
         return [svc.scan(aid) for aid in managed_ids]
 
+    def setups_all() -> list:
+        # setup 探测（触发→闸门→开仓）+ 到期 veto 假想校验，同一节奏跑
+        return [{"detected": svc.detect_setups(aid), "vetoes": svc.verify_vetoes(aid)}
+                for aid in setup_ids]
+
     # 快线程：盯市（确定性，必须及时）——所有账户
     fast = Scheduler([
         ("trading_mark", rt.settings.trading_mark_interval_s, mark_all),
@@ -47,6 +53,8 @@ def main() -> None:
     ]
     if rt.settings.trading_scan_enabled:
         decision_jobs.append(("trading_scan", rt.settings.trading_scan_interval_s, scan_all))
+    if rt.settings.trading_setups_enabled and setup_ids:
+        decision_jobs.append(("trading_setups", rt.settings.trading_setup_interval_s, setups_all))
     slow = Scheduler(decision_jobs)
 
     run_workers([fast, slow], name="trader")

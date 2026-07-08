@@ -226,6 +226,7 @@ def trading_accounts() -> list[dict]:
         out.append({
             "name": spec.name, "id": a["id"],
             "force": spec.force, "managed": spec.managed, "mirror_of": spec.mirror_of,
+            "setups": spec.setups,
             "summary": trading_service.account_summary(a["id"]),
             "scorecard": trading_store.scorecard(a["id"]),
         })
@@ -268,6 +269,34 @@ def trading_scan(account: str | None = None) -> dict:
 def trading_positions(account: str | None = None) -> list[dict]:
     """持仓实时状态：每笔未平仓交易的最新盯市快照 + 计划止损止盈。"""
     return trading_service.open_positions(_resolve_account(account))
+
+
+@app.get("/trading/setups")
+def trading_setups(account: str | None = None) -> dict:
+    """Playbook 注册表 + 按 setup 聚合的 edge 评测（live vs 回测先验对照）+ 最近信号。
+
+    评测台重定位后的核心视图：评的是 setup 类型在 N 次里赚不赚，不是单笔判断。
+    account 不传 = 跨全部账户聚合。
+    """
+    from .trading import playbook
+    aid = _resolve_account(account) if account else None
+    registry = {s.key: s.model_dump() for s in playbook.SETUPS}
+    return {
+        "registry": registry,
+        "scorecard": trading_store.scorecard_by_setup(aid),
+        "signals": trading_store.list_setup_signals(aid) if aid else [],
+    }
+
+
+@app.post("/trading/detect")
+def trading_detect(account: str | None = None) -> dict:
+    """手动触发一轮 setup 探测（同调度器任务）。闸门同步调用 Claude，可能耗时。"""
+    aid = _resolve_account(account or "setups")
+    try:
+        return {"detected": trading_service.detect_setups(aid),
+                "vetoes_verified": trading_service.verify_vetoes(aid)}
+    except anthropic.APIError as e:
+        raise HTTPException(status_code=502, detail=f"Claude API 错误: {e}") from e
 
 
 @app.get("/trading/symbols")
