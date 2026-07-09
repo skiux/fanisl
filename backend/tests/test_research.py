@@ -315,3 +315,71 @@ def test_h19_intraday_entry_and_horizon():
     assert intraday_ret(sparse, pub, 1) is None
     # 尾部不足 h 根 → None
     assert intraday_ret(hourly, pub, 20) is None
+
+
+# --- H20：横截面资金费 carry --------------------------------------------------
+
+def test_h20_assign_legs_by_funding():
+    from analyzer.research.h20 import assign_legs
+    f = {f"S{i}": v for i, v in enumerate([-0.30, -0.10, -0.05, 0.0, 0.01, 0.02,
+                                           0.03, 0.04, 0.05, 0.06, 0.10, 0.20,
+                                           -0.20, 0.30, -0.02, 0.15])}
+    longs, shorts = assign_legs(f, k=3)
+    assert set(longs) == {"S0", "S12", "S1"}      # 最负 3 名
+    assert set(shorts) == {"S13", "S11", "S15"}   # 最正 3 名
+
+
+def test_h20_week_spread_carry_signs_and_cost():
+    from analyzer.research.h20 import week_spread, COST_SPREAD
+    # long 名：价 +2%、费率负（carry_frac=-0.001）→ long 收 +0.001
+    # short 名：价 -1%、费率正（carry_frac=+0.002）→ short 收 +0.002，价再赚 +1%
+    pn = {"L": (0.02, -0.001), "S": (-0.01, 0.002)}
+    got = week_spread(pn, ["L"], ["S"])
+    want = (0.02 + 0.001) + (0.01 + 0.002) - COST_SPREAD
+    assert abs(got - want) < 1e-12
+    # 反向核对：两腿费率都对我方不利时 carry 变成支出
+    pn2 = {"L": (0.02, +0.001), "S": (-0.01, -0.002)}
+    got2 = week_spread(pn2, ["L"], ["S"])
+    want2 = (0.02 - 0.001) + (0.01 - 0.002) - COST_SPREAD
+    assert abs(got2 - want2) < 1e-12
+
+
+def test_h20_carry_sum_window_and_units():
+    from analyzer.research.h20 import carry_sum
+    t0 = T0
+    fund = [(T0, 0.10), (T0 + timedelta(days=1), 0.10),      # 0.10%/8h × 3 = 0.003/天
+            (T0 + timedelta(days=7), -0.20),
+            (T0 + timedelta(days=8), 9.9)]                    # 窗外，不得计入
+    got = carry_sum(fund, t0, t0 + timedelta(days=7))         # (t0, t0+7] 含 d1 与 d7
+    assert abs(got - (0.10 * 3 / 100 + (-0.20) * 3 / 100)) < 1e-12
+
+
+def test_h20_universe_week_validity(pool):
+    # 集成：造 16 个标的的最小数据 → 恰好成周；缺价格的标的被剔除后 <16 → 跳周
+    from analyzer.research import h20
+    from analyzer.marketstore import MarketStore
+    store = MarketStore(pool)
+    with pool.connection() as conn:
+        conn.execute("DELETE FROM metric_samples WHERE metric IN ('funding_rate_1d')"
+                     " OR (metric='price' AND symbol LIKE 'TT%/USDT')")
+    t0 = h20.ANCHOR
+    rows = []
+    for i in range(16):
+        sym = f"TT{i}/USDT"
+        f = (i - 8) / 100.0
+        for d in range(0, 9):
+            ts = (t0 + timedelta(days=d)).isoformat()
+            rows.append(("symbol", sym, "funding_rate_1d", ts, f))
+            # 价格：全部横盘 100（spread 应≈ 纯 carry − 成本）
+            rows.append(("symbol", sym, "price", ts, 100.0))
+    store.write_history(rows)
+    weeks = h20.build_weeks(pool)
+    target = [w for w in weeks if w["t"] == t0]
+    assert len(target) == 1 and len(target[0]["pn"]) == 16
+    # 把 1 个标的的价格删掉 → 有效 15 < MIN_VALID → 该周消失
+    with pool.connection() as conn:
+        conn.execute("DELETE FROM metric_samples WHERE symbol='TT0/USDT' AND metric='price'")
+    weeks2 = h20.build_weeks(pool)
+    assert not [w for w in weeks2 if w["t"] == t0]
+    with pool.connection() as conn:  # 清理，防污染其他用例
+        conn.execute("DELETE FROM metric_samples WHERE symbol LIKE 'TT%/USDT'")
