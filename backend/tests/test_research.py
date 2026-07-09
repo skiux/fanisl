@@ -383,3 +383,57 @@ def test_h20_universe_week_validity(pool):
     assert not [w for w in weeks2 if w["t"] == t0]
     with pool.connection() as conn:  # 清理，防污染其他用例
         conn.execute("DELETE FROM metric_samples WHERE symbol LIKE 'TT%/USDT'")
+
+
+# --- H21：宽 universe 资金费 carry（逐结算 + PIT 池 + 换手边数成本）-----------
+
+def test_h21_carry_sum_settlements_window():
+    from analyzer.research.h21 import carry_sum_settlements
+    fund = [(T0, 0.0001), (T0 + timedelta(hours=8), -0.0002),
+            (T0 + timedelta(days=7), 0.0004),          # 恰在窗右端，含
+            (T0 + timedelta(days=7, hours=8), 9.9)]    # 窗外
+    got = carry_sum_settlements(fund, T0, T0 + timedelta(days=7))
+    assert abs(got - (-0.0002 + 0.0004)) < 1e-12       # (t0, t1]：不含 t0 那次
+
+
+def test_h21_sides_traded_accounting():
+    from analyzer.research.h21 import sides_traded
+    legs0 = (["A", "B", "C", "D", "E", "F"], ["U", "V", "W", "X", "Y", "Z"])
+    assert sides_traded(None, legs0) == 12             # 首周全建仓 12 边
+    legs1 = (["A", "B", "C", "D", "E", "G"],           # long 换 1 名
+             ["U", "V", "W", "X", "Y", "Z"])           # short 不变
+    assert sides_traded(legs0, legs1) == 2             # 平 F + 开 G = 2 边
+    assert sides_traded(legs1, legs1) == 0             # 全持仓不动 = 0 边
+
+
+def test_h21_pit_pool_maturity_and_delisting(pool):
+    # PIT 池：历史 <90d 不入池；退市（结算停止）后自然出池
+    from analyzer.research import h21
+    from analyzer.marketstore import MarketStore
+    store = MarketStore(pool)
+    with pool.connection() as conn:
+        conn.execute("DELETE FROM metric_samples WHERE metric IN ('um_funding_8h','um_close_1d')")
+    t_ref = h21.ANCHOR + timedelta(days=280)           # 某个格点周
+    rows = []
+    for i in range(17):
+        sym = f"U{i}USDT"
+        # 16 个成熟名：资金费从 t_ref-200d 起；1 个年轻名：从 t_ref-30d 起（应被成熟度挡掉）
+        start = t_ref - timedelta(days=200 if i < 16 else 30)
+        d = start
+        while d <= t_ref + timedelta(days=9):
+            rows.append(("symbol", sym, "um_funding_8h", d.isoformat(), (i - 8) / 10000.0))
+            rows.append(("symbol", sym, "um_close_1d", d.isoformat(), 100.0))
+            d += timedelta(days=1)
+    store.write_history(rows)
+    weeks = h21.build_weeks(pool)
+    target = [w for w in weeks if w["t"] == t_ref]
+    assert len(target) == 1
+    assert len(target[0]["pn"]) == 16 and "U16USDT" not in target[0]["pn"]
+    # 模拟 U0 退市：删掉其 t_ref 前最后 5 天的结算 → 新鲜度失败 → 出池 → 池 15 < 16 → 该周消失
+    with pool.connection() as conn:
+        conn.execute("DELETE FROM metric_samples WHERE symbol='U0USDT' AND metric='um_funding_8h' "
+                     "AND ts > %s", (t_ref - timedelta(days=5),))
+    weeks2 = h21.build_weeks(pool)
+    assert not [w for w in weeks2 if w["t"] == t_ref]
+    with pool.connection() as conn:
+        conn.execute("DELETE FROM metric_samples WHERE symbol LIKE 'U%%USDT'")

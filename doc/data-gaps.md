@@ -44,6 +44,23 @@ USDC 本位线性(currency=USDC 按前缀过滤，**无 DVOL**)。其余币种�
    备选：Polygon Futures / Databento / yfinance `CL=F`。
 5. **限速**：Polygon 免费 5 次/分（已加 429 退避重试）。
 
+## 数据层级升级：bulk 归档源实地排查（2026-07-09，H21 期间实测）
+
+研究一再指向"免费日线数据信息太小"→ 排查更深层级（tick/订单流/盘口）的免费 bulk 源，
+全部从本机网络**实测可达性**（教训：API 封锁 ≠ CDN 封锁）：
+
+| 源 | 可达性 | 内容 | 价值 |
+|---|---|---|---|
+| **`data.binance.vision`**（GitHub: binance/binance-public-data） | ✅ **可达**（api/fapi 被 451，bulk S3/CDN 没封；S3 列目录也通） | USDT-M 永续 **872 符号**（含退市：LUNA/SRM/FTT）月度/日度 zip：`fundingRate`（逐次结算 2020-01+）、`klines`（1m~1d）、**`aggTrades`/`trades`（逐笔含 taker 方向 = CVD/订单流）**、`bookTicker`（最优报价）、`bookDepth`（盘口深度，日档）、**`metrics`（2020-09+，5min：OI 量/USD、大户 LSR 账户+持仓两口径、全市场 LSR、taker 买卖比）**、mark/index/premium klines（基差历史） | **一次性关掉三个老缺口**：OI/LSR/taker 深历史（原只有 Coinalyze ~30-150d）、订单流(CVD)、含退市名的 PIT universe。H21 已用 fundingRate+klines 1d（`research/backfill_um_bulk.py`，147 符号） |
+| `public.bybit.com` | ✅ 200 | 全符号逐笔成交归档（tick CSV） | 冗余源/交叉验证 |
+| Dukascopy datafeed（GitHub: Leo4815162342/dukascopy-node） | ❌ 本沙箱超时 | FX/CFD tick（含 XAU、Brent/WTI CFD，2010+） | **油/金的免费 tick 源**——用户终端可再试（网络差异，参考 Coinalyze 先例）；通了就是 TradFi 盘中研究的钥匙 |
+| OANDA candles（已接） | ✅ | H1 实测 2008+（WTI 111k 根已入库 `price_1h`）；**M1 未探深度**，理论同样 from 分页可拉 | TradFi 分钟级事件研究的现成路径，无需新 key |
+| Tardis.dev / Coinglass | 付费 | tick 级衍生品全家桶 / 爆仓热力图 | 仍是付费缺口，不动 |
+
+**含义**：加密侧"数据层级"缺口基本消失——盘中/订单流/盘口/持仓深历史都有免费 bulk。
+TradFi 侧盘中靠 OANDA（H1 已验证、M1 待探），tick 靠 Dukascopy（待用户终端验证可达性）。
+注意 bulk 下载要带 sleep + 重试 + 404 跳过（上市前/退市后月份 404 是正常语义，非错误）。
+
 ## 事件与催化剂（Part 2，进行中）
 
 独立工具 `get_catalysts(symbol?)`（与 `get_market_snapshot` 分开），可插拔 catalyst provider
