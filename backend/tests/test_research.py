@@ -195,3 +195,78 @@ def test_h3_pnl_direction_sign():
     short_pnl = _pnl(price, T0, "short", 4)
     assert abs(long_pnl - (0.10 - COST)) < 1e-9     # 做多涨10% 减成本
     assert abs(short_pnl - (-0.10 - COST)) < 1e-9   # 做空亏
+
+
+# --- H18：EIA 库存 surprise 事件研究 ----------------------------------------
+
+def test_eia_publish_ts_wednesday_et_with_dst():
+    # period 周五 → 次周三 10:30 ET；夏令 = 14:30Z，冬令 = 15:30Z（DST 由 zoneinfo 处理）
+    from analyzer.research.backfill_eia import _publish_ts
+    summer = datetime.fromisoformat(_publish_ts("2026-06-26"))   # 夏令
+    assert (summer.year, summer.month, summer.day) == (2026, 7, 1)   # 周三
+    assert summer.utcoffset() == timedelta(0) and (summer.hour, summer.minute) == (14, 30)
+    winter = datetime.fromisoformat(_publish_ts("2026-01-02"))   # 冬令
+    assert (winter.year, winter.month, winter.day) == (2026, 1, 7)   # 周三
+    assert (winter.hour, winter.minute) == (15, 30)
+
+
+def test_h18_entry_strictly_after_publish():
+    # 无未来函数：进场必须是发布 ts 之后严格第一根日线（周三行在发布前=当日凌晨戳，不得用）
+    from analyzer.research.h18 import event_pnl, COST
+    pub = datetime(2026, 7, 1, 14, 30, tzinfo=timezone.utc)      # 周三 10:30 ET
+    price = [
+        (datetime(2026, 7, 1, tzinfo=timezone.utc), 90.0),       # 周三 00:00Z 行：发布前，禁用
+        (datetime(2026, 7, 2, tzinfo=timezone.utc), 100.0),      # 周四：进场
+        (datetime(2026, 7, 3, tzinfo=timezone.utc), 101.0),
+        (datetime(2026, 7, 6, tzinfo=timezone.utc), 102.0),
+        (datetime(2026, 7, 7, tzinfo=timezone.utc), 110.0),      # +3 交易日：出场
+    ]
+    long_pnl = event_pnl(price, pub, "long", 3)
+    assert abs(long_pnl - (0.10 - COST)) < 1e-9                  # 100→110，绝不是 90 进场
+    assert event_pnl(price, pub, "short", 3) < 0
+    # 序列尾部不足 h 行 → None（不硬凑出场价）
+    assert event_pnl(price, pub, "long", 4) is None
+
+
+def test_h18_seasonal_z_uses_prior_years_only():
+    # 季节期望只用过去年份的同周样本：当年值再极端也不污染自己的期望
+    from datetime import date
+    from analyzer.research.h18 import seasonal_z
+    events = []
+    for yr in range(2019, 2025):                                 # 6 年历史，每年第 10/11 周
+        for wk, dv in ((10, 1000.0), (11, 1000.0)):
+            d = date.fromisocalendar(yr, wk, 5)
+            events.append((datetime(yr, d.month, d.day, tzinfo=timezone.utc), d, dv))
+    d_cur = date.fromisocalendar(2025, 10, 5)
+    events.append((datetime(2025, 3, 7, tzinfo=timezone.utc), d_cur, 9000.0))  # 当年爆表
+    events.sort(key=lambda e: e[1])
+    z = seasonal_z(events, len(events) - 1)
+    # 期望=1000（只来自 2020-2024 同周样本），σ 极小但样本同值 → σ=0 → None；改造样本给出方差
+    assert z is None
+    events2 = [e for e in events[:-1]]
+    events2[2] = (events2[2][0], events2[2][1], 1100.0)          # 2020 年样本（5 年窗内）制造方差
+    events2.append(events[-1])
+    z2 = seasonal_z(events2, len(events2) - 1)
+    assert z2 is not None and z2 > 3                             # 9000 远超 ~1000 的季节期望
+    # 反向核对：2019 年样本在 5 年窗（2020-2024）之外，改爆它不得影响 z
+    events3 = [e for e in events2[:-1]]
+    events3[0] = (events3[0][0], events3[0][1], 99999.0)
+    events3.append(events[-1])
+    z3 = seasonal_z(events3, len(events3) - 1)
+    assert z3 is not None and abs(z3 - z2) < 1e-9
+
+
+def test_h18_build_events_drops_gaps():
+    # 相邻 period 间隔 >10 天（早年缺口）→ 该 Δ 不是标准周变动，丢弃
+    from analyzer.research.h18 import build_events, PUB_LAG
+    def pub(period_iso):
+        return datetime.fromisoformat(period_iso).replace(tzinfo=timezone.utc) + PUB_LAG
+    series = [
+        (pub("1982-08-20"), 338764.0),
+        (pub("1982-08-27"), 336138.0),   # 正常周 Δ=-2626
+        (pub("1982-09-24"), 335586.0),   # 与上一条隔 4 周 → 丢弃
+        (pub("1982-10-01"), 334786.0),   # 正常周 Δ=-800
+    ]
+    ev = build_events(series)
+    assert len(ev) == 2
+    assert abs(ev[0][2] - (-2626.0)) < 1e-9 and abs(ev[1][2] - (-800.0)) < 1e-9

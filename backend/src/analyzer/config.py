@@ -106,6 +106,7 @@ class Settings(BaseSettings):
 
     # 事件与催化剂（Part 2）。代币解锁(DefiLlama)无需 key；以下为免费 key，填了对应维度才启用。
     fred_api_key: str = ""  # 宏观日历（FRED）
+    eia_api_key: str = ""   # EIA 开放数据（周度石油库存；免费注册 eia.gov/opendata）
     coinmarketcal_api_key: str = ""  # 币圈事件（CoinMarketCal）
     cryptocompare_api_key: str = ""  # 新闻（CoinDesk Data，原 CryptoCompare）
     # 新闻聚合（多源，填了哪个就启用哪个，结果合并去重）
