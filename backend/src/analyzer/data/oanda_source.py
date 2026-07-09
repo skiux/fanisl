@@ -62,6 +62,58 @@ class OANDASource(MarketDataSource):
             ]
         )
 
+    def fetch_ohlcv_history(
+        self, symbol: str, timeframe: str, since_iso: str, *, sleep_s: float = 1.5,
+    ) -> list[dict]:
+        """分页深回填：from+count 游标推进到当下，返回升序 [{ts_close, close}]。
+
+        - OANDA candle time = bar **开盘**时刻；研究入库须打**收盘**戳（值已知的时刻，
+          B-1 教训），这里直接返回 ts_close = time + 周期。
+        - 只收 complete=true 的 bar（forming bar 值会变，不落库）。
+        - 游标无法前进（重复窗口/空返回）即停，防死循环。
+        """
+        import time as _time
+        from datetime import timedelta as _td
+
+        gran = _GRAN.get(timeframe)
+        if gran is None:
+            raise DataSourceError(f"OANDA 不支持周期 {timeframe}")
+        step = {"1h": _td(hours=1), "4h": _td(hours=4), "1d": _td(days=1)}.get(timeframe)
+        if step is None:
+            raise DataSourceError(f"fetch_ohlcv_history 未支持周期 {timeframe}")
+        out: list[dict] = []
+        cursor = since_iso
+        prev_last_open = None
+        while True:
+            # 长分页里瞬时网络错误（SSL 握手超时等）不该废掉整次回填：每页最多重试 3 次
+            for attempt in range(4):
+                try:
+                    data = self._get(
+                        f"/v3/instruments/{symbol}/candles",
+                        {"granularity": gran, "count": 5000, "price": "M", "from": cursor},
+                    )
+                    break
+                except DataSourceError:
+                    if attempt == 3:
+                        raise
+                    _time.sleep(5.0 * (attempt + 1))
+            candles = [c for c in data.get("candles", []) if c.get("complete")]
+            if not candles:
+                break   # 空页（到当下，forming bar 已被过滤）
+            last_open = pd.to_datetime(candles[-1]["time"], utc=True).to_pydatetime()
+            # 短页不早停（ccxt 分页教训），只在空页/游标不再前进时停
+            if prev_last_open is not None and last_open <= prev_last_open:
+                break
+            for c in candles:
+                t_open = pd.to_datetime(c["time"], utc=True).to_pydatetime()
+                out.append({"ts_close": (t_open + step).isoformat(),
+                            "close": float(c["mid"]["c"])})
+            prev_last_open = last_open
+            # from 是包含式：游标推到最后一根之后
+            cursor = (last_open + _td(seconds=1)).isoformat()
+            _time.sleep(sleep_s)
+        return out
+
     def fetch_ticker(self, symbol: str) -> dict:
         data = self._get(
             f"/v3/instruments/{symbol}/candles",

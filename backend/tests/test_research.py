@@ -270,3 +270,48 @@ def test_h18_build_events_drops_gaps():
     ev = build_events(series)
     assert len(ev) == 2
     assert abs(ev[0][2] - (-2626.0)) < 1e-9 and abs(ev[1][2] - (-800.0)) < 1e-9
+
+
+# --- H19：EIA 盘中版（1h 粒度 + 假期顺延调整）--------------------------------
+
+def test_h19_federal_holidays_observed():
+    from datetime import date
+    from analyzer.research.h19 import federal_holidays
+    h26 = federal_holidays(2026)
+    assert date(2026, 7, 3) in h26          # 2026-07-04 周六 → observed 周五 7/3
+    assert date(2026, 1, 19) in h26         # MLK：1 月第 3 个周一
+    assert date(2026, 11, 26) in h26        # 感恩节：11 月第 4 个周四
+    assert date(2026, 6, 19) in h26         # 六月节（2021+）
+    assert date(2020, 6, 19) not in federal_holidays(2020)   # 2021 前无六月节
+
+
+def test_h19_adjusted_publish_holiday_shift():
+    # 实证锚点：2026-07-03 period（7/4 observed 周五在报告周内）→ 实际周四 2026-07-09 发布
+    from analyzer.research.backfill_eia import _publish_ts
+    from analyzer.research.h19 import adjusted_publish
+    adj = adjusted_publish(datetime.fromisoformat(_publish_ts("2026-07-03")))
+    assert (adj.year, adj.month, adj.day) == (2026, 7, 9)        # 周四
+    assert (adj.hour, adj.minute) == (15, 0)                     # 11:00 ET 夏令 = 15:00Z
+    # MLK 落在发布周周一 → 顺延周四
+    adj2 = adjusted_publish(datetime.fromisoformat(_publish_ts("2026-01-16")))
+    assert (adj2.year, adj2.month, adj2.day) == (2026, 1, 22)    # 周四
+    assert (adj2.hour, adj2.minute) == (16, 0)                   # 11:00 ET 冬令 = 16:00Z
+    # 正常周不动
+    adj3 = adjusted_publish(datetime.fromisoformat(_publish_ts("2026-06-26")))
+    assert (adj3.month, adj3.day, adj3.hour) == (7, 1, 14)       # 周三 10:30 ET 原样
+
+
+def test_h19_intraday_entry_and_horizon():
+    from analyzer.research.h19 import intraday_ret
+    pub = datetime(2026, 7, 1, 14, 30, tzinfo=timezone.utc)
+    hourly = [(datetime(2026, 7, 1, 13, 0, tzinfo=timezone.utc) + timedelta(hours=k), 100.0 + k)
+              for k in range(12)]
+    # 发布 14:30 → 第一根收盘 >14:30 是 15:00 那根（idx2,102），+8 根 = 23:00（110）
+    r = intraday_ret(hourly, pub, 8)
+    assert abs(r - (110.0 / 102.0 - 1.0)) < 1e-9
+    # 进场距发布 >3h（数据洞）→ None
+    sparse = [(datetime(2026, 7, 1, 19, 0, tzinfo=timezone.utc), 100.0),
+              (datetime(2026, 7, 2, 3, 0, tzinfo=timezone.utc), 101.0)]
+    assert intraday_ret(sparse, pub, 1) is None
+    # 尾部不足 h 根 → None
+    assert intraday_ret(hourly, pub, 20) is None
