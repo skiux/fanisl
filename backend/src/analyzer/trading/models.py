@@ -179,6 +179,41 @@ class Adjustment(BaseModel):
     )
 
 
+# --- 手动镜像（用户把实盘交易录进评测台，Claude 不介入）--------------------
+
+class ManualPlan(BaseModel):
+    """手动账户的精简进场提交：用户实盘怎么下的这里怎么记，引擎照常撮合/核算/评测。
+
+    setup_key = 用户自己的 setup 标签（如 'eia_fade'/'breakout_pullback'），
+    scorecard_by_setup 按它聚合——量化"我的哪类 setup 有 edge"。
+    """
+    symbol: str
+    side: Side
+    setup_key: str = Field(description="你自己的 setup 标签（按类型聚合评测的键）")
+    entry_type: EntryType = "market"
+    entry_price: float = Field(description="进场价（market 也填参考价；limit 按此价挂单）")
+    sl_price: float
+    tp_price: float | None = Field(default=None, description="止盈目标；留空=只靠止损/手动平")
+    risk_pct: float = Field(default=1.0, description="本笔风险占权益%")
+    leverage: float = Field(default=2.0)
+    thesis: str | None = Field(default=None, description="一句话逻辑（可选，便于复盘）")
+
+    def to_trade_plan(self) -> "TradePlan":
+        # 无 TP 时给一个远目标占位（引擎要求非空），实际出场靠 SL/手动
+        sign = 1.0 if self.side == "long" else -1.0
+        dist = abs(self.entry_price - self.sl_price)
+        tp = self.tp_price if self.tp_price is not None else self.entry_price + sign * 5 * dist
+        return TradePlan(
+            symbol=self.symbol, side=self.side, strategy_type="other",
+            thesis=self.thesis or f"[manual/{self.setup_key}]",
+            setup_key=self.setup_key, entry_type=self.entry_type,
+            entry_price=self.entry_price, entry_trigger="手动镜像实盘",
+            leverage=self.leverage, risk_pct=self.risk_pct,
+            sl_price=self.sl_price, sl_basis="用户实盘设定",
+            tp_targets=[TpTarget(price=tp, reduce_pct=100.0)],
+        )
+
+
 # --- Setup 闸门（Claude 的收窄角色：受约束否决 + 读非结构化事件）-----------
 
 VetoCategory = Literal[

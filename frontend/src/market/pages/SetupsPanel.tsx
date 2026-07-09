@@ -13,10 +13,11 @@ const netPct = (v: number | null | undefined, d = 2) =>
 
 // Playbook 评测板：按 setup 评 edge（live vs 回测先验）+ 信号漏斗 + 否决力 + 信号流。
 // 评测台重定位后的核心视图——评的是 setup 类型在 N 次里赚不赚，不是单笔判断。
-export default function SetupsPanel({ account, refreshKey, onOpenTrade }: {
+export default function SetupsPanel({ account, refreshKey, onOpenTrade, manual = false }: {
   account: string
   refreshKey: number
   onOpenTrade: (id: number) => void
+  manual?: boolean   // 实盘镜像账户：同一张表评用户自己的 setup 标签（无 playbook 先验列）
 }) {
   const [view, setView] = useState<SetupsView | null>(null)
 
@@ -34,17 +35,21 @@ export default function SetupsPanel({ account, refreshKey, onOpenTrade }: {
   const scorecard = view?.scorecard ?? []
   const signals = view?.signals ?? []
   const scByKey: Record<string, any> = Object.fromEntries(scorecard.map((r: any) => [r.setup_key, r]))
-  // 行 = 注册表 ∪ 有数据的 key（含酌情遗留 discretionary）
-  const keys = [...new Set([...Object.keys(registry), ...scorecard.map((r: any) => r.setup_key)])]
+  // 行 = 注册表 ∪ 有数据的 key；manual 模式只看本账户的实绩键（playbook 定义与用户标签无关）
+  const keys = manual
+    ? scorecard.map((r: any) => r.setup_key)
+    : [...new Set([...Object.keys(registry), ...scorecard.map((r: any) => r.setup_key)])]
 
   return (
     <>
       <Panel
-        title={<span className="flex items-center gap-1.5"><ListChecks size={15} weight="bold" className="text-emerald-600" />Playbook · 按 setup 评 edge</span>}
-        right={<span className="text-[11px] text-zinc-400">先验来自预注册回测 · live 与先验同单位（净收益/名义本金）</span>}
+        title={<span className="flex items-center gap-1.5"><ListChecks size={15} weight="bold" className="text-emerald-600" />{manual ? '你的 setup · 按类型评 edge' : 'Playbook · 按 setup 评 edge'}</span>}
+        right={<span className="text-[11px] text-zinc-400">{manual ? '同一套机械评你的酌情交易：N 次里赚不赚，不是单笔对错' : '先验来自预注册回测 · live 与先验同单位（净收益/名义本金）'}</span>}
       >
         {keys.length === 0 ? (
-          <EmptyState title="playbook 为空" hint="在 backend playbook.py 注册 setup（走 git 审阅）" />
+          manual
+            ? <EmptyState title="还没有录入的交易" hint="上方表单录入实盘交易，按 setup 标签聚合出这张表" />
+            : <EmptyState title="playbook 为空" hint="在 backend playbook.py 注册 setup（走 git 审阅）" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
@@ -117,11 +122,13 @@ export default function SetupsPanel({ account, refreshKey, onOpenTrade }: {
           </div>
         )}
         <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
-          Claude 在此账户只做闸门：确定性规则触发 → 只判「干净实例 + 定性否决」→ 引擎按模板执行、到时平仓。
-          Live 净收益与先验出现重大落差 = 不过 Phase 4 门。候选(candidate) setup 仅纸面积累对照，不代表可信 edge。
+          {manual
+            ? 'N 小时结论别当真——每类 setup 攒到 ≥30 笔再看期望；avg_bh_r 是"同窗口买入持有"的配对基准，跑不赢它=择时没加值。'
+            : 'Claude 在此账户只做闸门：确定性规则触发 → 只判「干净实例 + 定性否决」→ 引擎按模板执行、到时平仓。Live 净收益与先验出现重大落差 = 不过 Phase 4 门。候选(candidate) setup 仅纸面积累对照，不代表可信 edge。'}
         </p>
       </Panel>
 
+      {!manual && (
       <div className="mt-3">
         <Panel title={<span className="flex items-center gap-1.5"><Funnel size={15} weight="bold" className="text-zinc-500" />信号流 · {signals.length}</span>}>
           {signals.length === 0 ? (
@@ -168,6 +175,7 @@ export default function SetupsPanel({ account, refreshKey, onOpenTrade }: {
           )}
         </Panel>
       </div>
+      )}
     </>
   )
 }

@@ -192,6 +192,24 @@ class TradingService:
             "opened": opened, "market_note": result.market_note, "skipped": sc.get("skipped"),
         }
 
+    # --- 手动镜像（用户实盘 → 评测台，Claude 不介入）----------------------
+
+    def manual_open(self, account_id: int, mplan) -> dict:
+        """把用户的实盘进场镜像进来：ManualPlan → TradePlan → 引擎照常执行与评测。"""
+        plan = mplan.to_trade_plan()
+        with self.store.account_lock(account_id):
+            cap = self._check_capacity(account_id, plan)
+            if not cap["ok"]:
+                return {"kind": "rejected", "rejected": True, "reason": cap["reason"], "by": "capacity"}
+            res = self.engine.open_trade(account_id, plan, inputs={"manual": True})
+        return {"kind": "plan", **res}
+
+    def manual_close(self, trade_id: int, *, reason: str = "手动平仓（跟随实盘）") -> dict:
+        """镜像用户的实盘平仓：市价全平（引擎按当前价结算），actor=user。"""
+        from .models import Adjustment
+        adj = Adjustment(action="close", reason=reason, thesis_still_valid=True)
+        return self.engine.apply_adjustment(trade_id, adj, actor="user")
+
     # --- Setup 驱动进场（评测台重定位的主路径）---------------------------
     # 确定性探测器触发 → 代码按模板构造计划 → Claude 只做闸门（干净实例 + 定性否决）
     # → 引擎执行。方向/点位/仓位全由 setup 规则给出，先验来自回测。

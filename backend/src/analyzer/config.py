@@ -18,6 +18,8 @@ class AccountSpec(BaseModel):
     managed: bool = True         # Claude 是否参与持仓管理/复盘（影子账户=False，纯机械执行）
     mirror_of: str | None = None # 影子账户镜像哪个真实账户的进场计划
     setups: bool = False         # setup 探测账户：playbook 触发→闸门→开仓，出场由模板确定性执行
+    manual: bool = False         # 手动账户：用户把自己的实盘交易镜像进来（Claude 完全不介入），
+                                 # 用同一套按 setup 评 edge/基准对照的机械量化自己的酌情 edge
 
 
 class IndicatorThresholds(BaseModel):
@@ -158,6 +160,7 @@ class Settings(BaseSettings):
         AccountSpec(name="forced", force=True),
         AccountSpec(name="main_shadow", managed=False, mirror_of="main"),
         AccountSpec(name="setups", managed=False, setups=True),
+        AccountSpec(name="live", managed=False, manual=True),
     ]
     trading_taker_fee_bps: float = 5.0          # 成交手续费（基点，1bp=0.01%）
     trading_slippage_bps: float = 2.0           # 市价成交滑点（基点）

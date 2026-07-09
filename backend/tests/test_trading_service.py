@@ -397,3 +397,30 @@ def test_detect_gate_error_does_not_consume_cooldown(trading_store, acct, pool, 
     assert out2[0]["verdict"] == "confirmed"
     sigs = trading_store.list_setup_signals(acct["id"])
     assert [s["verdict"] for s in sigs] == ["confirmed", "error"]  # 倒序
+
+
+def test_manual_open_close_mirrors_user_trade(trading_store, acct, pool):
+    # 手动镜像：用户实盘进场 → 引擎执行；手动平仓 → actor=user、结果照常核算
+    from analyzer.trading.models import ManualPlan
+    price = {"v": 100.0}
+    svc = _svc(trading_store, price, FakeAgent(), pool)
+    mp = ManualPlan(symbol="CL", side="long", setup_key="eia_fade",
+                    entry_price=100.0, sl_price=97.0, risk_pct=1.0, leverage=2.0)
+    r = svc.manual_open(acct["id"], mp)
+    assert r["kind"] == "plan" and r["ok"]
+    tid = r["trade_id"]
+    tr = trading_store.get_trade(tid)
+    assert tr["setup_key"] == "eia_fade" and tr["status"] == "open"
+    # 无 TP 时占位目标在远端（5×SL 距离），不会被随手触发
+    plan = trading_store.active_plan(tid)["plan"]
+    assert plan["tp_targets"][0]["price"] == pytest.approx(115.0)
+    price["v"] = 103.0
+    out = svc.manual_close(tid, reason="实盘已平")
+    assert out["ok"] and trading_store.get_trade(tid)["status"] == "closed"
+    res = trading_store.get_result(tid)
+    assert res["exit_reason"] == "manual" and res["pnl_abs"] > 0
+    evs = [e for e in trading_store.events(tid) if e["kind"] == "adjust_close"]
+    assert evs and evs[0]["actor"] == "user"
+    # 按用户自己的 setup 标签聚合进 scorecard
+    rows = {r["setup_key"]: r for r in trading_store.scorecard_by_setup(acct["id"])}
+    assert rows["eia_fade"]["closed_trades"] == 1

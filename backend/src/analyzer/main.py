@@ -226,7 +226,7 @@ def trading_accounts() -> list[dict]:
         out.append({
             "name": spec.name, "id": a["id"],
             "force": spec.force, "managed": spec.managed, "mirror_of": spec.mirror_of,
-            "setups": spec.setups,
+            "setups": spec.setups, "manual": spec.manual,
             "summary": trading_service.account_summary(a["id"]),
             "scorecard": trading_store.scorecard(a["id"]),
         })
@@ -286,6 +286,42 @@ def trading_setups(account: str | None = None) -> dict:
         "scorecard": trading_store.scorecard_by_setup(aid),
         "signals": trading_store.list_setup_signals(aid) if aid else [],
     }
+
+
+class ManualOpenRequest(BaseModel):
+    account: str | None = None
+    symbol: str
+    side: str
+    setup_key: str
+    entry_type: str = "market"
+    entry_price: float
+    sl_price: float
+    tp_price: float | None = None
+    risk_pct: float = 1.0
+    leverage: float = 2.0
+    thesis: str | None = None
+
+
+@app.post("/trading/manual/open")
+def trading_manual_open(req: ManualOpenRequest) -> dict:
+    """手动镜像实盘进场（Claude 不介入）：录入你实盘的这笔交易，引擎照常撮合与评测。"""
+    from .trading.models import ManualPlan
+    aid = _resolve_account(req.account or "live")
+    mplan = ManualPlan.model_validate(req.model_dump(exclude={"account"}))
+    return trading_service.manual_open(aid, mplan)
+
+
+class ManualCloseRequest(BaseModel):
+    reason: str | None = None
+
+
+@app.post("/trading/manual/{trade_id}/close")
+def trading_manual_close(trade_id: int, req: ManualCloseRequest) -> dict:
+    """手动镜像实盘平仓：市价全平。"""
+    tr = trading_store.get_trade(trade_id)
+    if tr is None:
+        raise HTTPException(status_code=404, detail="交易不存在")
+    return trading_service.manual_close(trade_id, reason=req.reason or "手动平仓（跟随实盘）")
 
 
 @app.post("/trading/detect")

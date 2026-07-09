@@ -289,8 +289,12 @@ class TradingEngine:
 
     # --- 持仓调整（Claude 重评的结果）-----------------------------------
 
-    def apply_adjustment(self, trade_id: int, adj: Adjustment, *, response=None) -> dict:
-        """把 Claude 的调整落地：移止损/部分止盈/加仓/平仓/持有，并生成新计划版本。"""
+    def apply_adjustment(self, trade_id: int, adj: Adjustment, *, response=None,
+                         actor: str = "claude") -> dict:
+        """把调整落地：移止损/部分止盈/加仓/平仓/持有，并生成新计划版本。
+
+        actor：谁做的调整（claude=自主管理 / user=手动账户镜像实盘操作）。
+        """
         tr = self.store.get_trade(trade_id)
         if tr is None or tr["status"] != "open":
             return {"ok": False, "error": "交易不在持仓中"}
@@ -300,14 +304,14 @@ class TradingEngine:
 
         if adj.action == "close" or not adj.thesis_still_valid:
             self._close(tr, self.price_fn(tr["symbol"]), "thesis_invalidated" if not adj.thesis_still_valid else "manual",
-                        "claude", now)
+                        actor, now)
         elif adj.action == "move_sl" and adj.new_sl_price is not None:
             new_plan["sl_price"] = adj.new_sl_price
         elif adj.action == "partial_exit" and adj.reduce_pct:
             # 按**当前剩余仓位**算（不是原始仓位）——"减剩余的 50%" 不应在已减半后变成清仓
             qty = min(tr["qty"] * adj.reduce_pct / 100.0, tr["qty"])
             if qty > 0:
-                self._reduce(tr, self.price_fn(tr["symbol"]), qty, "reduce", "claude", now)
+                self._reduce(tr, self.price_fn(tr["symbol"]), qty, "reduce", actor, now)
         elif adj.action == "add" and adj.add_qty_pct:
             self._add(tr, plan, adj.add_qty_pct, now)
 
@@ -318,7 +322,7 @@ class TradingEngine:
         new_plan["adjustment"] = adj.model_dump()
         self.store.add_plan(trade_id, new_plan, version=ver, make_active=True)
         self.store.save_decision_inputs(trade_id, "reeval", plan_version=ver, response=response)
-        self.store.add_event(trade_id, f"adjust_{adj.action}", "claude",
+        self.store.add_event(trade_id, f"adjust_{adj.action}", actor,
                              {"reason": adj.reason, "version": ver})
         return {"ok": True, "version": ver, "action": adj.action}
 

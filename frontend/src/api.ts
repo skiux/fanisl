@@ -105,6 +105,7 @@ export interface TradingAccount {
   managed: boolean
   mirror_of: string | null
   setups: boolean
+  manual: boolean
   summary: any
   scorecard: any
 }
@@ -201,6 +202,39 @@ export interface SetupsView {
 export async function fetchSetups(account?: string): Promise<SetupsView> {
   const r = await fetch(`${API}/trading/setups${acctQ(account)}`)
   if (!r.ok) throw new Error(`setups ${r.status}`)
+  return r.json()
+}
+
+export interface ManualOpen {
+  symbol: string
+  side: string
+  setup_key: string
+  entry_type: string
+  entry_price: number
+  sl_price: number
+  tp_price: number | null
+  risk_pct: number
+  leverage: number
+  thesis: string | null
+}
+
+export async function manualOpen(plan: ManualOpen, account?: string): Promise<any> {
+  const r = await fetch(`${API}/trading/manual/open`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...plan, account }),
+  })
+  if (!r.ok) throw new Error(await errText(r, '录入'))
+  return r.json()
+}
+
+export async function manualClose(tradeId: number, reason?: string): Promise<any> {
+  const r = await fetch(`${API}/trading/manual/${tradeId}/close`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  })
+  if (!r.ok) throw new Error(await errText(r, '平仓'))
   return r.json()
 }
 

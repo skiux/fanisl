@@ -7,7 +7,8 @@ import {
 } from 'recharts'
 import {
   detectSetups, fetchDeclines, fetchPositions, fetchTrades, fetchTradingAccount,
-  fetchTradingAccounts, fetchTradingSymbols, openTrade, scanTrading, setForceTrade, tickTrading,
+  fetchTradingAccounts, fetchTradingSymbols, manualClose, openTrade, scanTrading,
+  setForceTrade, tickTrading,
   type TradingAccount,
 } from '../../api'
 import { Badge, EmptyState, Kpi, KpiRow, PageShell, Panel, SegTabs, Select } from '../ui'
@@ -18,9 +19,11 @@ import {
 } from '../trading'
 import TradeDetail from './TradeDetail'
 import SetupsPanel from './SetupsPanel'
+import ManualPanel from './ManualPanel'
 
 const ACCT_LABEL: Record<string, string> = {
   main: 'A · 自然', forced: 'B · 强制', main_shadow: '影子 · 不管理', setups: 'Setup · playbook',
+  live: '实盘 · 手动镜像',
 }
 
 export default function Trading() {
@@ -40,6 +43,7 @@ export default function Trading() {
   const cur = accounts.find((a) => a.name === acct)
   const managed = cur?.managed ?? true
   const isSetups = cur?.setups ?? false
+  const isManual = cur?.manual ?? false
   // 手动探测后让 SetupsPanel 重取
   const [setupsKey, setSetupsKey] = useState(0)
 
@@ -162,6 +166,8 @@ export default function Trading() {
               className="flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-zinc-800 active:translate-y-px disabled:opacity-40">
               <Crosshair size={15} weight="bold" /> 探测一轮
             </button>
+          ) : isManual ? (
+            <span className="text-[12px] text-zinc-400">实盘镜像账户：在下方表单录入你的真实交易，Claude 不介入</span>
           ) : (
             <span className="text-[12px] text-zinc-400">影子账户：机械镜像 {cur?.mirror_of ?? 'main'} 的进场，不接受手动操作</span>
           )}
@@ -224,6 +230,15 @@ export default function Trading() {
         </div>
       )}
 
+      {/* 实盘镜像账户：手动录入表单 + 按你的 setup 标签评 edge */}
+      {isManual && (
+        <div className="mt-3 flex flex-col gap-3">
+          <ManualPanel account={acct} symbols={symbols}
+            onDone={(m) => { setMsg(m); setSetupsKey((k) => k + 1); refresh().catch(() => {}) }} />
+          <SetupsPanel account={acct} refreshKey={setupsKey} onOpenTrade={setTradeId} manual />
+        </div>
+      )}
+
       {/* 持仓 + 权益曲线 */}
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-5">
         <Panel className="lg:col-span-3"
@@ -238,6 +253,7 @@ export default function Trading() {
                     {['标的', '方向', '标记价', '均价', '浮动盈亏', '止损', '止盈', '距强平', '时长'].map((h, i) => (
                       <th key={h} className={`py-1.5 pr-3 font-medium ${i >= 2 ? 'text-right' : ''}`}>{h}</th>
                     ))}
+                    {isManual && <th className="py-1.5 font-medium" />}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100 font-mono">
@@ -255,6 +271,21 @@ export default function Trading() {
                         <td className="py-2 pr-3 text-right tabular-nums text-zinc-500">{tp ? num(tp) : '—'}</td>
                         <td className="py-2 pr-3 text-right tabular-nums text-rose-500/80">{num(p.liquidation_price)}</td>
                         <td className="py-2 text-right tabular-nums text-zinc-500">{dur(p.holding_s)}</td>
+                        {isManual && (
+                          <td className="py-2 pl-2 text-right">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                run('平仓中…', async () => {
+                                  const r = await manualClose(p.trade_id, '实盘已平，手动同步')
+                                  return r.ok ? `#${p.trade_id} 已平仓` : `失败：${r.error ?? '未知'}`
+                                })
+                              }}
+                              className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 font-sans text-[11.5px] font-medium text-rose-600 transition-colors hover:bg-rose-100 active:translate-y-px">
+                              平仓
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     )
                   })}
