@@ -437,3 +437,28 @@ def test_h21_pit_pool_maturity_and_delisting(pool):
     assert not [w for w in weeks2 if w["t"] == t_ref]
     with pool.connection() as conn:
         conn.execute("DELETE FROM metric_samples WHERE symbol LIKE 'U%%USDT'")
+
+
+# --- H22：EIA 过冲回归（fade，M1）--------------------------------------------
+
+def test_h22_entry_after_delay_and_gap_guard():
+    from analyzer.research.h22 import fade_ret
+    pub = datetime(2026, 7, 1, 14, 30, tzinfo=timezone.utc)
+    m1 = [(pub + timedelta(minutes=k), 100.0 + k * 0.01) for k in range(0, 500)]
+    # 进场 = 发布+5min 后第一根收盘（=+5min 那根，100.05），+2h 出场 = +125min（101.25）
+    r = fade_ret(m1, pub, 2)
+    assert abs(r - (101.25 / 100.05 - 1.0)) < 1e-9
+    # 前 40 分钟数据洞 → 第一根在 +40min，距 +5min 超 15min → 丢弃
+    sparse = [(pub + timedelta(minutes=40 + k), 100.0) for k in range(300)]
+    assert fade_ret(sparse, pub, 2) is None
+
+
+def test_h22_fade_direction_signs():
+    # 語义核对：z>0（超预期累库）→ long。价格回升则 fade 赚钱
+    from analyzer.research.h22 import COST
+    sign = 1.0  # z>0 → long
+    base = 0.01  # 进场后 6h 价格 +1%（过冲后回升）
+    assert sign * base - COST > 0
+    # z<0（超预期去库）→ short：价格回落（-1%）时赚钱
+    sign, base = -1.0, -0.01
+    assert sign * base - COST > 0

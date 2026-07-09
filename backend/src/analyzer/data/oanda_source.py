@@ -114,6 +114,30 @@ class OANDASource(MarketDataSource):
             _time.sleep(sleep_s)
         return out
 
+    def fetch_window(
+        self, symbol: str, timeframe: str, from_iso: str, to_iso: str,
+    ) -> list[dict]:
+        """取一个时间窗内的 bar（单页 ≤5000，事件研究窗口用）。
+        返回升序 [{ts_close, close}]，只收 complete bar，ts=收盘戳。"""
+        gran = _GRAN.get(timeframe, timeframe if timeframe.startswith(("M", "S", "H")) else None)
+        if gran is None:
+            raise DataSourceError(f"OANDA 不支持周期 {timeframe}")
+        step = {"M1": pd.Timedelta(minutes=1), "M5": pd.Timedelta(minutes=5),
+                "H1": pd.Timedelta(hours=1)}.get(gran)
+        if step is None:
+            raise DataSourceError(f"fetch_window 未支持粒度 {gran}")
+        data = self._get(
+            f"/v3/instruments/{symbol}/candles",
+            {"granularity": gran, "price": "M", "from": from_iso, "to": to_iso},
+        )
+        out = []
+        for c in data.get("candles", []):
+            if not c.get("complete"):
+                continue
+            t_open = pd.to_datetime(c["time"], utc=True)
+            out.append({"ts_close": (t_open + step).isoformat(), "close": float(c["mid"]["c"])})
+        return out
+
     def fetch_ticker(self, symbol: str) -> dict:
         data = self._get(
             f"/v3/instruments/{symbol}/candles",
