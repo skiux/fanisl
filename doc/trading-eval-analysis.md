@@ -1,5 +1,7 @@
 # 交易评测数据分析（服务器 2026-06-09 ~ 06-11，旧版代码）
 
+> **[已吸收/存档]** 本诊断催生了 [project-transformation.md](project-transformation.md)（范式转变蓝图）；其核心问题已由研究计划回答，见 [research-capstone.md](research-capstone.md)。
+
 数据源：`data_export/server-2026-06-11/`。9 笔交易（8 平 1 挂单未成交）、20 条不交易记录、
 47 次复评、约 4400 帧盯市快照。当时 `force_trade=true`、初始资金 $10,000。
 样本期恰好覆盖 6/10 CPI 高影响日 + 当天午后的轧空反弹，整个样本都在「日线超卖 + 极端恐惧」单一市况里。

@@ -1,5 +1,7 @@
 # 交易评测改进计划（基于 2026-06-11 数据分析）
 
+> **[已完成/存档]** 本计划已全部落地并入 main（多账户/scorecard v2/影子/拒绝力）。后续演进见 [trading-eval-repositioning.md](trading-eval-repositioning.md)（2026-07 重定位）与 [research-capstone.md](research-capstone.md)。
+
 > **实施状态（branch `trading-improvements`）**：P0/P1/影子/拒绝力校验 + 全仓 + 多账户 + scorecard v2
 > + 前端均已落地，backend 155 tests passed、前端 tsc 通过、预览验证通过。剩余：服务器部署、
 > 飞轮(C)、数据缺口补齐。逐条状态见各节标注 ✅/⬜。

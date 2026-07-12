@@ -1,7 +1,8 @@
 # fanisl 项目结构（详解）
 
-更新于 2026-06-11。fanisl = Claude 辅助的加密/TradFi 交易分析 + **交易评测台**。
-核心理念：**先把数据做对**。后端 FastAPI（拆成 3 进程）+ React/TS 前端 + PostgreSQL/TimescaleDB。
+更新于 2026-07-11。fanisl = 多资产时点数据平台 + Claude 盘面分析 + **交易评测台（实盘镜像/setup 评 edge）**
++ **量化研究 harness（已收官，按需复用，见 [research-capstone.md](research-capstone.md)）**。
+核心理念：**先把数据做对**。后端 FastAPI（3 进程）+ React/TS 前端 + PostgreSQL/TimescaleDB。
 
 ```
 fanisl/
@@ -18,7 +19,7 @@ fanisl/
 ### 进程入口（3 车道，见 deploy/README）
 - `main.py` — FastAPI app，**只服务请求**（不起后台调度），可多 worker。所有 HTTP 路由。
 - `worker_collector.py` — 采集进程（market 15min / catalysts 每天）。单实例。
-- `worker_trader.py` — 交易进程：快线程盯市(15s) + 慢线程 Claude 决策(管理/扫描)。单实例。
+- `worker_trader.py` — 交易进程：快线程盯市(15s) + 慢线程（setup 探测→闸门 1h；scan 已默认关）。单实例。
 - `worker_base.py` — worker 公共设施：PG advisory lock 单实例守卫 + 信号驱动运行。
 - `backfill.py` — 一次性历史回填（`python -m analyzer.backfill`）。
 - `migrate_sqlite.py` — 旧 SQLite → PG 一次性迁移。
@@ -37,6 +38,8 @@ fanisl/
 - `defillama_source.py`(解锁/稳定币/TVL) · `blockchaininfo_source.py`(BTC 网络) · `fred_source.py`(宏观)。
 - 新闻：`cryptocompare_/newsapi_/finnhub_/benzinga_source.py` + `news_aggregate.py`(聚合去重)。
 - `lunarcrush_source.py`(社交，付费墙未启用)。
+- 多资产/研究源：`cftc_source.py`(COT) · `edgar_source.py`(财报事件/XBRL EPS) · `yahoo_source.py`(股价)
+  · `eia_source.py`(周度石油库存) · OANDA 的 `fetch_ohlcv_history/fetch_window`(H1/M1 深回填)。
 - `instruments.py` — 标的登记 + Resolver（按符号路由；**分析源 vs 执行源拆分**：TradFi 分析走
   Polygon/OANDA、执行走 Binance 永续）。
 - `factory.py` — 把 settings 组装成 resolver / sentiment bundle / catalysts bundle。
@@ -70,14 +73,23 @@ fanisl/
 - `prompts.py` — 系统提示词（盘面读法 + 交易角色 + 进场/管理/复盘/扫描各阶段）。
 - `models.py` — 全部 pydantic 模型（快照/衍生品/情绪/链上/催化剂/工具输入）。
 
-### 交易评测台 `trading/`
-- `models.py` — Claude 结构化产出：TradePlan（含 wake_conditions）/ Adjustment / Review / ScanResult / Decline。
-- `trade_agent.py` — 进场/管理/复盘/扫描 四类结构化调用（终结工具强制收尾）。
-- `engine.py` — 确定性引擎：撮合/止损止盈/强平/加减仓/盯市快照/唤醒条件监测/结果结算。
-- `calc.py` — 仓位/保证金/盈亏/强平价 纯算。
-- `service.py` — 编排：open_trade / mark / manage_and_review / scan / open_positions。
-- `store.py` — 交易库 10 张表（accounts/trades/trade_plans/decision_inputs/orders/
-  position_snapshots/trade_events/trade_results/trade_reviews/declines）。详见 [trader-data.md](trader-data.md)。
+### 交易评测台 `trading/`（2026-07 重定位后，见 [trading-eval-repositioning.md](trading-eval-repositioning.md)）
+- `models.py` — 结构化产出：TradePlan(含 setup_key/time_exit_hours，酌情分析字段可选) / Adjustment /
+  Review / SetupGateDecision(闸门) / EventAnnotation / ManualPlan(实盘镜像) / Decline。
+- `playbook.py` — **setup 注册表**：SetupSpec+回测先验 / 确定性探测器 / 计划模板（方向点位由规则，非 Claude）。
+- `trade_agent.py` — Claude 调用：**gate_setup(闸门：干净实例+定性否决)** + 进场/管理/复盘/扫描(酌情遗留)。
+- `engine.py` — 确定性引擎：撮合/止损止盈/强平/到时平仓/盯市/唤醒监测/结果结算(含 bh_r 配对基准)。
+- `calc.py` — 仓位/保证金/盈亏/强平价/事件风险打折 纯算。
+- `service.py` — 编排：detect_setups(探测→闸门→开仓) / verify_vetoes / **manual_open/close(实盘镜像)**
+  / mark / manage_and_review / scan(默认关)。
+- `store.py` — 交易库 12 张表（+setup_signals 触发漏斗 / event_annotations 事件标注）；
+  `scorecard_by_setup()` 按 setup 类型评 edge。详见 [trader-data.md](trader-data.md)。
+- 账户：main/forced/shadow(历史对照，Claude 自主实验已关闭) · **setups**(playbook 纸面) · **live**(实盘手动镜像)。
+
+### 量化研究 `research/`（收官，按需复用）
+- `pit.py`(时点访问，无未来函数) · `stats.py`(bootstrap/零分布/FDR) · `screen.py`(IC 筛+lookahead 守卫)。
+- `h1.py`~`h22.py` — 23 个预注册假设的回测（判据锁死）；裁决见 [research-log.md](research-log.md)。
+- `backfill_*.py` — 7 个历史回填器（COT/股票/EPS/宏观/资金费/EIA/WTI 盘中/Binance bulk）。
 
 ### 测试 `backend/tests/`
 pytest（用 `fanisl_test` 库）：数据/快照/分析/校验/回填/metrics 一致性/交易引擎与服务等。
@@ -97,7 +109,8 @@ React + TS + Vite + Tailwind；Geist 字体、Phosphor 图标、zinc+emerald 调
   - `ui.tsx` — 共享展示组件（Panel/Kpi/Badge/EmptyState/PageShell…）。PageShell 页头固定、内容区独立滚动（body 不滚）。
   - `format.ts` — 数值/时间格式化。`trading.ts` — 交易评测领域标签映射 + 格式化。`useMarketData.ts` — 数据拉取 hook。
   - `pages/` — `DataExplorer`(数据总览) / `Categories`(技术/衍生品/盘口/链上/情绪/宏观分类页) /
-    `Trading`(交易评测总览：账户计分卡+权益曲线+持仓+交易/不交易记录) / `TradeDetail`(单笔交易独立详情页：走势图+决策依据+持仓管理+事件+结果+复盘)。
+    `Trading`(评测总览：5 账户切换+计分卡+权益曲线+持仓+记录) / `SetupsPanel`(playbook 评测板/你的 setup 表)
+    / `ManualPanel`(实盘录入表单) / `TradeDetail`(单笔详情：走势+决策依据+管理+事件+结果+复盘)。
 
 后端给前端的取数端点：`/metrics/catalog`(全量目录) · `/metrics/available?symbol`(覆盖) ·
 `/metrics?symbol&names`(序列) · `/watchlist` · `/price` · `/catalysts/stored` · `/trading/*` · `/chat[/stream]`。
@@ -106,14 +119,16 @@ React + TS + Vite + Tailwind；Geist 字体、Phosphor 图标、zinc+emerald 调
 
 ## 部署 `deploy/` 与文档 `doc/`
 - `deploy/` — `fanisl-api/collector/trader.service`、`nginx-fanisl.conf`、`.env.example`、`README.md`(Debian13)。
-- `doc/` — `data-inventory`(数据现状) · `trader-data`(交易数据) · `data-sync`(改动同步清单) ·
-  `data-upgrades`(升级路线) · `database`/`*-design`(早期设计) · 本文。
+- `doc/` — `research-capstone`(研究收官) · `research-log`(23 个 H 裁决) · `phase*-prereg`(24 份预注册，不可改)
+  · `project-transformation`(蓝图，已执行完) · `trading-eval-repositioning`(评测台重定位) · `data-gaps`(源与缺口)
+  · `data-inventory` · `trader-data` · `data-sync` · `data-upgrades` · `database`/`*-design`(历史) · 本文。
 
 ## 运行时数据流（一图）
 ```
 collector(15min) ─ get_market_snapshot → flatten → metric_samples(行情时序)
                   └ get_catalysts → catalyst_items(事件快照)
 backfill(一次性) ─ 历史 OHLCV/funding/链上/宏观 → metric_samples（多年历史）
-trader ─ scan(4h,Claude) → open_trade → 引擎撮合 → 持仓盯市(15s) → 唤醒重评 → 平仓复盘 → fanisl_trading
+trader ─ setup 探测(1h) → Claude 闸门 → 引擎撮合 → 盯市(15s)/到时平仓 → fanisl_trading
+用户  ─ 实盘手动镜像(live 账户) → 同一引擎评测 → 按 setup 聚合 scorecard
 api ── 前端/对话取数；Claude 工具读 metric_samples / catalyst_items 做分析
 ```
