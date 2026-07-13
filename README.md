@@ -5,11 +5,12 @@
 
 单用户项目，实盘视角：股票 / 金银 / 原油（酌情交易），crypto 为研究与数据面。
 
-## 现状一句话（2026-07-11）
+## 现状一句话（2026-07-13）
 
 23 个预注册假设全部 KILLED → "免费数据+系统化信号+散户成本"无可部署 edge
-（[doc/research-capstone.md](doc/research-capstone.md)）。项目重心 = 用同一套评测机械
-量化**用户自己的实盘 edge**（live 手动镜像账户）+ 事件参考地图 + 数据资产持续积累。
+（[doc/research-capstone.md](doc/research-capstone.md)）。项目主线转向**知识引擎**：
+持续获取金融创作者的图文/视频，提取为结构化知识单元并**用市场数据持续审计**
+（发布时刻冻结 → 到期机械评分 → 信源联赛表），见 [doc/knowledge-engine-design.md](doc/knowledge-engine-design.md)。
 
 ## 结构
 
@@ -35,8 +36,11 @@ cd backend && .venv/bin/python -m pytest -q
 
 ## 关键文档
 
+完整索引见 [doc/README.md](doc/README.md)。
+
 | 主题 | 文档 |
 |---|---|
+| 知识引擎（当前主线） | [doc/knowledge-engine-design.md](doc/knowledge-engine-design.md) |
 | 研究收官（问题/方法/23 裁决/遗产） | [doc/research-capstone.md](doc/research-capstone.md) |
 | 逐假设裁决日志 | [doc/research-log.md](doc/research-log.md) |
 | 评测台重定位（setup/闸门/实盘镜像） | [doc/trading-eval-repositioning.md](doc/trading-eval-repositioning.md) |
