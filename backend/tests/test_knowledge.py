@@ -68,3 +68,41 @@ def test_store_roundtrip_and_replay(kstore):
         kstore.record_extraction(content_id, extractor_version="v1", model="m", units=[unit])
     ids2 = kstore.record_extraction(content_id, extractor_version="v2", model="m", units=[unit])
     assert len(kstore.units(kind="claim")) == 2 and ids2 != ids
+
+
+# --- K2：Gemini 转录接入 / 关键帧 ---------------------------------------------
+
+def test_gemini_request_assembly(monkeypatch):
+    # 请求组装：file_data 传 URL、clip offset 进 video_metadata、response_schema 带上
+    from analyzer.knowledge import llm
+    captured = {}
+
+    class FakeResp:
+        status_code = 200
+        def raise_for_status(self): pass
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"text":
+                '{"lang":"zh","transcript":"原油看多","visual_notes":'
+                '[{"t":"03:15","kind":"chart","note":"WTI 日线标注 75 阻力"}]}'}]}}]}
+
+    def fake_post(url, params=None, json=None, timeout=None):
+        captured.update({"url": url, "json": json})
+        return FakeResp()
+
+    monkeypatch.setattr(llm.httpx, "post", fake_post)
+    out = llm.GeminiClient("k").transcribe_youtube(
+        "https://www.youtube.com/watch?v=abc", start_s=190, end_s=210)
+    parts = captured["json"]["contents"][0]["parts"]
+    assert parts[0]["file_data"]["file_uri"].endswith("v=abc")
+    assert parts[0]["video_metadata"] == {"start_offset": "190s", "end_offset": "210s"}
+    assert captured["json"]["generationConfig"]["response_schema"] is llm.TRANSCRIBE_SCHEMA
+    assert out["visual_notes"][0]["t"] == "03:15"
+
+    text = llm.render_l0_text(out)
+    assert "原油看多" in text and "- [03:15] (chart) WTI 日线标注 75 阻力" in text
+
+
+def test_keyframes_ts_parse():
+    from analyzer.knowledge.keyframes import _to_seconds
+    assert _to_seconds("03:15") == 195
+    assert _to_seconds("1:02:05") == 3725

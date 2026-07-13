@@ -41,7 +41,7 @@
 |---|---|---|
 | K0 | 库/表/models/store/登记 CLI/测试 | ✅ 2026-07-13 |
 | K1 | 抓取（YouTube 清单+元数据 ✅ 2026-07-13；字幕路径实测两频道全无字幕→改判） | ✅ |
-| K2 | **Gemini URL 直读视频**（主通道）：转录 + 带时间戳视觉笔记入 L0；triage 门卫 | ⬜ |
+| K2 | Gemini URL 直读（llm.py/transcribe_video CLI/keyframes 提帧）**代码✅ 2026-07-13**；运行验证移交用户终端（沙箱出口 IP：Gemini 403 区域拒绝、YouTube 流媒体端点 bot 墙，webpage/元数据可过） | 🟡 |
 | K3 | 提取管线 + PendingBackend 会话工作流 + ref_price 打戳 | ⬜ |
 | K4 | 评分器×5 + 每日到期任务 + 随机基线 + 信源联赛表（API+前端） | ⬜ |
 | K5 | 周报心跳 + 首批历史回填与提取 + 抽查队列 | ⬜ |
