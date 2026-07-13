@@ -10,14 +10,16 @@ import time
 
 from ..config import get_settings
 from ..db import make_pool
-from .sources.youtube import fetch_transcript, list_videos
+from .sources.youtube import fetch_transcript, list_videos, set_cookies_file
 from .store import KnowledgeStore
 
 
 def main() -> None:
     handle = sys.argv[1]
     limit = int(sys.argv[sys.argv.index("--limit") + 1]) if "--limit" in sys.argv else None
-    pool = make_pool(get_settings().pg_knowledge_conninfo)
+    s = get_settings()
+    set_cookies_file(s.youtube_cookies_file)
+    pool = make_pool(s.pg_knowledge_conninfo)
     try:
         store = KnowledgeStore(pool)
         creator = next((c for c in store.creators()

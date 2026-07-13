@@ -17,16 +17,21 @@ import yt_dlp
 _SUB_PREF = ("zh-Hans", "zh-Hant", "zh", "zh-CN", "zh-TW", "en")
 
 
-import os
+_COOKIES: str | None = None  # CLI 层从 settings 注入（.env 不进 os.environ）
+
+
+def set_cookies_file(path: str | None) -> None:
+    global _COOKIES
+    _COOKIES = path or None
 
 
 def _ydl(opts: dict) -> yt_dlp.YoutubeDL:
     base = {"quiet": True, "no_warnings": True,
+            "ignore_no_formats_error": True,   # 只取元数据/字幕，不选视频流
             # 数据中心 IP 常被 watch 页 bot 验证拦；embedded/android 客户端通常放行公开视频
             "extractor_args": {"youtube": {"player_client": ["web_embedded", "android", "web"]}}}
-    ck = os.environ.get("YOUTUBE_COOKIES_FILE")   # 用户导出的 cookies.txt（可选）
-    if ck:
-        base["cookiefile"] = ck
+    if _COOKIES:
+        base["cookiefile"] = _COOKIES
     return yt_dlp.YoutubeDL({**base, **opts})
 
 

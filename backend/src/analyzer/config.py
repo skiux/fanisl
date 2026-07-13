@@ -110,6 +110,7 @@ class Settings(BaseSettings):
     fred_api_key: str = ""  # 宏观日历（FRED）
     eia_api_key: str = ""   # EIA 开放数据（周度石油库存；免费注册 eia.gov/opendata）
     gemini_api_key: str = ""  # Google AI Studio（知识引擎 L0 triage/转录）
+    youtube_cookies_file: str = ""  # 用户导出的 cookies.txt（YouTube bot 验证时用，相对 backend/）
     coinmarketcal_api_key: str = ""  # 币圈事件（CoinMarketCal）
     cryptocompare_api_key: str = ""  # 新闻（CoinDesk Data，原 CryptoCompare）
     # 新闻聚合（多源，填了哪个就启用哪个，结果合并去重）
