@@ -59,7 +59,7 @@ universe）/美股（大盘+小盘）/金银油三类资产 × 日线到 M1 三�
 评测台最初的问题"Claude 盯 50 指标酌情交易有没有 edge"不再单独实验回答：研究已从
 结构上证明该框架（同步指标快照 + 酌情）的输入端无 edge，测量再精也测不出不存在的东西。
 main/forced/shadow 账户保留历史数据供对照，scan 已默认关闭，不再投入 API 成本。
-Claude 的角色收窄为闸门/事件阅读（见 [trading-eval-repositioning.md](trading-eval-repositioning.md)）。
+Claude 的角色收窄为闸门/事件阅读（见 [trading-eval-repositioning.md](../trading-eval-repositioning.md)）。
 
 ## 遗产与再启动触发器
 

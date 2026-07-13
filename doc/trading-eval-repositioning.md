@@ -1,7 +1,7 @@
 # 评测台重定位：按 setup 类型评 edge + Claude 角色收窄
 
 > 落实 `doc/project-transformation.md` 的 C 项（§2 第 4 层 + §7）。2026-07-08 实现。
-> 背景：18 个假设全部 KILLED/不可部署（见 `doc/research-log.md`），核心诊断 =
+> 背景：18 个假设全部 KILLED/不可部署（见 `doc/research/research-log.md`），核心诊断 =
 > 简单信号存在但 < 成本地板、绝对收益被 regime 支配。据此评测台不再评"单笔酌情判断"，
 > 改评"setup 类型在 N 次里赚不赚"；Claude 从"盯 50 指标酌情判断"收窄为
 > "读非结构化事件 + 受约束否决"。复用现有引擎/多账户架构，未重写。

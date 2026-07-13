@@ -28,7 +28,7 @@
 - **印证用户 directive**：没 key/key 不行 → 抓取/原始数据照样把深历史搞定（Yahoo+EDGAR 替掉付费 Finnhub/Polygon）。
 
 ### H9 — 财报后漂移 PEAD（公告 5d CAR → 顺势 +40 交易日，市场中性）  ｜ 状态：**KILLED（带 holdout，但边界/代理受限）**
-- 预注册 `doc/phase3-H9-pead-prereg.md`（surprise=公告窗口相对 SPY 的 CAR，不需一致预期；不调参）。
+- 预注册 `doc/prereg/phase3-H9-pead-prereg.md`（surprise=公告窗口相对 SPY 的 CAR，不需一致预期；不调参）。
 - 结果：
 
   | 段 | 事件(多/空) | 净 | CI下限 | 命中 | 标的正 | 零分布上限 |
@@ -46,7 +46,7 @@
 
 ### H11 — PEAD 精确版（8-K Item 2.02 精确公告日）  ｜ 状态：**KILLED 但全项目最强线索**
 - 数据：EDGAR `items` 筛 8-K Item 2.02（业绩发布）精确公告日（~760 个），存 earn_8k；扩 `edgar_source`。
-- 预注册 `doc/phase3-H11-pead-precise-prereg.md`（事件=精确公告日，surprise 窗收紧到 [t,t+1]，进场 t+2；不调参）。
+- 预注册 `doc/prereg/phase3-H11-pead-precise-prereg.md`（事件=精确公告日，surprise 窗收紧到 [t,t+1]，进场 t+2；不调参）。
 - 结果：
 
   | 段 | 事件 | 净 | CI下限 | 命中 | 标的正 | 零分布上限 |
@@ -67,7 +67,7 @@
 ### H13 — SUE-based PEAD（免费 XBRL 季节性 SUE）  ｜ 状态：**PASS（首个！）但 holdout 衰减 → live edge 在小盘**
 - "想尽办法获取"：绕开付费一致预期，用 **SEC EDGAR XBRL 实际 EPS**（免费深到 2009）构造 Foster-Olsen-Shevlin
   季节性随机游走 SUE = (EPS−去年同季)/σ(近8季季节性差)。新 `edgar_source.fetch_eps_quarterly` + `backfill_eps.py`（~39股×~50季）。
-- 预注册 `doc/phase3-H13-sue-pead-prereg.md`。**唯一相对 H12 的改动 = 信号 sign(公告反应)→sign(SUE)**，其余全同（干净对照）。
+- 预注册 `doc/prereg/phase3-H13-sue-pead-prereg.md`。**唯一相对 H12 的改动 = 信号 sign(公告反应)→sign(SUE)**，其余全同（干净对照）。
 - 结果：
 
   | 段 | 桶 | grand | bootstrap CI | 超随机符号零分布 | >0桶 |
@@ -97,7 +97,7 @@
 - 顺手修复 `test_analytics` 时间脆弱测试（写死日历日期老化滑出 30d 窗口）。
 
 ### H16 / H16b — 横截面 12-1 动量（美股，月调仓多空，市场中性）  ｜ 状态：**双双 KILLED（2026-07-08）**
-- 预注册 `doc/phase3-H16-xsection-momentum-prereg.md`（12-1/21d 调仓/前后 8 名/10bps/2019 切分，全锁）。
+- 预注册 `doc/prereg/phase3-H16-xsection-momentum-prereg.md`（12-1/21d 调仓/前后 8 名/10bps/2019 切分，全锁）。
   与已死的 TS 动量（H5/H5b/H7）本质不同：互相比 + 多空对冲（定义上剔除大盘 beta）；③=随机选股零分布。
 - **H16（40 大盘）**：IS 95 月，月均 **+0.29%**（CI[-0.67,+1.24] 不显著），**没超随机选股零分布(+0.60%)**；
   HO 89 月 +0.46%。②③FAIL → KILLED。最差月 -21%/-24% = momentum crash 指纹。与文献一致：
@@ -129,7 +129,7 @@
 
 ### H17 — 趋势×定位闸门（up∧负资金费 → 做多 +3d）  ｜ 状态：**KILLED（2026-07-08，带 holdout），但四格对照有一等信息**
 - 来由：实盘分析月（2026-06 下旬）里"趋势×定位"框架反复正确区分该买/该躲 → 立成可证伪 H。与已死 H1 的区别
-  在预注册写明（条件化/顺势 carry 机制/+3d horizon/5 年数据）。预注册 `doc/phase3-H17-trend-gated-positioning-prereg.md`。
+  在预注册写明（条件化/顺势 carry 机制/+3d horizon/5 年数据）。预注册 `doc/prereg/phase3-H17-trend-gated-positioning-prereg.md`。
 - **数据升级（本轮主要工作，兼修 B 项一半）**：Binance spot+fapi 2026-07-08 复测**双双再次 451**（封锁反复）→
   改用 **Coinalyze daily 档**：`fetch_funding_history_daily` + `fetch_price_history_daily`（Binance 永续同符号，
   **~5 年**，ts=桶收盘无 lookahead）→ `backfill_funding_deep.py` 回填 23 标的 funding_rate_1d + price（2021-07→今）。
@@ -155,7 +155,7 @@
 - H14：H13 的 SUE-PEAD 换成 ~72 只小/中盘股池（Yahoo+EDGAR+XBRL 回填，全程无 key）。结果：in-sample grand
   **-0.0022**、holdout **-0.0101**、桶正 48%/31% → KILLED（负）。
 - **识别方法学硬伤**：H14 沿用 SPY 对冲，但 **SPY(大盘) 对冲小盘 = 残留 size 因子**；2019-2026 小盘跑输把结果拖负。
-- H15（修正）：唯一改动 = 基准 **SPY→IWM(罗素2000)**，正确剥离小盘市场。预注册 `doc/phase3-H15-smallcap-sue-iwm-prereg.md`。
+- H15（修正）：唯一改动 = 基准 **SPY→IWM(罗素2000)**，正确剥离小盘市场。预注册 `doc/prereg/phase3-H15-smallcap-sue-iwm-prereg.md`。
   结果：in-sample grand **-0.0034**、holdout **-0.0069**、桶正 44%/35% → **仍 KILLED（负）**。
 - **决定性结论**：IWM 对冲后小盘 SUE-PEAD **仍为负** → H14 的负非 size 污染，**小盘 SUE-PEAD 真不成立**
   （可能小盘财报过度反应后反转）。"PEAD 在小盘持续"的假说被**证伪**。
@@ -166,7 +166,7 @@
 ### H18 — EIA 周度原油库存 surprise → WTI 发布后漂移（消息面第一切片）  ｜ 状态：**KILLED（2026-07-09，高功效）**
 - **来由**：18 个结构化信号假设全灭后转消息面；定时发布的宏观数据 = 事件类中唯一能做到回测级
   时点正确的（发布时刻精确已知、免费、历史深）。EIA 周三 10:30 ET 发布 WPSR，直接驱动原油（实盘做能源）。
-- **预注册** `doc/phase3-H18-eia-inventory-prereg.md`（判据先锁死再跑）。
+- **预注册** `doc/prereg/phase3-H18-eia-inventory-prereg.md`（判据先锁死再跑）。
 - **数据（新管线）**：EIA API v2 `petroleum/stoc/wstk`/WCESTUS1（商业原油库存 ex-SPR，千桶），
   **2284 周 1982-08→今**，实地核验 period=周五、早年有缺口（Δ 构造丢弃间隔>10d）。
   新 `data/eia_source.py` + `research/backfill_eia.py`：**入库 ts=次周三 10:30 ET**（zoneinfo 处理
@@ -195,7 +195,7 @@
 
 ### H19 — EIA 库存 surprise → WTI **盘中**漂移（1h，H18 粒度续问）  ｜ 状态：**KILLED（2026-07-09，强负 = 反向信息）**
 - **来由**：H18 尸检说信息当日消化 → 若漂移存在只能在发布后数小时。唯一改动 = 执行粒度
-  （1h vs 日线），surprise 原样 import h18（干净对照）。预注册 `doc/phase3-H19-eia-intraday-prereg.md`。
+  （1h vs 日线），surprise 原样 import h18（干净对照）。预注册 `doc/prereg/phase3-H19-eia-intraday-prereg.md`。
 - **数据（新管线）**：OANDA `WTICO_USD` H1 **2008-01 起 111,210 根**（`fetch_ohlcv_history`
   from+count 分页、只收 complete、短页不早停、每页重试；ts=收盘戳），`metric='price_1h'`
   与 FRED 日线分开存。**盘中版新增假期顺延规则**（联邦假日落在报告周/发布周一~三 →
@@ -226,7 +226,7 @@
 ### H20 — 横截面资金费 carry（多最负 6/空最正 6，7d，含资金费现金流）  ｜ 状态：**KILLED（2026-07-09）**
 - **来由**：H17 四格对照的一等线索（资金费符号相对信息 4/4 一致、被 regime 支配）的正式检验：
   横截面市场中性对冲 regime + 把 H17 没算的**资金费现金流**计入（两腿同时收 carry）。
-  预注册 `doc/phase3-H20-funding-carry-prereg.md`（腿数 6/持有 7d/28bps 周全换手成本/
+  预注册 `doc/prereg/phase3-H20-funding-carry-prereg.md`（腿数 6/持有 7d/28bps 周全换手成本/
   随机分腿零分布/幸存者偏差方向已论证为保守，全锁死）。
 - **数据**：`funding_rate_1d` 23 标的 × 1825 天（2021-07→今，H17 回填的 Coinalyze 5y），
   单位核验 = percent/8h（当日 close 结算）；日累计 ≈ close×3 次结算（近似已声明）。
@@ -253,7 +253,7 @@
 
 ### H21 — 宽 universe 资金费 carry（147 名含退市 + 逐结算 + 真实换手成本）  ｜ 状态：**KILLED（2026-07-09，全项目最响的 holdout 击杀）**
 - **来由**：H20 三个死因对症的第二次也是**最后一次**检验（预注册写明再 FAIL 即出局）。
-  预注册 `doc/phase3-H21-funding-carry-wide-prereg.md`：立项算术（换手实测 ~1.05 合计/周 ×
+  预注册 `doc/prereg/phase3-H21-funding-carry-wide-prereg.md`：立项算术（换手实测 ~1.05 合计/周 ×
   maker 3bps/边 ≈ 6bps ≪ carry ~20bps/周）写在跑之前。
 - **数据（新层级，重大发现）**：`api/fapi.binance.com` 被 451 但 **`data.binance.vision` bulk
   CDN 没封**——USDT-M 872 符号月度档全可拉。H21 用 fundingRate（**逐次结算** 82.2 万行，
@@ -284,7 +284,7 @@
 ### H22 — EIA 过冲回归（fade surprise，M1，发布+5min 进场）  ｜ 状态：**KILLED（2026-07-09，EIA 链收档）**
 - **来由与披露**：H19 的镜像算术（fade IS +0.11%/HO +0.24%）→ 预注册明写**假设形成于看过
   H19 全样本之后**、holdout 段符号已被间接看过、PASS 也只算强候选。EIA surprise 链的第三次
-  也是最后一次检验。预注册 `doc/phase3-H22-eia-overshoot-fade-prereg.md`。
+  也是最后一次检验。预注册 `doc/prereg/phase3-H22-eia-overshoot-fade-prereg.md`。
 - **数据（新）**：OANDA `WTICO_USD` **M1 事件窗**（发布−30min→+8h，实测 2008 年可达），
   `fetch_window`（from+to 单页）+ `backfill_wti_1m_events.py`：2279 事件 → **50.4 万行 M1**
   （metric='price_1m' 稀疏事件窗；断网窗口 32 事件跳过，998 有价事件 ≈ 全覆盖，无碍）。
@@ -308,7 +308,7 @@
   先延续后回归），价值在于**给实盘做该品种的人当参考地图**，而非量化策略。收档。
 
 ### H12 — PEAD 横截面组合（扩 40 股 + 季度桶分散）  ｜ 状态：**KILLED（决定性，揭穿 H11 选择偏差）**
-- 扩 universe 到 40 只跨板块流动大盘股（Yahoo+EDGAR 回填，~3300 个 8-K 公告事件）。预注册 `doc/phase3-H12-pead-portfolio-prereg.md`。
+- 扩 universe 到 40 只跨板块流动大盘股（Yahoo+EDGAR 回填，~3300 个 8-K 公告事件）。预注册 `doc/prereg/phase3-H12-pead-portfolio-prereg.md`。
 - 事件信号沿用 H11；分散 = 按入场季度分桶平均（桶内 ≥5 事件），检验桶均值序列 + 随机符号零分布 + holdout。
 - 结果：in-sample 桶 36，grand=**+0.0034**（CI 下限 -0.0021，不显著）；随机符号零分布上限 +0.0039（**没过**）；
   >0 桶占比 **47%**；**holdout grand=-0.0024（负）**。②③④⑤全 FAIL → **KILLED**。
@@ -320,7 +320,7 @@
 
 ### C4 切片：H10 — 实际利率(10y TIPS)变动 → 金/银 反向漂移  ｜ 状态：**KILLED（带 holdout）**
 - 数据：FRED DFII10 → `research/backfill_macro.py` 写 scope=global `real_rate_10y`（2003+）+ 金银价（已在库）。零新 key。
-- 预注册 `doc/phase3-H10-gold-realrate-prereg.md`（Δr(30天)<0→做多金，sign-only，不调参）。
+- 预注册 `doc/prereg/phase3-H10-gold-realrate-prereg.md`（Δr(30天)<0→做多金，sign-only，不调参）。
 - 结果：
 
   | 段 | 触发(多/空) | 净 | CI下限 | 命中 | 标的正 | 零分布上限 |
@@ -335,7 +335,7 @@
 - 与全项目一致的模式（见末尾阶段性观察）。
 
 ### H8 — COT 管理基金净/OI 滚动3y分位极值(≥0.9/≤0.1) → fade +4周  ｜ 状态：**KILLED（带 holdout）**
-- 预注册 `doc/phase3-H8-cot-positioning-prereg.md`（阈值锁死，contrarian fade，in-sample<2019 / holdout≥2019）。
+- 预注册 `doc/prereg/phase3-H8-cot-positioning-prereg.md`（阈值锁死，contrarian fade，in-sample<2019 / holdout≥2019）。
 - 结果：
 
   | 段 | N(多/空) | 净 | CI下限 | 命中 | 标的正 |
@@ -362,7 +362,7 @@
 
 ## H1 — 资金费率极端负 → 4h 均值回归（做多）  ｜ 状态：**KILLED（2026-06-14）**
 
-- **预注册**：`doc/phase0-H1-funding-reversion-prereg.md`
+- **预注册**：`doc/prereg/phase0-H1-funding-reversion-prereg.md`
 - **数据**：BTC/ETH/SOL/BNB/ZEC，funding ~70d + price 1h ~65d。触发 = funding<0 且 30d 时间加权分位
   ≤15%，去重叠 12h。主 horizon +4h，扣 14bps。
 - **结果（合并，N=59 触发 / 1243 无条件）**：
@@ -394,7 +394,7 @@
 
 ## H3 — 爆仓级联 → 短时反转（symmetric fade）  ｜ 状态：**KILLED（2026-06-14）**
 
-- **预注册**：`doc/phase0-H3-liquidation-reversal-prereg.md`
+- **预注册**：`doc/prereg/phase0-H3-liquidation-reversal-prereg.md`
 - **为什么选它**：H1 死时最缺、且机制最强（强平=非知情强制流→过冲→回归）。
 - **结果（合并，N=259 触发，多156/空103；窗 ~180d）**：
 
@@ -416,7 +416,7 @@
 
 ## H4 — 爆仓级联 × OI 去杠杆 → 条件化反转（fade）  ｜ 状态：**KILLED（2026-06-14）**
 
-- **预注册**：`doc/phase0-H4-cascade-oi-conditional-prereg.md`
+- **预注册**：`doc/prereg/phase0-H4-cascade-oi-conditional-prereg.md`
 - **为什么选它**：H1/H3 两连负证明单因子不行。H4 引入**第二个独立信号 OI**，把 H3 级联触发集按 ΔOI
   一分为二，测有机制先验的子集（DELEV=去杠杆/flush）是否藏 fade edge。不是把 H3 翻方向找显著。
 - **数据缺口已填**：OI 逐小时聚合（USD），Coinalyze `/open-interest-history` 跨所求和 close
@@ -445,7 +445,7 @@
 
 ## H5 — 突破延续（48h 新高/低 → +24h 动量）  ｜ 状态：**KILLED（2026-06-14）**
 
-- **预注册**：`doc/phase0-H5-breakout-momentum-prereg.md`
+- **预注册**：`doc/prereg/phase0-H5-breakout-momentum-prereg.md`
 - **为什么选它**：前三个 H 都是反转家族。H5 第一次测**对立面（动量）**，且零新数据（只用 price），
   用 +24h 持有摊薄 14bps 成本。H3/H4 的负结果本就指向"级联后继续同向"。
 - **信号（锁定）**：price 创 48h 新高→long / 新低→short（point-in-time，prior≥24 bar 且跨度≥0.8·48h），
@@ -509,7 +509,7 @@ Benjamini-Hochberg FDR 校正、≥4/5 标的符号一致性。补完 Phase 2 �
 ~183d 1h price（+ 各币 funding ~200、OI/LSR/taker ~20-30d）。
 
 ### H5b — 突破动量在小盘上  ｜ 状态：**KILLED（高功效）**
-- 预注册 `doc/phase3-H5b-smallcap-momentum-prereg.md`（沿用 H5 全部锁定参数，只换 universe；判据⑤=≥60%标的正）。
+- 预注册 `doc/prereg/phase3-H5b-smallcap-momentum-prereg.md`（沿用 H5 全部锁定参数，只换 universe；判据⑤=≥60%标的正）。
 - 结果：**N=1950**，净 PnL **-0.0020**、CI下限 -0.0035、命中 46.2%、标的正 **6/18=33%**（<60%）。②③④⑤全 FAIL。
 - **裁决：KILLED。小盘动量线索证伪。** 小盘篮子动量净收益（-0.0020）比主流币（H5 +0.0023）还差。
   **ZEC 在 H1/H5 两次冒头是单标的肥尾（该窗恰有大趋势），不是小盘结构性 edge。**
@@ -524,14 +524,14 @@ Benjamini-Hochberg FDR 校正、≥4/5 标的符号一致性。补完 Phase 2 �
   IC 显著 ≠ 扣费后赚钱。这是**候选**，须用预注册净 PnL 回测确认 → 立 **H6**（小盘短时 RSI 反转，扣 14bps）。
 
 ### H6 — 小盘 1h RSI 70/30 → +4h fade（净 PnL 确认）  ｜ 状态：**KILLED（高功效）**
-- 预注册 `doc/phase3-H6-smallcap-rsi-reversion-prereg.md`（阈值=教科书 70/30，不调参）。
+- 预注册 `doc/prereg/phase3-H6-smallcap-rsi-reversion-prereg.md`（阈值=教科书 70/30，不调参）。
 - 小盘：**N=2839**，净 PnL **-0.0018**、CI下限 -0.0025、命中 49.0%、标的正 **1/18**。②③④⑤全 FAIL。
 - 主流对照：净 -0.0026、标的正 **0/5**。两边都 KILLED。
 - **决定性算术**：净 -0.0018，COST=0.0014 → **毛收益 ≈ -0.0004 ≈ 0**。那个 18/18 一致、统计铁定显著的
   IC=-0.05，对应的**反转幅度几乎为零**。**干净信号确实存在（IC 纪律逮出来了），但量级 < 成本地板，经济上无价值。**
 
 ### H7 — TSMOM 长 horizon（lookback 7d → 持有 7d）  ｜ 状态：**机制验证成立，但信号 regime 依赖 → 不部署**
-- 预注册 `doc/phase3-H7-tsmom-longhorizon-prereg.md`（sign-only，主 L=H=7d，不调参）。
+- 预注册 `doc/prereg/phase3-H7-tsmom-longhorizon-prereg.md`（sign-only，主 L=H=7d，不调参）。
 - **全样本（六连杀后第一个全判据 PASS）**：小盘 N=432 净 **+0.0128**（扣 14bps）、CI下限 +0.0044、命中 56%、
   标的正 14/18，①②③④⑤全 PASS。主流 N=120 净 +0.0137（②③因 N 小、零分布宽未过，但效应量一致）。
 - **机制坐实（cost-floor 破局路径 a 成立）**：各持有净均值 **1d=-0.0012 → 3d=+0.0002 → 7d=+0.0128** 单调翻正。

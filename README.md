@@ -8,7 +8,7 @@
 ## 现状一句话（2026-07-13）
 
 23 个预注册假设全部 KILLED → "免费数据+系统化信号+散户成本"无可部署 edge
-（[doc/research-capstone.md](doc/research-capstone.md)）。项目主线转向**知识引擎**：
+（[doc/research/research-capstone.md](doc/research/research-capstone.md)）。项目主线转向**知识引擎**：
 持续获取金融创作者的图文/视频，提取为结构化知识单元并**用市场数据持续审计**
 （发布时刻冻结 → 到期机械评分 → 信源联赛表），见 [doc/knowledge-engine-design.md](doc/knowledge-engine-design.md)。
 
@@ -41,8 +41,8 @@ cd backend && .venv/bin/python -m pytest -q
 | 主题 | 文档 |
 |---|---|
 | 知识引擎（当前主线） | [doc/knowledge-engine-design.md](doc/knowledge-engine-design.md) |
-| 研究收官（问题/方法/23 裁决/遗产） | [doc/research-capstone.md](doc/research-capstone.md) |
-| 逐假设裁决日志 | [doc/research-log.md](doc/research-log.md) |
+| 研究收官（问题/方法/23 裁决/遗产） | [doc/research/research-capstone.md](doc/research/research-capstone.md) |
+| 逐假设裁决日志 | [doc/research/research-log.md](doc/research/research-log.md) |
 | 评测台重定位（setup/闸门/实盘镜像） | [doc/trading-eval-repositioning.md](doc/trading-eval-repositioning.md) |
-| 数据源现状与缺口 | [doc/data-gaps.md](doc/data-gaps.md) |
+| 数据源现状与缺口 | [doc/data/data-gaps.md](doc/data/data-gaps.md) |
 | 代码结构详解 | [doc/project-structure.md](doc/project-structure.md) |

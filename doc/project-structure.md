@@ -1,7 +1,7 @@
 # fanisl 项目结构（详解）
 
 更新于 2026-07-11。fanisl = 多资产时点数据平台 + Claude 盘面分析 + **交易评测台（实盘镜像/setup 评 edge）**
-+ **量化研究 harness（已收官，按需复用，见 [research-capstone.md](research-capstone.md)）**。
++ **量化研究 harness（已收官，按需复用，见 [research-capstone.md](research/research-capstone.md)）**。
 核心理念：**先把数据做对**。后端 FastAPI（3 进程）+ React/TS 前端 + PostgreSQL/TimescaleDB。
 
 ```
@@ -83,12 +83,12 @@ fanisl/
 - `service.py` — 编排：detect_setups(探测→闸门→开仓) / verify_vetoes / **manual_open/close(实盘镜像)**
   / mark / manage_and_review / scan(默认关)。
 - `store.py` — 交易库 12 张表（+setup_signals 触发漏斗 / event_annotations 事件标注）；
-  `scorecard_by_setup()` 按 setup 类型评 edge。详见 [trader-data.md](trader-data.md)。
+  `scorecard_by_setup()` 按 setup 类型评 edge。详见 [trader-data.md](data/trader-data.md)。
 - 账户：main/forced/shadow(历史对照，Claude 自主实验已关闭) · **setups**(playbook 纸面) · **live**(实盘手动镜像)。
 
 ### 量化研究 `research/`（收官，按需复用）
 - `pit.py`(时点访问，无未来函数) · `stats.py`(bootstrap/零分布/FDR) · `screen.py`(IC 筛+lookahead 守卫)。
-- `h1.py`~`h22.py` — 23 个预注册假设的回测（判据锁死）；裁决见 [research-log.md](research-log.md)。
+- `h1.py`~`h22.py` — 23 个预注册假设的回测（判据锁死）；裁决见 [research-log.md](research/research-log.md)。
 - `backfill_*.py` — 7 个历史回填器（COT/股票/EPS/宏观/资金费/EIA/WTI 盘中/Binance bulk）。
 
 ### 测试 `backend/tests/`

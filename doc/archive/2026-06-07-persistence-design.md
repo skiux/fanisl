@@ -1,6 +1,6 @@
 # 数据持久化 + 可视化 设计（2026-06-07）
 
-> **[历史设计]** 持久化初版设计。现状以 [database.md](database.md) 与 [project-structure.md](project-structure.md) 为准。
+> **[历史设计]** 持久化初版设计。现状以 [database.md](../data/database.md) 与 [project-structure.md](../project-structure.md) 为准。
 
 把"实时取数即用即弃"升级为"主动采集时间序列 + 持久化 + 前端可视化"。
 核心：后台调度器定时抓 watchlist 全维度 → 规整时间序列入库 → 只读 API → 前端图表。

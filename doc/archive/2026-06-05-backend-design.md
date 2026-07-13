@@ -1,6 +1,6 @@
 # fanisl 后端设计（v1：对话式盘面分析助手）
 
-> **[历史设计]** 立项时的后端设计。现状以 [project-structure.md](project-structure.md) 为准。
+> **[历史设计]** 立项时的后端设计。现状以 [project-structure.md](../project-structure.md) 为准。
 
 > 定位：Claude 是大脑，后端是它的手脚和记忆。后端**不做分析判断**，只负责
 > ①按 Claude 要求取真实行情数据、算指标、打包成语义快照；②存对话历史。
