@@ -244,6 +244,27 @@ export async function detectSetups(account?: string): Promise<any> {
   return r.json()
 }
 
+// --- 知识引擎（信源 / L0 内容）----------------------------------------------
+
+export async function fetchKnowledgeCreators(): Promise<any[]> {
+  const r = await fetch(`${API}/knowledge/creators`)
+  if (!r.ok) throw new Error(`creators ${r.status}`)
+  return r.json()
+}
+
+export async function fetchKnowledgeContents(status?: string): Promise<any[]> {
+  const q = status ? `?status=${encodeURIComponent(status)}` : ''
+  const r = await fetch(`${API}/knowledge/contents${q}`)
+  if (!r.ok) throw new Error(`contents ${r.status}`)
+  return r.json()
+}
+
+export async function fetchKnowledgeContent(id: number): Promise<any> {
+  const r = await fetch(`${API}/knowledge/contents/${id}`)
+  if (!r.ok) throw new Error(`content ${r.status}`)
+  return r.json()
+}
+
 // --- 会话管理 ---------------------------------------------------------------
 
 export async function listConversations(): Promise<Conversation[]> {

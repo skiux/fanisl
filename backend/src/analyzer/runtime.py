@@ -50,6 +50,12 @@ agent = Agent(settings, resolver, sentiment, catalysts, market_store)
 trading_pool = make_pool(settings.pg_trading_conninfo)
 trading_store = TradingStore(trading_pool)
 
+# --- 知识引擎（独立库）---
+from .knowledge.store import KnowledgeStore  # noqa: E402 — 依赖 settings 先就绪
+
+knowledge_pool = make_pool(settings.pg_knowledge_conninfo)
+knowledge_store = KnowledgeStore(knowledge_pool)
+
 
 def live_price(symbol: str) -> float:
     """执行/盯市价以执行源(统一 Binance 永续)为准；TradFi 分析走 Polygon/OANDA，
@@ -108,7 +114,7 @@ def shutdown_pools() -> None:
     if _pools_closed.is_set():
         return
     _pools_closed.set()
-    for p in (pool, trading_pool):
+    for p in (pool, trading_pool, knowledge_pool):
         try:
             p.close()
         except Exception:  # noqa: BLE001 — 关池失败不应阻塞退出

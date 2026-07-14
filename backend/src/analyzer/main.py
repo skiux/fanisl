@@ -29,6 +29,7 @@ from .runtime import (
     shutdown_pools,
     storage,
     trading_service,
+    knowledge_store,
     trading_store,
 )
 from .storage import display_messages
@@ -269,6 +270,27 @@ def trading_scan(account: str | None = None) -> dict:
 def trading_positions(account: str | None = None) -> list[dict]:
     """持仓实时状态：每笔未平仓交易的最新盯市快照 + 计划止损止盈。"""
     return trading_service.open_positions(_resolve_account(account))
+
+
+@app.get("/knowledge/creators")
+def knowledge_creators() -> list[dict]:
+    """信源登记表（含各平台 handle）。"""
+    return knowledge_store.creators()
+
+
+@app.get("/knowledge/contents")
+def knowledge_contents(status: str | None = None, limit: int = 200) -> list[dict]:
+    """L0 内容列表（不含全文；带信源名/字数/单元数/状态）。"""
+    return knowledge_store.list_contents(status=status, limit=limit)
+
+
+@app.get("/knowledge/contents/{content_id}")
+def knowledge_content(content_id: int) -> dict:
+    """单条内容全文（转录 + 视觉笔记）。"""
+    row = knowledge_store.get_content(content_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="内容不存在")
+    return row
 
 
 @app.get("/trading/setups")

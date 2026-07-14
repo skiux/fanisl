@@ -182,7 +182,24 @@ class KnowledgeStore:
 
     def get_content(self, content_id: int) -> dict | None:
         with self.pool.connection() as conn:
-            return conn.execute("SELECT * FROM contents WHERE id=%s", (content_id,)).fetchone()
+            return conn.execute(
+                "SELECT c.*, cr.name AS creator FROM contents c "
+                "JOIN creators cr ON cr.id=c.creator_id WHERE c.id=%s", (content_id,),
+            ).fetchone()
+
+    def list_contents(self, *, status: str | None = None, limit: int = 200) -> list[dict]:
+        """内容列表（不含 raw 全文，带信源名/字数/已提取单元数）——前端列表页用。"""
+        cond = "WHERE c.status=%s" if status else ""
+        params: tuple = (status, limit) if status else (limit,)
+        with self.pool.connection() as conn:
+            return conn.execute(
+                f"SELECT c.id, c.creator_id, cr.name AS creator, c.platform, c.url, "
+                f"c.content_type, c.title, c.published_at, c.fetched_at, c.lang, c.status, "
+                f"length(c.raw) AS raw_len, "
+                f"(SELECT count(*) FROM knowledge_units u WHERE u.content_id=c.id) AS n_units "
+                f"FROM contents c JOIN creators cr ON cr.id=c.creator_id {cond} "
+                f"ORDER BY c.published_at DESC NULLS LAST, c.id DESC LIMIT %s", params,
+            ).fetchall()
 
     # --- L1 提取（版本化重放）----------------------------------------------
 

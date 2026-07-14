@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ChartLineUp, ChatCircle, Pulse, Strategy } from '@phosphor-icons/react'
+import { Books, ChartLineUp, ChatCircle, Pulse, Strategy } from '@phosphor-icons/react'
 import PriceTicker from './components/PriceTicker'
 import Sidebar from './components/Sidebar'
 import ChatView from './components/ChatView'
@@ -7,6 +7,7 @@ import { useConversations } from './useConversations'
 import DataExplorer from './market/pages/DataExplorer'
 import Categories from './market/pages/Categories'
 import Trading from './market/pages/Trading'
+import Knowledge from './market/pages/Knowledge'
 
 // 数据分类页（分类显示数据总览中的数据）
 const DATA_CATS: { key: string; label: string; sub: string; symbol: string }[] = [
@@ -25,6 +26,7 @@ const NAV: { key: View; label: string; icon?: ReactNode }[] = [
   { key: 'data', label: '数据总览', icon: <ChartLineUp size={15} weight="bold" /> },
   ...DATA_CATS.map((c) => ({ key: c.key, label: c.label })),
   { key: 'trading', label: '交易评测', icon: <Strategy size={15} weight="bold" /> },
+  { key: 'knowledge', label: '知识', icon: <Books size={15} weight="bold" /> },
 ]
 
 export default function App() {
@@ -92,6 +94,7 @@ export default function App() {
         <div className={view === 'chat' ? 'hidden' : 'flex min-w-0 flex-1 overflow-hidden'}>
           {view === 'data' && <DataExplorer />}
           {view === 'trading' && <Trading />}
+          {view === 'knowledge' && <Knowledge />}
           {cat && (
             <Categories
               key={cat.key}

@@ -68,6 +68,10 @@ def test_store_roundtrip_and_replay(kstore):
         kstore.record_extraction(content_id, extractor_version="v1", model="m", units=[unit])
     ids2 = kstore.record_extraction(content_id, extractor_version="v2", model="m", units=[unit])
     assert len(kstore.units(kind="claim")) == 2 and ids2 != ids
+    # 列表视图：带信源名/字数/单元数，不含 raw 全文
+    rows = kstore.list_contents()
+    assert rows[0]["creator"] == "测试创作者" and rows[0]["n_units"] == 2
+    assert rows[0]["raw_len"] > 0 and "raw" not in rows[0]
 
 
 # --- K2：Gemini 转录接入 / 关键帧 ---------------------------------------------
