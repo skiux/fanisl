@@ -26,10 +26,12 @@ def main() -> None:
     meta = fetch_transcript(video_id)   # 复用：元数据 + 有字幕则白捡
     print(f"元数据: {meta['title']}  {meta['published_at']}  {meta['duration_s']}s", flush=True)
 
-    tr = GeminiClient(s.gemini_api_key).transcribe_youtube(url)
+    client = GeminiClient(s.gemini_api_key)
+    tr = client.transcribe_youtube(url)
     raw = render_l0_text(tr)
     n_notes = len(tr.get("visual_notes", []))
-    print(f"Gemini: 转录 {len(tr.get('transcript', ''))} 字，视觉笔记 {n_notes} 条", flush=True)
+    print(f"Gemini: 转录 {len(tr.get('transcript', ''))} 字，视觉笔记 {n_notes} 条  "
+          f"tokens={client.last_usage}", flush=True)
 
     pool = make_pool(s.pg_knowledge_conninfo)
     try:

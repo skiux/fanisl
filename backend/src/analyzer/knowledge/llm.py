@@ -46,11 +46,12 @@ TRANSCRIBE_PROMPT = (
 
 
 class GeminiClient:
-    def __init__(self, api_key: str, *, model: str = "gemini-2.5-flash",
+    def __init__(self, api_key: str, *, model: str = "gemini-flash-latest",
                  timeout_s: float = 420.0) -> None:
         self.api_key = api_key
         self.model = model
         self.timeout_s = timeout_s
+        self.last_usage: dict | None = None   # 最近一次调用的 usageMetadata（成本可见性）
 
     def generate_json(self, parts: list[dict], schema: dict) -> dict:
         """带 response_schema 的结构化生成。parts 由调用方组装（text/file_data）。"""
@@ -62,12 +63,15 @@ class GeminiClient:
                 "generationConfig": {
                     "response_mime_type": "application/json",
                     "response_schema": schema,
+                    # 转录/结构化任务不需要扩展思考，省 token（thought 签名照常兼容）
+                    "thinkingConfig": {"thinkingBudget": 0},
                 },
             },
             timeout=self.timeout_s,
         )
         r.raise_for_status()
         data = r.json()
+        self.last_usage = data.get("usageMetadata")
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         return json.loads(text)
 
