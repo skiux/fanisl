@@ -164,6 +164,11 @@ class KnowledgeStore:
             ).fetchone()
         return int(row["id"]), True
 
+    def content_url_exists(self, url: str) -> bool:
+        """按 URL 判存（批量回填跳过已转录的视频，省 Gemini 开销；raw 哈希去重之外的前置闸）。"""
+        with self.pool.connection() as conn:
+            return conn.execute("SELECT 1 FROM contents WHERE url=%s LIMIT 1", (url,)).fetchone() is not None
+
     def set_triage(self, content_id: int, triage: dict, status: str) -> None:
         with self.pool.connection() as conn:
             conn.execute("UPDATE contents SET triage=%s, status=%s WHERE id=%s",
