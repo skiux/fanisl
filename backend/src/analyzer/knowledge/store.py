@@ -193,7 +193,7 @@ class KnowledgeStore:
             ).fetchone()
 
     def list_contents(self, *, status: str | None = None, limit: int = 200) -> list[dict]:
-        """内容列表（不含 raw 全文，带信源名/字数/已提取单元数）——前端列表页用。"""
+        """内容列表（不含 raw 全文，带信源名/字数/单元构成/评分摘要）——前端列表页用。"""
         cond = "WHERE c.status=%s" if status else ""
         params: tuple = (status, limit) if status else (limit,)
         with self.pool.connection() as conn:
@@ -201,7 +201,16 @@ class KnowledgeStore:
                 f"SELECT c.id, c.creator_id, cr.name AS creator, c.platform, c.url, "
                 f"c.content_type, c.title, c.published_at, c.fetched_at, c.lang, c.status, "
                 f"length(c.raw) AS raw_len, "
-                f"(SELECT count(*) FROM knowledge_units u WHERE u.content_id=c.id) AS n_units "
+                f"(SELECT count(*) FROM knowledge_units u WHERE u.content_id=c.id) AS n_units, "
+                f"(SELECT count(*) FROM knowledge_units u WHERE u.content_id=c.id AND u.kind='claim') AS n_claims, "
+                f"(SELECT count(*) FROM knowledge_units u WHERE u.content_id=c.id AND u.kind='method') AS n_methods, "
+                f"(SELECT count(*) FROM knowledge_units u WHERE u.content_id=c.id AND u.kind='concept') AS n_concepts, "
+                f"(SELECT count(*) FROM claim_scores s JOIN knowledge_units u ON u.id=s.unit_id "
+                f" WHERE u.content_id=c.id AND s.outcome='hit') AS n_hit, "
+                f"(SELECT count(*) FROM claim_scores s JOIN knowledge_units u ON u.id=s.unit_id "
+                f" WHERE u.content_id=c.id AND s.outcome='partial') AS n_partial, "
+                f"(SELECT count(*) FROM claim_scores s JOIN knowledge_units u ON u.id=s.unit_id "
+                f" WHERE u.content_id=c.id AND s.outcome='miss') AS n_miss "
                 f"FROM contents c JOIN creators cr ON cr.id=c.creator_id {cond} "
                 f"ORDER BY c.published_at DESC NULLS LAST, c.id DESC LIMIT %s", params,
             ).fetchall()
