@@ -101,6 +101,68 @@ def test_import_units_parse_and_quote_check():
         parse_units_doc(bad)
 
 
+# --- K4：评分器（到期机械评分）------------------------------------------------
+
+def _unit(payload_over: dict, *, uid=99999, ref=70.0, pub=datetime(2026, 7, 1, tzinfo=timezone.utc)):
+    payload = {
+        "asset_symbol": "WTI", "direction": "up", "magnitude": None,
+        "scoring_spec": {"method": "sign", "eval_ladder": ["2026-07-08"],
+                         "benchmark": None, "success_def": "t"},
+    }
+    payload.update(payload_over)
+    return {"id": uid, "payload": payload, "published_at": pub, "ref_price_at_publish": ref}
+
+
+def test_scorers_all_methods(pool, monkeypatch):
+    import datetime as dt
+    from analyzer.knowledge import scorers
+    from analyzer.knowledge.prices import PriceStore
+    ps = PriceStore(pool)
+    with pool.connection() as conn:
+        conn.execute("DELETE FROM daily_bars WHERE symbol IN ('WTI','SPX')")
+    bars = [  # (ts, o, h, l, c)；7/1=发布日基准（relative 的起点腿）
+        (dt.date(2026, 7, 1), 70, 70, 70, 70),
+        (dt.date(2026, 7, 2), 70, 74, 70, 73),
+        (dt.date(2026, 7, 3), 73, 75, 72, 74),
+        (dt.date(2026, 7, 6), 74, 76, 67, 68),
+        (dt.date(2026, 7, 7), 68, 69, 66, 66.5),
+        (dt.date(2026, 7, 8), 66, 72, 66, 71),
+    ]
+    ps.upsert("WTI", bars, "test")
+    ps.upsert("SPX", [(t, o * 100, h * 100, l * 100, c * 100) for t, o, h, l, c in bars], "test")
+    L = dt.date(2026, 7, 8)
+
+    assert scorers.score_unit_at(ps, _unit({}), L)[0] == "hit"                       # sign up: 71≥70
+    assert scorers.score_unit_at(ps, _unit({"direction": "down"}), L)[0] == "miss"
+    assert scorers.score_unit_at(ps, _unit({"direction": "flat"}), L)[0] == "hit"    # |71/70-1|<2%… 1.4%
+    assert scorers.score_unit_at(
+        ps, _unit({"scoring_spec": {"method": "target_touch", "eval_ladder": ["2026-07-08"],
+                                    "benchmark": None, "success_def": "t"},
+                   "magnitude": {"target": 75}}), L)[0] == "hit"                     # 7/3 high 75
+    assert scorers.score_unit_at(
+        ps, _unit({"scoring_spec": {"method": "range_hold", "eval_ladder": ["2026-07-08"],
+                                    "benchmark": None, "success_def": "t"},
+                   "direction": "range", "magnitude": {"low": 68}}), L)[0] == "miss"  # 7/7 close 66.5<68
+    assert scorers.score_unit_at(
+        ps, _unit({"scoring_spec": {"method": "range_hold", "eval_ladder": ["2026-07-08"],
+                                    "benchmark": None, "success_def": "t"},
+                   "direction": "range", "magnitude": {"low": 66.2}}), L)[0] == "partial"  # 盘中破 66.2 收回
+    # 条件类：收盘<69 首次于 7/6 成立（close 68），此后 vs 条件日收盘
+    monkeypatch.setitem(scorers.OVERRIDES, "99999",
+                        {"condition": {"type": "close_below", "level": 69}, "vs": "condition_close"})
+    out, real = scorers.score_unit_at(ps, _unit({}), L)
+    assert out == "hit" and real["cond_date"] == "2026-07-06" and real["ref"] == 68
+    monkeypatch.delitem(scorers.OVERRIDES, "99999")
+    # relative：WTI 与 SPX 同步涨（等比）→ diff=0，up 不 hit，flat hit
+    rel = {"scoring_spec": {"method": "relative_return", "eval_ladder": ["2026-07-08"],
+                            "benchmark": "SPX", "success_def": "t"}}
+    assert scorers.score_unit_at(ps, _unit(rel), L)[0] == "miss"
+    assert scorers.score_unit_at(ps, _unit({**rel, "direction": "flat"}), L)[0] == "hit"
+    # 未到期与不可定价
+    assert scorers.score_unit_at(ps, _unit({}), dt.date(2026, 7, 20)) is None
+    assert scorers.score_unit_at(ps, _unit({"asset_symbol": "NOPE"}), L)[0] == "unpriceable"
+
+
 # --- K2：Gemini 转录接入 / 关键帧 ---------------------------------------------
 
 def test_gemini_request_assembly(monkeypatch):

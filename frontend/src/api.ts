@@ -271,6 +271,12 @@ export async function fetchKnowledgeUnits(contentId: number): Promise<any[]> {
   return r.json()
 }
 
+export async function fetchKnowledgeScoreboard(): Promise<any[]> {
+  const r = await fetch(`${API}/knowledge/scoreboard`)
+  if (!r.ok) throw new Error(`scoreboard ${r.status}`)
+  return r.json()
+}
+
 // --- 会话管理 ---------------------------------------------------------------
 
 export async function listConversations(): Promise<Conversation[]> {

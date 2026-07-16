@@ -237,12 +237,69 @@ class KnowledgeStore:
             conn.execute("UPDATE contents SET status='extracted' WHERE id=%s", (content_id,))
         return ids
 
-    def units_for_content(self, content_id: int) -> list[dict]:
-        """某内容的全部单元（含历史版本；前端详情页用，claim 优先靠前）。"""
+    # --- L2 评分（到期机械评分的落库与视图）--------------------------------
+
+    def score_exists(self, unit_id: int, horizon_label: str, scorer_version: str) -> bool:
         with self.pool.connection() as conn:
             return conn.execute(
-                "SELECT * FROM knowledge_units WHERE content_id=%s "
-                "ORDER BY (kind!='claim'), id", (content_id,),
+                "SELECT 1 FROM claim_scores WHERE unit_id=%s AND horizon_label=%s "
+                "AND scorer_version=%s", (unit_id, horizon_label, scorer_version),
+            ).fetchone() is not None
+
+    def record_score(self, unit_id: int, *, eval_ts, horizon_label: str, outcome: str,
+                     realized: dict, scorer_version: str) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                "INSERT INTO claim_scores(unit_id, eval_ts, horizon_label, outcome, realized, "
+                "scorer_version) VALUES (%s,%s,%s,%s,%s,%s) "
+                "ON CONFLICT (unit_id, horizon_label, scorer_version) DO NOTHING",
+                (unit_id, eval_ts, horizon_label, outcome, Json(realized), scorer_version))
+
+    def scores_for_content(self, content_id: int) -> list[dict]:
+        """某内容全部单元的评分行（前端详情页徽标用）。"""
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "SELECT s.* FROM claim_scores s JOIN knowledge_units u ON u.id=s.unit_id "
+                "WHERE u.content_id=%s ORDER BY s.unit_id, s.horizon_label", (content_id,),
+            ).fetchall()
+
+    def scoreboard(self) -> list[dict]:
+        """信源联赛表：claim 战绩 + 含糊率（按已到期评分行统计；hit=1/partial=0.5 计入命中率）。"""
+        with self.pool.connection() as conn:
+            return conn.execute("""
+                WITH c AS (
+                    SELECT u.creator_id, u.id,
+                           u.payload->>'verifiability' AS grade
+                    FROM knowledge_units u WHERE u.kind='claim'
+                ), s AS (
+                    SELECT u.creator_id, s.outcome
+                    FROM claim_scores s JOIN knowledge_units u ON u.id=s.unit_id
+                )
+                SELECT cr.id AS creator_id, cr.name,
+                    (SELECT count(*) FROM c WHERE c.creator_id=cr.id)                          AS claims,
+                    (SELECT count(*) FROM c WHERE c.creator_id=cr.id AND grade='D')            AS d_claims,
+                    (SELECT count(*) FROM knowledge_units u
+                      WHERE u.creator_id=cr.id AND u.kind='method')                            AS methods,
+                    (SELECT count(*) FROM knowledge_units u
+                      WHERE u.creator_id=cr.id AND u.kind='concept')                           AS concepts,
+                    (SELECT count(*) FROM s WHERE s.creator_id=cr.id
+                      AND outcome IN ('hit','miss','partial'))                                 AS scored,
+                    (SELECT count(*) FROM s WHERE s.creator_id=cr.id AND outcome='hit')        AS hits,
+                    (SELECT count(*) FROM s WHERE s.creator_id=cr.id AND outcome='partial')    AS partials,
+                    (SELECT count(*) FROM s WHERE s.creator_id=cr.id AND outcome='miss')       AS misses,
+                    (SELECT count(*) FROM s WHERE s.creator_id=cr.id
+                      AND outcome='condition_not_met')                                         AS cond_not_met
+                FROM creators cr ORDER BY cr.id""").fetchall()
+
+    def units_for_content(self, content_id: int) -> list[dict]:
+        """某内容的全部单元（含历史版本；前端详情页用，claim 优先靠前，附评分行）。"""
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "SELECT u.*, COALESCE((SELECT json_agg(json_build_object("
+                "'horizon_label', s.horizon_label, 'outcome', s.outcome, 'realized', s.realized) "
+                "ORDER BY s.horizon_label) FROM claim_scores s WHERE s.unit_id=u.id), '[]') AS scores "
+                "FROM knowledge_units u WHERE u.content_id=%s "
+                "ORDER BY (u.kind!='claim'), u.id", (content_id,),
             ).fetchall()
 
     def units(self, *, kind: str | None = None, creator_id: int | None = None,

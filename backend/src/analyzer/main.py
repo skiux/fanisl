@@ -295,8 +295,42 @@ def knowledge_content(content_id: int) -> dict:
 
 @app.get("/knowledge/contents/{content_id}/units")
 def knowledge_content_units(content_id: int) -> list[dict]:
-    """某内容提取出的 L1 单元（claim/method/concept，含冻结的评分规格）。"""
+    """某内容提取出的 L1 单元（claim/method/concept，含冻结的评分规格与到期评分）。"""
     return knowledge_store.units_for_content(content_id)
+
+
+@app.get("/knowledge/scoreboard")
+def knowledge_scoreboard() -> list[dict]:
+    """信源联赛表：claim 战绩（hit=1/partial=0.5 计命中率）+ 含糊率 + sign 类 50% 基线二项检验。
+
+    p 值口径：仅 sign 类（方向判断）有天然 50% 随机基线；其余 method 的基线由价格路径决定，
+    v1 不给显著性。样本极小时 p 无意义，前端如实展示。"""
+    import math
+
+    rows = knowledge_store.scoreboard()
+    with knowledge_store.pool.connection() as conn:
+        sign_rows = conn.execute(
+            "SELECT u.creator_id, count(*) FILTER (WHERE s.outcome='hit') AS hits, "
+            "count(*) AS n FROM claim_scores s JOIN knowledge_units u ON u.id=s.unit_id "
+            "WHERE u.payload->'scoring_spec'->>'method'='sign' "
+            "AND s.outcome IN ('hit','miss') GROUP BY u.creator_id").fetchall()
+    sign_by = {r["creator_id"]: r for r in sign_rows}
+    for r in rows:
+        scored = r["scored"] or 0
+        r["hit_rate"] = round((r["hits"] + 0.5 * r["partials"]) / scored, 3) if scored else None
+        r["vague_rate"] = round(r["d_claims"] / r["claims"], 3) if r["claims"] else None
+        sg = sign_by.get(r["creator_id"])
+        if sg and sg["n"]:
+            k, n = sg["hits"], sg["n"]
+            # 单侧二项检验 vs 50%：P(X≥k)（优于随机）；k<n/2 时报 P(X≤k)（劣于随机），符号区分
+            tail_ge = sum(math.comb(n, i) for i in range(k, n + 1)) / 2 ** n
+            tail_le = sum(math.comb(n, i) for i in range(0, k + 1)) / 2 ** n
+            r["sign_n"], r["sign_hits"] = n, k
+            r["sign_p"] = round(min(tail_ge, tail_le), 3)
+            r["sign_side"] = "above" if k * 2 >= n else "below"
+        else:
+            r["sign_n"] = r["sign_hits"] = r["sign_p"] = r["sign_side"] = None
+    return rows
 
 
 @app.get("/trading/setups")

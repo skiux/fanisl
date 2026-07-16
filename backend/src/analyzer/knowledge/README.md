@@ -32,7 +32,20 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `backfill_transcripts.py` | 批量转录回填 CLI（幂等、限速、429/5xx 退避）：`python -m analyzer.knowledge.backfill_transcripts <handle> --since-days 60` |
 | `backfill_creator.py` | 单信源历史内容登记辅助 |
 | `import_units.py` | L1 单元导入 CLI（PendingBackend 的入库端）：JSON → pydantic 校验 + quote∈原文校验 → record_extraction；`--dry-run` 只验不写 |
-| `keyframes.py` | 提帧兜底（ffmpeg 流式 seek）；YouTube player 端点 bot 墙双侧拦死，暂不可用——视觉笔记是当前唯一画面记录 |
+| `prices.py` | K4 价格层：daily_bars 表 + SYMBOL_MAP（39 符号，yfinance/FRED；期货代理现货者已注明）：`python -m analyzer.knowledge.prices`（幂等 upsert） |
+| `scorers.py` | K4 评分器：按冻结 ScoringSpec 到期机械评分（sign/target_touch/target_close/range_hold/relative_return + 条件解析），`python -m analyzer.knowledge.scorers [--dry-run]`（幂等）；口径细节见模块 docstring |
+| `scoring_overrides.json` | success_def 的机械化编译（pending-v1 存量 103 条专用）：条件结构化/判界修正/组合定义，语义仲裁=success_def；新提取应走规范 v2 结构化字段 |
+| `keyframes.py` | 提帧（ffmpeg 流式 seek）——**暂不可用，2026-07-16 诊断后搁置**：yt-dlp 全客户端矩阵（tv/tv_embedded/ios/android/android_vr/web_safari/mweb/web_embedded/web × 有无 cookies）均被"Sign in to confirm you're not a bot"拦（=YouTube 对非浏览器客户端的 PO Token 强制，与 IP 无关，用户终端同样被拦）。**已验证的出路=浏览器渲染层截帧**（Playwright 驱动真实 Chromium，seek 后对 video 元素截图，绕过 player API）：playwright 已装，但 cdn.playwright.dev 下载 Chromium 被网络掐断，系统 Chrome 未装；待用户装 Chrome（或代理 HTTPS_PROXY=127.0.0.1:1082 下载通）后启用。次选兜底=storyboard 缩略图（走网页端点，~320×180 低清）。在此之前**视觉笔记是唯一画面记录**（转录时已按"做厚"设计） |
+
+## 日常运转（K4 起）
+
+```
+python -m analyzer.knowledge.prices     # 1. 刷日线行情（幂等）
+python -m analyzer.knowledge.scorers    # 2. 评所有新到期的 claim 时点（幂等）
+```
+两条命令按天跑即可（cron/手动皆可）；联赛表与单元徽标随之更新。
+评分 outcome：hit / miss / partial / condition_not_met / condition_unverifiable / unpriceable；
+显著性口径：仅 sign 类给 50% 随机基线的单侧二项 p，其余类型 v1 无基线（联赛表已注明）。
 
 ## 约定
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowSquareOut, Books, CaretLeft, CaretRight, UsersThree, VideoCamera } from '@phosphor-icons/react'
-import { fetchKnowledgeContent, fetchKnowledgeContents, fetchKnowledgeCreators, fetchKnowledgeUnits } from '../../api'
+import { fetchKnowledgeContent, fetchKnowledgeContents, fetchKnowledgeCreators, fetchKnowledgeScoreboard, fetchKnowledgeUnits } from '../../api'
 import { Badge, EmptyState, Kpi, KpiRow, PageShell, Panel } from '../ui'
 import { when } from '../trading'
 
@@ -28,6 +28,16 @@ const GRADE_CLS: Record<string, string> = {
 
 const DIR: Record<string, string> = { up: '↑', down: '↓', flat: '→', range: '↔', vol_up: 'σ↑', vol_down: 'σ↓' }
 
+// 评分结果徽标（L2 到期机械评分）
+const OUTCOME: Record<string, { label: string; cls: string }> = {
+  hit: { label: '✓', cls: 'bg-emerald-100 text-emerald-700' },
+  partial: { label: '½', cls: 'bg-amber-100 text-amber-700' },
+  miss: { label: '✗', cls: 'bg-rose-100 text-rose-700' },
+  condition_not_met: { label: '条件未触发', cls: 'bg-zinc-100 text-zinc-500' },
+  condition_unverifiable: { label: '条件不可验', cls: 'bg-zinc-100 text-zinc-400' },
+  unpriceable: { label: '不可定价', cls: 'bg-zinc-100 text-zinc-400' },
+}
+
 // claim 载荷 → 一行摘要（标的 方向 目标/区间）
 function claimLine(p: any): string {
   const parts = [p.asset_symbol ?? p.asset_text]
@@ -53,6 +63,7 @@ function splitRaw(raw: string): { transcript: string; notes: { t: string; kind: 
 export default function Knowledge() {
   const [creators, setCreators] = useState<any[]>([])
   const [contents, setContents] = useState<any[]>([])
+  const [board, setBoard] = useState<any[]>([])
   const [detail, setDetail] = useState<any | null>(null)
   const [units, setUnits] = useState<any[]>([])
 
@@ -64,6 +75,7 @@ export default function Knowledge() {
   const refresh = useCallback(() => {
     fetchKnowledgeCreators().then(setCreators).catch(() => {})
     fetchKnowledgeContents().then(setContents).catch(() => {})
+    fetchKnowledgeScoreboard().then(setBoard).catch(() => {})
   }, [])
   useEffect(() => {
     refresh()
@@ -152,6 +164,15 @@ export default function Knowledge() {
                           {p.stance_strength !== 'explicit' && (
                             <span className="text-[11px] text-zinc-400">({p.stance_strength === 'hedged' ? '对冲' : '试探'})</span>
                           )}
+                          {(u.scores ?? []).map((s: any, i: number) => {
+                            const o = OUTCOME[s.outcome] ?? { label: s.outcome, cls: 'bg-zinc-100 text-zinc-500' }
+                            return (
+                              <span key={i} title={`${s.horizon_label} · ${s.outcome}${s.realized?.eval_close != null ? ` · 评估价 ${s.realized.eval_close}` : ''}`}
+                                className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-semibold ${o.cls}`}>
+                                {s.horizon_label.slice(5)} {o.label}
+                              </span>
+                            )
+                          })}
                         </>
                       )}
                       {u.kind === 'method' && (
@@ -203,7 +224,8 @@ export default function Knowledge() {
       </KpiRow>
 
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-5">
-        <Panel className="lg:col-span-2"
+        <div className="flex flex-col gap-3 lg:col-span-2">
+        <Panel
           title={<span className="flex items-center gap-1.5"><UsersThree size={15} weight="bold" className="text-emerald-600" />信源 · {creators.length}</span>}>
           {creators.length === 0 ? (
             <EmptyState title="还没有登记信源" hint="python -m analyzer.knowledge.register <名称> <平台> <handle>" />
@@ -230,6 +252,53 @@ export default function Knowledge() {
             </ul>
           )}
         </Panel>
+
+        <Panel title={<span>信源联赛表 · L2 <span className="ml-1 text-[11px] font-normal normal-case text-zinc-400">到期机械评分 · hit=1 partial=0.5</span></span>}>
+          {board.length === 0 || board.every((b) => !b.scored) ? (
+            <EmptyState title="还没有到期评分" hint="python -m analyzer.knowledge.scorers" />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12.5px]">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wide text-zinc-400">
+                    <th className="py-1 pr-2 font-medium">信源</th>
+                    <th className="py-1 pr-2 text-right font-medium">已到期</th>
+                    <th className="py-1 pr-2 text-right font-medium">命中率</th>
+                    <th className="py-1 pr-2 text-right font-medium">方向类 p</th>
+                    <th className="py-1 text-right font-medium">含糊率</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {board.map((b) => (
+                    <tr key={b.creator_id} className="text-zinc-700">
+                      <td className="py-1.5 pr-2 font-medium text-zinc-800">{b.name}</td>
+                      <td className="py-1.5 pr-2 text-right font-mono tabular-nums">{b.scored}<span className="text-zinc-400">/{b.claims - b.d_claims}</span></td>
+                      <td className="py-1.5 pr-2 text-right font-mono tabular-nums">
+                        {b.hit_rate != null ? `${(b.hit_rate * 100).toFixed(0)}%` : '—'}
+                        <span className="ml-1 text-[10.5px] text-zinc-400">{b.hits}✓{b.partials > 0 ? ` ${b.partials}½` : ''} {b.misses}✗</span>
+                      </td>
+                      <td className="py-1.5 pr-2 text-right font-mono tabular-nums">
+                        {b.sign_p != null ? (
+                          <span title={`sign 类 ${b.sign_hits}/${b.sign_n} vs 50% 随机基线（单侧）`}
+                            className={b.sign_p < 0.05 ? (b.sign_side === 'above' ? 'text-emerald-600' : 'text-rose-600') : 'text-zinc-500'}>
+                            {b.sign_p}{b.sign_side === 'below' ? '↓' : '↑'}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td className="py-1.5 text-right font-mono tabular-nums text-zinc-500">
+                        {b.vague_rate != null ? `${(b.vague_rate * 100).toFixed(0)}%` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
+                样本仍小，数字仅供跟踪不作结论；「方向类 p」= sign 判断 vs 50% 随机基线的单侧二项检验（↑优于随机 ↓劣于随机），其余评分类型暂无基线。
+              </p>
+            </div>
+          )}
+        </Panel>
+        </div>
 
         <Panel className="lg:col-span-3"
           title={<span className="flex items-center gap-1.5"><Books size={15} weight="bold" className="text-zinc-600" />L0 内容库 · {contents.length}</span>}>
