@@ -265,6 +265,12 @@ export async function fetchKnowledgeContent(id: number): Promise<any> {
   return r.json()
 }
 
+export async function fetchKnowledgeUnits(contentId: number): Promise<any[]> {
+  const r = await fetch(`${API}/knowledge/contents/${contentId}/units`)
+  if (!r.ok) throw new Error(`units ${r.status}`)
+  return r.json()
+}
+
 // --- 会话管理 ---------------------------------------------------------------
 
 export async function listConversations(): Promise<Conversation[]> {

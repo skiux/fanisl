@@ -74,6 +74,33 @@ def test_store_roundtrip_and_replay(kstore):
     assert rows[0]["raw_len"] > 0 and "raw" not in rows[0]
 
 
+# --- K3：单元导入（PendingBackend 入库端）------------------------------------
+
+def test_import_units_parse_and_quote_check():
+    from analyzer.knowledge.import_units import check_quotes, parse_units_doc
+    doc = {
+        "content_id": 7, "extractor_version": "pending-v1", "model": "claude-session",
+        "units": [
+            {"kind": "claim", "quote": "原油会去测 75", "locator": "03:15",
+             "ref_price": 68.4, "tags": ["wti"], "payload": _claim()},
+            {"kind": "concept", "quote": "不要择时", "tags": ["risk-mgmt"],
+             "payload": {"canonical_statement": "不建议择时", "category": "execution"}},
+        ],
+    }
+    content_id, ver, model, units, ref_prices = parse_units_doc(doc)
+    assert (content_id, ver, model) == (7, "pending-v1", "claude-session")
+    assert len(units) == 2 and ref_prices == {0: 68.4}
+    # quote 空白归一后仍须命中原文；未命中的返回下标
+    raw = "大家好。原油会去测\n75，然后我们不要择时。"
+    assert check_quotes(raw, units) == []
+    assert check_quotes("完全无关的文本", units) == [0, 1]
+    # 载荷不合法 → 整文件拒绝
+    bad = {**doc, "units": [{"kind": "claim", "quote": "q",
+                             "payload": _claim(scoring_spec=None)}]}
+    with pytest.raises(ValueError, match="units\\[0\\]"):
+        parse_units_doc(bad)
+
+
 # --- K2：Gemini 转录接入 / 关键帧 ---------------------------------------------
 
 def test_gemini_request_assembly(monkeypatch):

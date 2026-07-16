@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowSquareOut, Books, CaretLeft, CaretRight, UsersThree, VideoCamera } from '@phosphor-icons/react'
-import { fetchKnowledgeContent, fetchKnowledgeContents, fetchKnowledgeCreators } from '../../api'
+import { fetchKnowledgeContent, fetchKnowledgeContents, fetchKnowledgeCreators, fetchKnowledgeUnits } from '../../api'
 import { Badge, EmptyState, Kpi, KpiRow, PageShell, Panel } from '../ui'
 import { when } from '../trading'
 
@@ -10,6 +10,32 @@ const STATUS: Record<string, { label: string; tone: 'neutral' | 'accent' | 'high
   awaiting_manual: { label: '待提取', tone: 'high' },
   extracted: { label: '已提取', tone: 'accent' },
   skipped: { label: '跳过', tone: 'neutral' },
+}
+
+const KIND: Record<string, { label: string; tone: 'neutral' | 'accent' | 'high' }> = {
+  claim: { label: '判断', tone: 'accent' },
+  method: { label: '方法', tone: 'high' },
+  concept: { label: '认知', tone: 'neutral' },
+}
+
+// 可验证性分级的着色（extraction-guide.md §2）
+const GRADE_CLS: Record<string, string> = {
+  A: 'bg-emerald-50 text-emerald-700',
+  B: 'bg-zinc-100 text-zinc-600',
+  C: 'bg-amber-50 text-amber-700',
+  D: 'bg-rose-50 text-rose-600',
+}
+
+const DIR: Record<string, string> = { up: '↑', down: '↓', flat: '→', range: '↔', vol_up: 'σ↑', vol_down: 'σ↓' }
+
+// claim 载荷 → 一行摘要（标的 方向 目标/区间）
+function claimLine(p: any): string {
+  const parts = [p.asset_symbol ?? p.asset_text]
+  if (p.direction) parts.push(DIR[p.direction] ?? p.direction)
+  if (p.magnitude?.target != null) parts.push(`目标 ${p.magnitude.target}`)
+  if (p.magnitude?.low != null) parts.push(`区间 ${p.magnitude.low}~${p.magnitude.high}`)
+  if (p.magnitude?.pct != null) parts.push(`${p.magnitude.pct}%`)
+  return parts.join(' ')
 }
 
 // L0 raw = 转录正文 + "## 视觉笔记" 列表（llm.render_l0_text 的格式约定）
@@ -28,6 +54,12 @@ export default function Knowledge() {
   const [creators, setCreators] = useState<any[]>([])
   const [contents, setContents] = useState<any[]>([])
   const [detail, setDetail] = useState<any | null>(null)
+  const [units, setUnits] = useState<any[]>([])
+
+  const openDetail = useCallback((id: number) => {
+    fetchKnowledgeContent(id).then(setDetail).catch(() => {})
+    fetchKnowledgeUnits(id).then(setUnits).catch(() => setUnits([]))
+  }, [])
 
   const refresh = useCallback(() => {
     fetchKnowledgeCreators().then(setCreators).catch(() => {})
@@ -58,7 +90,7 @@ export default function Knowledge() {
         sub={`${detail.creator} · ${detail.platform} · 发布 ${when(detail.published_at)} · ${detail.lang ?? '?'} · ${(detail.raw ?? '').length.toLocaleString()} 字`}
         controls={
           <div className="flex items-center gap-2">
-            <button onClick={() => setDetail(null)}
+            <button onClick={() => { setDetail(null); setUnits([]) }}
               className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] font-medium text-zinc-600 transition-colors hover:bg-zinc-100 active:translate-y-px">
               <CaretLeft size={13} weight="bold" /> 返回列表
             </button>
@@ -94,6 +126,66 @@ export default function Knowledge() {
             )}
           </Panel>
         </div>
+
+        <Panel className="mt-3"
+          title={`提取单元 · ${units.length}${units[0] ? `（${units[0].extractor_version}）` : ''}`}>
+          {units.length === 0 ? (
+            <EmptyState title="尚未提取" hint="python -m analyzer.knowledge.import_units <units.json>" />
+          ) : (
+            <ul className="divide-y divide-zinc-100">
+              {units.map((u) => {
+                const k = KIND[u.kind] ?? { label: u.kind, tone: 'neutral' as const }
+                const p = u.payload ?? {}
+                const deadline = p.scoring_spec?.eval_ladder?.slice(-1)[0]
+                return (
+                  <li key={u.id} className="py-2.5 first:pt-0 last:pb-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone={k.tone}>{k.label}</Badge>
+                      {u.kind === 'claim' && (
+                        <>
+                          <span className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-semibold ${GRADE_CLS[p.verifiability] ?? ''}`}>{p.verifiability}</span>
+                          <span className="text-[13px] font-medium text-zinc-800">{claimLine(p)}</span>
+                          {deadline && <span className="font-mono text-[11px] text-zinc-400">至 {deadline}</span>}
+                          {u.ref_price_at_publish != null && (
+                            <span className="font-mono text-[11px] text-zinc-400">@{u.ref_price_at_publish}</span>
+                          )}
+                          {p.stance_strength !== 'explicit' && (
+                            <span className="text-[11px] text-zinc-400">({p.stance_strength === 'hedged' ? '对冲' : '试探'})</span>
+                          )}
+                        </>
+                      )}
+                      {u.kind === 'method' && (
+                        <span className="text-[13px] font-medium text-zinc-800">
+                          {p.name} <span className="text-[11px] font-normal text-zinc-400">{p.family} · 可测性 {p.testability} · {p.rules?.length ?? 0} 条规则</span>
+                        </span>
+                      )}
+                      {u.kind === 'concept' && (
+                        <span className="text-[13px] text-zinc-800">{p.canonical_statement}
+                          <span className="ml-1.5 text-[11px] text-zinc-400">{p.category}</span>
+                        </span>
+                      )}
+                      <span className="ml-auto flex flex-wrap gap-1">
+                        {(u.tags ?? []).map((t: string) => (
+                          <span key={t} className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[10.5px] text-zinc-500">{t}</span>
+                        ))}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[12px] leading-relaxed text-zinc-500">
+                      {u.locator && <span className="mr-1.5 font-mono text-[10.5px] text-zinc-400">[{u.locator}]</span>}
+                      「{u.quote}」
+                    </div>
+                    {u.kind === 'claim' && p.condition_text && (
+                      <div className="mt-0.5 text-[11.5px] text-amber-700/80">条件：{p.condition_text}{!p.condition_observable && '（不可机械判定）'}</div>
+                    )}
+                    {u.kind === 'claim' && p.scoring_spec?.success_def && (
+                      <div className="mt-0.5 text-[11.5px] text-zinc-400">评分：{p.scoring_spec.success_def}</div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Panel>
       </PageShell>
     )
   }
@@ -101,7 +193,7 @@ export default function Knowledge() {
   return (
     <PageShell
       title="知识引擎"
-      sub="获取并审计金融创作者的知识 · L0 原文库（转录+视觉笔记）· 提取/评分随 K3/K4 上线"
+      sub="持续学习、验证、沉淀投资知识 · L0 原文库 + L1 提取单元（判断/方法/认知）· 评分随 K4 上线"
     >
       <KpiRow cols={4}>
         <Kpi label="信源" value={String(creators.length)} />
@@ -162,7 +254,7 @@ export default function Knowledge() {
                   {contents.map((c) => {
                     const st = STATUS[c.status] ?? { label: c.status, tone: 'neutral' as const }
                     return (
-                      <tr key={c.id} onClick={() => fetchKnowledgeContent(c.id).then(setDetail).catch(() => {})}
+                      <tr key={c.id} onClick={() => openDetail(c.id)}
                         className="group cursor-pointer text-zinc-700 transition-colors hover:bg-zinc-50/70">
                         <td className="max-w-[340px] truncate py-2 pr-3 font-medium text-zinc-800" title={c.title}>{c.title ?? '—'}</td>
                         <td className="py-2 pr-3 text-zinc-500">{c.creator}</td>

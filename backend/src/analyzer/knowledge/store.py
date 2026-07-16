@@ -237,6 +237,14 @@ class KnowledgeStore:
             conn.execute("UPDATE contents SET status='extracted' WHERE id=%s", (content_id,))
         return ids
 
+    def units_for_content(self, content_id: int) -> list[dict]:
+        """某内容的全部单元（含历史版本；前端详情页用，claim 优先靠前）。"""
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "SELECT * FROM knowledge_units WHERE content_id=%s "
+                "ORDER BY (kind!='claim'), id", (content_id,),
+            ).fetchall()
+
     def units(self, *, kind: str | None = None, creator_id: int | None = None,
               limit: int = 100) -> list[dict]:
         cond, params = [], []

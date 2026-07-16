@@ -293,6 +293,12 @@ def knowledge_content(content_id: int) -> dict:
     return row
 
 
+@app.get("/knowledge/contents/{content_id}/units")
+def knowledge_content_units(content_id: int) -> list[dict]:
+    """某内容提取出的 L1 单元（claim/method/concept，含冻结的评分规格）。"""
+    return knowledge_store.units_for_content(content_id)
+
+
 @app.get("/trading/setups")
 def trading_setups(account: str | None = None) -> dict:
     """Playbook 注册表 + 按 setup 聚合的 edge 评测（live vs 回测先验对照）+ 最近信号。
