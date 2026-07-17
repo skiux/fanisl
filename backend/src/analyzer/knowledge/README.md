@@ -38,6 +38,8 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `scoring_overrides.json` | success_def 的机械化编译（pending-v1 存量 103 条专用）：条件结构化/判界修正/组合定义，语义仲裁=success_def；新提取应走规范 v2 结构化字段 |
 | `nodes.py` | K5 归并层：knowledge_nodes/node_attestations 两表 + 生命周期重算 + CLI（export/import/seed-singletons/recompute/retire），判据见 merge-guide.md |
 | `daily.py` | 每日维护封装（行情→评分→节点状态，best-effort）：`python -m analyzer.knowledge.daily`；已挂 collector 调度（knowledge_daily_interval_s，默认 86400s） |
+| `discovery.py` | K6 发现层：harness 候选（testability=A 的 method 节点，`discovery harness`）+ 周报生成（`discovery weekly [--days 7]`，落 data_export/reports/，collector 每周自动跑） |
+| `spotcheck.py` | K6 抽查队列（spot_checks 启用）：`spotcheck sample [n]` 随机抽未查单元 / `spotcheck record <unit_id> <verdict> [note]` / `spotcheck stats` |
 | `keyframes.py` | 提帧（ffmpeg 流式 seek）——**暂不可用，2026-07-16 诊断后搁置**：yt-dlp 全客户端矩阵（tv/tv_embedded/ios/android/android_vr/web_safari/mweb/web_embedded/web × 有无 cookies）均被"Sign in to confirm you're not a bot"拦（=YouTube 对非浏览器客户端的 PO Token 强制，与 IP 无关，用户终端同样被拦）。**已验证的出路=浏览器渲染层截帧**（Playwright 驱动真实 Chromium，seek 后对 video 元素截图，绕过 player API）：playwright 已装，但 cdn.playwright.dev 下载 Chromium 被网络掐断，系统 Chrome 未装；待用户装 Chrome（或代理 HTTPS_PROXY=127.0.0.1:1082 下载通）后启用。次选兜底=storyboard 缩略图（走网页端点，~320×180 低清）。在此之前**视觉笔记是唯一画面记录**（转录时已按"做厚"设计） |
 
 ## 日常运转（K4 起；K5 起自动化）
@@ -49,6 +51,12 @@ collector 进程已按天自动跑（worker_collector 的 knowledge job）；手
 分步命令仍可用：`prices` / `scorers` / `nodes recompute`。
 新内容入库后的归并：`nodes export` 列未挂单元 → 会话按 merge-guide 判归并 JSON →
 `nodes import <file>` → 单例兜底 `nodes seed-singletons`。
+
+K6 起的发现与运营（周报 collector 每周自动跑，其余按需）：
+- 关系边（对立/互补，判据 merge-guide §6）：会话判边 JSON → `nodes import-relations <file>`；
+- 周报：`discovery weekly`（或 API /knowledge/weekly 现算）；
+- 抽查：每周 `spotcheck sample` 抽 10 条人工核忠实度，`spotcheck record` 录结论；
+- harness 候选：`discovery harness`（testability=A 的方法节点），立 H 仍走 doc/prereg 人工纪律。
 评分 outcome：hit / miss / partial / condition_not_met / condition_unverifiable / unpriceable；
 显著性口径：仅 sign 类给 50% 随机基线的单侧二项 p，其余类型 v1 无基线（联赛表已注明）。
 

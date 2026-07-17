@@ -30,9 +30,11 @@ from .runtime import (
     storage,
     trading_service,
     knowledge_store,
+    knowledge_pool,
     node_store,
     trading_store,
 )
+from .knowledge import discovery, spotcheck
 from .storage import display_messages
 
 # 注意：API 进程**不起后台调度器**。采集/交易由独立的 collector / trader worker 进程跑
@@ -326,18 +328,45 @@ def knowledge_unit(unit_id: int) -> dict:
 
 @app.get("/knowledge/nodes")
 def knowledge_nodes(kind: str | None = None, status: str | None = None,
-                    tag: str | None = None, limit: int = 300) -> list[dict]:
-    """规范知识节点列表（K5 归并层）：含提及数/跨源数/时间跨度/评分聚合，按提及数排序。"""
-    return node_store.list_nodes(kind=kind, status=status, tag=tag, limit=min(limit, 500))
+                    tag: str | None = None, cross_source: bool = False,
+                    limit: int = 300) -> list[dict]:
+    """规范知识节点列表（K5 归并层）：含提及数/跨源数/时间跨度/评分聚合，按提及数排序。
+    cross_source=true 只看跨信源共识节点。"""
+    return node_store.list_nodes(kind=kind, status=status, tag=tag,
+                                 cross_source=cross_source, limit=min(limit, 500))
 
 
 @app.get("/knowledge/nodes/{node_id}")
 def knowledge_node(node_id: int) -> dict:
-    """节点详情：canonical + 生命周期状态 + 全部提及（unit 证据链，含逐条评分）。"""
+    """节点详情：canonical + 生命周期状态 + 全部提及（unit 证据链，含逐条评分）+ 关系边。"""
     row = node_store.get_node(node_id)
     if row is None:
         raise HTTPException(status_code=404, detail="节点不存在")
     return row
+
+
+@app.get("/knowledge/relations")
+def knowledge_relations(relation: str | None = None) -> list[dict]:
+    """节点关系边（K6 发现层）：conflicts=跨源对立命题，relates=高置信互补。"""
+    return node_store.list_relations(relation=relation)
+
+
+@app.get("/knowledge/harness-candidates")
+def knowledge_harness_candidates() -> list[dict]:
+    """可回测 Method 节点清单（testability=A）——流向研究 harness 的候选，prereg 仍走人工。"""
+    return discovery.harness_candidates(knowledge_pool)
+
+
+@app.get("/knowledge/weekly")
+def knowledge_weekly(days: int = 7) -> dict:
+    """周报（现算）：知识增量/新到期评分/关系边/即将到期时点/抽查覆盖，markdown 同步落盘。"""
+    return discovery.weekly_report(knowledge_pool, days=min(days, 60))
+
+
+@app.get("/knowledge/spot-checks")
+def knowledge_spot_checks() -> dict:
+    """抽查队列统计：覆盖率 + verdict 分布 + 最近记录。"""
+    return spotcheck.stats(knowledge_pool)
 
 
 @app.get("/knowledge/recent-scores")

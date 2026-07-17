@@ -1,5 +1,7 @@
 """知识引擎 K0：schema 往返 / 载荷校验 / 幂等与版本化重放。"""
 
+import pathlib
+
 import pytest
 from datetime import datetime, timezone
 
@@ -230,6 +232,69 @@ def test_nodes_import_gates_and_lifecycle(kstore, pool):
     got = [r for r in ns.list_nodes(kind="method") if r["title"] == "隧道防守"]
     assert len(got) == 1 and ns.seed_singletons(merger_version="merge-v1") == 0
     assert u4 is not None
+
+
+# --- K6：发现层（关系边/harness 候选/周报/抽查）-------------------------------
+
+def test_discovery_layer(kstore, pool, tmp_path, monkeypatch):
+    from analyzer.knowledge import discovery, spotcheck
+    from analyzer.knowledge.nodes import NodeStore
+    with pool.connection() as conn:
+        conn.execute("DROP TABLE IF EXISTS node_relations, node_attestations, knowledge_nodes CASCADE")
+        conn.execute("TRUNCATE spot_checks")
+    ns = NodeStore(pool)
+    u1, u2, _u3 = _seed_units(kstore, 3)
+    n1, n2 = ns.import_nodes({"merger_version": "merge-v1", "nodes": [
+        {"kind": "concept", "title": "甲", "canonical": "甲论", "units": [{"id": u1}]},
+        {"kind": "concept", "title": "乙", "canonical": "乙论", "units": [{"id": u2}]}]})
+
+    # 关系边校验：note 必填 / 自环拒绝 / (a,b) 归一去重
+    with pytest.raises(ValueError, match="note"):
+        ns.import_relations({"merger_version": "merge-v1", "relations": [
+            {"a": n1, "b": n2, "relation": "conflicts"}]})
+    with pytest.raises(ValueError, match="自环"):
+        ns.import_relations({"merger_version": "merge-v1", "relations": [
+            {"a": n1, "b": n1, "relation": "relates", "note": "x"}]})
+    ns.import_relations({"merger_version": "merge-v1", "relations": [
+        {"a": n2, "b": n1, "relation": "conflicts", "note": "对立点"}]})
+    ns.import_relations({"merger_version": "merge-v1", "relations": [
+        {"a": n1, "b": n2, "relation": "conflicts", "note": "重复方向应去重"}]})
+    edges = ns.list_relations(relation="conflicts")
+    assert len(edges) == 1 and edges[0]["a_id"] == min(n1, n2)
+    assert ns.relations_for(n1)[0]["other_id"] == n2
+    assert ns.get_node(n1)["relations"][0]["other_title"] == "乙"
+
+    # harness 候选：仅 testability=A 的 method 节点入选
+    cid = kstore.ensure_creator("测试创作者")
+    content_id, _ = kstore.upsert_content(
+        cid, platform="youtube", url="https://y/m1", content_type="video", title="方法期",
+        published_at=datetime(2026, 7, 8, tzinfo=timezone.utc), raw="隧道可以回测")
+    kstore.record_extraction(content_id, extractor_version="vm", model="m", units=[
+        KnowledgeUnit(kind="method", quote="隧道可以回测", payload={
+            "name": "可回测隧道", "summary": "s", "family": "trend",
+            "rules": ["r"], "data_requirements": ["日线"], "testability": "A"}),
+        KnowledgeUnit(kind="method", quote="隧道可以回测", locator="00:01", payload={
+            "name": "不可回测", "summary": "s", "family": "other",
+            "rules": ["r"], "testability": "C"})])
+    ns.seed_singletons(merger_version="merge-v1")
+    cands = discovery.harness_candidates(pool)
+    assert [c["title"] for c in cands] == ["可回测隧道"]
+
+    # 周报：落盘到 tmp 并包含关键小节
+    monkeypatch.setattr(discovery, "REPORT_DIR", tmp_path)
+    rep = discovery.weekly_report(pool, days=30)
+    assert "知识引擎周报" in rep["markdown"] and "节点状态" in rep["markdown"]
+    assert (tmp_path / pathlib.Path(rep["path"]).name).exists()
+
+    # 抽查：sample 不重复已查、record 后计入 stats
+    got = spotcheck.sample(pool, 3)
+    assert len(got) == 3
+    spotcheck.record(pool, got[0]["id"], "faithful", "ok")
+    s = spotcheck.stats(pool)
+    assert s["checked"] == 1 and s["faithful"] == 1
+    assert got[0]["id"] not in [r["id"] for r in spotcheck.sample(pool, 50)]
+    with pytest.raises(SystemExit):
+        spotcheck.record(pool, got[0]["id"], "bogus", None)
 
 
 # --- K2：Gemini 转录接入 / 关键帧 ---------------------------------------------

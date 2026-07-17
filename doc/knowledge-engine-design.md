@@ -58,7 +58,7 @@
 | K3 | **提取+沉淀**：提取规范冻结（四类知识平权、期限映射、标签体系，见 `knowledge/extraction-guide.md`）→ import 管线（quote∈原文机械校验）→ 试提取 2 条人审通过 → **18 条全提取 ✅ 2026-07-16**：247 单元（claim 135 = 3A/65B/35C/32D，method 23，concept 89），标签 52 个，claim 带屏价 ref 78/135；语料教训回写规范（屏价须与正文互证、stance=承诺度非语气词） | 积累、检索 | ✅ |
 | K4 | **验证**：daily_bars 价格层（39 符号 yfinance/FRED，与语料屏价互验）+ scoring_overrides（103 条 success_def 机械化编译，质量核心）+ 评分器×5（含条件解析/守护条件/组合腿）+ scoreboard API + 前端联赛表与单元评分徽标；**首轮 60 时点评分 ✅ 2026-07-17**：Andy 命中率 42%（sign 类 10/25，p=0.212 不显著）、美投君 5 条 1 hit；日常=prices+scorers 两条幂等 CLI 按天跑 | 可验证 | ✅ |
 | K5 | **归并与检索**：knowledge_nodes/node_attestations 两表 + 归并规范冻结（`knowledge/merge-guide.md`：判据/提及关系 restates·refines·supersedes·contradicts/生命周期规则 v1）+ 首次归并 ✅ 2026-07-17：**105 节点**（9 个多提及：K型经济跨源、软件收费 supersedes 演进、8200 重申等；94 单例种子；数字地租 vs 周期涨法对立标注留 K6）+ 每日维护挂 collector 调度（daily.py）+ nodes API×2（前端接线留前端会话） | 复用、学习 | ✅ |
-| K6 | **发现 v0**：跨源共识/冲突视图 + Method→研究 harness 候选 + 周报"本周知识增量与状态变更" + 抽查队列 | 发现 | ⬜ |
+| K6 | **发现 v0 ✅ 2026-07-17**：节点关系边（`node_relations`，判据 merge-guide §6，人工判：首批 1 条跨源对立"数字地租 vs 周期涨法"+5 条高置信互补）+ 共识视图（nodes API cross_source 过滤）+ harness 候选清单（testability=A 方法节点×4：EMA 隧道/股金比/AUDJPY 锚/大摩油价系数，立 H 仍走 prereg 人工纪律）+ 周报生成器（markdown 落盘+API 现算，collector 每周自动）+ 抽查队列启用（spotcheck sample/record/stats）；API：/knowledge/relations、/harness-candidates、/weekly、/spot-checks | 发现 | ✅ |
 
 后续轴线（跑通后按需启动）：历史回填（往前 6-12 个月，为验证提供成熟 claim 密度）、
 信源扩张（2 → 5-8 个，刻意配风格：宏观/技术/个股基本面/加密——单一风格 claim 相关性高，
