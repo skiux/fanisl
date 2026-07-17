@@ -311,6 +311,74 @@ class KnowledgeStore:
                 "ORDER BY (u.kind!='claim'), u.id", (content_id,),
             ).fetchall()
 
+    def tags(self) -> list[dict]:
+        """标签枢纽：受控词表的实际使用计数（按 kind 细分）。"""
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "SELECT tag, count(*) AS n, "
+                "count(*) FILTER (WHERE kind='claim') AS n_claims, "
+                "count(*) FILTER (WHERE kind='method') AS n_methods, "
+                "count(*) FILTER (WHERE kind='concept') AS n_concepts "
+                "FROM knowledge_units, unnest(tags) AS tag "
+                "GROUP BY tag ORDER BY n DESC, tag").fetchall()
+
+    _UNIT_SCORES_AGG = (
+        "COALESCE((SELECT json_agg(json_build_object("
+        "'horizon_label', s.horizon_label, 'outcome', s.outcome, 'realized', s.realized) "
+        "ORDER BY s.horizon_label) FROM claim_scores s WHERE s.unit_id=u.id), '[]') AS scores"
+    )
+
+    def browse_units(self, *, kind: str | None = None, creator_id: int | None = None,
+                     tag: str | None = None, symbol: str | None = None,
+                     q: str | None = None, limit: int = 200) -> list[dict]:
+        """跨内容单元浏览（知识库的判断/方法/认知/标签/标的入口 + ⌘K 全文检索）。"""
+        cond, params = [], []
+        if kind:
+            cond.append("u.kind=%s"); params.append(kind)
+        if creator_id:
+            cond.append("u.creator_id=%s"); params.append(creator_id)
+        if tag:
+            cond.append("%s = ANY(u.tags)"); params.append(tag)
+        if symbol:
+            cond.append("u.payload->>'asset_symbol'=%s"); params.append(symbol)
+        if q:
+            cond.append("(u.quote ILIKE %s OR u.payload::text ILIKE %s)")
+            params.extend([f"%{q}%", f"%{q}%"])
+        where = ("WHERE " + " AND ".join(cond)) if cond else ""
+        with self.pool.connection() as conn:
+            return conn.execute(
+                f"SELECT u.*, cr.name AS creator, c.title AS content_title, "
+                f"{self._UNIT_SCORES_AGG} "
+                f"FROM knowledge_units u JOIN creators cr ON cr.id=u.creator_id "
+                f"JOIN contents c ON c.id=u.content_id {where} "
+                f"ORDER BY u.published_at DESC NULLS LAST, u.id DESC LIMIT %s",
+                (*params, limit),
+            ).fetchall()
+
+    def unit_detail(self, unit_id: int) -> dict | None:
+        """单元详情页：单元 + 信源/内容元信息 + 全部评分行。"""
+        with self.pool.connection() as conn:
+            return conn.execute(
+                f"SELECT u.*, cr.name AS creator, c.title AS content_title, c.url AS content_url, "
+                f"{self._UNIT_SCORES_AGG} "
+                f"FROM knowledge_units u JOIN creators cr ON cr.id=u.creator_id "
+                f"JOIN contents c ON c.id=u.content_id WHERE u.id=%s", (unit_id,),
+            ).fetchone()
+
+    def recent_scores(self, *, days: int = 14, limit: int = 100) -> list[dict]:
+        """新到期评分流（今日页）：按评分落库时刻倒序，带单元与信源摘要。"""
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "SELECT s.id, s.unit_id, s.horizon_label, s.outcome, s.realized, "
+                "s.eval_ts, s.created_at AS scored_at, "
+                "u.kind, u.quote, u.payload, u.published_at, u.creator_id, u.content_id, "
+                "cr.name AS creator, c.title AS content_title "
+                "FROM claim_scores s JOIN knowledge_units u ON u.id=s.unit_id "
+                "JOIN creators cr ON cr.id=u.creator_id JOIN contents c ON c.id=u.content_id "
+                "WHERE s.created_at >= now() - make_interval(days => %s) "
+                "ORDER BY s.created_at DESC, s.id DESC LIMIT %s", (days, limit),
+            ).fetchall()
+
     def units(self, *, kind: str | None = None, creator_id: int | None = None,
               limit: int = 100) -> list[dict]:
         cond, params = [], []

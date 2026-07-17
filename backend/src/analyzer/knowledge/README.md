@@ -4,6 +4,7 @@
 本 README 是模块地图：文件职责、数据流、常用命令。规范类文档同放本目录：
 
 - `extraction-guide.md` — L1 提取规范 v1（冻结；判断规则 + 期限映射 + 标签受控词表）
+- `merge-guide.md` — K5 归并规范 v1（节点判据 + 提及关系 + 生命周期状态规则 + 执行流程）
 
 ## 数据流
 
@@ -35,15 +36,19 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `prices.py` | K4 价格层：daily_bars 表 + SYMBOL_MAP（39 符号，yfinance/FRED；期货代理现货者已注明）：`python -m analyzer.knowledge.prices`（幂等 upsert） |
 | `scorers.py` | K4 评分器：按冻结 ScoringSpec 到期机械评分（sign/target_touch/target_close/range_hold/relative_return + 条件解析），`python -m analyzer.knowledge.scorers [--dry-run]`（幂等）；口径细节见模块 docstring |
 | `scoring_overrides.json` | success_def 的机械化编译（pending-v1 存量 103 条专用）：条件结构化/判界修正/组合定义，语义仲裁=success_def；新提取应走规范 v2 结构化字段 |
+| `nodes.py` | K5 归并层：knowledge_nodes/node_attestations 两表 + 生命周期重算 + CLI（export/import/seed-singletons/recompute/retire），判据见 merge-guide.md |
+| `daily.py` | 每日维护封装（行情→评分→节点状态，best-effort）：`python -m analyzer.knowledge.daily`；已挂 collector 调度（knowledge_daily_interval_s，默认 86400s） |
 | `keyframes.py` | 提帧（ffmpeg 流式 seek）——**暂不可用，2026-07-16 诊断后搁置**：yt-dlp 全客户端矩阵（tv/tv_embedded/ios/android/android_vr/web_safari/mweb/web_embedded/web × 有无 cookies）均被"Sign in to confirm you're not a bot"拦（=YouTube 对非浏览器客户端的 PO Token 强制，与 IP 无关，用户终端同样被拦）。**已验证的出路=浏览器渲染层截帧**（Playwright 驱动真实 Chromium，seek 后对 video 元素截图，绕过 player API）：playwright 已装，但 cdn.playwright.dev 下载 Chromium 被网络掐断，系统 Chrome 未装；待用户装 Chrome（或代理 HTTPS_PROXY=127.0.0.1:1082 下载通）后启用。次选兜底=storyboard 缩略图（走网页端点，~320×180 低清）。在此之前**视觉笔记是唯一画面记录**（转录时已按"做厚"设计） |
 
-## 日常运转（K4 起）
+## 日常运转（K4 起；K5 起自动化）
 
 ```
-python -m analyzer.knowledge.prices     # 1. 刷日线行情（幂等）
-python -m analyzer.knowledge.scorers    # 2. 评所有新到期的 claim 时点（幂等）
+python -m analyzer.knowledge.daily      # 行情刷新 → 到期评分 → 节点状态重算（幂等）
 ```
-两条命令按天跑即可（cron/手动皆可）；联赛表与单元徽标随之更新。
+collector 进程已按天自动跑（worker_collector 的 knowledge job）；手动跑等价。
+分步命令仍可用：`prices` / `scorers` / `nodes recompute`。
+新内容入库后的归并：`nodes export` 列未挂单元 → 会话按 merge-guide 判归并 JSON →
+`nodes import <file>` → 单例兜底 `nodes seed-singletons`。
 评分 outcome：hit / miss / partial / condition_not_met / condition_unverifiable / unpriceable；
 显著性口径：仅 sign 类给 50% 随机基线的单侧二项 p，其余类型 v1 无基线（联赛表已注明）。
 

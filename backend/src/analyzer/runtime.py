@@ -51,10 +51,12 @@ trading_pool = make_pool(settings.pg_trading_conninfo)
 trading_store = TradingStore(trading_pool)
 
 # --- 知识引擎（独立库）---
-from .knowledge.store import KnowledgeStore  # noqa: E402 — 依赖 settings 先就绪
+from .knowledge.nodes import NodeStore  # noqa: E402 — 依赖 settings 先就绪
+from .knowledge.store import KnowledgeStore  # noqa: E402
 
 knowledge_pool = make_pool(settings.pg_knowledge_conninfo)
 knowledge_store = KnowledgeStore(knowledge_pool)
+node_store = NodeStore(knowledge_pool)
 
 
 def live_price(symbol: str) -> float:

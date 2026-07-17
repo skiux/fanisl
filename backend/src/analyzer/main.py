@@ -30,6 +30,7 @@ from .runtime import (
     storage,
     trading_service,
     knowledge_store,
+    node_store,
     trading_store,
 )
 from .storage import display_messages
@@ -297,6 +298,99 @@ def knowledge_content(content_id: int) -> dict:
 def knowledge_content_units(content_id: int) -> list[dict]:
     """某内容提取出的 L1 单元（claim/method/concept，含冻结的评分规格与到期评分）。"""
     return knowledge_store.units_for_content(content_id)
+
+
+@app.get("/knowledge/tags")
+def knowledge_tags() -> list[dict]:
+    """标签枢纽：受控词表实际使用计数（按 kind 细分）。"""
+    return knowledge_store.tags()
+
+
+@app.get("/knowledge/units")
+def knowledge_units(kind: str | None = None, creator: int | None = None,
+                    tag: str | None = None, symbol: str | None = None,
+                    q: str | None = None, limit: int = 200) -> list[dict]:
+    """跨内容单元浏览：知识库的判断/方法/认知/标签/标的入口 + 全文检索（⌘K）。"""
+    return knowledge_store.browse_units(
+        kind=kind, creator_id=creator, tag=tag, symbol=symbol, q=q, limit=min(limit, 500))
+
+
+@app.get("/knowledge/units/{unit_id}")
+def knowledge_unit(unit_id: int) -> dict:
+    """单元详情：单元 + 信源/内容元信息 + 全部评分行（证据链下钻的落点）。"""
+    row = knowledge_store.unit_detail(unit_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="单元不存在")
+    return row
+
+
+@app.get("/knowledge/nodes")
+def knowledge_nodes(kind: str | None = None, status: str | None = None,
+                    tag: str | None = None, limit: int = 300) -> list[dict]:
+    """规范知识节点列表（K5 归并层）：含提及数/跨源数/时间跨度/评分聚合，按提及数排序。"""
+    return node_store.list_nodes(kind=kind, status=status, tag=tag, limit=min(limit, 500))
+
+
+@app.get("/knowledge/nodes/{node_id}")
+def knowledge_node(node_id: int) -> dict:
+    """节点详情：canonical + 生命周期状态 + 全部提及（unit 证据链，含逐条评分）。"""
+    row = node_store.get_node(node_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="节点不存在")
+    return row
+
+
+@app.get("/knowledge/recent-scores")
+def knowledge_recent_scores(days: int = 14, limit: int = 100) -> list[dict]:
+    """新到期评分流（今日页）：按评分落库时刻倒序。"""
+    return knowledge_store.recent_scores(days=min(days, 90), limit=min(limit, 300))
+
+
+@app.get("/knowledge/prices")
+def knowledge_prices(symbol: str, since: str, until: str | None = None) -> dict:
+    """daily_bars 日线窗口（claim 证据图用）。symbol 用 claim 的 asset_symbol 口径。"""
+    import datetime as _dt
+
+    from .knowledge.prices import SYMBOL_MAP, FRED_SERIES, PriceStore
+
+    start = _dt.date.fromisoformat(since)
+    end = _dt.date.fromisoformat(until) if until else _dt.date.today()
+    rows = PriceStore(knowledge_store.pool).window(symbol, start, end)
+    note = ""
+    if symbol in SYMBOL_MAP:
+        note = SYMBOL_MAP[symbol][2]
+    elif symbol in FRED_SERIES:
+        note = FRED_SERIES[symbol]
+    return {"symbol": symbol, "note": note, "bars": rows}
+
+
+# --- 研究档案（doc/ 内白名单文档的只读陈列）-------------------------------
+
+_RESEARCH_DOCS = {
+    "capstone": ("research/research-capstone.md", "研究收官：问题 / 方法 / 23 裁决 / 遗产"),
+    "research-log": ("research/research-log.md", "逐假设裁决日志（H1–H22）"),
+    "eval-repositioning": ("trading-eval-repositioning.md", "评测台重定位：setup 评 edge / 闸门 / 实盘镜像"),
+    "knowledge-engine": ("knowledge-engine-design.md", "知识引擎设计：定位 / 分层 / K0–K6"),
+}
+
+
+@app.get("/research/docs")
+def research_docs() -> list[dict]:
+    """研究档案索引（负结果是资产：capstone 与裁决日志在产品内体面陈列）。"""
+    return [{"name": k, "title": t} for k, (_, t) in _RESEARCH_DOCS.items()]
+
+
+@app.get("/research/docs/{name}")
+def research_doc(name: str) -> dict:
+    from pathlib import Path
+
+    if name not in _RESEARCH_DOCS:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    rel, title = _RESEARCH_DOCS[name]
+    path = Path(__file__).resolve().parents[3] / "doc" / rel
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"文件缺失：doc/{rel}")
+    return {"name": name, "title": title, "path": f"doc/{rel}", "content": path.read_text()}
 
 
 @app.get("/knowledge/scoreboard")

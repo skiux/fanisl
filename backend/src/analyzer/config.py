@@ -142,6 +142,7 @@ class Settings(BaseSettings):
     collector_enabled: bool = True
     collect_market_interval_s: int = 900  # 价格/衍生品/情绪/链上：15 分钟
     collect_catalysts_interval_s: int = 86400  # 解锁/宏观/新闻：每天
+    knowledge_daily_interval_s: int = 86400  # 知识引擎日维护（行情→评分→节点状态）
 
     # 保留 / 压缩：交给 TimescaleDB 原生策略（hypertable + 压缩）
     # retention 默认关闭(0)：研究平台需要**永久**历史——365 天策略曾把 2006+ COT / 2010+ 股价等

@@ -163,6 +163,75 @@ def test_scorers_all_methods(pool, monkeypatch):
     assert scorers.score_unit_at(ps, _unit({"asset_symbol": "NOPE"}), L)[0] == "unpriceable"
 
 
+# --- K5：归并层（节点/提及/生命周期）------------------------------------------
+
+def _seed_units(kstore, n=3):
+    cid = kstore.ensure_creator("测试创作者", focus="能源")
+    ids = []
+    for i in range(n):
+        content_id, _ = kstore.upsert_content(
+            cid, platform="youtube", url=f"https://y/n{i}", content_type="video",
+            title=f"第{i}期", published_at=datetime(2026, 7, 1 + i, tzinfo=timezone.utc),
+            raw=f"原油会去测 75……第{i}期")
+        unit = KnowledgeUnit(kind="concept", quote="原油会去测 75",
+                             payload={"canonical_statement": "供给驱动油价", "category": "macro_framework"})
+        ids += kstore.record_extraction(content_id, extractor_version=f"v{i}", model="m", units=[unit])
+    return ids
+
+
+def test_nodes_import_gates_and_lifecycle(kstore, pool):
+    from analyzer.knowledge.nodes import NodeStore
+    with pool.connection() as conn:
+        conn.execute("DROP TABLE IF EXISTS node_attestations, knowledge_nodes CASCADE")
+    ns = NodeStore(pool)
+    u1, u2, u3 = _seed_units(kstore, 3)
+
+    doc = {"merger_version": "merge-v1", "nodes": [{
+        "kind": "concept", "title": "供给驱动油价", "canonical": "油价由供给侧主导",
+        "tags": ["wti"], "units": [{"id": u1}, {"id": u2, "relation": "restates"}]}]}
+    nid = ns.import_nodes(doc)[0]
+    # 两条提及来自不同内容 → corroborated
+    ns.recompute()
+    assert ns.get_node(nid)["status"] == "corroborated"
+    assert len(ns.get_node(nid)["attestations"]) == 2
+
+    # 单元已占用 → 整文件拒绝
+    with pytest.raises(ValueError, match="已归属"):
+        ns.import_nodes({"merger_version": "merge-v1", "nodes": [{
+            "kind": "concept", "title": "x", "canonical": "x", "units": [{"id": u1}]}]})
+    # kind 不一致 → 拒绝
+    with pytest.raises(ValueError, match="kind 不一致"):
+        ns.import_nodes({"merger_version": "merge-v1", "nodes": [{
+            "kind": "method", "title": "x", "canonical": "x", "units": [{"id": u3}]}]})
+
+    # contradicts → contested；retire 后重算不覆盖
+    ns.import_nodes({"merger_version": "merge-v1", "nodes": [{
+        "kind": "concept", "title": "y", "canonical": "y",
+        "units": [{"id": u3, "relation": "contradicts"}]}]})
+    ns.recompute()
+    rows = ns.list_nodes(kind="concept")
+    st = {r["title"]: r["status"] for r in rows}
+    assert st["y"] == "contested"
+    ns.retire(nid, "测试退役")
+    ns.recompute()
+    assert ns.get_node(nid)["status"] == "retired"
+
+    # 单例种子：为剩余未挂的 method/concept 机械建节点（claim 不建）
+    u4 = kstore.record_extraction(
+        kstore.upsert_content(kstore.ensure_creator("测试创作者"), platform="youtube",
+                              url="https://y/n9", content_type="video", title="第9期",
+                              published_at=datetime(2026, 7, 9, tzinfo=timezone.utc),
+                              raw="用隧道防守")[0],
+        extractor_version="v9", model="m",
+        units=[KnowledgeUnit(kind="method", quote="用隧道防守", payload={
+            "name": "隧道防守", "summary": "以隧道位防守", "family": "trend",
+            "rules": ["破隧道离场"], "testability": "B"})])[0]
+    assert ns.seed_singletons(merger_version="merge-v1") == 1
+    got = [r for r in ns.list_nodes(kind="method") if r["title"] == "隧道防守"]
+    assert len(got) == 1 and ns.seed_singletons(merger_version="merge-v1") == 0
+    assert u4 is not None
+
+
 # --- K2：Gemini 转录接入 / 关键帧 ---------------------------------------------
 
 def test_gemini_request_assembly(monkeypatch):

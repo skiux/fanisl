@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from . import runtime as rt
 from .collector import collect_catalysts, collect_market
+from .knowledge.daily import run_daily as knowledge_daily
 from .scheduler import Scheduler
 from .worker_base import LOCK_COLLECTOR, acquire_single_instance, run_workers
 
@@ -21,6 +22,8 @@ def main() -> None:
          lambda: collect_market(rt.resolver, rt.settings, rt.sentiment, rt.market_store)),
         ("catalysts", rt.settings.collect_catalysts_interval_s,
          lambda: collect_catalysts(rt.catalysts, rt.settings, rt.market_store)),
+        ("knowledge", rt.settings.knowledge_daily_interval_s,
+         lambda: knowledge_daily(rt.knowledge_pool)),
     ])
     run_workers([sched], name="collector")
 
