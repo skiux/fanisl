@@ -1,72 +1,80 @@
-import { useState, type ReactNode } from 'react'
-import { Books, ChartLineUp, ChatCircle, Pulse, Strategy } from '@phosphor-icons/react'
+import { useEffect, useState } from 'react'
+import { Books, ChartLineUp, ChatCircle, Flask, MagnifyingGlass, Pulse, Sun } from '@phosphor-icons/react'
 import PriceTicker from './components/PriceTicker'
 import Sidebar from './components/Sidebar'
 import ChatView from './components/ChatView'
+import CommandPalette from './components/CommandPalette'
 import { useConversations } from './useConversations'
-import DataExplorer from './market/pages/DataExplorer'
-import Categories from './market/pages/Categories'
-import Trading from './market/pages/Trading'
+import { navigate, useRoute } from './lib/router'
+import Today from './market/pages/Today'
 import Knowledge from './market/pages/Knowledge'
+import MarketData from './market/pages/MarketData'
+import Research from './market/pages/Research'
 
-// 数据分类页（分类显示数据总览中的数据）
-const DATA_CATS: { key: string; label: string; sub: string; symbol: string }[] = [
-  { key: 'technical', label: '技术', sub: '逐周期 · 趋势 / 动量 / 波动 / 量', symbol: 'BTC/USDT' },
-  { key: 'derivatives', label: '衍生品', sub: '资金费 / OI / 多空比 / 期权 / 爆仓', symbol: 'BTC/USDT' },
-  { key: 'microstructure', label: '盘口', sub: '价差 / 深度 / 失衡', symbol: 'BTC/USDT' },
-  { key: 'onchain', label: '链上', sub: '稳定币 / TVL / 网络使用度', symbol: 'BTC/USDT' },
-  { key: 'sentiment', label: '情绪', sub: '恐惧贪婪 / 社交', symbol: 'GLOBAL' },
-  { key: 'macro', label: '宏观', sub: '通胀 / 就业 / 利率 / 流动性', symbol: 'GLOBAL' },
-]
-
-type View = 'chat' | 'data' | 'trading' | string
-
-const NAV: { key: View; label: string; icon?: ReactNode }[] = [
-  { key: 'chat', label: '对话', icon: <ChatCircle size={15} weight="bold" /> },
-  { key: 'data', label: '数据总览', icon: <ChartLineUp size={15} weight="bold" /> },
-  ...DATA_CATS.map((c) => ({ key: c.key, label: c.label })),
-  { key: 'trading', label: '交易评测', icon: <Strategy size={15} weight="bold" /> },
-  { key: 'knowledge', label: '知识', icon: <Books size={15} weight="bold" /> },
-]
+// 顶层导航（PRODUCT.md §1）：四空间 + 对话工具，顺序即优先级，默认落点=今日。
+const NAV = [
+  { key: 'today', label: '今日', icon: Sun },
+  { key: 'knowledge', label: '知识库', icon: Books },
+  { key: 'data', label: '市场数据', icon: ChartLineUp },
+  { key: 'research', label: '研究', icon: Flask },
+  { key: 'chat', label: '对话', icon: ChatCircle },
+] as const
 
 export default function App() {
+  const route = useRoute()
+  const space = route.path[0] ?? 'today'
   const { conversations, refresh } = useConversations()
   const [activeId, setActiveId] = useState<number | null>(null)
-  const [view, setView] = useState<View>('chat')
-  const cat = DATA_CATS.find((c) => c.key === view)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  // ⌘K / Ctrl+K：全局对象寻址（DESIGN.md §15.3 冻结键位）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPaletteOpen((v) => !v)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div className="flex h-full flex-col bg-zinc-50 text-zinc-900">
-      <header className="flex items-center gap-4 border-b border-zinc-200/80 bg-white px-4 py-2">
+      <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-4 py-2">
         <div className="flex shrink-0 items-center gap-2">
-          <div className="grid h-6 w-6 place-items-center rounded-md bg-zinc-900 text-[12px] font-bold text-emerald-400">f</div>
-          <span className="text-[14px] font-semibold tracking-tight">fanisl</span>
+          <div className="grid h-6 w-6 place-items-center rounded-md bg-zinc-900 text-xs font-bold text-emerald-400">f</div>
+          <span className="text-base font-semibold tracking-tight">fanisl</span>
         </div>
         <nav className="flex flex-1 items-center gap-0.5 overflow-x-auto">
           {NAV.map((n) => {
-            const on = view === n.key
+            const on = space === n.key
+            const Icon = n.icon
             return (
-              <button
-                key={n.key}
-                onClick={() => setView(n.key)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors active:translate-y-px ${
+              <button key={n.key} onClick={() => navigate(`/${n.key}`)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 active:translate-y-px ${
                   on ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800'
-                }`}
-              >
-                {n.icon && <span className={on ? 'text-emerald-400' : ''}>{n.icon}</span>}
+                }`}>
+                <Icon size={15} weight="bold" className={on ? 'text-emerald-400' : ''} />
                 {n.label}
               </button>
             )
           })}
         </nav>
-        <span className="hidden shrink-0 items-center gap-1.5 text-[11px] text-zinc-400 sm:flex">
-          <Pulse size={13} weight="bold" className="text-emerald-500" /> 仅盘面解读，非投资建议
+        <button onClick={() => setPaletteOpen(true)} title="全局寻址"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 px-2 py-1 text-2xs text-zinc-400 transition-colors duration-150 hover:bg-zinc-50 hover:text-zinc-600">
+          <MagnifyingGlass size={12} /> <kbd className="font-mono">⌘K</kbd>
+        </button>
+        <span className="hidden shrink-0 items-center gap-1.5 text-2xs text-zinc-400 sm:flex">
+          <Pulse size={13} weight="bold" className="text-accent" /> 仅盘面解读，非投资建议
         </span>
       </header>
 
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+
       {/* 对话视图常驻挂载、切换仅改可见性，避免丢消息 */}
       <div className="flex min-h-0 flex-1">
-        <div className={view === 'chat' ? 'flex min-w-0 flex-1' : 'hidden'}>
+        <div className={space === 'chat' ? 'flex min-w-0 flex-1' : 'hidden'}>
           <Sidebar
             conversations={conversations}
             activeId={activeId}
@@ -91,19 +99,11 @@ export default function App() {
           </div>
         </div>
 
-        <div className={view === 'chat' ? 'hidden' : 'flex min-w-0 flex-1 overflow-hidden'}>
-          {view === 'data' && <DataExplorer />}
-          {view === 'trading' && <Trading />}
-          {view === 'knowledge' && <Knowledge />}
-          {cat && (
-            <Categories
-              key={cat.key}
-              category={cat.key}
-              title={cat.label === '技术' ? '技术面' : cat.label}
-              sub={cat.sub}
-              defaultSymbol={cat.symbol}
-            />
-          )}
+        <div className={space === 'chat' ? 'hidden' : 'flex min-w-0 flex-1 overflow-hidden'}>
+          {space === 'today' && <Today />}
+          {space === 'knowledge' && <Knowledge route={route} />}
+          {space === 'data' && <MarketData route={route} />}
+          {space === 'research' && <Research route={route} />}
         </div>
       </div>
     </div>

@@ -277,6 +277,70 @@ export async function fetchKnowledgeScoreboard(): Promise<any[]> {
   return r.json()
 }
 
+export async function fetchKnowledgeTags(): Promise<any[]> {
+  const r = await fetch(`${API}/knowledge/tags`)
+  if (!r.ok) throw new Error(`tags ${r.status}`)
+  return r.json()
+}
+
+export interface UnitsBrowseParams {
+  kind?: string
+  creator?: number
+  tag?: string
+  symbol?: string
+  q?: string
+  limit?: number
+}
+
+export async function fetchKnowledgeUnitsBrowse(p: UnitsBrowseParams): Promise<any[]> {
+  const q = new URLSearchParams()
+  if (p.kind) q.set('kind', p.kind)
+  if (p.creator) q.set('creator', String(p.creator))
+  if (p.tag) q.set('tag', p.tag)
+  if (p.symbol) q.set('symbol', p.symbol)
+  if (p.q) q.set('q', p.q)
+  if (p.limit) q.set('limit', String(p.limit))
+  const r = await fetch(`${API}/knowledge/units?${q.toString()}`)
+  if (!r.ok) throw new Error(`units ${r.status}`)
+  return r.json()
+}
+
+export async function fetchKnowledgeUnit(id: number): Promise<any> {
+  const r = await fetch(`${API}/knowledge/units/${id}`)
+  if (!r.ok) throw new Error(`unit ${r.status}`)
+  return r.json()
+}
+
+export async function fetchKnowledgeRecentScores(days = 14, limit = 100): Promise<any[]> {
+  const r = await fetch(`${API}/knowledge/recent-scores?days=${days}&limit=${limit}`)
+  if (!r.ok) throw new Error(`recent-scores ${r.status}`)
+  return r.json()
+}
+
+export async function fetchKnowledgePrices(symbol: string, since: string, until?: string): Promise<{
+  symbol: string
+  note: string
+  bars: { ts: string; open: number; high: number; low: number; close: number }[]
+}> {
+  const q = new URLSearchParams({ symbol, since })
+  if (until) q.set('until', until)
+  const r = await fetch(`${API}/knowledge/prices?${q.toString()}`)
+  if (!r.ok) throw new Error(`prices ${r.status}`)
+  return r.json()
+}
+
+export async function fetchResearchDocs(): Promise<{ name: string; title: string }[]> {
+  const r = await fetch(`${API}/research/docs`)
+  if (!r.ok) throw new Error(`docs ${r.status}`)
+  return r.json()
+}
+
+export async function fetchResearchDoc(name: string): Promise<{ name: string; title: string; path: string; content: string }> {
+  const r = await fetch(`${API}/research/docs/${name}`)
+  if (!r.ok) throw new Error(`doc ${r.status}`)
+  return r.json()
+}
+
 // --- 会话管理 ---------------------------------------------------------------
 
 export async function listConversations(): Promise<Conversation[]> {

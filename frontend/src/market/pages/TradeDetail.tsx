@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CaretLeft, XCircle } from '@phosphor-icons/react'
 import {
-  Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { cancelTrade, fetchTradeTimeline } from '../../api'
-import { Badge, ChartSkeleton, EmptyState, Panel, SegTabs } from '../ui'
+import { useQuery } from '../../lib/useQuery'
+import { Badge, CHART, EmptyState, ErrorState, Panel, Quote, SegTabs, Skeleton } from '../ui'
 import { fmtNum } from '../format'
 import {
   dur, num, pct, rr, sym, signedUsd, usd, when, whenSec,
@@ -19,18 +20,11 @@ function downsample<T>(arr: T[], n = 600): T[] {
 
 // 单笔交易的独立详情页：决策依据 → 过程（走势/管理/事件）→ 结果 → 复盘
 export default function TradeDetail({ id, onBack }: { id: number; onBack: () => void }) {
-  const [tl, setTl] = useState<any>(null)
   const [mode, setMode] = useState<'price' | 'upnl'>('price')
-
-  const load = useCallback(() => fetchTradeTimeline(id).then(setTl).catch(() => {}), [id])
-  useEffect(() => { setTl(null); load() }, [id, load])
-  // 未平仓时跟着盯市刷新
+  const q = useQuery(() => fetchTradeTimeline(id), [id], { pollMs: 15000 })
+  const tl = q.data
+  const load = q.refetch
   const live = tl?.trade?.status === 'open' || tl?.trade?.status === 'planned'
-  useEffect(() => {
-    if (!live) return
-    const t = setInterval(load, 15000)
-    return () => clearInterval(t)
-  }, [live, load])
 
   const t = tl?.trade
   const plans = tl?.plans ?? []
@@ -68,52 +62,54 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
       <div className="shrink-0 border-b border-zinc-200/60 px-5 py-3">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3">
           <button onClick={onBack}
-            className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] font-medium text-zinc-600 transition-colors hover:bg-zinc-100 active:translate-y-px">
+            className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 active:translate-y-px">
             <CaretLeft size={13} weight="bold" /> 返回
           </button>
           <div className="h-5 w-px bg-zinc-200" />
           {t ? (
             <>
-              <span className="font-mono text-[13px] text-zinc-400">#{t.id}</span>
-              <span className="text-[15px] font-semibold tracking-tight text-zinc-900">{sym(t.symbol)}</span>
-              <Badge tone={t.side === 'long' ? 'accent' : 'neutral'}>{SIDE[t.side] ?? t.side} {num(t.leverage, 0)}x</Badge>
-              <Badge tone={t.status === 'open' ? 'accent' : 'neutral'}>{STATUS[t.status] ?? t.status}</Badge>
+              <span className="font-mono text-sm text-zinc-400">#{t.id}</span>
+              <span className="text-md font-semibold tracking-tight text-zinc-900">{sym(t.symbol)}</span>
+              <Badge>{SIDE[t.side] ?? t.side} {num(t.leverage, 0)}x</Badge>
+              <Badge>{STATUS[t.status] ?? t.status}</Badge>
               {t.setup_key
-                ? <Badge tone="accent">setup · {t.setup_key}</Badge>
-                : <span className="text-[12px] text-zinc-400">{STRATEGY[t.strategy_type] ?? t.strategy_type}</span>}
+                ? <Badge mono>setup · {t.setup_key}</Badge>
+                : <span className="text-xs text-zinc-400">{STRATEGY[t.strategy_type] ?? t.strategy_type}</span>}
               {t.status === 'planned' && (
                 <button onClick={() => cancelTrade(t.id).then(load).catch(() => {})}
-                  className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[12px] font-medium text-rose-600 transition-colors hover:bg-rose-100 active:translate-y-px">
+                  className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs font-medium text-zinc-600 transition-colors duration-150 hover:bg-zinc-100 active:translate-y-px">
                   <XCircle size={13} weight="bold" /> 撤单
                 </button>
               )}
               <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
                 {result ? (
                   <>
-                    <span className={`font-mono text-[14px] font-medium tabular-nums ${result.pnl_abs > 0 ? 'text-emerald-600' : result.pnl_abs < 0 ? 'text-rose-600' : 'text-zinc-700'}`}>
+                    <span className={`font-mono text-base font-medium tabular-nums ${result.pnl_abs > 0 ? 'text-verdict-hit' : result.pnl_abs < 0 ? 'text-verdict-miss' : 'text-zinc-700'}`}>
                       {signedUsd(result.pnl_abs)}
                     </span>
-                    <span className="font-mono text-[12px] text-zinc-500">{rr(result.realized_r)}</span>
-                    <span className="text-[12px] text-zinc-400">{EXIT_REASON[result.exit_reason] ?? result.exit_reason}</span>
-                    <Badge tone={result.outcome === 'win' ? 'accent' : result.outcome === 'loss' ? 'high' : 'neutral'}>{OUTCOME[result.outcome] ?? result.outcome}</Badge>
+                    <span className="font-mono text-xs text-zinc-500">{rr(result.realized_r)}</span>
+                    <span className="text-xs text-zinc-400">{EXIT_REASON[result.exit_reason] ?? result.exit_reason}</span>
+                    <Badge tone={result.outcome === 'win' ? 'hit' : result.outcome === 'loss' ? 'miss' : 'neutral'}>{OUTCOME[result.outcome] ?? result.outcome}</Badge>
                   </>
                 ) : live && pts.length > 0 ? (
-                  <span className={`font-mono text-[14px] font-medium tabular-nums ${upnlEnd > 0 ? 'text-emerald-600' : upnlEnd < 0 ? 'text-rose-600' : 'text-zinc-700'}`}>
+                  <span className={`font-mono text-base font-medium tabular-nums ${upnlEnd > 0 ? 'text-verdict-hit' : upnlEnd < 0 ? 'text-verdict-miss' : 'text-zinc-700'}`}>
                     浮动 {signedUsd(upnlEnd)}
                   </span>
                 ) : null}
               </div>
             </>
           ) : (
-            <span className="text-[13px] text-zinc-400">加载中…</span>
+            <span className="text-sm text-zinc-400">{q.error ? `#${id}` : '加载中…'}</span>
           )}
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1400px] px-5 py-4">
+        <div className="mx-auto max-w-[96rem] px-6 py-4">
           {!tl ? (
-            <ChartSkeleton height={360} />
+            q.loading ? <Skeleton height={360} />
+              : q.error ? <ErrorState error={q.error} onRetry={q.refetch} />
+              : <Skeleton height={360} />
           ) : (
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
               {/* 左：过程 */}
@@ -128,49 +124,45 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
                   ) : (
                     <div className="h-[320px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={pts} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-                          <defs>
-                            <linearGradient id="td" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#10b981" stopOpacity={0.14} />
-                              <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid stroke="#f4f4f5" vertical={false} />
+                        <LineChart data={pts} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                          <CartesianGrid stroke={CHART.grid.stroke} vertical={false} />
                           <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']} scale="time"
                             tickFormatter={(x) => when(new Date(x).toISOString())}
-                            tick={{ fontSize: 11, fill: '#a1a1aa' }} tickLine={false}
-                            axisLine={{ stroke: '#e4e4e7' }} minTickGap={56} />
+                            tick={CHART.axisTick} tickLine={false}
+                            axisLine={CHART.axisLine} minTickGap={56} />
                           <YAxis width={60}
                             domain={mode === 'price' ? priceDomain : ['auto', 'auto']}
-                            tick={{ fontSize: 11, fill: '#a1a1aa', fontFamily: 'Geist Mono' }}
+                            tick={CHART.axisTick}
                             tickFormatter={(v) => fmtNum(v)} tickLine={false} axisLine={false} />
                           <Tooltip
-                            contentStyle={{ borderRadius: 12, border: '1px solid #e4e4e7', fontSize: 12, fontFamily: 'Geist Mono' }}
+                            contentStyle={CHART.tooltip}
                             labelFormatter={(x) => whenSec(new Date(x as number).toISOString())}
                             formatter={(v: number) => (mode === 'price' ? [fmtNum(v), '标记价'] : [signedUsd(v), '浮动盈亏'])} />
                           {mode === 'price' ? (
                             <>
                               {t?.avg_entry > 0 && <ReferenceLine y={t.avg_entry} stroke="#a1a1aa" strokeDasharray="4 4"
-                                label={{ value: `进场 ${fmtNum(t.avg_entry)}`, position: 'insideTopLeft', fontSize: 10, fill: '#71717a' }} />}
+                                label={{ value: `进场 ${fmtNum(t.avg_entry)}`, position: 'insideTopLeft', fontSize: 11, fill: '#71717a' }} />}
                               {active?.sl_price && <ReferenceLine y={active.sl_price} stroke="#f43f5e" strokeDasharray="4 4"
-                                label={{ value: `止损 ${fmtNum(active.sl_price)}`, position: 'insideBottomLeft', fontSize: 10, fill: '#e11d48' }} />}
+                                label={{ value: `止损 ${fmtNum(active.sl_price)}`, position: 'insideBottomLeft', fontSize: 11, fill: '#e11d48' }} />}
                               {(active?.tp_targets ?? []).map((tp: any, i: number) => tp?.price && (
-                                <ReferenceLine key={i} y={tp.price} stroke="#10b981" strokeDasharray="4 4"
-                                  label={{ value: `止盈${(active?.tp_targets ?? []).length > 1 ? i + 1 : ''} ${fmtNum(tp.price)}`, position: 'insideTopRight', fontSize: 10, fill: '#059669' }} />
+                                <ReferenceLine key={i} y={tp.price} stroke="#059669" strokeDasharray="4 4"
+                                  label={{ value: `止盈${(active?.tp_targets ?? []).length > 1 ? i + 1 : ''} ${fmtNum(tp.price)}`, position: 'insideTopRight', fontSize: 11, fill: '#059669' }} />
                               ))}
-                              <Area type="monotone" dataKey="mark" stroke="#3f3f46" strokeWidth={1.4} fill="none" />
+                              <Line type="monotone" dataKey="mark" stroke={CHART.seriesMain} strokeWidth={1.4}
+                                dot={false} isAnimationActive={false} />
                             </>
                           ) : (
                             <>
                               <ReferenceLine y={0} stroke="#d4d4d8" />
-                              <Area type="monotone" dataKey="upnl" stroke="#10b981" strokeWidth={1.4} fill="url(#td)" />
+                              <Line type="monotone" dataKey="upnl" stroke={CHART.seriesMain} strokeWidth={1.4}
+                                dot={false} isAnimationActive={false} />
                             </>
                           )}
-                        </AreaChart>
+                        </LineChart>
                       </ResponsiveContainer>
                     </div>
                   )}
-                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-zinc-400">
+                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-2xs text-zinc-400">
                     <span>快照 {(tl.snapshots ?? []).length.toLocaleString()} 帧</span>
                     <span>开仓 {when(t?.opened_at)}</span>
                     {t?.closed_at && <span>平仓 {when(t.closed_at)}</span>}
@@ -182,9 +174,7 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
                 {v1 && (
                   <Panel title={v1.setup_key ? 'Setup 模板计划（规则生成 · Claude 仅闸门）' : '决策依据（开仓时的原始计划）'}
                     right={v1.confidence_pct != null ? <Badge>置信 {v1.confidence_pct}%</Badge> : undefined}>
-                    <blockquote className="rounded-lg bg-zinc-50 px-3 py-2.5 text-[13px] leading-relaxed text-zinc-700">
-                      {v1.thesis}
-                    </blockquote>
+                    <Quote>{v1.thesis}</Quote>
                     <div className="mt-3 grid grid-cols-2 gap-x-8 sm:grid-cols-3">
                       <Row k="策略" v={STRATEGY[v1.strategy_type] ?? v1.strategy_type} />
                       <Row k="市场环境" v={REGIME[v1.regime] ?? v1.regime} />
@@ -197,12 +187,12 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
                       <Row k="强平价" v={num(v1.computed?.liquidation_price)} />
                     </div>
                     {(v1.mtf || v1.macro_context || v1.risk_events || v1.risk_appetite || v1.notes) && (
-                      <div className="mt-3 space-y-1.5 border-t border-zinc-100 pt-3 text-[12.5px] leading-relaxed text-zinc-600">
+                      <div className="mt-3 space-y-1.5 border-t border-zinc-100 pt-3 text-xs leading-relaxed text-zinc-600">
                         {v1.mtf && (
                           <p>
                             <span className="text-zinc-400">多周期：</span>
                             {v1.mtf.aligned ? '三周期共振' : '未共振'}
-                            <span className="ml-2 font-mono text-[11.5px] text-zinc-500">
+                            <span className="ml-2 font-mono text-2xs text-zinc-500">
                               大 {v1.mtf.higher_tf} · 中 {v1.mtf.trading_tf} · 入 {v1.mtf.entry_tf}
                             </span>
                           </p>
@@ -214,7 +204,7 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
                       </div>
                     )}
                     {v1.time_exit_hours != null && (
-                      <p className="mt-2 text-[12px] text-zinc-400">到时平仓：持仓 {v1.time_exit_hours}h 引擎确定性退出（setup 主要出场方式）</p>
+                      <p className="mt-2 text-xs text-zinc-400">到时平仓：持仓 {v1.time_exit_hours}h 引擎确定性退出（setup 主要出场方式）</p>
                     )}
                   </Panel>
                 )}
@@ -226,17 +216,17 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
                       {plans.slice(1).map((p: any) => (
                         <li key={p.version} className="py-2.5 first:pt-0 last:pb-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-[11px] text-zinc-400">v{p.version}</span>
-                            <Badge tone={p.plan?.adjustment?.action === 'close' ? 'high' : 'neutral'}>
+                            <span className="font-mono text-2xs text-zinc-400">v{p.version}</span>
+                            <Badge tone={p.plan?.adjustment?.action === 'close' ? 'partial' : 'neutral'}>
                               {ADJ_ACTION[p.plan?.adjustment?.action] ?? p.plan?.adjustment?.action ?? '调整'}
                             </Badge>
                             {p.plan?.sl_price != null && (
-                              <span className="font-mono text-[11.5px] text-zinc-500">止损 → {num(p.plan.sl_price)}</span>
+                              <span className="font-mono text-2xs text-zinc-500">止损 → {num(p.plan.sl_price)}</span>
                             )}
-                            <span className="ml-auto font-mono text-[11px] text-zinc-400">{when(p.created_at)}</span>
+                            <span className="ml-auto font-mono text-2xs text-zinc-400">{when(p.created_at)}</span>
                           </div>
                           {p.plan?.adjustment?.reason && (
-                            <p className="mt-1 text-[12.5px] leading-relaxed text-zinc-600">{p.plan.adjustment.reason}</p>
+                            <p className="mt-1 text-xs leading-relaxed text-zinc-600">{p.plan.adjustment.reason}</p>
                           )}
                         </li>
                       ))}
@@ -249,13 +239,13 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
                   {events.length === 0 ? <EmptyState title="暂无事件" /> : (
                     <ul className="divide-y divide-zinc-100">
                       {events.map((e: any) => (
-                        <li key={e.id ?? `${e.ts}-${e.kind}`} className="flex items-baseline gap-3 py-1.5 text-[12.5px] first:pt-0 last:pb-0">
-                          <span className="w-[88px] shrink-0 font-mono text-[11px] text-zinc-400">{whenSec(e.ts)}</span>
-                          <span className={`shrink-0 font-medium ${e.actor === 'claude' ? 'text-emerald-700' : 'text-zinc-700'}`}>
+                        <li key={e.id ?? `${e.ts}-${e.kind}`} className="flex items-baseline gap-3 py-1.5 text-xs first:pt-0 last:pb-0">
+                          <span className="w-[88px] shrink-0 font-mono text-2xs text-zinc-400">{whenSec(e.ts)}</span>
+                          <span className="shrink-0 font-medium text-zinc-700">
                             {EVENT_KIND[e.kind] ?? e.kind}
                           </span>
                           <span className="min-w-0 flex-1 truncate text-zinc-500" title={eventInfo(e)}>{eventInfo(e)}</span>
-                          <span className="shrink-0 text-[10.5px] uppercase tracking-wide text-zinc-300">{e.actor}</span>
+                          <span className="shrink-0 text-2xs uppercase tracking-wide text-zinc-300">{e.actor}</span>
                         </li>
                       ))}
                     </ul>
@@ -290,12 +280,12 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
 
                 {review && (
                   <Panel title="复盘（Claude 自评）"
-                    right={<Badge tone={review.skill_vs_luck?.startsWith('right') ? 'accent' : 'high'}>{SKILL_LUCK[review.skill_vs_luck] ?? review.skill_vs_luck}</Badge>}>
-                    <div className="space-y-2 text-[13px] leading-relaxed text-zinc-600">
+                    right={<Badge tone={review.skill_vs_luck?.startsWith('right') ? 'hit' : 'miss'}>{SKILL_LUCK[review.skill_vs_luck] ?? review.skill_vs_luck}</Badge>}>
+                    <div className="space-y-2 text-sm leading-relaxed text-zinc-600">
                       {review.skill_vs_luck_note && <p className="rounded-lg bg-zinc-50 px-3 py-2 text-zinc-700">{review.skill_vs_luck_note}</p>}
                       <p><span className="text-zinc-400">纪律：</span>{review.plan_adherence}</p>
                       {(review.discipline_violations || []).length > 0 && (
-                        <p className="text-rose-600">违规：{review.discipline_violations.join('；')}</p>
+                        <p className="text-verdict-miss">违规：{review.discipline_violations.join('；')}</p>
                       )}
                       <p><span className="text-zinc-400">进场时机：</span>{review.entry_timing}</p>
                       <p><span className="text-zinc-400">出场时机：</span>{review.exit_timing}</p>
@@ -308,8 +298,8 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
                   <Panel title="唤醒条件（Claude 声明 · 引擎确定性监测）">
                     <ul className="space-y-2">
                       {(active.wake_conditions as any[]).map((w, i) => (
-                        <li key={i} className="text-[12.5px] leading-relaxed">
-                          <span className="mr-2 inline-block rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-600">
+                        <li key={i} className="text-xs leading-relaxed">
+                          <span className="mr-2 inline-block rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-2xs text-zinc-600">
                             {WAKE[w.type] ?? w.type} {w.value}
                           </span>
                           <span className="text-zinc-500">{w.note}</span>
@@ -322,9 +312,9 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
                 <Panel title={`委托记录 · ${orders.length}`}>
                   {orders.length === 0 ? <EmptyState title="暂无委托" /> : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-[12.5px]">
+                      <table className="w-full text-xs">
                         <thead>
-                          <tr className="text-left text-[11px] uppercase tracking-wide text-zinc-400">
+                          <tr className="text-left text-2xs uppercase tracking-wide text-zinc-400">
                             <th className="py-1.5 pr-3 font-medium">类型</th>
                             <th className="py-1.5 pr-3 text-right font-medium">价格</th>
                             <th className="py-1.5 pr-3 text-right font-medium">数量</th>
@@ -337,12 +327,12 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
                             <tr key={o.id} className="text-zinc-700">
                               <td className="py-1.5 pr-3 font-sans">
                                 <span className="font-medium text-zinc-700">{ORDER_KIND[o.kind] ?? o.kind}</span>
-                                {o.status !== 'filled' && <span className="ml-1.5 text-[11px] text-zinc-400">{o.status}</span>}
+                                {o.status !== 'filled' && <span className="ml-1.5 text-2xs text-zinc-400">{o.status}</span>}
                               </td>
                               <td className="py-1.5 pr-3 text-right tabular-nums">{num(o.price)}</td>
                               <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-500">{num(o.qty, 4)}</td>
                               <td className="py-1.5 pr-3 text-right tabular-nums text-zinc-500">{num(o.fee)}</td>
-                              <td className="py-1.5 text-right text-[11px] tabular-nums text-zinc-400">{when(o.filled_at ?? o.placed_at)}</td>
+                              <td className="py-1.5 text-right text-2xs tabular-nums text-zinc-400">{when(o.filled_at ?? o.placed_at)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -360,11 +350,11 @@ export default function TradeDetail({ id, onBack }: { id: number; onBack: () => 
 }
 
 function Row({ k, v, tone }: { k: string; v: string; tone?: 'up' | 'down' }) {
-  const c = tone === 'up' ? 'text-emerald-600' : tone === 'down' ? 'text-rose-600' : 'text-zinc-800'
+  const c = tone === 'up' ? 'text-verdict-hit' : tone === 'down' ? 'text-verdict-miss' : 'text-zinc-800'
   return (
     <div className="flex items-baseline justify-between gap-3 py-1">
-      <span className="shrink-0 text-[12px] text-zinc-400">{k}</span>
-      <span className={`min-w-0 truncate text-right font-mono text-[13px] tabular-nums ${c}`} title={v}>{v}</span>
+      <span className="shrink-0 text-xs text-zinc-400">{k}</span>
+      <span className={`min-w-0 truncate text-right font-mono text-sm tabular-nums ${c}`} title={v}>{v}</span>
     </div>
   )
 }

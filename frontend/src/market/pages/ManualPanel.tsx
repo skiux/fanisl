@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { NotePencil } from '@phosphor-icons/react'
 import { manualOpen } from '../../api'
 import { Panel } from '../ui'
 
-// 手动镜像录入：把你实盘刚下的单录进评测台（Claude 不介入）。
+// 实盘镜像录入：全站唯一的写入口（DESIGN.md R13）。把实盘刚下的单登记进评测台，Claude 不介入。
 // setup_key 是你自己的 setup 标签——scorecard 按它聚合，量化"我的哪类 setup 有 edge"。
 export default function ManualPanel({ account, symbols, onDone }: {
   account: string
@@ -15,12 +14,14 @@ export default function ManualPanel({ account, symbols, onDone }: {
     entry_price: '', sl_price: '', tp_price: '', risk_pct: '1.0', leverage: '2', thesis: '',
   })
   const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }))
 
   const submit = async () => {
     if (!f.setup_key.trim() || !f.entry_price || !f.sl_price) {
-      onDone('setup 标签、进场价、止损价必填'); return
+      setErr('setup 标签、进场价、止损价必填'); return
     }
+    setErr(null)
     setBusy(true)
     try {
       const r = await manualOpen({
@@ -30,19 +31,22 @@ export default function ManualPanel({ account, symbols, onDone }: {
         risk_pct: Number(f.risk_pct) || 1.0, leverage: Number(f.leverage) || 2.0,
         thesis: f.thesis.trim() || null,
       }, account)
-      if (r.rejected) onDone(`未录入：${r.reason ?? (r.issues || []).join('；')}`)
-      else { onDone(`已录入 #${r.trade_id}（${f.setup_key}）`); setF((s) => ({ ...s, entry_price: '', sl_price: '', tp_price: '', thesis: '' })) }
-    } catch (e: any) { onDone(`失败：${e.message || e}`) }
+      if (r.rejected) setErr(`未录入：${r.reason ?? (r.issues || []).join('；')}`)
+      else {
+        onDone(`已录入 #${r.trade_id}（${f.setup_key}）`)
+        setF((s) => ({ ...s, entry_price: '', sl_price: '', tp_price: '', thesis: '' }))
+      }
+    } catch (e: any) { setErr(`失败：${e.message || e}`) }
     finally { setBusy(false) }
   }
 
-  const inp = 'w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-[13px] text-zinc-800 outline-none focus:border-zinc-400'
-  const lab = 'mb-1 block text-[11px] uppercase tracking-wide text-zinc-400'
+  const inp = 'w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-sm text-zinc-800 outline-none transition-colors duration-150 focus:border-zinc-400'
+  const lab = 'mb-1 block text-2xs uppercase tracking-wide text-zinc-400'
 
   return (
-    <Panel title={<span className="flex items-center gap-1.5"><NotePencil size={15} weight="bold" className="text-emerald-600" />录入实盘交易（镜像 · Claude 不介入）</span>}
-      right={<span className="text-[11px] text-zinc-400">按 setup 标签聚合评测你的酌情 edge</span>}>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+    <Panel title="录入实盘交易（镜像 · Claude 不介入）"
+      right={<span className="text-2xs text-zinc-400">按 setup 标签聚合评测你的酌情 edge</span>}>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-9">
         <div>
           <label className={lab}>标的</label>
           <input className={inp} list="manual-syms" value={f.symbol} onChange={(e) => set('symbol', e.target.value)} />
@@ -71,15 +75,16 @@ export default function ManualPanel({ account, symbols, onDone }: {
           <input className={inp} inputMode="decimal" value={f.tp_price} onChange={(e) => set('tp_price', e.target.value)} />
         </div>
         <div>
-          <label className={lab}>风险% / 杠杆</label>
-          <div className="flex gap-1">
-            <input className={inp} inputMode="decimal" value={f.risk_pct} onChange={(e) => set('risk_pct', e.target.value)} />
-            <input className={inp} inputMode="decimal" value={f.leverage} onChange={(e) => set('leverage', e.target.value)} />
-          </div>
+          <label className={lab}>风险 %</label>
+          <input className={inp} inputMode="decimal" value={f.risk_pct} onChange={(e) => set('risk_pct', e.target.value)} />
+        </div>
+        <div>
+          <label className={lab}>杠杆</label>
+          <input className={inp} inputMode="decimal" value={f.leverage} onChange={(e) => set('leverage', e.target.value)} />
         </div>
         <div className="flex items-end">
           <button onClick={submit} disabled={busy}
-            className="w-full rounded-lg bg-zinc-900 px-3 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-zinc-800 active:translate-y-px disabled:opacity-40">
+            className="w-full rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-emerald-700 active:translate-y-px disabled:opacity-40">
             录入
           </button>
         </div>
@@ -87,7 +92,8 @@ export default function ManualPanel({ account, symbols, onDone }: {
       <div className="mt-2">
         <input className={inp} placeholder="一句话逻辑（可选，便于复盘）" value={f.thesis} onChange={(e) => set('thesis', e.target.value)} />
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
+      {err && <p className="mt-2 text-sm text-verdict-miss">{err}</p>}
+      <p className="mt-2 text-2xs leading-relaxed text-zinc-400">
         market = 引擎按当前价成交（进场价作参考）；limit = 挂单等触价。实盘平仓后在持仓表点「平仓」同步；
         止损/止盈由引擎按你给的位自动执行。评测口径与其它账户一致（bh 基准/反事实/按 setup 聚合）。
       </p>
