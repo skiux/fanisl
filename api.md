@@ -1,7 +1,11 @@
 # fanisl 后端 API 文档
 
-> 面向前端（完全重写）的完整接口契约。以运行中后端实测采样为准（2026-07-17，共 50 个端点）。
+> 面向前端（完全重写）的完整接口契约。以运行中后端实测采样为准（2026-07-18，共 50 个端点）。
 > 服务：FastAPI，默认 `http://127.0.0.1:8000`（前端用 `VITE_API_BASE` 覆盖）。
+>
+> 配套文档：`PRODUCT.md`（产品定义/信息架构/用户旅程）· `domain-model.md`（知识引擎
+> 领域模型与枚举中文标签 SSOT）· `design-system.md`（视觉/组件/文案规范）。
+> 本文只管传输层：有哪些端点、参数与返回结构。
 
 ## 0. 全局约定
 
@@ -334,11 +338,220 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
 
 ---
 
-## 附：前端信息架构提示（非约束）
 
-- 知识引擎的对象链路：**节点（可复用知识）→ 提及（unit 证据）→ 内容（L0 原文）→ 评分（市场裁决）**，
-  任何视图都应保留这条下钻链；
-- 联赛表/周报/抽查是运营视图，信息密度低、更新慢，不应占据主导航主位；
-- claim 渲染三要素：主张（asset+direction+magnitude+期限）、证据（quote+locator）、
-  裁决（scores 徽标 + success_def 口径）；
-- 样本仍小（62 个已到期时点），任何百分比旁都应带 n，避免暗示统计显著性。
+## 附录 A：错误与空态目录（常态，前端必须优雅处理）
+
+| 端点 | 常态现象 | 处理建议 |
+|---|---|---|
+| GET /price | crypto 项长期 `last:null` + `error`（Binance 区域封锁 451） | 行内占位 "—" + tooltip 错误摘要，不整屏报错 |
+| GET /watchlist | 响应可能 >5s（逐标的现取） | 骨架 + 较长超时；不放首屏关键路径 |
+| GET /metrics | 未采集的 name 返回空数组 | 先查 /metrics/available 决定画什么 |
+| GET /trading/positions | 多数时间 `[]`（无持仓） | 空态："当前无持仓。开仓来自扫描/手动/信号。" |
+| GET /trading/setups | `signals` 仅指定 account 时非空 | 不传 account 时隐藏信号区 |
+| GET /knowledge/spot-checks | 当前 `checked:0` | 空态解释抽查流程（每周人工抽样） |
+| GET /knowledge/relations | 仅 6 条边（conflicts 1） | 页面为增长设计，但当下逐条完整呈现 |
+| GET /knowledge/nodes | 多数节点无评分聚合（hit/miss=0） | 无评分时不显示 0%，显示"未验证" |
+| GET /knowledge/weekly | 现算，1-2s | 骨架；markdown 直接渲染 |
+| 各 claim 的 scores | 85 个时点未到期 → 空数组常见 | 空=「评分待到期（最近时点 YYYY-MM-DD）」 |
+| POST /chat*、/trading/open、scan、detect | 同步调 Claude，10s~2min；可能 502 | 等待态 + 明确的失败重试 |
+| Postgres 未启动时任意端点 | 500 | 全局错误页："后端数据库未就绪" |
+
+## 附录 B：完整响应样例（真实数据，2026-07-18 采样）
+
+### B1. 内容列表行（GET /knowledge/contents 的元素）
+```json
+{
+  "id": 13, "creator_id": 2, "creator": "美投君", "platform": "youtube",
+  "url": "https://www.youtube.com/watch?v=0kvj3lbJqoY",
+  "content_type": "video",
+  "title": "AI竟与100年前电力革命如此相似？90%的人都看错方向，历史已指明最大商机！",
+  "published_at": "2026-07-12T20:00:00+08:00",
+  "fetched_at": "2026-07-14T23:32:05.721635+08:00",
+  "lang": "zh", "status": "extracted", "raw_len": 13657,
+  "n_units": 9, "n_claims": 3, "n_methods": 0, "n_concepts": 6,
+  "n_hit": 0, "n_partial": 0, "n_miss": 0
+}
+```
+
+### B2. claim 单元（含已到期评分；GET /knowledge/contents/{id}/units 的元素）
+```json
+{
+  "id": 32, "run_id": 3, "content_id": 12, "creator_id": 1,
+  "published_at": "2026-05-18T20:00:00+08:00", "kind": "claim",
+  "quote": "价格呢在周上实际上是突破的，并且有一个小级别的日线级别的回踩确认，这仍然是一个短线多头的一个位置，或者是顺势加仓的一个位置",
+  "locator": "10:56", "extractor_version": "pending-v1", "model": "claude-session",
+  "payload": {
+    "asset_text": "纳指100（28800上方）", "asset_symbol": "NDX", "priceable": true,
+    "claim_class": "directional", "direction": "up", "magnitude": null,
+    "horizon": {"type": "within_duration", "deadline": null, "duration_days": 7.0},
+    "condition_text": null, "condition_observable": false,
+    "stance_strength": "explicit", "verifiability": "B",
+    "scoring_spec": {
+      "method": "sign", "benchmark": null, "eval_ladder": ["2026-05-25"],
+      "success_def": "2026-05-25 NDX收盘≥发布参考价29125.3=hit（'短线多头/顺势加仓位'操作化；'短线'→我方7天阶梯）"
+    }
+  },
+  "tags": ["ndx", "price-action"], "ref_price_at_publish": 29125.3,
+  "created_at": "2026-07-16T15:16:44.895967+08:00",
+  "scores": [
+    {"horizon_label": "2026-05-25", "outcome": "hit",
+     "realized": {"ref": 29125.3, "ladder": "2026-05-25", "eval_close": 29481.6406}}
+  ]
+}
+```
+
+### B3. method 单元 payload
+```json
+{
+  "name": "长债收益率顶部的两小时反转形态识别",
+  "summary": "30年期收益率冲击5%+心理关口时，用两小时级别的高位十字星+向下反包（或破速大阴线）识别干预/反转确认点，确认前不逆势抄底风险资产",
+  "family": "event", "testability": "B",
+  "rules": [
+    "30Y收益率接近或突破5%时观察两小时级别（23/25年两次干预均循此形态）",
+    "高位十字星后向下反包大阴线出现=反转/干预确认",
+    "确认信号前不逆两小时上涨势能抄底风险资产；让过最低点，不追求抄在最低"
+  ],
+  "data_requirements": ["30年期美债收益率2小时K线"],
+  "claimed_performance": null, "overlap_with_killed": []
+}
+```
+
+### B4. concept 单元 payload
+```json
+{
+  "canonical_statement": "当前宏观与利率路径不支持美股全面估值扩张，上涨须由盈利驱动（本轮财报盈利强到市盈率反而收缩）",
+  "category": "macro_framework", "stance": "assert",
+  "regime_qualifier": "2026年高利率环境"
+}
+```
+
+### B5. 节点详情（GET /knowledge/nodes/5，观点演进样板；attestations 略去一条）
+```json
+{
+  "id": 5, "kind": "concept",
+  "title": "AI时代软件收费：席位→按量→按结果",
+  "canonical": "企业从无脑冲AI转向严格核算ROI（'输出outcome而非output'）：席位制两硬伤（裁员减席位+token成本自担）使按量收费兴起，但按量只是中间形态、终局=按结果收费（HubSpot被迫转型、甲骨文定价与价值对齐、Palantir为标杆）",
+  "status": "corroborated", "tags": ["software", "ai-capex"],
+  "notes": "观点演进链：2026-05-31'按量收费是唯一出路'→2026-06-21'按量只是中间形态，按结果是终局'。canonical 取最新表述并保留两硬伤机制（未被推翻）",
+  "merger_version": "merge-v1",
+  "created_at": "2026-07-17T17:43:27.254893+08:00",
+  "updated_at": "2026-07-17T17:43:27.271901+08:00",
+  "attestations": [
+    {
+      "relation": "restates", "note": "首次表述：席位两硬伤+按量=唯一出路",
+      "unit_id": 203, "kind": "concept",
+      "quote": "第二是在AI Agent时代，token变成了软件公司自己的成本。以前软件公司都是以高毛利著称，多一个人使用软件，几乎不会给公司带来任何新增成本，但是现在不同了，用户使用AI去烧token是要软件公司自己掏钱的",
+      "locator": "11:03", "published_at": "2026-05-31T20:00:00+08:00",
+      "tags": ["software", "ai-capex"],
+      "payload": {"...": "完整 concept payload"},
+      "creator": "美投君", "content_id": 17,
+      "content_title": "AI是威胁？还是机遇？软件股多点开花预示什么？哪些公司能率先迎来爆发？",
+      "scores": []
+    }
+  ],
+  "relations": [
+    {
+      "relation": "relates",
+      "note": "跨源同主题：美投君的收费模式演进论（席位→按量→按结果）与 Andy 转述的投行框架（按算力收费优于席位制）在收费模式命题上交叉印证，但后者是含四要点的复合框架故未归并（见归并裁量）",
+      "other_id": 32, "other_title": "投行软件板块共识框架",
+      "other_kind": "concept", "other_status": "active"
+    }
+  ]
+}
+```
+
+### B6. 关系边（GET /knowledge/relations 的元素，全库唯一 conflicts）
+```json
+{
+  "id": 1, "relation": "conflicts",
+  "note": "对立命题（跨源）：Andy 认为半导体已由周期股转为'数字地租'、周期被需求侧突变打破；美投君以 00 年史据认为芯片仍是周期板块、'涨一轮盘整一轮'的周期性涨法仍在。两者不能同真，是两位信源对同一行业性质的根本分歧",
+  "created_at": "2026-07-17T18:12:14.665019+08:00",
+  "a_id": 10, "a_title": "半导体=数字地租（周期已破）", "a_kind": "concept", "a_status": "active",
+  "b_id": 11, "b_title": "芯片板块的周期性涨法", "b_kind": "concept", "b_status": "active"
+}
+```
+
+### B7. 联赛表（GET /knowledge/scoreboard，全量真实读数）
+```json
+[
+  {"creator_id": 1, "name": "Andy Lee 财经",
+   "claims": 104, "d_claims": 18, "methods": 17, "concepts": 46,
+   "scored": 51, "hits": 20, "partials": 1, "misses": 30, "cond_not_met": 3,
+   "hit_rate": 0.402, "vague_rate": 0.173,
+   "sign_n": 25, "sign_hits": 10, "sign_p": 0.212, "sign_side": "below"},
+  {"creator_id": 2, "name": "美投君",
+   "claims": 31, "d_claims": 14, "methods": 6, "concepts": 43,
+   "scored": 5, "hits": 1, "partials": 0, "misses": 4, "cond_not_met": 0,
+   "hit_rate": 0.2, "vague_rate": 0.452,
+   "sign_n": 4, "sign_hits": 0, "sign_p": 0.062, "sign_side": "below"}
+]
+```
+
+### B8. 验证档案（GET /knowledge/verifications/62，miss 样板）
+```json
+{
+  "score_id": 62, "unit_id": 34, "horizon_label": "2026-07-17", "outcome": "miss",
+  "realized": {"ref": 75.616, "ladder": "2026-07-17",
+               "asset_ret": -0.2767, "bench_ret": -0.1204, "eval_close": 55.745},
+  "eval_ts": "2026-07-17T15:12:05.271897+08:00",
+  "scored_at": "2026-07-17T15:12:05.271916+08:00", "scorer_version": "v1",
+  "quote": "它要比黄金震荡更多，并不代表它更弱，从中其来看的话它没有更弱",
+  "locator": "07:36",
+  "payload": {"...": "完整 claim payload（method=relative_return, benchmark=XAUUSD）"},
+  "tags": ["xagusd", "xauusd"],
+  "published_at": "2026-05-18T20:00:00+08:00", "ref_price_at_publish": 75.616,
+  "extractor_version": "pending-v1",
+  "creator_id": 1, "creator": "Andy Lee 财经",
+  "content_id": 12, "content_title": "美债会通杀市场吗？金银油、纳指、SOXX关键判断依据。",
+  "content_url": "https://www.youtube.com/watch?v=muTemJOTM58",
+  "nodes": []
+}
+```
+
+### B9. 评测账户（GET /trading/accounts 的元素）与交易行（GET /trading/trades 的元素）
+```json
+{
+  "name": "main", "id": 1, "force": false, "managed": true,
+  "mirror_of": null, "setups": false, "manual": false,
+  "summary": {"balance": 981.7, "initial_balance": 1000.0, "equity": 981.7,
+    "used_margin": 0.0, "max_leverage": 10.0, "margin_mode": "cross",
+    "default_risk_pct": 1.0, "force_trade": false, "open_positions": []},
+  "scorecard": {"account_id": 1, "closed_trades": 3, "win_rate": 0.0,
+    "avg_r": -0.741, "expectancy_r": -0.741, "profit_factor": 0.0,
+    "total_pnl": -18.3, "max_drawdown": 18.3, "balance": 981.70,
+    "avg_exit_efficiency": -2.006, "total_mgmt_contribution_r": 0.315,
+    "calibration": [{"bucket": "55-65", "n": 3, "win_rate": 0.0}],
+    "decline_accuracy": {"verified": 9, "correct": 5, "accuracy": 0.556}}
+}
+```
+```json
+{
+  "id": 9, "account_id": 1, "symbol": "ZEC/USDT", "side": "long",
+  "strategy_type": "breakout", "leverage": 3.0, "status": "closed",
+  "qty": 0.0, "avg_entry": 414.222828, "liquidation_price": null, "margin": 0.0,
+  "opened_at": "2026-06-13T15:35:09.366714+08:00",
+  "closed_at": "2026-06-13T18:54:21.633127+08:00",
+  "created_at": "2026-06-13T15:35:09.250408+08:00", "setup_key": null,
+  "pnl_abs": -4.4001, "pnl_pct": -3.6705, "realized_r": -0.595,
+  "outcome": "loss", "exit_reason": "sl", "holding_s": 11952.27, "skill_vs_luck": null
+}
+```
+
+### B10. setup 注册项与聚合行（GET /trading/setups）
+```json
+{
+  "key": "tsmom_7d", "name": "TSMOM 7d（时序动量，7 天回看 → 7 天持有）",
+  "hypothesis_ref": "H7", "status": "candidate",
+  "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+  "risk_pct": 0.5, "leverage": 2.0, "sl_atr_mult": 3.0, "sl_fallback_pct": 10.0,
+  "tp_atr_mult": 6.0, "holding_hours": 168.0, "cooldown_hours": 168.0,
+  "prior": {"n": 432, "hit_rate": 0.56, "avg_net_return": 0.0128, "ci_low": 0.0044,
+    "holding_hours": 168.0, "source": "doc/phase3-H7-tsmom-longhorizon-prereg.md",
+    "regime_notes": "全样本 PASS 但两半检验不稳：上半（强下行趋势）+2.15%、下半（方向均衡）-0.27%。只在强趋势 regime 有效，震荡/反转期失效。candidate=仅纸面验证。"}
+}
+```
+```json
+{"setup_key": "discretionary", "closed_trades": 10, "win_rate": 0.1,
+ "expectancy_r": -0.612, "total_pnl": -42.42, "avg_net_return": -0.0143,
+ "avg_bh_r": null, "avg_holding_h": 5.2073}
+```

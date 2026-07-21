@@ -1,8 +1,11 @@
 # doc/ 索引
 
+**前端重写文档四件套在仓库根目录**（2026-07-18 起）：`PRODUCT.md`（产品定义/IA/旅程）·
+`domain-model.md`（知识引擎领域模型+枚举中文标签 SSOT）· `design-system.md`（视觉/组件/文案）·
+`api.md`（50 端点传输契约+真实样例附录）。
+
 ```
 doc/
-├── api.md                       后端 API 完整契约（前端重写的 SSOT，实测采样为准）
 ├── knowledge-engine-design.md   知识引擎（当前主线）：定位/分层/决定/K0-K6 进度
 ├── project-structure.md         代码结构详解
 ├── trading-eval-repositioning.md 评测台现役形态（setup 评 edge/闸门/实盘镜像）
