@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { RefObject } from 'react'
 import { chapters, getActiveChapter } from './journey'
 
 const SpatialScene = lazy(() => import('./SpatialScene'))
@@ -28,6 +29,63 @@ function useMediaQuery(query: string) {
     return () => media.removeEventListener('change', update)
   }, [query])
   return matches
+}
+
+function smoothstep(start: number, end: number, value: number) {
+  const phase = Math.min(1, Math.max(0, (value - start) / (end - start)))
+  return phase * phase * (3 - 2 * phase)
+}
+
+function MaterialBackdrop({ progress }: { progress: RefObject<number> }) {
+  const source = useRef<HTMLImageElement>(null)
+  const sourceDetail = useRef<HTMLImageElement>(null)
+  const node = useRef<HTMLImageElement>(null)
+  const nodeDetail = useRef<HTMLImageElement>(null)
+  const glow = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let frame = 0
+    const update = () => {
+      const value = Math.min(1, Math.max(0, progress.current))
+      const sourceOpacity = 0.92 * (1 - smoothstep(0.55, 0.84, value))
+      const nodeOpacity = smoothstep(0.31, 0.7, value) * (0.78 + smoothstep(0.7, 1, value) * 0.2)
+
+      if (source.current) {
+        source.current.style.opacity = sourceOpacity.toFixed(3)
+        source.current.style.transform = `scale(${(1.025 + value * 0.39).toFixed(4)}) translate3d(${(-value * 4.8).toFixed(3)}%, ${(value * 1.8).toFixed(3)}%, 0)`
+      }
+      if (sourceDetail.current) {
+        sourceDetail.current.style.opacity = (sourceOpacity * (0.12 + smoothstep(0.08, 0.48, value) * 0.16)).toFixed(3)
+        sourceDetail.current.style.transform = `scale(${(1.16 + value * 0.68).toFixed(4)}) translate3d(${(-3 - value * 9).toFixed(3)}%, ${(4 + value * 3).toFixed(3)}%, 0)`
+      }
+      if (node.current) {
+        node.current.style.opacity = nodeOpacity.toFixed(3)
+        node.current.style.transform = `scale(${(0.86 + value * 0.28).toFixed(4)}) translate3d(${(4.5 - value * 4.5).toFixed(3)}%, ${(2.5 - value * 2.5).toFixed(3)}%, 0)`
+      }
+      if (nodeDetail.current) {
+        nodeDetail.current.style.opacity = (nodeOpacity * smoothstep(0.48, 0.82, value) * 0.19).toFixed(3)
+        nodeDetail.current.style.transform = `scale(${(1.08 + value * 0.34).toFixed(4)}) translate3d(${(9 - value * 13).toFixed(3)}%, ${(6 - value * 5).toFixed(3)}%, 0)`
+      }
+      if (glow.current) {
+        glow.current.style.opacity = (0.18 + smoothstep(0.46, 0.9, value) * 0.28).toFixed(3)
+        glow.current.style.transform = `translate3d(${(24 - value * 35).toFixed(3)}%, ${(8 - value * 13).toFixed(3)}%, 0) scale(${(0.82 + value * 0.45).toFixed(4)})`
+      }
+      frame = window.requestAnimationFrame(update)
+    }
+    frame = window.requestAnimationFrame(update)
+    return () => window.cancelAnimationFrame(frame)
+  }, [progress])
+
+  return (
+    <div className="material-backdrop" aria-hidden="true">
+      <img className="matter-image matter-source" decoding="async" draggable="false" ref={source} src="/assets/knowledge-matter-source.jpg" />
+      <img className="matter-image matter-source-detail" decoding="async" draggable="false" ref={sourceDetail} src="/assets/knowledge-matter-source.jpg" />
+      <img className="matter-image matter-node" decoding="async" draggable="false" ref={node} src="/assets/knowledge-matter-node.jpg" />
+      <img className="matter-image matter-node-detail" decoding="async" draggable="false" ref={nodeDetail} src="/assets/knowledge-matter-node.jpg" />
+      <div className="matter-glow" ref={glow} />
+      <div className="matter-grain" />
+    </div>
+  )
 }
 
 type HeaderProps = {
@@ -136,7 +194,7 @@ function App() {
       const delta = Math.min(0.05, Math.max(0, (time - previousTime) / 1000))
       previousTime = time
       const difference = targetProgress.current - progress.current
-      progress.current += difference * (1 - Math.exp(-delta * 7.4))
+      progress.current += difference * (1 - Math.exp(-delta * 5.2))
       if (Math.abs(difference) < 0.0001) progress.current = targetProgress.current
       if (progressNumber.current) progressNumber.current.textContent = `${Math.round(progress.current * 100).toString().padStart(2, '0')}%`
       if (progressBar.current) progressBar.current.style.transform = `scaleX(${progress.current})`
@@ -198,6 +256,7 @@ function App() {
         {chapters.map((chapter) => <span className="scroll-marker" id={chapter.id} key={chapter.id} style={{ top: `${chapter.stop * 100}%` }} />)}
       </div>
       <div className="fixed-stage">
+        <MaterialBackdrop progress={progress} />
         <div className="scene-canvas">
           <Suspense fallback={<div className="scene-loading"><span /></div>}><SpatialScene compact={compact} progress={progress} /></Suspense>
         </div>

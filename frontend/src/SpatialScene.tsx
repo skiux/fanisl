@@ -65,7 +65,10 @@ const motionSpring: Record<string, number> = {
   'card-left': 0.46,
   'card-right': 0.46,
   'card-turn': 0.42,
+  dock: 0.32,
   number: 0.32,
+  'orbit-left': 0.44,
+  'orbit-right': 0.44,
   paper: 0.38,
   pop: 0.68,
 }
@@ -122,26 +125,9 @@ function ParticleField({ compact }: { compact: boolean }) {
   )
 }
 
-function Frame({ color = palette.sage, height = 7.2, width = 12.2 }: { color?: string; height?: number; width?: number }) {
-  const x = width / 2
-  const y = height / 2
-  return (
-    <group position={[0, 0, -0.08]}>
-      <PathLine color={color} opacity={0.16} points={[[-x, -y, 0], [x, -y, 0], [x, y, 0], [-x, y, 0], [-x, -y, 0]]} />
-      {[[x, y], [-x, y], [x, -y], [-x, -y]].map(([px, py], index) => (
-        <mesh key={index} position={[px, py, 0]}>
-          <sphereGeometry args={[0.035, 10, 10]} />
-          <meshBasicMaterial color={color} opacity={0.52} transparent />
-        </mesh>
-      ))}
-    </group>
-  )
-}
-
-function WorldSection({ children, className, frameColor, position, rotation = [0, 0, 0] }: {
+function WorldSection({ children, className, position, rotation = [0, 0, 0] }: {
   children: ReactNode
   className: string
-  frameColor?: string
   position: Point3
   rotation?: Point3
 }) {
@@ -182,7 +168,6 @@ function WorldSection({ children, className, frameColor, position, rotation = [0
       const localProgress = MathUtils.clamp((journeyProgress.current - previousStop) / (stop - previousStop), 0, 1)
       sectionReveal = localProgress
     }
-
     motionElements.current.forEach((element, index) => {
       const motion = element.dataset.motion ?? ''
       const delay = Number(element.dataset.motionDelay ?? Math.min(0.66, index * 0.048))
@@ -211,7 +196,6 @@ function WorldSection({ children, className, frameColor, position, rotation = [0
 
   return (
     <group position={position} rotation={rotation}>
-      {className !== 'entry-world' && <Frame color={frameColor} />}
       <Html center distanceFactor={compact || className === 'entry-world' ? 6 : 4.6} transform wrapperClass="world-html" zIndexRange={[80, 0]}>
         <section className={`world-panel ${className}`} ref={panel}>{children}</section>
       </Html>
@@ -249,6 +233,11 @@ function EntryWorld() {
           <span data-motion="line" data-motion-delay="0.22" data-motion-duration="0.38"><em>沉淀成自己的知识。</em></span>
         </h1>
         <p className="world-summary" data-motion="paragraph" data-motion-delay="0.34" data-motion-duration="0.34">保存原文，拆出判断、方法与认知，再让它们归并、演进并彼此连接。滚动不是把页面向上推，而是沿着一条知识形成的路径继续向里。</p>
+        <div className="entry-principles" aria-hidden="true">
+          <span className="principle-evidence" data-motion="orbit-left" data-motion-delay="0.4" data-motion-duration="0.42" data-motion-idle="0.75"><b>证据</b>可回到原文</span>
+          <span className="principle-history" data-motion="orbit-right" data-motion-delay="0.49" data-motion-duration="0.44" data-motion-idle="0.9"><b>演进</b>不覆盖历史</span>
+          <span className="principle-relation" data-motion="orbit-left" data-motion-delay="0.58" data-motion-duration="0.4" data-motion-idle="0.62"><b>关系</b>发现跨源结构</span>
+        </div>
         <div className="entry-stats" data-motion="panel-rise" data-motion-delay="0.47" data-motion-duration="0.38" data-motion-idle="0.45">
           <span data-motion="cell" data-motion-delay="0.55" data-motion-duration="0.26"><b>18</b>篇内容</span><i data-motion="rule-y" data-motion-delay="0.59" data-motion-duration="0.3" />
           <span data-motion="cell" data-motion-delay="0.63" data-motion-duration="0.26"><b>247</b>个知识单元</span><i data-motion="rule-y" data-motion-delay="0.67" data-motion-duration="0.3" />
@@ -282,8 +271,8 @@ function SourceWorld() {
 
   return (
     <>
-      <WorldSection className="source-world" frameColor={palette.lavender} position={panelPositions.source} rotation={[0, 0.12, -0.015]}>
-        <div className="world-copy">
+      <WorldSection className="source-world" position={panelPositions.source} rotation={[0, 0.12, -0.015]}>
+        <div className="world-copy" data-motion="glass-left" data-motion-delay="0.07" data-motion-duration="0.4" data-motion-idle="0.25">
           <p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.1" data-motion-duration="0.24">01 · CONTENT / L0</p>
           <h2>
             <span data-motion="line" data-motion-delay="0.18" data-motion-duration="0.34">所有知识，先有一段</span>
@@ -337,8 +326,8 @@ function UnitsWorld() {
 
   return (
     <>
-      <WorldSection className="units-world" frameColor={palette.peach} position={panelPositions.units} rotation={[0, -0.12, 0.012]}>
-        <header className="world-heading">
+      <WorldSection className="units-world" position={panelPositions.units} rotation={[0, -0.12, 0.012]}>
+        <header className="world-heading" data-motion="heading-split" data-motion-delay="0.06" data-motion-duration="0.38">
           <div><p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.08" data-motion-duration="0.24">02 · EXTRACT / L1</p><h2><span data-motion="line" data-motion-delay="0.15" data-motion-duration="0.34">一篇内容被拆开，</span><span data-motion="line" data-motion-delay="0.24" data-motion-duration="0.36">三种知识各自留下。</span></h2></div>
           <p className="world-summary" data-motion="paragraph" data-motion-delay="0.31" data-motion-duration="0.35">它们不是同一种对象，也没有主次之分。每一条都带着逐字引文与出处。</p>
         </header>
@@ -385,8 +374,8 @@ function NodeWorld() {
 
   return (
     <>
-      <WorldSection className="node-world" frameColor={palette.lime} position={panelPositions.node} rotation={[0, 0.1, -0.01]}>
-        <div className="world-copy">
+      <WorldSection className="node-world" position={panelPositions.node} rotation={[0, 0.1, -0.01]}>
+        <div className="world-copy" data-motion="glass-right" data-motion-delay="0.07" data-motion-duration="0.4" data-motion-idle="0.28">
           <p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.09" data-motion-duration="0.24">03 · MERGE / MEMORY</p>
           <h2><span data-motion="line" data-motion-delay="0.17" data-motion-duration="0.34">重复不再堆积，</span><span data-motion="line" data-motion-delay="0.27" data-motion-duration="0.36">新的表达回到同一节点。</span></h2>
           <p className="world-summary" data-motion="paragraph" data-motion-delay="0.39" data-motion-duration="0.34">相同命题进入规范节点；重申、细化、修正和反驳成为它的时间演进。</p>
@@ -454,8 +443,8 @@ function RelationsWorld() {
 
   return (
     <>
-      <WorldSection className="relations-world" frameColor={palette.lavender} position={panelPositions.relations} rotation={[0, -0.1, 0.01]}>
-        <header className="world-heading">
+      <WorldSection className="relations-world" position={panelPositions.relations} rotation={[0, -0.1, 0.01]}>
+        <header className="world-heading" data-motion="heading-split" data-motion-delay="0.06" data-motion-duration="0.38">
           <div><p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.08" data-motion-duration="0.24">04 · DISCOVER / RELATIONS</p><h2><span data-motion="line" data-motion-delay="0.16" data-motion-duration="0.34">当知识彼此连接，</span><span data-motion="line" data-motion-delay="0.25" data-motion-duration="0.37">研究才真正开始。</span></h2></div>
           <p className="world-summary" data-motion="paragraph" data-motion-delay="0.33" data-motion-duration="0.36">节点不再只是摘要。关系让分歧、补充和正在形成的跨源共识变得可见。</p>
         </header>
@@ -505,11 +494,11 @@ function LibraryWorld() {
           </mesh>
         ))}
       </group>
-      <WorldSection className="library-world" frameColor={palette.sage} position={panelPositions.library}>
+      <WorldSection className="library-world" position={panelPositions.library}>
         <p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.08" data-motion-duration="0.25">05 · REMEMBER / THE LIBRARY</p>
         <h2><span data-motion="line" data-motion-delay="0.16" data-motion-duration="0.36">抵达的不是终点，</span><span data-motion="line" data-motion-delay="0.27" data-motion-duration="0.4"><em>而是一座会继续生长的知识库。</em></span></h2>
         <p className="world-summary" data-motion="paragraph" data-motion-delay="0.39" data-motion-duration="0.36">它从 2 位信源和 18 篇内容开始。规模仍小，但每次新增都进入同一套证据、归并、演进与发现结构。</p>
-        <div className="library-grid" data-motion="panel-rise" data-motion-delay="0.45" data-motion-duration="0.43" data-motion-idle="0.4">
+        <div className="library-grid" data-motion="dock" data-motion-delay="0.45" data-motion-duration="0.46" data-motion-idle="0.4">
           <span data-motion="cell" data-motion-delay="0.53" data-motion-duration="0.3"><b data-motion="number" data-motion-delay="0.57" data-motion-duration="0.3">2</b>信源</span><span data-motion="cell" data-motion-delay="0.61" data-motion-duration="0.3"><b data-motion="number" data-motion-delay="0.65" data-motion-duration="0.3">18</b>内容</span><span data-motion="cell" data-motion-delay="0.69" data-motion-duration="0.28"><b data-motion="number" data-motion-delay="0.73" data-motion-duration="0.26">247</b>单元</span><span data-motion="cell" data-motion-delay="0.77" data-motion-duration="0.22"><b data-motion="number" data-motion-delay="0.81" data-motion-duration="0.18">105</b>节点</span>
         </div>
         <footer data-motion="rise" data-motion-delay="0.84" data-motion-duration="0.15">原文证据 · 时点版本 · 演进关系 · 选择性验证</footer>
@@ -602,9 +591,8 @@ export default function SpatialScene(props: SpatialSceneProps) {
       aria-label="Fanisl 知识形成空间"
       camera={{ far: 160, fov: 43, near: 0.1, position: [0, 0, 13] }}
       dpr={[1, props.compact ? 1.2 : 1.6]}
-      gl={{ alpha: false, antialias: true, powerPreference: 'high-performance' }}
+      gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
     >
-      <color args={['#f3f1e9']} attach="background" />
       <fog args={['#f3f1e9', 14, 62]} attach="fog" />
       <Suspense fallback={null}>
         <World {...props} />
