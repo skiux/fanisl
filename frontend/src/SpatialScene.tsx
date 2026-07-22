@@ -1,9 +1,9 @@
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Html } from '@react-three/drei'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Suspense, useEffect, useMemo, useRef } from 'react'
-import type { RefObject } from 'react'
+import type { RefObject, ReactNode } from 'react'
 import {
   BufferGeometry,
-  CatmullRomCurve3,
   Color,
   Fog,
   Group,
@@ -12,25 +12,49 @@ import {
   MathUtils,
   Vector3,
 } from 'three'
-
-type SpatialSceneProps = {
-  progress: RefObject<number>
-  reducedDensity: boolean
-}
+import { chapters } from './journey'
 
 type Point3 = [number, number, number]
 
+type SpatialSceneProps = {
+  compact: boolean
+  progress: RefObject<number>
+}
+
 const palette = {
-  ink: '#263029',
-  sage: '#8fa074',
+  ink: '#222a23',
+  sage: '#849570',
   lime: '#dce8b9',
-  lavender: '#c7c2dc',
-  peach: '#e1b9a6',
+  lavender: '#c8c3dc',
+  peach: '#e3bca8',
   paper: '#f4f2ea',
 }
 
-function deterministic(index: number, salt: number) {
+const panelPositions = {
+  entry: [0, 0, 0] as Point3,
+  source: [-2.4, 0, -19] as Point3,
+  units: [2.4, 0, -40] as Point3,
+  node: [-2.2, 0, -61] as Point3,
+  relations: [2.2, 0, -82] as Point3,
+  library: [0, 0, -103] as Point3,
+}
+
+function random(index: number, salt: number) {
   return ((Math.sin(index * 127.1 + salt * 311.7) * 43758.5453) % 1 + 1) % 1
+}
+
+function sampleJourney(points: Vector3[], progress: number, output: Vector3, lift = 0) {
+  const last = chapters.length - 1
+  if (progress >= chapters[last].stop) return output.copy(points[last])
+
+  const next = chapters.findIndex((chapter) => progress < chapter.stop)
+  const start = Math.max(0, next - 1)
+  const span = chapters[next].stop - chapters[start].stop
+  const raw = MathUtils.clamp((progress - chapters[start].stop) / span, 0, 1)
+  const local = MathUtils.smootherstep(raw, 0, 1)
+  output.lerpVectors(points[start], points[next], local)
+  output.y += Math.sin(raw * Math.PI) * lift
+  return output
 }
 
 function PathLine({ color = palette.sage, opacity = 0.25, points }: { color?: string; opacity?: number; points: Point3[] }) {
@@ -49,13 +73,14 @@ function PathLine({ color = palette.sage, opacity = 0.25, points }: { color?: st
   return <primitive object={line} />
 }
 
-function ParticleField({ count }: { count: number }) {
+function ParticleField({ compact }: { compact: boolean }) {
+  const count = compact ? 260 : 620
   const positions = useMemo(() => {
     const values = new Float32Array(count * 3)
     for (let index = 0; index < count; index += 1) {
-      values[index * 3] = (deterministic(index, 1) - 0.5) * 25
-      values[index * 3 + 1] = (deterministic(index, 2) - 0.5) * 15
-      values[index * 3 + 2] = 5 - deterministic(index, 3) * 105
+      values[index * 3] = (random(index, 1) - 0.5) * 28
+      values[index * 3 + 1] = (random(index, 2) - 0.5) * 16
+      values[index * 3 + 2] = 6 - random(index, 3) * 122
     }
     return values
   }, [count])
@@ -63,334 +88,328 @@ function ParticleField({ count }: { count: number }) {
   return (
     <points>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute args={[positions, 3]} attach="attributes-position" />
       </bufferGeometry>
-      <pointsMaterial color="#74806f" opacity={0.32} size={0.035} sizeAttenuation transparent />
+      <pointsMaterial color="#6f7c6b" opacity={0.28} size={0.034} sizeAttenuation transparent />
     </points>
   )
 }
 
-function DepthArchitecture() {
+function Frame({ color = palette.sage, height = 7.2, width = 12.2 }: { color?: string; height?: number; width?: number }) {
+  const x = width / 2
+  const y = height / 2
   return (
-    <group>
-      {[-5.8, -2.2, 2.2, 5.8].map((x, index) => (
-        <PathLine
-          color={index % 2 ? palette.lavender : palette.lime}
-          key={x}
-          opacity={0.16}
-          points={[[x, -4.2, 7], [x * 0.72, -3.2, -98]]}
-        />
-      ))}
-      {[-3.1, 3.1].map((y) => (
-        <PathLine key={y} opacity={0.11} points={[[-8.2, y, 6], [-5.4, y * 0.7, -98]]} />
+    <group position={[0, 0, -0.08]}>
+      <PathLine color={color} opacity={0.16} points={[[-x, -y, 0], [x, -y, 0], [x, y, 0], [-x, y, 0], [-x, -y, 0]]} />
+      {[[x, y], [-x, y], [x, -y], [-x, -y]].map(([px, py], index) => (
+        <mesh key={index} position={[px, py, 0]}>
+          <sphereGeometry args={[0.035, 10, 10]} />
+          <meshBasicMaterial color={color} opacity={0.52} transparent />
+        </mesh>
       ))}
     </group>
   )
 }
 
-function Portal() {
-  const group = useRef<Group>(null)
-  useFrame((_, delta) => {
-    if (!group.current) return
-    group.current.rotation.z += delta * 0.025
+function WorldSection({ children, className, frameColor, position, rotation = [0, 0, 0] }: {
+  children: ReactNode
+  className: string
+  frameColor?: string
+  position: Point3
+  rotation?: Point3
+}) {
+  const panel = useRef<HTMLElement>(null)
+  const worldPosition = useMemo(() => new Vector3(...position), [position])
+  const compact = useThree((state) => state.size.width <= 760)
+
+  useFrame(({ camera }) => {
+    if (!panel.current) return
+    const distance = camera.position.distanceTo(worldPosition)
+    const farVisibility = 1 - MathUtils.smoothstep(distance, 22, 30)
+    const nearVisibility = MathUtils.smoothstep(distance, 3.2, 6.2)
+    const frontVisibility = MathUtils.smoothstep(camera.position.z - position[2], 8, 11)
+    const opacity = MathUtils.clamp(farVisibility * nearVisibility * frontVisibility, 0, 1)
+    panel.current.style.opacity = opacity.toFixed(3)
+    panel.current.style.visibility = opacity < 0.008 ? 'hidden' : 'visible'
   })
 
-  return (
-    <group ref={group} position={[0, 0, 0]}>
-      <mesh rotation={[0, 0, 0.18]}>
-        <torusGeometry args={[4.65, 0.018, 8, 180]} />
-        <meshBasicMaterial color={palette.sage} transparent opacity={0.32} />
-      </mesh>
-      <mesh rotation={[0.15, -0.12, -0.42]}>
-        <torusGeometry args={[3.72, 0.014, 8, 160]} />
-        <meshBasicMaterial color={palette.lavender} transparent opacity={0.34} />
-      </mesh>
-      <mesh rotation={[-0.16, 0.2, 0.72]}>
-        <torusGeometry args={[2.85, 0.012, 8, 140]} />
-        <meshBasicMaterial color={palette.peach} transparent opacity={0.3} />
-      </mesh>
-      {Array.from({ length: 9 }, (_, index) => {
-        const angle = (index / 9) * Math.PI * 2
-        const radius = 3.72
-        return (
-          <mesh key={index} position={[Math.cos(angle) * radius, Math.sin(angle) * radius, 0]}>
-            <sphereGeometry args={[index % 3 === 0 ? 0.075 : 0.035, 12, 12]} />
-            <meshBasicMaterial color={index % 3 === 0 ? palette.sage : palette.ink} transparent opacity={0.62} />
-          </mesh>
-        )
-      })}
-    </group>
-  )
-}
-
-function ContentPanel({ position, rotation, tone }: { position: Point3; rotation: Point3; tone: string }) {
   return (
     <group position={position} rotation={rotation}>
-      <mesh>
-        <boxGeometry args={[3.2, 2.05, 0.11]} />
-        <meshStandardMaterial color={palette.paper} metalness={0.02} opacity={0.72} roughness={0.42} transparent />
-      </mesh>
-      <mesh position={[-0.92, 0.58, 0.075]}>
-        <boxGeometry args={[0.92, 0.48, 0.025]} />
-        <meshBasicMaterial color={tone} transparent opacity={0.7} />
-      </mesh>
-      {[0.22, -0.06, -0.34, -0.62].map((y, index) => (
-        <mesh key={y} position={[-0.35 + index * 0.06, y, 0.075]}>
-          <boxGeometry args={[2.05 - index * 0.22, 0.035, 0.02]} />
-          <meshBasicMaterial color={palette.ink} transparent opacity={0.2} />
-        </mesh>
-      ))}
-      <mesh position={[1.25, 0.77, 0.08]}>
-        <circleGeometry args={[0.07, 18]} />
-        <meshBasicMaterial color={tone} />
-      </mesh>
+      {className !== 'entry-world' && <Frame color={frameColor} />}
+      <Html center distanceFactor={compact || className === 'entry-world' ? 6 : 4.6} transform wrapperClass="world-html" zIndexRange={[80, 0]}>
+        <section className={`world-panel ${className}`} ref={panel}>{children}</section>
+      </Html>
     </group>
   )
 }
 
-function ContentField() {
-  return (
-    <group>
-      <ContentPanel position={[-3.4, 0.65, -9]} rotation={[0.03, 0.25, -0.08]} tone={palette.sage} />
-      <ContentPanel position={[3.2, -0.7, -13.5]} rotation={[-0.05, -0.26, 0.06]} tone={palette.lavender} />
-      <ContentPanel position={[-2.8, -1.1, -18]} rotation={[-0.08, 0.2, 0.05]} tone={palette.peach} />
-      <ContentPanel position={[2.6, 1.2, -20.5]} rotation={[0.07, -0.18, -0.04]} tone={palette.lime} />
-      <PathLine color={palette.sage} opacity={0.2} points={[[-3.3, 0.2, -9.3], [-1.2, 0, -16], [0, 0, -24]]} />
-      <PathLine color={palette.lavender} opacity={0.2} points={[[3.2, -0.8, -13.8], [1.4, -0.25, -19], [0, 0, -24]]} />
-    </group>
-  )
-}
-
-function KnowledgeUnit({ color, position, rotation }: { color: string; position: Point3; rotation: Point3 }) {
-  return (
-    <group position={position} rotation={rotation}>
-      <mesh>
-        <boxGeometry args={[1.35, 1.75, 0.15]} />
-        <meshStandardMaterial color={color} metalness={0.02} opacity={0.68} roughness={0.38} transparent />
-      </mesh>
-      <mesh position={[0, 0, 0.1]}>
-        <torusGeometry args={[0.33, 0.016, 8, 48]} />
-        <meshBasicMaterial color={palette.ink} transparent opacity={0.35} />
-      </mesh>
-      <mesh position={[0, 0, 0.11]}>
-        <sphereGeometry args={[0.085, 16, 16]} />
-        <meshBasicMaterial color={palette.ink} transparent opacity={0.7} />
-      </mesh>
-    </group>
-  )
-}
-
-function UnitField() {
-  return (
-    <group>
-      <KnowledgeUnit color={palette.peach} position={[-2.35, 0.15, -28.5]} rotation={[0.05, 0.18, -0.05]} />
-      <KnowledgeUnit color={palette.lavender} position={[0, -0.45, -30]} rotation={[-0.06, -0.04, 0.03]} />
-      <KnowledgeUnit color={palette.lime} position={[2.3, 0.35, -31.8]} rotation={[0.04, -0.2, 0.06]} />
-      {Array.from({ length: 18 }, (_, index) => (
-        <mesh
-          key={index}
-          position={[
-            (deterministic(index, 4) - 0.5) * 7.6,
-            (deterministic(index, 5) - 0.5) * 4.8,
-            -25 - deterministic(index, 6) * 11,
-          ]}
-        >
-          <sphereGeometry args={[0.025 + deterministic(index, 7) * 0.045, 10, 10]} />
-          <meshBasicMaterial color={[palette.peach, palette.lavender, palette.lime][index % 3]} transparent opacity={0.62} />
-        </mesh>
-      ))}
-      <PathLine color={palette.peach} opacity={0.2} points={[[-2.35, 0.15, -28.7], [-1.1, 0, -39], [0, 0, -45]]} />
-      <PathLine color={palette.lavender} opacity={0.2} points={[[0, -0.45, -30.2], [0, -0.2, -39], [0, 0, -45]]} />
-      <PathLine color={palette.lime} opacity={0.22} points={[[2.3, 0.35, -32], [1.2, 0.1, -40], [0, 0, -45]]} />
-    </group>
-  )
-}
-
-function MergeField() {
-  const group = useRef<Group>(null)
+function EntryWorld() {
+  const ring = useRef<Group>(null)
   useFrame((_, delta) => {
-    if (!group.current) return
-    group.current.rotation.y += delta * 0.08
-    group.current.rotation.x += delta * 0.025
-  })
-
-  return (
-    <group position={[0, 0, -46]} ref={group}>
-      <mesh>
-        <icosahedronGeometry args={[1.28, 2]} />
-        <meshStandardMaterial color={palette.sage} metalness={0.05} opacity={0.48} roughness={0.25} transparent />
-      </mesh>
-      <mesh scale={1.33}>
-        <icosahedronGeometry args={[1.28, 1]} />
-        <meshBasicMaterial color={palette.ink} opacity={0.13} transparent wireframe />
-      </mesh>
-      {[2.15, 2.72, 3.35].map((radius, index) => (
-        <mesh key={radius} rotation={[index * 0.35, index * 0.56, index * 0.24]}>
-          <torusGeometry args={[radius, 0.012, 8, 100]} />
-          <meshBasicMaterial color={[palette.lime, palette.lavender, palette.peach][index]} opacity={0.32} transparent />
-        </mesh>
-      ))}
-      {Array.from({ length: 7 }, (_, index) => {
-        const angle = (index / 7) * Math.PI * 2
-        return (
-          <mesh key={index} position={[Math.cos(angle) * 2.75, Math.sin(angle) * 1.85, Math.sin(angle * 2) * 0.7]}>
-            <sphereGeometry args={[index === 0 ? 0.14 : 0.07, 14, 14]} />
-            <meshBasicMaterial color={index % 2 ? palette.lavender : palette.lime} />
-          </mesh>
-        )
-      })}
-    </group>
-  )
-}
-
-const relationNodes: Point3[] = [
-  [0, 0, -62.5],
-  [-3.1, 1.5, -64],
-  [3.35, 1.2, -65.5],
-  [-2.4, -2.1, -67],
-  [2.15, -1.9, -68.5],
-  [0.25, 2.85, -69.5],
-  [4.55, -0.3, -71],
-  [-4.5, -0.2, -72],
-]
-
-function RelationField() {
-  return (
-    <group>
-      {relationNodes.map((node, index) => (
-        <group key={index} position={node}>
-          <mesh>
-            <sphereGeometry args={[index === 0 ? 0.48 : 0.18 + (index % 3) * 0.05, 22, 22]} />
-            <meshStandardMaterial
-              color={[palette.sage, palette.lavender, palette.peach, palette.lime][index % 4]}
-              emissive={index === 0 ? palette.sage : '#000000'}
-              emissiveIntensity={index === 0 ? 0.15 : 0}
-              opacity={index === 0 ? 0.92 : 0.72}
-              transparent
-            />
-          </mesh>
-          {index === 0 && (
-            <mesh rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.78, 0.014, 8, 80]} />
-              <meshBasicMaterial color={palette.sage} opacity={0.34} transparent />
-            </mesh>
-          )}
-        </group>
-      ))}
-      {[1, 2, 3, 4, 5, 6, 7].map((index) => (
-        <PathLine
-          color={index % 3 === 0 ? palette.peach : index % 2 ? palette.sage : palette.lavender}
-          key={index}
-          opacity={index % 3 === 0 ? 0.34 : 0.22}
-          points={[relationNodes[0], relationNodes[index]]}
-        />
-      ))}
-      <PathLine color={palette.lavender} opacity={0.16} points={[relationNodes[1], relationNodes[5], relationNodes[2]]} />
-      <PathLine color={palette.peach} opacity={0.16} points={[relationNodes[3], relationNodes[4], relationNodes[6]]} />
-    </group>
-  )
-}
-
-function LibraryField() {
-  const group = useRef<Group>(null)
-  useFrame((_, delta) => {
-    if (!group.current) return
-    group.current.rotation.z -= delta * 0.018
-  })
-
-  return (
-    <group position={[0, 0, -84]}>
-      <group ref={group}>
-        <mesh>
-          <torusGeometry args={[4.4, 0.055, 12, 180]} />
-          <meshStandardMaterial color={palette.sage} opacity={0.42} transparent />
-        </mesh>
-        <mesh rotation={[0.13, -0.2, 0.4]}>
-          <torusGeometry args={[5.15, 0.015, 8, 180]} />
-          <meshBasicMaterial color={palette.lavender} opacity={0.3} transparent />
-        </mesh>
-      </group>
-      <mesh position={[0, 0, -0.25]}>
-        <circleGeometry args={[3.85, 100]} />
-        <meshStandardMaterial color="#dfe5d7" opacity={0.32} transparent />
-      </mesh>
-      {[[-2.6, 1.6, 0.2], [2.65, 1.3, -0.05], [-2.35, -1.75, -0.15], [2.45, -1.65, 0.1]].map((position, index) => (
-        <group key={index} position={position as Point3}>
-          <mesh>
-            <sphereGeometry args={[0.22 + index * 0.015, 18, 18]} />
-            <meshBasicMaterial color={[palette.lime, palette.lavender, palette.peach, palette.sage][index]} />
-          </mesh>
-          <mesh>
-            <torusGeometry args={[0.48, 0.01, 8, 48]} />
-            <meshBasicMaterial color={palette.ink} opacity={0.18} transparent />
-          </mesh>
-        </group>
-      ))}
-      <PathLine color={palette.sage} opacity={0.2} points={[[0, 0, 5], [0, 0, -8]]} />
-    </group>
-  )
-}
-
-function SpatialWorld({ progress, reducedDensity }: SpatialSceneProps) {
-  const smoothProgress = useRef(0)
-  const cameraCurve = useMemo(
-    () => new CatmullRomCurve3([
-      new Vector3(0, 0, 14),
-      new Vector3(0.25, 0.12, 2),
-      new Vector3(-0.8, 0.12, -13),
-      new Vector3(0.9, -0.18, -29),
-      new Vector3(-0.45, 0.16, -45),
-      new Vector3(0.72, 0.05, -62),
-      new Vector3(0, 0.08, -78),
-    ]),
-    [],
-  )
-  const targetCurve = useMemo(
-    () => new CatmullRomCurve3([
-      new Vector3(0, 0, 0),
-      new Vector3(0, 0, -8),
-      new Vector3(0, 0, -21),
-      new Vector3(0, 0, -37),
-      new Vector3(0, 0, -53),
-      new Vector3(0, 0, -70),
-      new Vector3(0, 0, -90),
-    ]),
-    [],
-  )
-  const desiredPosition = useRef(new Vector3())
-  const desiredTarget = useRef(new Vector3())
-  const paper = useMemo(() => new Color('#f3f1e9'), [])
-  const sage = useMemo(() => new Color('#e4e8de'), [])
-  const mixedBackground = useRef(new Color())
-
-  useFrame(({ camera, pointer, scene }, delta) => {
-    smoothProgress.current = MathUtils.damp(smoothProgress.current, progress.current, 4.8, delta)
-    const value = MathUtils.clamp(smoothProgress.current, 0, 1)
-    cameraCurve.getPointAt(value, desiredPosition.current)
-    targetCurve.getPointAt(value, desiredTarget.current)
-    desiredPosition.current.x += pointer.x * 0.24
-    desiredPosition.current.y += pointer.y * 0.16
-    camera.position.lerp(desiredPosition.current, 1 - Math.exp(-delta * 6))
-    camera.lookAt(desiredTarget.current)
-
-    mixedBackground.current.lerpColors(paper, sage, MathUtils.smoothstep(value, 0.66, 1))
-    if (scene.background instanceof Color) scene.background.copy(mixedBackground.current)
-    if (scene.fog instanceof Fog) scene.fog.color.copy(mixedBackground.current)
+    if (ring.current) ring.current.rotation.z += delta * 0.018
   })
 
   return (
     <>
-      <ambientLight intensity={1.55} />
-      <directionalLight color="#fffdf6" intensity={2.2} position={[4, 7, 10]} />
-      <directionalLight color={palette.lavender} intensity={0.65} position={[-5, -2, -35]} />
-      <ParticleField count={reducedDensity ? 280 : 620} />
-      <DepthArchitecture />
-      <Portal />
-      <ContentField />
-      <UnitField />
-      <MergeField />
-      <RelationField />
-      <LibraryField />
+      <group position={panelPositions.entry} ref={ring}>
+        {[3.6, 4.45, 5.35].map((radius, index) => (
+          <mesh key={radius} rotation={[index * 0.09, index * -0.07, index * 0.3]}>
+            <torusGeometry args={[radius, index === 0 ? 0.018 : 0.011, 8, 180]} />
+            <meshBasicMaterial color={[palette.sage, palette.lavender, palette.peach][index]} opacity={0.28} transparent />
+          </mesh>
+        ))}
+      </group>
+      <WorldSection className="entry-world" position={panelPositions.entry}>
+        <p className="world-eyebrow"><span>FANISL</span> · PERSONAL INVESTMENT KNOWLEDGE ENGINE</p>
+        <h1>把分散的投资内容，<br /><em>沉淀成自己的知识。</em></h1>
+        <p className="world-summary">保存原文，拆出判断、方法与认知，再让它们归并、演进并彼此连接。滚动不是把页面向上推，而是沿着一条知识形成的路径继续向里。</p>
+        <div className="entry-stats">
+          <span><b>18</b>篇内容</span><i />
+          <span><b>247</b>个知识单元</span><i />
+          <span><b>105</b>个知识节点</span>
+        </div>
+      </WorldSection>
+    </>
+  )
+}
+
+function SourceWorld() {
+  return (
+    <>
+      <WorldSection className="source-world" frameColor={palette.lavender} position={panelPositions.source} rotation={[0, 0.12, -0.015]}>
+        <div className="world-copy">
+          <p className="world-eyebrow">01 · CONTENT / L0</p>
+          <h2>所有知识，先有一段<br />可以返回的原文。</h2>
+          <p className="world-summary">转录、画面信息、发布时间与信源完整留存。后面的任何提取和归并，都能沿路径退回证据。</p>
+        </div>
+        <article className="source-document">
+          <header><span>CONTENT 018</span><small>16:42 · 原始内容</small></header>
+          <div className="source-title"><span>AI 与百年前的</span><strong>电力革命</strong></div>
+          <blockquote>“真正改变生产率的，不是基础设施建成的那一天，而是组织方式开始随之变化。”</blockquote>
+          <footer><span>逐字转录 13,657</span><span>画面笔记 12</span></footer>
+        </article>
+      </WorldSection>
+      {[-14, -16.2, -21.8, -24].map((z, index) => (
+        <mesh key={z} position={[index % 2 ? 4.9 : -5.3, index % 2 ? -2.8 : 2.5, z]} rotation={[0, index % 2 ? -0.25 : 0.25, index * 0.05]}>
+          <boxGeometry args={[2.6, 1.65, 0.06]} />
+          <meshStandardMaterial color={index % 2 ? palette.lavender : palette.paper} opacity={0.28} roughness={0.5} transparent />
+        </mesh>
+      ))}
+    </>
+  )
+}
+
+function UnitsWorld() {
+  return (
+    <>
+      <WorldSection className="units-world" frameColor={palette.peach} position={panelPositions.units} rotation={[0, -0.12, 0.012]}>
+        <header className="world-heading">
+          <div><p className="world-eyebrow">02 · EXTRACT / L1</p><h2>一篇内容被拆开，<br />三种知识各自留下。</h2></div>
+          <p className="world-summary">它们不是同一种对象，也没有主次之分。每一条都带着逐字引文与出处。</p>
+        </header>
+        <div className="unit-grid">
+          <article className="claim"><span>01 · CLAIM</span><b>判断</b><strong>135</strong><p>带时点、方向、条件和承诺度的市场主张。</p></article>
+          <article className="method"><span>02 · METHOD</span><b>方法</b><strong>23</strong><p>可以复述、执行与测试的研究规则。</p></article>
+          <article className="concept"><span>03 · CONCEPT</span><b>认知</b><strong>89</strong><p>可以跨越一次行情反复调用的理解。</p></article>
+        </div>
+      </WorldSection>
+      {Array.from({ length: 22 }, (_, index) => (
+        <mesh
+          key={index}
+          position={[
+            panelPositions.units[0] + (random(index, 4) - 0.5) * 15,
+            (random(index, 5) - 0.5) * 9,
+            panelPositions.units[2] + (random(index, 6) - 0.5) * 8,
+          ]}
+          rotation={[random(index, 7), random(index, 8), random(index, 9)]}
+        >
+          <boxGeometry args={[0.12 + random(index, 10) * 0.22, 0.18 + random(index, 11) * 0.4, 0.05]} />
+          <meshBasicMaterial color={[palette.peach, palette.lavender, palette.lime][index % 3]} opacity={0.58} transparent />
+        </mesh>
+      ))}
+    </>
+  )
+}
+
+function NodeWorld() {
+  const core = useRef<Group>(null)
+  useFrame((_, delta) => {
+    if (core.current) core.current.rotation.y += delta * 0.06
+  })
+
+  return (
+    <>
+      <WorldSection className="node-world" frameColor={palette.lime} position={panelPositions.node} rotation={[0, 0.1, -0.01]}>
+        <div className="world-copy">
+          <p className="world-eyebrow">03 · MERGE / MEMORY</p>
+          <h2>重复不再堆积，<br />新的表达回到同一节点。</h2>
+          <p className="world-summary">相同命题进入规范节点；重申、细化、修正和反驳成为它的时间演进。</p>
+        </div>
+        <article className="canonical-document">
+          <header><span>NODE 005 · 认知</span><small>CURRENT CANONICAL</small></header>
+          <p>软件定价从席位制，经过按量收费，<strong>最终转向按结果收费。</strong></p>
+          <div className="node-timeline">
+            <span><i />05.31 首次提及</span><b>supersedes</b><span><i />06.21 修正取代</span>
+          </div>
+        </article>
+      </WorldSection>
+      <group position={[panelPositions.node[0] + 6.2, -3.1, panelPositions.node[2] - 1]} ref={core}>
+        <mesh>
+          <icosahedronGeometry args={[0.68, 2]} />
+          <meshStandardMaterial color={palette.sage} opacity={0.48} transparent />
+        </mesh>
+        {[1.05, 1.38, 1.75].map((radius, index) => (
+          <mesh key={radius} rotation={[index * 0.4, index * 0.55, index * 0.2]}>
+            <torusGeometry args={[radius, 0.01, 8, 80]} />
+            <meshBasicMaterial color={[palette.lime, palette.lavender, palette.peach][index]} opacity={0.3} transparent />
+          </mesh>
+        ))}
+      </group>
+    </>
+  )
+}
+
+const relationNodes: Point3[] = [
+  [2.2, 0, -82.3],
+  [-2.6, 2.8, -84],
+  [6.2, 2.3, -85],
+  [-2.1, -3, -86],
+  [6.1, -2.7, -87.3],
+  [2.4, 4.3, -89],
+  [8, -0.3, -90],
+  [-4, -0.2, -91],
+]
+
+function RelationsWorld() {
+  return (
+    <>
+      <WorldSection className="relations-world" frameColor={palette.lavender} position={panelPositions.relations} rotation={[0, -0.1, 0.01]}>
+        <header className="world-heading">
+          <div><p className="world-eyebrow">04 · DISCOVER / RELATIONS</p><h2>当知识彼此连接，<br />研究才真正开始。</h2></div>
+          <p className="world-summary">节点不再只是摘要。关系让分歧、补充和正在形成的跨源共识变得可见。</p>
+        </header>
+        <div className="relation-grid">
+          <article><i className="opposition" /><strong>对立</strong><span>不能同时成立的解释</span><b>1</b></article>
+          <article><i className="complement" /><strong>互补</strong><span>不同尺度的知识拼合</span><b>5</b></article>
+          <article><i className="consensus" /><strong>共识</strong><span>跨信源的共同结构</span><b>持续发现</b></article>
+        </div>
+      </WorldSection>
+      {relationNodes.map((node, index) => (
+        <mesh key={index} position={node}>
+          <sphereGeometry args={[index === 0 ? 0.34 : 0.12 + (index % 3) * 0.035, 18, 18]} />
+          <meshStandardMaterial color={[palette.sage, palette.lavender, palette.peach, palette.lime][index % 4]} opacity={0.72} transparent />
+        </mesh>
+      ))}
+      {relationNodes.slice(1).map((node, index) => (
+        <PathLine color={index % 3 === 0 ? palette.peach : index % 2 ? palette.lavender : palette.sage} key={index} opacity={0.22} points={[relationNodes[0], node]} />
+      ))}
+    </>
+  )
+}
+
+function LibraryWorld() {
+  const ring = useRef<Group>(null)
+  useFrame((_, delta) => {
+    if (ring.current) ring.current.rotation.z -= delta * 0.015
+  })
+
+  return (
+    <>
+      <group position={panelPositions.library} ref={ring}>
+        {[5.1, 5.75].map((radius, index) => (
+          <mesh key={radius} rotation={[index * 0.1, index * 0.14, index * 0.45]}>
+            <torusGeometry args={[radius, index === 0 ? 0.025 : 0.012, 8, 180]} />
+            <meshBasicMaterial color={index ? palette.lavender : palette.sage} opacity={0.28} transparent />
+          </mesh>
+        ))}
+      </group>
+      <WorldSection className="library-world" frameColor={palette.sage} position={panelPositions.library}>
+        <p className="world-eyebrow">05 · REMEMBER / THE LIBRARY</p>
+        <h2>抵达的不是终点，<br /><em>而是一座会继续生长的知识库。</em></h2>
+        <p className="world-summary">它从 2 位信源和 18 篇内容开始。规模仍小，但每次新增都进入同一套证据、归并、演进与发现结构。</p>
+        <div className="library-grid">
+          <span><b>2</b>信源</span><span><b>18</b>内容</span><span><b>247</b>单元</span><span><b>105</b>节点</span>
+        </div>
+        <footer>原文证据 · 时点版本 · 演进关系 · 选择性验证</footer>
+      </WorldSection>
+    </>
+  )
+}
+
+function DepthPath() {
+  const points: Point3[] = [
+    [0, -4.2, 5],
+    [-2.4, -4.1, -19],
+    [2.4, -4, -40],
+    [-2.2, -4.1, -61],
+    [2.2, -4, -82],
+    [0, -4.1, -103],
+  ]
+  return (
+    <>
+      <PathLine color={palette.sage} opacity={0.16} points={points} />
+      {points.map((point, index) => (
+        <mesh key={index} position={point}>
+          <sphereGeometry args={[0.055, 12, 12]} />
+          <meshBasicMaterial color={index % 2 ? palette.lavender : palette.sage} opacity={0.65} transparent />
+        </mesh>
+      ))}
+    </>
+  )
+}
+
+function World({ compact, progress }: SpatialSceneProps) {
+  const smoothProgress = useRef(0)
+  const cameraPoints = useMemo(() => [
+    new Vector3(0, 0, 13),
+    new Vector3(-1.25, 0, -7),
+    new Vector3(1.25, 0, -28),
+    new Vector3(-1.1, 0, -49),
+    new Vector3(1.1, 0, -70),
+    new Vector3(0, 0, -91),
+  ], [])
+  const targetPoints = useMemo(() => [
+    new Vector3(...panelPositions.entry),
+    new Vector3(...panelPositions.source),
+    new Vector3(...panelPositions.units),
+    new Vector3(...panelPositions.node),
+    new Vector3(...panelPositions.relations),
+    new Vector3(...panelPositions.library),
+  ], [])
+  const desiredPosition = useRef(new Vector3())
+  const desiredTarget = useRef(new Vector3())
+  const paper = useMemo(() => new Color('#f3f1e9'), [])
+  const finalSage = useMemo(() => new Color('#e1e6da'), [])
+  const mixed = useRef(new Color())
+
+  useFrame(({ camera, pointer, scene }, delta) => {
+    smoothProgress.current = MathUtils.damp(smoothProgress.current, progress.current, 6.5, delta)
+    const value = MathUtils.clamp(smoothProgress.current, 0, 1)
+    sampleJourney(cameraPoints, value, desiredPosition.current, compact ? 0.12 : 0.26)
+    sampleJourney(targetPoints, value, desiredTarget.current)
+    desiredPosition.current.x += pointer.x * (compact ? 0.08 : 0.2)
+    desiredPosition.current.y += pointer.y * (compact ? 0.05 : 0.12)
+    camera.position.lerp(desiredPosition.current, 1 - Math.exp(-delta * 7))
+    camera.lookAt(desiredTarget.current)
+
+    mixed.current.lerpColors(paper, finalSage, MathUtils.smoothstep(value, 0.72, 1))
+    if (scene.background instanceof Color) scene.background.copy(mixed.current)
+    if (scene.fog instanceof Fog) scene.fog.color.copy(mixed.current)
+  })
+
+  return (
+    <>
+      <ambientLight intensity={1.6} />
+      <directionalLight color="#fffdf6" intensity={2.1} position={[4, 7, 9]} />
+      <directionalLight color={palette.lavender} intensity={0.6} position={[-5, -2, -42]} />
+      <ParticleField compact={compact} />
+      <DepthPath />
+      <EntryWorld />
+      <SourceWorld />
+      <UnitsWorld />
+      <NodeWorld />
+      <RelationsWorld />
+      <LibraryWorld />
     </>
   )
 }
@@ -398,15 +417,15 @@ function SpatialWorld({ progress, reducedDensity }: SpatialSceneProps) {
 export default function SpatialScene(props: SpatialSceneProps) {
   return (
     <Canvas
-      camera={{ far: 150, fov: 43, near: 0.1, position: [0, 0, 14] }}
-      dpr={[1, props.reducedDensity ? 1.25 : 1.65]}
-      fallback={<div className="webgl-fallback" />}
+      aria-label="Fanisl 知识形成空间"
+      camera={{ far: 160, fov: 43, near: 0.1, position: [0, 0, 13] }}
+      dpr={[1, props.compact ? 1.2 : 1.6]}
       gl={{ alpha: false, antialias: true, powerPreference: 'high-performance' }}
     >
       <color args={['#f3f1e9']} attach="background" />
-      <fog args={['#f3f1e9', 13, 58]} attach="fog" />
+      <fog args={['#f3f1e9', 14, 62]} attach="fog" />
       <Suspense fallback={null}>
-        <SpatialWorld {...props} />
+        <World {...props} />
       </Suspense>
     </Canvas>
   )
