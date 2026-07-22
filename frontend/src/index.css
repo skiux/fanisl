@@ -28,7 +28,7 @@ body::-webkit-scrollbar-track { background: #eeece4; }
 body::-webkit-scrollbar-thumb { border: 2px solid #eeece4; border-radius: 99px; background: #7c8877; }
 
 .spatial-experience { position: relative; min-height: 100vh; background: var(--paper); }
-.scroll-track { position: relative; z-index: 0; height: 850vh; pointer-events: none; }
+.scroll-track { position: relative; z-index: 0; height: 1180vh; pointer-events: none; }
 .scroll-marker { position: absolute; left: 0; width: 1px; height: 1px; }
 .fixed-stage { position: fixed; z-index: 1; inset: 0; overflow: hidden; isolation: isolate; background: var(--paper); }
 .scene-canvas { position: absolute; z-index: 0; inset: 0; }
@@ -63,20 +63,25 @@ body::-webkit-scrollbar-thumb { border: 2px solid #eeece4; border-radius: 99px; 
 .world-html { pointer-events: none !important; transform-style: preserve-3d; }
 .world-panel { width: 1080px; color: var(--ink); backface-visibility: hidden; transform-style: preserve-3d; }
 .world-panel, .world-panel * { backface-visibility: hidden; }
-[data-motion] { --motion: 0; --motion-inverse: 1; --motion-exit: 0; --motion-opacity: 0; opacity: var(--motion-opacity); will-change: opacity, transform, clip-path, filter; }
-[data-motion="eyebrow"] { transform: translate3d(calc(var(--motion-inverse) * -18px), calc(var(--motion-inverse) * 13px - var(--motion-exit) * 12px), 0); }
-[data-motion="line"] { display: block; clip-path: inset(0 calc(var(--motion-inverse) * 102%) 0 0); transform: translate3d(calc(var(--motion-inverse) * -34px - var(--motion-exit) * 28px), calc(var(--motion-inverse) * 24px), 0) skewY(calc(var(--motion-inverse) * 1.4deg)); transform-origin: left bottom; }
-[data-motion="rise"] { transform: translate3d(0, calc(var(--motion-inverse) * 30px - var(--motion-exit) * 18px), 0); }
-[data-motion="card-right"] { transform: perspective(900px) translate3d(calc(var(--motion-inverse) * 92px + var(--motion-exit) * -70px), calc(var(--motion-inverse) * 26px), 0) rotateY(calc(var(--motion-inverse) * -8deg + var(--motion-exit) * 5deg)) scale(calc(.91 + var(--motion) * .09)); transform-origin: right center; }
-[data-motion="card-up"] { transform: perspective(700px) translate3d(0, calc(var(--motion-inverse) * 78px - var(--motion-exit) * 36px), calc(var(--motion-inverse) * -40px)) rotateX(calc(var(--motion-inverse) * 7deg)) scale(calc(.9 + var(--motion) * .1)); transform-origin: center bottom; }
-[data-motion="depth"] { transform: translate3d(0, calc(var(--motion-inverse) * 24px), calc(var(--motion-inverse) * -70px)) scale(calc(.92 + var(--motion) * .08)); }
-[data-motion="wipe"] { display: block; clip-path: inset(0 calc(var(--motion-inverse) * 100%) 0 0); transform: translate3d(calc(var(--motion-inverse) * 24px), 0, 0); transform-origin: left center; }
-[data-motion="rule"] { transform: scaleX(var(--motion)); transform-origin: left center; }
-[data-motion="rule-y"] { transform: scaleY(var(--motion)); transform-origin: center bottom; }
-[data-motion="cell"] { transform: translate3d(0, calc(var(--motion-inverse) * 18px - var(--motion-exit) * 14px), 0); }
-[data-motion="number"] { filter: blur(calc(var(--motion-inverse) * 5px)); transform: translate3d(0, calc(var(--motion-inverse) * 28px), 0) scale(calc(.78 + var(--motion) * .22)); }
-[data-motion="row"] { clip-path: inset(0 calc(var(--motion-inverse) * 100%) 0 0); transform: translate3d(calc(var(--motion-inverse) * -52px - var(--motion-exit) * 28px), 0, 0); transform-origin: left center; }
-[data-motion="pop"] { transform: scale(calc(.25 + var(--motion) * .75)) rotate(calc(var(--motion-inverse) * -24deg)); }
+[data-motion] { --motion: 0; --motion-inverse: 1; --motion-exit: 0; --motion-opacity: 0; --motion-drift-x: 0px; --motion-drift-y: 0px; --motion-drift-r: 0deg; opacity: var(--motion-opacity); will-change: opacity, transform, clip-path, filter; }
+[data-motion="eyebrow"] { transform: translate3d(calc(var(--motion-inverse) * -16px + var(--motion-drift-x)), calc(var(--motion-inverse) * 11px - var(--motion-exit) * 10px + var(--motion-drift-y)), 0) rotate(var(--motion-drift-r)); }
+[data-motion="line"] { display: block; clip-path: inset(0 calc(var(--motion-inverse) * 102%) 0 0); transform: translate3d(calc(var(--motion-inverse) * -30px - var(--motion-exit) * 26px + var(--motion-drift-x)), calc(var(--motion-inverse) * 21px + var(--motion-drift-y)), 0) skewY(calc(var(--motion-inverse) * 1.1deg)) rotate(var(--motion-drift-r)); transform-origin: left bottom; }
+[data-motion="paragraph"] { filter: blur(calc(var(--motion-inverse) * 4px)); transform: translate3d(calc(var(--motion-inverse) * 9px + var(--motion-drift-x)), calc(var(--motion-inverse) * 27px - var(--motion-exit) * 17px + var(--motion-drift-y)), 0) rotate(var(--motion-drift-r)); }
+[data-motion="rise"] { transform: translate3d(var(--motion-drift-x), calc(var(--motion-inverse) * 25px - var(--motion-exit) * 16px + var(--motion-drift-y)), 0) rotate(var(--motion-drift-r)); }
+[data-motion="panel-rise"] { filter: blur(calc(var(--motion-inverse) * 2.5px)); transform: perspective(900px) translate3d(var(--motion-drift-x), calc(var(--motion-inverse) * 43px - var(--motion-exit) * 25px + var(--motion-drift-y)), calc(var(--motion-inverse) * -46px)) rotateX(calc(var(--motion-inverse) * 3.5deg)) rotateZ(var(--motion-drift-r)) scale(calc(.94 + var(--motion) * .06)); transform-origin: center bottom; }
+[data-motion="paper"] { filter: blur(calc(var(--motion-inverse) * 2px)); transform: perspective(1000px) translate3d(calc(var(--motion-inverse) * 112px - var(--motion-exit) * 64px + var(--motion-drift-x)), calc(var(--motion-inverse) * 32px + var(--motion-drift-y)), calc(var(--motion-inverse) * -52px)) rotateY(calc(var(--motion-inverse) * -9deg + var(--motion-exit) * 4deg)) rotateZ(calc(var(--motion-inverse) * 1.2deg + var(--motion-drift-r))) scale(calc(.92 + var(--motion) * .08)); transform-origin: right center; }
+[data-motion="card-turn"] { filter: blur(calc(var(--motion-inverse) * 2px)); transform: perspective(1050px) translate3d(calc(var(--motion-inverse) * 94px - var(--motion-exit) * 58px + var(--motion-drift-x)), calc(var(--motion-inverse) * 22px + var(--motion-drift-y)), calc(var(--motion-inverse) * -64px)) rotateY(calc(var(--motion-inverse) * -11deg + var(--motion-exit) * 3deg)) rotateX(calc(var(--motion-inverse) * 2deg)) rotateZ(var(--motion-drift-r)) scale(calc(.93 + var(--motion) * .07)); transform-origin: right center; }
+[data-motion="card-left"] { transform: perspective(850px) translate3d(calc(var(--motion-inverse) * -82px - var(--motion-exit) * 34px + var(--motion-drift-x)), calc(var(--motion-inverse) * 46px + var(--motion-drift-y)), calc(var(--motion-inverse) * -58px)) rotateY(calc(var(--motion-inverse) * 8deg)) rotateZ(calc(var(--motion-inverse) * -1.4deg + var(--motion-drift-r))) scale(calc(.91 + var(--motion) * .09)); transform-origin: left bottom; }
+[data-motion="card-center"] { transform: perspective(850px) translate3d(var(--motion-drift-x), calc(var(--motion-inverse) * 76px - var(--motion-exit) * 30px + var(--motion-drift-y)), calc(var(--motion-inverse) * -82px)) rotateX(calc(var(--motion-inverse) * 7deg)) rotateZ(var(--motion-drift-r)) scale(calc(.89 + var(--motion) * .11)); transform-origin: center bottom; }
+[data-motion="card-right"] { transform: perspective(850px) translate3d(calc(var(--motion-inverse) * 82px + var(--motion-exit) * 34px + var(--motion-drift-x)), calc(var(--motion-inverse) * 46px + var(--motion-drift-y)), calc(var(--motion-inverse) * -58px)) rotateY(calc(var(--motion-inverse) * -8deg)) rotateZ(calc(var(--motion-inverse) * 1.4deg + var(--motion-drift-r))) scale(calc(.91 + var(--motion) * .09)); transform-origin: right bottom; }
+[data-motion="highlight"] { display: block; clip-path: inset(0 calc(var(--motion-inverse) * 100%) 0 0); filter: blur(calc(var(--motion-inverse) * 2px)); transform: translate3d(calc(var(--motion-inverse) * 18px + var(--motion-drift-x)), var(--motion-drift-y), 0) rotate(var(--motion-drift-r)); transform-origin: left center; }
+[data-motion="rule"] { transform: translate3d(var(--motion-drift-x), var(--motion-drift-y), 0) scaleX(var(--motion)); transform-origin: left center; }
+[data-motion="rule-y"] { transform: translate3d(var(--motion-drift-x), var(--motion-drift-y), 0) scaleY(var(--motion)); transform-origin: center bottom; }
+[data-motion="cell"] { transform: translate3d(var(--motion-drift-x), calc(var(--motion-inverse) * 17px - var(--motion-exit) * 12px + var(--motion-drift-y)), 0) rotate(var(--motion-drift-r)); }
+[data-motion="number"] { filter: blur(calc(var(--motion-inverse) * 4px)); transform: translate3d(var(--motion-drift-x), calc(var(--motion-inverse) * 25px + var(--motion-drift-y)), 0) rotate(var(--motion-drift-r)) scale(calc(.8 + var(--motion) * .2)); }
+[data-motion="row-left"] { clip-path: inset(0 calc(var(--motion-inverse) * 100%) 0 0); transform: translate3d(calc(var(--motion-inverse) * -47px - var(--motion-exit) * 24px + var(--motion-drift-x)), var(--motion-drift-y), 0) rotate(var(--motion-drift-r)); transform-origin: left center; }
+[data-motion="row-right"] { clip-path: inset(0 0 0 calc(var(--motion-inverse) * 100%)); transform: translate3d(calc(var(--motion-inverse) * 47px + var(--motion-exit) * 24px + var(--motion-drift-x)), var(--motion-drift-y), 0) rotate(var(--motion-drift-r)); transform-origin: right center; }
+[data-motion="pop"] { transform: translate3d(var(--motion-drift-x), var(--motion-drift-y), 0) scale(calc(.24 + var(--motion) * .76)) rotate(calc(var(--motion-inverse) * -22deg + var(--motion-drift-r))); }
 .world-eyebrow { margin: 0 0 22px; color: #758074; font: 9px/1.4 ui-monospace, "SFMono-Regular", monospace; letter-spacing: .2em; text-transform: uppercase; }
 .world-eyebrow span { color: #384638; font-weight: 700; }
 .world-panel h1, .world-panel h2 { margin: 0; font-weight: 640; letter-spacing: -.075em; line-height: .98; text-wrap: balance; }
@@ -186,7 +191,7 @@ body::-webkit-scrollbar-thumb { border: 2px solid #eeece4; border-radius: 99px; 
 .static-chapter button { align-self: flex-start; min-height: 46px; padding: 0 18px; border: 0; border-radius: 99px; color: white; background: #283229; cursor: pointer; font-size: 10px; }
 
 @media (max-width: 760px) {
-  .scroll-track { height: 760vh; }
+  .scroll-track { height: 1040vh; }
   .spatial-nav { top: 10px; grid-template-columns: 1fr auto; width: calc(100% - 20px); min-height: 54px; padding: 0 8px 0 13px; border-radius: 15px; }
   .spatial-nav nav { position: absolute; top: 61px; left: 0; right: 0; display: none; grid-template-columns: repeat(5, 1fr); padding: 8px; border: 1px solid white; border-radius: 14px; background: rgba(248, 247, 241, .97); box-shadow: 0 22px 55px rgba(43, 51, 43, .13); }
   .spatial-nav nav.open { display: grid; }

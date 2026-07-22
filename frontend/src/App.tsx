@@ -131,9 +131,12 @@ function App() {
       const nextActive = getActiveChapter(targetProgress.current)
       if (nextActive !== activeRef.current) { activeRef.current = nextActive; setActive(nextActive) }
     }
-    const update = () => {
+    let previousTime = performance.now()
+    const update = (time: number) => {
+      const delta = Math.min(0.05, Math.max(0, (time - previousTime) / 1000))
+      previousTime = time
       const difference = targetProgress.current - progress.current
-      progress.current += difference * 0.16
+      progress.current += difference * (1 - Math.exp(-delta * 7.4))
       if (Math.abs(difference) < 0.0001) progress.current = targetProgress.current
       if (progressNumber.current) progressNumber.current.textContent = `${Math.round(progress.current * 100).toString().padStart(2, '0')}%`
       if (progressBar.current) progressBar.current.style.transform = `scaleX(${progress.current})`

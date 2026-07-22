@@ -54,6 +54,22 @@ function random(index: number, salt: number) {
   return ((Math.sin(index * 127.1 + salt * 311.7) * 43758.5453) % 1 + 1) % 1
 }
 
+function easeOutBack(value: number, strength: number) {
+  const offset = value - 1
+  const tension = 1.70158 * strength
+  return 1 + (tension + 1) * offset * offset * offset + tension * offset * offset
+}
+
+const motionSpring: Record<string, number> = {
+  'card-center': 0.52,
+  'card-left': 0.46,
+  'card-right': 0.46,
+  'card-turn': 0.42,
+  number: 0.32,
+  paper: 0.38,
+  pop: 0.68,
+}
+
 function sampleJourney(points: Vector3[], progress: number, output: Vector3, lift = 0) {
   const last = chapters.length - 1
   if (progress >= chapters[last].stop) return output.copy(points[last])
@@ -62,9 +78,9 @@ function sampleJourney(points: Vector3[], progress: number, output: Vector3, lif
   const start = Math.max(0, next - 1)
   const span = chapters[next].stop - chapters[start].stop
   const raw = MathUtils.clamp((progress - chapters[start].stop) / span, 0, 1)
-  const local = MathUtils.smootherstep(raw, 0, 1)
+  const local = MathUtils.smootherstep(raw, 0.08, 0.88)
   output.lerpVectors(points[start], points[next], local)
-  output.y += Math.sin(raw * Math.PI) * lift
+  output.y += Math.sin(local * Math.PI) * lift
   return output
 }
 
@@ -131,7 +147,8 @@ function WorldSection({ children, className, frameColor, position, rotation = [0
 }) {
   const panel = useRef<HTMLElement>(null)
   const motionElements = useRef<HTMLElement[]>([])
-  const introProgress = useRef(0)
+  const introElapsed = useRef(0)
+  const motionElapsed = useRef(0)
   const worldPosition = useMemo(() => new Vector3(...position), [position])
   const compact = useThree((state) => state.size.width <= 760)
   const journeyProgress = useContext(JourneyProgressContext)
@@ -153,28 +170,42 @@ function WorldSection({ children, className, frameColor, position, rotation = [0
       motionElements.current = Array.from(panel.current.querySelectorAll<HTMLElement>('[data-motion]'))
     }
 
-    introProgress.current = MathUtils.damp(introProgress.current, 1, 3.2, delta)
+    introElapsed.current = Math.min(4.4, introElapsed.current + delta)
+    motionElapsed.current += delta
     const arrival = 1 - MathUtils.smoothstep(distance, 13.5, 28)
     let sectionReveal = arrival
     if (chapterIndex === 0) {
-      sectionReveal *= introProgress.current
+      sectionReveal *= MathUtils.smootherstep(introElapsed.current / 4.4, 0, 1)
     } else if (journeyProgress) {
       const previousStop = chapters[chapterIndex - 1].stop
       const stop = chapters[chapterIndex].stop
       const localProgress = MathUtils.clamp((journeyProgress.current - previousStop) / (stop - previousStop), 0, 1)
-      sectionReveal = MathUtils.smootherstep(localProgress, 0.26, 0.98)
+      sectionReveal = localProgress
     }
 
     motionElements.current.forEach((element, index) => {
-      const delay = Number(element.dataset.motionDelay ?? Math.min(0.68, index * 0.055))
-      const duration = Number(element.dataset.motionDuration ?? 0.3)
-      const reveal = MathUtils.smootherstep(sectionReveal, delay, Math.min(1, delay + duration))
-      const exitStart = 8 + delay
-      const exit = 1 - MathUtils.smoothstep(depthGap, exitStart, exitStart + 2.8)
-      element.style.setProperty('--motion', reveal.toFixed(4))
-      element.style.setProperty('--motion-inverse', (1 - reveal).toFixed(4))
+      const motion = element.dataset.motion ?? ''
+      const delay = Number(element.dataset.motionDelay ?? Math.min(0.66, index * 0.048))
+      const duration = Number(element.dataset.motionDuration ?? 0.32)
+      const phase = MathUtils.clamp((sectionReveal - delay) / duration, 0, 1)
+      const reveal = MathUtils.smootherstep(phase, 0, 1)
+      const spring = Number(element.dataset.motionSpring ?? motionSpring[motion] ?? 0)
+      const movement = spring > 0 ? easeOutBack(phase, spring) : reveal
+      const exitOffset = Number(element.dataset.motionExit ?? delay * 0.7)
+      const exitStart = 7.45 + exitOffset
+      const exit = 1 - MathUtils.smoothstep(depthGap, exitStart, exitStart + 3.1)
+      const idle = Number(element.dataset.motionIdle ?? 0)
+      const hold = MathUtils.smootherstep(reveal, 0.82, 1) * (1 - exit)
+      const driftX = Math.sin(motionElapsed.current * 0.46 + index * 1.37) * idle * hold
+      const driftY = Math.cos(motionElapsed.current * 0.39 + index * 0.91) * idle * 0.55 * hold
+      const driftRotate = Math.sin(motionElapsed.current * 0.31 + index * 0.74) * idle * 0.045 * hold
+      element.style.setProperty('--motion', movement.toFixed(4))
+      element.style.setProperty('--motion-inverse', (1 - movement).toFixed(4))
       element.style.setProperty('--motion-exit', exit.toFixed(4))
       element.style.setProperty('--motion-opacity', (reveal * (1 - exit)).toFixed(4))
+      element.style.setProperty('--motion-drift-x', `${driftX.toFixed(3)}px`)
+      element.style.setProperty('--motion-drift-y', `${driftY.toFixed(3)}px`)
+      element.style.setProperty('--motion-drift-r', `${driftRotate.toFixed(4)}deg`)
     })
   })
 
@@ -194,8 +225,11 @@ function EntryWorld() {
   useFrame(({ camera }, delta) => {
     if (!ring.current) return
     const presence = 1 - MathUtils.smoothstep(camera.position.distanceTo(stage), 14, 30)
-    ring.current.rotation.z += delta * (0.012 + presence * 0.012)
-    ring.current.scale.setScalar(0.72 + presence * 0.28)
+    ring.current.rotation.z += delta * (0.004 + presence * 0.006)
+    ring.current.children.forEach((child, index) => {
+      child.rotation.z += delta * (0.006 + index * 0.003 + presence * 0.004)
+      child.scale.setScalar(0.78 + presence * 0.22)
+    })
   })
 
   return (
@@ -209,16 +243,16 @@ function EntryWorld() {
         ))}
       </group>
       <WorldSection className="entry-world" position={panelPositions.entry}>
-        <p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.02"><span>FANISL</span> · PERSONAL INVESTMENT KNOWLEDGE ENGINE</p>
+        <p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.03" data-motion-duration="0.24"><span>FANISL</span> · PERSONAL INVESTMENT KNOWLEDGE ENGINE</p>
         <h1>
-          <span data-motion="line" data-motion-delay="0.12">把分散的投资内容，</span>
-          <span data-motion="line" data-motion-delay="0.23"><em>沉淀成自己的知识。</em></span>
+          <span data-motion="line" data-motion-delay="0.11" data-motion-duration="0.34">把分散的投资内容，</span>
+          <span data-motion="line" data-motion-delay="0.22" data-motion-duration="0.38"><em>沉淀成自己的知识。</em></span>
         </h1>
-        <p className="world-summary" data-motion="rise" data-motion-delay="0.36">保存原文，拆出判断、方法与认知，再让它们归并、演进并彼此连接。滚动不是把页面向上推，而是沿着一条知识形成的路径继续向里。</p>
-        <div className="entry-stats" data-motion="depth" data-motion-delay="0.47">
-          <span data-motion="cell" data-motion-delay="0.54"><b>18</b>篇内容</span><i data-motion="rule-y" data-motion-delay="0.6" />
-          <span data-motion="cell" data-motion-delay="0.62"><b>247</b>个知识单元</span><i data-motion="rule-y" data-motion-delay="0.68" />
-          <span data-motion="cell" data-motion-delay="0.7"><b>105</b>个知识节点</span>
+        <p className="world-summary" data-motion="paragraph" data-motion-delay="0.34" data-motion-duration="0.34">保存原文，拆出判断、方法与认知，再让它们归并、演进并彼此连接。滚动不是把页面向上推，而是沿着一条知识形成的路径继续向里。</p>
+        <div className="entry-stats" data-motion="panel-rise" data-motion-delay="0.47" data-motion-duration="0.38" data-motion-idle="0.45">
+          <span data-motion="cell" data-motion-delay="0.55" data-motion-duration="0.26"><b>18</b>篇内容</span><i data-motion="rule-y" data-motion-delay="0.59" data-motion-duration="0.3" />
+          <span data-motion="cell" data-motion-delay="0.63" data-motion-duration="0.26"><b>247</b>个知识单元</span><i data-motion="rule-y" data-motion-delay="0.67" data-motion-duration="0.3" />
+          <span data-motion="cell" data-motion-delay="0.71" data-motion-duration="0.26"><b>105</b>个知识节点</span>
         </div>
       </WorldSection>
     </>
@@ -227,31 +261,41 @@ function EntryWorld() {
 
 function SourceWorld() {
   const fragments = useRef<Group>(null)
+  const fragmentElapsed = useRef(0)
   const stage = useMemo(() => new Vector3(...panelPositions.source), [])
   useFrame(({ camera }, delta) => {
     if (!fragments.current) return
     const presence = 1 - MathUtils.smoothstep(camera.position.distanceTo(stage), 15, 34)
-    fragments.current.scale.setScalar(0.5 + presence * 0.5)
-    fragments.current.rotation.z += delta * (0.006 + presence * 0.012)
+    fragmentElapsed.current += delta
+    fragments.current.rotation.z += delta * (0.003 + presence * 0.006)
     fragments.current.rotation.y = (1 - presence) * -0.18
+    fragments.current.children.forEach((child, index) => {
+      const reveal = MathUtils.smootherstep(presence, index * 0.07, 0.58 + index * 0.06)
+      const targetX = index % 2 ? 4.9 : -5.3
+      const targetY = index % 2 ? -2.8 : 2.5
+      child.position.x = targetX * (0.42 + reveal * 0.58)
+      child.position.y = targetY * (0.5 + reveal * 0.5) + Math.sin(fragmentElapsed.current * 0.32 + index) * 0.025 * reveal
+      child.scale.setScalar(0.28 + reveal * 0.72)
+      child.rotation.z += delta * (index % 2 ? -0.012 : 0.01) * reveal
+    })
   })
 
   return (
     <>
       <WorldSection className="source-world" frameColor={palette.lavender} position={panelPositions.source} rotation={[0, 0.12, -0.015]}>
         <div className="world-copy">
-          <p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.04">01 · CONTENT / L0</p>
+          <p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.1" data-motion-duration="0.24">01 · CONTENT / L0</p>
           <h2>
-            <span data-motion="line" data-motion-delay="0.12">所有知识，先有一段</span>
-            <span data-motion="line" data-motion-delay="0.22">可以返回的原文。</span>
+            <span data-motion="line" data-motion-delay="0.18" data-motion-duration="0.34">所有知识，先有一段</span>
+            <span data-motion="line" data-motion-delay="0.28" data-motion-duration="0.36">可以返回的原文。</span>
           </h2>
-          <p className="world-summary" data-motion="rise" data-motion-delay="0.34">转录、画面信息、发布时间与信源完整留存。后面的任何提取和归并，都能沿路径退回证据。</p>
+          <p className="world-summary" data-motion="paragraph" data-motion-delay="0.39" data-motion-duration="0.34">转录、画面信息、发布时间与信源完整留存。后面的任何提取和归并，都能沿路径退回证据。</p>
         </div>
-        <article className="source-document" data-motion="card-right" data-motion-delay="0.2" data-motion-duration="0.38">
-          <header data-motion="rise" data-motion-delay="0.34"><span>CONTENT 018</span><small>16:42 · 原始内容</small></header>
-          <div className="source-title"><span data-motion="line" data-motion-delay="0.42">AI 与百年前的</span><strong data-motion="line" data-motion-delay="0.49">电力革命</strong></div>
-          <blockquote data-motion="wipe" data-motion-delay="0.58">“真正改变生产率的，不是基础设施建成的那一天，而是组织方式开始随之变化。”</blockquote>
-          <footer data-motion="rule" data-motion-delay="0.7"><span>逐字转录 13,657</span><span>画面笔记 12</span></footer>
+        <article className="source-document" data-motion="paper" data-motion-delay="0.25" data-motion-duration="0.46" data-motion-idle="0.7">
+          <header data-motion="rise" data-motion-delay="0.43" data-motion-duration="0.27"><span>CONTENT 018</span><small>16:42 · 原始内容</small></header>
+          <div className="source-title"><span data-motion="line" data-motion-delay="0.5" data-motion-duration="0.29">AI 与百年前的</span><strong data-motion="line" data-motion-delay="0.57" data-motion-duration="0.3">电力革命</strong></div>
+          <blockquote data-motion="highlight" data-motion-delay="0.65" data-motion-duration="0.29">“真正改变生产率的，不是基础设施建成的那一天，而是组织方式开始随之变化。”</blockquote>
+          <footer data-motion="rule" data-motion-delay="0.73" data-motion-duration="0.25"><span>逐字转录 13,657</span><span>画面笔记 12</span></footer>
         </article>
       </WorldSection>
       <group position={panelPositions.source} ref={fragments}>
@@ -268,26 +312,40 @@ function SourceWorld() {
 
 function UnitsWorld() {
   const shards = useRef<Group>(null)
+  const shardElapsed = useRef(0)
   const stage = useMemo(() => new Vector3(...panelPositions.units), [])
   useFrame(({ camera }, delta) => {
     if (!shards.current) return
     const presence = 1 - MathUtils.smoothstep(camera.position.distanceTo(stage), 14, 34)
-    shards.current.scale.setScalar(0.18 + presence * 0.82)
-    shards.current.rotation.z += delta * (0.01 + presence * 0.025)
+    shardElapsed.current += delta
+    shards.current.rotation.z += delta * (0.004 + presence * 0.01)
     shards.current.rotation.y = (1 - presence) * 0.28
+    shards.current.children.forEach((child, index) => {
+      const delay = (index % 7) * 0.045
+      const reveal = MathUtils.smootherstep(presence, delay, Math.min(1, 0.55 + delay))
+      const targetX = (random(index, 4) - 0.5) * 15
+      const targetY = (random(index, 5) - 0.5) * 9
+      const targetZ = (random(index, 6) - 0.5) * 8
+      child.position.x = targetX * (0.12 + reveal * 0.88)
+      child.position.y = targetY * (0.12 + reveal * 0.88) + Math.sin(shardElapsed.current * 0.38 + index) * 0.035 * reveal
+      child.position.z = targetZ * (0.12 + reveal * 0.88)
+      child.scale.setScalar(0.12 + reveal * 0.88)
+      child.rotation.x += delta * (0.025 + (index % 4) * 0.007) * reveal
+      child.rotation.y += delta * (0.018 + (index % 5) * 0.006) * reveal
+    })
   })
 
   return (
     <>
       <WorldSection className="units-world" frameColor={palette.peach} position={panelPositions.units} rotation={[0, -0.12, 0.012]}>
         <header className="world-heading">
-          <div><p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.03">02 · EXTRACT / L1</p><h2><span data-motion="line" data-motion-delay="0.11">一篇内容被拆开，</span><span data-motion="line" data-motion-delay="0.2">三种知识各自留下。</span></h2></div>
-          <p className="world-summary" data-motion="rise" data-motion-delay="0.3">它们不是同一种对象，也没有主次之分。每一条都带着逐字引文与出处。</p>
+          <div><p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.08" data-motion-duration="0.24">02 · EXTRACT / L1</p><h2><span data-motion="line" data-motion-delay="0.15" data-motion-duration="0.34">一篇内容被拆开，</span><span data-motion="line" data-motion-delay="0.24" data-motion-duration="0.36">三种知识各自留下。</span></h2></div>
+          <p className="world-summary" data-motion="paragraph" data-motion-delay="0.31" data-motion-duration="0.35">它们不是同一种对象，也没有主次之分。每一条都带着逐字引文与出处。</p>
         </header>
-        <div className="unit-grid" data-motion="depth" data-motion-delay="0.27">
-          <article className="claim" data-motion="card-up" data-motion-delay="0.36"><span data-motion="eyebrow" data-motion-delay="0.44">01 · CLAIM</span><b data-motion="rise" data-motion-delay="0.5">判断</b><strong data-motion="number" data-motion-delay="0.46">135</strong><p data-motion="rise" data-motion-delay="0.58">带时点、方向、条件和承诺度的市场主张。</p></article>
-          <article className="method" data-motion="card-up" data-motion-delay="0.56"><span data-motion="eyebrow" data-motion-delay="0.61">02 · METHOD</span><b data-motion="rise" data-motion-delay="0.67">方法</b><strong data-motion="number" data-motion-delay="0.63">23</strong><p data-motion="rise" data-motion-delay="0.74">可以复述、执行与测试的研究规则。</p></article>
-          <article className="concept" data-motion="card-up" data-motion-delay="0.72"><span data-motion="eyebrow" data-motion-delay="0.76">03 · CONCEPT</span><b data-motion="rise" data-motion-delay="0.82">认知</b><strong data-motion="number" data-motion-delay="0.78">89</strong><p data-motion="rise" data-motion-delay="0.88">可以跨越一次行情反复调用的理解。</p></article>
+        <div className="unit-grid" data-motion="panel-rise" data-motion-delay="0.28" data-motion-duration="0.5">
+          <article className="claim" data-motion="card-left" data-motion-delay="0.34" data-motion-duration="0.42" data-motion-idle="0.65"><span data-motion="eyebrow" data-motion-delay="0.44" data-motion-duration="0.24">01 · CLAIM</span><b data-motion="rise" data-motion-delay="0.5" data-motion-duration="0.28">判断</b><strong data-motion="number" data-motion-delay="0.47" data-motion-duration="0.31">135</strong><p data-motion="paragraph" data-motion-delay="0.6" data-motion-duration="0.3">带时点、方向、条件和承诺度的市场主张。</p></article>
+          <article className="method" data-motion="card-center" data-motion-delay="0.43" data-motion-duration="0.44" data-motion-idle="0.8"><span data-motion="eyebrow" data-motion-delay="0.53" data-motion-duration="0.24">02 · METHOD</span><b data-motion="rise" data-motion-delay="0.59" data-motion-duration="0.28">方法</b><strong data-motion="number" data-motion-delay="0.56" data-motion-duration="0.31">23</strong><p data-motion="paragraph" data-motion-delay="0.69" data-motion-duration="0.28">可以复述、执行与测试的研究规则。</p></article>
+          <article className="concept" data-motion="card-right" data-motion-delay="0.52" data-motion-duration="0.44" data-motion-idle="0.7"><span data-motion="eyebrow" data-motion-delay="0.62" data-motion-duration="0.23">03 · CONCEPT</span><b data-motion="rise" data-motion-delay="0.68" data-motion-duration="0.27">认知</b><strong data-motion="number" data-motion-delay="0.65" data-motion-duration="0.3">89</strong><p data-motion="paragraph" data-motion-delay="0.77" data-motion-duration="0.22">可以跨越一次行情反复调用的理解。</p></article>
         </div>
       </WorldSection>
       <group position={panelPositions.units} ref={shards}>
@@ -316,24 +374,28 @@ function NodeWorld() {
   useFrame(({ camera }, delta) => {
     if (!core.current) return
     const presence = 1 - MathUtils.smoothstep(camera.position.distanceTo(stage), 13, 32)
-    core.current.rotation.y += delta * (0.025 + presence * 0.075)
+    core.current.rotation.y += delta * (0.012 + presence * 0.028)
     core.current.rotation.x = (1 - presence) * -0.32
-    core.current.scale.setScalar(0.24 + presence * 0.76)
+    core.current.children.forEach((child, index) => {
+      const reveal = MathUtils.smootherstep(presence, index * 0.09, 0.62 + index * 0.06)
+      child.scale.setScalar(0.18 + reveal * 0.82)
+      child.rotation.z += delta * (0.01 + index * 0.006) * reveal
+    })
   })
 
   return (
     <>
       <WorldSection className="node-world" frameColor={palette.lime} position={panelPositions.node} rotation={[0, 0.1, -0.01]}>
         <div className="world-copy">
-          <p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.03">03 · MERGE / MEMORY</p>
-          <h2><span data-motion="line" data-motion-delay="0.12">重复不再堆积，</span><span data-motion="line" data-motion-delay="0.22">新的表达回到同一节点。</span></h2>
-          <p className="world-summary" data-motion="rise" data-motion-delay="0.34">相同命题进入规范节点；重申、细化、修正和反驳成为它的时间演进。</p>
+          <p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.09" data-motion-duration="0.24">03 · MERGE / MEMORY</p>
+          <h2><span data-motion="line" data-motion-delay="0.17" data-motion-duration="0.34">重复不再堆积，</span><span data-motion="line" data-motion-delay="0.27" data-motion-duration="0.36">新的表达回到同一节点。</span></h2>
+          <p className="world-summary" data-motion="paragraph" data-motion-delay="0.39" data-motion-duration="0.34">相同命题进入规范节点；重申、细化、修正和反驳成为它的时间演进。</p>
         </div>
-        <article className="canonical-document" data-motion="card-right" data-motion-delay="0.2" data-motion-duration="0.4">
-          <header data-motion="rise" data-motion-delay="0.34"><span>NODE 005 · 认知</span><small>CURRENT CANONICAL</small></header>
-          <p><span data-motion="line" data-motion-delay="0.43">软件定价从席位制，经过按量收费，</span><strong data-motion="wipe" data-motion-delay="0.55">最终转向按结果收费。</strong></p>
-          <div className="node-timeline" data-motion="rule" data-motion-delay="0.65">
-            <span data-motion="cell" data-motion-delay="0.7"><i />05.31 首次提及</span><b data-motion="cell" data-motion-delay="0.75">supersedes</b><span data-motion="cell" data-motion-delay="0.8"><i />06.21 修正取代</span>
+        <article className="canonical-document" data-motion="card-turn" data-motion-delay="0.26" data-motion-duration="0.47" data-motion-idle="0.6">
+          <header data-motion="rise" data-motion-delay="0.43" data-motion-duration="0.27"><span>NODE 005 · 认知</span><small>CURRENT CANONICAL</small></header>
+          <p><span data-motion="line" data-motion-delay="0.5" data-motion-duration="0.31">软件定价从席位制，经过按量收费，</span><strong data-motion="highlight" data-motion-delay="0.61" data-motion-duration="0.29">最终转向按结果收费。</strong></p>
+          <div className="node-timeline" data-motion="rule" data-motion-delay="0.69" data-motion-duration="0.28">
+            <span data-motion="cell" data-motion-delay="0.72" data-motion-duration="0.25"><i />05.31 首次提及</span><b data-motion="cell" data-motion-delay="0.77" data-motion-duration="0.22">supersedes</b><span data-motion="cell" data-motion-delay="0.81" data-motion-duration="0.18"><i />06.21 修正取代</span>
           </div>
         </article>
       </WorldSection>
@@ -370,22 +432,37 @@ function RelationsWorld() {
   useFrame(({ camera }, delta) => {
     if (!network.current) return
     const presence = 1 - MathUtils.smoothstep(camera.position.distanceTo(stage), 14, 35)
-    network.current.scale.setScalar(0.12 + presence * 0.88)
-    network.current.rotation.z += delta * (0.004 + presence * 0.012)
+    network.current.rotation.z += delta * (0.002 + presence * 0.005)
     network.current.rotation.y = (1 - presence) * -0.42
+    network.current.children.forEach((child, index) => {
+      if (index < relationNodes.length) {
+        const reveal = MathUtils.smootherstep(presence, index * 0.045, 0.5 + index * 0.035)
+        const target = relationNodes[index]
+        child.position.set(target[0] * (0.2 + reveal * 0.8), target[1] * (0.2 + reveal * 0.8), target[2] * (0.2 + reveal * 0.8))
+        child.scale.setScalar(0.16 + reveal * 0.84)
+        return
+      }
+      const lineIndex = index - relationNodes.length
+      const reveal = MathUtils.smootherstep(presence, 0.2 + lineIndex * 0.055, 0.64 + lineIndex * 0.045)
+      child.scale.setScalar(reveal)
+      if (child instanceof ThreeLine) {
+        const material = child.material as LineBasicMaterial
+        material.opacity = 0.06 + reveal * 0.16
+      }
+    })
   })
 
   return (
     <>
       <WorldSection className="relations-world" frameColor={palette.lavender} position={panelPositions.relations} rotation={[0, -0.1, 0.01]}>
         <header className="world-heading">
-          <div><p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.03">04 · DISCOVER / RELATIONS</p><h2><span data-motion="line" data-motion-delay="0.12">当知识彼此连接，</span><span data-motion="line" data-motion-delay="0.22">研究才真正开始。</span></h2></div>
-          <p className="world-summary" data-motion="rise" data-motion-delay="0.32">节点不再只是摘要。关系让分歧、补充和正在形成的跨源共识变得可见。</p>
+          <div><p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.08" data-motion-duration="0.24">04 · DISCOVER / RELATIONS</p><h2><span data-motion="line" data-motion-delay="0.16" data-motion-duration="0.34">当知识彼此连接，</span><span data-motion="line" data-motion-delay="0.25" data-motion-duration="0.37">研究才真正开始。</span></h2></div>
+          <p className="world-summary" data-motion="paragraph" data-motion-delay="0.33" data-motion-duration="0.36">节点不再只是摘要。关系让分歧、补充和正在形成的跨源共识变得可见。</p>
         </header>
-        <div className="relation-grid" data-motion="depth" data-motion-delay="0.3">
-          <article data-motion="row" data-motion-delay="0.4"><i className="opposition" data-motion="pop" data-motion-delay="0.46" /><strong data-motion="cell" data-motion-delay="0.5">对立</strong><span data-motion="cell" data-motion-delay="0.55">不能同时成立的解释</span><b data-motion="number" data-motion-delay="0.59">1</b></article>
-          <article data-motion="row" data-motion-delay="0.58"><i className="complement" data-motion="pop" data-motion-delay="0.63" /><strong data-motion="cell" data-motion-delay="0.67">互补</strong><span data-motion="cell" data-motion-delay="0.72">不同尺度的知识拼合</span><b data-motion="number" data-motion-delay="0.76">5</b></article>
-          <article data-motion="row" data-motion-delay="0.74"><i className="consensus" data-motion="pop" data-motion-delay="0.79" /><strong data-motion="cell" data-motion-delay="0.82">共识</strong><span data-motion="cell" data-motion-delay="0.87">跨信源的共同结构</span><b data-motion="number" data-motion-delay="0.9">持续发现</b></article>
+        <div className="relation-grid" data-motion="panel-rise" data-motion-delay="0.3" data-motion-duration="0.48" data-motion-idle="0.35">
+          <article data-motion="row-left" data-motion-delay="0.39" data-motion-duration="0.39"><i className="opposition" data-motion="pop" data-motion-delay="0.48" data-motion-duration="0.28" /><strong data-motion="cell" data-motion-delay="0.52" data-motion-duration="0.28">对立</strong><span data-motion="cell" data-motion-delay="0.56" data-motion-duration="0.28">不能同时成立的解释</span><b data-motion="number" data-motion-delay="0.6" data-motion-duration="0.28">1</b></article>
+          <article data-motion="row-right" data-motion-delay="0.53" data-motion-duration="0.4"><i className="complement" data-motion="pop" data-motion-delay="0.62" data-motion-duration="0.27" /><strong data-motion="cell" data-motion-delay="0.66" data-motion-duration="0.27">互补</strong><span data-motion="cell" data-motion-delay="0.7" data-motion-duration="0.27">不同尺度的知识拼合</span><b data-motion="number" data-motion-delay="0.74" data-motion-duration="0.25">5</b></article>
+          <article data-motion="row-left" data-motion-delay="0.66" data-motion-duration="0.33"><i className="consensus" data-motion="pop" data-motion-delay="0.75" data-motion-duration="0.23" /><strong data-motion="cell" data-motion-delay="0.78" data-motion-duration="0.21">共识</strong><span data-motion="cell" data-motion-delay="0.81" data-motion-duration="0.18">跨信源的共同结构</span><b data-motion="number" data-motion-delay="0.84" data-motion-duration="0.15">持续发现</b></article>
         </div>
       </WorldSection>
       <group position={panelPositions.relations} ref={network}>
@@ -409,9 +486,13 @@ function LibraryWorld() {
   useFrame(({ camera }, delta) => {
     if (!ring.current) return
     const presence = 1 - MathUtils.smoothstep(camera.position.distanceTo(stage), 14, 36)
-    ring.current.rotation.z -= delta * (0.008 + presence * 0.014)
+    ring.current.rotation.z -= delta * (0.003 + presence * 0.006)
     ring.current.rotation.x = (1 - presence) * 0.22
-    ring.current.scale.setScalar(0.66 + presence * 0.34)
+    ring.current.children.forEach((child, index) => {
+      const reveal = MathUtils.smootherstep(presence, index * 0.14, 0.72 + index * 0.08)
+      child.scale.setScalar(0.58 + reveal * 0.42)
+      child.rotation.z += delta * (index ? 0.008 : -0.006) * reveal
+    })
   })
 
   return (
@@ -425,13 +506,13 @@ function LibraryWorld() {
         ))}
       </group>
       <WorldSection className="library-world" frameColor={palette.sage} position={panelPositions.library}>
-        <p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.03">05 · REMEMBER / THE LIBRARY</p>
-        <h2><span data-motion="line" data-motion-delay="0.12">抵达的不是终点，</span><span data-motion="line" data-motion-delay="0.22"><em>而是一座会继续生长的知识库。</em></span></h2>
-        <p className="world-summary" data-motion="rise" data-motion-delay="0.34">它从 2 位信源和 18 篇内容开始。规模仍小，但每次新增都进入同一套证据、归并、演进与发现结构。</p>
-        <div className="library-grid" data-motion="depth" data-motion-delay="0.4">
-          <span data-motion="cell" data-motion-delay="0.48"><b data-motion="number" data-motion-delay="0.52">2</b>信源</span><span data-motion="cell" data-motion-delay="0.56"><b data-motion="number" data-motion-delay="0.6">18</b>内容</span><span data-motion="cell" data-motion-delay="0.64"><b data-motion="number" data-motion-delay="0.68">247</b>单元</span><span data-motion="cell" data-motion-delay="0.72"><b data-motion="number" data-motion-delay="0.76">105</b>节点</span>
+        <p className="world-eyebrow" data-motion="eyebrow" data-motion-delay="0.08" data-motion-duration="0.25">05 · REMEMBER / THE LIBRARY</p>
+        <h2><span data-motion="line" data-motion-delay="0.16" data-motion-duration="0.36">抵达的不是终点，</span><span data-motion="line" data-motion-delay="0.27" data-motion-duration="0.4"><em>而是一座会继续生长的知识库。</em></span></h2>
+        <p className="world-summary" data-motion="paragraph" data-motion-delay="0.39" data-motion-duration="0.36">它从 2 位信源和 18 篇内容开始。规模仍小，但每次新增都进入同一套证据、归并、演进与发现结构。</p>
+        <div className="library-grid" data-motion="panel-rise" data-motion-delay="0.45" data-motion-duration="0.43" data-motion-idle="0.4">
+          <span data-motion="cell" data-motion-delay="0.53" data-motion-duration="0.3"><b data-motion="number" data-motion-delay="0.57" data-motion-duration="0.3">2</b>信源</span><span data-motion="cell" data-motion-delay="0.61" data-motion-duration="0.3"><b data-motion="number" data-motion-delay="0.65" data-motion-duration="0.3">18</b>内容</span><span data-motion="cell" data-motion-delay="0.69" data-motion-duration="0.28"><b data-motion="number" data-motion-delay="0.73" data-motion-duration="0.26">247</b>单元</span><span data-motion="cell" data-motion-delay="0.77" data-motion-duration="0.22"><b data-motion="number" data-motion-delay="0.81" data-motion-duration="0.18">105</b>节点</span>
         </div>
-        <footer data-motion="rise" data-motion-delay="0.82">原文证据 · 时点版本 · 演进关系 · 选择性验证</footer>
+        <footer data-motion="rise" data-motion-delay="0.84" data-motion-duration="0.15">原文证据 · 时点版本 · 演进关系 · 选择性验证</footer>
       </WorldSection>
     </>
   )
@@ -484,13 +565,13 @@ function World({ compact, progress }: SpatialSceneProps) {
   const mixed = useRef(new Color())
 
   useFrame(({ camera, pointer, scene }, delta) => {
-    smoothProgress.current = MathUtils.damp(smoothProgress.current, progress.current, 6.5, delta)
+    smoothProgress.current = MathUtils.damp(smoothProgress.current, progress.current, 5.2, delta)
     const value = MathUtils.clamp(smoothProgress.current, 0, 1)
     sampleJourney(cameraPoints, value, desiredPosition.current, compact ? 0.12 : 0.26)
     sampleJourney(targetPoints, value, desiredTarget.current)
     desiredPosition.current.x += pointer.x * (compact ? 0.08 : 0.2)
     desiredPosition.current.y += pointer.y * (compact ? 0.05 : 0.12)
-    camera.position.lerp(desiredPosition.current, 1 - Math.exp(-delta * 7))
+    camera.position.lerp(desiredPosition.current, 1 - Math.exp(-delta * 6.2))
     camera.lookAt(desiredTarget.current)
 
     mixed.current.lerpColors(paper, finalSage, MathUtils.smoothstep(value, 0.72, 1))
