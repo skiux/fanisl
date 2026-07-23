@@ -1,14 +1,11 @@
 # Frontend asset sources
 
-## Knowledge aisle
+## Knowledge archive
 
-- Source: [Video Inside A Library](https://www.pexels.com/video/video-inside-a-library-854533/)
-- Creator: Pixabay
-- License: [Pexels License](https://www.pexels.com/license/)
+- Source: generated for this project with OpenAI's built-in image generation tool on 2026-07-23
 - Local derivatives:
-  - `knowledge-aisle.mp4` — 1600 × 900, H.264, short keyframe interval for scroll seeking
-  - `knowledge-aisle-mobile.mp4` — 960 × 540 mobile derivative
-  - `knowledge-aisle-poster.jpg` — loading and video fallback poster
-- Changes: resized, recompressed, stripped of audio, and prepared for scroll-controlled playback.
-
-The source is stored locally rather than hotlinked.
+  - `knowledge-archive.jpg` — 1672 × 941 desktop background plate
+  - `knowledge-archive-mobile.jpg` — centered 3:4 mobile crop
+- Direction: a warm architectural archive made from limestone, oak, paper, ribbed glass, sage fabric, and restrained brass details.
+- Constraints: no people, logos, readable text, screens, portals, rings, or science-fiction tunnel motifs.
+- Changes: JPEG compression and a dedicated mobile crop. The page adds separate depth planes and archive-bay motion in code; it does not animate the plate as one flat image.

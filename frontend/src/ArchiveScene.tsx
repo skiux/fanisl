@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { CSSProperties, RefObject } from 'react'
+import KnowledgeBackdrop from './KnowledgeBackdrop'
 
 type ArchiveSceneProps = {
   active: number
@@ -44,28 +45,15 @@ function StageLabel({ index, label }: { index: string; label: string }) {
 }
 
 function ArchiveScene({ active, openSearch, progress }: ArchiveSceneProps) {
-  const video = useRef<HTMLVideoElement>(null)
   const stageRefs = useRef<Array<HTMLElement | null>>([])
 
   useEffect(() => {
     const stages = stageRefs.current.filter((stage): stage is HTMLElement => Boolean(stage))
     const animatedChildren = stages.map((stage) => Array.from(stage.querySelectorAll<HTMLElement>('[data-animate]')))
     let frame = 0
-    let lastVideoTime = -1
 
     const update = () => {
       const value = clamp(progress.current)
-      const background = video.current
-
-      if (background && background.readyState >= HTMLMediaElement.HAVE_METADATA) {
-        const usableDuration = Math.max(1, background.duration - 0.45)
-        const nextTime = 0.22 + value * Math.max(0, usableDuration - 0.22)
-        if (Math.abs(nextTime - lastVideoTime) > 0.028) {
-          background.currentTime = nextTime
-          lastVideoTime = nextTime
-        }
-        background.classList.add('is-ready')
-      }
 
       stages.forEach((stage, index) => {
         const [start, end] = stageRanges[index]
@@ -95,23 +83,7 @@ function ArchiveScene({ active, openSearch, progress }: ArchiveSceneProps) {
 
   return (
     <div className="archive-scene">
-      <video
-        aria-hidden="true"
-        className="archive-video"
-        muted
-        playsInline
-        poster="/assets/knowledge-aisle-poster.jpg"
-        preload="auto"
-        ref={video}
-      >
-        <source media="(max-width: 760px)" src="/assets/knowledge-aisle-mobile.mp4" type="video/mp4" />
-        <source src="/assets/knowledge-aisle.mp4" type="video/mp4" />
-      </video>
-      <div className="archive-grade" aria-hidden="true" />
-      <div className="shelf-locator" aria-hidden="true">
-        <span />
-        <i />
-      </div>
+      <KnowledgeBackdrop progress={progress} />
 
       <section
         aria-hidden={active !== 0}
