@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { chapters, getActiveChapter } from './journey'
 
-const SpatialScene = lazy(() => import('./SpatialScene'))
+const ArchiveScene = lazy(() => import('./ArchiveScene'))
 
 const searchItems = [
   { kind: '认知', title: 'AI 时代的软件收费：席位 → 按量 → 按结果', chapter: 3 },
@@ -9,15 +9,6 @@ const searchItems = [
   { kind: '判断', title: '标普 500 2026 年底 8200 点', chapter: 2 },
   { kind: '发现', title: '半导体“数字地租”与传统周期解释的分歧', chapter: 4 },
 ] as const
-
-function supportsWebGL() {
-  try {
-    const canvas = document.createElement('canvas')
-    return Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl'))
-  } catch {
-    return false
-  }
-}
 
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
@@ -28,23 +19,6 @@ function useMediaQuery(query: string) {
     return () => media.removeEventListener('change', update)
   }, [query])
   return matches
-}
-
-function FlowBackdrop() {
-  return (
-    <div className="flow-backdrop" aria-hidden="true">
-      <video
-        autoPlay
-        disablePictureInPicture
-        loop
-        muted
-        playsInline
-        poster="/assets/knowledge-flow-poster.jpg"
-        preload="auto"
-        src="/assets/knowledge-flow.mp4"
-      />
-    </div>
-  )
 }
 
 type HeaderProps = {
@@ -126,9 +100,7 @@ function App() {
   const progressNumber = useRef<HTMLSpanElement>(null)
   const progressBar = useRef<HTMLSpanElement>(null)
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
-  const compact = useMediaQuery('(max-width: 760px)')
-  const [webGLAvailable] = useState(supportsWebGL)
-  const staticExperience = reducedMotion || !webGLAvailable
+  const staticExperience = reducedMotion
 
   const jumpTo = useCallback((index: number) => {
     if (staticExperience) {
@@ -153,7 +125,7 @@ function App() {
       const delta = Math.min(0.05, Math.max(0, (time - previousTime) / 1000))
       previousTime = time
       const difference = targetProgress.current - progress.current
-      progress.current += difference * (1 - Math.exp(-delta * 5))
+      progress.current += difference * (1 - Math.exp(-delta * 7.4))
       if (Math.abs(difference) < 0.0001) progress.current = targetProgress.current
       if (progressNumber.current) progressNumber.current.textContent = `${Math.round(progress.current * 100).toString().padStart(2, '0')}%`
       if (progressBar.current) progressBar.current.style.transform = `scaleX(${progress.current})`
@@ -215,11 +187,11 @@ function App() {
         {chapters.map((chapter) => <span className="scroll-marker" id={chapter.id} key={chapter.id} style={{ top: `${chapter.stop * 100}%` }} />)}
       </div>
       <div className="fixed-stage">
-        <FlowBackdrop />
         <div className="scene-canvas">
-          <Suspense fallback={<div className="scene-loading"><span /></div>}><SpatialScene compact={compact} progress={progress} /></Suspense>
+          <Suspense fallback={<div className="scene-loading"><span /></div>}>
+            <ArchiveScene active={active} openSearch={openSearch} progress={progress} />
+          </Suspense>
         </div>
-        <div className="atmosphere" aria-hidden="true" />
         <Header active={active} jumpTo={jumpTo} menuOpen={menuOpen} openSearch={openSearch} setMenuOpen={setMenuOpen} />
         <aside aria-label="空间章节" className="chapter-rail">
           {chapters.map((chapter, index) => (
@@ -229,7 +201,7 @@ function App() {
           ))}
         </aside>
         <div className="journey-hud" aria-hidden="true"><div><span>{chapters[active].index}</span><strong>{chapters[active].english}</strong></div><div className="progress-rule"><span ref={progressBar} /></div><span ref={progressNumber}>00%</span></div>
-        <div className="scroll-cue" aria-hidden="true"><span>{active === 0 ? 'SCROLL TO ENTER' : active === 5 ? 'THE LIBRARY, AS IT IS' : 'MOVE DEEPER'}</span><i /></div>
+        <div className="scroll-cue" aria-hidden="true"><span>{active === 0 ? 'SCROLL TO ENTER' : active === 5 ? 'KNOWLEDGE, WITH A MEMORY' : 'MOVE THROUGH THE ARCHIVE'}</span><i /></div>
       </div>
       {searchOpen && <SearchPanel close={() => setSearchOpen(false)} jumpTo={jumpTo} />}
     </div>

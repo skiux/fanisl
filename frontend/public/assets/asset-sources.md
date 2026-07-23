@@ -1,13 +1,14 @@
-# Visual asset sources
+# Frontend asset sources
 
-## `knowledge-flow.mp4`
+## Knowledge aisle
 
-- Source: [Abstract White Particle Waves in Digital Space](https://www.pexels.com/video/abstract-white-particle-waves-in-digital-space-29607597/)
-- Creator: Chandresh Uike
+- Source: [Video Inside A Library](https://www.pexels.com/video/video-inside-a-library-854533/)
+- Creator: Pixabay
 - License: [Pexels License](https://www.pexels.com/license/)
-- Downloaded: 2026-07-23
-- Local changes: resized to 1280 × 720, converted to H.264 at 24 fps, audio removed, and optimized for web playback.
+- Local derivatives:
+  - `knowledge-aisle.mp4` — 1600 × 900, H.264, short keyframe interval for scroll seeking
+  - `knowledge-aisle-mobile.mp4` — 960 × 540 mobile derivative
+  - `knowledge-aisle-poster.jpg` — loading and video fallback poster
+- Changes: resized, recompressed, stripped of audio, and prepared for scroll-controlled playback.
 
-## `knowledge-flow-poster.jpg`
-
-- Derived from the locally optimized `knowledge-flow.mp4`.
+The source is stored locally rather than hotlinked.
