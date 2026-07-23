@@ -30,6 +30,23 @@ function useMediaQuery(query: string) {
   return matches
 }
 
+function FlowBackdrop() {
+  return (
+    <div className="flow-backdrop" aria-hidden="true">
+      <video
+        autoPlay
+        disablePictureInPicture
+        loop
+        muted
+        playsInline
+        poster="/assets/knowledge-flow-poster.jpg"
+        preload="auto"
+        src="/assets/knowledge-flow.mp4"
+      />
+    </div>
+  )
+}
+
 type HeaderProps = {
   active: number
   jumpTo: (index: number) => void
@@ -136,7 +153,7 @@ function App() {
       const delta = Math.min(0.05, Math.max(0, (time - previousTime) / 1000))
       previousTime = time
       const difference = targetProgress.current - progress.current
-      progress.current += difference * (1 - Math.exp(-delta * 5.6))
+      progress.current += difference * (1 - Math.exp(-delta * 5))
       if (Math.abs(difference) < 0.0001) progress.current = targetProgress.current
       if (progressNumber.current) progressNumber.current.textContent = `${Math.round(progress.current * 100).toString().padStart(2, '0')}%`
       if (progressBar.current) progressBar.current.style.transform = `scaleX(${progress.current})`
@@ -198,6 +215,7 @@ function App() {
         {chapters.map((chapter) => <span className="scroll-marker" id={chapter.id} key={chapter.id} style={{ top: `${chapter.stop * 100}%` }} />)}
       </div>
       <div className="fixed-stage">
+        <FlowBackdrop />
         <div className="scene-canvas">
           <Suspense fallback={<div className="scene-loading"><span /></div>}><SpatialScene compact={compact} progress={progress} /></Suspense>
         </div>
