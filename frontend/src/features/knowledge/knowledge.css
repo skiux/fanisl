@@ -154,6 +154,7 @@
   display: grid;
   height: max(620px, calc(100vh - 236px));
   max-height: 820px;
+  scroll-margin-top: 90px;
   grid-template-columns: 214px minmax(390px, 430px) minmax(0, 1fr);
   overflow: hidden;
   border-top: 1px solid var(--library-line);
@@ -520,12 +521,12 @@
 }
 
 .node-list::-webkit-scrollbar,
-.node-reader::-webkit-scrollbar {
+.node-reader-sheet::-webkit-scrollbar {
   width: 6px;
 }
 
 .node-list::-webkit-scrollbar-thumb,
-.node-reader::-webkit-scrollbar-thumb {
+.node-reader-sheet::-webkit-scrollbar-thumb {
   background: rgba(72, 84, 70, .2);
 }
 
@@ -753,10 +754,9 @@
 }
 
 .node-reader {
+  position: relative;
   min-width: 0;
-  overflow-y: auto;
-  scrollbar-color: rgba(72, 84, 70, .22) transparent;
-  scrollbar-width: thin;
+  overflow: hidden;
 }
 
 .reader-close {
@@ -767,12 +767,16 @@
   --node-accent: #647657;
   --node-tint: rgba(220, 230, 198, .58);
   position: relative;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   padding: 26px clamp(30px, 4vw, 62px) 24px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background:
     radial-gradient(circle at 90% 5%, var(--node-tint), transparent 27%),
     linear-gradient(145deg, rgba(251, 249, 243, .6), rgba(235, 232, 221, .24));
+  scrollbar-color: rgba(72, 84, 70, .22) transparent;
+  scrollbar-width: thin;
 }
 
 .node-reader-sheet::before {
@@ -1269,6 +1273,39 @@
 
 .attestation-scores .outcome-miss em {
   color: #935949;
+}
+
+.attestation-open {
+  display: flex;
+  width: 100%;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 0 10px;
+  border: 1px solid var(--library-line-soft);
+  color: #596659;
+  background: rgba(249, 247, 240, .38);
+  cursor: pointer;
+  font-size: 10px;
+  text-align: left;
+  transition: border-color .2s ease, background .2s ease;
+}
+
+.attestation-open:hover {
+  border-color: color-mix(in srgb, var(--relation-accent) 35%, var(--library-line-soft));
+  background: rgba(250, 248, 241, .72);
+}
+
+.attestation-open:focus-visible {
+  outline: 2px solid var(--relation-accent);
+  outline-offset: -3px;
+}
+
+.attestation-open i {
+  color: var(--relation-accent);
+  font: 600 9px ui-monospace, monospace;
+  font-style: normal;
 }
 
 .timeline-empty,

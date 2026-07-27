@@ -70,3 +70,46 @@ export type KnowledgeNodeDetail = KnowledgeNode & {
   attestations: NodeAttestation[]
   relations: NodeRelation[]
 }
+
+export type UnitScore = {
+  horizon_label: string
+  outcome: string
+  realized: Record<string, unknown> | null
+}
+
+export type KnowledgeUnitDetail = {
+  id: number
+  run_id: number
+  content_id: number
+  creator_id: number
+  published_at: string
+  kind: KnowledgeKind
+  quote: string
+  locator: string | null
+  extractor_version: string
+  model: string | null
+  payload: Record<string, unknown>
+  tags: string[]
+  ref_price_at_publish: number | null
+  created_at: string
+  creator: string
+  content_title: string
+  content_url: string | null
+  scores: UnitScore[]
+}
+
+export type KnowledgeContentDetail = {
+  id: number
+  creator_id: number
+  creator: string
+  platform: string
+  url: string | null
+  content_type: string
+  title: string
+  published_at: string
+  fetched_at: string
+  lang: string
+  status: string
+  raw: string
+  created_at: string
+}

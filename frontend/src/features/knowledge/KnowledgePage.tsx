@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { apiJson } from '../../shared/api/client'
 import AppHeader from '../../shared/navigation/AppHeader'
+import EvidenceDossier from './EvidenceDossier'
 import { previewNodes, previewStats } from './preview'
 import type {
   AttestationRelation,
@@ -87,6 +88,7 @@ function KnowledgePage() {
   const [detail, setDetail] = useState<KnowledgeNodeDetail | null>(null)
   const [detailMode, setDetailMode] = useState<DetailMode>('idle')
   const [detailRequestKey, setDetailRequestKey] = useState(0)
+  const [evidenceUnitId, setEvidenceUnitId] = useState<number | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -129,6 +131,10 @@ function KnowledgePage() {
         searchRef.current?.focus()
       }
       if (event.key !== 'Escape') return
+      if (evidenceUnitId !== null) {
+        setEvidenceUnitId(null)
+        return
+      }
       if (document.activeElement === searchRef.current) {
         setQuery('')
         searchRef.current?.blur()
@@ -138,7 +144,7 @@ function KnowledgePage() {
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [])
+  }, [evidenceUnitId])
 
   useEffect(() => {
     const isNarrow = window.matchMedia('(max-width: 900px)').matches
@@ -257,11 +263,22 @@ function KnowledgePage() {
     const target = nodes.find((node) => node.id === nodeId)
     if (!target) return
     resetFilters()
+    setEvidenceUnitId(null)
     setSelectedId(target.id)
     setReaderOpen(true)
   }
 
+  const openEvidenceUnit = (unitId: number) => {
+    setEvidenceUnitId(unitId)
+    if (window.matchMedia('(min-width: 901px)').matches) {
+      requestAnimationFrame(() => {
+        document.querySelector('.library-frame')?.scrollIntoView({ block: 'start' })
+      })
+    }
+  }
+
   const selectNode = (node: KnowledgeNode, openOnMobile = false) => {
+    setEvidenceUnitId(null)
     setSelectedId(node.id)
     if (openOnMobile) setReaderOpen(true)
   }
@@ -314,6 +331,7 @@ function KnowledgePage() {
             onClick={() => {
               setFiltersOpen(false)
               setReaderOpen(false)
+              setEvidenceUnitId(null)
             }}
             type="button"
           />
@@ -493,7 +511,14 @@ function KnowledgePage() {
           </section>
 
           <aside className="node-reader" data-open={readerOpen}>
-            <button className="reader-close" onClick={() => setReaderOpen(false)} type="button">
+            <button
+              className="reader-close"
+              onClick={() => {
+                setReaderOpen(false)
+                setEvidenceUnitId(null)
+              }}
+              type="button"
+            >
               <span>返回节点索引</span><b>×</b>
             </button>
             {selectedNode && (
@@ -502,9 +527,17 @@ function KnowledgePage() {
                 detailMode={detailMode}
                 node={selectedNode}
                 onOpenRelated={openRelatedNode}
+                onOpenUnit={openEvidenceUnit}
                 onRetry={() => setDetailRequestKey((value) => value + 1)}
                 position={selectedPosition}
                 total={visibleNodes.length}
+              />
+            )}
+            {evidenceUnitId !== null && selectedNode && (
+              <EvidenceDossier
+                nodeTitle={selectedNode.title}
+                onClose={() => setEvidenceUnitId(null)}
+                unitId={evidenceUnitId}
               />
             )}
           </aside>
@@ -524,6 +557,7 @@ function NodeReader({
   detailMode,
   node,
   onOpenRelated,
+  onOpenUnit,
   onRetry,
   position,
   total,
@@ -532,6 +566,7 @@ function NodeReader({
   detailMode: DetailMode
   node: KnowledgeNode
   onOpenRelated: (nodeId: number) => void
+  onOpenUnit: (unitId: number) => void
   onRetry: () => void
   position: number
   total: number
@@ -655,6 +690,15 @@ function NodeReader({
                           ))}
                         </div>
                       )}
+                      <button
+                        aria-label={`核查证据单元 ${attestation.unit_id}`}
+                        className="attestation-open"
+                        onClick={() => onOpenUnit(attestation.unit_id)}
+                        type="button"
+                      >
+                        <span>核查证据单元</span>
+                        <i>#{attestation.unit_id} →</i>
+                      </button>
                     </article>
                   </li>
                 ))}
