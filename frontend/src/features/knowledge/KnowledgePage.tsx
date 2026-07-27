@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { apiJson } from '../../shared/api/client'
 import AppHeader from '../../shared/navigation/AppHeader'
 import { previewNodes, previewStats } from './preview'
@@ -12,11 +13,11 @@ const kindLabels: Record<KnowledgeKind, string> = {
 }
 
 const statusLabels: Record<NodeStatus, string> = {
-  active: '活跃',
-  corroborated: '多次佐证',
-  verified: '已验证',
-  contested: '存在争议',
-  retired: '已退役',
+  active: '持续演进',
+  corroborated: '多源佐证',
+  verified: '已经验证',
+  contested: '存在分歧',
+  retired: '停止维护',
 }
 
 type KindFilter = 'all' | KnowledgeKind
@@ -49,7 +50,8 @@ function KnowledgePage() {
   const [crossSource, setCrossSource] = useState(false)
   const [sortMode, setSortMode] = useState<SortMode>('evidence')
   const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [mobileReaderOpen, setMobileReaderOpen] = useState(false)
+  const [readerOpen, setReaderOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -91,15 +93,27 @@ function KnowledgePage() {
         event.preventDefault()
         searchRef.current?.focus()
       }
-      if (event.key === 'Escape' && document.activeElement === searchRef.current) {
+      if (event.key !== 'Escape') return
+      if (document.activeElement === searchRef.current) {
         setQuery('')
         searchRef.current?.blur()
       }
-      if (event.key === 'Escape') setMobileReaderOpen(false)
+      setReaderOpen(false)
+      setFiltersOpen(false)
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [])
+
+  useEffect(() => {
+    const isNarrow = window.matchMedia('(max-width: 900px)').matches
+    if (!isNarrow || (!readerOpen && !filtersOpen)) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [filtersOpen, readerOpen])
 
   const typeCounts = useMemo(() => ({
     all: nodes.length,
@@ -117,7 +131,7 @@ function KnowledgePage() {
   const popularTags = useMemo(() => {
     const counts = new Map<string, number>()
     nodes.forEach((node) => node.tags.forEach((item) => counts.set(item, (counts.get(item) ?? 0) + 1)))
-    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8)
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 7)
   }, [nodes])
 
   const visibleNodes = useMemo(() => {
@@ -145,6 +159,9 @@ function KnowledgePage() {
   const selectedNode = visibleNodes.find((node) => node.id === selectedId)
     ?? visibleNodes[0]
     ?? null
+  const selectedPosition = selectedNode
+    ? visibleNodes.findIndex((node) => node.id === selectedNode.id) + 1
+    : 0
   const hasActiveFilters = kind !== 'all'
     || status !== 'all'
     || tag !== null
@@ -159,65 +176,73 @@ function KnowledgePage() {
     setQuery('')
   }
 
-  useEffect(() => {
-    if (!mobileReaderOpen || !window.matchMedia('(max-width: 860px)').matches) return
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
-  }, [mobileReaderOpen])
+  const selectNode = (node: KnowledgeNode, openOnMobile = false) => {
+    setSelectedId(node.id)
+    if (openOnMobile) setReaderOpen(true)
+  }
+
+  const handleNodeKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    let nextIndex: number | null = null
+    if (event.key === 'ArrowDown') nextIndex = Math.min(index + 1, visibleNodes.length - 1)
+    if (event.key === 'ArrowUp') nextIndex = Math.max(index - 1, 0)
+    if (event.key === 'Home') nextIndex = 0
+    if (event.key === 'End') nextIndex = visibleNodes.length - 1
+    if (nextIndex === null || nextIndex === index) return
+    event.preventDefault()
+    const nextNode = visibleNodes[nextIndex]
+    setSelectedId(nextNode.id)
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLButtonElement>(`[data-node-id="${nextNode.id}"]`)?.focus()
+    })
+  }
 
   return (
     <div className="knowledge-page">
       <div aria-hidden="true" className="knowledge-material" />
-      <AppHeader
-        current="knowledge"
-        onSearch={() => searchRef.current?.focus()}
-      />
+      <AppHeader current="knowledge" onSearch={() => searchRef.current?.focus()} />
 
-      <main>
-        <section className="knowledge-intro">
-          <p className="knowledge-eyebrow"><span>01</span><i /> KNOWLEDGE LIBRARY · NODE INDEX</p>
-          <div className="knowledge-intro-grid">
-            <h1>长期知识，<br /><em>按证据生长。</em></h1>
-            <div className="knowledge-intro-copy">
-              <p>这里不按视频堆放信息。相同的表达被归并，修正留在时间线上，分歧则保留为关系。</p>
-              <div className="knowledge-ledger" aria-label="知识库规模">
-                <span><strong>{stats.nodes}</strong><small>长期节点</small></span>
-                <span><strong>{stats.corroborated}</strong><small>多次佐证</small></span>
-                <span><strong>{stats.units}</strong><small>证据单元</small></span>
-                <span><strong>{stats.contents}</strong><small>原始内容</small></span>
-              </div>
-            </div>
+      <main className="knowledge-stage">
+        <header className="library-masthead">
+          <div className="masthead-title">
+            <span>01 / KNOWLEDGE LIBRARY</span>
+            <h1>知识库</h1>
           </div>
-        </section>
+          <p className="masthead-statement">
+            不是内容的仓库，而是从原始表达中持续归并、修正并保留来源的长期认知。
+          </p>
+          <div className="masthead-ledger" aria-label="知识库规模">
+            <span><strong>{stats.nodes}</strong><small>长期节点</small></span>
+            <span><strong>{stats.corroborated}</strong><small>多源佐证</small></span>
+            <span><strong>{stats.units}</strong><small>证据单元</small></span>
+            <span><strong>{stats.contents}</strong><small>原始内容</small></span>
+          </div>
+        </header>
 
-        <section className="knowledge-workspace">
-          <header className="workspace-heading">
-            <div>
-              <span>KNOWLEDGE INDEX / 01</span>
-              <h2>浏览长期节点</h2>
-              <p>选择一条节点，在右侧阅读其结论、演进与证据来源。</p>
-            </div>
-            <div className="node-search">
-              <span aria-hidden="true">⌕</span>
-              <input
-                aria-label="搜索长期知识节点"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索命题、方法、主题或归并注记"
-                ref={searchRef}
-                value={query}
-              />
-              {query && <button aria-label="清空搜索" onClick={() => setQuery('')} type="button">×</button>}
-              <kbd>⌘K</kbd>
-            </div>
-          </header>
+        <section className="library-frame">
+          <button
+            aria-label="关闭筛选"
+            className="frame-backdrop"
+            data-open={filtersOpen || readerOpen}
+            onClick={() => {
+              setFiltersOpen(false)
+              setReaderOpen(false)
+            }}
+            type="button"
+          />
 
-          <div className="knowledge-controls" aria-label="节点筛选">
-            <div className="kind-segments" aria-label="知识类型">
+          <aside className="library-rail" data-open={filtersOpen}>
+            <header>
+              <span>INDEX / FILTER</span>
+              <button onClick={() => setFiltersOpen(false)} type="button">完成</button>
+            </header>
+
+            <section className="rail-section">
+              <p>节点类型</p>
               {([
-                ['all', '全部节点'],
+                ['all', '全部知识'],
                 ['concept', '认知'],
                 ['method', '方法'],
                 ['claim', '判断'],
@@ -231,35 +256,38 @@ function KnowledgePage() {
                   <span>{label}</span><b>{typeCounts[value]}</b>
                 </button>
               ))}
-            </div>
+            </section>
 
-            <label className="filter-select">
-              <span>生命周期</span>
-              <select
-                aria-label="按生命周期筛选"
-                onChange={(event) => setStatus(event.target.value as StatusFilter)}
-                value={status}
-              >
-                <option value="all">全部状态 · {nodes.length}</option>
-                {availableStatuses.map(([value, count]) => (
-                  <option key={value} value={value}>{statusLabels[value]} · {count}</option>
-                ))}
-              </select>
-            </label>
+            <section className="rail-section">
+              <p>生命周期</p>
+              <button aria-pressed={status === 'all'} onClick={() => setStatus('all')} type="button">
+                <span>全部状态</span><b>{nodes.length}</b>
+              </button>
+              {availableStatuses.map(([value, count]) => (
+                <button
+                  aria-pressed={status === value}
+                  key={value}
+                  onClick={() => setStatus(value)}
+                  type="button"
+                >
+                  <span>{statusLabels[value]}</span><b>{count}</b>
+                </button>
+              ))}
+            </section>
 
-            <label className="filter-select">
-              <span>主题</span>
-              <select
-                aria-label="按主题筛选"
-                onChange={(event) => setTag(event.target.value || null)}
-                value={tag ?? ''}
-              >
-                <option value="">全部主题</option>
-                {popularTags.map(([value, count]) => (
-                  <option key={value} value={value}>{value} · {count}</option>
-                ))}
-              </select>
-            </label>
+            <section className="rail-section rail-topics">
+              <p>高频主题</p>
+              {popularTags.map(([value, count]) => (
+                <button
+                  aria-pressed={tag === value}
+                  key={value}
+                  onClick={() => setTag(tag === value ? null : value)}
+                  type="button"
+                >
+                  <span>{value}</span><b>{count}</b>
+                </button>
+              ))}
+            </section>
 
             <label className="cross-source-toggle">
               <input
@@ -268,27 +296,66 @@ function KnowledgePage() {
                 type="checkbox"
               />
               <span><i /></span>
-              <b>只看跨信源</b>
+              <b>只看跨信源节点</b>
             </label>
 
-            {hasActiveFilters && (
-              <button className="reset-filters" onClick={resetFilters} type="button">清除条件</button>
-            )}
-          </div>
+            <footer>
+              <span>{stats.creators} 位信源</span>
+              <b>PROVENANCE ON</b>
+            </footer>
+          </aside>
 
-          <div className="knowledge-index">
-            <div className="index-toolbar">
-              <p aria-live="polite"><strong>{visibleNodes.length}</strong> 个节点进入当前视图</p>
-              <div aria-label="节点排序">
-                <button aria-pressed={sortMode === 'evidence'} onClick={() => setSortMode('evidence')} type="button">提及优先</button>
-                <button aria-pressed={sortMode === 'recent'} onClick={() => setSortMode('recent')} type="button">最近演进</button>
-              </div>
+          <section className="node-catalog">
+            <header className="catalog-tools">
+              <button
+                aria-expanded={filtersOpen}
+                className="mobile-filter-trigger"
+                onClick={() => setFiltersOpen(true)}
+                type="button"
+              >
+                筛选
+              </button>
+              <label className="catalog-search">
+                <span aria-hidden="true">⌕</span>
+                <input
+                  aria-label="搜索长期知识节点"
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="搜索长期知识"
+                  ref={searchRef}
+                  value={query}
+                />
+                {query && <button aria-label="清空搜索" onClick={() => setQuery('')} type="button">×</button>}
+                <kbd>⌘K</kbd>
+              </label>
+              <label className="catalog-sort">
+                <span>排序</span>
+                <select
+                  aria-label="节点排序"
+                  onChange={(event) => setSortMode(event.target.value as SortMode)}
+                  value={sortMode}
+                >
+                  <option value="evidence">证据优先</option>
+                  <option value="recent">最近演进</option>
+                </select>
+              </label>
+            </header>
+
+            <div className="catalog-state">
+              <p aria-live="polite">
+                <strong>{visibleNodes.length}</strong>
+                <span>个节点</span>
+              </p>
+              {hasActiveFilters ? (
+                <button onClick={resetFilters} type="button">清除当前条件</button>
+              ) : (
+                <span>按 ↑ ↓ 浏览</span>
+              )}
             </div>
 
             {loadMode === 'preview' && (
               <div className="preview-notice">
                 <i />
-                <span>当前后端未连接，使用仓库中的真实归并样本预览版式。</span>
+                <span>后端未连接，当前显示仓库内的真实归并样本。</span>
               </div>
             )}
 
@@ -303,11 +370,11 @@ function KnowledgePage() {
                   <button
                     aria-pressed={selectedNode?.id === node.id}
                     className={`node-row kind-${node.kind}`}
+                    data-node-id={node.id}
                     key={node.id}
-                    onClick={() => {
-                      setSelectedId(node.id)
-                      setMobileReaderOpen(true)
-                    }}
+                    onClick={() => selectNode(node, true)}
+                    onFocus={() => selectNode(node)}
+                    onKeyDown={(event) => handleNodeKeyDown(event, index)}
                     type="button"
                   >
                     <span className="node-number">{String(index + 1).padStart(2, '0')}</span>
@@ -322,10 +389,9 @@ function KnowledgePage() {
                       <span className="node-row-foot">
                         <span>{node.n_attest} 次提及</span>
                         <span>{node.n_creators} 位信源</span>
-                        <span>{scoreCount ? `${scoreCount} 个评分时点` : '等待验证证据'}</span>
+                        <span>{scoreCount ? `${scoreCount} 个评分时点` : '等待验证'}</span>
                       </span>
                     </span>
-                    <span className="node-row-arrow">↗</span>
                   </button>
                 )
               })}
@@ -333,39 +399,46 @@ function KnowledgePage() {
               {loadMode !== 'loading' && visibleNodes.length === 0 && (
                 <div className="knowledge-empty">
                   <span>NO MATCHED NODE</span>
-                  <strong>当前条件下没有长期节点。</strong>
-                  <p>这通常意味着筛选条件过窄，而不是知识库没有内容。</p>
+                  <strong>没有匹配的长期节点</strong>
+                  <p>调整检索词或清除筛选条件。</p>
                   <button onClick={resetFilters} type="button">清除全部条件</button>
                 </div>
               )}
             </div>
-          </div>
+          </section>
 
-          <button
-            aria-label="关闭节点阅读器"
-            className="reader-backdrop"
-            data-open={mobileReaderOpen}
-            onClick={() => setMobileReaderOpen(false)}
-            type="button"
-          />
-          <aside className="node-reader" aria-live="polite" data-open={mobileReaderOpen}>
-            <button className="reader-close" onClick={() => setMobileReaderOpen(false)} type="button">
-              <span>返回节点列表</span><b>×</b>
+          <aside className="node-reader" data-open={readerOpen}>
+            <button className="reader-close" onClick={() => setReaderOpen(false)} type="button">
+              <span>返回节点索引</span><b>×</b>
             </button>
-            {selectedNode && <NodeReader node={selectedNode} />}
+            {selectedNode && (
+              <NodeReader
+                node={selectedNode}
+                position={selectedPosition}
+                total={visibleNodes.length}
+              />
+            )}
           </aside>
         </section>
       </main>
 
       <footer className="knowledge-footer">
         <span>FANISL / KNOWLEDGE WITH PROVENANCE</span>
-        <p>{stats.creators} 位信源 · 每个节点都能返回原始证据</p>
+        <p>节点不是结论的终点，而是下一次证据进入的位置。</p>
       </footer>
     </div>
   )
 }
 
-function NodeReader({ node }: { node: KnowledgeNode }) {
+function NodeReader({
+  node,
+  position,
+  total,
+}: {
+  node: KnowledgeNode
+  position: number
+  total: number
+}) {
   const scoreCount = node.hit + node.partial + node.miss
   const weightedHitRate = scoreCount
     ? Math.round(((node.hit + node.partial * 0.5) / scoreCount) * 100)
@@ -374,12 +447,17 @@ function NodeReader({ node }: { node: KnowledgeNode }) {
   const lastSeen = formatDate(node.last_seen)
 
   return (
-    <article className={`node-reader-card kind-${node.kind}`} key={node.id}>
-      <header>
+    <article className={`node-reader-sheet kind-${node.kind}`} key={node.id}>
+      <header className="reader-head">
         <span>NODE / {String(node.id).padStart(3, '0')}</span>
-        <b>{statusLabels[node.status]}</b>
+        <p><b>{String(position).padStart(2, '0')}</b> / {String(total).padStart(2, '0')}</p>
       </header>
-      <div className="reader-kind"><i />{kindLabels[node.kind]}</div>
+
+      <div className="reader-status">
+        <span><i />{kindLabels[node.kind]}</span>
+        <b>{statusLabels[node.status]}</b>
+      </div>
+
       <h2>{node.title}</h2>
       <p className="reader-canonical">{node.canonical}</p>
 
@@ -388,29 +466,37 @@ function NodeReader({ node }: { node: KnowledgeNode }) {
       </div>
 
       <section className="evidence-route">
-        <p>EVIDENCE ROUTE</p>
+        <header>
+          <p>证据路径</p>
+          <span>EVIDENCE ROUTE</span>
+        </header>
         <div>
           <span><small>提及</small><strong>{node.n_attest}</strong></span>
           <i />
           <span><small>原始内容</small><strong>{node.n_contents}</strong></span>
           <i />
-          <span><small>信源</small><strong>{node.n_creators}</strong></span>
+          <span><small>独立信源</small><strong>{node.n_creators}</strong></span>
         </div>
         {(firstSeen || lastSeen) && (
-          <small>{firstSeen ?? '—'} <i /> {lastSeen ?? firstSeen}</small>
+          <footer>
+            <span>{firstSeen ?? '—'}</span><i /><span>{lastSeen ?? firstSeen}</span>
+          </footer>
         )}
       </section>
 
       <section className="reader-note">
-        <p>归并与演进注记</p>
+        <header>
+          <p>归并与演进</p>
+          <span>MERGE NOTE</span>
+        </header>
         <blockquote>{node.notes || '该节点由单次提及建立，尚未形成归并注记。'}</blockquote>
       </section>
 
       <section className="reader-score">
-        <div>
+        <header>
           <p>市场裁决</p>
           <span>{scoreCount ? `${weightedHitRate}% · n=${scoreCount}` : '尚无可计分时点'}</span>
-        </div>
+        </header>
         {scoreCount ? (
           <div className="score-segments" aria-label={`命中 ${node.hit}，部分 ${node.partial}，未中 ${node.miss}`}>
             <i style={{ flex: node.hit || 0.001 }} />
@@ -418,12 +504,12 @@ function NodeReader({ node }: { node: KnowledgeNode }) {
             <i style={{ flex: node.miss || 0.001 }} />
           </div>
         ) : (
-          <div className="score-pending"><i />没有 0%，只有尚未到期或不可评分。</div>
+          <p className="score-pending"><i />没有 0%，只有尚未到期或不可评分。</p>
         )}
       </section>
 
-      <footer>
-        <span>节点会随新提及继续演进</span>
+      <footer className="reader-foot">
+        <span>节点会随新证据继续演进</span>
         <b>PROVENANCE INTACT</b>
       </footer>
     </article>
