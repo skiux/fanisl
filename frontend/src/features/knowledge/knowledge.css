@@ -3,14 +3,16 @@
   --library-line-soft: rgba(43, 52, 43, .085);
   --library-muted: #707970;
   --library-sage: #607255;
+  --library-canvas: #e8e4d9;
+  --library-paper: #f2f0e8;
   position: relative;
   min-height: 100vh;
   overflow: clip;
   color: var(--ink);
   background:
-    radial-gradient(circle at 8% 10%, rgba(221, 230, 202, .38), transparent 25%),
-    radial-gradient(circle at 92% 16%, rgba(212, 204, 226, .26), transparent 24%),
-    linear-gradient(180deg, #efede5 0%, #ebe8df 58%, #f3f1ea 100%);
+    radial-gradient(circle at 12% 9%, rgba(247, 245, 237, .72), transparent 28%),
+    radial-gradient(circle at 89% 15%, rgba(129, 123, 152, .11), transparent 27%),
+    linear-gradient(180deg, #e9e5da 0%, #e7e3d8 58%, #f0eee6 100%);
   isolation: isolate;
 }
 
@@ -18,7 +20,7 @@
   position: absolute;
   z-index: -2;
   inset: 0;
-  opacity: .2;
+  opacity: .11;
   background-image:
     linear-gradient(rgba(55, 64, 54, .04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(55, 64, 54, .04) 1px, transparent 1px);
@@ -63,19 +65,19 @@
 .knowledge-material {
   position: absolute;
   z-index: -1;
-  top: -150px;
-  right: -5vw;
-  width: min(770px, 58vw);
-  height: 470px;
-  opacity: .14;
-  background: url("/assets/research-paper-field.jpg") 66% 46% / cover no-repeat;
-  filter: saturate(.6) contrast(.92) brightness(1.04);
+  top: -88px;
+  right: -7vw;
+  width: 108vw;
+  height: 600px;
+  opacity: .2;
+  background: url("/assets/research-paper-field.jpg") 58% 47% / cover no-repeat;
+  filter: saturate(.72) contrast(.93) brightness(1.015);
   mask-image:
-    linear-gradient(125deg, transparent 5%, rgba(0, 0, 0, .92) 36%, rgba(0, 0, 0, .5) 72%, transparent 96%),
-    linear-gradient(180deg, black 22%, transparent 98%);
+    linear-gradient(105deg, rgba(0, 0, 0, .28) 3%, black 38%, rgba(0, 0, 0, .72) 77%, transparent 100%),
+    linear-gradient(180deg, black 8%, rgba(0, 0, 0, .7) 55%, transparent 100%);
   mask-composite: intersect;
   mix-blend-mode: multiply;
-  transform: rotate(-3deg);
+  transform: rotate(-1deg);
   pointer-events: none;
 }
 
@@ -87,7 +89,7 @@
 
 .library-masthead {
   display: grid;
-  min-height: 132px;
+  min-height: 158px;
   grid-template-columns: 260px minmax(310px, 1fr) minmax(420px, .95fr);
   align-items: end;
   gap: 44px;
@@ -106,6 +108,50 @@
   font-weight: 650;
   letter-spacing: -.065em;
   line-height: 1;
+}
+
+.masthead-title nav {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  margin-top: 17px;
+}
+
+.masthead-title nav button {
+  position: relative;
+  padding: 0 0 6px;
+  border: 0;
+  color: #737d73;
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.masthead-title nav button::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  transform: scaleX(0);
+  background: var(--library-sage);
+  content: "";
+  transform-origin: left;
+  transition: transform .2s ease;
+}
+
+.masthead-title nav button[aria-pressed="true"] {
+  color: #3f4c40;
+  font-weight: 650;
+}
+
+.masthead-title nav button[aria-pressed="true"]::after {
+  transform: scaleX(1);
+}
+
+.masthead-title nav button:focus-visible {
+  outline: 2px solid var(--library-sage);
+  outline-offset: 4px;
 }
 
 .masthead-statement {
@@ -152,14 +198,14 @@
 .library-frame {
   position: relative;
   display: grid;
-  height: max(620px, calc(100vh - 236px));
+  height: max(620px, calc(100vh - 256px));
   max-height: 820px;
   scroll-margin-top: 90px;
   grid-template-columns: 214px minmax(390px, 430px) minmax(0, 1fr);
   overflow: hidden;
   border-top: 1px solid var(--library-line);
   border-bottom: 1px solid var(--library-line);
-  background: rgba(245, 243, 235, .32);
+  background: rgba(240, 237, 228, .4);
   box-shadow: 0 26px 70px rgba(45, 45, 38, .06);
 }
 
@@ -756,6 +802,7 @@
 .node-reader {
   position: relative;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -1696,11 +1743,11 @@ input {
   }
 
   .knowledge-material {
-    top: 12px;
-    right: -64vw;
-    width: 145vw;
-    height: 430px;
-    opacity: .13;
+    top: -16px;
+    right: -72vw;
+    width: 185vw;
+    height: 480px;
+    opacity: .17;
   }
 
   .knowledge-stage {

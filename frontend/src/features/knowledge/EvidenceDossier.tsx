@@ -484,12 +484,16 @@ function DossierSkeleton() {
 }
 
 function EvidenceDossier({
-  nodeTitle,
+  backLabel = '返回知识节点',
   onClose,
+  parentLabel = 'NODE',
+  parentTitle,
   unitId,
 }: {
-  nodeTitle: string
+  backLabel?: string
   onClose: () => void
+  parentLabel?: string
+  parentTitle: string
   unitId: number
 }) {
   const [unit, setUnit] = useState<KnowledgeUnitDetail | null>(null)
@@ -529,9 +533,9 @@ function EvidenceDossier({
       <header className="dossier-navigation">
         <button onClick={onClose} ref={closeRef} type="button">
           <i>←</i>
-          <span>返回知识节点</span>
+          <span>{backLabel}</span>
         </button>
-        <p>NODE <b>{nodeTitle}</b></p>
+        <p>{parentLabel} <b>{parentTitle}</b></p>
       </header>
 
       <div className="dossier-body" ref={bodyRef}>

@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { apiJson } from '../../shared/api/client'
 import AppHeader from '../../shared/navigation/AppHeader'
+import ContentTimeline from './ContentTimeline'
 import EvidenceDossier from './EvidenceDossier'
 import { previewNodes, previewStats } from './preview'
 import type {
   AttestationRelation,
+  KnowledgeContentSummary,
   KnowledgeKind,
   KnowledgeNode,
   KnowledgeNodeDetail,
@@ -56,6 +58,7 @@ type StatusFilter = 'all' | NodeStatus
 type SortMode = 'evidence' | 'recent'
 type LoadMode = 'loading' | 'live' | 'preview'
 type DetailMode = 'idle' | 'loading' | 'loaded' | 'error' | 'preview'
+type LibraryView = 'nodes' | 'timeline'
 
 function compareEvidence(a: KnowledgeNode, b: KnowledgeNode) {
   return b.n_attest - a.n_attest || b.n_creators - a.n_creators || a.id - b.id
@@ -74,8 +77,10 @@ function KnowledgePage() {
   const searchRef = useRef<HTMLInputElement>(null)
   const detailCacheRef = useRef(new Map<number, KnowledgeNodeDetail>())
   const [nodes, setNodes] = useState<KnowledgeNode[]>([])
+  const [contents, setContents] = useState<KnowledgeContentSummary[]>([])
   const [stats, setStats] = useState<KnowledgeStats>(previewStats)
   const [loadMode, setLoadMode] = useState<LoadMode>('loading')
+  const [libraryView, setLibraryView] = useState<LibraryView>('nodes')
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<KindFilter>('all')
   const [status, setStatus] = useState<StatusFilter>('all')
@@ -89,6 +94,7 @@ function KnowledgePage() {
   const [detailMode, setDetailMode] = useState<DetailMode>('idle')
   const [detailRequestKey, setDetailRequestKey] = useState(0)
   const [evidenceUnitId, setEvidenceUnitId] = useState<number | null>(null)
+  const [selectedContentId, setSelectedContentId] = useState<number | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -98,10 +104,11 @@ function KnowledgePage() {
         const [nodeRows, creators, contents, units] = await Promise.all([
           apiJson<KnowledgeNode[]>('/knowledge/nodes?limit=300', { signal: controller.signal }),
           apiJson<unknown[]>('/knowledge/creators', { signal: controller.signal }),
-          apiJson<unknown[]>('/knowledge/contents?limit=200', { signal: controller.signal }),
+          apiJson<KnowledgeContentSummary[]>('/knowledge/contents?limit=200', { signal: controller.signal }),
           apiJson<unknown[]>('/knowledge/units?limit=500', { signal: controller.signal }),
         ])
         setNodes(nodeRows)
+        setContents(contents)
         setStats({
           nodes: nodeRows.length,
           contents: contents.length,
@@ -110,10 +117,12 @@ function KnowledgePage() {
           corroborated: nodeRows.filter((node) => node.status === 'corroborated').length,
         })
         setSelectedId([...nodeRows].sort(compareEvidence)[0]?.id ?? null)
+        setSelectedContentId(contents[0]?.id ?? null)
         setLoadMode('live')
       } catch {
         if (controller.signal.aborted) return
         setNodes(previewNodes)
+        setContents([])
         setStats(previewStats)
         setSelectedId([...previewNodes].sort(compareEvidence)[0]?.id ?? null)
         setLoadMode('preview')
@@ -128,7 +137,10 @@ function KnowledgePage() {
     const handleKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        searchRef.current?.focus()
+        setLibraryView('nodes')
+        setReaderOpen(false)
+        setEvidenceUnitId(null)
+        requestAnimationFrame(() => searchRef.current?.focus())
       }
       if (event.key !== 'Escape') return
       if (evidenceUnitId !== null) {
@@ -277,6 +289,19 @@ function KnowledgePage() {
     }
   }
 
+  const selectLibraryView = (view: LibraryView) => {
+    setLibraryView(view)
+    setEvidenceUnitId(null)
+    setReaderOpen(false)
+    setFiltersOpen(false)
+  }
+
+  const selectContent = (contentId: number, openOnMobile = false) => {
+    setEvidenceUnitId(null)
+    setSelectedContentId(contentId)
+    if (openOnMobile) setReaderOpen(true)
+  }
+
   const selectNode = (node: KnowledgeNode, openOnMobile = false) => {
     setEvidenceUnitId(null)
     setSelectedId(node.id)
@@ -304,16 +329,42 @@ function KnowledgePage() {
   return (
     <div className="knowledge-page">
       <div aria-hidden="true" className="knowledge-material" />
-      <AppHeader current="knowledge" onSearch={() => searchRef.current?.focus()} />
+      <AppHeader
+        current="knowledge"
+        onSearch={() => {
+          setLibraryView('nodes')
+          setReaderOpen(false)
+          setEvidenceUnitId(null)
+          requestAnimationFrame(() => searchRef.current?.focus())
+        }}
+      />
 
       <main className="knowledge-stage">
         <header className="library-masthead">
           <div className="masthead-title">
             <span>01 / KNOWLEDGE LIBRARY</span>
             <h1>知识库</h1>
+            <nav aria-label="知识库视图">
+              <button
+                aria-pressed={libraryView === 'nodes'}
+                onClick={() => selectLibraryView('nodes')}
+                type="button"
+              >
+                长期节点
+              </button>
+              <button
+                aria-pressed={libraryView === 'timeline'}
+                onClick={() => selectLibraryView('timeline')}
+                type="button"
+              >
+                内容时间流
+              </button>
+            </nav>
           </div>
           <p className="masthead-statement">
-            不是内容的仓库，而是从原始表达中持续归并、修正并保留来源的长期认知。
+            {libraryView === 'nodes'
+              ? '不是内容的仓库，而是从原始表达中持续归并、修正并保留来源的长期认知。'
+              : '沿发布时间阅读每期内容提取出的判断、方法与认知，再按需回到逐字原文。'}
           </p>
           <div className="masthead-ledger" aria-label="知识库规模">
             <span><strong>{stats.nodes}</strong><small>长期节点</small></span>
@@ -323,9 +374,9 @@ function KnowledgePage() {
           </div>
         </header>
 
-        <section className="library-frame">
+        <section className={`library-frame view-${libraryView}`}>
           <button
-            aria-label="关闭筛选"
+            aria-label="关闭当前面板"
             className="frame-backdrop"
             data-open={filtersOpen || readerOpen}
             onClick={() => {
@@ -336,7 +387,9 @@ function KnowledgePage() {
             type="button"
           />
 
-          <aside className="library-rail" data-open={filtersOpen}>
+          {libraryView === 'nodes' ? (
+            <>
+              <aside className="library-rail" data-open={filtersOpen}>
             <header>
               <span>INDEX / FILTER</span>
               <button onClick={() => setFiltersOpen(false)} type="button">完成</button>
@@ -406,9 +459,9 @@ function KnowledgePage() {
               <span>{stats.creators} 位信源</span>
               <b>PROVENANCE ON</b>
             </footer>
-          </aside>
+              </aside>
 
-          <section className="node-catalog">
+              <section className="node-catalog">
             <header className="catalog-tools">
               <button
                 aria-expanded={filtersOpen}
@@ -508,9 +561,9 @@ function KnowledgePage() {
                 </div>
               )}
             </div>
-          </section>
+              </section>
 
-          <aside className="node-reader" data-open={readerOpen}>
+              <aside className="node-reader" data-open={readerOpen}>
             <button
               className="reader-close"
               onClick={() => {
@@ -535,12 +588,30 @@ function KnowledgePage() {
             )}
             {evidenceUnitId !== null && selectedNode && (
               <EvidenceDossier
-                nodeTitle={selectedNode.title}
                 onClose={() => setEvidenceUnitId(null)}
+                parentTitle={selectedNode.title}
                 unitId={evidenceUnitId}
               />
             )}
-          </aside>
+              </aside>
+            </>
+          ) : (
+            <ContentTimeline
+              contents={contents}
+              evidenceUnitId={evidenceUnitId}
+              isLoading={loadMode === 'loading'}
+              isPreview={loadMode === 'preview'}
+              onCloseEvidence={() => setEvidenceUnitId(null)}
+              onCloseReader={() => {
+                setReaderOpen(false)
+                setEvidenceUnitId(null)
+              }}
+              onOpenEvidence={openEvidenceUnit}
+              onSelectContent={selectContent}
+              readerOpen={readerOpen}
+              selectedContentId={selectedContentId}
+            />
+          )}
         </section>
       </main>
 
