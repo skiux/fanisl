@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { CSSProperties, RefObject } from 'react'
-import KnowledgeBackdrop from './KnowledgeBackdrop'
+import ResearchBackdrop from './ResearchBackdrop'
 
 type ArchiveSceneProps = {
   active: number
@@ -83,7 +83,7 @@ function ArchiveScene({ active, openSearch, progress }: ArchiveSceneProps) {
 
   return (
     <div className="archive-scene">
-      <KnowledgeBackdrop progress={progress} />
+      <ResearchBackdrop progress={progress} />
 
       <section
         aria-hidden={active !== 0}

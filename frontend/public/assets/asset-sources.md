@@ -1,11 +1,25 @@
 # Frontend asset sources
 
-## Knowledge archive
+## Research paper field
 
-- Source: generated for this project with OpenAI's built-in image generation tool on 2026-07-23
-- Local derivatives:
-  - `knowledge-archive.jpg` — 1672 × 941 desktop background plate
-  - `knowledge-archive-mobile.jpg` — centered 3:4 mobile crop
-- Direction: a warm architectural archive made from limestone, oak, paper, ribbed glass, sage fabric, and restrained brass details.
-- Constraints: no people, logos, readable text, screens, portals, rings, or science-fiction tunnel motifs.
-- Changes: JPEG compression and a dedicated mobile crop. The page adds separate depth planes and archive-bay motion in code; it does not animate the plate as one flat image.
+- Source: generated for this project with OpenAI ImageGen on 2026-07-27.
+- Local assets:
+  - `research-paper-field.jpg` — 1672 × 941 desktop material field.
+  - `research-paper-field-mobile.jpg` — 941 × 1672 portrait material field.
+- Purpose: the images provide only paper sculpture, light, shadow, and physical
+  texture. K-lines, EMA 12/26, volume, annotations, and the review cursor are
+  deterministic SVG elements in `ResearchBackdrop.tsx`.
+- Data note: the rendered series is an explicitly labelled illustrative,
+  normalized sample. It is not a live or historical market series.
+
+Final prompt set:
+
+- Desktop: editorial macro photograph of layered warm-ivory archival and tracing
+  paper sweeping diagonally through a pale research studio, with one broad blank
+  vellum ribbon, faint ruled/grid impressions, restrained sage and faded-violet
+  layers, tactile fibres, soft raking light, no charts, text, screens, logos, or
+  people; wide 16:9 composition with usable negative space.
+- Mobile: portrait companion of the same paper sculpture and palette, rising
+  through the lower and right side with a broad blank vellum plane in the
+  lower-middle and quiet negative space in the upper third; no charts, text,
+  screens, logos, or people.
