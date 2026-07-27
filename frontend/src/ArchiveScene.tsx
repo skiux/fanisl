@@ -97,7 +97,7 @@ function ArchiveScene({ active, openSearch, progress }: ArchiveSceneProps) {
             <span data-animate style={motionStyle(0.1)}>带进长期知识。</span>
           </h1>
           <p className="entry-summary" data-animate style={motionStyle(0.2)}>
-            fanisl 保存原始内容，拆出判断、方法与认知，再把一次表达沉淀为可以合并、修正和连接的知识。
+            FANISL 保存原始内容，拆出判断、方法与认知，再把一次表达沉淀为可以合并、修正和连接的知识。
           </p>
           <div className="entry-ledger" data-animate style={motionStyle(0.3)}>
             <span><b>18</b> 篇原始内容</span>

@@ -1,7 +1,6 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import ArchiveScene from './ArchiveScene'
 import { chapters, getActiveChapter } from './journey'
-
-const ArchiveScene = lazy(() => import('./ArchiveScene'))
 
 const searchItems = [
   { kind: '认知', title: 'AI 时代的软件收费：席位 → 按量 → 按结果', chapter: 3 },
@@ -32,11 +31,10 @@ type HeaderProps = {
 function Header({ active, jumpTo, menuOpen, openSearch, setMenuOpen }: HeaderProps) {
   return (
     <header className="spatial-nav">
-      <a className="brand" href="#entry" onClick={(event) => { event.preventDefault(); jumpTo(0) }} aria-label="Fanisl 首页">
-        <i aria-hidden="true" /><strong>fanisl</strong>
+      <a className="brand" href="#entry" onClick={(event) => { event.preventDefault(); jumpTo(0); setMenuOpen(false) }} aria-label="FANISL 首页">
+        <i aria-hidden="true" /><strong>FANISL</strong>
       </a>
       <nav aria-label="主要导航" className={menuOpen ? 'open' : ''}>
-        <a aria-current={active < 5 ? 'page' : undefined} href="#entry" onClick={(event) => { event.preventDefault(); jumpTo(0); setMenuOpen(false) }}>首页</a>
         <a aria-current={active === 5 ? 'page' : undefined} href="#library" onClick={(event) => { event.preventDefault(); jumpTo(5); setMenuOpen(false) }}>知识库</a>
         <span aria-disabled="true">对话</span><span aria-disabled="true">评测台</span><span aria-disabled="true">档案</span>
       </nav>
@@ -188,9 +186,7 @@ function App() {
       </div>
       <div className="fixed-stage">
         <div className="scene-canvas">
-          <Suspense fallback={<div className="scene-loading"><span /></div>}>
-            <ArchiveScene active={active} openSearch={openSearch} progress={progress} />
-          </Suspense>
+          <ArchiveScene active={active} openSearch={openSearch} progress={progress} />
         </div>
         <Header active={active} jumpTo={jumpTo} menuOpen={menuOpen} openSearch={openSearch} setMenuOpen={setMenuOpen} />
         <aside aria-label="空间章节" className="chapter-rail">
