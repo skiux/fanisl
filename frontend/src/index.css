@@ -1447,7 +1447,23 @@ body::-webkit-scrollbar-thumb {
 .spatial-nav nav {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+
+.nav-group {
+  display: flex;
+  align-items: center;
   gap: 3px;
+}
+
+.nav-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(47, 57, 47, .16);
+}
+
+.nav-group-tools {
+  position: relative;
 }
 
 .spatial-nav nav a,
@@ -1474,6 +1490,11 @@ body::-webkit-scrollbar-thumb {
 
 .spatial-nav nav span {
   opacity: .46;
+}
+
+.nav-group-tools a,
+.nav-group-tools span {
+  color: #7d837c;
 }
 
 .nav-actions {
@@ -1958,7 +1979,8 @@ body::-webkit-scrollbar-thumb {
     right: 0;
     left: 0;
     display: none;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: 1fr;
+    gap: 6px;
     padding: 8px;
     border: 1px solid white;
     border-radius: 14px;
@@ -1968,6 +1990,21 @@ body::-webkit-scrollbar-thumb {
 
   .spatial-nav nav.open {
     display: grid;
+  }
+
+  .nav-group {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+  }
+
+  .nav-group-tools {
+    padding-top: 6px;
+    border-top: 1px solid var(--line);
+  }
+
+  .nav-divider {
+    display: none;
   }
 
   .spatial-nav nav a,

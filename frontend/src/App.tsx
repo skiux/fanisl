@@ -35,8 +35,17 @@ function Header({ active, jumpTo, menuOpen, openSearch, setMenuOpen }: HeaderPro
         <i aria-hidden="true" /><strong>FANISL</strong>
       </a>
       <nav aria-label="主要导航" className={menuOpen ? 'open' : ''}>
-        <a aria-current={active === 5 ? 'page' : undefined} href="#library" onClick={(event) => { event.preventDefault(); jumpTo(5); setMenuOpen(false) }}>知识库</a>
-        <span aria-disabled="true">对话</span><span aria-disabled="true">评测台</span><span aria-disabled="true">档案</span>
+        <div aria-label="知识引擎" className="nav-group nav-group-primary" role="group">
+          <a aria-current={active === 5 ? 'page' : undefined} href="#library" onClick={(event) => { event.preventDefault(); jumpTo(5); setMenuOpen(false) }}>知识库</a>
+          <span aria-disabled="true">验证</span>
+          <span aria-disabled="true">发现</span>
+        </div>
+        <i aria-hidden="true" className="nav-divider" />
+        <div aria-label="研究工具" className="nav-group nav-group-tools" role="group">
+          <span aria-disabled="true">评测</span>
+          <span aria-disabled="true">对话</span>
+          <span aria-disabled="true">档案</span>
+        </div>
       </nav>
       <div className="nav-actions">
         <button aria-label="搜索知识" className="search-trigger" onClick={openSearch} type="button"><span>⌕</span><em>搜索知识</em><kbd>⌘K</kbd></button>
