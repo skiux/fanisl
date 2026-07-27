@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ArchiveScene from './ArchiveScene'
 import { chapters, getActiveChapter } from './journey'
+import AppHeader from './shared/navigation/AppHeader'
 
 const searchItems = [
   { kind: '认知', title: 'AI 时代的软件收费：席位 → 按量 → 按结果', chapter: 3 },
@@ -18,41 +19,6 @@ function useMediaQuery(query: string) {
     return () => media.removeEventListener('change', update)
   }, [query])
   return matches
-}
-
-type HeaderProps = {
-  active: number
-  jumpTo: (index: number) => void
-  menuOpen: boolean
-  openSearch: () => void
-  setMenuOpen: (open: boolean) => void
-}
-
-function Header({ active, jumpTo, menuOpen, openSearch, setMenuOpen }: HeaderProps) {
-  return (
-    <header className="spatial-nav">
-      <a className="brand" href="#entry" onClick={(event) => { event.preventDefault(); jumpTo(0); setMenuOpen(false) }} aria-label="FANISL 首页">
-        <i aria-hidden="true" /><strong>FANISL</strong>
-      </a>
-      <nav aria-label="主要导航" className={menuOpen ? 'open' : ''}>
-        <div aria-label="知识引擎" className="nav-group nav-group-primary" role="group">
-          <a aria-current={active === 5 ? 'page' : undefined} href="#library" onClick={(event) => { event.preventDefault(); jumpTo(5); setMenuOpen(false) }}>知识库</a>
-          <span aria-disabled="true">验证</span>
-          <span aria-disabled="true">发现</span>
-        </div>
-        <i aria-hidden="true" className="nav-divider" />
-        <div aria-label="研究工具" className="nav-group nav-group-tools" role="group">
-          <span aria-disabled="true">评测</span>
-          <span aria-disabled="true">对话</span>
-          <span aria-disabled="true">档案</span>
-        </div>
-      </nav>
-      <div className="nav-actions">
-        <button aria-label="搜索知识" className="search-trigger" onClick={openSearch} type="button"><span>⌕</span><em>搜索知识</em><kbd>⌘K</kbd></button>
-        <button aria-expanded={menuOpen} aria-label={menuOpen ? '关闭导航' : '打开导航'} className="menu-trigger" onClick={() => setMenuOpen(!menuOpen)} type="button"><i /><i /></button>
-      </div>
-    </header>
-  )
 }
 
 function SearchPanel({ close, jumpTo }: { close: () => void; jumpTo: (index: number) => void }) {
@@ -100,7 +66,6 @@ function StaticJourney({ openSearch }: { openSearch: () => void }) {
 function App() {
   const [active, setActive] = useState(0)
   const activeRef = useRef(0)
-  const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const progress = useRef(0)
   const targetProgress = useRef(0)
@@ -165,7 +130,7 @@ function App() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setSearchOpen(true) }
-      if (event.key === 'Escape') { setSearchOpen(false); setMenuOpen(false) }
+      if (event.key === 'Escape') setSearchOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -181,7 +146,7 @@ function App() {
   if (staticExperience) {
     return (
       <div className="static-shell">
-        <Header active={active} jumpTo={jumpTo} menuOpen={menuOpen} openSearch={openSearch} setMenuOpen={setMenuOpen} />
+        <AppHeader onHomeClick={() => jumpTo(0)} onSearch={openSearch} />
         <StaticJourney openSearch={openSearch} />
         {searchOpen && <SearchPanel close={() => setSearchOpen(false)} jumpTo={jumpTo} />}
       </div>
@@ -197,7 +162,7 @@ function App() {
         <div className="scene-canvas">
           <ArchiveScene active={active} openSearch={openSearch} progress={progress} />
         </div>
-        <Header active={active} jumpTo={jumpTo} menuOpen={menuOpen} openSearch={openSearch} setMenuOpen={setMenuOpen} />
+        <AppHeader onHomeClick={() => jumpTo(0)} onSearch={openSearch} />
         <aside aria-label="空间章节" className="chapter-rail">
           {chapters.map((chapter, index) => (
             <button aria-current={active === index ? 'step' : undefined} aria-label={`前往${chapter.label}`} key={chapter.id} onClick={() => jumpTo(index)} type="button">
