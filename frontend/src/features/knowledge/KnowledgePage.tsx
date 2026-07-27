@@ -3,7 +3,15 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { apiJson } from '../../shared/api/client'
 import AppHeader from '../../shared/navigation/AppHeader'
 import { previewNodes, previewStats } from './preview'
-import type { KnowledgeKind, KnowledgeNode, KnowledgeStats, NodeStatus } from './types'
+import type {
+  AttestationRelation,
+  KnowledgeKind,
+  KnowledgeNode,
+  KnowledgeNodeDetail,
+  KnowledgeStats,
+  NodeRelationKind,
+  NodeStatus,
+} from './types'
 import './knowledge.css'
 
 const kindLabels: Record<KnowledgeKind, string> = {
@@ -20,10 +28,33 @@ const statusLabels: Record<NodeStatus, string> = {
   retired: '停止维护',
 }
 
+const attestationLabels: Record<AttestationRelation, string> = {
+  restates: '重申',
+  refines: '细化',
+  supersedes: '修正',
+  contradicts: '反驳',
+}
+
+const relationLabels: Record<NodeRelationKind, string> = {
+  conflicts: '对立命题',
+  relates: '互补关联',
+}
+
+const outcomeLabels: Record<string, string> = {
+  hit: '命中',
+  partial: '部分命中',
+  miss: '未命中',
+  condition_not_met: '条件未满足',
+  pending: '等待判定',
+  unpriceable: '无法取价',
+  condition_unverifiable: '条件不可验证',
+}
+
 type KindFilter = 'all' | KnowledgeKind
 type StatusFilter = 'all' | NodeStatus
 type SortMode = 'evidence' | 'recent'
 type LoadMode = 'loading' | 'live' | 'preview'
+type DetailMode = 'idle' | 'loading' | 'loaded' | 'error' | 'preview'
 
 function compareEvidence(a: KnowledgeNode, b: KnowledgeNode) {
   return b.n_attest - a.n_attest || b.n_creators - a.n_creators || a.id - b.id
@@ -40,6 +71,7 @@ function formatDate(value: string | null) {
 
 function KnowledgePage() {
   const searchRef = useRef<HTMLInputElement>(null)
+  const detailCacheRef = useRef(new Map<number, KnowledgeNodeDetail>())
   const [nodes, setNodes] = useState<KnowledgeNode[]>([])
   const [stats, setStats] = useState<KnowledgeStats>(previewStats)
   const [loadMode, setLoadMode] = useState<LoadMode>('loading')
@@ -52,6 +84,9 @@ function KnowledgePage() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [readerOpen, setReaderOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [detail, setDetail] = useState<KnowledgeNodeDetail | null>(null)
+  const [detailMode, setDetailMode] = useState<DetailMode>('idle')
+  const [detailRequestKey, setDetailRequestKey] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -162,6 +197,48 @@ function KnowledgePage() {
   const selectedPosition = selectedNode
     ? visibleNodes.findIndex((node) => node.id === selectedNode.id) + 1
     : 0
+
+  useEffect(() => {
+    if (!selectedNode) {
+      setDetail(null)
+      setDetailMode('idle')
+      return
+    }
+
+    if (loadMode === 'preview') {
+      setDetail({ ...selectedNode, attestations: [], relations: [] })
+      setDetailMode('preview')
+      return
+    }
+
+    if (loadMode !== 'live') return
+
+    const cached = detailCacheRef.current.get(selectedNode.id)
+    if (cached) {
+      setDetail(cached)
+      setDetailMode('loaded')
+      return
+    }
+
+    const controller = new AbortController()
+    setDetail(null)
+    setDetailMode('loading')
+
+    apiJson<KnowledgeNodeDetail>(`/knowledge/nodes/${selectedNode.id}`, {
+      signal: controller.signal,
+    }).then((payload) => {
+      const completeDetail = { ...selectedNode, ...payload }
+      detailCacheRef.current.set(selectedNode.id, completeDetail)
+      setDetail(completeDetail)
+      setDetailMode('loaded')
+    }).catch(() => {
+      if (controller.signal.aborted) return
+      setDetailMode('error')
+    })
+
+    return () => controller.abort()
+  }, [detailRequestKey, loadMode, selectedNode])
+
   const hasActiveFilters = kind !== 'all'
     || status !== 'all'
     || tag !== null
@@ -174,6 +251,14 @@ function KnowledgePage() {
     setTag(null)
     setCrossSource(false)
     setQuery('')
+  }
+
+  const openRelatedNode = (nodeId: number) => {
+    const target = nodes.find((node) => node.id === nodeId)
+    if (!target) return
+    resetFilters()
+    setSelectedId(target.id)
+    setReaderOpen(true)
   }
 
   const selectNode = (node: KnowledgeNode, openOnMobile = false) => {
@@ -413,7 +498,11 @@ function KnowledgePage() {
             </button>
             {selectedNode && (
               <NodeReader
+                detail={detail}
+                detailMode={detailMode}
                 node={selectedNode}
+                onOpenRelated={openRelatedNode}
+                onRetry={() => setDetailRequestKey((value) => value + 1)}
                 position={selectedPosition}
                 total={visibleNodes.length}
               />
@@ -431,11 +520,19 @@ function KnowledgePage() {
 }
 
 function NodeReader({
+  detail,
+  detailMode,
   node,
+  onOpenRelated,
+  onRetry,
   position,
   total,
 }: {
+  detail: KnowledgeNodeDetail | null
+  detailMode: DetailMode
   node: KnowledgeNode
+  onOpenRelated: (nodeId: number) => void
+  onRetry: () => void
   position: number
   total: number
 }) {
@@ -491,6 +588,116 @@ function NodeReader({
         </header>
         <blockquote>{node.notes || '该节点由单次提及建立，尚未形成归并注记。'}</blockquote>
       </section>
+
+      {detailMode === 'loading' && (
+        <section className="detail-loading" aria-label="正在读取完整证据">
+          <header><span /><b /></header>
+          <i /><i /><i />
+        </section>
+      )}
+
+      {detailMode === 'error' && (
+        <section className="detail-error">
+          <span>DETAIL UNAVAILABLE</span>
+          <strong>完整证据暂时没有载入</strong>
+          <p>节点摘要仍可阅读，重试不会改变当前筛选与阅读位置。</p>
+          <button onClick={onRetry} type="button">重新读取证据</button>
+        </section>
+      )}
+
+      {detailMode === 'preview' && (
+        <section className="detail-preview">
+          <span>PREVIEW DATA</span>
+          <p>当前预览样本只包含节点摘要；连接后端后，这里会显示逐条提及与节点关系。</p>
+        </section>
+      )}
+
+      {detailMode === 'loaded' && detail && (
+        <>
+          <section className="attestation-timeline">
+            <header>
+              <div>
+                <p>提及与演进</p>
+                <span>从早到晚保留每一次重申、细化、修正或反驳</span>
+              </div>
+              <b>{detail.attestations.length} 条</b>
+            </header>
+
+            {detail.attestations.length ? (
+              <ol>
+                {detail.attestations.map((attestation, index) => (
+                  <li key={`${attestation.unit_id}-${index}`}>
+                    <div className="timeline-axis">
+                      <time>{formatDate(attestation.published_at) ?? '—'}</time>
+                      <i />
+                    </div>
+                    <article className={`attestation-entry relation-${attestation.relation}`}>
+                      <header>
+                        <span>{attestationLabels[attestation.relation]}</span>
+                        <b>{attestation.creator}</b>
+                      </header>
+                      {attestation.note && <p className="attestation-note">{attestation.note}</p>}
+                      <blockquote>{attestation.quote}</blockquote>
+                      <footer>
+                        <span>{attestation.content_title}</span>
+                        <p>
+                          <b>单元 #{attestation.unit_id}</b>
+                          {attestation.locator && <em>定位 {attestation.locator}</em>}
+                        </p>
+                      </footer>
+                      {attestation.scores.length > 0 && (
+                        <div className="attestation-scores" aria-label="该提及的市场判定">
+                          {attestation.scores.map((score) => (
+                            <span className={`outcome-${score.outcome}`} key={score.id}>
+                              <b>{score.horizon_label}</b>
+                              <em>{outcomeLabels[score.outcome] ?? score.outcome}</em>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="timeline-empty">该节点尚未返回提及记录。</p>
+            )}
+          </section>
+
+          <section className="node-relations">
+            <header>
+              <div>
+                <p>节点关系</p>
+                <span>不强行归并的分歧，以及值得并读的互补命题</span>
+              </div>
+              <b>{detail.relations.length} 条</b>
+            </header>
+
+            {detail.relations.length ? (
+              <div className="relation-list">
+                {detail.relations.map((relation) => (
+                  <button
+                    className={`relation-card relation-${relation.relation}`}
+                    key={`${relation.relation}-${relation.other_id}`}
+                    onClick={() => onOpenRelated(relation.other_id)}
+                    type="button"
+                  >
+                    <span>
+                      <b>{relationLabels[relation.relation]}</b>
+                      <em>{kindLabels[relation.other_kind]} · {statusLabels[relation.other_status]}</em>
+                    </span>
+                    <strong>{relation.other_title}</strong>
+                    <p>{relation.note}</p>
+                    <footer>打开关联节点 <i>→</i></footer>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="relation-empty">当前没有经过人工确认的对立或互补关系。</p>
+            )}
+          </section>
+        </>
+      )}
 
       <section className="reader-score">
         <header>
