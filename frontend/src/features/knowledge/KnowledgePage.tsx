@@ -49,6 +49,7 @@ function KnowledgePage() {
   const [crossSource, setCrossSource] = useState(false)
   const [sortMode, setSortMode] = useState<SortMode>('evidence')
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [mobileReaderOpen, setMobileReaderOpen] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -94,6 +95,7 @@ function KnowledgePage() {
         setQuery('')
         searchRef.current?.blur()
       }
+      if (event.key === 'Escape') setMobileReaderOpen(false)
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
@@ -143,6 +145,11 @@ function KnowledgePage() {
   const selectedNode = visibleNodes.find((node) => node.id === selectedId)
     ?? visibleNodes[0]
     ?? null
+  const hasActiveFilters = kind !== 'all'
+    || status !== 'all'
+    || tag !== null
+    || crossSource
+    || query.trim().length > 0
 
   const resetFilters = () => {
     setKind('all')
@@ -151,6 +158,15 @@ function KnowledgePage() {
     setCrossSource(false)
     setQuery('')
   }
+
+  useEffect(() => {
+    if (!mobileReaderOpen || !window.matchMedia('(max-width: 860px)').matches) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [mobileReaderOpen])
 
   return (
     <div className="knowledge-page">
@@ -178,14 +194,28 @@ function KnowledgePage() {
         </section>
 
         <section className="knowledge-workspace">
-          <aside className="knowledge-filters" aria-label="节点筛选">
-            <div className="filter-heading">
-              <span>INDEX / 01</span>
-              <strong>节点视图</strong>
+          <header className="workspace-heading">
+            <div>
+              <span>KNOWLEDGE INDEX / 01</span>
+              <h2>浏览长期节点</h2>
+              <p>选择一条节点，在右侧阅读其结论、演进与证据来源。</p>
             </div>
+            <div className="node-search">
+              <span aria-hidden="true">⌕</span>
+              <input
+                aria-label="搜索长期知识节点"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="搜索命题、方法、主题或归并注记"
+                ref={searchRef}
+                value={query}
+              />
+              {query && <button aria-label="清空搜索" onClick={() => setQuery('')} type="button">×</button>}
+              <kbd>⌘K</kbd>
+            </div>
+          </header>
 
-            <div className="filter-section">
-              <p>知识类型</p>
+          <div className="knowledge-controls" aria-label="节点筛选">
+            <div className="kind-segments" aria-label="知识类型">
               {([
                 ['all', '全部节点'],
                 ['concept', '认知'],
@@ -203,38 +233,33 @@ function KnowledgePage() {
               ))}
             </div>
 
-            <div className="filter-section">
-              <p>生命周期</p>
-              <button aria-pressed={status === 'all'} onClick={() => setStatus('all')} type="button">
-                <span>全部状态</span><b>{nodes.length}</b>
-              </button>
-              {availableStatuses.map(([value, count]) => (
-                <button
-                  aria-pressed={status === value}
-                  key={value}
-                  onClick={() => setStatus(value)}
-                  type="button"
-                >
-                  <span>{statusLabels[value]}</span><b>{count}</b>
-                </button>
-              ))}
-            </div>
-
-            <div className="filter-section filter-tags">
-              <p>常用主题</p>
-              <div>
-                {popularTags.map(([value, count]) => (
-                  <button
-                    aria-pressed={tag === value}
-                    key={value}
-                    onClick={() => setTag(tag === value ? null : value)}
-                    type="button"
-                  >
-                    {value}<sup>{count}</sup>
-                  </button>
+            <label className="filter-select">
+              <span>生命周期</span>
+              <select
+                aria-label="按生命周期筛选"
+                onChange={(event) => setStatus(event.target.value as StatusFilter)}
+                value={status}
+              >
+                <option value="all">全部状态 · {nodes.length}</option>
+                {availableStatuses.map(([value, count]) => (
+                  <option key={value} value={value}>{statusLabels[value]} · {count}</option>
                 ))}
-              </div>
-            </div>
+              </select>
+            </label>
+
+            <label className="filter-select">
+              <span>主题</span>
+              <select
+                aria-label="按主题筛选"
+                onChange={(event) => setTag(event.target.value || null)}
+                value={tag ?? ''}
+              >
+                <option value="">全部主题</option>
+                {popularTags.map(([value, count]) => (
+                  <option key={value} value={value}>{value} · {count}</option>
+                ))}
+              </select>
+            </label>
 
             <label className="cross-source-toggle">
               <input
@@ -245,24 +270,15 @@ function KnowledgePage() {
               <span><i /></span>
               <b>只看跨信源</b>
             </label>
-          </aside>
+
+            {hasActiveFilters && (
+              <button className="reset-filters" onClick={resetFilters} type="button">清除条件</button>
+            )}
+          </div>
 
           <div className="knowledge-index">
-            <div className="node-search">
-              <span aria-hidden="true">⌕</span>
-              <input
-                aria-label="搜索长期知识节点"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索命题、方法、主题或归并注记"
-                ref={searchRef}
-                value={query}
-              />
-              {query && <button aria-label="清空搜索" onClick={() => setQuery('')} type="button">×</button>}
-              <kbd>⌘K</kbd>
-            </div>
-
             <div className="index-toolbar">
-              <p><strong>{visibleNodes.length}</strong> 个节点进入当前视图</p>
+              <p aria-live="polite"><strong>{visibleNodes.length}</strong> 个节点进入当前视图</p>
               <div aria-label="节点排序">
                 <button aria-pressed={sortMode === 'evidence'} onClick={() => setSortMode('evidence')} type="button">提及优先</button>
                 <button aria-pressed={sortMode === 'recent'} onClick={() => setSortMode('recent')} type="button">最近演进</button>
@@ -288,7 +304,10 @@ function KnowledgePage() {
                     aria-pressed={selectedNode?.id === node.id}
                     className={`node-row kind-${node.kind}`}
                     key={node.id}
-                    onClick={() => setSelectedId(node.id)}
+                    onClick={() => {
+                      setSelectedId(node.id)
+                      setMobileReaderOpen(true)
+                    }}
                     type="button"
                   >
                     <span className="node-number">{String(index + 1).padStart(2, '0')}</span>
@@ -322,7 +341,17 @@ function KnowledgePage() {
             </div>
           </div>
 
-          <aside className="node-reader" aria-live="polite">
+          <button
+            aria-label="关闭节点阅读器"
+            className="reader-backdrop"
+            data-open={mobileReaderOpen}
+            onClick={() => setMobileReaderOpen(false)}
+            type="button"
+          />
+          <aside className="node-reader" aria-live="polite" data-open={mobileReaderOpen}>
+            <button className="reader-close" onClick={() => setMobileReaderOpen(false)} type="button">
+              <span>返回节点列表</span><b>×</b>
+            </button>
             {selectedNode && <NodeReader node={selectedNode} />}
           </aside>
         </section>
