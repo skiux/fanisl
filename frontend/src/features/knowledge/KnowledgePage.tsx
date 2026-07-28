@@ -77,6 +77,7 @@ function formatDate(value: string | null) {
 }
 
 function KnowledgePage() {
+  const startsInUnitSearch = window.location.hash.includes('search=1')
   const searchRef = useRef<HTMLInputElement>(null)
   const detailCacheRef = useRef(new Map<number, KnowledgeNodeDetail>())
   const [nodes, setNodes] = useState<KnowledgeNode[]>([])
@@ -85,7 +86,7 @@ function KnowledgePage() {
   const [units, setUnits] = useState<KnowledgeUnitSummary[]>([])
   const [stats, setStats] = useState<KnowledgeStats>(previewStats)
   const [loadMode, setLoadMode] = useState<LoadMode>('loading')
-  const [libraryView, setLibraryView] = useState<LibraryView>('nodes')
+  const [libraryView, setLibraryView] = useState<LibraryView>(startsInUnitSearch ? 'units' : 'nodes')
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<KindFilter>('all')
   const [status, setStatus] = useState<StatusFilter>('all')
@@ -101,7 +102,7 @@ function KnowledgePage() {
   const [evidenceUnitId, setEvidenceUnitId] = useState<number | null>(null)
   const [selectedContentId, setSelectedContentId] = useState<number | null>(null)
   const [selectedBrowseUnitId, setSelectedBrowseUnitId] = useState<number | null>(null)
-  const [unitSearchFocusKey, setUnitSearchFocusKey] = useState(0)
+  const [unitSearchFocusKey, setUnitSearchFocusKey] = useState(startsInUnitSearch ? 1 : 0)
 
   useEffect(() => {
     const controller = new AbortController()
