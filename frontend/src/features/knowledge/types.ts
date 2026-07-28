@@ -153,3 +153,40 @@ export type KnowledgeContentUnit = {
   created_at: string
   scores: UnitScore[]
 }
+
+export type KnowledgeUnitSummary = KnowledgeContentUnit & {
+  creator: string
+  content_title: string
+}
+
+export type KnowledgeCreator = {
+  id: number
+  name: string
+  lang: string
+  focus: string | null
+  notes: string | null
+  active: boolean
+  created_at: string
+}
+
+export type KnowledgeTagSummary = {
+  tag: string
+  n: number
+  n_claims: number
+  n_methods: number
+  n_concepts: number
+}
+
+export type KnowledgePriceBar = {
+  ts: string
+  open: number
+  high: number
+  low: number
+  close: number
+}
+
+export type KnowledgePriceWindow = {
+  symbol: string
+  note: string | null
+  bars: KnowledgePriceBar[]
+}

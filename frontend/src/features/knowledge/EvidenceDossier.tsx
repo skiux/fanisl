@@ -3,6 +3,7 @@ import { apiJson } from '../../shared/api/client'
 import type {
   KnowledgeContentDetail,
   KnowledgeKind,
+  KnowledgePriceWindow,
   KnowledgeUnitDetail,
   UnitScore,
 } from './types'
@@ -89,6 +90,7 @@ const realizedLabels: Record<string, string> = {
 
 type LoadState = 'loading' | 'loaded' | 'error'
 type ContentState = 'idle' | 'loading' | 'loaded' | 'error'
+type PriceState = 'idle' | 'loading' | 'loaded' | 'error'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
@@ -354,6 +356,142 @@ function ScoreSection({ unit }: { unit: KnowledgeUnitDetail }) {
   )
 }
 
+function PriceEvidence({ unit }: { unit: KnowledgeUnitDetail }) {
+  const symbol = asText(unit.payload.asset_symbol)
+  const priceable = unit.payload.priceable !== false
+  const [windowData, setWindowData] = useState<KnowledgePriceWindow | null>(null)
+  const [state, setState] = useState<PriceState>('idle')
+
+  useEffect(() => {
+    if (!symbol || !priceable) {
+      setState('idle')
+      setWindowData(null)
+      return
+    }
+
+    const controller = new AbortController()
+    const start = new Date(unit.published_at)
+    start.setUTCDate(start.getUTCDate() - 7)
+    const since = start.toISOString().slice(0, 10)
+    const until = new Date().toISOString().slice(0, 10)
+    const params = new URLSearchParams({ symbol, since, until })
+    setState('loading')
+    setWindowData(null)
+
+    apiJson<KnowledgePriceWindow>(`/knowledge/prices?${params.toString()}`, {
+      signal: controller.signal,
+    }).then((payload) => {
+      setWindowData(payload)
+      setState('loaded')
+    }).catch(() => {
+      if (!controller.signal.aborted) setState('error')
+    })
+
+    return () => controller.abort()
+  }, [priceable, symbol, unit.published_at])
+
+  if (!symbol) return null
+
+  const bars = windowData?.bars ?? []
+  const width = 600
+  const height = 220
+  const left = 44
+  const right = 14
+  const top = 18
+  const bottom = 34
+  const closes = bars.map((bar) => bar.close)
+  const lows = bars.map((bar) => bar.low)
+  const highs = bars.map((bar) => bar.high)
+  const reference = unit.ref_price_at_publish
+  const values = [...lows, ...highs, ...(reference === null ? [] : [reference])]
+  const minimum = values.length ? Math.min(...values) : 0
+  const maximum = values.length ? Math.max(...values) : 1
+  const range = Math.max(maximum - minimum, Math.abs(maximum) * 0.005, 1)
+  const chartWidth = width - left - right
+  const chartHeight = height - top - bottom
+  const xForIndex = (index: number) => left + (index / Math.max(1, bars.length - 1)) * chartWidth
+  const yForValue = (value: number) => top + ((maximum - value) / range) * chartHeight
+  const points = closes.map((close, index) => `${xForIndex(index)},${yForValue(close)}`).join(' ')
+  const scorePoints = unit.scores.map((score) => {
+    const target = score.horizon_label.slice(0, 10)
+    const nextTradingDay = bars.findIndex((bar) => bar.ts.slice(0, 10) >= target)
+    const index = nextTradingDay >= 0 ? nextTradingDay : bars.length - 1
+    return { index, score }
+  })
+
+  return (
+    <section className="price-evidence">
+      <header>
+        <div>
+          <p>价格证据</p>
+          <span>发布参考价、到期时点与真实日线窗口</span>
+        </div>
+        <b>{symbol}</b>
+      </header>
+
+      {!priceable && (
+        <p className="price-evidence-empty">该判断在提取时被标记为不可定价，因此不生成价格图。</p>
+      )}
+      {priceable && state === 'loading' && (
+        <div aria-label="正在读取价格证据" className="price-chart-loading"><i /><span /></div>
+      )}
+      {priceable && state === 'error' && (
+        <p className="price-evidence-empty">当前价格窗口暂时不可用；冻结判据与已有评分仍保留在下方。</p>
+      )}
+      {priceable && state === 'loaded' && bars.length === 0 && (
+        <p className="price-evidence-empty">该标的当前没有可用的日线窗口。</p>
+      )}
+      {priceable && state === 'loaded' && bars.length > 0 && (
+        <>
+          <div className="price-chart">
+            <svg aria-label={`${symbol} 价格证据图`} role="img" viewBox={`0 0 ${width} ${height}`}>
+              {[0, .5, 1].map((ratio) => {
+                const y = top + ratio * chartHeight
+                const value = maximum - ratio * range
+                return (
+                  <g className="price-grid-line" key={ratio}>
+                    <line x1={left} x2={width - right} y1={y} y2={y} />
+                    <text x={left - 7} y={y + 3}>{value.toFixed(value < 100 ? 2 : 0)}</text>
+                  </g>
+                )
+              })}
+              {reference !== null && (
+                <g className="price-reference">
+                  <line x1={left} x2={width - right} y1={yForValue(reference)} y2={yForValue(reference)} />
+                  <text x={width - right} y={yForValue(reference) - 5}>发布参考 {reference.toFixed(2)}</text>
+                </g>
+              )}
+              <polyline className="price-close-line" points={points} />
+              {scorePoints.map(({ index, score }, scoreIndex) => {
+                const bar = bars[index]
+                if (!bar) return null
+                const x = xForIndex(index)
+                const y = yForValue(bar.close)
+                return (
+                  <g className={`price-score-point outcome-${score.outcome}`} key={`${score.horizon_label}-${scoreIndex}`}>
+                    <line x1={x} x2={x} y1={top} y2={height - bottom} />
+                    <circle cx={x} cy={y} r="4" />
+                    <text x={x} y={top + 10}>{outcomeLabels[score.outcome] ?? score.outcome}</text>
+                  </g>
+                )
+              })}
+              <text className="price-axis-date" x={left} y={height - 10}>{bars[0].ts.slice(5, 10)}</text>
+              <text className="price-axis-date" textAnchor="end" x={width - right} y={height - 10}>
+                {bars[bars.length - 1].ts.slice(5, 10)}
+              </text>
+            </svg>
+          </div>
+          <footer className="price-evidence-legend">
+            <span><i />收盘价</span>
+            {reference !== null && <span><i />发布参考价</span>}
+            <b>{windowData?.note || '日线收盘口径'}</b>
+          </footer>
+        </>
+      )}
+    </section>
+  )
+}
+
 function SourceReader({
   content,
   unit,
@@ -485,12 +623,14 @@ function DossierSkeleton() {
 
 function EvidenceDossier({
   backLabel = '返回知识节点',
+  embedded = false,
   onClose,
   parentLabel = 'NODE',
   parentTitle,
   unitId,
 }: {
   backLabel?: string
+  embedded?: boolean
   onClose: () => void
   parentLabel?: string
   parentTitle: string
@@ -521,22 +661,24 @@ function EvidenceDossier({
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: 0 })
-    closeRef.current?.focus({ preventScroll: true })
-  }, [unitId])
+    if (!embedded) closeRef.current?.focus({ preventScroll: true })
+  }, [embedded, unitId])
 
   return (
     <section
       aria-label={`证据单元 ${unitId}`}
-      className="evidence-dossier"
-      role="dialog"
+      className={`evidence-dossier${embedded ? ' is-embedded' : ''}`}
+      role={embedded ? 'region' : 'dialog'}
     >
-      <header className="dossier-navigation">
-        <button onClick={onClose} ref={closeRef} type="button">
-          <i>←</i>
-          <span>{backLabel}</span>
-        </button>
-        <p>{parentLabel} <b>{parentTitle}</b></p>
-      </header>
+      {!embedded && (
+        <header className="dossier-navigation">
+          <button onClick={onClose} ref={closeRef} type="button">
+            <i>←</i>
+            <span>{backLabel}</span>
+          </button>
+          <p>{parentLabel} <b>{parentTitle}</b></p>
+        </header>
+      )}
 
       <div className="dossier-body" ref={bodyRef}>
         {state === 'loading' && <DossierSkeleton />}
@@ -580,6 +722,7 @@ function EvidenceDossier({
             {unit.kind === 'method' && <MethodStructure unit={unit} />}
             {unit.kind === 'concept' && <ConceptStructure unit={unit} />}
 
+            {unit.kind === 'claim' && <PriceEvidence unit={unit} />}
             <ScoreSection unit={unit} />
             <ContentGateway key={unit.id} unit={unit} />
 

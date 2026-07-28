@@ -4,14 +4,17 @@ import { apiJson } from '../../shared/api/client'
 import AppHeader from '../../shared/navigation/AppHeader'
 import ContentTimeline from './ContentTimeline'
 import EvidenceDossier from './EvidenceDossier'
+import UnitBrowser from './UnitBrowser'
 import { previewNodes, previewStats } from './preview'
 import type {
   AttestationRelation,
   KnowledgeContentSummary,
+  KnowledgeCreator,
   KnowledgeKind,
   KnowledgeNode,
   KnowledgeNodeDetail,
   KnowledgeStats,
+  KnowledgeUnitSummary,
   NodeRelationKind,
   NodeStatus,
 } from './types'
@@ -58,7 +61,7 @@ type StatusFilter = 'all' | NodeStatus
 type SortMode = 'evidence' | 'recent'
 type LoadMode = 'loading' | 'live' | 'preview'
 type DetailMode = 'idle' | 'loading' | 'loaded' | 'error' | 'preview'
-type LibraryView = 'nodes' | 'timeline'
+type LibraryView = 'nodes' | 'timeline' | 'units'
 
 function compareEvidence(a: KnowledgeNode, b: KnowledgeNode) {
   return b.n_attest - a.n_attest || b.n_creators - a.n_creators || a.id - b.id
@@ -78,6 +81,8 @@ function KnowledgePage() {
   const detailCacheRef = useRef(new Map<number, KnowledgeNodeDetail>())
   const [nodes, setNodes] = useState<KnowledgeNode[]>([])
   const [contents, setContents] = useState<KnowledgeContentSummary[]>([])
+  const [creators, setCreators] = useState<KnowledgeCreator[]>([])
+  const [units, setUnits] = useState<KnowledgeUnitSummary[]>([])
   const [stats, setStats] = useState<KnowledgeStats>(previewStats)
   const [loadMode, setLoadMode] = useState<LoadMode>('loading')
   const [libraryView, setLibraryView] = useState<LibraryView>('nodes')
@@ -95,34 +100,41 @@ function KnowledgePage() {
   const [detailRequestKey, setDetailRequestKey] = useState(0)
   const [evidenceUnitId, setEvidenceUnitId] = useState<number | null>(null)
   const [selectedContentId, setSelectedContentId] = useState<number | null>(null)
+  const [selectedBrowseUnitId, setSelectedBrowseUnitId] = useState<number | null>(null)
+  const [unitSearchFocusKey, setUnitSearchFocusKey] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
 
     async function load() {
       try {
-        const [nodeRows, creators, contents, units] = await Promise.all([
+        const [nodeRows, creatorRows, contentRows, unitRows] = await Promise.all([
           apiJson<KnowledgeNode[]>('/knowledge/nodes?limit=300', { signal: controller.signal }),
-          apiJson<unknown[]>('/knowledge/creators', { signal: controller.signal }),
+          apiJson<KnowledgeCreator[]>('/knowledge/creators', { signal: controller.signal }),
           apiJson<KnowledgeContentSummary[]>('/knowledge/contents?limit=200', { signal: controller.signal }),
-          apiJson<unknown[]>('/knowledge/units?limit=500', { signal: controller.signal }),
+          apiJson<KnowledgeUnitSummary[]>('/knowledge/units?limit=500', { signal: controller.signal }),
         ])
         setNodes(nodeRows)
-        setContents(contents)
+        setCreators(creatorRows)
+        setContents(contentRows)
+        setUnits(unitRows)
         setStats({
           nodes: nodeRows.length,
-          contents: contents.length,
-          units: units.length,
-          creators: creators.length,
+          contents: contentRows.length,
+          units: unitRows.length,
+          creators: creatorRows.length,
           corroborated: nodeRows.filter((node) => node.status === 'corroborated').length,
         })
         setSelectedId([...nodeRows].sort(compareEvidence)[0]?.id ?? null)
-        setSelectedContentId(contents[0]?.id ?? null)
+        setSelectedContentId(contentRows[0]?.id ?? null)
+        setSelectedBrowseUnitId(unitRows[0]?.id ?? null)
         setLoadMode('live')
       } catch {
         if (controller.signal.aborted) return
         setNodes(previewNodes)
+        setCreators([])
         setContents([])
+        setUnits([])
         setStats(previewStats)
         setSelectedId([...previewNodes].sort(compareEvidence)[0]?.id ?? null)
         setLoadMode('preview')
@@ -137,10 +149,10 @@ function KnowledgePage() {
     const handleKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        setLibraryView('nodes')
+        setLibraryView('units')
         setReaderOpen(false)
         setEvidenceUnitId(null)
-        requestAnimationFrame(() => searchRef.current?.focus())
+        setUnitSearchFocusKey((value) => value + 1)
       }
       if (event.key !== 'Escape') return
       if (evidenceUnitId !== null) {
@@ -302,6 +314,11 @@ function KnowledgePage() {
     if (openOnMobile) setReaderOpen(true)
   }
 
+  const selectBrowseUnit = (unitId: number, openOnMobile = false) => {
+    setSelectedBrowseUnitId(unitId)
+    if (openOnMobile) setReaderOpen(true)
+  }
+
   const selectNode = (node: KnowledgeNode, openOnMobile = false) => {
     setEvidenceUnitId(null)
     setSelectedId(node.id)
@@ -332,10 +349,10 @@ function KnowledgePage() {
       <AppHeader
         current="knowledge"
         onSearch={() => {
-          setLibraryView('nodes')
+          setLibraryView('units')
           setReaderOpen(false)
           setEvidenceUnitId(null)
-          requestAnimationFrame(() => searchRef.current?.focus())
+          setUnitSearchFocusKey((value) => value + 1)
         }}
       />
 
@@ -359,12 +376,21 @@ function KnowledgePage() {
               >
                 内容时间流
               </button>
+              <button
+                aria-pressed={libraryView === 'units'}
+                onClick={() => selectLibraryView('units')}
+                type="button"
+              >
+                单元浏览
+              </button>
             </nav>
           </div>
           <p className="masthead-statement">
             {libraryView === 'nodes'
               ? '不是内容的仓库，而是从原始表达中持续归并、修正并保留来源的长期认知。'
-              : '沿发布时间阅读每期内容提取出的判断、方法与认知，再按需回到逐字原文。'}
+              : libraryView === 'timeline'
+                ? '沿发布时间阅读每期内容提取出的判断、方法与认知，再按需回到逐字原文。'
+                : '跨内容检索每一条逐字证据，以类型、标签和信源定位判断、方法与认知。'}
           </p>
           <div className="masthead-ledger" aria-label="知识库规模">
             <span><strong>{stats.nodes}</strong><small>长期节点</small></span>
@@ -595,7 +621,7 @@ function KnowledgePage() {
             )}
               </aside>
             </>
-          ) : (
+          ) : libraryView === 'timeline' ? (
             <ContentTimeline
               contents={contents}
               evidenceUnitId={evidenceUnitId}
@@ -610,6 +636,20 @@ function KnowledgePage() {
               onSelectContent={selectContent}
               readerOpen={readerOpen}
               selectedContentId={selectedContentId}
+            />
+          ) : (
+            <UnitBrowser
+              creators={creators}
+              filtersOpen={filtersOpen}
+              focusRequestKey={unitSearchFocusKey}
+              initialUnits={units}
+              isPreview={loadMode === 'preview'}
+              onCloseFilters={() => setFiltersOpen(false)}
+              onCloseReader={() => setReaderOpen(false)}
+              onOpenFilters={() => setFiltersOpen(true)}
+              onSelectUnit={selectBrowseUnit}
+              readerOpen={readerOpen}
+              selectedUnitId={selectedBrowseUnitId}
             />
           )}
         </section>
