@@ -17,12 +17,12 @@ const kindLabels: Record<KnowledgeKind, string> = {
 
 const outcomeLabels: Record<string, string> = {
   hit: '命中',
-  partial: '部分命中',
-  miss: '未命中',
+  partial: '部分',
+  miss: '未中',
   condition_not_met: '条件未触发',
-  condition_unverifiable: '条件不可验证',
-  unpriceable: '无法取价',
-  pending: '等待判定',
+  condition_unverifiable: '条件不可验',
+  unpriceable: '无价格',
+  pending: '待复核',
 }
 
 const claimClassLabels: Record<string, string> = {
@@ -35,12 +35,12 @@ const claimClassLabels: Record<string, string> = {
 }
 
 const directionLabels: Record<string, string> = {
-  up: '↑ 看多',
-  down: '↓ 看空',
-  flat: '→ 横盘',
-  range: '↔ 区间',
-  vol_up: '波动上升',
-  vol_down: '波动下降',
+  up: '↑',
+  down: '↓',
+  flat: '→',
+  range: '↔',
+  vol_up: '波动↑',
+  vol_down: '波动↓',
 }
 
 const verifiabilityLabels: Record<string, string> = {
@@ -51,7 +51,7 @@ const verifiabilityLabels: Record<string, string> = {
 }
 
 const stanceLabels: Record<string, string> = {
-  explicit: '明确表态',
+  explicit: '明确',
   hedged: '对冲表述',
   speculative: '试探表述',
 }

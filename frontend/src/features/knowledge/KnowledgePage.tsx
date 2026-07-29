@@ -27,11 +27,11 @@ const kindLabels: Record<KnowledgeKind, string> = {
 }
 
 const statusLabels: Record<NodeStatus, string> = {
-  active: '持续演进',
+  active: '活跃',
   corroborated: '多源佐证',
-  verified: '已经验证',
-  contested: '存在分歧',
-  retired: '停止维护',
+  verified: '已验证',
+  contested: '存在争议',
+  retired: '已退役',
 }
 
 const attestationLabels: Record<AttestationRelation, string> = {
@@ -48,12 +48,12 @@ const relationLabels: Record<NodeRelationKind, string> = {
 
 const outcomeLabels: Record<string, string> = {
   hit: '命中',
-  partial: '部分命中',
-  miss: '未命中',
-  condition_not_met: '条件未满足',
-  pending: '等待判定',
-  unpriceable: '无法取价',
-  condition_unverifiable: '条件不可验证',
+  partial: '部分',
+  miss: '未中',
+  condition_not_met: '条件未触发',
+  pending: '待复核',
+  unpriceable: '无价格',
+  condition_unverifiable: '条件不可验',
 }
 
 type KindFilter = 'all' | KnowledgeKind
@@ -76,8 +76,16 @@ function formatDate(value: string | null) {
   }).format(new Date(value))
 }
 
+function nodeIdFromHash() {
+  const query = window.location.hash.split('?')[1]
+  if (!query) return null
+  const value = Number(new URLSearchParams(query).get('node'))
+  return Number.isInteger(value) && value > 0 ? value : null
+}
+
 function KnowledgePage() {
   const startsInUnitSearch = window.location.hash.includes('search=1')
+  const startsAtNodeId = nodeIdFromHash()
   const searchRef = useRef<HTMLInputElement>(null)
   const detailCacheRef = useRef(new Map<number, KnowledgeNodeDetail>())
   const [nodes, setNodes] = useState<KnowledgeNode[]>([])
@@ -93,8 +101,8 @@ function KnowledgePage() {
   const [tag, setTag] = useState<string | null>(null)
   const [crossSource, setCrossSource] = useState(false)
   const [sortMode, setSortMode] = useState<SortMode>('evidence')
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [readerOpen, setReaderOpen] = useState(false)
+  const [selectedId, setSelectedId] = useState<number | null>(startsAtNodeId)
+  const [readerOpen, setReaderOpen] = useState(startsAtNodeId !== null)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [detail, setDetail] = useState<KnowledgeNodeDetail | null>(null)
   const [detailMode, setDetailMode] = useState<DetailMode>('idle')
@@ -126,7 +134,9 @@ function KnowledgePage() {
           creators: creatorRows.length,
           corroborated: nodeRows.filter((node) => node.status === 'corroborated').length,
         })
-        setSelectedId([...nodeRows].sort(compareEvidence)[0]?.id ?? null)
+        setSelectedId(nodeRows.some((node) => node.id === startsAtNodeId)
+          ? startsAtNodeId
+          : [...nodeRows].sort(compareEvidence)[0]?.id ?? null)
         setSelectedContentId(contentRows[0]?.id ?? null)
         setSelectedBrowseUnitId(unitRows[0]?.id ?? null)
         setLoadMode('live')
@@ -144,7 +154,7 @@ function KnowledgePage() {
 
     void load()
     return () => controller.abort()
-  }, [])
+  }, [startsAtNodeId])
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {

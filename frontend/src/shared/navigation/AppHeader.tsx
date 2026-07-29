@@ -11,7 +11,7 @@ type AppHeaderProps = {
 const primaryItems = [
   { key: 'knowledge', label: '知识库', href: '#/knowledge', enabled: true },
   { key: 'verification', label: '验证', href: '#/verification', enabled: true },
-  { key: 'discovery', label: '发现', href: '#/discovery', enabled: false },
+  { key: 'discovery', label: '发现', href: '#/discovery', enabled: true },
 ] as const
 
 const toolItems = [

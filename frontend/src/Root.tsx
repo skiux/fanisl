@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import App from './App'
+import DiscoveryPage from './features/discovery/DiscoveryPage'
 import KnowledgePage from './features/knowledge/KnowledgePage'
 import VerificationPage from './features/verification/VerificationPage'
 
-type Route = 'home' | 'knowledge' | 'verification'
+type Route = 'home' | 'knowledge' | 'verification' | 'discovery'
 
 function readRoute(): Route {
   if (window.location.hash.startsWith('#/knowledge')) return 'knowledge'
   if (window.location.hash.startsWith('#/verification')) return 'verification'
+  if (window.location.hash.startsWith('#/discovery')) return 'discovery'
   return 'home'
 }
 
@@ -26,11 +28,14 @@ function Root() {
       ? '知识库 · FANISL'
       : route === 'verification'
         ? '验证中心 · FANISL'
+        : route === 'discovery'
+          ? '发现 · FANISL'
         : 'FANISL · 个人投资知识引擎'
   }, [route])
 
   if (route === 'knowledge') return <KnowledgePage />
   if (route === 'verification') return <VerificationPage />
+  if (route === 'discovery') return <DiscoveryPage />
   return <App />
 }
 
