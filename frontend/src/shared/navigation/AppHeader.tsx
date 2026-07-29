@@ -17,7 +17,7 @@ const primaryItems = [
 const toolItems = [
   { key: 'evaluation', label: '评测', href: '#/evaluation', enabled: false },
   { key: 'chat', label: '对话', href: '#/chat', enabled: false },
-  { key: 'archive', label: '档案', href: '#/archive', enabled: false },
+  { key: 'archive', label: '档案', href: '#/archive', enabled: true },
 ] as const
 
 function AppHeader({ current, onHomeClick, onSearch }: AppHeaderProps) {

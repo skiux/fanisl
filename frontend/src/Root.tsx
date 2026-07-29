@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
 import App from './App'
+import ArchivePage from './features/archive/ArchivePage'
 import DiscoveryPage from './features/discovery/DiscoveryPage'
 import KnowledgePage from './features/knowledge/KnowledgePage'
 import VerificationPage from './features/verification/VerificationPage'
 
-type Route = 'home' | 'knowledge' | 'verification' | 'discovery'
+type Route = 'home' | 'knowledge' | 'verification' | 'discovery' | 'archive'
 
 function readRoute(): Route {
   if (window.location.hash.startsWith('#/knowledge')) return 'knowledge'
   if (window.location.hash.startsWith('#/verification')) return 'verification'
   if (window.location.hash.startsWith('#/discovery')) return 'discovery'
+  if (window.location.hash.startsWith('#/archive')) return 'archive'
   return 'home'
 }
 
@@ -30,12 +32,15 @@ function Root() {
         ? '验证中心 · FANISL'
         : route === 'discovery'
           ? '发现 · FANISL'
-        : 'FANISL · 个人投资知识引擎'
+          : route === 'archive'
+            ? '研究档案 · FANISL'
+            : 'FANISL · 个人投资知识引擎'
   }, [route])
 
   if (route === 'knowledge') return <KnowledgePage />
   if (route === 'verification') return <VerificationPage />
   if (route === 'discovery') return <DiscoveryPage />
+  if (route === 'archive') return <ArchivePage />
   return <App />
 }
 
