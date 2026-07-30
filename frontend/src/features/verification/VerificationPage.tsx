@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { apiJson } from '../../shared/api/client'
 import AppHeader from '../../shared/navigation/AppHeader'
+import { outcomeLabels, verifiabilityLabels } from '../../shared/knowledge/labels'
+import {
+  benchmarkText,
+  realizedSummary,
+  scoringMethodText,
+  subjectText,
+  symbolText,
+  thesisText,
+} from '../../shared/knowledge/claim'
+import '../../shared/layout/chassis.css'
 import { VerificationReader } from './VerificationDossier'
 import type {
   DueVerification,
   ScoredVerification,
-  VerificationOutcome,
   VerificationQueue,
 } from './types'
 import './verification.css'
@@ -16,27 +24,17 @@ type QueueItem = DueVerification | ScoredVerification
 type LoadState = 'loading' | 'loaded' | 'error'
 
 const queueLabels: Record<QueueView, string> = {
-  recent: '近期判定',
-  due: '即将到期',
-  review: '需要复核',
+  recent: '已判定',
+  due: '待到期',
+  review: '需复核',
   unavailable: '不可判定',
 }
 
 const queueDescriptions: Record<QueueView, string> = {
-  recent: '已由评分器机械执行的命中、部分命中与未命中。',
-  due: '未来窗口内将到期、且尚未写入评分的冻结时点。',
-  review: '条件未触发或仍为 pending，需要保留上下文继续观察。',
-  unavailable: '无法取价或条件不可机械验证，空白本身也是质量信号。',
-}
-
-const outcomeLabels: Record<VerificationOutcome, string> = {
-  hit: '命中',
-  partial: '部分',
-  miss: '未中',
-  condition_not_met: '条件未触发',
-  condition_unverifiable: '条件不可验',
-  unpriceable: '无价格',
-  pending: '等待复核',
+  recent: '评分器已机械执行的时点，按到期日排列。',
+  due: '判据已冻结、尚未到期的时点。到期前只观察。',
+  review: '条件未触发或仍为 pending，保留上下文继续观察。',
+  unavailable: '无法取价或条件不可机械验证。空白本身是质量信号。',
 }
 
 function isScored(item: QueueItem): item is ScoredVerification {
@@ -44,44 +42,91 @@ function isScored(item: QueueItem): item is ScoredVerification {
 }
 
 function itemKey(item: QueueItem) {
-  return isScored(item)
-    ? `score-${item.score_id}`
-    : `due-${item.unit_id}-${item.horizon_label}`
+  return isScored(item) ? `score-${item.score_id}` : `due-${item.unit_id}-${item.horizon_label}`
 }
 
-function formatDate(value: string | null | undefined, includeTime = false) {
-  if (!value) return '—'
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    ...(includeTime ? { hour: '2-digit', minute: '2-digit' } : {}),
-    timeZone: 'Asia/Shanghai',
-  }).format(new Date(value))
+/**
+ * 排序键一律用 horizon_label（到期日），不用 scored_at。
+ * 评分是批跑的：56 条已判定里 54 条的 scored_at 是同一分钟，
+ * 拿它排序或显示，整个队列就变成一面相同的时间戳。
+ */
+function horizonKey(item: QueueItem) {
+  return item.horizon_label ?? ''
 }
 
-function asText(value: unknown) {
-  return typeof value === 'string' && value.trim() ? value : null
+function daysFromToday(dateText: string) {
+  if (!dateText) return null
+  const target = Date.parse(`${dateText}T00:00:00+08:00`)
+  if (Number.isNaN(target)) return null
+  return Math.round((target - Date.now()) / 86_400_000)
 }
 
-function formatMetric(key: string, value: unknown) {
-  if (typeof value !== 'number') return null
-  if (key.endsWith('_ret')) return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`
-  return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(value)
+function relativeDay(dateText: string) {
+  const days = daysFromToday(dateText)
+  if (days === null) return null
+  if (days === 0) return '今天'
+  if (days === 1) return '明天'
+  if (days > 0) return `${days} 天后`
+  if (days === -1) return '昨天'
+  return `${-days} 天前`
 }
 
-function itemSummary(item: ScoredVerification) {
-  if (!item.realized) return '没有数值型实测字段'
-  const priorities = ['eval_close', 'asset_ret', 'bench_ret', 'high', 'low']
-  const parts = priorities.flatMap((key) => {
-    const value = formatMetric(key, item.realized?.[key])
-    return value ? [value] : []
-  })
-  return parts.slice(0, 2).join(' · ') || '判定字段已落库'
+function VerificationRow({
+  item,
+  onOpen,
+  selected,
+}: {
+  item: QueueItem
+  onOpen: (item: QueueItem) => void
+  selected: boolean
+}) {
+  const payload = item.payload
+  const scored = isScored(item)
+  const symbol = symbolText(payload)
+  const grade = typeof payload.verifiability === 'string' ? payload.verifiability : null
+  const method = scoringMethodText(payload)
+  const benchmark = benchmarkText(payload)
+  const realized = scored ? realizedSummary(item.realized) : null
+
+  return (
+    <button
+      aria-pressed={selected}
+      className={`verify-row ${scored ? `outcome-${item.outcome}` : 'outcome-due'}`}
+      onClick={() => onOpen(item)}
+      type="button"
+    >
+      <span className="verify-verdict">
+        {scored ? (
+          <b>{outcomeLabels[item.outcome] ?? item.outcome}</b>
+        ) : (
+          <b className="verdict-due">{relativeDay(item.horizon_label) ?? '待到期'}</b>
+        )}
+        <time>{item.horizon_label}</time>
+      </span>
+
+      <span className="verify-body">
+        <span className="verify-head">
+          {symbol && <em>{symbol}</em>}
+          <strong>{subjectText(payload)}</strong>
+        </span>
+        <span className="verify-thesis">
+          {thesisText(payload) && <b>{thesisText(payload)}</b>}
+          {method && <span>{method}{benchmark ? ` vs ${benchmark}` : ''}</span>}
+          {grade && <i>{grade} 级 · {verifiabilityLabels[grade]}</i>}
+        </span>
+        <span className="verify-quote">{item.quote}</span>
+        <span className="verify-foot">
+          <span>{item.creator}</span>
+          <span>发布 {String(item.published_at).slice(0, 10)}</span>
+          {realized && <span className="verify-realized">{realized}</span>}
+        </span>
+      </span>
+    </button>
+  )
 }
 
 function VerificationPage() {
   const searchRef = useRef<HTMLInputElement>(null)
-  const readerBodyRef = useRef<HTMLDivElement>(null)
   const [queue, setQueue] = useState<VerificationQueue | null>(null)
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [requestKey, setRequestKey] = useState(0)
@@ -89,9 +134,7 @@ function VerificationPage() {
   const [view, setView] = useState<QueueView>('recent')
   const [query, setQuery] = useState('')
   const [creator, setCreator] = useState<string | null>(null)
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const [readerOpen, setReaderOpen] = useState(false)
+  const [openItem, setOpenItem] = useState<QueueItem | null>(null)
   const [unitOpen, setUnitOpen] = useState<number | null>(null)
 
   useEffect(() => {
@@ -112,342 +155,272 @@ function VerificationPage() {
     const handleKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        window.location.hash = '#/knowledge?search=1'
-      }
-      if (event.key !== 'Escape') return
-      if (unitOpen !== null) {
-        setUnitOpen(null)
+        searchRef.current?.focus()
         return
       }
-      if (document.activeElement === searchRef.current) {
-        setQuery('')
-        searchRef.current?.blur()
-      }
-      setFiltersOpen(false)
-      setReaderOpen(false)
+      if (event.key !== 'Escape') return
+      if (unitOpen !== null) { setUnitOpen(null); return }
+      if (openItem) { setOpenItem(null); return }
+      if (query) setQuery('')
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [unitOpen])
-
-  useEffect(() => {
-    const isNarrow = window.matchMedia('(max-width: 900px)').matches
-    if (!isNarrow || (!filtersOpen && !readerOpen)) return
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
-  }, [filtersOpen, readerOpen])
+  }, [openItem, query, unitOpen])
 
   const allItems = useMemo(() => queue
     ? [...queue.recent, ...queue.due, ...queue.review, ...queue.unavailable]
     : [], [queue])
+
   const creators = useMemo(() => {
     const counts = new Map<string, number>()
     allItems.forEach((item) => counts.set(item.creator, (counts.get(item.creator) ?? 0) + 1))
     return [...counts.entries()].sort((a, b) => b[1] - a[1])
   }, [allItems])
-  const viewItems = useMemo(() => queue?.[view] ?? [], [queue, view])
+
+  const viewItems = useMemo(() => {
+    const rows = [...(queue?.[view] ?? [])]
+    // 已判定按到期日倒序（最近结算的在前）；待到期按到期日正序（最先到期的在前）
+    rows.sort((a, b) => view === 'due'
+      ? horizonKey(a).localeCompare(horizonKey(b))
+      : horizonKey(b).localeCompare(horizonKey(a)))
+    return rows
+  }, [queue, view])
+
   const visibleItems = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase()
+    const text = query.trim().toLocaleLowerCase()
     return viewItems.filter((item) => {
       if (creator && item.creator !== creator) return false
-      if (!normalized) return true
-      const payloadText = JSON.stringify(item.payload)
-      return `${item.quote} ${item.creator} ${item.content_title} ${payloadText}`
-        .toLocaleLowerCase()
-        .includes(normalized)
+      if (!text) return true
+      return `${item.quote} ${item.creator} ${item.content_title} ${JSON.stringify(item.payload)}`
+        .toLocaleLowerCase().includes(text)
     })
   }, [creator, query, viewItems])
-  const selectedItem = visibleItems.find((item) => itemKey(item) === selectedKey)
-    ?? visibleItems[0]
-    ?? null
-  const selectedPosition = selectedItem
-    ? visibleItems.findIndex((item) => itemKey(item) === itemKey(selectedItem)) + 1
-    : 0
-  const selectedItemKey = selectedItem ? itemKey(selectedItem) : null
 
-  useEffect(() => {
-    readerBodyRef.current?.scrollTo({ top: 0 })
-  }, [selectedItemKey])
+  const overview = queue?.overview ?? { due: 0, completed: 0, unavailable: 0, review: 0 }
+  const queueCounts: Record<QueueView, number> = {
+    recent: overview.completed,
+    due: overview.due,
+    review: overview.review,
+    unavailable: overview.unavailable,
+  }
+
+  const hitStats = useMemo(() => {
+    const scored = queue?.recent ?? []
+    const hit = scored.filter((item) => item.outcome === 'hit').length
+    const partial = scored.filter((item) => item.outcome === 'partial').length
+    const miss = scored.filter((item) => item.outcome === 'miss').length
+    const n = hit + partial + miss
+    return { hit, partial, miss, n, rate: n ? Math.round(((hit + partial * 0.5) / n) * 100) : null }
+  }, [queue])
 
   const selectView = (next: QueueView) => {
     setView(next)
-    setSelectedKey(null)
-    setReaderOpen(false)
+    setOpenItem(null)
     setUnitOpen(null)
   }
 
-  const selectItem = (item: QueueItem, openOnMobile = false) => {
-    setSelectedKey(itemKey(item))
-    setUnitOpen(null)
-    if (openOnMobile) setReaderOpen(true)
+  const hasFilters = Boolean(query.trim()) || creator !== null
+  const inDetail = openItem !== null
+
+  const openIndex = openItem ? visibleItems.findIndex((row) => itemKey(row) === itemKey(openItem)) : -1
+  const step = (delta: number) => {
+    const next = visibleItems[openIndex + delta]
+    if (next) {
+      setOpenItem(next)
+      setUnitOpen(null)
+    }
   }
 
-  const handleRowKeyDown = (
-    event: ReactKeyboardEvent<HTMLButtonElement>,
-    index: number,
-  ) => {
-    let nextIndex: number | null = null
-    if (event.key === 'ArrowDown') nextIndex = Math.min(index + 1, visibleItems.length - 1)
-    if (event.key === 'ArrowUp') nextIndex = Math.max(index - 1, 0)
-    if (event.key === 'Home') nextIndex = 0
-    if (event.key === 'End') nextIndex = visibleItems.length - 1
-    if (nextIndex === null || nextIndex === index) return
-    event.preventDefault()
-    const next = visibleItems[nextIndex]
-    setSelectedKey(itemKey(next))
-    requestAnimationFrame(() => {
-      document.querySelector<HTMLButtonElement>(`[data-verification-key="${itemKey(next)}"]`)?.focus()
-    })
+  /** 到期日分组：今天之前 / 本周 / 更远，或已判定按月 */
+  const groupLabel = (item: QueueItem) => {
+    if (view !== 'due') return item.horizon_label.slice(0, 7).replace('-', ' 年 ') + ' 月到期'
+    const days = daysFromToday(item.horizon_label)
+    if (days === null) return '日期未知'
+    if (days <= 0) return '已过期未评分'
+    if (days <= 7) return '未来 7 天'
+    if (days <= 30) return '未来 30 天'
+    return '更远'
   }
-
-  const clearFilters = () => {
-    setQuery('')
-    setCreator(null)
-  }
-
-  const overview = queue?.overview ?? { due: 0, completed: 0, unavailable: 0, review: 0 }
-  const overviewItems: Array<{ key: QueueView; count: number; label: string; meta: string }> = [
-    { key: 'due', count: overview.due, label: '即将到期', meta: `${windowDays} 天窗口` },
-    { key: 'recent', count: overview.completed, label: '近期判定', meta: '机械裁决' },
-    { key: 'unavailable', count: overview.unavailable, label: '不可判定', meta: '质量信号' },
-    { key: 'review', count: overview.review, label: '需要复核', meta: '保留语境' },
-  ]
 
   return (
-    <div className="verification-page">
+    <div className="page-shell verification-page">
       <div aria-hidden="true" className="verification-material" />
-      <AppHeader
-        current="verification"
-        onSearch={() => {
-          window.location.hash = '#/knowledge?search=1'
-        }}
-      />
+      <AppHeader current="verification" onSearch={() => searchRef.current?.focus()} />
 
-      <main className="verification-stage">
-        <header className="verification-masthead">
-          <div className="verification-title">
-            <span>02 / VERIFICATION CENTER</span>
-            <h1>验证</h1>
-            <p><i />L2 · 机械质检层</p>
-          </div>
-          <div className="verification-statement">
-            <strong>验证不是预测竞赛，<br />而是给知识留下可信的质检戳。</strong>
-            <p>判据在发布时冻结；到期只读价格、执行规则、保留结果。</p>
-          </div>
-          <div className="verification-overview" aria-label="验证行动概览">
-            {overviewItems.map((item) => (
-              <button
-                aria-pressed={view === item.key}
-                className={`overview-${item.key}`}
-                key={item.key}
-                onClick={() => selectView(item.key)}
-                type="button"
-              >
-                <span>{item.meta}</span>
-                <strong>{loadState === 'loading' ? '—' : item.count}</strong>
-                <b>{item.label}</b>
-              </button>
-            ))}
+      <main className="page-stage">
+        <header className="page-masthead">
+          <h1>验证</h1>
+          <div className="page-facts">
+            <span><b>{overview.completed}</b> 已判定</span><i />
+            {hitStats.rate !== null && (
+              <>
+                <span>
+                  加权命中率 <b>{hitStats.rate}%</b>（n={hitStats.n}）
+                </span><i />
+              </>
+            )}
+            <span><b>{overview.due}</b> 条在 {windowDays} 天内到期</span>
           </div>
         </header>
 
-        <section className="verification-frame">
-          <button
-            aria-label="关闭当前面板"
-            className="verification-backdrop"
-            data-open={filtersOpen || readerOpen}
-            onClick={() => {
-              setFiltersOpen(false)
-              setReaderOpen(false)
-              setUnitOpen(null)
-            }}
-            type="button"
-          />
-
-          <aside className="verification-rail" data-open={filtersOpen}>
-            <header><span>QUEUE / FILTER</span><button onClick={() => setFiltersOpen(false)} type="button">完成</button></header>
-            <section>
-              <p>行动队列</p>
-              {overviewItems.map((item) => (
-                <button
-                  aria-pressed={view === item.key}
-                  key={item.key}
-                  onClick={() => selectView(item.key)}
-                  type="button"
-                >
-                  <span>{item.label}</span><b>{item.count}</b>
-                </button>
-              ))}
-            </section>
-            <section>
-              <p>到期观察窗口</p>
-              <div className="verification-window">
-                {[7, 14, 30, 90].map((days) => (
-                  <button
-                    aria-pressed={windowDays === days}
-                    key={days}
-                    onClick={() => setWindowDays(days)}
-                    type="button"
-                  >
-                    {days}天
-                  </button>
-                ))}
-              </div>
-              <span className="window-note">只改变“即将到期”的未来范围。</span>
-            </section>
-            <section>
-              <p>信源</p>
-              <button aria-pressed={creator === null} onClick={() => setCreator(null)} type="button">
-                <span>全部信源</span><b>{allItems.length}</b>
-              </button>
-              {creators.map(([name, count]) => (
-                <button
-                  aria-pressed={creator === name}
-                  key={name}
-                  onClick={() => setCreator(name)}
-                  type="button"
-                >
-                  <span>{name}</span><b>{count}</b>
-                </button>
-              ))}
-            </section>
-            <footer>
-              <span><i />判据冻结</span>
-              {(query || creator) ? <button onClick={clearFilters} type="button">清除条件</button> : <b>READ ONLY</b>}
-            </footer>
-          </aside>
-
-          <section className="verification-catalog">
-            <header>
-              <button
-                aria-expanded={filtersOpen}
-                className="verification-filter-trigger"
-                onClick={() => setFiltersOpen(true)}
-                type="button"
-              >
-                筛选{creator ? ' · 1' : ''}
-              </button>
-              <label>
-                <span aria-hidden="true">⌕</span>
-                <input
-                  aria-label="检索验证队列"
-                  onChange={(event) => setQuery(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Escape') return
-                    setQuery('')
-                    searchRef.current?.blur()
-                  }}
-                  placeholder="检索判断、标的、信源或内容"
-                  ref={searchRef}
-                  value={query}
-                />
-                {query && <button aria-label="清空验证检索" onClick={() => setQuery('')} type="button">×</button>}
-              </label>
-            </header>
-
-            <div className="verification-catalog-state">
-              <div><strong>{queueLabels[view]}</strong><span>{queueDescriptions[view]}</span></div>
-              <p><b>{loadState === 'loading' ? '—' : visibleItems.length}</b><span>条</span></p>
-            </div>
-
-            <div className="verification-list" aria-busy={loadState === 'loading'}>
-              {loadState === 'loading' && [0, 1, 2, 3].map((item) => (
-                <div className="verification-row verification-row-skeleton" key={item}><i /><span /><span /></div>
-              ))}
-              {loadState === 'error' && (
-                <div className="verification-list-error">
-                  <span>QUEUE UNAVAILABLE</span>
-                  <strong>验证队列暂时没有载入</strong>
-                  <p>页面不会用预览数字代替真实裁决。</p>
-                  <button onClick={() => setRequestKey((value) => value + 1)} type="button">重新读取队列</button>
-                </div>
-              )}
-              {loadState === 'loaded' && visibleItems.map((item, index) => {
-                const scored = isScored(item)
-                const asset = asText(item.payload.asset_symbol) ?? asText(item.payload.asset_text)
-                return (
-                  <button
-                    aria-pressed={selectedItem ? itemKey(selectedItem) === itemKey(item) : false}
-                    className={`verification-row ${scored ? `outcome-${item.outcome}` : 'outcome-due'}`}
-                    data-verification-key={itemKey(item)}
-                    key={itemKey(item)}
-                    onClick={() => selectItem(item, true)}
-                    onFocus={() => selectItem(item)}
-                    onKeyDown={(event) => handleRowKeyDown(event, index)}
-                    type="button"
-                  >
-                    <span className="verification-row-number">{String(index + 1).padStart(2, '0')}</span>
-                    <span className="verification-row-body">
-                      <span className="verification-row-meta">
-                        <b>{scored ? outcomeLabels[item.outcome] : '等待到期'}</b>
-                        <i />
-                        <em>{item.creator}</em>
-                        <time>{scored ? formatDate(item.scored_at, true) : item.horizon_label}</time>
-                      </span>
-                      <strong>{item.quote}</strong>
-                      <span className="verification-row-source">{item.content_title}</span>
-                      <span className="verification-row-foot">
-                        <em>{asset ?? '无规范标的'}</em>
-                        <b>{scored ? itemSummary(item) : `冻结于 ${formatDate(item.published_at)}`}</b>
-                      </span>
-                    </span>
-                  </button>
-                )
-              })}
-              {loadState === 'loaded' && visibleItems.length === 0 && (
-                <div className="verification-empty">
-                  <span>NO ACTION IN QUEUE</span>
-                  <strong>{query || creator ? '当前条件没有匹配记录' : `${queueLabels[view]}队列为空`}</strong>
-                  <p>{query || creator ? '清除检索或信源条件即可恢复当前队列。' : queueDescriptions[view]}</p>
-                  {(query || creator) && <button onClick={clearFilters} type="button">清除全部条件</button>}
-                </div>
-              )}
-            </div>
-          </section>
-
-          <aside className="verification-reader" data-open={readerOpen}>
+        <nav aria-label="验证队列" className="page-tabs">
+          {(Object.keys(queueLabels) as QueueView[]).map((item) => (
             <button
-              className="verification-reader-close"
-              onClick={() => {
-                setReaderOpen(false)
-                setUnitOpen(null)
-              }}
+              aria-pressed={view === item}
+              key={item}
+              onClick={() => selectView(item)}
               type="button"
             >
-              <span>返回行动队列</span><b>×</b>
+              {queueLabels[item]}<b>{loadState === 'loading' ? '—' : queueCounts[item]}</b>
             </button>
-            {selectedItem && (
+          ))}
+        </nav>
+
+        <div className="page-body">
+          <aside className="page-rail">
+            {inDetail ? (
               <>
-                <div className="verification-reader-index">
-                  <span>{queueLabels[view].toUpperCase()}</span>
-                  <p><b>{String(selectedPosition).padStart(2, '0')}</b> / {String(visibleItems.length).padStart(2, '0')}</p>
+                <button className="rail-back" onClick={() => { setOpenItem(null); setUnitOpen(null) }} type="button">
+                  ← 返回{queueLabels[view]}
+                </button>
+                {openIndex >= 0 && (
+                  <div className="rail-step">
+                    <button disabled={openIndex <= 0} onClick={() => step(-1)} type="button">↑</button>
+                    <button disabled={openIndex >= visibleItems.length - 1} onClick={() => step(1)} type="button">↓</button>
+                    <span>{openIndex + 1} / {visibleItems.length}</span>
+                  </div>
+                )}
+                <p className="rail-note">判据在发布时冻结，到期只读价格并执行规则。</p>
+              </>
+            ) : (
+              <>
+                {view === 'due' && (
+                  <div className="rail-block">
+                    <p>到期窗口</p>
+                    <div className="rail-window">
+                      {[7, 14, 30, 90].map((days) => (
+                        <button
+                          aria-pressed={windowDays === days}
+                          key={days}
+                          onClick={() => setWindowDays(days)}
+                          type="button"
+                        >
+                          {days}天
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {creators.length > 0 && (
+                  <div className="rail-block">
+                    <p>信源</p>
+                    <button aria-pressed={creator === null} onClick={() => setCreator(null)} type="button">
+                      <span>全部</span>
+                    </button>
+                    {creators.map(([name, count]) => (
+                      <button
+                        aria-pressed={creator === name}
+                        key={name}
+                        onClick={() => setCreator(name)}
+                        type="button"
+                      >
+                        <span>{name}</span><b>{count}</b>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {view === 'recent' && hitStats.n > 0 && (
+                  <div className="rail-block">
+                    <p>已判定构成</p>
+                    <p className="rail-note">
+                      命中 {hitStats.hit} · 部分 {hitStats.partial} · 未中 {hitStats.miss}
+                      <br />
+                      条件类与不可评类不进分母。
+                      {hitStats.n < 30 && ' 样本仍小，只作跟踪。'}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </aside>
+
+          <div className="page-main">
+            {!inDetail && (
+              <>
+                <div className="main-toolbar">
+                  <label>
+                    <span aria-hidden="true">⌕</span>
+                    <input
+                      aria-label="检索验证队列"
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="检索标的、信源或引文"
+                      ref={searchRef}
+                      value={query}
+                    />
+                  </label>
                 </div>
-                <div className="verification-reader-body" ref={readerBodyRef}>
-                  <VerificationReader
-                    dueHorizon={isScored(selectedItem) ? null : selectedItem.horizon_label}
-                    dueUnitId={isScored(selectedItem) ? null : selectedItem.unit_id}
-                    onCloseUnit={() => setUnitOpen(null)}
-                    onOpenUnit={setUnitOpen}
-                    scoreId={isScored(selectedItem) ? selectedItem.score_id : null}
-                    unitOpen={unitOpen}
-                  />
+                <div className="main-count">
+                  <span>
+                    <strong>{loadState === 'loading' ? '—' : visibleItems.length}</strong> 条
+                    {' · '}{queueDescriptions[view]}
+                  </span>
+                  {hasFilters && (
+                    <button onClick={() => { setQuery(''); setCreator(null) }} type="button">清除条件</button>
+                  )}
                 </div>
               </>
             )}
-            {!selectedItem && loadState === 'loaded' && (
-              <div className="verification-reader-empty"><span>L2</span><p>选择一条行动记录查看冻结判据与市场证据。</p></div>
-            )}
-          </aside>
-        </section>
-      </main>
 
-      <footer className="verification-footer">
-        <span>FANISL / VERIFICATION WITHOUT REVISION</span>
-        <p>没有事后解释，只有发布时的合同与到期后的证据。</p>
-      </footer>
+            {loadState === 'loading' && <div className="page-skeleton"><i /><i /><i /></div>}
+
+            {loadState === 'error' && (
+              <div className="page-error">
+                <strong>验证队列没有载入</strong>
+                <p>页面不会用预览数字代替真实裁决。</p>
+                <button onClick={() => setRequestKey((value) => value + 1)} type="button">重新读取</button>
+              </div>
+            )}
+
+            {loadState === 'loaded' && inDetail && openItem && (
+              <VerificationReader
+                dueHorizon={isScored(openItem) ? null : openItem.horizon_label}
+                dueUnitId={isScored(openItem) ? null : openItem.unit_id}
+                onCloseUnit={() => setUnitOpen(null)}
+                onOpenUnit={setUnitOpen}
+                scoreId={isScored(openItem) ? openItem.score_id : null}
+                unitOpen={unitOpen}
+              />
+            )}
+
+            {loadState === 'loaded' && !inDetail && visibleItems.length > 0 && (
+              <div className="verify-list">
+                {visibleItems.map((item, index) => {
+                  const label = groupLabel(item)
+                  const previous = index > 0 ? groupLabel(visibleItems[index - 1]) : null
+                  return (
+                    <div key={itemKey(item)}>
+                      {label !== previous && <p className="list-month">{label}</p>}
+                      <VerificationRow item={item} onOpen={setOpenItem} selected={false} />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {loadState === 'loaded' && !inDetail && visibleItems.length === 0 && (
+              <div className="page-empty">
+                <strong>{hasFilters ? '当前条件没有匹配记录' : `${queueLabels[view]}队列为空`}</strong>
+                <p>{hasFilters ? '清除检索或信源条件即可恢复队列。' : queueDescriptions[view]}</p>
+                {hasFilters && (
+                  <button onClick={() => { setQuery(''); setCreator(null) }} type="button">清除全部条件</button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   )
 }

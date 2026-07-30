@@ -321,7 +321,6 @@ function VerificationDossier({
   if (state === 'error' || !detail) {
     return (
       <div className="verification-dossier-error">
-        <span>VERDICT UNAVAILABLE</span>
         <strong>判定档案暂时没有载入</strong>
         <p>行动队列仍保留，重试不会改变当前筛选和阅读位置。</p>
         <button onClick={() => setRequestKey((value) => value + 1)} type="button">重新读取档案</button>
@@ -332,7 +331,7 @@ function VerificationDossier({
   return (
     <article className={`verification-dossier outcome-${detail.outcome}`} key={detail.score_id}>
       <header className="verdict-lead">
-        <div><span>VERDICT / {String(detail.score_id).padStart(3, '0')}</span><b>IMMUTABLE / L2</b></div>
+        <div><span>判定档案 #{detail.score_id}</span></div>
         <section>
           <strong aria-hidden="true">{outcomeMarks[detail.outcome]}</strong>
           <p><span>机械裁决</span><b>{outcomeLabels[detail.outcome]}</b></p>
@@ -375,7 +374,6 @@ function VerificationDossier({
       <section className="frozen-contract">
         <header>
           <div><p>冻结判据</p><span>提取时确定，到期后不重新解释</span></div>
-          <b>SCORING CONTRACT</b>
         </header>
         <div className="frozen-facts">
           <ClaimFact label="标的" value={asText(detail.payload.asset_text) ?? asText(detail.payload.asset_symbol)} />
@@ -403,7 +401,6 @@ function VerificationDossier({
       <section className="verdict-source">
         <header>
           <div><p>来源与影响</p><span>回到逐字证据，并查看这次裁决影响的长期节点</span></div>
-          <b>PROVENANCE</b>
         </header>
         <article>
           <span>{detail.creator} · {formatDate(detail.published_at)}</span>
@@ -424,7 +421,7 @@ function VerificationDossier({
       <footer className="verdict-provenance">
         <span>提取 {detail.extractor_version}</span>
         <span>评分 {detail.scorer_version}</span>
-        <b>SCORED WITHOUT LLM</b>
+        <b>纯规则执行，未经模型判断</b>
       </footer>
     </article>
   )
@@ -468,7 +465,7 @@ export function VerificationReader({
         <EvidenceDossier
           backLabel="返回判定档案"
           onClose={onCloseUnit}
-          parentLabel="VERDICT"
+          parentLabel="判定"
           parentTitle={scoreId === null ? dueHorizon ?? '' : `#${scoreId}`}
           unitId={unitOpen}
         />
