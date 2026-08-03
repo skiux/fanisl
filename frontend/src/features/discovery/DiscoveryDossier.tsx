@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
 import EvidenceDossier from '../knowledge/EvidenceDossier'
-import { familyLabels } from '../../shared/knowledge/labels'
 import type {
   KnowledgeNodeDetail,
   NodeAttestation,
@@ -26,7 +25,7 @@ const kindLabels = {
 
 const statusLabels: Record<NodeStatus, string> = {
   active: '活跃',
-  corroborated: '重复表达',
+  corroborated: '多源佐证',
   verified: '已验证',
   contested: '存在争议',
   retired: '已退役',
@@ -140,7 +139,7 @@ function NodeProposition({
   return (
     <section className={`discovery-proposition proposition-${position}`}>
       <header>
-        <span>{position === 'a' ? '命题一' : '命题二'}</span>
+        <span>PROPOSITION / {position.toUpperCase()}</span>
         <div>
           <b>{kindLabels[detail.kind]}</b>
           <em>{statusLabels[detail.status]}</em>
@@ -217,6 +216,7 @@ export function RelationDossier({
   if (state === 'error' || !pair) {
     return (
       <div className="discovery-resource-error">
+        <span>RELATION EVIDENCE UNAVAILABLE</span>
         <strong>两侧节点档案暂时没有载入</strong>
         <p>关系边仍保留；重试只重新读取节点证据。</p>
         <button onClick={() => setRequestKey((value) => value + 1)} type="button">重新读取证据</button>
@@ -229,13 +229,14 @@ export function RelationDossier({
       <article className={`relation-dossier relation-${relation.relation}`}>
         <header className="relation-dossier-head">
           <div>
-            <span>{relation.relation === 'conflicts' ? '对立关系' : '关联关系'}</span>
-            <b>两侧证据轨迹</b>
+            <span>RELATION / {String(relation.id).padStart(2, '0')}</span>
+            <b>{relation.relation === 'conflicts' ? 'CONFLICT / CANNOT BOTH HOLD' : 'RELATED / READ TOGETHER'}</b>
           </div>
           <time>{formatDate(relation.created_at)}</time>
         </header>
 
         <section className="relation-thesis">
+          <span>{relation.relation === 'conflicts' ? '对立点是正文' : '合读理由是正文'}</span>
           <p>{relation.note}</p>
         </section>
 
@@ -254,7 +255,7 @@ export function RelationDossier({
         <EvidenceDossier
           backLabel="返回关系档案"
           onClose={onCloseEvidence}
-          parentLabel={relation.relation === 'conflicts' ? '对立' : '关联'}
+          parentLabel={relation.relation === 'conflicts' ? 'CONFLICT' : 'RELATION'}
           parentTitle={`#${relation.id}`}
           unitId={evidenceUnitId}
         />
@@ -300,6 +301,7 @@ export function ConsensusDossier({
   if (state === 'error' || !detail) {
     return (
       <div className="discovery-resource-error">
+        <span>CONSENSUS EVIDENCE UNAVAILABLE</span>
         <strong>共识节点暂时没有载入</strong>
         <button onClick={() => setRequestKey((value) => value + 1)} type="button">重新读取节点</button>
       </div>
@@ -313,7 +315,7 @@ export function ConsensusDossier({
     <>
       <article className="consensus-dossier">
         <header className="consensus-dossier-head">
-          <div><span>跨源节点</span><b>{statusLabels[detail.status]}</b></div>
+          <div><span>CONSENSUS / NODE {String(detail.id).padStart(3, '0')}</span><b>{statusLabels[detail.status]}</b></div>
           <p>{kindLabels[detail.kind]} · {detail.n_creators} 个独立信源</p>
         </header>
         <section className="consensus-statement">
@@ -350,7 +352,7 @@ export function ConsensusDossier({
         <EvidenceDossier
           backLabel="返回共识档案"
           onClose={onCloseEvidence}
-          parentLabel="跨源"
+          parentLabel="CONSENSUS"
           parentTitle={`#${detail.id}`}
           unitId={evidenceUnitId}
         />
@@ -377,11 +379,11 @@ export function HarnessDossier({ candidate }: { candidate: HarnessCandidate }) {
   return (
     <article className="harness-dossier">
       <header className="harness-dossier-head">
-        <div><span>方法候选</span><b>未预注册</b></div>
+        <div><span>METHOD / NODE {String(candidate.node_id).padStart(3, '0')}</span><b>CANDIDATE · NOT PREREGISTERED</b></div>
         <p>可回测不等于已经成立</p>
       </header>
       <section className="harness-lead">
-        <span>{familyLabels[payload.family ?? 'other'] ?? payload.family} · 可回测</span>
+        <span>{payload.family ?? 'other'} / TESTABILITY A</span>
         <h2>{candidate.title}</h2>
         <p>{payload.summary ?? candidate.canonical}</p>
       </section>
@@ -390,7 +392,7 @@ export function HarnessDossier({ candidate }: { candidate: HarnessCandidate }) {
           <span>进入研究管线前</span>
           <strong>仍需冻结假设、样本、成本与否证条件。</strong>
         </div>
-        <b>需先预注册</b>
+        <b>PREREG REQUIRED</b>
       </section>
       <section className="harness-rules">
         <header><span>原始规则</span><b>{rules.length} 条</b></header>
@@ -463,7 +465,7 @@ export function WeeklyDossier({
     <>
       <article className="weekly-dossier">
         <header className="weekly-dossier-head">
-          <div><span>窗口增量</span><b>{formatDate(report.generated_at, true)}</b></div>
+          <div><span>WEEKLY / KNOWLEDGE DELTA</span><b>{formatDate(report.generated_at, true)}</b></div>
           <p>只记录新增、裁决和状态变化，不把库存重新包装成新闻。</p>
         </header>
         <section className="weekly-ledger">
@@ -476,7 +478,7 @@ export function WeeklyDossier({
         <div className="weekly-columns">
           <div>
             <section className="weekly-section weekly-ingest">
-              <header><span>知识增量</span></header>
+              <header><span>知识增量</span><b>INGEST</b></header>
               {summary.new_contents.length > 0
                 ? summary.new_contents.map((row) => (
                     <p key={row.name}><strong>{row.name}</strong><span>{row.n} 篇 · {(row.chars / 1000).toFixed(1)}k 字</span></p>
@@ -523,7 +525,7 @@ export function WeeklyDossier({
             </section>
 
             <section className="weekly-section weekly-node-state">
-              <header><span>知识状态</span></header>
+              <header><span>知识状态</span><b>LIFECYCLE</b></header>
               <div>
                 {summary.node_status.map((row) => (
                   <span key={row.status}><strong>{row.n}</strong><small>{statusLabels[row.status]}</small></span>
@@ -586,7 +588,7 @@ export function WeeklyDossier({
         <EvidenceDossier
           backLabel="返回周报"
           onClose={onCloseEvidence}
-          parentLabel="增量"
+          parentLabel="WEEKLY"
           parentTitle={formatDate(report.generated_at)}
           unitId={evidenceUnitId}
         />

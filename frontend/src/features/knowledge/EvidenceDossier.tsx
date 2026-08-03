@@ -137,11 +137,7 @@ function describeHorizon(value: unknown) {
   const duration = asText(horizon.duration_days)
   if (deadline) return `截至 ${deadline}`
   if (duration) return `发布后 ${duration} 天`
-  const type = asText(horizon.type)
-  if (type === 'open_ended') return '未设期限'
-  if (type === 'within_duration') return '我方窗口'
-  if (type === 'by_date') return '指定日期'
-  return type ?? '未声明'
+  return asText(horizon.type) ?? '未声明'
 }
 
 function splitRaw(raw: string) {
@@ -187,6 +183,7 @@ function ClaimContract({ unit }: { unit: KnowledgeUnitDetail }) {
           <p>冻结判据</p>
           <span>发布时确定，评分时不再解释</span>
         </div>
+        <b>SCORING CONTRACT</b>
       </header>
 
       <div className="contract-facts">
@@ -249,6 +246,7 @@ function MethodStructure({ unit }: { unit: KnowledgeUnitDetail }) {
           <p>方法结构</p>
           <span>把口头经验保留为可复述规则</span>
         </div>
+        <b>METHOD SPEC</b>
       </header>
 
       <div className="contract-facts">
@@ -293,6 +291,7 @@ function ConceptStructure({ unit }: { unit: KnowledgeUnitDetail }) {
           <p>认知结构</p>
           <span>原始表达之外的归一化检索抓手</span>
         </div>
+        <b>CONCEPT FRAME</b>
       </header>
 
       <div className="contract-facts">
@@ -582,7 +581,7 @@ function ContentGateway({ unit }: { unit: KnowledgeUnitDetail }) {
           <p>原始内容</p>
           <span>L0 不可变来源</span>
         </div>
-        <b>内容 #{unit.content_id}</b>
+        <b>CONTENT / {String(unit.content_id).padStart(3, '0')}</b>
       </header>
 
       <article>
@@ -626,7 +625,7 @@ function EvidenceDossier({
   backLabel = '返回知识节点',
   embedded = false,
   onClose,
-  parentLabel = '节点',
+  parentLabel = 'NODE',
   parentTitle,
   unitId,
 }: {
@@ -685,6 +684,7 @@ function EvidenceDossier({
         {state === 'loading' && <DossierSkeleton />}
         {state === 'error' && (
           <div className="dossier-error">
+            <span>EVIDENCE UNAVAILABLE</span>
             <strong>证据单元暂时没有载入</strong>
             <p>节点和提及仍然保留在上一层，重试不会改变当前阅读位置。</p>
             <button onClick={() => setRequestKey((value) => value + 1)} type="button">重新读取单元</button>
@@ -695,7 +695,8 @@ function EvidenceDossier({
           <article className={`unit-dossier kind-${unit.kind}`}>
             <header className="unit-lead">
               <div>
-                <span>单元 #{unit.id}</span>
+                <span>UNIT / {String(unit.id).padStart(3, '0')}</span>
+                <b>L1 / EVIDENCE</b>
               </div>
               <p>
                 <em>{kindLabels[unit.kind]}</em>
@@ -732,7 +733,7 @@ function EvidenceDossier({
               <div>
                 <span>提取模型</span><b>{unit.model ?? '未记录'}</b>
               </div>
-              <strong>引文已在原文中校验命中</strong>
+              <strong>QUOTE VERIFIED IN SOURCE</strong>
             </footer>
           </article>
         )}

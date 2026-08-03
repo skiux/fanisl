@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { apiJson } from '../../shared/api/client'
+import EvidenceDossier from './EvidenceDossier'
 import type {
   KnowledgeContentDetail,
   KnowledgeContentSummary,
@@ -7,7 +9,7 @@ import type {
   KnowledgeKind,
   UnitScore,
 } from './types'
-import './content-reader.css'
+import './content-timeline.css'
 
 const kindLabels: Record<KnowledgeKind, string> = {
   claim: '判断',
@@ -194,10 +196,7 @@ function ReaderSkeleton() {
   )
 }
 
-export type ContentPayloadShape = ContentPayload
-export type ContentReaderState = ReaderLoad
-
-export function ContentReader({
+function ContentReader({
   content,
   onRetry,
   onOpenUnit,
@@ -214,6 +213,7 @@ export function ContentReader({
   if (state === 'error' || !payload) {
     return (
       <div className="content-reader-error">
+        <span>CONTENT UNAVAILABLE</span>
         <strong>这期内容暂时没有载入</strong>
         <p>时间流索引仍可使用，重试不会改变当前内容位置。</p>
         <button onClick={onRetry} type="button">重新读取本期内容</button>
@@ -234,7 +234,7 @@ export function ContentReader({
     <article className="content-reader-sheet">
       <header className="content-reader-lead">
         <div>
-          <span>本期内容</span>
+          <span>CONTENT / {String(content.id).padStart(3, '0')}</span>
           <b>{platformLabels[content.platform] ?? content.platform}</b>
         </div>
         <p>{content.creator} · {date.full}</p>
@@ -301,48 +301,247 @@ export function ContentReader({
 
       <footer className="content-reader-foot">
         <span>提取版本可重放，原始表达不被覆盖</span>
-        <b>原文不可变</b>
+        <b>SOURCE PRESERVED</b>
       </footer>
     </article>
   )
 }
 
-export function useContentDetail(contentId: number | null) {
+function ContentTimeline({
+  contents,
+  evidenceUnitId,
+  isLoading,
+  isPreview,
+  onCloseEvidence,
+  onCloseReader,
+  onOpenEvidence,
+  onSelectContent,
+  readerOpen,
+  selectedContentId,
+}: {
+  contents: KnowledgeContentSummary[]
+  evidenceUnitId: number | null
+  isLoading: boolean
+  isPreview: boolean
+  onCloseEvidence: () => void
+  onCloseReader: () => void
+  onOpenEvidence: (unitId: number) => void
+  onSelectContent: (contentId: number, openOnMobile?: boolean) => void
+  readerOpen: boolean
+  selectedContentId: number | null
+}) {
   const cacheRef = useRef(new Map<number, ContentPayload>())
+  const [query, setQuery] = useState('')
+  const [creatorId, setCreatorId] = useState<number | null>(null)
   const [payload, setPayload] = useState<ContentPayload | null>(null)
-  const [state, setState] = useState<ReaderLoad>('idle')
-  const [requestKey, setRequestKey] = useState(0)
+  const [readerState, setReaderState] = useState<ReaderLoad>('idle')
+  const [readerRequestKey, setReaderRequestKey] = useState(0)
+
+  const creatorCounts = useMemo(() => {
+    const counts = new Map<number, { name: string; count: number }>()
+    contents.forEach((content) => {
+      const current = counts.get(content.creator_id)
+      counts.set(content.creator_id, {
+        name: content.creator,
+        count: (current?.count ?? 0) + 1,
+      })
+    })
+    return [...counts.entries()]
+  }, [contents])
+
+  const visibleContents = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase()
+    return contents.filter((content) => {
+      if (creatorId !== null && content.creator_id !== creatorId) return false
+      if (!normalized) return true
+      return `${content.title} ${content.creator}`.toLocaleLowerCase().includes(normalized)
+    })
+  }, [contents, creatorId, query])
+
+  const selectedContent = visibleContents.find((content) => content.id === selectedContentId)
+    ?? visibleContents[0]
+    ?? null
+
+  const handleContentKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    let nextIndex: number | null = null
+    if (event.key === 'ArrowDown') nextIndex = Math.min(index + 1, visibleContents.length - 1)
+    if (event.key === 'ArrowUp') nextIndex = Math.max(index - 1, 0)
+    if (event.key === 'Home') nextIndex = 0
+    if (event.key === 'End') nextIndex = visibleContents.length - 1
+    if (nextIndex === null || nextIndex === index) return
+    event.preventDefault()
+    const next = visibleContents[nextIndex]
+    onSelectContent(next.id)
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLButtonElement>(`[data-content-id="${next.id}"]`)?.focus()
+    })
+  }
 
   useEffect(() => {
-    if (contentId === null) {
+    if (!selectedContent || isPreview) {
       setPayload(null)
-      setState('idle')
+      setReaderState('idle')
       return
     }
-    const cached = cacheRef.current.get(contentId)
+
+    const cached = cacheRef.current.get(selectedContent.id)
     if (cached) {
       setPayload(cached)
-      setState('loaded')
+      setReaderState('loaded')
       return
     }
+
     const controller = new AbortController()
     setPayload(null)
-    setState('loading')
+    setReaderState('loading')
     Promise.all([
-      apiJson<KnowledgeContentDetail>(`/knowledge/contents/${contentId}`, { signal: controller.signal }),
-      apiJson<KnowledgeContentUnit[]>(`/knowledge/contents/${contentId}/units`, { signal: controller.signal }),
+      apiJson<KnowledgeContentDetail>(`/knowledge/contents/${selectedContent.id}`, {
+        signal: controller.signal,
+      }),
+      apiJson<KnowledgeContentUnit[]>(`/knowledge/contents/${selectedContent.id}/units`, {
+        signal: controller.signal,
+      }),
     ]).then(([detail, units]) => {
       const complete = { detail, units }
-      cacheRef.current.set(contentId, complete)
+      cacheRef.current.set(selectedContent.id, complete)
       setPayload(complete)
-      setState('loaded')
+      setReaderState('loaded')
     }).catch(() => {
-      if (!controller.signal.aborted) setState('error')
+      if (!controller.signal.aborted) setReaderState('error')
     })
-    return () => controller.abort()
-  }, [contentId, requestKey])
 
-  return { payload, state, retry: () => setRequestKey((value) => value + 1) }
+    return () => controller.abort()
+  }, [isPreview, readerRequestKey, selectedContent])
+
+  return (
+    <>
+      <aside className="content-library-rail">
+        <header><span>CONTENT / FILTER</span></header>
+        <section>
+          <p>信源</p>
+          <button aria-pressed={creatorId === null} onClick={() => setCreatorId(null)} type="button">
+            <span>全部内容</span><b>{contents.length}</b>
+          </button>
+          {creatorCounts.map(([id, creator]) => (
+            <button
+              aria-pressed={creatorId === id}
+              key={id}
+              onClick={() => setCreatorId(id)}
+              type="button"
+            >
+              <span>{creator.name}</span><b>{creator.count}</b>
+            </button>
+          ))}
+        </section>
+        <section>
+          <p>内容状态</p>
+          <div className="content-status-note">
+            <i />
+            <span>已提取</span>
+            <b>{contents.filter((content) => content.status === 'extracted').length}</b>
+          </div>
+        </section>
+        <footer>
+          <span>{contents.reduce((sum, content) => sum + content.n_units, 0)} 个单元</span>
+          <b>L0 → L1</b>
+        </footer>
+      </aside>
+
+      <section className="content-catalog">
+        <header>
+          <label>
+            <span aria-hidden="true">⌕</span>
+            <input
+              aria-label="搜索原始内容"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="搜索标题或信源"
+              value={query}
+            />
+            {query && <button aria-label="清空内容搜索" onClick={() => setQuery('')} type="button">×</button>}
+          </label>
+          <p><strong>{visibleContents.length}</strong> 期内容</p>
+        </header>
+
+        {isPreview && (
+          <div className="content-preview-notice">
+            <span>后端未连接，时间流需要真实内容接口才能阅读。</span>
+          </div>
+        )}
+
+        <div className="content-stream" aria-busy={isLoading}>
+          {isLoading && [0, 1, 2, 3].map((item) => (
+            <div className="content-row content-row-skeleton" key={item}><i /><span /><span /></div>
+          ))}
+          {!isLoading && visibleContents.map((content, index) => {
+            const date = formatDate(content.published_at)
+            const scored = content.n_hit + content.n_partial + content.n_miss
+            return (
+              <button
+                aria-pressed={selectedContent?.id === content.id}
+                className="content-row"
+                data-content-id={content.id}
+                key={content.id}
+                onClick={() => onSelectContent(content.id, true)}
+                onKeyDown={(event) => handleContentKeyDown(event, index)}
+                type="button"
+              >
+                <span className="content-date">
+                  <b>{date.monthDay}</b>
+                  <em>{date.year}</em>
+                  <i />
+                </span>
+                <span className="content-row-body">
+                  <span><b>{content.creator}</b><em>{platformLabels[content.platform] ?? content.platform}</em></span>
+                  <strong>{content.title}</strong>
+                  <span className="content-row-counts">
+                    <span>{content.n_claims} 判断</span>
+                    <span>{content.n_methods} 方法</span>
+                    <span>{content.n_concepts} 认知</span>
+                    <span>{scored ? `${scored} 裁决` : '等待裁决'}</span>
+                  </span>
+                </span>
+                <small>{String(index + 1).padStart(2, '0')}</small>
+              </button>
+            )
+          })}
+          {!isLoading && visibleContents.length === 0 && (
+            <div className="content-stream-empty">
+              <span>NO MATCHED CONTENT</span>
+              <strong>没有匹配的原始内容</strong>
+              <p>调整检索词或信源条件。</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <aside className="content-reader" data-open={readerOpen}>
+        <button className="content-reader-close" onClick={onCloseReader} type="button">
+          <span>返回内容时间流</span><b>×</b>
+        </button>
+        {selectedContent && (
+          <ContentReader
+            content={selectedContent}
+            onRetry={() => setReaderRequestKey((value) => value + 1)}
+            onOpenUnit={onOpenEvidence}
+            payload={payload}
+            state={readerState}
+          />
+        )}
+        {evidenceUnitId !== null && selectedContent && (
+          <EvidenceDossier
+            backLabel="返回本期内容"
+            onClose={onCloseEvidence}
+            parentLabel="CONTENT"
+            parentTitle={selectedContent.title}
+            unitId={evidenceUnitId}
+          />
+        )}
+      </aside>
+    </>
+  )
 }
 
-export { platformLabels }
+export default ContentTimeline
