@@ -47,16 +47,6 @@
   position: fixed;
 }
 
-.verification-page .spatial-nav nav a,
-.verification-page .spatial-nav nav span,
-.verification-page .search-trigger em {
-  font-size: 12px;
-}
-
-.verification-page .search-trigger kbd {
-  font-size: 10px;
-}
-
 .verification-material {
   position: absolute;
   z-index: -1;

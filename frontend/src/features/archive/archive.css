@@ -49,16 +49,6 @@
   position: fixed;
 }
 
-.archive-page .spatial-nav nav a,
-.archive-page .spatial-nav nav span,
-.archive-page .search-trigger em {
-  font-size: 12px;
-}
-
-.archive-page .search-trigger kbd {
-  font-size: 10px;
-}
-
 .archive-material {
   position: absolute;
   z-index: -1;

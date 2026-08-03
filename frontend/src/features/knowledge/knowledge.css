@@ -49,19 +49,6 @@
   position: fixed;
 }
 
-.knowledge-page .spatial-nav nav a,
-.knowledge-page .spatial-nav nav span {
-  font-size: 12px;
-}
-
-.knowledge-page .search-trigger em {
-  font-size: 12px;
-}
-
-.knowledge-page .search-trigger kbd {
-  font-size: 10px;
-}
-
 .knowledge-material {
   position: absolute;
   z-index: -1;
@@ -1737,11 +1724,6 @@ input {
 }
 
 @media (max-width: 600px) {
-  .knowledge-page .spatial-nav nav a,
-  .knowledge-page .spatial-nav nav span {
-    font-size: 13px;
-  }
-
   .knowledge-material {
     top: -16px;
     right: -72vw;

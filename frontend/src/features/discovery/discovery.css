@@ -49,16 +49,6 @@
   position: fixed;
 }
 
-.discovery-page .spatial-nav nav a,
-.discovery-page .spatial-nav nav span,
-.discovery-page .search-trigger em {
-  font-size: 12px;
-}
-
-.discovery-page .search-trigger kbd {
-  font-size: 10px;
-}
-
 .discovery-material {
   position: absolute;
   z-index: -1;
