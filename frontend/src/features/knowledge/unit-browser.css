@@ -283,7 +283,7 @@
   outline: 0;
   color: #344035;
   background: transparent;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .unit-catalog > header input::placeholder {
@@ -363,10 +363,10 @@
   position: relative;
   display: grid;
   width: 100%;
-  min-height: 177px;
-  grid-template-columns: 35px minmax(0, 1fr);
-  gap: 10px;
-  padding: 17px 15px 15px;
+  min-height: 196px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 12px;
+  padding: 22px 18px 19px;
   border: 0;
   border-bottom: 1px solid var(--library-line-soft);
   color: inherit;
@@ -418,7 +418,7 @@
 .unit-row-number {
   padding-top: 2px;
   color: #7c857c;
-  font: 600 9px ui-monospace, monospace;
+  font: 600 10px ui-monospace, monospace;
 }
 
 .unit-row-body {
@@ -431,7 +431,7 @@
   align-items: center;
   gap: 7px;
   color: #6b766b;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .unit-row-meta b {
@@ -461,22 +461,22 @@
 
 .unit-row-body > strong {
   display: -webkit-box;
-  margin-top: 9px;
+  margin-top: 11px;
   overflow: hidden;
   color: #344035;
-  font-size: 14px;
-  font-weight: 570;
-  line-height: 1.62;
+  font-size: 15px;
+  font-weight: 540;
+  line-height: 1.74;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
 
 .unit-row-source {
   display: block;
-  margin-top: 8px;
+  margin-top: 10px;
   overflow: hidden;
   color: #707a70;
-  font-size: 9px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -494,7 +494,7 @@
   overflow: hidden;
   color: #687368;
   background: rgba(232, 230, 219, .68);
-  font-size: 8px;
+  font-size: 9px;
   font-style: normal;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -503,14 +503,14 @@
 .unit-row-foot b {
   margin-left: auto;
   color: #727c72;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 550;
   white-space: nowrap;
 }
 
 .unit-row-skeleton {
   display: flex;
-  min-height: 177px;
+  min-height: 196px;
   flex-direction: column;
   gap: 14px;
   pointer-events: none;
@@ -713,7 +713,7 @@
   }
 
   .unit-row {
-    min-height: 181px;
+    min-height: 194px;
     grid-template-columns: 31px minmax(0, 1fr);
     gap: 7px;
     padding-right: 11px;

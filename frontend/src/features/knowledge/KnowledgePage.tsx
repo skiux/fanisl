@@ -285,6 +285,10 @@ function KnowledgePage() {
     || tag !== null
     || crossSource
     || query.trim().length > 0
+  const nodeFilterCount = Number(kind !== 'all')
+    + Number(status !== 'all')
+    + Number(tag !== null)
+    + Number(crossSource)
 
   const resetFilters = () => {
     setKind('all')
@@ -370,45 +374,56 @@ function KnowledgePage() {
       <main className="knowledge-stage">
         <header className="library-masthead">
           <div className="masthead-title">
-            <span>01 / KNOWLEDGE LIBRARY</span>
+            <span>01 / KNOWLEDGE WITH PROVENANCE</span>
             <h1>知识库</h1>
-            <nav aria-label="知识库视图">
-              <button
-                aria-pressed={libraryView === 'nodes'}
-                onClick={() => selectLibraryView('nodes')}
-                type="button"
-              >
-                长期节点
-              </button>
-              <button
-                aria-pressed={libraryView === 'timeline'}
-                onClick={() => selectLibraryView('timeline')}
-                type="button"
-              >
-                内容时间流
-              </button>
-              <button
-                aria-pressed={libraryView === 'units'}
-                onClick={() => selectLibraryView('units')}
-                type="button"
-              >
-                单元浏览
-              </button>
-            </nav>
           </div>
-          <p className="masthead-statement">
-            {libraryView === 'nodes'
-              ? '不是内容的仓库，而是从原始表达中持续归并、修正并保留来源的长期认知。'
-              : libraryView === 'timeline'
-                ? '沿发布时间阅读每期内容提取出的判断、方法与认知，再按需回到逐字原文。'
-                : '跨内容检索每一条逐字证据，以类型、标签和信源定位判断、方法与认知。'}
-          </p>
+          <div className="masthead-intro">
+            <p className="masthead-statement">
+              {libraryView === 'nodes'
+                ? <>
+                    把分散的判断、方法与认知，<br />
+                    沉淀成可以追溯、修正<br />
+                    和再次使用的长期知识。
+                  </>
+                : libraryView === 'timeline'
+                  ? '沿内容发布次序阅读知识增量，先看提取结果，再回到不可变的原始表达。'
+                  : '检索全库每一条逐字证据，并以类型、主题与信源重新组织研究线索。'}
+            </p>
+            <div className="masthead-principles" aria-label="知识库原则">
+              <span>来源可追溯</span>
+              <span>证据只追加</span>
+              <span>节点可修正</span>
+            </div>
+          </div>
           <div className="masthead-ledger" aria-label="知识库规模">
             <span><strong>{stats.nodes}</strong><small>长期节点</small></span>
             <span><strong>{stats.corroborated}</strong><small>多源佐证</small></span>
             <span><strong>{stats.units}</strong><small>证据单元</small></span>
             <span><strong>{stats.contents}</strong><small>原始内容</small></span>
           </div>
+          <nav className="library-view-switcher" aria-label="知识库视图">
+            <button
+              aria-pressed={libraryView === 'nodes'}
+              onClick={() => selectLibraryView('nodes')}
+              type="button"
+            >
+              <span>01</span>长期节点
+            </button>
+            <button
+              aria-pressed={libraryView === 'timeline'}
+              onClick={() => selectLibraryView('timeline')}
+              type="button"
+            >
+              <span>02</span>内容时间流
+            </button>
+            <button
+              aria-pressed={libraryView === 'units'}
+              onClick={() => selectLibraryView('units')}
+              type="button"
+            >
+              <span>03</span>证据单元
+            </button>
+          </nav>
         </header>
 
         <section className={`library-frame view-${libraryView}`}>
@@ -506,7 +521,7 @@ function KnowledgePage() {
                 onClick={() => setFiltersOpen(true)}
                 type="button"
               >
-                筛选
+                筛选{nodeFilterCount ? ` · ${nodeFilterCount}` : ''}
               </button>
               <label className="catalog-search">
                 <span aria-hidden="true">⌕</span>
@@ -535,8 +550,8 @@ function KnowledgePage() {
 
             <div className="catalog-state">
               <p aria-live="polite">
-                <strong>{visibleNodes.length}</strong>
-                <span>个节点</span>
+                <strong>{loadMode === 'loading' ? '—' : visibleNodes.length}</strong>
+                <span>{loadMode === 'loading' ? '正在读取节点' : '个节点'}</span>
               </p>
               {hasActiveFilters ? (
                 <button onClick={resetFilters} type="button">清除当前条件</button>

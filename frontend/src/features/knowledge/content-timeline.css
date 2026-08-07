@@ -159,7 +159,7 @@
   outline: 0;
   color: #344035;
   background: transparent;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .content-catalog > header input::placeholder {
@@ -221,10 +221,10 @@
   position: relative;
   display: grid;
   width: 100%;
-  min-height: 154px;
-  grid-template-columns: 52px minmax(0, 1fr) 23px;
-  gap: 12px;
-  padding: 19px 14px 17px;
+  min-height: 184px;
+  grid-template-columns: 58px minmax(0, 1fr) 25px;
+  gap: 14px;
+  padding: 24px 18px 21px;
   border: 0;
   border-bottom: 1px solid var(--library-line-soft);
   color: inherit;
@@ -313,7 +313,7 @@
   align-items: center;
   gap: 9px;
   color: #687368;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .content-row-body > span:first-child b {
@@ -327,13 +327,14 @@
 
 .content-row-body > strong {
   display: -webkit-box;
-  margin-top: 8px;
+  margin-top: 11px;
   overflow: hidden;
   color: #303b31;
-  font-size: 17px;
-  font-weight: 650;
-  letter-spacing: -.025em;
-  line-height: 1.35;
+  font-family: var(--library-serif);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -.035em;
+  line-height: 1.4;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
@@ -342,9 +343,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px 15px;
-  margin-top: 10px;
+  margin-top: 13px;
   color: #727c72;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .content-row-counts > span {
@@ -371,7 +372,7 @@
 
 .content-row-skeleton {
   display: flex;
-  min-height: 154px;
+  min-height: 184px;
   flex-direction: column;
   gap: 14px;
   pointer-events: none;
@@ -449,7 +450,7 @@
 .content-reader-sheet {
   height: 100%;
   min-height: 0;
-  padding: 26px clamp(30px, 4vw, 60px) 24px;
+  padding: 40px clamp(36px, 4.5vw, 72px) 32px;
   overflow-x: hidden;
   overflow-y: auto;
   background:
@@ -483,12 +484,13 @@
 
 .content-reader-lead > h2 {
   max-width: 94%;
-  margin: 10px 0 0;
+  margin: 14px 0 0;
   color: #283229;
-  font-size: clamp(27px, 2.7vw, 39px);
-  font-weight: 650;
-  letter-spacing: -.05em;
-  line-height: 1.16;
+  font-family: var(--library-serif);
+  font-size: clamp(36px, 3.6vw, 50px);
+  font-weight: 590;
+  letter-spacing: -.06em;
+  line-height: 1.13;
 }
 
 .content-reader-lead > section {
@@ -952,7 +954,7 @@
   }
 
   .content-row {
-    min-height: 160px;
+    min-height: 182px;
     grid-template-columns: 48px minmax(0, 1fr) 18px;
     gap: 8px;
     padding-right: 10px;
@@ -960,7 +962,7 @@
   }
 
   .content-row-body > strong {
-    font-size: 16px;
+    font-size: 20px;
   }
 
   .content-reader-sheet {
@@ -969,7 +971,7 @@
 
   .content-reader-lead > h2 {
     max-width: none;
-    font-size: 28px;
+    font-size: 34px;
   }
 
   .content-reader-lead > section {
