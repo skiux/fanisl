@@ -182,8 +182,7 @@ function KnowledgePage() {
   }, [evidenceUnitId])
 
   useEffect(() => {
-    const isNarrow = window.matchMedia('(max-width: 900px)').matches
-    if (!isNarrow || (!readerOpen && !filtersOpen)) return
+    if (!readerOpen && !filtersOpen) return
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
@@ -374,25 +373,21 @@ function KnowledgePage() {
       <main className="knowledge-stage">
         <header className="library-masthead">
           <div className="masthead-title">
-            <span>01 / KNOWLEDGE WITH PROVENANCE</span>
+            <span>01 / KNOWLEDGE LIBRARY</span>
             <h1>知识库</h1>
           </div>
           <div className="masthead-intro">
             <p className="masthead-statement">
               {libraryView === 'nodes'
-                ? <>
-                    把分散的判断、方法与认知，<br />
-                    沉淀成可以追溯、修正<br />
-                    和再次使用的长期知识。
-                  </>
+                ? '从原始表达中持续归并判断、方法与认知；每个节点都保留证据路径，也允许被后续事实修正。'
                 : libraryView === 'timeline'
                   ? '沿内容发布次序阅读知识增量，先看提取结果，再回到不可变的原始表达。'
                   : '检索全库每一条逐字证据，并以类型、主题与信源重新组织研究线索。'}
             </p>
             <div className="masthead-principles" aria-label="知识库原则">
-              <span>来源可追溯</span>
-              <span>证据只追加</span>
-              <span>节点可修正</span>
+              <span>可追溯</span>
+              <span>可演进</span>
+              <span>可验证</span>
             </div>
           </div>
           <div className="masthead-ledger" aria-label="知识库规模">
@@ -576,7 +571,7 @@ function KnowledgePage() {
                 const scoreCount = node.hit + node.partial + node.miss
                 return (
                   <button
-                    aria-pressed={selectedNode?.id === node.id}
+                    aria-pressed={readerOpen && selectedNode?.id === node.id}
                     className={`node-row kind-${node.kind}`}
                     data-node-id={node.id}
                     key={node.id}
@@ -594,11 +589,15 @@ function KnowledgePage() {
                       </span>
                       <strong>{node.title}</strong>
                       <span className="node-canonical">{node.canonical}</span>
+                      <span className="node-row-tags" aria-label="节点主题">
+                        {node.tags.slice(0, 3).map((item) => <span key={item}>{item}</span>)}
+                      </span>
                       <span className="node-row-foot">
                         <span>{node.n_attest} 次提及</span>
                         <span>{node.n_creators} 位信源</span>
                         <span>{scoreCount ? `${scoreCount} 个评分时点` : '等待验证'}</span>
                       </span>
+                      <span className="node-row-open">阅读节点 <i aria-hidden="true">↗</i></span>
                     </span>
                   </button>
                 )
