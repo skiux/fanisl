@@ -1,0 +1,234 @@
+{
+  "content_id": 24,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "然后当前这根K线的收线应该是7月23号，就是大概本周还有这么两三个交易日，可以去守一守市场在66左右的一个支撑情况",
+      "locator": "10:07",
+      "ref_price": 66.93,
+      "tags": ["mags", "mag7", "ema-tunnel", "price-action"],
+      "payload": {
+        "asset_text": "七巨头 ETF MAGS（守 66 支撑，看至 7 月 23 日该根 K 线收线）",
+        "asset_symbol": "MAGS",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 66},
+        "horizon": {"type": "by_date", "deadline": "2026-07-23"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "A",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-23"],
+          "success_def": "至2026-07-23（原文明确点名的收线日）MAGS 日收盘持续不破 66 = hit；盘中破但收盘收回 = partial；日收盘破 66 = miss"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "开始去验证36.45左右这个支撑了。那么大概呢，你你看到的这个高波动的个股，还有赛道，基本也会同频的去做出一些反馈",
+      "locator": "03:05",
+      "ref_price": 36.85,
+      "tags": ["semi", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "全球半导体 ETF SEMI（验证 36.45 附近支撑，为整个板块定调）",
+        "asset_symbol": "SEMI",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 36.45},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-10"],
+          "success_def": "至2026-08-10 SEMI 日收盘持续不破 36.45（三日级别区间支撑）= hit；盘中破但收盘收回 = partial；日收盘破 36.45 = miss。期限取三日级别结构的观察尺度→我方 21 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "你可以认为在这个108左右就是非常清楚的13日级别下轨给到的支撑。这里边既有趋势又有结构对吧。那这里就是你一个打防守反击的、一个抢位置的好得这么一个点位",
+      "locator": "05:25",
+      "tags": ["aaxj", "rotation", "ema-tunnel"],
+      "payload": {
+        "asset_text": "亚太除日本 ETF AAXJ（108 是 13 日级别下轨支撑，趋势与结构重叠）",
+        "asset_symbol": "AAXJ",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 108},
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-09-18"],
+          "success_def": "至2026-09-18 AAXJ 日收盘持续不破 108（13 日级别隧道下轨）= hit；盘中破但收盘收回 = partial；日收盘破 108 = miss。判界取自 13 日级别结构，须跨多根 13 日 K 才构成检验→我方 60 天（不用 7 天档：那对 13 日级别的位无信息量）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果放到三日级别上，你去看，这个位置今天如果能够把4730给守住，那么就没有什么大的问题，反倒是一次放量下影线的连续确认",
+      "locator": "07:36",
+      "tags": ["hstech", "price-action"],
+      "payload": {
+        "asset_text": "恒生科技指数（4730–4800 牛熊分水岭，当日守住 4730 则无大问题）",
+        "asset_symbol": "HSTECH",
+        "priceable": false,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 4730},
+        "horizon": {"type": "within_duration", "duration_days": 2},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "但我并不认为市场会持续的在走结构性牛市，啊，这是我们对高波动板块的一个判断",
+      "locator": null,
+      "tags": ["semiconductor-cycle", "rotation", "risk-mgmt"],
+      "payload": {
+        "asset_text": "高拥挤板块（不认为会持续走结构性牛市，但不排除低吸高抛机会）",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "directional",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "就是你看现在在半导体和内存的波动，不要看个股，要看四个ETF。一个是DRAM，代表呃内存存储板块的这个ETF。然后呢，再看是，呃，半导体，费城半导体，SOXX。再往上看的话是SMH，因为这个是有英伟达持仓的，有巨头持仓的ETF。然后，再往上的话呢",
+      "locator": "01:38",
+      "tags": ["dram", "soxx", "smh", "semi", "semiconductor-cycle", "market-breadth"],
+      "payload": {
+        "name": "四个 ETF 按持仓广度分级读半导体波动",
+        "summary": "分析半导体与内存不看个股，看持仓广度逐级增加的四个 ETF：DRAM（内存，最集中最拥挤）→ SOXX（费半）→ SMH（含英伟达等巨头）→ SEMI（全球全行业）。回撤幅度随广度递减，可据此判断这轮波动是拥挤度出清还是趋势破坏",
+        "family": "flow",
+        "rules": [
+          "按持仓广度排序四个 ETF：DRAM < SOXX < SMH < SEMI",
+          "对照同一轮回撤的幅度：广度越窄回撤越深（实测 DRAM 最深、SOXX 约 22%、SMH 约 15.5%、SEMI 约 11.6%）",
+          "从最宽的 SEMI 看起定板块基调，再逐级推到波动更剧烈的层级",
+          "广度最宽的那层若周线均线未破，则判定为拥挤度出清而非趋势破坏",
+          "高拥挤、流动性碾压的个股（三星/海力士）价格行为框不住，不作分析对象"
+        ],
+        "claimed_performance": {"note": "自称本轮回撤幅度 DRAM 最深、SOXX 22.77%、SMH 15.53%、SEMI 11.56%，记录不采信"},
+        "data_requirements": ["DRAM 日线", "SOXX 日线", "SMH 日线", "SEMI 日线"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "这个亚太呢，我们把日本除外，咱们可以看一个AAXJ。这个ETF的话，它持仓大概有九百多只，而且是比较平均的，有台湾的，然后还有这个中国的，还有这个韩国的。而且这三个重要市场的持仓比例是非常相近的，都是10%几左右不到20%这么一个持仓的一个权重",
+      "locator": "04:03",
+      "tags": ["aaxj", "kospi", "hstech", "rotation", "market-breadth"],
+      "payload": {
+        "name": "用 AAXJ 作亚太（除日本）的宽基观察窗",
+        "summary": "判断地缘与油价供给冲击对亚太的影响时，不逐个看台/中/韩，改看 AAXJ——900 多只持仓且台湾、中国、韩国三大市场权重相近（各 10% 出头不到 20%），能干净地看出趋势有没有坏以及回调支撑在哪",
+        "family": "flow",
+        "rules": [
+          "亚太观察用 AAXJ（除日本），持仓约 900 只、三大市场权重相近",
+          "亚太是油价供给冲击的最前沿（缺油），美国是出口国、受冲击方向相反",
+          "看 AAXJ 的止跌位与 13 日级别隧道下轨是否重叠，重叠处兼具趋势与结构",
+          "与 SEMI 配合使用：这两个宽基基本可以框住当前市场的动荡"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["AAXJ 日线"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "应对高波动市场的第一个性原理啊，一定是去看宽基的市场。你不要盯着你自己以前感兴趣的那几只股票去分析。我认为一定要看到，至少是行业这个级别上，最好呢再到地域上，或者说，到这个整体的综合指数上去做分析，看宏观的动荡",
+      "locator": "00:00",
+      "tags": ["market-breadth", "risk-mgmt", "psychology"],
+      "payload": {
+        "canonical_statement": "应对高波动市场的第一性原理是看宽基：从个股升到行业级别，再升到地域与综合指数——盯着自己熟悉的那几只股票分析，看到的只会是噪音",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": "高波动的宏观动荡期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "然后，在这个同类型的里边去寻找那些波动比较窄的，波动比较缓和的，同时持仓又比较分散的来去观察这个市场",
+      "locator": null,
+      "tags": ["xauusd", "xagusd", "market-breadth", "price-action"],
+      "payload": {
+        "canonical_statement": "同类型资产的节奏是同频的（半导体各层级之间、黄金与白银之间皆然）；观察时要挑同类里波动窄、持仓分散的那个来读，而不是读波动最剧烈的那个",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是谁又能判断的到呢？不能，我们就是去管理敞口嘛，管理好敞口，然后，把这个剩下的就交给市场，就像农民种地一样了对吧。反正我种子播下去了，至于第二天到底是刮风下雨还是风调雨顺，不知道。反正我呢，控制自己的损失，控制自己的这个敞口就可以了",
+      "locator": null,
+      "tags": ["risk-mgmt", "position-sizing", "psychology"],
+      "payload": {
+        "canonical_statement": "关键位之后能不能续涨判断不了，也不必判断——把种子播下去之后能控制的只有损失与敞口，剩下的交给市场",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "一般来说，就是所有人脑海中都有那么一个相似的剧本的时候，这个剧本基本就不太会发生",
+      "locator": null,
+      "tags": ["psychology", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "当所有人脑海里都有同一个剧本时，那个剧本基本不会发生——共识化的预期本身就削弱了它兑现的概率",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "同时我们再把这个亚太的指数啊，以及对和日韩相对冲对立的这种思想再放到这个恒生科技上来，你看是不是日韩会非常的强。如果非常强的话，资金又被虹吸过去了，那大概恒生科技也不会有太好的表现",
+      "locator": "12:07",
+      "tags": ["hstech", "kospi", "rotation"],
+      "payload": {
+        "canonical_statement": "恒生科技与日韩市场相对冲对立：日韩强则资金被虹吸过去，恒科表现就不会好——可用日韩强弱作为恒科的反向参考",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就之前的话就不敢听，现在的进度我也不敢听，我觉得我们拿到的都是垃圾信息啊，都根本是没有办法作为投资决策的一手资料",
+      "locator": null,
+      "tags": ["macro-data", "psychology", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "地缘冲突的进展消息拿到手里都是二手垃圾信息，无法作为投资决策的一手资料——只能落到敞口管理，不能落到方向判断",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": "地缘冲突反复期"
+      }
+    }
+  ]
+}

@@ -1,0 +1,273 @@
+{
+  "content_id": 8,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "我们倾向于认为呢，这是一个结构性的一个健康的回调。但是呢回调的目前的底部还没有真正的到来，市场可能会有所反复",
+      "locator": "05:15",
+      "ref_price": 28531.85,
+      "tags": ["ndx", "price-action"],
+      "payload": {
+        "asset_text": "纳指100（回调未完）", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "directional", "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-06-16"],
+          "success_def": "2026-06-16 NDX收盘低于发布参考价28531.85=hit（'底部未到、会反复'操作化为一周后仍未收复；短期语境→我方7天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "就是价格呢大概可能会围绕着一个偏高的位置进行震荡，而不是会大幅的继续下挫，而下方的均线呢会在上方价格震荡的过程当中呢，继续向上进行均值回归",
+      "locator": "00:00",
+      "ref_price": 28531.85,
+      "tags": ["ndx", "price-action", "ema-tunnel"],
+      "payload": {
+        "asset_text": "纳指100（高位震荡不深跌）", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 27000},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-09"],
+          "success_def": "至2026-07-09 NDX日收盘始终≥27000（六日级别隧道下沿）=hit（'不会大幅下挫'）；盘中破收回=partial；收盘<27000=miss"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "向上的话，很显然在 29800 和 3 万点还会由压力。即便本周会有反弹，那么向上也必然还会再遇到这种结构性的长期的一个压制",
+      "locator": "00:00",
+      "ref_price": 28531.85,
+      "tags": ["ndx", "price-action"],
+      "payload": {
+        "asset_text": "纳指100（29800-30000压制）", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"high": 30000},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-06-16"],
+          "success_def": "至2026-06-16 NDX日收盘始终≤30000=hit（本周反弹不有效突破29800-30000压力带）；盘中破30000收回=partial；收盘>30000=miss（'本周'→我方7天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们认为呢这一次的回调大概不会低于 4000 点，它见不到 3 字头，大概的这波的指稳呢会在这个 4200 点到 4400 点之间，也就是月线级别的 8 和 13 EMA 隧道之内完成",
+      "locator": "01:10",
+      "ref_price": 4533.203,
+      "tags": ["xauusd", "price-action", "ema-tunnel"],
+      "payload": {
+        "asset_text": "黄金（止跌区4200-4400）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 4200, "high": 4400},
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-09", "2026-08-08"],
+          "success_def": "至2026-08-08 XAUUSD日收盘始终≥4200=hit（本波在4200-4400内止稳）；收盘破4200但≥4000=partial；收盘<4000=miss（'见不到3字头'为硬下界；回调浪期限→我方60天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "黄金呢是之前快速上涨之后的主回调浪，那这个回调浪呢即将考验年线，但是并不是一个周期性的翻转，就是黄金长期看好，短期承压",
+      "locator": "01:06",
+      "ref_price": 4533.203,
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金（非周期翻转，长期看好）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 365},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2027-06-09"],
+          "success_def": "2027-06-09（或最近交易日）XAUUSD收盘≥发布参考价4533=hit（'长期看好、非周期性翻转'；'长期'→我方365天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那接下来的市场呢，大概还是一个短周期均线的压制和长周期的这个均线的支撑，所形成的一个窗口期。这个窗口期里边和指数一样，我们可以尝试做高抛和低吸",
+      "locator": "09:18",
+      "ref_price": 571.45,
+      "tags": ["soxx", "semiconductor-cycle", "ema-tunnel"],
+      "payload": {
+        "asset_text": "半导体指数（SOXX，575压制窗口期）", "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"high": 575},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-06-16"],
+          "success_def": "至2026-06-16 SOXX日收盘始终≤575（两小时级别隧道压制成立、维持窗口期震荡）=hit；收盘>575=miss（短期语境→我方7天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以我们要密切的关注 400 左右的一个得失情况。这个位置只要不丢失，特斯拉的这个震荡多头的结构就还是完好无损的",
+      "locator": "16:57",
+      "ref_price": 394.62,
+      "tags": ["tsla", "price-action"],
+      "payload": {
+        "asset_text": "特斯拉（400得失=月线结构）", "asset_symbol": "TSLA", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 400},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-06-16", "2026-07-09", "2026-09-07"],
+          "success_def": "阶梯日TSLA收盘≥400=hit（收复并守住400，震荡多头结构完好；月线级别语境按日收盘判；无期限词→我方+7/+30/+90阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果大盘不出现这种崩溃式的啊大幅的回调的话呢，我们相信不论是特斯拉，还是英伟达，可能走势都会相对的稳健",
+      "locator": "17:36",
+      "ref_price": 208.64,
+      "tags": ["nvda", "price-action"],
+      "payload": {
+        "asset_text": "英伟达（月线200-210支撑）", "asset_symbol": "NVDA", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 200},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": "大盘无崩溃式回调（以NDX不收盘跌破27000为代理）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-09"],
+          "success_def": "若窗口内NDX收盘始终≥27000（条件成立），至2026-07-09 NVDA日收盘始终≥200=hit（月线支撑稳健）；NDX破27000=condition_not_met"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "只不过现在呢，还面临着一层宏观的风险，就是接下来高油价的这个维持，大概率会维持",
+      "locator": null,
+      "tags": ["wti", "oil-supply", "macro-data"],
+      "payload": {
+        "asset_text": "WTI原油（高油价维持1-2月）", "asset_symbol": "WTI", "priceable": true,
+        "claim_class": "directional", "direction": "flat",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-09", "2026-08-08"],
+          "success_def": "阶梯日WTI收盘≥发布日收盘的95%=hit（'高油价大概率维持'操作化为不跌超5%，容差判界系我方；发布日收盘K4回填）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以在东亚这个地区啊，其实未来一到两个月，我们要防止，如果油价下不来，要防止一些尾部的冲击。这些冲击呢，甚至可能会扩散",
+      "locator": null,
+      "tags": ["kospi", "oil-supply", "semiconductor-cycle", "risk-mgmt"],
+      "payload": {
+        "asset_text": "东亚市场（韩台半导体链，油价尾部冲击）", "asset_symbol": null, "priceable": false,
+        "claim_class": "risk_warning", "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": "油价维持高位不回落",
+        "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "我们就应该通过市场在月线级别对年线的一个争夺的情况，来去判断市场是不是进行了周期性的翻转，这个非常的重要",
+      "locator": "10:16",
+      "tags": ["xauusd", "price-action", "ema-tunnel"],
+      "payload": {
+        "name": "黄金牛熊周期判据（月线年线争夺+大型分型）",
+        "summary": "以月线级别对年线的争夺与月线大型分型判断黄金牛熊切换；趋势内连阴回调不构成翻转；年线用多级别降噪定位并做误差修正",
+        "family": "other",
+        "rules": [
+          "牛熊切换以月线级别对年线（月线12EMA≈日线252EMA）的争夺判定，单纯连阴回调不是翻转信号",
+          "熊市确认需月线大型分型：冲高不过形成月线双顶/头肩/背离，反弹失败后再破",
+          "黄金回调周期特征约两个季度弱势（本轮至6月约3.5个月，时长未满）",
+          "年线降噪：月线8/13EMA隧道包夹12EMA；日线上用252EMA观察，存在级别误差",
+          "误差修正：用历史已验证低点（如2026-03-23）匹配参数（252→232）构造日线观察隧道，再加8/13EMA过滤线区分真反弹与死猫跳"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["XAUUSD月线与日线OHLC"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "首先第一个呢，就是美国和中国其实都是 K 型经济，说白了啊还是这个 AI 和 AI 基础设施建设所引领的牛市，而其他的板块像消费，尤其是消费，那其实是非常的弱的",
+      "locator": null,
+      "tags": ["consumer", "ai-capex", "macro-data"],
+      "payload": {
+        "canonical_statement": "机构共识：美中都是K型经济——AI与AI基建引领牛市，消费等其他板块很弱且无周期性改善迹象",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "2026年AI基建牛市"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "共识是什么呢？想要加息门槛极高，美联储呢虽然现在在炒加息的预期，但是真正想要加息，要面临的困难是非常巨大的，挑战也非常巨大的，一旦加息有很多东西会崩掉的",
+      "locator": null,
+      "tags": ["fed-policy", "inflation"],
+      "payload": {
+        "canonical_statement": "机构共识：加息门槛极高——市场虽在炒加息预期，但真实加息会崩掉很多东西，实际落地困难巨大",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "2026年中加息预期炒作期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我们没有办法通过传统的经济指标去为现在的货币和经济周期做一个定性，我们只能去沿着现在的趋势路径继续去扩展",
+      "locator": null,
+      "tags": ["macro-data", "ai-capex", "rotation"],
+      "payload": {
+        "canonical_statement": "高度地缘对抗+产业分化期传统经济指标失效，只能沿趋势路径扩展：AI基建→AI基建的基建（电力/光模块/内存/半导体），机构未来2-3年持续看好",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "地缘对抗+产业分化期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "大资金和小资金的视角是不一样的，短期视角和长期视角也必然不一样。那这就意味着这种分歧会制造波动，也同时会制造机会",
+      "locator": null,
+      "tags": ["market-breadth", "price-action"],
+      "payload": {
+        "canonical_statement": "各级别间的均线/结构误差永远存在，大小资金与长短视角的分歧既制造波动也制造机会",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,457 @@
+{
+  "content_id": 21,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "向上呢再向上冲锋到28800、28900一定会遇到来自隧道和结构位的双重压制，这里可能会成为短线波动在周内和日内进行调整的一个重要的位置。这里边的收复才能真正打开整个科技板块，包括我们说的能够领头的微软、亚马逊的向上的一个空间，否则的话呢可能还会纳指以从两万八到两万八千八的低位震荡",
+      "locator": "05:52",
+      "tags": ["ndx", "price-action", "ema-tunnel"],
+      "payload": {
+        "asset_text": "纳指100（28800 为结构收复位，未收复则 28000–28800 低位震荡）",
+        "asset_symbol": "NDX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {"low": 28000, "high": 28800},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-10"],
+          "success_def": "至2026-08-10 NDX 日收盘持续不破 28000 = hit（'从两万八到两万八千八的低位震荡'的下沿）；盘中破 28000 但收盘收回 = partial；日收盘破 28000 = miss。上沿 28800 为压制位不参与本条判定。（'本周争夺窗口'→我方 7 天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果现在我们看到整个指数的空间打得开，那么不论是亚马逊还是微软，应该向上会有一个20%左右的这么一个成长空间啊，比如亚马逊可能会到这个300往上多一点",
+      "locator": "07:58",
+      "tags": ["amzn", "mag7", "price-action"],
+      "payload": {
+        "asset_text": "亚马逊（指数空间打开后约 20% 成长空间，目标 300 以上）",
+        "asset_symbol": "AMZN",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 300},
+        "horizon": {"type": "open_ended"},
+        "condition_text": "整个指数的空间打得开（纳指100 收复 28800）",
+        "condition_observable": true,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-10", "2026-09-02", "2026-11-01"],
+          "success_def": "条件裁定为 NDX 日收盘≥28800（'指数空间打开'，见同期纳指判断）；条件成立后至阶梯日任一日 AMZN 最高价≥300 = hit；条件始终未成立 = condition_not_met（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后微软的话呢可能会去挑战一下前高或者是600左右的价格。目前来看的话呢，还是能够起到一个领军作用的，因为他的估值和财报其实都是非常的亮眼的",
+      "locator": "08:40",
+      "tags": ["msft", "mag7", "price-action"],
+      "payload": {
+        "asset_text": "微软（指数空间打开后挑战前高或 600 左右）",
+        "asset_symbol": "MSFT",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 600},
+        "horizon": {"type": "open_ended"},
+        "condition_text": "整个指数的空间打得开（纳指100 收复 28800）",
+        "condition_observable": true,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-10", "2026-09-02", "2026-11-01"],
+          "success_def": "条件裁定为 NDX 日收盘≥28800（'指数空间打开'）；条件成立后至阶梯日任一日 MSFT 最高价≥600 = hit；条件始终未成立 = condition_not_met（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "反包成功之后，价格呢向下的支撑位在255左右，如果后面出现技术修正，我们就要关注255，也就是2025年11月份高点的一个支撑，这里呢是一个再次介入的一个关键位置，保持强势的位置",
+      "locator": "07:58",
+      "tags": ["amzn", "price-action"],
+      "payload": {
+        "asset_text": "亚马逊（255 为月线反包后的支撑、保持强势的位置）",
+        "asset_symbol": "AMZN",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 255},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-10", "2026-09-02", "2026-11-01"],
+          "success_def": "至阶梯日 AMZN 日收盘持续不破 255（'2025年11月高点支撑、保持强势的位置'）= hit；盘中破 255 但收盘收回 = partial；日收盘破 255 = miss（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那向下只要一修正，你看微软他就会遇到年线位置的支撑，大概是435左右，那这里呢就是也是一个很好的观察买点的一个位置",
+      "locator": "08:40",
+      "tags": ["msft", "price-action"],
+      "payload": {
+        "asset_text": "微软（435 左右年线支撑、观察买点）",
+        "asset_symbol": "MSFT",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 435},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-10", "2026-09-02", "2026-11-01"],
+          "success_def": "至阶梯日 MSFT 日收盘持续不破 435（'年线位置的支撑'）= hit；盘中破 435 但收盘收回 = partial；日收盘破 435 = miss（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后Google和英伟达的走势呢，我认为可能和指数的同频更密切一点，也就是它不会明显的强于指数，但在最近的修复走势当中呢，应该也会保持一个相对的韧性，短期可能我们不需要去有太高的一个奢望",
+      "locator": "09:24",
+      "tags": ["goog", "ndx", "rotation"],
+      "payload": {
+        "asset_text": "谷歌（相对纳指100 同频、不明显走强）",
+        "asset_symbol": "GOOG",
+        "priceable": true,
+        "claim_class": "relative",
+        "direction": "flat",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "relative_return",
+          "benchmark": "NDX",
+          "eval_ladder": ["2026-08-10"],
+          "success_def": "至2026-08-10 GOOG 自发布日收益率与 NDX 同期收益率之差落在 ±3 个百分点内 = hit（'同频、不会明显强于指数'；±3pct 的判界系我方指定；'短期'→我方 7 天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后Google和英伟达的走势呢，我认为可能和指数的同频更密切一点，也就是它不会明显的强于指数，但在最近的修复走势当中呢，应该也会保持一个相对的韧性",
+      "locator": "09:24",
+      "tags": ["nvda", "ndx", "rotation"],
+      "payload": {
+        "asset_text": "英伟达（相对纳指100 同频、不明显走强）",
+        "asset_symbol": "NVDA",
+        "priceable": true,
+        "claim_class": "relative",
+        "direction": "flat",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "relative_return",
+          "benchmark": "NDX",
+          "eval_ladder": ["2026-08-10"],
+          "success_def": "至2026-08-10 NVDA 自发布日收益率与 NDX 同期收益率之差落在 ±3 个百分点内 = hit（'同频、不会明显强于指数'；±3pct 的判界系我方指定；'短期'→我方 7 天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "就是现在的6288到6666这个位置是非常重要的一个震荡修复区",
+      "locator": "02:24",
+      "tags": ["kospi", "price-action", "fibonacci"],
+      "payload": {
+        "asset_text": "韩国综指（6288–6666 震荡修复区）",
+        "asset_symbol": "KOSPI",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {"low": 6288, "high": 6666},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-10", "2026-09-02", "2026-11-01"],
+          "success_def": "至阶梯日 KOSPI 日收盘持续不破 6288（震荡修复区下沿，=C 浪斐波那契 6290 与 4 小时隧道支撑）= hit；盘中破但收盘收回 = partial；日收盘破 6288 = miss。上沿 6666（0.618）为压制位不参与本条判定。（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果这里上不去，就是价格走到这个6666这么顺的位置上不去，后面的话呢不排除还有一波啊，不排除还有一波，因为我觉得整个这个筑底的过程的话呢，还需要一个继续的窗口的拉长的择时",
+      "locator": "09:42",
+      "tags": ["kospi", "price-action"],
+      "payload": {
+        "asset_text": "韩国综指（若收不回 6666，不排除再有一波下跌）",
+        "asset_symbol": "KOSPI",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": "价格上不去 6666",
+        "condition_observable": true,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "费城半导体我们关注的仍然是日隧道的一个得失，那大概呢是524，因为524没有收复，那最近这两天呢市场可能会向上尝试去修正，如果把这个日日隧道给占回来，那么价格就会比较好看，后面可能还是一个强区间",
+      "locator": "13:42",
+      "tags": ["soxx", "semiconductor-cycle", "ema-tunnel"],
+      "payload": {
+        "asset_text": "半导体板块（收复 524 日隧道则回强区间 524–640）",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 524},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-10"],
+          "success_def": "至2026-08-10 SOXX 任一日最高价≥524（收复日隧道）= hit。原文说'费城半导体'，但 524 是 SOXX 的隧道位（视觉笔记 SOXX 524–640 佐证），故以 SOXX 计；'最近这两天/最近几天'→我方 7 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "至于恒生科技的话呢，我们要关注的实际应该是在8月6号之前的收线能不能突破四万啊4850点，如果不能，价格在波动，我们也知道支撑位到底在哪里",
+      "locator": "19:24",
+      "tags": ["hstech", "price-action"],
+      "payload": {
+        "asset_text": "恒生科技指数（8月6日前收线能否突破 4850）",
+        "asset_symbol": "HSTECH",
+        "priceable": false,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"target": 4850},
+        "horizon": {"type": "by_date", "deadline": "2026-08-06"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "因为在177左右呢是一个重要的结构位，这个位置市场如果站得稳，并且把30隧道当前呢这个破新高之后的高位整理能够守得住，应该呢会有向上的动能，这波动能如果启动的话呢，可能要看到200之上",
+      "locator": "15:37",
+      "tags": ["xli", "rotation", "position-sizing"],
+      "payload": {
+        "asset_text": "工业板块 ETF（站稳 177 结构位后看 200 之上）",
+        "asset_symbol": "XLI",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 200},
+        "horizon": {"type": "open_ended"},
+        "condition_text": "站稳 177 结构位，并守住 30 隧道破新高之后的高位整理",
+        "condition_observable": true,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-10", "2026-09-02", "2026-11-01"],
+          "success_def": "条件裁定为 XLI 日收盘≥177（'站稳 177 结构位'的机械化；'守住 30 隧道高位整理'不可机械判定，不参与条件）；条件成立后至阶梯日任一日最高价≥200 = hit；条件始终未成立 = condition_not_met（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这里边呢第一个就是长债收益率的一个下行，这是一个重要的指标我们要观察",
+      "locator": "03:37",
+      "ref_price": 4.694,
+      "tags": ["us10y", "fed-policy", "macro-data", "midterm-election"],
+      "payload": {
+        "asset_text": "美债长债收益率（中期选举前从高位下行）",
+        "asset_symbol": "US10Y",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "by_date", "deadline": "2026-11-03"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-11-03"],
+          "success_def": "至2026-11-03（中期选举日）US10Y 收益率低于发布时参考值 4.694 = hit（'把长债从高位打下来'）。原文只说'长债'，我方以屏上跟踪的 US10Y 为口径（代理，故降 C）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以说我们在三、四季度的交易当中啊，对十字路口的不好的这个方向的走势，如果是出现更大的对抗和危机，也不要感到特别的意外",
+      "locator": null,
+      "tags": ["macro-data", "risk-mgmt"],
+      "payload": {
+        "asset_text": "全球市场（三四季度地缘对抗升级与危机风险）",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "risk_warning",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "XLU公共事业呢就是偏防御性的，就是如果整个大盘都不怎么好，大家呢会去高股息啊，会去防御股，在这里边躲着，如果看到XLU走的比较强，那对整个市场来说呢反倒是一个消极的信号啊，因为股市的权益资金呢，他可能会选择比较保守的这种配置策略。如果是工业板块走的比较好呢，那实际上就代表了资金整体呢还是比较乐观的，它有一定的进攻的属性",
+      "locator": "19:03",
+      "tags": ["xlu", "xli", "rotation", "market-breadth"],
+      "payload": {
+        "name": "XLU/XLI 强弱对照读市场攻守",
+        "summary": "用公共事业（防御）与工业（进攻）两个板块 ETF 的相对强弱判断权益资金的风险偏好：XLU 强=资金转保守、对大盘是消极信号；XLI 强=资金乐观、有进攻属性",
+        "family": "flow",
+        "rules": [
+          "XLU 偏防御：大盘不好时资金去高股息/防御股躲避，XLU 走强反而是市场的消极信号",
+          "XLI 走强代表资金整体乐观、具进攻属性",
+          "当前 XLU 在年线位置横盘偏弱 → 判读为市场仍有相当进攻性",
+          "据此在非 AI 板块里选受益政策与周期的赛道做分散"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["XLU 日线", "XLI 日线"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "其实我们还可以做c浪的起点，就是2026年的这个3月份这波的A浪，然后B点是最高点，C点的话呢是这波回调的最低点，然后我们落完之后呢你会发现62, 6290左右，因为这次落点的话每次可能会有一点落误差，这个没有关系",
+      "locator": "09:42",
+      "tags": ["kospi", "fibonacci", "ema-tunnel", "price-action"],
+      "payload": {
+        "name": "ABC 浪斐波那契落点 × 小级别隧道的双重确认支撑",
+        "summary": "以 A（起点）B（最高点）C（回调最低点）三点落斐波那契波浪尺得出候选支撑位，再降到 3–4 小时级别看隧道是否在同一位置托举，两者重合处才作为关键支撑区；落点允许误差",
+        "family": "trend",
+        "rules": [
+          "取 C 浪起点为 A 浪，B 点为最高点，C 点为本轮回调最低点，落斐波那契波浪尺",
+          "落点每次会有误差，不追求精确（韩指得 6290 左右）",
+          "把级别放到 3–4 小时，确认该位同时是短周期隧道支撑（6292 附近）",
+          "两者重合的区域与上沿 0.618（6666）共同构成温和修复期的关键上下位"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["KOSPI 4 小时 K 线", "浪型起止点的人工标注"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "目前的AI呢它的这个快齿轮和旧世界慢齿轮之间的对接，它出现了频率不对等，那AI可以走的很快，但是我们说电力、电网啊、基础设施啊包括供应链对不对，包括这个矿产啊等等这些呢其实都对AI的发展形成了非常非常明显的制约，这种制约所形成的冲突和矛盾呢我认为会贯穿未来相当长的一个时间，这里边会有此起彼伏的机会",
+      "locator": "15:37",
+      "tags": ["ai-capex", "rotation", "macro-data"],
+      "payload": {
+        "canonical_statement": "AI 快齿轮与旧世界慢齿轮（电力、电网、基础设施、供应链、矿产）频率不对等，二者的制约与冲突将贯穿相当长时间，沿慢齿轮此起彼伏产生机会——有的来去都快（内存），有的慢而持续（电力、工业）",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我觉得0.618非常重要啊，因为是一个市场的在结构上保持强势的重要分水岭，因为呢他的回调幅度已经超过了这两年为期的牛市的38.2%，这就意味着如果你的仓位不做任何调整，你的净值波动是非常大的，大到需要去做一些被动的调整了",
+      "locator": "09:42",
+      "tags": ["fibonacci", "risk-mgmt", "position-sizing"],
+      "payload": {
+        "canonical_statement": "牛市回撤的 0.618 位是结构强弱分水岭；一旦回调幅度超过 38.2%，不调仓的净值波动会大到必须做被动减仓",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": "适用于已运行两年以上的牛市回调"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "只是你要看到现在的债市的波动率和股市的波动率都在同步的抬头，并且要非常留意目前债市的波动率的抬升速度比股市波动率的VIX的抬升还要大，那这不是一个很稳健的信号啊，因此我们一定要强调分散是非常重要的一个原则，同时留现金和应对极端行情下的对冲手段也必须是要上场的",
+      "locator": "05:52",
+      "tags": ["macro-data", "risk-mgmt", "us10y"],
+      "payload": {
+        "canonical_statement": "债市波动率的抬升速度快于股市 VIX 时，市场结构不稳健——应对是分散、留现金并上对冲手段，而非加仓押单一方向",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "然后补充一下对于澳元对日元这一个本来可以作为流动性温度计的指标，在每日的联合的超强的干预下呢，已经基本失效了，我们需要等待价格的再次回归",
+      "locator": "19:37",
+      "tags": ["audjpy", "macro-data", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "美日（含韩）联合汇率干预期间，AUDJPY 作为流动性/风险偏好温度计的指示作用失效，须等价格回归后才能重新使用",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "汇率遭遇联合干预期间"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以我们今年全年下半年啊，下半年咱们的指引就是第一个要分散，然后也要保持积极的在场。第二个的话呢就是也要防极端行情和事件的冲击",
+      "locator": null,
+      "tags": ["risk-mgmt", "position-sizing"],
+      "payload": {
+        "canonical_statement": "高不确定期的三条并行指引：分散、保持积极在场、同时防极端行情与事件冲击——三者缺一不可，只做其中一条都会失衡",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": "地缘与政策双重不确定期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "同时呢在AI板块上也应该更注重效率的验证，投资效率的一个验证，而不仅仅是说我看半导体内存未来仍然是一个非常好的一光明的前景，所以现在就继续无脑的all in，因为这个择时成本比较高",
+      "locator": null,
+      "tags": ["ai-capex", "risk-mgmt", "rotation"],
+      "payload": {
+        "canonical_statement": "看好长期前景不等于当下该满仓：AI 板块要转向投资效率的验证，因为择时成本高，前景论支撑不了无脑 all in",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "上周缓在最后一个视频当中还提到了这个标普的等权指数，因为它走的非常稳，所以说这个资金呢在美股上他是没有离场的，只是他的逻辑在变",
+      "locator": "01:38",
+      "tags": ["rsp", "spx", "market-breadth", "rotation"],
+      "payload": {
+        "canonical_statement": "标普等权指数走稳说明资金没有离场、只是配置逻辑在变——用等权指数把'资金撤离'与'风格切换'区分开",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    }
+  ]
+}

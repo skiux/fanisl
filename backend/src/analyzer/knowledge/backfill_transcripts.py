@@ -21,7 +21,31 @@ from .store import KnowledgeStore
 
 SLEEP_BETWEEN_S = 20.0    # 视频间隔（礼貌 + 平滑限额）
 RETRIES = 3
-BACKOFF_S = 300.0         # 429/5xx 的退避（转录限额按天/分钟恢复，等得起）
+BACKOFF_S = 60.0          # 瞬时限流/5xx 的兜底退避（服务端给了 retryDelay 时优先用它）
+
+
+class DailyQuotaExhausted(RuntimeError):
+    """当天该模型的免费额度用尽——重试无意义，整轮停止。"""
+
+
+def _quota_detail(e: httpx.HTTPStatusError) -> tuple[bool, float | None]:
+    """解析 429 响应 → (是否每日配额耗尽, 服务端建议的重试秒数)。"""
+    try:
+        err = e.response.json().get("error", {})
+    except ValueError:
+        return False, None
+    per_day, delay = False, None
+    for d in err.get("details", []):
+        for v in d.get("violations", []):
+            if "PerDay" in (v.get("quotaId") or ""):
+                per_day = True
+        raw = d.get("retryDelay")
+        if isinstance(raw, str) and raw.endswith("s"):
+            try:
+                delay = float(raw[:-1])
+            except ValueError:
+                pass
+    return per_day, delay
 
 
 def _transcribe_with_retry(client: GeminiClient, url: str) -> dict | None:
@@ -30,8 +54,20 @@ def _transcribe_with_retry(client: GeminiClient, url: str) -> dict | None:
             return client.transcribe_youtube(url)
         except httpx.HTTPStatusError as e:
             code = e.response.status_code
-            if code in (429, 500, 503) and attempt < RETRIES:
-                print(f"    Gemini {code}，退避 {BACKOFF_S:.0f}s（第 {attempt + 1} 次）", flush=True)
+            if code == 429:
+                per_day, delay = _quota_detail(e)
+                if per_day:
+                    # 每日配额是按天重置的，退避多久都没用——早停比空转 30 分钟诚实
+                    raise DailyQuotaExhausted(
+                        f"模型 {client.model} 当天免费额度已用尽，明日重置或换模型/升配额") from e
+                wait = delay + 5.0 if delay else BACKOFF_S * (attempt + 1)
+                if attempt < RETRIES:
+                    print(f"    Gemini 429（瞬时限流），等 {wait:.0f}s 重试", flush=True)
+                    time.sleep(wait)
+                    continue
+            elif code in (500, 503) and attempt < RETRIES:
+                print(f"    Gemini {code}，退避 {BACKOFF_S * (attempt + 1):.0f}s"
+                      f"（第 {attempt + 1} 次）", flush=True)
                 time.sleep(BACKOFF_S * (attempt + 1))
                 continue
             print(f"    Gemini 失败：HTTP {code}", flush=True)
@@ -51,7 +87,7 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None) -> None:
         raise SystemExit("缺 GEMINI_API_KEY")
     set_cookies_file(s.youtube_cookies_file)
     cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
-    client = GeminiClient(s.gemini_api_key)
+    client = GeminiClient(s.gemini_api_key, model=s.gemini_model)
     pool = make_pool(s.pg_knowledge_conninfo)
     try:
         store = KnowledgeStore(pool)
@@ -77,7 +113,11 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None) -> None:
             if pub is not None and pub < cutoff:
                 print(f"  [{i}] {pub.date()} 早于窗口，停止（频道按新→旧）", flush=True)
                 break
-            tr = _transcribe_with_retry(client, url)
+            try:
+                tr = _transcribe_with_retry(client, url)
+            except DailyQuotaExhausted as e:
+                print(f"  [{i}] {e}；本轮停止（已入库 {n_new} 条不受影响）", flush=True)
+                break
             if tr is None or not tr.get("transcript"):
                 n_fail += 1
                 time.sleep(SLEEP_BETWEEN_S)

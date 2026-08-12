@@ -1,0 +1,200 @@
+{
+  "content_id": 17,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "但是对于软件股整体而言，现在这个时间点我认为，是收益风险比非常高的时刻，那么软件股ETF IGV就是不错的选择",
+      "locator": "16:01",
+      "tags": ["igv", "software", "ai-capex"],
+      "payload": {
+        "asset_text": "软件板块ETF（IGV）", "asset_symbol": "IGV", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-06-07", "2026-06-30", "2026-08-29"],
+          "success_def": "阶梯日IGV收盘≥发布日收盘=hit（'收益风险比非常高的时刻'；发布日收盘K4回填；无期限词→我方+7/+30/+90阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那这或许就意味着，经过了大半年的估值重构后，现在AI颠覆的这个风险已经被完全price in了",
+      "locator": "14:18",
+      "tags": ["software", "igv", "ai-capex"],
+      "payload": {
+        "asset_text": "软件板块（AI颠覆风险已计价）", "asset_symbol": "IGV", "priceable": true,
+        "claim_class": "event_outcome", "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "除此之外，我们还发现，那些偏基础设施层的软件，更有机会率先获益，并且他们的风险会相对更低",
+      "locator": "16:26",
+      "tags": ["software", "ai-capex", "rotation"],
+      "payload": {
+        "asset_text": "基础设施层软件（DDOG/TWLO/SNOW）", "asset_symbol": null, "priceable": true,
+        "claim_class": "relative", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "relative_return",
+          "eval_ladder": ["2026-08-29"],
+          "benchmark": "IGV",
+          "success_def": "2026-08-29 DDOG/TWLO/SNOW等权组合自发布日收益率>IGV同期收益率=hit（'基础层软件率先获益'操作化为跑赢板块ETF，等权组合口径系我方约定）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "而我们几乎可以肯定的是，今年将会是Agentic AI爆发的一年，相关的软件公司就具有极高的上涨潜力，并且确定性还相对更强",
+      "locator": "17:08",
+      "tags": ["ai-capex", "software"],
+      "payload": {
+        "asset_text": "Agentic AI（2026年爆发）", "asset_symbol": null, "priceable": false,
+        "claim_class": "event_outcome", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以说，他们需求确实是在，确定性强，但是业绩能否及时兑现，现在仍存在一定的变数",
+      "locator": "17:48",
+      "tags": ["software", "ai-capex", "risk-mgmt"],
+      "payload": {
+        "asset_text": "网络安全板块（业绩兑现时滞）", "asset_symbol": null, "priceable": false,
+        "claim_class": "risk_warning", "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以我对于像TEAM这种，想靠一个AI小功能就翻身的公司也持有较为谨慎的态度。目前看来，引领这一轮AI应用的公司，仍然最可能是前沿的大模型们",
+      "locator": "20:08",
+      "tags": ["team", "software", "ai-capex"],
+      "payload": {
+        "asset_text": "Atlassian（AI小功能翻身存疑）", "asset_symbol": "TEAM", "priceable": true,
+        "claim_class": "directional", "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "他们分别是：第一，To B尤其是To大B的软件，要明显优于To C或者To小B的软件；第二，AI已经明确带来了新增收入，而不仅仅只是应用AI或者是降本增效；第三，他们的商业模式为按量收费，或者引入了按量收费的模式并成功兑现",
+      "locator": "13:01",
+      "tags": ["software", "ai-capex"],
+      "payload": {
+        "name": "AI时代软件股三共性选股框架",
+        "summary": "从2026财报季数十家软件股对比归纳的赢家共性：To大B + AI带来新增收入 + 按量收费，加分项=偏基础设施层（需求直接挂钩AI Agent用量）",
+        "family": "positioning",
+        "rules": [
+          "只选To B（尤其To大B）软件：不可替代性强、用户敏感度低、生态粘性高；To C软件对大模型冲击敏感（Intuit/TurboTax例）",
+          "要求AI功能已带来明确新增收入：仅AI adoption领先不行（Shopify例），仅AI降本增效提利润不行（Workday例）",
+          "商业模式=按量收费或成功转型按量并兑现（SNOW/DDOG/TWLO原生按量；TEAM Rovo/Figma新开按量档；HubSpot转型失败例）",
+          "加分项：偏基础设施层软件与网安——需求直接挂钩AI Agent用量、AI价值好计算、风险更低",
+          "实测：按此框架提前锁定Snowflake，财报后两天涨40%+"
+        ],
+        "claimed_performance": {"note": "自称按框架提前发布看好SNOW并兑现（记录不采信）"},
+        "data_requirements": ["软件公司财报（收入结构/收费模式/AI收入披露）"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以结论就是，你必须要通过AI功能带来新的、可预见的收入才可以，市场只愿意奖励这样的公司",
+      "locator": "09:44",
+      "tags": ["software", "ai-capex", "market-breadth"],
+      "payload": {
+        "canonical_statement": "2026财报季软件股定价规则：市场只奖励AI带来可预见新收入的公司——AI应用铺得广但收入平平（Shopify）跌、AI降本增效利润超预期但收入平平（Workday）也跌",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "2026年AI变现验证期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "第二是在AI Agent时代，token变成了软件公司自己的成本。以前软件公司都是以高毛利著称，多一个人使用软件，几乎不会给公司带来任何新增成本，但是现在不同了，用户使用AI去烧token是要软件公司自己掏钱的",
+      "locator": "11:03",
+      "tags": ["software", "ai-capex"],
+      "payload": {
+        "canonical_statement": "席位制SaaS在AI时代的两硬伤：①AI裁员潮永久减少席位 ②token成本由软件公司自担、用户用得越多亏得越多——按量收费对两者免疫且直接受益（裁员不减用量、token成本随量转嫁），按量收费成AI时代软件的唯一出路",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "AI Agent时代"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "他们总是会慢大模型一拍，等上一代功能刚打磨好，大模型的下一个迭代就可能会直接颠覆了使用逻辑。这就是传统软件公司最尴尬的地方",
+      "locator": "18:45",
+      "tags": ["software", "ai-capex", "mag7"],
+      "payload": {
+        "canonical_statement": "老牌软件自研AI应用的结构性困境：永远慢大模型一拍——M365 Copilot停在context engineering而时代已进入AI Agent直接执行任务（harness engineering），用户宁愿把Office接入大模型；大模型定型前该问题萦绕所有软件公司",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "大模型快速迭代期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "AI能力现在看起来更像是一种商品，它谁都可以用，谁用效果也基本都相同。你别期待说谁研发出了一个新的AI功能，就让自己一飞冲天了，这不太可能",
+      "locator": "19:49",
+      "tags": ["software", "ai-capex"],
+      "payload": {
+        "canonical_statement": "AI能力=商品（无差异化、不构成新护城河）；AI时代软件公司的真护城河=定义需求的能力+已建立的复杂生态+数据安全/合规/token使用效率的解决方案——仅'喝汤'也有巨大增长潜力",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "和另外三家不同的是，网络安全它并不是业绩驱动的上涨，而是消息面驱动的上涨",
+      "locator": "17:19",
+      "tags": ["software", "ai-capex", "market-breadth"],
+      "payload": {
+        "canonical_statement": "2026-04 Anthropic以安全为由推迟Mythos模型发布→市场意识到AI时代网安的巨大需求，CRWD/PANW自低点消息面驱动近翻倍——需求确定但业绩兑现有时滞（CFLR/ZS财报即不佳），消息面涨幅先于基本面",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "2026年AI安全叙事期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "大模型作为本轮AI浪潮的主导者，他们向B端转型，自然带动起了一众B端服务型企业的业务升级，也自然给他们带来了直接的业务增长",
+      "locator": "04:44",
+      "tags": ["software", "ai-capex", "macro-data"],
+      "payload": {
+        "canonical_statement": "2026年大模型企业集体从C端转向B端→直接带动To B服务型软件的业务升级与收入增长——本财报季软件赢家全部To大B的底层逻辑",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "2026年大模型B端转型期"
+      }
+    }
+  ]
+}

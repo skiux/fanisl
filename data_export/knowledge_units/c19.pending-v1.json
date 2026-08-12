@@ -1,0 +1,436 @@
+{
+  "content_id": 19,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "上周五的非农和失业率啊，进一步的佐证了咱们前面的一个观点，就是今年是很难加息的。因为现在的宏观环境呢，不支持加息，它没有加息的条件，一旦加可能会加出问题来",
+      "locator": "00:00",
+      "ref_price": 3.75,
+      "tags": ["fed-policy", "macro-data", "inflation"],
+      "payload": {
+        "asset_text": "联邦基金政策利率（今年很难加息）",
+        "asset_symbol": "DFEDTARU",
+        "priceable": true,
+        "claim_class": "event_outcome",
+        "direction": "flat",
+        "magnitude": {"high": 3.75},
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "A",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-12-31"],
+          "success_def": "至2026-12-31 FRED DFEDTARU（联邦基金目标区间上限）始终≤3.75%（即年内不加息）= hit；出现任何上调 = miss。发布时真值 3.75%"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么大家觉得这个油接下来呢是偏往上震的概率高，还是往下震的概率高呢？我个人认为呢，还是偏上行的概率要高一点。它围绕着年线可能会像皮筋一样单摆一样去拉升，但这个中枢呢，应该是会偏往上走一点的",
+      "locator": "05:22",
+      "ref_price": 78.855,
+      "tags": ["wti", "oil-supply", "price-action"],
+      "payload": {
+        "asset_text": "WTI 原油（围绕年线单摆，震荡中枢偏上移）",
+        "asset_symbol": "WTI",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-17", "2026-09-09", "2026-11-08"],
+          "success_def": "阶梯日 WTI 收盘 ≥ 发布参考价 78.855 = hit（'偏上行的概率要高一点、中枢偏往上走'；无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们要关注的应该是666、667左右价格的一个得失，这里边如果呢能够在日线级别三日级别把小隧道再稳稳的收一下啊，形成一个再强一点的信号，我认为这里是具备一个中长期做一定分散配置的一个机会的",
+      "locator": "06:58",
+      "ref_price": 671.08,
+      "tags": ["gsci", "oil-supply", "fibonacci", "rotation"],
+      "payload": {
+        "asset_text": "高盛商品指数（666–667 为 0.382 结构位与年线，得失决定中长期配置价值）",
+        "asset_symbol": "GSCI",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 666},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-17", "2026-09-09", "2026-11-08"],
+          "success_def": "至阶梯日 GSCI 日收盘持续不破 666（0.382 结构位与年线所在）= hit；盘中破但收盘收回 = partial；日收盘破 666 = miss。'日线/三日级别收稳小隧道'不可机械判定，不参与本条（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以我们要关注的实际上在大周期上，在13日K上，比如说到了本月末之前啊，8月的二十几号之前，其实都是要关注这个4340、4330，13日K隧道能不能有效的上破",
+      "locator": "09:00",
+      "ref_price": 4321.26,
+      "tags": ["xauusd", "ema-tunnel", "price-action"],
+      "payload": {
+        "asset_text": "黄金（本月末前挑战 13 日 K 隧道 4330–4350 压力）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 4350},
+        "horizon": {"type": "by_date", "deadline": "2026-08-31"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-31"],
+          "success_def": "至2026-08-31 XAUUSD 任一日最高价≥4350（挑战到 13 日 K 隧道压力带上沿）= hit。原文问的是'能否有效上破'，本条只机械判定是否触及；'本月末/8月二十几号之前'→我方按 08-31 落地"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "反倒是呢我们要观察日线级别144、169隧道在4320左右的支撑，如果撑住动量市场延续，价格可能还不回调会继续往上涨，一旦回调出现，波动可能会比较大",
+      "locator": "11:18",
+      "ref_price": 4328.76,
+      "tags": ["xauusd", "ema-tunnel", "price-action"],
+      "payload": {
+        "asset_text": "黄金（日线 144/169 隧道 4320 为牛熊分水岭支撑）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 4320},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-17", "2026-09-09", "2026-11-08"],
+          "success_def": "至阶梯日 XAUUSD 日收盘持续不破 4320（日线 144/169 隧道下轨）= hit；盘中破但收盘收回 = partial；日收盘破 4320 = miss（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这个判断如果咱们简单总结的话呢，就是下方36左右的支撑是非常明显的，并且动力也是偏多头的。所以现在呢你在短周期上看多它，我认为没有任何问题",
+      "locator": "13:18",
+      "ref_price": 38.83,
+      "tags": ["semi", "semiconductor-cycle", "fibonacci"],
+      "payload": {
+        "asset_text": "全球半导体 ETF SEMI（下方 36 支撑明显，短周期看多）",
+        "asset_symbol": "SEMI",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 36},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-17", "2026-09-09", "2026-11-08"],
+          "success_def": "至阶梯日 SEMI 日收盘持续不破 36（0.618 位与三浪四浪落点重合的支撑）= hit；盘中破但收盘收回 = partial；日收盘破 36 = miss（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这个行情的话呢会我个人你非要让我猜一个结论啊，当然这个就没有任何的这个事实依据了，只能说凭我自己盘感，我觉得可能会找到42、43左右形成一个假的新高啊",
+      "locator": "13:18",
+      "tags": ["semi", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "全球半导体 ETF SEMI（盘感猜测：42–43 形成假新高后回落震荡）",
+        "asset_symbol": "SEMI",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 42},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "speculative",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "价格呢在520之下是安全的，而至于向上的空间，其实取决于市场能给多少，我们并不能去主动的去发现。我们可以对整个这个板块的一个判断呢，应该是一个什么啊？我认为应该是一个高位震荡，就是它的震荡区间还是偏高的啊，并没有继续的震荡下移，因为下方的支撑还是很明确的",
+      "locator": "16:39",
+      "ref_price": 543.27,
+      "tags": ["soxx", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "费城半导体 ETF SOXX（520 为 7 日 K 支撑，板块高位震荡不下移）",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {"low": 520},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-17", "2026-09-09", "2026-11-08"],
+          "success_def": "至阶梯日 SOXX 日收盘持续不破 520（7 日 K 框架支撑，'520 之下是安全的'指该位以下可吸筹、即该位是防线）= hit；盘中破但收盘收回 = partial；日收盘破 520 = miss（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那这个位置呢，是最近这两天价格要去挑战的位置，今天的开盘可能是一个小幅的高开，如果小幅高开，基本就是挑战134、135了",
+      "locator": "18:18",
+      "ref_price": 133.11,
+      "tags": ["spcx", "fibonacci", "price-action"],
+      "payload": {
+        "asset_text": "SpaceX（最近两天挑战 0.382 位 134–135）",
+        "asset_symbol": "SPCX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 134},
+        "horizon": {"type": "within_duration", "duration_days": 2},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-12"],
+          "success_def": "至2026-08-12 SPCX 任一日最高价≥134（0.382 位阻力带）= hit（'最近这两天'→我方 2 天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "就是在123到124这个位置，是刚刚我们绘制两个结构的重叠位，那么我们就在当前位置去观察价格，一站在134位置形成一个阻力之后，回调123到124，那这里又正好会碰到日隧道，以及呢2026年8月4号的一个高点，这里就会形成一个啊买点",
+      "locator": "18:18",
+      "ref_price": 133.11,
+      "tags": ["spcx", "fibonacci", "ema-tunnel"],
+      "payload": {
+        "asset_text": "SpaceX（134 受阻后回调 123–124 重叠位形成技术买点）",
+        "asset_symbol": "SPCX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "down",
+        "magnitude": {"target": 124},
+        "horizon": {"type": "open_ended"},
+        "condition_text": "价格在 134 位置形成阻力（触及未站上）",
+        "condition_observable": true,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-17", "2026-09-09", "2026-11-08"],
+          "success_def": "条件裁定为 SPCX 出现某日最高价≥134 且当日收盘<134（'134 形成阻力'）；条件成立后至阶梯日任一日最低价≤124（两组结构扩展位重叠区、日隧道与 08-04 高点所在）= hit；条件始终未成立 = condition_not_met（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "相较于整个板块来说，它不再是增强，我认为韩指现在不再是增强",
+      "locator": "20:05",
+      "ref_price": 6299.16,
+      "tags": ["kospi", "semi", "rotation"],
+      "payload": {
+        "asset_text": "韩国综指（相对全球半导体板块不再是增强）",
+        "asset_symbol": "KOSPI",
+        "priceable": true,
+        "claim_class": "relative",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "relative_return",
+          "benchmark": "SEMI",
+          "eval_ladder": ["2026-08-17", "2026-09-09", "2026-11-08"],
+          "success_def": "至阶梯日 KOSPI 自发布日收益率 ≤ SEMI 同期收益率 = hit（'韩指不再是增强'，即不再跑赢它所增强的半导体板块；SEMI 为'整个板块'的我方代理）"
+        }
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "现在在月线级别，正正好好的停在了七十八这里呢。在月线上就是隧道的下轨，那偏上一点点正好是年线啊。月线级别的八和十三EMA隧道的中间就是年线的位置。这里呢就已经暴露了原油它的一个震荡中轴在哪呢，其实就是年线",
+      "locator": "05:22",
+      "tags": ["wti", "ema-tunnel", "price-action"],
+      "payload": {
+        "name": "月线 8/13 EMA 隧道中轴（年线）定震荡中枢",
+        "summary": "把月线级别 8/13 EMA 隧道画出来，其中轴恰是年线位置——该位就是品种的震荡中轴；价格在中轴上下的摆动都是贝塔，隧道下轨则是长期撑价位",
+        "family": "trend",
+        "rules": [
+          "在月线级别绘制 8 与 13 EMA 隧道",
+          "隧道中间位置即年线，视为该品种的震荡中轴",
+          "围绕中轴的上下摆动只当贝塔，不作方向判断",
+          "隧道下轨作为长期支撑：价格可负向摆动后再抽回",
+          "适用于地缘/政治高相关、短期不可预测的品种（原油为例）"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["WTI 日线（合成月线 EMA）"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "我们看黄金的走势呢，它的重要的一个趋势级别，我认为现在应该是13日K。因为13日K呢在过去黄金从23年启动的這個大牛市当中啊，比较完整的抬升了价格，也就是在每次价格跌到隧道位置附近的时候，都有非常明显的支撑",
+      "locator": "09:00",
+      "tags": ["xauusd", "ema-tunnel", "price-action"],
+      "payload": {
+        "name": "黄金的双级别定位：13 日 K 定趋势、日线 144/169 定牛熊分水岭",
+        "summary": "黄金的趋势级别取 13 日 K（2023 年牛市以来每次跌到其隧道都获明显支撑），大级别择时择价用它；中短期的多空归属则用日线 144/169 隧道作牛熊分水岭，大级别判不清突破还是压制时下沉到小级别找赔率位",
+        "family": "trend",
+        "rules": [
+          "趋势级别取 13 日 K，观察价格与其 EMA 隧道的关系",
+          "13 日 K 隧道附近历史上是黄金牛市的可靠支撑（含 2026-03 暴跌的长下影）",
+          "大周期上无法判断是突破还是压制时，回到小周期找有赔率的点位",
+          "中短期牛熊分水岭用日线 144/169 隧道（2026-03 暴跌时同样在此位反复）",
+          "价格在分水岭下方偏弱势震荡时不急于加仓，先观察等待"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["XAUUSD 日线（合成 13 日 K 与 144/169 EMA）"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "我们再看三浪和四浪，如果去拆三浪和四浪的一个走势，同样的A点、B点落地，然后我们找到36左右是一个重要的支撑啊，这里边跌破之后快速的拉回，然后我们再去补充上方的参数，0.618是36左右的支撑，然后1呢就是在42、43左右的一个结构位。而这个位置呢，它和前面的一浪二浪又重叠",
+      "locator": "13:18",
+      "tags": ["semi", "fibonacci", "price-action"],
+      "payload": {
+        "name": "多组浪段斐波那契扩展位的重叠定关键位",
+        "summary": "对同一标的分别用一浪二浪、三浪四浪等不同浪段各落一套斐波那契扩展位，取多套结果重叠的价位作为关键位——重叠处的可信度显著高于单套落点",
+        "family": "trend",
+        "rules": [
+          "取一浪二浪的扩展位得到一组候选价位",
+          "另取三浪四浪的 A、B 点再落一组（0.618 得支撑、1.0 得上方结构位）",
+          "两组结果重叠的价位才作为关键位使用（SEMI 例：36 支撑、42–43 结构位）",
+          "重叠位同时可用来判断浪型是否已充分到位"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["SEMI 日线", "浪型起止点的人工标注"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "咱们在实际交易的时候呢，我认为你直接去在高波动的品种里边去做多原油去做这种投机，有一点难。然后做长期的话呢，你其实又在做美联储的对手盘，也有一点难。那与其这样的话呢，不如我们呢可以关注一下商品指数",
+      "locator": "06:58",
+      "tags": ["wti", "gsci", "position-sizing", "risk-mgmt"],
+      "payload": {
+        "name": "用商品指数替代原油做能源贝塔",
+        "summary": "原油短期受地缘政治支配不可判、长期做多等于做美联储价格管理的对手盘，两头都难；改用能源权重约 40% 的高盛商品指数，波动显著更稳，定位为中长期分散配置而非进攻性阿尔法仓位",
+        "family": "positioning",
+        "rules": [
+          "不直接在高波动的原油上做投机性做多",
+          "不做长期原油多头（等于与美联储的价格管理手段对做）",
+          "改配高盛商品指数（能源与原油权重约 40%），取其能源贝塔且波动更稳",
+          "定位为中长期分散配置品种，不作为主要进攻仓位",
+          "入场信号看月线级别年线与 0.382 结构位（666–667）的得失"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["GSCI 日线", "WTI 日线"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那么现在的宏观环境基本是一个名牌啊，总结一下就是三点嘛。一个是软就业，但通胀粘，这是第一个。第二个呢，我们现在处在一个高利率的平台期，就是虽然它很难加，但现在也不好降啊，也不好降，比较中性。然后地缘风险的这个溢价呢，已经开始要常态化了",
+      "locator": "00:00",
+      "tags": ["fed-policy", "inflation", "macro-data"],
+      "payload": {
+        "canonical_statement": "当前宏观三条件：软就业但通胀有粘性、处在高利率平台期（难加也不好降、偏中性）、地缘风险溢价开始常态化——常态化的风险溢价一定会被市场计价，黄金已开始计价",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "高利率平台期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那么现在的数据本身就是预期管理的一部分，你别看沃时口头上讲咱们不管理，其实他管理市场和市场对话的方式有很多，不一定非要是发布会和决议，对不对？那么数据本身也是做预期管理的很重要的一个手段",
+      "locator": "00:00",
+      "tags": ["fed-policy", "macro-data", "psychology"],
+      "payload": {
+        "canonical_statement": "经济数据本身就是预期管理的手段之一——央行与市场对话不限于发布会和决议，所以读数据要连同'它被用来传达什么'一起读",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "你看这个顶和底呢，其实价格就已经先给到了。所以拆价格，我觉得价格是走在所有的消息前面的",
+      "locator": "01:28",
+      "tags": ["dxy", "price-action", "macro-data"],
+      "payload": {
+        "canonical_statement": "价格走在消息前面：美元指数的顶（101）与底（95）在非农失业率公布之前就由价格结构给出，数据出来只是确认——所以推测数据不如拆价格",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我的理解是这个市场本身呢是多周期的资金啊在不同的频率下的这么一个共振。有的资金可能他是一个很长期的配置，有的呢是短期的投机，有一些呢是情绪，对不对？然后有一些呢又是游资，无论是什么样的资金属性，它背后是谁在持有啊，这是一方面，但是它在市场里所体现出来的，无非就是择时和择价",
+      "locator": null,
+      "tags": ["market-breadth", "price-action", "psychology"],
+      "payload": {
+        "canonical_statement": "市场不是线性外推的：它是多周期资金（长期配置/短期投机/情绪/游资）在不同频率上的共振，各类资金无论背后是谁，在市场里体现出来的只有择时与择价——所以从价格出发往回推验证，比按上周节奏推演这周更可靠",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "在这个环境里边呢，我们就看到了质量因子和成长因子开始battle了，因为整个上半年呢，基本都是成长占优，那但是到了中期啊，这个中场休息的时候呢，咱们看到有一部分资金进入到了质量因子里面",
+      "locator": "04:04",
+      "tags": ["moat", "rotation", "market-breadth"],
+      "payload": {
+        "canonical_statement": "高利率平台期的中场休息阶段，资金从成长因子部分转入质量因子（高护城河 ETF MOAT 一周涨约 8% 且回调克制），是质量与成长因子切换的观察窗",
+        "category": "regime",
+        "stance": "assert",
+        "regime_qualifier": "高利率平台期的年中中场休息阶段"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为它的主权信用、主权背书以及抵御危机和突发性啊风险的能力要远远强过韩国市场啊。韩国市场的话，现在有点全民投机的感觉，我觉得后面的涨幅可能会受限",
+      "locator": "20:05",
+      "tags": ["kospi", "risk-mgmt", "rotation"],
+      "payload": {
+        "canonical_statement": "同等机会下按主权信用与抗危机能力选市场：美国核心资产的主权背书与抵御突发风险能力远强于韩国；全民投机氛围会限制后续涨幅",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": "地缘风险溢价常态化期"
+      }
+    }
+  ]
+}

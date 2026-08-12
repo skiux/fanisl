@@ -1,0 +1,213 @@
+{
+  "content_id": 28,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "所以这次二季度财报后股价大跌20%，在我看来更像是一个可以慢慢开始布局的时间点。对特斯拉这种靠叙事驱动、波动巨大的标的，最好的投资时点就是在情绪最差、市场最悲观的时候买入",
+      "locator": "21:47",
+      "ref_price": 313.03,
+      "tags": ["tsla", "psychology", "position-sizing"],
+      "payload": {
+        "asset_text": "特斯拉（财报后跌 20%，是可以慢慢开始布局的时间点）",
+        "asset_symbol": "TSLA",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 180},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2027-01-22"],
+          "success_def": "2027-01-22 TSLA 收盘 ≥ 发布参考价 313.03 = hit（'可以慢慢开始布局的时间点'）。期限取他自己统计所用的持有周期'半年'（其统计口径：大跌后半年胜率 90%、中位数涨幅 64%）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以整体来看，我认为短期特斯拉的股价仍然是比较被动的。资本性开支的压力还会逐渐加大，而科技叙事的催化恐怕很难很快兑现。所以它依旧是一个缺乏上涨动能，并且风险较高的状态",
+      "locator": "15:42",
+      "ref_price": 313.03,
+      "tags": ["tsla", "ai-capex", "risk-mgmt"],
+      "payload": {
+        "asset_text": "特斯拉（短期缺乏上涨动能、风险较高、股价被动）",
+        "asset_symbol": "TSLA",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "凭我对于马斯克的了解，我认为这次资本性开支的上调绝不会是结束，而是一系列上调的开始。而他认定的事情，想要改变难度也很大。所以说，未来在很长一段时间内，特斯拉资本性开支这个问题，都会成为左右他股价的一个关键变量",
+      "locator": "06:56",
+      "tags": ["tsla", "ai-capex", "macro-data"],
+      "payload": {
+        "asset_text": "特斯拉资本性开支（本次上调不是结束而是一系列上调的开始）",
+        "asset_symbol": "TSLA",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "我特地统计了特斯拉上市以来单日跌幅超过10%的全部大跌，并把每次大跌之后不同时间段的股价表现绘制成了下面这张图",
+      "locator": "20:48",
+      "tags": ["tsla", "psychology", "position-sizing", "price-action"],
+      "payload": {
+        "name": "单日大跌后按持有周期分层的胜率表（特斯拉）",
+        "summary": "统计标的上市以来全部单日跌幅≥10% 的大跌（特斯拉 2010 年至今共 31 次），测量此后不同持有周期的上涨概率与中位数涨幅：持有期越长胜率与收益越高——1 周 74%/+5%，1 月 68%/+13%，3 月 84%/+26%，半年 90%/+64%。据此在情绪最差时逆势分批布局并按季度以上周期持有",
+        "family": "reversion",
+        "rules": [
+          "筛出该标的历史上全部单日跌幅≥10% 的交易日",
+          "对每次大跌测量 1 周 / 1 月 / 3 月 / 半年后的收益，统计胜率与中位数",
+          "结论：一周与一月胜率不高（恐慌还要发酵一阵），三月以上显著改善",
+          "据此把买点定在情绪最差、市场最悲观时，并按半年以上周期持有",
+          "适用范围限定为叙事驱动、波动巨大的标的"
+        ],
+        "claimed_performance": {"note": "自称 31 次样本：1周 74%/+5%、1月 68%/+13%、3月 84%/+26%、半年 90%/+64%。记录不采信，需我方独立复算（单一标的、样本 31、未扣成本、未控 regime）"},
+        "data_requirements": ["TSLA 自 2010 年起的日线"],
+        "overlap_with_killed": ["需对照 doc/research 已杀的反转类假设（H 系列）后再决定是否立项"],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这次财报季，不光是特斯拉的财报，所有大科技的财报都请各位记住这么一个关键词，叫做“资本性开支”",
+      "locator": "05:14",
+      "tags": ["ai-capex", "mag7", "macro-data"],
+      "payload": {
+        "canonical_statement": "本财报季所有大科技的关键词是资本性开支：市场现阶段对投入加大这件事极其敏感，这不是单家公司的问题而是所有大科技的共同症结",
+        "category": "regime",
+        "stance": "assert",
+        "regime_qualifier": "AI 资本开支扩张期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "它和其他大科技主要建设数据中心不同，TeraFab是芯片制造工厂。数据中心理论上讲回报更可见，需求它也是有保障的。建好之后马上就能带来收入。但即使如此，数据中心的建设都备受质疑。而TeraFab这个芯片制造工厂，根据马斯克的原话说，这主要就是为了给Optimus人形机器人制造AI芯片。而Optimus的量产还遥遥无期，芯片制造的难度也要更大",
+      "locator": "05:33",
+      "tags": ["tsla", "ai-capex", "semiconductor-cycle"],
+      "payload": {
+        "canonical_statement": "同为烧钱建设，回报可见度分层：数据中心建好即可带来收入、需求有保障却已备受质疑；给尚遥遥无期的产品配套的芯片制造厂（特斯拉 TeraFab 之于 Optimus）回报更远、难度更大，因此被质疑的程度也更高",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "如果说剔除了这一部分的一次性影响，再加上本次销量提升所带来的成本摊薄，其实这两个季度的毛利表现是差不多的，并没有看起来那么糟糕。但从另一方面讲，这或许也意味着，特斯拉的毛利提升空间已经非常有限了",
+      "locator": "02:51",
+      "tags": ["tsla", "macro-data"],
+      "payload": {
+        "canonical_statement": "毛利率环比下滑要先剔除上季度的一次性因素（报修调整、关税减免、停售前抢购高价车型）再比——剔除后两季持平说明本季不算差，但也同时说明毛利提升空间已经非常有限",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但问题是，马斯克他不一样，他的风格就是先把这大话给说出去，激励员工，激励市场，然后再在运营中不断调整。而华尔街这帮人也是真实在，每次马斯克一给出预期，他们就老老实实的照着预期重新估值，那股价就蹭蹭往上涨。可问题是，之后管理层在运营时就会发现，预期根本就达不到，一旦再调整预期，股价也得跟着调整",
+      "locator": null,
+      "tags": ["tsla", "psychology", "market-structure"],
+      "payload": {
+        "canonical_statement": "马斯克的风格是先放出大话激励员工与市场、再在运营中不断调整；华尔街照着他给的预期重新估值推高股价，等预期被下调股价就得跟着调整——识别公司当前处在'放话期'还是'运营调整期'，比听预期本身更重要",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "马斯克的过人之处不在于执行，而在于他极致的冒险能力。往往事情越是有挑战，风险越高，给他的生死存亡的压力越大，他就越能爆发惊人的执行力去完成那些不可能完成的事情。但反过来，如果事情平稳推进，他就会很快失去兴趣",
+      "locator": null,
+      "tags": ["tsla", "psychology"],
+      "payload": {
+        "canonical_statement": "马斯克的过人之处是极致冒险而非执行：生死存亡压力越大爆发力越强，事情平稳推进反而失去兴趣（SolarCity 被放弃为例）——当公司剩下的是监管批文与实地测试这类'拉链式动员'解决不了的问题时，不应再迷信其执行力",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": "公司最难的技术问题已步入正轨之后"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "Optimus人形机器人是特斯拉最具想象空间的业务，但作为咱们投资者，你也必须清楚，从资本的角度，这部分业务当前几乎完全没有计入到公司的估值里",
+      "locator": "12:18",
+      "tags": ["tsla", "ai-capex", "psychology"],
+      "payload": {
+        "canonical_statement": "想象空间最大的业务未必影响估值：Optimus 当前几乎完全没有计入特斯拉估值（华尔街清楚其落地不确定性大、时间远），因此它的进展好坏对股价的重要性远低于 FSD 与 Robotaxi",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "第一，特斯拉是当前市场上唯一一家物理AI标的。从FSD到Robotaxi，再到Optimus人形机器人，本质上是同一套物理AI能力在不同场景下的落地。作为物理AI的唯一标的，特斯拉会持续享受稀缺性的溢价",
+      "locator": "19:04",
+      "tags": ["tsla", "ai-capex"],
+      "payload": {
+        "canonical_statement": "特斯拉的长期投资逻辑只有两条：①它是市场上唯一的物理 AI 标的（FSD、Robotaxi、Optimus 是同一套物理 AI 能力在不同场景落地），享受稀缺性溢价；②FSD 与 Robotaxi 面向万亿级出行市场且商业化已在推进（网约车渗透率不到 1%）。这两条不变则投资逻辑不变",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但我认为有一点是可以确定的：在一个明确有极高价值的机会上，越是情绪低点，越是悲观，则越是好的买入机会",
+      "locator": null,
+      "tags": ["psychology", "position-sizing", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "科技叙事本身无法预测（取决于当事人的嘴与市场情绪），能确定的只有一点：在明确具备极高价值的机会上，情绪越低越悲观，买点越好——真正的安全边际藏在市场最恐惧的时刻，逆势布局输的最多是时间而非本金",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": "标的长期价值明确的前提下"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "在高油价的背景下，加息的预期越来越高。而这次特斯拉明确表示，未来会通过债务融资再借300亿美元。在利率上行的环境里借钱，那成本会明显会抬高。再叠加新增资产折旧的释放，利润端和现金流端都会承受巨大压力",
+      "locator": "14:43",
+      "tags": ["tsla", "fed-policy", "ai-capex"],
+      "payload": {
+        "canonical_statement": "在利率上行环境里加码债务融资（特斯拉计划再借 300 亿）会同时抬高融资成本并释放新增资产折旧，对利润端与现金流端形成双重压制——顶着宏观逆风扩大资本开支的公司，压力会持续增加",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "利率上行期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "现在的Robotaxi业务，从纵向扩车队改成了横向铺城市。而未来的Cybercab又需要重新积累数据。相比于之前市场预期的明年年初即可开始商业化的这个时间表，这次财报后，Robotaxi的回报落地时间很显然又一次的大幅延后了",
+      "locator": "10:56",
+      "tags": ["tsla", "ai-capex"],
+      "payload": {
+        "canonical_statement": "Robotaxi 的战略从纵向扩车队改为横向铺城市，加上 Cybercab 无法沿用旧车型数据、需重新积累 FSD 里程——两者叠加使商业化时间表较此前'明年年初'的市场预期大幅延后",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    }
+  ]
+}

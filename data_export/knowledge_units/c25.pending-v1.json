@@ -1,0 +1,312 @@
+{
+  "content_id": 25,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "这一轮原油的反弹的力度我个人觉得比开战之前是要弱很多的。那这里从债市上我们一会儿也能看到。综合来看呢，原油80这个位置的压力呢，我觉得值得关注",
+      "locator": "05:46",
+      "ref_price": 77.6,
+      "tags": ["wti", "oil-supply", "fibonacci", "ema-tunnel"],
+      "payload": {
+        "asset_text": "WTI 原油（80 为 0.236 扩展位与三日隧道上轨重叠的压力，反弹力度弱于开战前）",
+        "asset_symbol": "WTI",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"high": 80},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-06"],
+          "success_def": "至2026-08-06 WTI 日收盘持续不站上 80（0.236 扩展位与三日级别隧道上轨的重叠压力）= hit；盘中上破但收盘回落 = partial；日收盘站上 80 = miss。上破后的 87–88（0.382）为第二档，不入本条。期限取三日级别结构的观察尺度→我方 21 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "澳元对日元向上破掉了两日级别的均线，后面的话呢，大概应该还是一个偏向多头去上涨的这么一个节奏。如果能够去向上冲击116、117，那这一波对市场的乐观的一个走势呢，也会形成一点的支撑",
+      "locator": "07:31",
+      "ref_price": 113.4,
+      "tags": ["audjpy", "macro-data", "risk-mgmt"],
+      "payload": {
+        "asset_text": "澳元兑日元（破两日均线后偏多头，冲击 116–117）",
+        "asset_symbol": "AUDJPY",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 116},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-06"],
+          "success_def": "至2026-08-06 AUDJPY 任一日最高价≥116 = hit（'向上冲击 116、117'）。期限取两日级别均线突破的延续尺度→我方 21 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么至于接下来如果市场大概率的情形，基准情形是继续走牛市陡峭，也就是长端利率减短端利率的话，那长端收益率减去短端收益率还是往上行的话，那么大概呢，会对美股形成支撑",
+      "locator": "08:02",
+      "ref_price": 0.42,
+      "tags": ["us10y", "macro-data", "fed-policy"],
+      "payload": {
+        "asset_text": "10年减2年国债利差（基准情形继续走牛市陡峭、利差上行）",
+        "asset_symbol": "T10Y2Y",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-09-14"],
+          "success_def": "2026-09-14 FRED T10Y2Y ≥ 发布时参考值 0.42 = hit（'继续走牛市陡峭'=利差继续上行）。宏观利差趋势按中期尺度判定→我方 60 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我个人呢倾向于认为韩指呢，就是在日线级别的隧道的支撑大概是6650左右。向下的话呢，极端情况是有可能会到6240左右，也就是日线级别的这个169隧道位置附近。而上方的这个压力呢，应该会持续存在",
+      "locator": "12:26",
+      "ref_price": 6820.6,
+      "tags": ["kospi", "ema-tunnel", "price-action"],
+      "payload": {
+        "asset_text": "韩国综指（日线隧道支撑 6650，极端看 6240，上方压力持续）",
+        "asset_symbol": "KOSPI",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 6650},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-06"],
+          "success_def": "至2026-08-06 KOSPI 日收盘持续不破 6650（他倾向认定的日线隧道支撑）= hit；盘中破但收盘收回 = partial；日收盘破 6650 = miss。6240 是他自陈的'极端情况'下限，不作本条判界。期限取日线级别多空协商的周期→我方 21 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那我个人的观点是认为这个575左右，这里呢是重要的强势分水岭。短期来看，过去很难。这里过不去，市场的一个阶段性的头部就形成",
+      "locator": "13:59",
+      "ref_price": 530.5,
+      "tags": ["soxx", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "费城半导体 ETF SOXX（575 是强势分水岭，短期过去很难）",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"high": 575},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-23"],
+          "success_def": "至2026-07-23 SOXX 日收盘持续不站上 575（'短期来看，过去很难'）= hit；盘中上破但收盘回落 = partial；日收盘站上 575 = miss。原文'短期'→映射表 7 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "后面有可能会有继续的回调。在比较高波动的情况下呢，是可能会回到500左右，费城半导体指数",
+      "locator": "13:59",
+      "ref_price": 530.5,
+      "tags": ["soxx", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "费城半导体 ETF SOXX（高波动情形下可能回到 500）",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "down",
+        "magnitude": {"target": 500},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": "在比较高波动的情况下",
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "因为4700到4800这个位置第一次冲高未过，第二次回落踩的位置比较标准，是一个经典的日隧道的吸筹，这里面就可能会形成一个头肩底部，这一次的上破和以往有所不同",
+      "locator": "14:40",
+      "tags": ["hstech", "price-action"],
+      "payload": {
+        "asset_text": "恒生科技指数（回踩日隧道后成 N 字推动，可能形成头肩底、本次上破不同以往）",
+        "asset_symbol": "HSTECH",
+        "priceable": false,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 4800},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以我个人呢对于中金的这个价格呢，还要再偏乐观一点，也就在这个范围之内，我们往上去加一个贝塔",
+      "locator": "15:50",
+      "ref_price": 3985.6,
+      "tags": ["xauusd", "macro-data"],
+      "payload": {
+        "asset_text": "黄金（比中金 4500–4800 的下半年中枢再偏乐观、往上加一个贝塔）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 4800},
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-12-31"],
+          "success_def": "至2026-12-31 XAUUSD 任一日最高价≥4800 = hit（他比中金 4500–4800 的下半年中枢'再偏乐观、往上加贝塔'，取该区间上沿为判界）。'下半年'→映射表当年 12-31"
+        }
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "是这个十年期减两年期的这个长短利差。那这个收益率的利差在最近的这一月份啊，从今年的1、2月份到现在，6月份，我们在最近的几个交易日看到了市场的通胀数据似乎出现了降温",
+      "locator": "01:56",
+      "tags": ["us10y", "macro-data", "fed-policy"],
+      "payload": {
+        "name": "10年减2年长短利差作为前瞻指标（拐点领先事件约一个月）",
+        "summary": "用 T10Y2Y 的拐点做前瞻：它不预测涨跌，但提前反映大资金意图。已两次验证领先约一个月——2026-01-26（日线 02-09）的高点拐点领先美伊战争不到一月；6 月中下旬的低位拐点领先通胀数据降温约半月到一月",
+        "family": "event",
+        "rules": [
+          "观察 10 年期减 2 年期国债利差曲线，重点看拐点而非绝对水平",
+          "先把零轴之下（倒挂区）标出：倒挂=市场对长期缺乏信心、预期深度衰退",
+          "零轴之上快速上行=牛市陡峭，对应增长驱动与风险偏好回升",
+          "高位拐头向下=风险事件的提前量（实测领先约一个月）",
+          "低位重新抬起=动能修复的提前量（实测领先通胀数据约半月到一月）",
+          "利差不用于预测涨跌，只用于判断大资金意图的方向"
+        ],
+        "claimed_performance": {"note": "自称两次拐点各领先约一个月（美伊战争、通胀降温），记录不采信"},
+        "data_requirements": ["FRED T10Y2Y 日频"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那我们现在最后来聊一聊这个黄金的一个走势啊",
+      "locator": "04:14",
+      "tags": ["wti", "audjpy", "risk-mgmt", "macro-data"],
+      "payload": {
+        "name": "原油与澳日双指标的风险重燃预警",
+        "summary": "把原油价格与澳元兑日元作为一组风险参考指标：原油继续向上突破压力位、同时澳日向下破位，两者同现即判定市场风险重燃",
+        "family": "flow",
+        "rules": [
+          "指标一：原油在 80 一带压力位的得失（上破=风险侧）",
+          "指标二：澳元兑日元的方向（向下破位=风险侧）",
+          "两者同时转向风险侧时判定市场风险重燃",
+          "澳日的依据是商品货币比拆借货币，专业机构亦将其作为风险模型的参考变量之一"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["WTI 日线", "AUDJPY 日线"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "宽幅震荡的市场呢，它的这个，精确的顶底是非常难以及时拿捏的。所以我们不能啊只看这个点位，应该在战略上啊有一个防御和减仓的动作",
+      "locator": null,
+      "tags": ["risk-mgmt", "position-sizing", "price-action"],
+      "payload": {
+        "canonical_statement": "宽幅震荡市里精确顶底无法及时拿捏，应对应该落在战略层的防御与减仓，而不是继续盯点位做精确判断",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": "宽幅震荡市"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那投行的基准情形，我们在去做实际参考的时候，我认为是和我们参考债市是一样的。你可以把它当做一个宏观指标来看，而不是认为市场会精确的这么运作。因为市场呢往往绝大多数情况下会比基准情形要涨得更高或者跌得更深",
+      "locator": null,
+      "tags": ["macro-data", "psychology", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "投行的基准情形（如中金的黄金中枢）只能当宏观指标看，不能当精确路径用——市场绝大多数情况下会比基准涨得更高或跌得更深",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是AI和半导体的这个业绩呢，改变了甚至是扭转了啊，整个这个宏观的一个逆风",
+      "locator": "09:28",
+      "tags": ["ai-capex", "semiconductor-cycle", "macro-data"],
+      "payload": {
+        "canonical_statement": "2026 年 2–6 月是熊陡（利差回调）周期，按宏观框架本应利空风险资产，但美股不跌反创新高、半导体与内存疯涨小半年——AI 与半导体的业绩扭转了宏观逆风，说明业绩可以压过利差信号",
+        "category": "regime",
+        "stance": "assert",
+        "regime_qualifier": "AI 业绩强劲期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为恒科历来呢，它其实和日经啊、和韩指啊，它都是互补的。完全是相反的。在当前的这个走势当中呢，恒科的走势也一定程度上印证了市场的逻辑跟风格发生变化：就是会从前面的硬件可能开始炒一炒低估值了",
+      "locator": "14:40",
+      "tags": ["hstech", "kospi", "rotation", "market-breadth"],
+      "payload": {
+        "canonical_statement": "恒生科技与日经、韩指历来互补甚至完全相反；恒科转强可作为市场风格从硬件切向低估值的印证信号",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "而这个情形大概率的情况呢，会有一点悲观了。因为截止到目前呢，中金其实对今年的利率的基准情形还是认为是：不加息，也不降息。注意，截止到目前，中金没有修改自己下半年对利率路径的基准情形的预测，认为还是不会加，也不会降。那么当前呢，市场呢计价了两次和超过两次的一个加息的预期。所以后面的话呢，是有修复的空间的",
+      "locator": "15:50",
+      "tags": ["xauusd", "fed-policy", "macro-data"],
+      "payload": {
+        "canonical_statement": "黄金当前已计价两次及以上加息，而中金对今年利率的基准情形仍是不加不降——预期与基准的这个缺口构成黄金的修复空间（中金下半年中枢 4500–4800，彭博一致预期悲观 4000、乐观 5500–6000）",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "市场计价的加息次数高于基准情形时"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "比如我们把频率调配到和市场波动很契合的这个状态里边。那这样的话其实做起来就会游刃有余",
+      "locator": null,
+      "tags": ["price-action", "psychology"],
+      "payload": {
+        "canonical_statement": "把观察频率调配到与市场当下波动契合的状态，节奏判断才做得游刃有余——频率不匹配是拿不准顶底的常见原因",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    }
+  ]
+}

@@ -34,9 +34,15 @@ SYMBOL_MAP: dict[str, tuple[str, float, str]] = {
     **{t: (t, 1.0, "") for t in [
         "SOXX", "IGV", "MAGS", "MU", "TSLA", "TEAM", "SNDK", "NVDA", "MSFT", "PCOR",
         "CRCL", "CRM", "CRWV", "DDOG", "META", "MRVL", "PLTR", "QCOM", "SPCX", "UFOX",
-        "XLV", "OKTA", "NOW", "SNOW", "TWLO"]},
+        "XLV", "OKTA", "NOW", "SNOW", "TWLO",
+        # 2026-08 新语料带入（c19-21：微软/亚马逊成长空间、工业 vs 公用事业分散配置）
+        "AMZN", "GOOG", "XLI", "XLU", "RSP", "AAPL", "MOAT", "SEMI", "ITA", "DRAM", "SMH", "AAXJ"]},
+    "GSCI": ("^SPGSCI", 1.0, "标普高盛商品指数（能源权重约 40%）"),
 }
-FRED_SERIES = {"DFEDTARU": "联邦基金目标区间上限%"}
+# 已核不可用（勿反复试）：恒生科技指数 —— ^HSTECH 无数据，HSTECH.HK 一个月仅 1 根有效，
+# 3033.HK（ETF）价位口径与指数点位不同、无法验"突破 4850"类判断 → 恒科 claim 只能 priceable=false。
+FRED_SERIES = {"DFEDTARU": "联邦基金目标区间上限%",
+               "T10Y2Y": "10年期减2年期国债利差%（牛陡/熊陡/倒挂的经典口径）"}
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS daily_bars (

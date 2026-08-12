@@ -1,0 +1,238 @@
+{
+  "content_id": 6,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "我认为美元指数呢短期是易涨难跌，而且有可能会有动量驱动啊",
+      "locator": "03:20",
+      "tags": ["dxy", "fed-policy", "macro-data"],
+      "payload": {
+        "asset_text": "美元指数", "asset_symbol": "DXY", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-06-26"],
+          "success_def": "2026-06-26 DXY收盘≥发布日收盘=hit（'短期易涨难跌'；'短期'→我方7天阶梯；发布日收盘K4回填）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "4140点。大家就把它当成是黄金的一个牛熊分水岭就可以了。因为这里一旦破掉，下方的话就没有底了，它可能会去到3800，甚至有可能会去到更低对不对",
+      "locator": "06:15",
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金（4140牛熊分水岭）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"target": 3800},
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": "黄金日收盘跌破4140（两日级别144/169隧道+1.618分位）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-09-17"],
+          "success_def": "若出现XAUUSD日收盘<4140，其后至2026-09-17任一日最低价≤3800=hit（破分水岭后无底）；未破=condition_not_met（窗口系我方90天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么4700到4100，或者说到4000这个区间呢是震荡的弱区间，这个区间不要再破了，这个区间再破了那叫走熊了",
+      "locator": "05:04",
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金（4700-4100弱震荡区间）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 4100, "high": 4700},
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-19", "2026-08-18"],
+          "success_def": "至2026-08-18 XAUUSD日收盘始终≥4100=hit（弱区间下沿不破=非熊市）；收盘破4100但≥4000=partial；收盘<4000=miss（区间期限→我方60天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后今天因为半个交易日，所以黄金我觉得不会大幅的下破。然后但是呢，它也不会转强",
+      "locator": "00:00",
+      "tags": ["xauusd"],
+      "payload": {
+        "asset_text": "黄金（当日窄幅）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "directional", "direction": "flat",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 2},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-06-21"],
+          "success_def": "2026-06-21（或最近交易日）XAUUSD收盘在发布日收盘±2%以内=hit（'不大幅下破也不转强'，±2%判界系我方；发布日收盘K4回填）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么最终呢，我的结论是，30400点左右是也就是昨天啊，接近昨天和前天市场冲高这个位置。这里很难会一次性过去",
+      "locator": "01:49",
+      "ref_price": 30406.19,
+      "tags": ["ndx", "price-action"],
+      "payload": {
+        "asset_text": "纳指100（30400压力）", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"high": 30400},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-19"],
+          "success_def": "至2026-07-19 NDX日收盘始终≤30400=hit（30400很难一次性过去）；盘中破收回=partial；收盘>30400=miss（窗口→我方30天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "并且呢，它和现在的标普的7490点到多少？7600点的这个区域形成了一个重叠",
+      "locator": "09:09",
+      "tags": ["spx", "price-action"],
+      "payload": {
+        "asset_text": "标普500（7490-7600重叠压力区）", "asset_symbol": "SPX", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"high": 7600},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-19"],
+          "success_def": "至2026-07-19 SPX日收盘始终≤7600=hit（7490-7600结构压力成立）；盘中破收回=partial；收盘>7600=miss（窗口→我方30天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "但是在半导体整个这个板块上，大家一定要留意下周开盘对626位置费城半导体指数的一个得失。626，这里边是三日级别还没有收完的一个走势。这根三日K如果突破，那么后面626左右，620左右对前高位置会进行一次确认。然后呢，才会有新的结构性行情",
+      "locator": "09:30",
+      "tags": ["soxx", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "半导体指数（SOXX，626得失）", "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": "SOXX三日级别收线突破626并回踩620-626确认",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-19"],
+          "success_def": "若SOXX出现日收盘>626且其后回踩低点≥620（确认成立），2026-07-19收盘>626=hit（新结构性行情）；未突破确认=condition_not_met"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "第二个最重要的点呢，就是现在的美股我们看到了多重结构性压力。而且呢目前往上的盈亏比是不好的",
+      "locator": null,
+      "tags": ["spx", "ndx", "risk-mgmt", "market-breadth"],
+      "payload": {
+        "asset_text": "美股（多重结构性压力）", "asset_symbol": "SPX", "priceable": true,
+        "claim_class": "risk_warning", "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "也就是你什么时候看到黄金突然有一天它硬了，哪怕就硬那么一天。这一天的话呢，不是因为实际利率的变化，也不是因为美股的流动性变化，而是它本身受到了某些消息面的刺激",
+      "locator": null,
+      "tags": ["xauusd", "macro-data", "price-action"],
+      "payload": {
+        "name": "黄金叙事切换日的识别",
+        "summary": "等待黄金逆实际利率/流动性逻辑独立走强的交易日——消息面（滞胀/衰退/危机叙事）与价格共振之日才是中长期进攻号角，此前保持耐心",
+        "family": "event",
+        "rules": [
+          "观察黄金是否出现不由实际利率或美股流动性驱动的独立强势日（哪怕一天）",
+          "该日消息面必须对应滞胀/衰退/危机叙事，且与价格产生共振",
+          "共振日之前的低点让出来，之后才视为黄金由利率敏感切换为危机避险叙事的进攻起点"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["XAUUSD日线", "当日宏观消息面（需人工/LLM标注）"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我认为呢，其实美联储似乎开启了一个危机管理的模式",
+      "locator": null,
+      "tags": ["fed-policy", "macro-data"],
+      "payload": {
+        "canonical_statement": "新任美联储放弃前瞻指引、点阵图可随时擦掉=交易员失去利率路径锚，美联储进入'危机管理模式'——市场处于缺锚的结构性不确定期",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "沃尔什任内"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "而这种危机的表现形式，当前来看就是美元指数的快速走强",
+      "locator": "03:20",
+      "tags": ["dxy", "macro-data", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "美元指数快速走强=系统性流动性收紧的表征（而非黄金单一资产的问题）；美元动量期不对抗市场，黄金中长期启动需等该危机变量兑现",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "美元突破101动量期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为当通胀变成首要问题的时候，黄金会交易通胀。在历史的多次的周期当中，在通胀周期里黄金都是涨的，明白吗",
+      "locator": null,
+      "tags": ["xauusd", "inflation", "macro-data"],
+      "payload": {
+        "canonical_statement": "通胀成为首要矛盾时黄金交易通胀而非实际利率——历史多次通胀周期中黄金皆上涨，'利率上行=黄金必跌'不成立",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "通胀主导期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这是一个非常模糊的结论，它弱会弱到什么程度呢，然后长期强又会强到什么程度呢，这个没有定量就等于没说",
+      "locator": null,
+      "tags": ["psychology", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "'短期弱长期好'式无定量观点等于没说：观点必须给出多空分水岭的具体价位才可执行、可检验",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "也就是4700点之上的涨幅再回来，你不能认为是它走弱了",
+      "locator": "06:15",
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "canonical_statement": "涨太快段的回吐是消化而非走弱：以起涨前筹码密集分水岭（黄金4700，三次测试的头肩位）区分'健康回吐区'与'走熊区'",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    }
+  ]
+}

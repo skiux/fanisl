@@ -63,6 +63,26 @@ _RELATIONS = {"restates", "refines", "supersedes", "contradicts"}
 _EDGE_RELATIONS = {"conflicts", "relates"}
 
 
+# 标题派生：先切主句，再在句读处收尾——硬切 30 字会造出断句标题
+# （2026-08 前端复核发现存量 105 个节点里 31 个标题在第 30 字处断开）。
+_TITLE_MAX = 30
+_CLAUSE = ("：", "——", "；", "。")
+_SOFT = ("，", "、", "（", "(", "/")
+
+
+def _derive_title(canonical: str) -> str:
+    head = canonical
+    for mark in _CLAUSE:
+        head = head.split(mark)[0]
+    if len(head) <= _TITLE_MAX:
+        return head
+    window = head[:_TITLE_MAX]
+    cut = max((window.rfind(m) for m in _SOFT), default=-1)
+    if cut >= 10:
+        return window[:cut]
+    return head[:_TITLE_MAX - 1] + "…"
+
+
 class NodeStore:
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool = pool
@@ -104,11 +124,33 @@ class NodeStore:
                 if taken:
                     raise ValueError(f"nodes[{i}]（{n['title']}）单元已归属其他节点：{[t['unit_id'] for t in taken]}")
 
-                row = conn.execute(
-                    "INSERT INTO knowledge_nodes(kind, title, canonical, tags, notes, merger_version) "
-                    "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
-                    (n["kind"], n["title"], n["canonical"], n.get("tags") or [],
-                     n.get("notes"), version)).fetchone()
+                # merge-guide §4 的常态：新单元既可建新节点，也可挂到既有节点（append-only）。
+                # 带 node_id 即为后者；title/canonical/tags/notes 给了就更新
+                # （supersedes 时 canonical 要换成最新表述，见 §2）。
+                if n.get("node_id") is not None:
+                    node_id = int(n["node_id"])
+                    old = conn.execute(
+                        "SELECT id, kind FROM knowledge_nodes WHERE id=%s", (node_id,)).fetchone()
+                    if old is None:
+                        raise ValueError(f"nodes[{i}] 目标节点不存在：{node_id}")
+                    if old["kind"] != n["kind"]:
+                        raise ValueError(
+                            f"nodes[{i}] 挂靠节点 kind 不符：节点 {node_id} 是 {old['kind']}，条目是 {n['kind']}")
+                    for field in ("title", "canonical", "notes"):
+                        if n.get(field) is not None:
+                            conn.execute(
+                                f"UPDATE knowledge_nodes SET {field}=%s WHERE id=%s",
+                                (n[field], node_id))
+                    if n.get("tags") is not None:
+                        conn.execute("UPDATE knowledge_nodes SET tags=%s WHERE id=%s",
+                                     (n["tags"], node_id))
+                    row = {"id": node_id}
+                else:
+                    row = conn.execute(
+                        "INSERT INTO knowledge_nodes(kind, title, canonical, tags, notes, merger_version) "
+                        "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
+                        (n["kind"], n["title"], n["canonical"], n.get("tags") or [],
+                         n.get("notes"), version)).fetchone()
                 for u in units:
                     conn.execute(
                         "INSERT INTO node_attestations(node_id, unit_id, relation, note) "
@@ -252,8 +294,9 @@ class NodeStore:
                 SELECT a.relation, a.note, u.id AS unit_id, u.kind, u.quote, u.locator,
                   u.published_at, u.tags, u.payload, cr.name AS creator,
                   c.id AS content_id, c.title AS content_title,
-                  COALESCE((SELECT json_agg(json_build_object('horizon_label', s.horizon_label,
-                    'outcome', s.outcome) ORDER BY s.horizon_label)
+                  COALESCE((SELECT json_agg(json_build_object('id', s.id,
+                    'horizon_label', s.horizon_label, 'outcome', s.outcome,
+                    'realized', s.realized, 'eval_ts', s.eval_ts) ORDER BY s.horizon_label)
                     FROM claim_scores s WHERE s.unit_id=u.id), '[]') AS scores
                 FROM node_attestations a
                 JOIN knowledge_units u ON u.id=a.unit_id
@@ -279,7 +322,7 @@ class NodeStore:
                     title, canonical = p["name"][:60], p.get("summary") or p["name"]
                 else:
                     canonical = p["canonical_statement"]
-                    title = canonical.split("：")[0].split("——")[0][:30]
+                    title = _derive_title(canonical)
                 node = conn.execute(
                     "INSERT INTO knowledge_nodes(kind, title, canonical, tags, notes, merger_version) "
                     "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",

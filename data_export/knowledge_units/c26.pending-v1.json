@@ -1,0 +1,208 @@
+{
+  "content_id": 26,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "这次公司增长战略的浮出水面以及落地大单的跳涨，至少能够给公司未来这一两个季度的加速增长带来保障。所以说，未来短期内，收入增速见顶的这个风险，我认为还有进一步释放的可能。估值也能够有所回升，股价也有进一步的上涨空间",
+      "locator": "23:46",
+      "ref_price": 172.01,
+      "tags": ["pltr", "ai-capex", "software"],
+      "payload": {
+        "asset_text": "Palantir（增速见顶风险进一步释放，估值回升、股价有进一步上涨空间）",
+        "asset_symbol": "PLTR",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-11-07"],
+          "success_def": "2026-11-07 PLTR 收盘 ≥ 发布参考价 172.01 = hit（'估值能有所回升、股价有进一步的上涨空间'）。期限取原文'未来这一两个季度'的近端→映射表'季度内'90 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "而在这个增速找底，估值找锚的这个阶段，我认为公司股价的上行空间就是受限的。很难再开启一个像前一个阶段那样，持续上涨的模式",
+      "locator": "21:11",
+      "ref_price": 172.01,
+      "tags": ["pltr", "psychology", "risk-mgmt"],
+      "payload": {
+        "asset_text": "Palantir（估值消化阶段上行空间受限，难以重开持续上涨模式）",
+        "asset_symbol": "PLTR",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "新增TCV，也就是当季新签的合同总价值。RDV，剩余合同价值，以及RPO，剩余履约义务。PLTR这家公司一般都是和客户签订多年的大合同。这些大合同有一部分确实会反映到当季的收入上，但是大部分并不会，而是会反映到这三个数据当中。所以说，他们才是我们分析这家公司表现最直观的数据",
+      "locator": "05:27",
+      "tags": ["pltr", "software", "market-breadth"],
+      "payload": {
+        "name": "长约型软件公司的蓄水池三指标（TCV / RDV / RPO）",
+        "summary": "对签多年长约的公司，当季收入只是出水口，真正该看的是蓄水池：新增 TCV（当季新签合同总价值）是进水口，RDV（剩余合同价值，含可随时终止条款）与 RPO（剩余履约义务，未来一定能确认）是池中存水。三者的增速拐点比收入更早暴露增速见顶",
+        "family": "event",
+        "rules": [
+          "把长约想成蓄水池：进水口=新增 TCV，出水口=当季确认收入，池中水=RDV 与 RPO",
+          "RDV 理论上可被反悔（合同含随时终止条款，政府客户常见），RPO 是未来一定确认的收入",
+          "看新增 TCV 是否放缓、RDV 涨幅是否下降、RPO 增速是否掉头——这三者先于收入反映增速见顶",
+          "关注短 RPO（未来 12 个月可确认部分）的环比增速，它对股价最敏感",
+          "增长质量拆解：客户数增速 vs TCV 增速，二者背离说明增长来自老客户扩单而非新客户",
+          "用 NDR（美元留存率）佐证老客户贡献（PLTR 由 150% 升至 157%，即不拿新客户也有 57% 增长）",
+          "看订单规模分布（100 万/500 万/1000 万以上各档的增幅），判断跳涨来自小单量大还是大单增加"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["公司季度财报的 TCV / RDV / RPO / NDR / 订单规模分布披露"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "对于所有的成长股而言，股价爆发力最强的阶段，就是它收入加速增长的这个阶段。而一旦收入增速见顶，即便业绩还在增长，但股价的爆发力就没了，甚至可能会改变估值结构而带来大跌",
+      "locator": "05:45",
+      "tags": ["pltr", "psychology", "market-structure"],
+      "payload": {
+        "canonical_statement": "成长股股价爆发力最强的是收入加速增长阶段；一旦增速见顶，即便业绩仍在增长，爆发力也没了，甚至因估值结构改变而大跌——市场对成长股最深层的恐惧不是不增长，而是不再加速",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "第一，股价是跟着收入增速的方向走，而不是跟着增速的绝对高低走的。增速在加速的阶段，股价几乎都是上行；而增速一旦开始下滑，股价就涨不动了，通常是横盘或者下跌，而且这段期间股价的波动是极大的。第二，真正的转折点不是这个降速降到了多低，而是降速什么时候结束，达到稳态",
+      "locator": "18:39",
+      "tags": ["pltr", "psychology", "market-structure"],
+      "payload": {
+        "canonical_statement": "估值消化期股价的两条规律：①股价跟收入增速的方向走而非绝对高低——加速期几乎必涨，一旦转为减速就横盘或下跌且波动极大；②真正的转折点不是降速降到多低，而是降速何时结束、稳态何时确认——稳态确认后估值才能重新锚定、业绩才能重新推动股价",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "高成长股的估值消化期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "从这三段历史里，我们可以看出在估值消化期股价的两个典型特点",
+      "locator": "18:39",
+      "tags": ["psychology", "market-structure"],
+      "payload": {
+        "canonical_statement": "Netflix 的三阶段是高成长股的完整样本：①13–18 加速期，PE 一度 400 倍也不妨碍股价 5 年 10 倍；②19–22 增速见顶下滑期，PE 由 100 降到 60、两次约 40% 回撤，但三年仍涨一倍；③22 年后业绩下滑、用户负增长，PE 由 60 杀到 16、股价最多跌 75%。高估值本身不是下跌原因，增速方向才是",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "很显然，公司的跳涨不来自于新客户数量的提升，而来自于老客户订单价值的增长！",
+      "locator": "09:16",
+      "tags": ["pltr", "software"],
+      "payload": {
+        "canonical_statement": "在部署人力受限（FDE 卡脖子）的公司里，增长战略会从'招揽新客户'转为'加速老客户由小单试用到大单绑定'——识别方式是客户数增速远低于合同总价值增速（PLTR 客户 +6% vs TCV +81%），破解方式是提升部署效率而非扩大部署人数",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "扩张受人力部署能力约束的企业"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "如果说企业真的担心大模型有一天会轻易替代PLTR的业务模式，我想他们是绝对不会在现在和这么一个随时可能被替代的平台签订长期合约的",
+      "locator": null,
+      "tags": ["pltr", "ai-capex", "software"],
+      "payload": {
+        "canonical_statement": "客户的长约行为本身就是护城河的证据：企业不会与一个随时可能被大模型替代的平台签 3–5 年、动辄几千万上亿的长单——订单结构比管理层表态更可信",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这就是在说，业务会不会被抢走不取决于模型能力的强弱，而在于怎么把模型能力嵌入到企业真实的工作流当中，而这是大模型做不到的",
+      "locator": null,
+      "tags": ["pltr", "ai-capex", "software"],
+      "payload": {
+        "canonical_statement": "AI 应用层的竞争不取决于模型能力强弱，而取决于能否把模型能力嵌入企业真实工作流——市场创造的智能远多于它转化的价值，瓶颈在价值转化与部署速度而非智能本身",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "如果说过去半年，公司股价交易的是风险发酵的逻辑，那么当前交易的就是风险释放的逻辑",
+      "locator": null,
+      "tags": ["pltr", "psychology", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "同一家公司在不同阶段交易的是不同逻辑：风险发酵期股价跌、风险释放期股价涨——判断当前在交易哪条逻辑，比判断业绩好坏更能解释股价",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "作为投资者咱得清楚，风险释放并不等于风险消失。再好的公司收入它也不可能永远无限制的加速增长。而本次优秀的财报只不过是将这个担忧延后到了明年",
+      "locator": null,
+      "tags": ["pltr", "risk-mgmt", "psychology"],
+      "payload": {
+        "canonical_statement": "风险释放不等于风险消失：一份好财报只是把增速见顶的担忧延后一个周期，估值消化的前提（增速必须持续加速）并没有被取消",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "而下一个对于PLTR来说最为关键的问题其实不在于业绩何时见顶，而是在于未来收入增速的稳态到底在哪？是回落到50%稳定，还是回落到30%稳定？这两个不同的稳态增速会对应着完全不同的估值模式",
+      "locator": "21:11",
+      "tags": ["pltr", "market-structure"],
+      "payload": {
+        "canonical_statement": "对进入减速期的高成长股，关键问题不是业绩何时见顶而是稳态增速落在哪一档——回落到 50% 稳定与回落到 30% 稳定对应完全不同的估值模式；稳态确认前股价难有趋势性行情",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "高成长股减速期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我总看有人说PLTR都这么贵了，还有什么估值释放的空间？其实，这是因为他们只会看PE、PS这种通用估值指标。如果你对于PLTR这家公司的业务足够了解，那么可以通过现金流折现法来进行估值，它能够更细致、更直观的了解到公司的价值",
+      "locator": null,
+      "tags": ["pltr", "psychology"],
+      "payload": {
+        "canonical_statement": "对业务结构特殊的高成长公司，用 PE/PS 这类通用倍数会得出'太贵了'的错误结论，应改用现金流折现来定价——通用倍数看不出长约结构与留存率带来的现金流可预测性",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "同时我也会密切关注公司TCV和NDR的变化，时刻判断稳态的状态。一旦出现，将会是下一次大趋势的开始",
+      "locator": null,
+      "tags": ["pltr", "software", "position-sizing"],
+      "payload": {
+        "canonical_statement": "估值消化阶段的持有纪律：坚定持有但不抱高期待、承认此阶段波动天然更大且方向更难判断，同时密切跟踪 TCV 与 NDR 以捕捉稳态确认——稳态一旦出现即是下一轮大趋势的起点",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": "高成长股估值消化期"
+      }
+    }
+  ]
+}

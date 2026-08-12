@@ -1,0 +1,128 @@
+{
+  "content_id": 13,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "所以单纯从现在的情况来看，我认为Meta是最有可能率先跑出AI采纳的企业。如今的Meta就非常类似于当年的福特，从资质上，它有望通过AI采纳来提升自己，也有望因此而带动起整个行业的增长",
+      "locator": "23:57",
+      "tags": ["meta", "mag7", "ai-capex"],
+      "payload": {
+        "asset_text": "Meta（AI采纳先驱候选）", "asset_symbol": "META", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-10-10", "2027-07-12"],
+          "success_def": "阶梯日META收盘≥发布日收盘=hit（'最有可能率先跑出AI采纳'的长逻辑；发布日收盘K4回填；论题型长周期→我方+90/+365阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "而在所有这些企业中，我个人最看好两家。一个是Anthropic，另一个是Meta",
+      "locator": "23:31",
+      "tags": ["ai-capex", "mag7"],
+      "payload": {
+        "asset_text": "Anthropic（未上市，最看好之一）", "asset_symbol": null, "priceable": false,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以眼下最近的机会，我认为反而不在于AI应用，而在于AI采纳。我想或许很多人都找错了方向",
+      "locator": "20:14",
+      "tags": ["ai-capex", "rotation"],
+      "payload": {
+        "asset_text": "AI采纳赛道（相对AI应用）", "asset_symbol": null, "priceable": false,
+        "claim_class": "timing", "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为互联网革命它本质上是一场信息革命，它解决的是信息的传递效率；而AI本质上是一场生产力革命，它解决的是生产效率",
+      "locator": null,
+      "tags": ["ai-capex", "macro-data"],
+      "payload": {
+        "canonical_statement": "AI的正确历史类比是电力革命（生产力革命）而非互联网革命（信息革命）——两者解决的问题不同（生产效率vs传递效率），照互联网剧本推演AI容易误入歧途",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以你看，电力革命真正的爆发点，不在于电机的发明，也不在于蒸汽机的替代，而是在于工厂组织架构基于电力的彻底重构。可以说技术创新只是前提，而组织架构的重构才是爆发的关键",
+      "locator": "10:45",
+      "tags": ["ai-capex", "macro-data"],
+      "payload": {
+        "canonical_statement": "电力革命三阶段框架：①技术成熟期（电机=单点降本工具：1899年采纳率仅5%、1909年25%，且提效乏善可陈）②组织创新期（分组驱动电机局部优化，GE不计ROI打样）③组织重构期（福特围绕电机重构工厂→流水线→咆哮的20年代）——爆发点不在技术发明而在组织架构围绕新动力源的彻底重构；AI当前≈第一阶段末",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "生产力革命早期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以你看，基于人类搭建的组织架构天然就不适用于AI，这就解释了为什么明明AI已经这么强，但却迟迟带来不了生产力大爆发的原因",
+      "locator": "11:15",
+      "tags": ["ai-capex", "macro-data"],
+      "payload": {
+        "canonical_statement": "AI强但生产力未质变的根因=组织架构围绕人类脑力搭建：AI需要的（部门数据打通、完整背景信息）人类组织做不到或不在意；组织在意的（专业分工、信息物理隔离与沟通层级）AI不需要——单点替换（电机换蒸汽机式）不足以释放生产力，类比'给垂暮老人换年轻心脏跑不了一千米'",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "第一，是他们自身就有足够高的生产力提升空间；第二，是他们本身就是技术革新的引领者；第三，要有利益驱动，一旦成功不仅自己能受益，还能扩展他们的业务",
+      "locator": "22:44",
+      "tags": ["ai-capex", "mag7"],
+      "payload": {
+        "canonical_statement": "AI采纳先驱者画像（GE/福特历史反推）：①自身生产力提升空间大②技术革新引领者③利益驱动（跑通后既受益又给行业打样、扩展自身业务）——先驱多来自现有大企业而非从零初创；解释大科技不计回报投入AI的逻辑（同当年GE在ROI算不来时疯狂推分组电机）；生产力提升是阶段性爆发而非渐进，需先驱摘桃子引发行业井喷",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这也告诉了我们一个道理，不是所有的基础层的公司就都能够在生产力革命中持续利好。那些护城河低，容易被替代的基础层公司就很容易被技术革命，以及竞争者的不断出现所冲击",
+      "locator": "16:11",
+      "tags": ["ai-capex", "semiconductor-cycle", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "电力革命中煤炭的教训：基础层早期最受益（用电必烧煤），但技术效率提升（发电煤耗30年降4倍）+替代品出现（油/气/水电）使其在生产力爆发的咆哮20年代反成最萧条行业——护城河低、可被替代的基础层公司不保证持续受益，映射当今AI基础层的筛选标准",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就像当年电力革命一样，先是给纺织、造车等蒸汽机时代就有的行业给他们提效，在这之后才会出现冰箱彩电洗衣机这样的全新应用。而我认为AI也会是如此",
+      "locator": "20:14",
+      "tags": ["ai-capex", "rotation", "macro-data"],
+      "payload": {
+        "canonical_statement": "生产力革命的价值释放顺序：先存量提效（给既有行业提效）、后增量创造（全新应用与商业模式，如当年冰箱彩电洗衣机）——AI亦然，故当下最近的机会在'AI采纳'（帮企业跑通组织重构：Palantir全包式FDE、网安/数据库/Agent管理解决数据打通的卡脖子、小模型路线）而非AI应用",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "AI革命第一阶段末"
+      }
+    }
+  ]
+}

@@ -1,0 +1,339 @@
+{
+  "content_id": 23,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "低位的话呢，其实我们如果是按照结构学的拆解方法，我看的深度支撑呢其实是大概3950左右。这个位置我觉得在季度级别不会破掉。这是首先观点说在前面。我认为呢，黄金不会真正意义上去跌破4000，这里边上行的概率要大于下行的",
+      "locator": "05:15",
+      "ref_price": 4048.98,
+      "tags": ["xauusd", "price-action", "ema-tunnel"],
+      "payload": {
+        "asset_text": "黄金（深度支撑 3950 在季度级别不会破，不会真正跌破 4000，上行概率大于下行）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 3950},
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-10-25"],
+          "success_def": "至2026-10-25 XAUUSD 日收盘持续不破 3950（他明说的深度支撑）= hit；盘中破但收盘收回 = partial；日收盘破 3950 = miss。期限取原文'季度级别'→映射表 90 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "第一个，首先是1.88，这个是一个长期的结构分水岭，一定不会快速突破。1.88是压制，也就意味着金价计价的标普会下跌。那么也就是黄金会相对股市更好。那这个周期现在并没有结束",
+      "locator": "08:30",
+      "ref_price": 4048.98,
+      "tags": ["xauusd", "spx", "rotation", "fibonacci"],
+      "payload": {
+        "asset_text": "黄金相对标普（股金比 1.88 是长期结构分水岭压制，比值继续下行=黄金相对更好）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "relative",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "relative_return",
+          "benchmark": "SPX",
+          "eval_ladder": ["2026-10-25"],
+          "success_def": "至2026-10-25 XAUUSD 自发布日收益率 ≥ SPX 同期收益率 = hit（'1.88 压制、黄金相对股市更好'；该下行周期自 2021 年末起、他判定尚未结束，目标位 1.70–1.60）。长期结构判断→我方 90 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么，我还是觉得大概率的情形呢，还是会在28000左右获得支撑，然后出现反弹",
+      "locator": "11:14",
+      "ref_price": 28120.34,
+      "tags": ["ndx", "fibonacci", "price-action"],
+      "payload": {
+        "asset_text": "纳指100（五浪回调的斐波那契支撑区 28000–28700，大概率在 28000 获支撑反弹）",
+        "asset_symbol": "NDX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 28000},
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-09-25"],
+          "success_def": "至2026-09-25 NDX 日收盘持续不破 28000（五浪结构保留完好的判据，他明说'没有跌破五浪就没有结束'）= hit；盘中破但收盘收回 = partial；日收盘破 28000 = miss。判界取自 8 日 K 级别的五浪结构→我方 60 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果能够接下来快速地抽回来，它能够在本周的收线啊，穿越整个这个波动之后，收回到330-350之上，那就好看了。那么价格基本上我们认为它并没有完成大级别的破位，只是它的波动放大了",
+      "locator": "18:30",
+      "ref_price": 315.19,
+      "tags": ["tsla", "fibonacci", "price-action"],
+      "payload": {
+        "asset_text": "特斯拉（本周收线若收回 330–350 之上，则未完成大级别破位）",
+        "asset_symbol": "TSLA",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 330},
+        "horizon": {"type": "by_date", "deadline": "2026-07-31"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "A",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-07-31"],
+          "success_def": "2026-07-31（原文'本周的收线'）TSLA 收盘≥330 = hit，否则 miss。判的是收线而非盘中触及——他明确说的是'本周的收线收回到 330-350 之上'"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "一旦这里下来，那么下面的话，我们就只能在300左右位置等了。但实际上价格在上周的波动当中呢，已经非常的接近300了",
+      "locator": "18:30",
+      "ref_price": 315.19,
+      "tags": ["tsla", "fibonacci", "price-action"],
+      "payload": {
+        "asset_text": "特斯拉（三把波浪尺重叠的最下层支撑 300，也是整数关口）",
+        "asset_symbol": "TSLA",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 300},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-17"],
+          "success_def": "至2026-08-17 TSLA 日收盘持续不破 300（三把斐波那契扩展尺重叠的最下层支撑区）= hit；盘中破但收盘收回 = partial；日收盘破 300 = miss。期限取两日级别结构的观察尺度→我方 21 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以在300到320这个区域呢，一个是在中长期的仓位上有增配的价值",
+      "locator": "14:41",
+      "tags": ["goog", "mag7", "fibonacci"],
+      "payload": {
+        "asset_text": "谷歌（300–320 是半月线通道下轨与四浪回调关键位，中长期增配区）",
+        "asset_symbol": "GOOG",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 300},
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-10-25"],
+          "success_def": "至2026-10-25 GOOG 日收盘持续不破 300（'300–320 中长期增配区'的下沿）= hit；盘中破但收盘收回 = partial；日收盘破 300 = miss。原文'中长期'+半月线级别结构→我方 90 天。注：本期视觉笔记里 GOOG 屏价 151.18 与正文 300–320 量级矛盾（实际收 326.57），按规范不填 ref_price"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "就是我们在这种偏季度级别的走势上能够看到，2024年的10月份一直到2026年的1月份形成的这个平台，大概对应的价格就是230左右，220左右。这个区域是有比较长期和坚实的支撑的",
+      "locator": "21:13",
+      "tags": ["amzn", "mag7", "price-action"],
+      "payload": {
+        "asset_text": "亚马逊（220–230 是 2024/10–2026/1 平台形成的长期坚实支撑）",
+        "asset_symbol": "AMZN",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 220},
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-10-25"],
+          "success_def": "至2026-10-25 AMZN 日收盘持续不破 220（季度级别平台支撑下沿）= hit；盘中破但收盘收回 = partial；日收盘破 220 = miss。原文'偏季度级别'→映射表 90 天。注：本期 AMZN 屏价 183.14 与正文 220–230 矛盾（实际收 231.39），不填 ref_price"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后英伟达的走势我认为也是OK的，相对来说反倒它是最安全的，因为200之上的位置走得比较稳固。并且呢，不论是资本开支怎么搞，甚至不论是到底接下来是加不加息，可能对英伟达的冲击相对来说都是会小一点的",
+      "locator": "04:15",
+      "tags": ["nvda", "soxx", "semiconductor-cycle", "rotation"],
+      "payload": {
+        "asset_text": "英伟达（相对半导体板块最安全，资本开支与加息的冲击都更小）",
+        "asset_symbol": "NVDA",
+        "priceable": true,
+        "claim_class": "relative",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "relative_return",
+          "benchmark": "SOXX",
+          "eval_ladder": ["2026-08-17"],
+          "success_def": "至2026-08-17 NVDA 自发布日收益率 ≥ SOXX 同期收益率 = hit（'相对来说反倒它是最安全的、冲击更小'；以 SOXX 代表半导体板块）。原文只给'相对最安全'而未给可守价位（发布日实际收 196.5 已在其所说的 200 之下），故按相对强弱判而非按支撑位判"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这个区域呢是我们观察恒科摆脱五浪下跌形势的关键位。那这个关键位有一点修正，但差别不大，只不过这一点差异呢也会让我们最终的结论呢，可能会更早地到来，就是要观察4640的得失",
+      "locator": "23:06",
+      "tags": ["hstech", "fibonacci", "price-action"],
+      "payload": {
+        "asset_text": "恒生科技指数（4640–4730 是摆脱五浪下跌的关键得失区）",
+        "asset_symbol": "HSTECH",
+        "priceable": false,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 4640},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们认为呢，现在的整个半导体和内存板块的波动还将持续。所以基本还是我对现在的高波动和这种拥挤的赛道呢，还是秉持着只看看不进去的原则",
+      "locator": "13:28",
+      "tags": ["semi", "soxx", "semiconductor-cycle", "risk-mgmt"],
+      "payload": {
+        "asset_text": "半导体与内存板块（高波动还将持续，只看不进）",
+        "asset_symbol": "SEMI",
+        "priceable": true,
+        "claim_class": "risk_warning",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "这5个点，我们依次围绕着1、2、3去做斐波纳契的扩展线，留从236到618的参数",
+      "locator": "16:25",
+      "tags": ["tsla", "fibonacci", "price-action"],
+      "payload": {
+        "name": "多把斐波那契扩展尺叠加找压力/支撑密集区",
+        "summary": "取标的历史上多个关键起涨点与起跌点（特斯拉用了 5 个：2022-03、2024-06、2024-12 高点、2025-03 起涨、2025-11 最高点），依次三点一组做斐波那契扩展，保留 0.236–0.618 参数；多把尺重叠处即压力/支撑密集区。上方压力常高度重叠、下方支撑常分散，分散区之间就是止跌带",
+        "family": "trend",
+        "rules": [
+          "标出标的历史上的多个关键起涨点与起跌点（5 个左右）",
+          "依次以相邻三点为一组做斐波那契扩展，保留 0.236 到 0.618",
+          "多把尺的同一参数落在同一价带=压力/支撑密集区（TSLA 例：430–437 三尺重叠压力）",
+          "观察规律：上方压力高度重叠、下方支撑相对分散（TSLA 例：300 / 336–350 分散）",
+          "分散的支撑区之间即为可能的止跌区间",
+          "密集压力区连续两次不上破，即视为高位卖盘结构形成"
+        ],
+        "claimed_performance": {"note": "作者自陈本次对特斯拉短期走势有误判、承认打脸，框架系事后校正所得"},
+        "data_requirements": ["TSLA 日线", "关键起涨/起跌点的人工标注"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "包括投行给的预测也有巨大的分歧。激进一点的像美银是，他认为要加三次今年。然后像中金，包括还有几个美国的投行给的都是今年不会加息也不会降息。你看这个偏差非常之大。在这种高分歧的环境里呢，我们不能够认为自己会比投行要聪明，还是要两面去压住，就是不要把风险暴露得太高",
+      "locator": null,
+      "tags": ["fed-policy", "risk-mgmt", "position-sizing"],
+      "payload": {
+        "canonical_statement": "投行之间分歧极大时（美银看今年加三次 vs 中金等看不加不降），不要认为自己比投行聪明——正确应对是两面压住、压低风险暴露，而不是选边下注",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": "机构预测高度分歧期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "第一是有可能，万一真的加了，不论是我认为啊，我认为不论是对黄金，还是对美股的科技赛道，尤其是AI硬件，都是一个在波动当中建仓的好机会",
+      "locator": null,
+      "tags": ["fed-policy", "xauusd", "ai-capex", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "真加息对市场有冲击但不改变中长期走势，因此加息落地反而是在波动中给黄金与 AI 硬件建仓的机会——AI 板块给出的位置会更深、机会更好",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "加息落地的冲击窗口"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "黄金的话呢，它的对冲作用还是在对冲滞胀的风险。因为衰退的风险应该比较难以去考量，因为现在看不到衰退的迹象，更多的还是滞胀",
+      "locator": null,
+      "tags": ["xauusd", "inflation", "macro-data"],
+      "payload": {
+        "canonical_statement": "当前黄金的对冲对象是滞胀而非衰退——看不到衰退迹象，衰退风险难以考量；滞胀与 AI 的 K 型繁荣（大量资本开支+财政支持）两条线同时支撑黄金中长期",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "无衰退迹象的滞胀预期期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "第二个的话呢，我们对黄金现在的技术走势，只看它什么都看不出来，你只能说等向上突破确认，然后再继续往上追仓位，而不是越跌越买，因为这样你会不断地把把敞口放大",
+      "locator": null,
+      "tags": ["xauusd", "risk-mgmt", "position-sizing"],
+      "payload": {
+        "canonical_statement": "横盘无信息的阶段只能等向上突破确认后再追仓，不能越跌越买——越跌越买会持续放大敞口，把'看不出来'变成杠杆化的赌注",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": "关键位横盘、技术面无信号时"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "亚马逊我们放到大概季度级别。在季度级别上你才能过滤掉市场短期的噪音。就比如上下百分之十几啊，20以内的这种波动。在目前的市场当中的噪音都是巨大的",
+      "locator": "21:13",
+      "tags": ["amzn", "price-action", "psychology"],
+      "payload": {
+        "canonical_statement": "当前市场里 20% 以内的上下波动都属噪音，只有把级别放到季度线才过滤得掉——财报波动不可预测，必须站在大周期视角上审视持仓",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "高噪音市场"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "当然恒科呢，我是这样觉得。我觉得它的择时成本非常高，因为它一直在弱周期里边。它不走第五浪不代表它会走牛",
+      "locator": "23:06",
+      "tags": ["hstech", "risk-mgmt", "position-sizing"],
+      "payload": {
+        "canonical_statement": "长期处在弱周期的标的择时成本非常高：走完下跌五浪只说明下跌结构结束，不等于会走牛——这类框架的价值在于给已被套或权重较大的持有者定防守位，而不是给新仓找买点",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": "长期弱周期标的"
+      }
+    }
+  ]
+}

@@ -1,0 +1,252 @@
+{
+  "content_id": 9,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "我觉得美股只要这个 AI 呢，还是在这个轮动和狂欢当中啊，这个黄金基本上就不会登场，大概呢，都是一个，横盘偏弱的走势",
+      "locator": "00:07",
+      "ref_price": 4420.22,
+      "tags": ["xauusd", "ai-capex", "rotation"],
+      "payload": {
+        "asset_text": "黄金（AI狂欢期）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "directional", "direction": "flat",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": "美股AI主题仍在轮动狂欢中",
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "它作为未来的这个新的，可能的货币之锚啊，那你就会知道啊，美国其实对黄金是非常非常重视的。它暂时不涨，它暂时不涨，是在酝酿着一波更为清晰的主升浪",
+      "locator": null,
+      "ref_price": 4420.22,
+      "tags": ["xauusd", "fed-policy", "macro-data"],
+      "payload": {
+        "asset_text": "黄金（三年周期主升浪）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"pct": 30},
+        "horizon": {"type": "within_duration", "duration_days": 1095},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2027-06-01", "2029-06-01"],
+          "success_def": "2029-06-01（或最近交易日）XAUUSD收盘≥发布参考价4420×1.3=hit（'三年左右周期的清晰主升浪'操作化为+30%，判界系我方约定）；中间点2027-06-01收盘>参考价作过程观察"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我觉得既然动能给力，那后面我们就围绕着 101 去做防守就可以了",
+      "locator": "00:57",
+      "ref_price": 100.95,
+      "tags": ["igv", "software", "price-action"],
+      "payload": {
+        "asset_text": "IGV软件板块ETF（101防守）", "asset_symbol": "IGV", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 101},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-06-08"],
+          "success_def": "至2026-06-08 IGV日收盘始终≥101=hit（跳空高开后守住101防线）；盘中破收回=partial；收盘<101=miss（短期语境→我方7天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果这个位置失守，我们维持之前的这个观点啊，价格可能呢，会往回到这个 528 左右，做一个高位的，一个宽幅的震荡",
+      "locator": "04:41",
+      "ref_price": 563.90,
+      "tags": ["soxx", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "半导体指数（SOXX）", "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"target": 528},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": "SOXX日收盘跌破564（横盘支撑失守）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-07-01"],
+          "success_def": "若出现SOXX日收盘<564，其后至2026-07-01任一日最低价≤528=hit；未失守=condition_not_met（窗口系我方30天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那如果价格呢，今天呢，是高开，然后在这个 960 到 970 的区域呢，形成支撑，后面就有可能会继续往高走。那走到 1100 左右",
+      "locator": "05:13",
+      "ref_price": 1038.56,
+      "tags": ["mu", "memory-storage", "price-action"],
+      "payload": {
+        "asset_text": "美光", "asset_symbol": "MU", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 1100},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": "MU回踩960-970区域获支撑（盘中低点≤970且当日收盘≥960）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-07-01"],
+          "success_def": "若MU盘中触及≤970且当日收盘≥960（缺口区支撑成立），其后至2026-07-01任一日最高价≥1100=hit；未回踩=condition_not_met"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我可能会在 1000 左右，这个位置作为，这波我能够看到的，一个最终的一个目标位了",
+      "locator": "05:13",
+      "ref_price": 1038.56,
+      "tags": ["mu", "memory-storage"],
+      "payload": {
+        "asset_text": "美光（本浪接近到位，不参与1000上方）", "asset_symbol": "MU", "priceable": true,
+        "claim_class": "timing", "direction": "flat",
+        "magnitude": {"target": 1000},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们其实就应该关注它，在 103 104 左右吸筹之后，能不能站稳 108。如果能够站稳日隧道，今天能够在图中所示的 108 到 114 左右区域，向下击验证，踩稳日隧道，是一个比较清楚的，一个多头的信号啊",
+      "locator": "10:00",
+      "ref_price": 114.61,
+      "tags": ["crwv", "software", "price-action"],
+      "payload": {
+        "asset_text": "CoreWeave", "asset_symbol": "CRWV", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": "CRWV日收盘站稳108（日隧道验证）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-01"],
+          "success_def": "若CRWV日收盘≥108（站稳成立），2026-07-01收盘>条件成立日收盘=hit；未站稳=condition_not_met（窗口系我方30天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那我们可以利用市场在短期的波动上，回踩到接近日隧道附近。例如说，100 左右，然后呢，再去，做一些轻仓的补仓",
+      "locator": "10:48",
+      "ref_price": 112.60,
+      "tags": ["team", "software", "price-action"],
+      "payload": {
+        "asset_text": "Atlassian", "asset_symbol": "TEAM", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": "TEAM回踩至日隧道附近（盘中低点≤105）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-01"],
+          "success_def": "若TEAM盘中触及≤105（回踩日隧道补仓位），2026-07-01收盘>条件成立日收盘=hit；未回踩=condition_not_met"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "TEAM 和我们刚刚提到这个，比较争议的 CRM，其实还是在相对来说，比较低的位置。那我们可以呢，以中长期的视角做一些轻仓的试探",
+      "locator": "10:46",
+      "ref_price": 198.50,
+      "tags": ["crm", "software"],
+      "payload": {
+        "asset_text": "Salesforce（低位修复，中长期轻仓试探）", "asset_symbol": "CRM", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-06-08", "2026-07-01", "2026-08-30"],
+          "success_def": "阶梯日CRM收盘≥发布参考价198.5=hit（'中长期轻仓试探'；无精确期限→我方+7/+30/+90阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们不妨呢，以这个 50 左右，50 到 52 左右区域，作为一个首开单的位置。然后呢，关注市场后面对于 50 左右的得失。这里面如果丢掉的话呢，我觉得还是离场观望，会更好一些",
+      "locator": "12:12",
+      "ref_price": 51.02,
+      "tags": ["pcor", "software"],
+      "payload": {
+        "asset_text": "Procore（周期启动首开单）", "asset_symbol": "PCOR", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 50},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-01", "2026-08-30"],
+          "success_def": "阶梯日时点自发布起PCOR日收盘始终≥50=hit（50-52首开单+50为自设离场线）；盘中破收回=partial；收盘<50=miss"
+        }
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "长期看好它的唯一理由呢，就是美债，就是美债。最终，宽松，和化债，是必然要走的路径",
+      "locator": null,
+      "tags": ["xauusd", "fed-policy", "macro-data"],
+      "payload": {
+        "canonical_statement": "黄金长期看多的核心逻辑=美债与化债（宽松是必然路径）；黄金在不同价格区间展现不同属性，不能简化为'与实际利率相悖的风险资产'；美国近期对实物黄金的动作显示其被重视为潜在新货币之锚",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就是在消费和应用场景当中，支持，按算力包进行代币路径收费的，这个 AI 的软件公司呢，会大于，基于传统席位制",
+      "locator": "06:51",
+      "tags": ["software", "ai-capex"],
+      "payload": {
+        "canonical_statement": "投行软件板块共识框架：按算力/token收费的AI软件优于席位制传统软件；企业数据云预算在增量消耗而非蚕食存量（财报已初步验证）；安全行业受益于AI风险；缺AI人才或产品迭代慢者未来2-3年艰难（估值分化）",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "AI软件重估期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "到了目标位之上的这个行情呢，在我的认知之外，所以我个人可能也不太会参与 1000 之上的，这一波行情了",
+      "locator": null,
+      "tags": ["psychology", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "只交易认知之内的行情：到达结构目标位后的延伸段在认知之外就不参与，不逆势预测浪型终点",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "现在如果你持有黄金不够顺利，就是逢高减减仓，然后呢，等待市场的变盘。要么然突破追进去，要么然等到新的杀跌到来，我们把仓位补进去",
+      "locator": null,
+      "tags": ["xauusd", "risk-mgmt", "position-sizing"],
+      "payload": {
+        "canonical_statement": "横盘弱势期的持仓纪律：逢高减仓等变盘；重新加码只在两种时点——突破追入或新杀跌补仓，不在无趋势区加仓",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": "结构支撑存在但无趋势无动能时"
+      }
+    }
+  ]
+}

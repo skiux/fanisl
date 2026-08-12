@@ -1,0 +1,130 @@
+{
+  "content_id": 14,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "所以你看，随着企业内部 AI Agent 数量的增加，管理这些 AI Agent 的需求也会同步增长。而这便是 AI Agent 浪潮中下一个即将要到来的机会！",
+      "locator": "08:54",
+      "tags": ["software", "ai-capex"],
+      "payload": {
+        "asset_text": "AI Observability赛道（OKTA/ServiceNow）", "asset_symbol": null, "priceable": true,
+        "claim_class": "relative", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "relative_return",
+          "eval_ladder": ["2026-09-19"],
+          "benchmark": "IGV",
+          "success_def": "2026-09-19 OKTA/NOW等权组合自发布日收益率>IGV同期收益率=hit（'AI Observability是下一个机会'操作化为代表股跑赢软件板块，组合口径系我方约定）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果未来，AI ROI 问题在市场上开始发酵，那么 Palantir 或许会重回市场焦点",
+      "locator": "14:19",
+      "tags": ["pltr", "software", "ai-capex"],
+      "payload": {
+        "asset_text": "Palantir（按结果收费标杆）", "asset_symbol": "PLTR", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": "AI ROI问题在市场开始发酵",
+        "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "随着更多企业关注起 AI 的 ROI，Datadog 或许有机会获得更多订单",
+      "locator": "15:10",
+      "tags": ["ddog", "software", "ai-capex"],
+      "payload": {
+        "asset_text": "Datadog（token查账/LLM Observability）", "asset_symbol": "DDOG", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "而这便是我们的第一个洞察：互联网流量的结构将会从由人主导，转向由 AI Agent 主导",
+      "locator": "03:00",
+      "tags": ["ai-capex", "software", "macro-data"],
+      "payload": {
+        "canonical_statement": "互联网流量结构从人主导转向AI Agent主导：北美机器流量占比已达68.4%、全球2026-06首超人类（Cloudflare）；同任务Agent访问量≈人类1000倍（CEO例：'我找相机访问5个网站，Agent访问5000个'）→总流量爆发性增长，直接受益=云计算、大模型（token消耗）、基础层半导体；衍生刚需=Agent身份验证（Cloudflare处流量入口层）",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "AI Agent普及期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以说，AI Agent 所引发的流量暴增，它所带来的并非是整体经济效益的增加，而是经济效益在产业链上的一次再分配",
+      "locator": "05:54",
+      "tags": ["ai-capex", "macro-data"],
+      "payload": {
+        "canonical_statement": "Agent流量暴增短期不创造商业增量，只是效益在产业链上的再分配（该买一台相机还是一台，多出的访问全是token/云/监控成本）→终端商家要么让渡利润、要么把销售模式从人对人转向Agent对Agent（SEO→GEO）；广告商（谷歌/Meta）可能承接新连接角色，但商业模式转变周期长、不立竿见影",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "Agent商业化早期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "业内把这个需求叫做 AI Observability，AI 监测。他有点像是管理 AI Agent 的一个 manager 的角色。就像人类员工多了需要 manager 管理一样，Agent 多了也需要 Agent manager 来管理",
+      "locator": "08:54",
+      "tags": ["software", "ai-capex"],
+      "payload": {
+        "canonical_statement": "企业内Agent数量将远超员工（纳德拉：2万员工+200-2000万Agent；黄仁勋：10年后7.5万员工+750万Agent）→Agent管理/AI Observability成新刚需行业：身份权限生命周期管理（Okta，战略转向后财报涨30%）、Agent工作流监控（ServiceNow AI Control Tower）——'企业现有权限/安全/监管不变，Agent按规执行AI才有回报'（Workday）",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "企业Agent化初期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "不过按量收费，也不过是一个中间形态，最终的形态更可能是按结果收费。只有这样企业才能更好的去衡量 ROI，也才能让支出变得更具有可预测性",
+      "locator": "13:40",
+      "tags": ["software", "ai-capex"],
+      "payload": {
+        "canonical_statement": "企业从无脑冲AI转向严格核算ROI（'输出outcome而非output'）：HubSpot被迫从按量改按结果收费、甲骨文定价与客户价值对齐（面试Agent按筛选人数计费）→按量收费只是中间形态、终局=按结果收费（Palantir为标杆：FDE定制+可预先算清ROI）；帮企业省token（Datadog LLM Observability逐次查账）成大市场——无脑冲AI的时代快要结束",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "2026年AI ROI觉醒期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "可预见的未来，AI 原生企业的增长是大势所趋，而且现在才是刚刚开始",
+      "locator": "16:18",
+      "tags": ["software", "ai-capex"],
+      "payload": {
+        "canonical_statement": "AI原生企业（OpenAI/Anthropic及大量初创）集体崛起为不容忽视的商业力量：成长极快+一级市场融资充裕→服务它们的上市公司开始兑现业绩（MongoDB数据库差异化、Datadog新增两大AI原生客户、DigitalOcean云）——类比互联网龙头的长期影响力，现在刚开始",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "AI原生企业扩张期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是有能力并不意味着一定会做。就好比说，英伟达有那么多现金，他完全可以去做一个贷款业务，但你说他真的会去做吗？估计不会。因为他有更有价值的事情去投入",
+      "locator": "10:35",
+      "tags": ["software", "ai-capex", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "'大模型自己做掉细分软件'的威胁被高估：有能力≠会做（机会成本逻辑），细分领域生态细节繁多、大模型最优解是合作而非竞争；Okta/Cloudflare本身是OpenAI/Anthropic的供应商=不易被替代的侧证——但该威胁客观存在，不能无脑看好也不能矫枉过正",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    }
+  ]
+}

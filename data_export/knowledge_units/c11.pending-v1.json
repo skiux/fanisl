@@ -1,0 +1,291 @@
+{
+  "content_id": 11,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "简短的总结我自己的观点呢，就是市场向上的短期的惯性可能还有",
+      "locator": "11:03",
+      "ref_price": 29115.10,
+      "tags": ["ndx", "price-action"],
+      "payload": {
+        "asset_text": "纳指100", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-06-12"],
+          "success_def": "2026-06-12 NDX收盘≥发布参考价29115.1=hit（'短期向上惯性还有，可能创新高'；'短中期'→我方21天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这个分位当价格无限接近或者是干脆穿越的时候呢，也一定会导致波动率的放大",
+      "locator": "11:03",
+      "ref_price": 29115.10,
+      "tags": ["ndx", "market-breadth"],
+      "payload": {
+        "asset_text": "纳指100（逼近30000时）", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "risk_warning", "direction": "vol_up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": "NDX接近或穿越30000（大级别斐波那契三分位）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这个时候呢，你考验的只是黄金的抗跌性。就是它只要不出现大幅的下跌破位，就已经很好。你不要指望着它最近能够出现很好的上涨",
+      "locator": "00:09",
+      "ref_price": 4526.06,
+      "tags": ["xauusd", "fed-policy"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "directional", "direction": "flat",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "当然短期来说更大的概率呢，我还是倾向于它在 716 的这个上方做一定的整理和争夺",
+      "locator": "05:50",
+      "ref_price": 762.10,
+      "tags": ["mu", "memory-storage", "price-action"],
+      "payload": {
+        "asset_text": "美光（716上方整理）", "asset_symbol": "MU", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 716},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-05-29"],
+          "success_def": "至2026-05-29 MU日收盘始终≥716=hit（716上方整理争夺）；盘中破收回=partial；收盘<716=miss（'短期'→我方7天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我觉得如果乐观的情况下，它可能会去冲向下一个结构位，那样就高了，大概呢可能要到接近 1000 左右的位置，这是乐观的情况",
+      "locator": "05:50",
+      "ref_price": 762.10,
+      "tags": ["mu", "memory-storage"],
+      "payload": {
+        "asset_text": "美光（乐观情形）", "asset_symbol": "MU", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 1000},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "speculative", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-20"],
+          "success_def": "至2026-08-20任一日MU最高价≥1000=hit（自标'乐观情况'→stance=speculative；无期限→我方90天窗口）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "在这个级别上，隧道有支撑，然后上方有压力。大概呢指数应该是一个偏震荡的走势，这个观点没有变",
+      "locator": "06:52",
+      "ref_price": 524.71,
+      "tags": ["soxx", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "半导体指数（SOXX，528一分位附近）", "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "directional", "direction": "range",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "Marvell 的走势我们其实已经把目标位看到了，大概就 200 左右",
+      "locator": "07:22",
+      "ref_price": 190.69,
+      "tags": ["mrvl", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "Marvell", "asset_symbol": "MRVL", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 200},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-20"],
+          "success_def": "至2026-08-20任一日MRVL最高价≥200=hit（无期限→我方90天窗口）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果上方压力持续给的话，价格再往下跌，我们倾向于呢会在 201 左右找支撑。这是一个很好的一个中期继续再按台阶去看多的一个关键位",
+      "locator": "07:59",
+      "ref_price": 219.51,
+      "tags": ["nvda", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "英伟达", "asset_symbol": "NVDA", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"low": 201},
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": "NVDA回落至201附近（盘中低点≤205）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-20"],
+          "success_def": "若NVDA盘中触及≤205（回踩201支撑带），2026-08-20收盘≥201=hit（支撑成立、中期看多台阶）；未回踩=condition_not_met"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "大概呢在 5 月 20 号，价格向上突破并在回踩的过程当中呢，围绕着 200 左右，还是有一个可以试错的位置",
+      "locator": "09:53",
+      "ref_price": 213.41,
+      "tags": ["qcom", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "高通", "asset_symbol": "QCOM", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": "QCOM回踩至200附近（盘中低点≤205）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-06-21"],
+          "success_def": "若QCOM盘中触及≤205（回踩200试错位），2026-06-21收盘>条件成立日收盘=hit；未回踩=condition_not_met（窗口系我方30天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "在天前市场相对较弱的时候，那特斯拉呢回踩 400 左右，这也形成一个阶段性的试错的买点",
+      "locator": "09:52",
+      "ref_price": 417.85,
+      "tags": ["tsla", "price-action"],
+      "payload": {
+        "asset_text": "特斯拉", "asset_symbol": "TSLA", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-21"],
+          "success_def": "2026-07-21 TSLA收盘≥发布参考价417.85=hit（'400买点+中期位置'操作化；'中期'→我方60天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "说白了就是大家都买消息，然后卖事实。等到真正上市的那一天，市场的流动性可能会被抽干。这样最终的走势反而可能还对应了很多的风险",
+      "locator": "13:24",
+      "ref_price": 96.03,
+      "tags": ["ufox", "ai-capex"],
+      "payload": {
+        "asset_text": "太空算力主题（UFOX，SpaceX上市前后）", "asset_symbol": "UFOX", "priceable": true,
+        "claim_class": "risk_warning", "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": "SpaceX正式上市落地（买消息卖事实）",
+        "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "三十年期债突破 5.1，甚至到 5.2，是一定会进行干预的，不论是口头干预，还是偷偷的直接做动作。总之干预一定会发生",
+      "locator": "03:30",
+      "ref_price": 5.068,
+      "tags": ["us30y", "fed-policy", "macro-data"],
+      "payload": {
+        "asset_text": "美债30年期收益率", "asset_symbol": "US30Y", "priceable": true,
+        "claim_class": "event_outcome", "direction": "flat",
+        "magnitude": {"high": 5.2},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-06-21"],
+          "success_def": "至2026-06-21 US30Y日收盘始终≤5.2%=hit（'必被干预'操作化为收益率不站稳5.2上方，系我方代理判定）；任一收盘>5.2%=miss"
+        }
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "如果看两小时级别，每当有一根两小时的这个大阴线出现，当它的强度明显强过之前上涨的这个阳线的时候呢，基本我们就可以认为这里会对应一个风险资产的反弹的买点",
+      "locator": "03:30",
+      "tags": ["us30y", "ndx", "price-action"],
+      "payload": {
+        "name": "收益率两小时强阴线→风险资产短多买点",
+        "summary": "30年期收益率两小时级别出现强度明显超过前阳线的大阴线（干预迹象）时，在风险资产的低位支撑处做短多",
+        "family": "event",
+        "rules": [
+          "观察30Y收益率两小时K线：大阴线强度明显强过之前上涨阳线=干预/反转信号",
+          "信号出现时在风险资产（纳指等）低位支撑位做短多（如纳指28700日线下轨）",
+          "5月18/20/21日各出现一次该信号，思路为逢信号短多而非看空"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["30年期美债收益率2小时K线", "纳指日线"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我们可以说半导体现在已经从周期股转到了数字地租，也就是它是接下来数字文明的整个物理的底座",
+      "locator": "15:03",
+      "tags": ["semiconductor-cycle", "ai-capex"],
+      "payload": {
+        "canonical_statement": "半导体已由消费电子驱动的周期行业转为'数字地租'（数字文明的物理底座）：需求侧突变（scaling law+数据中心军备，算力需求60-100%复合增长）vs 供给侧物理上限（光刻/封装/材料约束产能扩张率20-30%），剪刀差长期化",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "AI算力军备期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "真正制约半导体行业发展，或者是短期的这个风险因素，应该是在更底层。更底层这里包括了能源，包括了电力的稳定，包括了水冷",
+      "locator": "21:32",
+      "tags": ["semiconductor-cycle", "ai-capex", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "半导体的现实风险不在scaling law失效/量子替代/中国先进制程突围（三者均被市场缓慢计价），而在更底层：电力稳定、水冷、AI采用率反噬、氦气与稀土的地缘供给——被忽视的利空集中兑现时杀跌惨烈",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "AI基建高估值期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这个框架的话呢，就是接下来市场从交易宽松和反宽松，风险资产上涨或下跌的逻辑当中跳出来，跳成接下来对滞胀和衰退的一个预演",
+      "locator": null,
+      "tags": ["fed-policy", "macro-data", "xauusd"],
+      "payload": {
+        "canonical_statement": "2026年Q3起市场主题可能从'交易宽松/紧缩'切换为'滞胀与衰退预演'——持有黄金者应以此为耐心框架，而非短期涨跌",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "2026下半年"
+      }
+    }
+  ]
+}

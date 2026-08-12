@@ -1,0 +1,260 @@
+{
+  "content_id": 7,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "这个台阶的话呢，如果能够站住，市场的应该会向上去挑战两日级别，隧道的上轨，大概呢是4440点左右",
+      "locator": "06:29",
+      "ref_price": 4238.904,
+      "tags": ["xauusd", "price-action", "ema-tunnel"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 4440},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": "站住日线8EMA台阶（约4288点，日收盘≥4288）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-06-22"],
+          "success_def": "条件：发布后先出现日收盘≥4288；成立后至2026-06-22任一日最高价≥4440=hit；条件未成立=condition_not_met（'短线'→我方7天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "4000到4200点这个区域呢，是一个很好的，不能叫中期了，我认为这是一个长期的支撑",
+      "locator": "00:00",
+      "ref_price": 4238.904,
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 4000, "high": 4200},
+        "horizon": {"type": "within_duration", "duration_days": 365},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-09-13", "2026-12-31", "2027-06-15"],
+          "success_def": "至2027-06-15 XAUUSD日收盘始终≥4000（支撑区下沿）=hit；盘中破4000但当日收盘收回=partial；任一日收盘<4000=miss（'长期'→我方365天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "考虑到呢这一波反弹的动能，以及年线位置中长期买盘的托举，我们不能在这里去看空它，那甚至不能看回调",
+      "locator": "06:29",
+      "ref_price": 4238.904,
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-06-22", "2026-07-15", "2026-09-13"],
+          "success_def": "阶梯日XAUUSD收盘≥发布参考价4238.9=hit（'不能看空/不能看回调'操作化为不低于参考价；无期限词→我方+7/+30/+90阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "看价格如果跳空高开，向下万一出现盘中回踩，留意，继续留意29800点的支撑。因为这里如果压力换支撑，后市的话呢，就还是一个偏多头的走势",
+      "locator": "00:04",
+      "ref_price": 29432.95,
+      "tags": ["ndx", "price-action"],
+      "payload": {
+        "asset_text": "纳指100", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": "盘中回踩29800附近且当日收盘≥29800（压力换支撑确认）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-06-22", "2026-07-15", "2026-09-13"],
+          "success_def": "若发布后出现某日最低价≤29950且当日收盘≥29800（回踩获守），其后阶梯日NDX收盘>29800=hit；未出现该回踩=condition_not_met（阶梯系我方指定）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这个位置呢，如果出来了一个高点，那我觉得短期不一定守得住。价格呢是很有可能会在这个7636到7640点这个位置呢，会出现一些争夺和验证",
+      "locator": "09:25",
+      "ref_price": 7481.45,
+      "tags": ["spx", "price-action"],
+      "payload": {
+        "asset_text": "标普500", "asset_symbol": "SPX", "priceable": true,
+        "claim_class": "price_target", "direction": null,
+        "magnitude": {"low": 7636, "high": 7640},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "一旦巨头指数向上突破，打开空间，那么这一波呢，我认为美股的走势就会比较稳了。否则的话呢，价格很有可能呢，会延续一个高位的震荡",
+      "locator": "01:23",
+      "ref_price": 7481.45,
+      "tags": ["spx", "mags", "mag7", "market-breadth"],
+      "payload": {
+        "asset_text": "美股（标普500为代理）", "asset_symbol": "SPX", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": "七巨头指数MAGS日收盘向上突破箱体上沿66.5",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-06-22", "2026-07-15", "2026-09-13"],
+          "success_def": "若MAGS日收盘>66.5（条件成立），其后阶梯日SPX收盘>条件成立日SPX收盘=hit；未突破=condition_not_met（阶梯系我方指定）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那如果接下来我们看到韩国指数去往这个9500点，甚至是到接近1万点，那这个呢也就很正常。因为动量策略呢好像还没有完全的走完",
+      "locator": "01:51",
+      "ref_price": 8545.99,
+      "tags": ["kospi", "semiconductor-cycle", "memory-storage"],
+      "payload": {
+        "asset_text": "韩国综合指数", "asset_symbol": "KOSPI", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 9500},
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-09-13"],
+          "success_def": "至2026-09-13任一日KOSPI最高价≥9500=hit（'接下来'无期限→我方90天阶梯；'也就很正常'按上下文动量未走完取多头倾向）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "实际这个位置，也就是上周收线的位置，是一个还蛮不错的，一个可以回踩加仓的位置",
+      "locator": "04:49",
+      "ref_price": 90.7,
+      "tags": ["igv", "software", "price-action"],
+      "payload": {
+        "asset_text": "IGV软件板块ETF", "asset_symbol": "IGV", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-06-22", "2026-07-15", "2026-09-13"],
+          "success_def": "阶梯日IGV收盘≥发布参考价90.7=hit（'可回踩加仓'操作化；无期限词→我方+7/+30/+90阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "你只有把它放到三日的这种收线上，你才能过滤掉这个市场日内给你做的局，很多噪音。很多机构想要骗你的线，其实都是在日内盘前盘后，或者衔接一个两日级别。在这种最小的机构换手周期里边就是两日",
+      "locator": null,
+      "tags": ["ema-tunnel", "price-action"],
+      "payload": {
+        "name": "三日级别 8/13 EMA 隧道",
+        "summary": "以三日收线为观察级别（两日=最小机构换手周期，再放大一级），用8/13 EMA隧道的收线得失判断趋势与动量，过滤日内做局",
+        "family": "trend",
+        "rules": [
+          "观察级别取三日收线：两日为最小机构换手周期，观察级别取其上一级以过滤日内与盘前盘后噪音",
+          "在三日级别用8和13 EMA构成的隧道，看收线相对隧道的得失判断趋势与动量变化",
+          "长周期框架配合144/169 EMA隧道（如黄金两日级别144/169对应年线级支撑）"
+        ],
+        "claimed_performance": {"note": "自称在趋势与动量判断上比90%散户稳健（记录不采信）"},
+        "data_requirements": ["日线OHLC（可合成2日/3日K线）"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "以年线的这种级别，出现一个日均ATR或两日ATR，以黄金的话，大概现在就是100美金对不对？150美金甚至200美金，都是说得过去的",
+      "locator": null,
+      "tags": ["xauusd", "price-action", "risk-mgmt"],
+      "payload": {
+        "name": "年线支撑的 ATR 容差与坑底等待",
+        "summary": "年线级支撑允许1-2个日/两日ATR的穿越误差，不以日内得失判支撑破位；预期价格围绕年线砸坑，在坑下方等待而非精确碰年线进场",
+        "family": "reversion",
+        "rules": [
+          "年线级别支撑允许1-2个日/两日ATR的向下穿越误差（黄金当前约100-200美元），不以日内或分时得失判定破位",
+          "预期价格围绕年线砸出坑，在坑下方等待接回，不要求精确触及年线才进场"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["日线OHLC", "ATR"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "这个压制呢，我认为是市场能不能有效突破新高，持续向上拉升的一个关键的一个判定标准",
+      "locator": "01:23",
+      "tags": ["mags", "mag7", "market-breadth"],
+      "payload": {
+        "name": "七巨头指数（MAGS）作为大盘突破确认闸门",
+        "summary": "指数欲有效突破新高，需MAGS同步突破自身箱体并回到日线隧道右侧；MAGS不突破则按高位震荡对待",
+        "family": "other",
+        "rules": [
+          "大盘（标普/纳指）欲有效突破新高，要求七巨头指数MAGS同步向上突破箱体上沿（当时66.5）并回到日线隧道右侧",
+          "MAGS未突破时，不追大盘新高，按高位震荡预期操作"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["MAGS日线", "SPX/NDX日线"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "你不可能看着他们变脸比翻书还快的这种政治作秀啊，去做出自己的这种投资决策。但是我们可以通过价格行为找到资金的端倪",
+      "locator": null,
+      "tags": ["price-action"],
+      "payload": {
+        "canonical_statement": "不以消息面与地缘政治作决策依据，通过价格行为读资金动向",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "如果仍然是资金抱团集中度超高的这种AI基础设施，甚至基础到我们就做内存啊，就做存储，就做这个半导体板块。那后面的话呢，我觉得对整个大盘的这个走势呢，也未必是一个长期的好的一个事情",
+      "locator": null,
+      "tags": ["ai-capex", "market-breadth", "semiconductor-cycle"],
+      "payload": {
+        "canonical_statement": "资金过度抱团单一板块（AI基建/存储）时，对大盘中长期走势不利",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "资金集中度超高的抱团行情"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "借机高位去，了结一部分，科技硬件板块的，AI板块的这些盈利的筹码，然后分散到一些道指或者是周期或防御的一些赛道里边",
+      "locator": "15:45",
+      "tags": ["rotation", "risk-mgmt", "dji"],
+      "payload": {
+        "canonical_statement": "高位分批了结拥挤的AI/科技筹码，分散至道指/周期/防御等慢周期赛道",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": "AI板块高位、资金集中度高时"
+      }
+    }
+  ]
+}

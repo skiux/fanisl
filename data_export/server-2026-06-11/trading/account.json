@@ -1,0 +1,1 @@
+{"summary": {"balance": 9797.85, "equity": 9797.85, "used_margin": 0.0, "max_leverage": 10.0, "default_risk_pct": 1.0, "force_trade": true, "open_positions": []}, "scorecard": {"account_id": 1, "closed_trades": 8, "win_rate": 0.375, "avg_r": -0.389, "expectancy_r": -0.389, "profit_factor": 0.27, "total_pnl": -202.15, "max_drawdown": 224.08, "balance": 9797.850694999894}}

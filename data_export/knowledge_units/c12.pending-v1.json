@@ -1,0 +1,181 @@
+{
+  "content_id": 12,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "在整个框架里面我们对纳指100的判断就是要守28800点。守不住回到什么？26500点这个区域去看",
+      "locator": "10:56",
+      "ref_price": 29125.30,
+      "tags": ["ndx", "price-action"],
+      "payload": {
+        "asset_text": "纳指100", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"target": 26500},
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": "纳指100日收盘跌破28800（强弱分水岭失守）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-16"],
+          "success_def": "若出现NDX日收盘<28800，其后至2026-08-16任一日最低价≤26500=hit；未破位=condition_not_met（框架期系我方90天窗口）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "价格呢在周上实际上是突破的，并且有一个小级别的日线级别的回踩确认，这仍然是一个短线多头的一个位置，或者是顺势加仓的一个位置",
+      "locator": "10:56",
+      "ref_price": 29125.30,
+      "tags": ["ndx", "price-action"],
+      "payload": {
+        "asset_text": "纳指100（28800上方）", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-05-25"],
+          "success_def": "2026-05-25 NDX收盘≥发布参考价29125.3=hit（'短线多头/顺势加仓位'操作化；'短线'→我方7天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们现在应该关注的中期的位置就是黄金的日线级别隧道的支撑。这个也是之前这轮崩盘式下跌我们所关注的一个重要的趋势性的支撑位。这个支撑位呢，大概呢是4300到4400，然后极端的价格到4100左右",
+      "locator": "06:12",
+      "ref_price": 4438.928,
+      "tags": ["xauusd", "price-action", "ema-tunnel"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 4300, "high": 4400},
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-06-17", "2026-07-17"],
+          "success_def": "至2026-07-17 XAUUSD日收盘始终≥4300（日隧道支撑带下沿）=hit；收盘破4300但≥4100（极端补偿位）=partial；收盘<4100=miss（'中期'→我方60天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "它要比黄金震荡更多，并不代表它更弱，从中其来看的话它没有更弱",
+      "locator": "07:36",
+      "ref_price": 75.616,
+      "tags": ["xagusd", "xauusd"],
+      "payload": {
+        "asset_text": "白银（相对黄金）", "asset_symbol": "XAGUSD", "priceable": true,
+        "claim_class": "relative", "direction": "flat",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "relative_return",
+          "eval_ladder": ["2026-07-17"],
+          "benchmark": "XAUUSD",
+          "success_def": "2026-07-17 XAGUSD自发布日收益率≥XAUUSD同期收益率=hit（'中期不更弱'；'中期'→我方60天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这样原油的走势的话，我们觉得可以去做一些温和的多头，就是你不要去急于追高",
+      "locator": "08:23",
+      "ref_price": 105.992,
+      "tags": ["wti", "oil-supply", "price-action"],
+      "payload": {
+        "asset_text": "WTI原油", "asset_symbol": "WTI", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-05-25", "2026-06-17", "2026-08-16"],
+          "success_def": "阶梯日WTI收盘≥发布参考价105.99=hit（'温和多头'；无期限词→我方+7/+30/+90阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我个人倾向于呢，还是一个偏高位震荡的一个走势。逢低的话呢，应该是个股向会好一些",
+      "locator": "10:17",
+      "ref_price": 510.12,
+      "tags": ["soxx", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "半导体指数（SOXX）", "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "directional", "direction": "range",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "两小时级别上一次，25年5月份，它一定是会出现高位十字星，这个位置放大一点看，高位十字星，然后呢向下反包。当这根反包的线出来之后，那基本上就确认了价格呢应该是要反转了",
+      "locator": "02:43",
+      "tags": ["us30y", "macro-data", "price-action"],
+      "payload": {
+        "name": "长债收益率顶部的两小时反转形态识别",
+        "summary": "30年期收益率冲击5%+心理关口时，用两小时级别的高位十字星+向下反包（或破速大阴线）识别干预/反转确认点，确认前不逆势抄底风险资产",
+        "family": "event",
+        "rules": [
+          "30Y收益率接近或突破5%时观察两小时级别（23/25年两次干预均循此形态）",
+          "高位十字星后向下反包大阴线出现=反转/干预确认",
+          "确认信号前不逆两小时上涨势能抄底风险资产；让过最低点，不追求抄在最低"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["30年期美债收益率2小时K线"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我们首先判断的是当前的宏观环境和利率路径，其实不再支持全面的估值扩张",
+      "locator": null,
+      "tags": ["fed-policy", "macro-data", "spx"],
+      "payload": {
+        "canonical_statement": "当前宏观与利率路径不支持美股全面估值扩张，上涨须由盈利驱动（本轮财报盈利强到市盈率反而收缩）",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "2026年高利率环境"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "市场还是一个动量逻辑，也就是强就会很强。它如果能够守住高位，那么就会继续强。如果跌破重要的这个强弱分水岭，那么动量策略就会进行大规模的抛售，反倒你不能轻易的去接",
+      "locator": null,
+      "tags": ["market-breadth", "price-action", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "动量主导的市场：守住关键位则强者恒强，跌破分水岭则动量策略集体抛售——破位后不轻易接飞刀",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "CTA/量化动量抱团行情"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "基本都还是一个高位保护，或者是高位分批次止盈的一个状态，然后去切换其他的这种风格的一个变化",
+      "locator": null,
+      "tags": ["rotation", "risk-mgmt", "semiconductor-cycle"],
+      "payload": {
+        "canonical_statement": "高位用保护性对冲或分批止盈锁定拥挤板块利润，再切换风格——本轮吃到半导体行情的成熟做法",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": "板块高位、估值已拉抬时"
+      }
+    }
+  ]
+}

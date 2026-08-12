@@ -1,0 +1,442 @@
+{
+  "content_id": 20,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "基本呢锁定的是3960左右的支撑，上方的压力呢大概是在4780左右。那可能呢在这个4500左右也会有一个压力，不过那个位置呢有可能会过掉",
+      "locator": "01:05",
+      "ref_price": 4293.965,
+      "tags": ["xauusd", "price-action", "fibonacci"],
+      "payload": {
+        "asset_text": "黄金（五周级别大框架：支撑 3960、压力 4780，中途 4500 或被过掉）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {"low": 3960, "high": 4780},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-13", "2026-09-05", "2026-11-04"],
+          "success_def": "至阶梯日 XAUUSD 日收盘持续不破 3960（五周级别框架下沿）= hit；盘中破 3960 但收盘收回 = partial；日收盘破 3960 = miss。上沿 4780 为压力不参与本条判定。（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那震荡的区间的话呢，我们第一呢先看它打到4400, 4500左右啊，然后呢后面再观察一个验证的情况，那向上呢再看到4700, 4800",
+      "locator": "01:05",
+      "ref_price": 4293.965,
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金（突破后先看 4400–4500，验证后再看 4700–4800）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 4400},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-13", "2026-09-05", "2026-11-04"],
+          "success_def": "至阶梯日 XAUUSD 任一日最高价≥4400（第一目标）= hit。4700–4800 为验证后的第二段目标，不入本条判定（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "短线反馈最终呢有可能是会向下再去确认一下，那这个确认的一个位置的话呢我们可能要先看到这个29100左右。那如果震荡更剧烈，不排除再去测试28800",
+      "locator": "05:32",
+      "ref_price": 29407.7,
+      "tags": ["ndx", "price-action", "ema-tunnel"],
+      "payload": {
+        "asset_text": "纳指100（29800 压制后短线回踩确认 29100，剧烈时测 28800）",
+        "asset_symbol": "NDX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "down",
+        "magnitude": {"target": 29100},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-13"],
+          "success_def": "至2026-08-13 NDX 任一日最低价≤29100（'短线向下再确认一下'）= hit。更深的 28800 测试属'震荡更剧烈'情形，不入本条判定（'短线'→我方 7 天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "道指我认为它会到55000往上，就是现在它还没有到位",
+      "locator": "05:25",
+      "ref_price": 54349.12,
+      "tags": ["dji", "price-action", "rotation"],
+      "payload": {
+        "asset_text": "道琼斯工业指数（会到 55000 往上，尚未到位；总结处提 56000 左右）",
+        "asset_symbol": "DJI",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 55000},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-13", "2026-09-05", "2026-11-04"],
+          "success_def": "至阶梯日 DJI 任一日最高价≥55000 = hit（'会到 55000 往上'；总结里的 56000 为更高一档，不入本条判定；无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那这个8500点我们在乐观情形下啊，不妨把8500点还锚定为年内的美股目标，同时也做好接下来有逼空行情的准备",
+      "locator": "11:45",
+      "ref_price": 7483.55,
+      "tags": ["spx", "price-action"],
+      "payload": {
+        "asset_text": "标普500（年内乐观情形目标 8500 点）",
+        "asset_symbol": "SPX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 8500},
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-12-31"],
+          "success_def": "至2026-12-31 SPX 任一日最高价≥8500 = hit（'年内的美股目标'；'年内'→我方按当年 12-31 落地）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "因为大概呢我觉得呃可能标普会向下再去踩一踩这个区域，尤其是前高这两个高点",
+      "locator": "07:44",
+      "ref_price": 7483.55,
+      "tags": ["spx", "price-action"],
+      "payload": {
+        "asset_text": "标普500（突破后向下回踩 7400–7600 区域与前高）",
+        "asset_symbol": "SPX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "down",
+        "magnitude": {"target": 7600},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-13", "2026-09-05", "2026-11-04"],
+          "success_def": "至阶梯日 SPX 任一日最低价≤7600（回踩其突破的 7400–7600 区域上沿）= hit（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么向下的话呢，我们应该会看到它回归年线位置附近，那大概就是月线级别的8和13 EMA隧道，可能会到呃6.2左右，也就是从当前位置往下可能还有个百分之七八左右的一个空间。在这个空间里边，我认为黄金还是优于科技",
+      "locator": "09:28",
+      "ref_price": 4293.965,
+      "tags": ["xauusd", "ndx", "rotation", "ema-tunnel"],
+      "payload": {
+        "asset_text": "黄金相对科技（NDX/XAUUSD 比值从 6.87 向月线隧道 6.2 回归，期间黄金优于科技）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "relative",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "relative_return",
+          "benchmark": "NDX",
+          "eval_ladder": ["2026-08-13", "2026-09-05", "2026-11-04"],
+          "success_def": "至阶梯日 XAUUSD 自发布日收益率 ≥ NDX 同期收益率 = hit（'黄金还是优于科技'；等价于 NDX/XAUUSD 比值继续下行；无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那所以我们对特斯拉这一个走势呢，我们维持一个它退档的这么一个判断。后市的话呢，你像如果没有这档的事，可能他是在400到450之间震荡，那现在可能在300到350",
+      "locator": "15:41",
+      "ref_price": 321.55,
+      "tags": ["tsla", "price-action"],
+      "payload": {
+        "asset_text": "特斯拉（因上海工厂传闻退一档，中枢从 400–450 降到 300–350 震荡）",
+        "asset_symbol": "TSLA",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {"low": 300, "high": 350},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-13", "2026-09-05", "2026-11-04"],
+          "success_def": "至阶梯日 TSLA 日收盘持续不破 300（退档后箱体下沿）= hit；盘中破 300 但收盘收回 = partial；日收盘破 300 = miss。上沿 340–350 压力不参与本条判定（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我觉得现在的科技呢可能会呃尤其是你看内存，然后你再看半导体，我认为会去偏震荡一阵子。后面真正要有主升浪的话，应该还是大科技会主导一些",
+      "locator": "15:15",
+      "ref_price": 524.17,
+      "tags": ["soxx", "mags", "semiconductor-cycle", "rotation"],
+      "payload": {
+        "asset_text": "半导体（相对七巨头：半导体内存偏震荡，主升浪由大科技主导）",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "relative",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "relative_return",
+          "benchmark": "MAGS",
+          "eval_ladder": ["2026-08-13", "2026-09-05", "2026-11-04"],
+          "success_def": "至阶梯日 SOXX 自发布日收益率 ≤ MAGS 同期收益率 = hit（'半导体内存偏震荡、主升浪由大科技主导'；MAGS 为'大科技'的我方代理）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我认为呢还是对320这个位置要注意压力，它未必会很快的回归强势",
+      "locator": "15:23",
+      "ref_price": 311.0,
+      "tags": ["aapl", "price-action"],
+      "payload": {
+        "asset_text": "苹果（320 有压力，未必很快回归强势）",
+        "asset_symbol": "AAPL",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"target": 320},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以现在的恒科这个走势还算还算扎实，他今天可能会挑战5000",
+      "locator": "17:05",
+      "tags": ["hstech", "price-action"],
+      "payload": {
+        "asset_text": "恒生科技指数（当日可能挑战 5000）",
+        "asset_symbol": "HSTECH",
+        "priceable": false,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 5000},
+        "horizon": {"type": "within_duration", "duration_days": 2},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "在第五浪的這個收尾尾部行情当中的它的表现呢，未必会给一些高位玩家解套的机会啊。这这只是我的一家之言啊，不代表市场，不代表主流的判断啊，而且呢是非常有可能出错的",
+      "locator": null,
+      "tags": ["ndx", "macro-data", "risk-mgmt"],
+      "payload": {
+        "asset_text": "美股高拥挤热门赛道（第五浪收尾未必给高位玩家解套机会）",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "risk_warning",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "speculative",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "如果说他出现不回调的走势，我们继续要关注的是这种分钟级别的隧道的验证，因为它只可能在小级别隧道托举。所以追高的话呢，一定要做窄损。不是不能追，但追的话要做窄损，因为一旦他变盘，没有百分之百确定的事情嘛",
+      "locator": null,
+      "tags": ["xauusd", "ema-tunnel", "risk-mgmt", "position-sizing"],
+      "payload": {
+        "name": "不回调行情的追高：小级别隧道托举 + 窄止损",
+        "summary": "突破后走出不回调（阴跌快涨）行情时，只能靠分钟级别隧道确认托举；可以追高但必须在小级别上设很窄的止损，因为一旦变盘高位头寸会被挂在树上",
+        "family": "trend",
+        "rules": [
+          "行情不回调时，观察分钟级别隧道是否持续托举价格",
+          "追高不禁止，但必须配窄止损",
+          "所有投机性的高位头寸，止损设在小级别上且尽量窄",
+          "前提认知：没有百分之百确定的事情"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["分钟级别 K 线（当前价格层只有日线，缺）"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那么道指在快速上涨过程当中呢，其实科技呢它不会有特别强的动能。我们什么时候能够看到三大指数共振了？一个呢该歇脚了，然后一个又获得很强的支撑，然后同时呢纳指的走势呢又在这个区域里边完成了二次蓄力，那么那个时候就是非常好的一个新的右侧的买点了",
+      "locator": null,
+      "tags": ["dji", "ndx", "spx", "rotation", "market-breadth"],
+      "payload": {
+        "name": "三大指数共振作为右侧买点的确认条件",
+        "summary": "道指与纳指是跷跷板，道指快速上涨期科技动能不会强；等三个条件同时成立——领涨的那个歇脚、另一个获得强支撑、纳指在区域内完成二次蓄力——三大指数共振时才是新的右侧买点",
+        "family": "trend",
+        "rules": [
+          "道指与纳指互为跷跷板：一个起来另一个就下去",
+          "道指快速上涨阶段，不指望科技有特别强的动能",
+          "买点条件一：快速上涨的那个指数开始歇脚",
+          "买点条件二：另一个指数获得很强的支撑、下不去",
+          "买点条件三：纳指在其区域内完成二次蓄力",
+          "三者同时成立=三大指数共振，才是新的右侧买点"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["DJI 日线", "NDX 日线", "SPX 日线"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "研究现在科技和黄金的强弱周期性切换，是我们作为大类资产投资者甚至是所有美国投资者我认为都应该做的一件非常非常重要的事情。那现在我们就要看到7.33这个位置已经被确认了不止一次",
+      "locator": "09:28",
+      "tags": ["ndx", "xauusd", "rotation", "fibonacci"],
+      "payload": {
+        "name": "以黄金计价的纳指（NDX/XAUUSD）观察科技与黄金的强弱周期切换",
+        "summary": "构造 NDX/XAUUSD 比值图，用斐波那契位与月线 8/13 EMA 隧道定关键位（7.33=0.382 阻力已多次确认、6.19=0.236、隧道约 6.2），据此判断科技与黄金谁占优以及何时切换",
+        "family": "other",
+        "rules": [
+          "构造 NDX/XAUUSD 比值走势图（三周级别观察）",
+          "7.33（0.382）为已被反复确认的阻力位",
+          "向下回归年线附近=月线级别 8/13 EMA 隧道，约 6.2；0.236 位在 6.19",
+          "比值下行区间内判黄金优于科技；出现新的隧道结构支撑后科技可能缓过神来、节奏再切换",
+          "与以黄金计价的标普（SPX/XAUUSD）配合看"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["NDX 日线", "XAUUSD 日线"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "它是在这个沉寂和长期被低估之后呢，做这种回归往往就出现了阴跌快涨的走势啊。这个有点和恒生的差不多，和美股呢现在也这样。美股以前都是都是慢涨快跌，现在都是反过来了",
+      "locator": null,
+      "tags": ["xauusd", "price-action", "psychology"],
+      "payload": {
+        "canonical_statement": "长期沉寂且被低估的资产做价值回归时，常走'阴跌快涨'而非传统的'慢涨快跌'——这种节奏最容易让人踏空（黄金、恒生、当前美股皆如此）",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "长期低估后的回归阶段"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以全球的现在这个宏观的大类资产市场啊，其实我觉得越来越像个大赌场啊，就是这个呢整个这个波动呢非常的大。这里边可能有地缘，有这个大资金的一个博弈啊，这个国家级大资金的这种博弈。另外呢还有什么？还有这个 AI 的介入",
+      "locator": null,
+      "tags": ["macro-data", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "当前全球大类资产波动异常放大的三个来源：地缘、国家级大资金博弈、AI 的介入——行情看着不错但进场玩家多半没赚到钱，因为走势变成先阴跌再快跌再快涨",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那一旦“胀”的问题不能解决，“滞”的问题又在，那这就是黄金的一个启动周期，因为在滞胀周期里边黄金往往是表现最好的",
+      "locator": null,
+      "tags": ["xauusd", "inflation", "macro-data"],
+      "payload": {
+        "canonical_statement": "滞胀周期是黄金的启动周期（滞胀中黄金历史表现最好）；观察'滞'的到来看制造业与就业数据是否转弱，'胀'能否解决则决定利好能否全面兑现",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "滞胀周期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那它一定会在慢周期上去兑现。那这个慢周期就是它变成一个长周期的确定性，最后在短周期一个非常窄的窗口里面快速兑现",
+      "locator": "05:25",
+      "tags": ["dji", "market-breadth", "psychology"],
+      "payload": {
+        "canonical_statement": "慢周期资产的确定性兑现方式：长周期上积累确定性，最后在一个非常窄的短周期窗口里快速兑现——所以持有期看着毫无进展是常态（道指为例）",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为很多宏观呢呃我觉得讲多了它都是讲故事，那就是你各种故事叠加到一起，可是听多了就会有噪音。而基本面的话呢，你你不论怎么拆，你发现美股就是好，你就是逢低就要买，别的都不想用，对不对？那这个就是一个择时成本的问题",
+      "locator": null,
+      "tags": ["macro-data", "psychology", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "宏观讲多了是叠加故事、变成噪音；基本面无论怎么拆都只得出'美股就是好、逢低买'——两者都不解决择时成本，所以仍需要价格行为的技术处理来优化净值曲线与变盘时的抗损",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "指数走得好，那你在去追求增强的过程当中要意识到踏空或者是被打脸的风险，反倒呢指数是最优的，我觉得现在指数还是最优的。现在的选股难度是比较大的啊，不像是一二季度了，三四季度的选股难度会比较大",
+      "locator": null,
+      "tags": ["spx", "ndx", "rotation", "execution"],
+      "payload": {
+        "canonical_statement": "指数走得好时追求个股增强会同时承担踏空与打脸两种风险；七巨头已高度分化、三四季度选股难度显著高于一二季度，此时指数本身是最优解",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": "板块高度分化期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "而上海工厂呢它在特斯拉里面整个的公司的权重啊，20% 30%最多，对不对？少了说20%，多了说30%。这波行情呢从400之上，下到呃300，基本上就是退了一档",
+      "locator": "15:41",
+      "tags": ["tsla", "macro-data", "market-structure"],
+      "payload": {
+        "canonical_statement": "上海工厂在特斯拉公司权重约 20–30%；股价从 400 上方退到 300 一档（约 100 美金）正好等于把上海工厂的价值挖出去——用权重拆解可以核对消息面冲击是否已被定价",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "大国博弈导致的资产剥离预期"
+      }
+    }
+  ]
+}

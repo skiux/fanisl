@@ -64,6 +64,9 @@ def _resolve_condition(ps: PriceStore, cond: dict, own_sym: str, pub: dt.date,
             return b["ts"], None
         if t == "touch_below" and b["low"] <= cond["level"]:
             return b["ts"], None
+        # 形成阻力：当日触及该位但收盘没站上（unit 302 的 success_def 需要，2026-08 新增）
+        if t == "touch_above_close_below" and b["high"] >= cond["level"] and b["close"] < cond["level"]:
+            return b["ts"], None
         if t == "dip_hold" and b["low"] <= cond["touch_below"] and b["close"] >= cond["close_at_least"]:
             return b["ts"], None
     return None, "condition_not_met"

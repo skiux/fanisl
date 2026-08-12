@@ -67,7 +67,8 @@
    不做相似度批量粗合；canonical 优先沿用单元中最完整的归一化表述（supersedes 取最新）；
 3. 产出 nodes JSON（格式见 §5）→ `python -m analyzer.knowledge.nodes import <file>`
    校验入库：kind 一致、unit 存在且未被占用、claim 节点须同 asset_symbol；整文件事务，
-   失败全拒；
+   失败全拒。**挂到既有节点**：条目写 `"node_id": N`（不写则新建），kind 须与目标节点一致；
+   同时给 title/canonical/tags/notes 即更新该节点（supersedes 时按 §2 换成最新表述）；
 4. `python -m analyzer.knowledge.nodes recompute` → 重算全部节点状态（幂等，任何时候可跑；
    评分入库后应例行跑，已挂入每日流程）。
 

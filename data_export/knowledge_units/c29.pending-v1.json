@@ -1,0 +1,254 @@
+{
+  "content_id": 29,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "这就意味着，AI 这轮技术革命绝对不会受到任何影响，而整体的美股大盘也很难受到任何系统性的冲击",
+      "locator": "18:13",
+      "ref_price": 7457.69,
+      "tags": ["spx", "fed-policy", "ai-capex", "macro-data"],
+      "payload": {
+        "asset_text": "美股大盘（两到三次加息预期下不会受到系统性冲击）",
+        "asset_symbol": "SPX",
+        "priceable": true,
+        "claim_class": "risk_warning",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 180},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2027-01-15"],
+          "success_def": "至2027-01-15 SPX 自发布日收盘 7457.69 起的最大回撤不超过 20% = hit（'大盘很难受到任何系统性的冲击'；20% 的系统性冲击判界系我方指定）。期限取原文推演所用的'未来6个月'加息窗口"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "相反，最终可能大概率是不会加那么多次息，美联储通过预期管理，就能够加速通胀的下滑",
+      "locator": "21:20",
+      "ref_price": 3.75,
+      "tags": ["fed-policy", "inflation", "macro-data"],
+      "payload": {
+        "asset_text": "联邦基金利率（最终大概率不会加满市场预期的两到三次）",
+        "asset_symbol": "DFEDTARU",
+        "priceable": true,
+        "claim_class": "event_outcome",
+        "direction": "flat",
+        "magnitude": {"high": 4.0},
+        "horizon": {"type": "within_duration", "duration_days": 180},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2027-01-15"],
+          "success_def": "至2027-01-15 FRED DFEDTARU 累计上调不超过 25bp（即从 3.75% 起始终≤4.00%）= hit；累计上调超过 25bp = miss。市场当时预期两到三次（50–75bp），他判'大概率不会加那么多次'，故以'至多一次'为判界，25bp 的判界系我方指定"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我上述提到的这些标的，他们确实会有风险，但并不意味着我看空这些股票。事实上，可能有些股票已经充分 price in 了这些加息风险",
+      "locator": null,
+      "tags": ["crwv", "spcx", "fed-policy", "risk-mgmt"],
+      "payload": {
+        "asset_text": "利率敏感标的（甲骨文/CoreWeave/黑石/SpaceX：有风险但明确不等于看空）",
+        "asset_symbol": "CRWV",
+        "priceable": true,
+        "claim_class": "risk_warning",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 180},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "从这张图中我们可以看出，大科技的 credit spread（信用利差）在过去这两周突然走阔，这也说明市场现在已经开始担心起大科技们的债务问题了",
+      "locator": "14:10",
+      "tags": ["ai-capex", "macro-data", "risk-mgmt"],
+      "payload": {
+        "name": "用大科技信用利差监控数据中心债务风险",
+        "summary": "信用利差=借债利率减国债（无风险）利率，反映债市对还款风险要求的补偿。监控大科技的信用利差走阔，可在股价反应之前捕捉市场对数据中心烧钱与债务规模的担忧",
+        "family": "flow",
+        "rules": [
+          "跟踪大科技发债主体的信用利差（借债利率 - 同期国债利率）",
+          "利差异常走阔=债市开始为其还款风险要更高补偿，即担忧上升",
+          "重点盯融资建数据中心走得最远的主体：甲骨文、CoreWeave",
+          "同时看大科技表内与表外债务融资规模的变化（2026 上半年已 1700 亿，超 2025 全年 1000 亿）",
+          "投行的融资业务收入异常飙升可作为交叉印证（高盛财报）"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["大科技发债主体的信用利差序列（当前数据层缺）", "国债收益率"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以你看，整个互联网时期的加息影响其实可以总共分为三个阶段。第一阶段，整体市场影响不大，但是少数利率敏感的企业、那些少数资质较差的企业，会率先开始下跌。第二阶段，资本市场率先感受到压力，逐渐撤资，整体市场开始承压。第三阶段，消费开始疲软，整个经济陷入停滞，美股也陷入到长久的熊市当中",
+      "locator": "12:22",
+      "tags": ["fed-policy", "macro-data", "market-breadth"],
+      "payload": {
+        "canonical_statement": "加息冲击技术革命的三阶段模型：①大盘影响不大、少数利率敏感与资质差的企业先跌；②资本市场承压、资金撤出、整体市场开始承压；③消费疲软、经济停滞、进入长久熊市——判断当下处在哪一阶段比判断加息与否更重要",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "技术革命叠加加息周期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "也就是说，在美联储加息的早期，股市非但没有受到任何影响，反而在加速上涨",
+      "locator": "02:00",
+      "tags": ["fed-policy", "market-breadth", "psychology"],
+      "payload": {
+        "canonical_statement": "加息早期大盘照涨甚至加速上涨，但分化在第一次加息时就已出现——99 年 6 月起加 6 次息的那段正是互联网泡沫涨得最凶的阶段；21 年年中市场已 price in 22 年多次加息，大盘仍涨到年底。用大盘反应判断加息影响会完全误判",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "加息周期早期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就是那些利率敏感的企业。这也就包括了那些极其依靠融资进行扩张和运营的企业，以及那些估值极高的企业，他们就是那第一批受影响的公司",
+      "locator": "07:39",
+      "tags": ["fed-policy", "risk-mgmt", "market-breadth"],
+      "payload": {
+        "canonical_statement": "加息中第一批受冲击的是两类利率敏感企业：极度依赖融资扩张与运营的（99 年的 .com、今天的 CoreWeave/甲骨文），以及估值极高的（21 年疫情受益股、今天的 SpaceX）——后者业绩再亮眼也会因杀估值下跌",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "加息周期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为从历次历史经验上看，熊市的基础都是终端消费的疲软。00年是如此，22年也是如此",
+      "locator": "11:01",
+      "tags": ["macro-data", "consumer", "fed-policy"],
+      "payload": {
+        "canonical_statement": "熊市的基础是终端消费疲软（00 年与 22 年皆然）：资本转向只伤靠炒作的差公司、资本市场一恢复就能修复；只有消费彻底转向才会演变成无差别屠杀",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "和互联网的终端消费者多在 C 端不同，AI 的终端消费者在 B 端，而且本质上 AI 是帮助 B 端去提升生产力，或者说是帮 B 端去省钱，那么这个消费就很难出现松动",
+      "locator": "15:16",
+      "tags": ["ai-capex", "consumer", "macro-data"],
+      "payload": {
+        "canonical_statement": "AI 与互联网的关键差异在终端消费者：互联网终端在 C 端且靠广告变现（对经济极敏感），AI 终端在 B 端且是帮企业省钱提效——因此 AI 的终端需求很难像广告那样在消费疲软时松动",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "在15年到18年，美联储也做出过这么一轮大幅度的加息，当时利率从0直接增加到了2.5%，也是连续加了10次息。同一时间，也出现了这么一次较大规模的技术更新（新），而这就是云计算的爆发",
+      "locator": "15:16",
+      "tags": ["fed-policy", "ai-capex", "macro-data"],
+      "payload": {
+        "canonical_statement": "2015–2018 年美联储从 0 连加 10 次息到 2.5%，同期企业上云不仅没被打断，云计算企业还迎来大发展（AWS 的亚马逊、Azure 的微软股价猛涨）——这是 B 端降本增效型技术对加息具备韧性的历史先例",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "和99年互联网相比，AI 产业的融资杠杆明显还是要小很多的。投钱的人毕竟只有少数几家最大规模的企业，而且他们也确实是有钱。而融资的人，也是屈指可数的那几家大规模的 AI 大模型公司",
+      "locator": "15:16",
+      "tags": ["ai-capex", "macro-data", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "AI 的融资杠杆比 99 年互联网低得多：投钱方是少数几家真有钱的巨头，融资方是屈指可数的几家大模型公司；99 年则是家家互联网企业玩命烧钱融资——杠杆结构决定了这轮对加息的脆弱度更低",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "00年互联网之所以加了6次息，资本才开始谨慎，是因为互联网这个大趋势它确实很诱人，资本也害怕落下，不会因为加个三两次息就开始撤出",
+      "locator": null,
+      "tags": ["fed-policy", "ai-capex", "psychology"],
+      "payload": {
+        "canonical_statement": "加息不等于资本立即撤出：趋势足够诱人时资本更怕踏空——00 年加了 6 次息资本才开始谨慎；温和加息下资金很难彻底转向 AI 这种几十年一遇的生产力爆发",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "相反，如果加息次数比想象中要更高，那说不定还能增加企业降本增效的紧迫性，从而促进 AI 采纳的发生",
+      "locator": null,
+      "tags": ["fed-policy", "ai-capex", "consumer"],
+      "payload": {
+        "canonical_statement": "加息对 B 端降本增效型技术可能是反向利好：加息次数超预期反而增加企业降本增效的紧迫性，从而加快 AI 采纳",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这里我必须要打个补丁。每一次我一讲风险，总有看官直接联系成看空。我上述提到的这些标的，他们确实会有风险，但并不意味着我看空这些股票",
+      "locator": null,
+      "tags": ["risk-mgmt", "psychology"],
+      "payload": {
+        "canonical_statement": "识别风险不等于看空：风险可能已被充分 price in，加息预期一旦下降对同一批标的反而是利好——分析风险的目的是看懂市场结构，不是赌方向",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "现在美联储加息唯一的目的就是为了抗通胀。而现在的通胀，即便就是不加息，也已经处于了一个稳定的下滑通道当中，未来也注定会是如此。这是数据已经验证的结果。美联储要是真加息，唯一的目的，就是加速这个下跌过程，而不是去抑制过热的经济",
+      "locator": "21:20",
+      "tags": ["fed-policy", "inflation", "macro-data"],
+      "payload": {
+        "canonical_statement": "本轮加息的性质不是抑制过热经济而是加速已在下行的通胀：通胀即便不加息也处在稳定下滑通道，因此不必担心持续多次加息停不下来——美联储用预期管理即可达成目的",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "通胀已在下行通道时"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "而且我认为最终的这个冲击大概率就仅仅会停留在交易层面，而在企业的实际决策层，我认为很难真正发生任何改变。不管是大科技投入数据中心的资本支出力度，还是资本市场的活跃程度，亦或是 AI 终端消费者的采纳力度，我认为都很难因为两到三次加息而真正出现任何变化",
+      "locator": "18:13",
+      "tags": ["fed-policy", "ai-capex", "macro-data"],
+      "payload": {
+        "canonical_statement": "区分交易层面的冲击与决策层面的改变：两到三次加息的影响大概率只停留在交易层面，企业的资本开支力度、资本市场活跃度与 AI 采纳力度都不会真正改变",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "温和加息（两到三次）情形"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "当然，所有这些分析都仍然有一个不确定性，那就是新任美联储主席沃尔什。这大哥刚上台，我们暂时也还不清楚他是什么路子。我们不知道他是会跟着经济数据一步一步来，还是会摆出一副加个五六次息我也在所不惜的态度来出来立威",
+      "locator": "21:20",
+      "tags": ["fed-policy", "macro-data", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "新任美联储主席沃尔什是全部推演之外的最大不确定性：不清楚他会跟数据走还是加五六次息立威——但这属短期不确定性，长期美联储仍要跟经济规律走，短期宜多保留一份谨慎",
+        "category": "regime",
+        "stance": "assert",
+        "regime_qualifier": "新任主席上任初期"
+      }
+    }
+  ]
+}

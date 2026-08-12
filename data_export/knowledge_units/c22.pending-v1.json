@@ -1,0 +1,367 @@
+{
+  "content_id": 22,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "那英伟达的走势的话呢，我们关注一下这个190左右的得失。如果今天呢价格能够守住190这个位置，它的牛市结构还是保持完好的",
+      "locator": "09:42",
+      "tags": ["nvda", "price-action", "fibonacci"],
+      "payload": {
+        "asset_text": "英伟达（守住 190 则牛市结构完好）",
+        "asset_symbol": "NVDA",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 190},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-06", "2026-08-29", "2026-10-28"],
+          "success_def": "至阶梯日 NVDA 日收盘持续不破 190（'守住 190 牛市结构保持完好'）= hit；盘中破但收盘收回 = partial；日收盘破 190 = miss（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们觉得整个指数啊MAGS ETF的这个走势呢，应该不会太糟糕，应该会走出一个震荡的行情。我们要关注一下大概这个62左右箱体下沿的一个支撑",
+      "locator": "15:35",
+      "tags": ["mags", "mag7", "price-action"],
+      "payload": {
+        "asset_text": "七巨头 ETF MAGS（震荡行情，62 为箱体下沿支撑）",
+        "asset_symbol": "MAGS",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {"low": 62},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-06", "2026-08-29", "2026-10-28"],
+          "success_def": "至阶梯日 MAGS 日收盘持续不破 62（箱体下沿）= hit；盘中破但收盘收回 = partial；日收盘破 62 = miss。跌破 65 被作者判为'放大的波动'而非转熊，不入本条（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "大概呢今天可能收不回来，那我们可能会看到市场呢，在日线级别Vegas隧道和上方日线级别的小隧道之间做一个多空协商，这个协商的走势啊，就是在不断的重复",
+      "locator": "13:59",
+      "tags": ["ndx", "ema-tunnel", "price-action"],
+      "payload": {
+        "asset_text": "纳指100（跌破 28000–28700 五浪支撑区后，在日线大小隧道之间多空协商）",
+        "asset_symbol": "NDX",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那这个指数的话呢，在461左右就有支撑了，只不过呢在这个位置上呢，价格呢我不好确定它是不是461就直跌，还是会往下再去走一走，445 440左右，也就是到Vegas隧道的下轨",
+      "locator": "03:59",
+      "tags": ["soxx", "semiconductor-cycle", "ema-tunnel", "fibonacci"],
+      "payload": {
+        "asset_text": "费城半导体 ETF SOXX（461 有支撑，深看 440–445 Vegas 隧道下轨）",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 440},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-06", "2026-08-29", "2026-10-28"],
+          "success_def": "至阶梯日 SOXX 日收盘持续不破 440（他明说的最深一档 Vegas 隧道下轨；461 是第一道支撑但他自陈不确定是否直接止跌，故取 440 为判界）= hit；盘中破但收盘收回 = partial；日收盘破 440 = miss（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "就以韩指为例啊，你看它今天的收盘是这个5584左右，如果价格再往下打到这个5160点左右，到什么，其实到这个2026年的3月31号，它这一波疯狂牛市的起涨点啊，今年的起涨点，这都是完全说得过去的",
+      "locator": "18:24",
+      "ref_price": 5584.0,
+      "tags": ["kospi", "ema-tunnel", "price-action"],
+      "payload": {
+        "asset_text": "韩国综指（确认两日 Vegas 隧道 5300–5400，再下探 5160 起涨点也说得过去）",
+        "asset_symbol": "KOSPI",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 5160},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-06", "2026-08-29", "2026-10-28"],
+          "success_def": "至阶梯日 KOSPI 日收盘持续不破 5160（2026-03-31 起涨点，作者认为跌到这里'完全说得过去'的下限）= hit；盘中破但收盘收回 = partial；日收盘破 5160 = miss（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么我们现在能在技术上看到的就是这个股金比会继续的向下修正",
+      "locator": "07:11",
+      "tags": ["xauusd", "spx", "rotation"],
+      "payload": {
+        "asset_text": "黄金相对标普500（股金比 SPX/XAUUSD 继续向下修正＝黄金相对转强）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "relative",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "relative_return",
+          "benchmark": "SPX",
+          "eval_ladder": ["2026-08-06", "2026-08-29", "2026-10-28"],
+          "success_def": "至阶梯日 XAUUSD 自发布日收益率 ≥ SPX 同期收益率 = hit（'股金比继续向下修正'等价于黄金相对标普转强；作者明说修复不一定靠黄金上涨，也可以是股市跌得更多）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么但是如果我们从较大级别的结构和刚刚我们看到的股金比的走势上来说呢，啊这里边在4000点左右的這個支撑还是值得期待",
+      "locator": "22:16",
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金（4000 左右的大级别结构支撑值得期待）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 4000},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-06", "2026-08-29", "2026-10-28"],
+          "success_def": "至阶梯日 XAUUSD 日收盘持续不破 4000 = hit；盘中破但收盘收回 = partial；日收盘破 4000 = miss（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "目前如果去关注周隧道吧，大概就是周隧道，可以看这个230到233这个区域，包括昨天的这个收盘价235 236，我认为呢也是有支撑的，关注一下这个收敛三角能不能成立啊。其实现在基本上低点在抬高，高点在降低，是一个典型的收敛三角，如果向上突破就还有空间",
+      "locator": "20:19",
+      "tags": ["ita", "price-action", "rotation"],
+      "payload": {
+        "asset_text": "国防军工航天 ETF ITA（230–233 周隧道支撑，收敛三角向上突破则有空间）",
+        "asset_symbol": "ITA",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"low": 230},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-06", "2026-08-29", "2026-10-28"],
+          "success_def": "至阶梯日 ITA 日收盘持续不破 230（周隧道区间下沿）= hit；盘中破但收盘收回 = partial；日收盘破 230 = miss。'收敛三角能否向上突破'不可机械判定，不入本条（无期限词→我方 +7/+30/+90 阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以这些串起来看的话呢，我不好去得出什么结论，但是呢我确实嗅到了一线一些黑天鹅或者是更大级别的变量出现的风险",
+      "locator": null,
+      "tags": ["macro-data", "risk-mgmt"],
+      "payload": {
+        "asset_text": "全球市场（地缘串联后嗅到黑天鹅或更大级别变量的风险）",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "risk_warning",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "因为这里呢从技术上来说呢，它的这个趋势结构动量这三个条件，目前只具备了一个，就是结构，它是一个很好的复合结构支撑位。而这个结构支撑位呢，又级别比较大，所以它的择时成本有一点高",
+      "locator": "03:59",
+      "tags": ["price-action", "risk-mgmt", "position-sizing"],
+      "payload": {
+        "name": "趋势/结构/动量三条件评估进场质量",
+        "summary": "进场前分别核对趋势、结构、动量三个条件是否具备：只具备结构（哪怕是复合结构支撑位）时择时成本高，尤其在空头快速下杀行情里资金不会很快回来，此时应降低投入仓位甚至继续观察",
+        "family": "trend",
+        "rules": [
+          "把技术条件拆成趋势、结构、动量三项分别核对",
+          "只具备结构一项时，即使是复合结构支撑位也不满仓进",
+          "结构位级别越大，择时成本越高（等待时间越长）",
+          "配合看行情性质：空头快速下杀时资金回流慢",
+          "三条件缺失越多，仓位越轻，必要时只观察不进"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["日线 K 线", "EMA 隧道", "动量指标（需另行定义）"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "我认为不是一个回调多低的机会，而是他之前压根就没拉股指，同时呢，他在最近的回调当中呢，又没有怎么跌，一直保持一个良好的速度，我反倒觉得这一类的赛道可能更适合去做分散和防御",
+      "locator": "20:19",
+      "tags": ["rotation", "position-sizing", "risk-mgmt", "market-breadth"],
+      "payload": {
+        "name": "分散标的的筛选口径：前期没跟涨 + 回调中不跌",
+        "summary": "找防御与分散品种不是找跌得最多的，而是筛选'前期压根没跟着指数拉升、且在最近这轮回调中又没怎么跌'的赛道或个股——这类标的的稳健度用等权重标普（RSP）作参照系判断",
+        "family": "positioning",
+        "rules": [
+          "排除标准：跌幅大不等于机会，不以回调深度选标的",
+          "筛选条件一：前期没有跟随指数拉升（涨幅显著落后）",
+          "筛选条件二：最近一轮回调中跌幅很小、走势保持良好速度",
+          "参照系：以等权重标普 RSP 的稳健走势作为比较基准",
+          "优先看护城河深、业绩好、流通性好的个股与风格 ETF"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["候选标的日线", "RSP 日线", "指数日线"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "你看rsp的走势是不是非常的牛，它根本连日隧道都没有跌破，日线级别的八和十三ema隧道都没有跌破。昨天象征性的回调了一点，今天又高开了一点，站稳了125，还在往上走。风平浪静。相比于现在的什么AI硬件啊、内存啊、半导体啊，包括现在分化的厉害的大科技啊，你看rsp的走势非常的整齐。那说明什么？其实现在美股的业绩在扩散",
+      "locator": "02:20",
+      "tags": ["rsp", "market-breadth", "rotation"],
+      "payload": {
+        "canonical_statement": "等权重标普（RSP）连日线 8/13 隧道都不破、走势整齐，说明美股业绩在扩散、资金不是全面离场——巨头与中大型公司的业绩差在拉平，只是后者盈利贡献占比低所以不显眼",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "从目前的这个两个图的对照上来看，你有没有发现，股金比它的走势呢，实际上是在走一个空头的走势，从什么时候？从24年的10月份就开始啊，这波是低点的不断啊，sorry，高点的不断下移，低点也在不断下移，大家看到我标注的这五个点啊，高点三个在下移，最近的这个确认了，低点也在下移，这是一个震荡空头结构",
+      "locator": "07:11",
+      "tags": ["spx", "xauusd", "rotation", "price-action"],
+      "payload": {
+        "canonical_statement": "以黄金计价的标普（SPX/XAUUSD）自 2024 年 10 月起是高点低点双双下移的震荡空头结构，与美元计价标普的波浪式牛市完全相反——这与'最近黄金很弱'的直觉相反，说明股金比仍有修复余地",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "把黄金作为基础货币去看美元啊，去看这个标普可不可以啊？完全可以，因为黄金就是货币。从古至今所有的历朝历代和各个国家地区也都会把黄金作为货币，这个毋庸置疑，它是天然的货币对不对？",
+      "locator": "07:11",
+      "tags": ["xauusd", "macro-data"],
+      "payload": {
+        "canonical_statement": "黄金是天然货币，因此用黄金而非美元作基础货币去计价资产是正当的观察方式——同一条标普走势换计价单位后可以得出完全相反的结构判断",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那么但所有资产呢都在走一个逻辑，这个逻辑就是它都是和原油和美元是相反的，所以你可能会出现同涨同跌的局面，因此在实际配置仓位的时候呢，还要保持克制",
+      "locator": null,
+      "tags": ["risk-mgmt", "position-sizing", "rotation"],
+      "payload": {
+        "canonical_statement": "当所有资产都在走同一个逻辑（都与原油和美元反向）时，它们会同涨同跌——此时'多个好位置的标的'并不构成分散，配置仍需克制",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": "资产相关性因单一宏观逻辑而升高时"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "如果单纯从现在美联储的政策的这个路径上来看呢，我认为没有太多的风险，但风险来自于更高的维度，更底层的东西",
+      "locator": null,
+      "tags": ["fed-policy", "macro-data", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "当前的主要风险不在美联储政策路径（那条线本身没太多风险），而在更高维度更底层的地缘：中东战争已扩大、俄乌与美伊背后是同两个阵营、矛盾不可调和——政经局势在深刻影响金融市场，金融市场本身已是斗争的一部分",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "地缘冲突扩散期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "注意我不觉得是一个结构出清，我觉得有可能会是一个小周期。所以你不要觉得今年就马上下半年AI还会炒回来，因为它需要更多的催化和整个这个闭环的一个验证",
+      "locator": null,
+      "tags": ["ai-capex", "semiconductor-cycle", "rotation"],
+      "payload": {
+        "canonical_statement": "本轮 AI 相关资产的剧烈回调是周期性出清而非结构性出清，但周期出清也不意味着下半年会马上炒回来——回来需要更多催化与 ROI 闭环的验证",
+        "category": "regime",
+        "stance": "assert",
+        "regime_qualifier": "AI 主题切换与 ROI 闭环待验证期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "它越是这种一个节奏下，时间越久，尤其是到三个月往上了，它的临近变盘的节点就越快到来。那一旦到来，市场就完全不再遵循之前的技术规则了",
+      "locator": "22:16",
+      "tags": ["price-action", "psychology", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "同一种受压节奏持续越久（尤其超过三个月），临近变盘的时点就越快到来；而变盘一旦发生，市场就不再遵循此前的技术规则——所以久盘之后要同时准备好规则失效",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "单向受压持续三个月以上"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以我们应该通过仓位的调整，择时择价，正确的止盈止损，还有呢，投资组合的rebalance去平衡，去再平衡，然后呢去穿越这样的一周期。这里边不可能什么都是对的，但是呢我们要学会去把握风险，然后同时要保证一定程度上的在场，这个在场呢就是你不要完全空仓",
+      "locator": null,
+      "tags": ["risk-mgmt", "position-sizing"],
+      "payload": {
+        "canonical_statement": "穿越高不确定周期靠的是仓位调整、择时择价、正确止盈止损与组合再平衡这一整套，而不是押对某一次判断——前提是承认不可能什么都对，同时保证一定程度的在场（不完全空仓）",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": "高波动高不确定期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "第二个的话呢，我不会怎么样？我不会去非常集中的在某一个大资产，一个大行业，一个大赛道上去过度的分配筹码啊，无论是内存，无论是半导体，不管你业绩怎么好，我认为呢我们都应该保持克制，你要学会站在更高的维度上去看资产的这个潮汐的变化",
+      "locator": null,
+      "tags": ["risk-mgmt", "position-sizing", "ai-capex"],
+      "payload": {
+        "canonical_statement": "不因'基本面很好、位置又低'就不停补仓，也不在单一大资产/大行业/大赛道上过度集中筹码——业绩再好也要克制，判断要站在资产潮汐变化的维度而非单一赛道的基本面",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    }
+  ]
+}

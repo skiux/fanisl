@@ -76,6 +76,26 @@ def test_store_roundtrip_and_replay(kstore):
     assert rows[0]["raw_len"] > 0 and "raw" not in rows[0]
 
 
+def test_verification_views_keep_due_and_scored_records_distinct(kstore):
+    creator = kstore.ensure_creator("验证信源")
+    content_id, _ = kstore.upsert_content(
+        creator, platform="manual", url="https://example.test/verification", content_type="article",
+        title="验证样本", published_at=datetime(2026, 7, 1, tzinfo=timezone.utc), raw="原油判断")
+    ids = kstore.record_extraction(content_id, extractor_version="v1", model="m", units=[
+        KnowledgeUnit(kind="claim", quote="原油触及 75", payload=_claim(
+            scoring_spec={"method": "target_touch", "eval_ladder": ["2026-07-18"], "success_def": "高点达到 75"},
+        )),
+    ], ref_prices={0: 70.0})
+    kstore.record_score(ids[0], eval_ts=datetime(2026, 7, 18, tzinfo=timezone.utc),
+                        horizon_label="2026-07-18", outcome="hit",
+                        realized={"ref": 70, "eval_close": 76, "high": 76}, scorer_version="v1")
+    queue = kstore.verification_queue(days=365)
+    assert queue["recent"][0]["outcome"] == "hit"
+    detail = kstore.verification_detail(queue["recent"][0]["score_id"])
+    assert detail and detail["quote"] == "原油触及 75"
+    assert detail["payload"]["scoring_spec"]["method"] == "target_touch"
+
+
 # --- K3：单元导入（PendingBackend 入库端）------------------------------------
 
 def test_import_units_parse_and_quote_check():
@@ -284,6 +304,8 @@ def test_discovery_layer(kstore, pool, tmp_path, monkeypatch):
     monkeypatch.setattr(discovery, "REPORT_DIR", tmp_path)
     rep = discovery.weekly_report(pool, days=30)
     assert "知识引擎周报" in rep["markdown"] and "节点状态" in rep["markdown"]
+    assert rep["summary"]["spot_check"]["total"] >= 3
+    assert isinstance(rep["summary"]["due_next"], list)
     assert (tmp_path / pathlib.Path(rep["path"]).name).exists()
 
     # 抽查：sample 不重复已查、record 后计入 stats

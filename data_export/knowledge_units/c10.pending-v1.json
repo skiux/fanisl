@@ -1,0 +1,252 @@
+{
+  "content_id": 10,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "这里呢如果市场还是继续往下走，真正的把这个位置再破掉，那我们可能就要做好它去摸到4000点左右的准备了",
+      "locator": "00:00",
+      "ref_price": 4461.125,
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"target": 4000},
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": "黄金日收盘跌破4420（大周期结构线+日隧道失守）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-25"],
+          "success_def": "若出现XAUUSD日收盘<4420，其后至2026-08-25任一日最低价≤4000=hit；未破位=condition_not_met（窗口系我方90天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我个人呢在这两种情况里面呢，我认为呢，撑住的这个概率呢相对要大于没撑住的概率，但是撑住的概率也不是特别高",
+      "locator": "00:00",
+      "ref_price": 4461.125,
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金（4420支撑）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 4420},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-06-03", "2026-06-26", "2026-08-25"],
+          "success_def": "阶梯日时点自发布起XAUUSD日收盘始终≥4420=hit（撑住）；盘中破4420当日收回=partial；收盘<4420=miss（无期限词→我方+7/+30/+90阶梯；本人仅给'撑住概率略大'的弱倾向）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "现在的B的走势的话呢，我觉得整体来说呢还是一个偏空头的一个趋势",
+      "locator": "00:06",
+      "ref_price": 74744,
+      "tags": ["btc", "price-action"],
+      "payload": {
+        "asset_text": "比特币", "asset_symbol": "BTCUSDT", "priceable": true,
+        "claim_class": "directional", "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-06-03", "2026-06-26", "2026-08-25"],
+          "success_def": "阶梯日BTCUSDT收盘低于发布参考价74744=hit（偏空头趋势；无期限词→我方+7/+30/+90阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "油的走势的话呢，我觉得还是一个震荡，就是它不太会有特别强的单边，向上或向下走得太远都不太现实",
+      "locator": "00:07",
+      "ref_price": 91.24,
+      "tags": ["wti", "oil-supply"],
+      "payload": {
+        "asset_text": "WTI原油（不深破90）", "asset_symbol": "WTI", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 90},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-06-03", "2026-06-26", "2026-08-25"],
+          "success_def": "阶梯日时点自发布起WTI日收盘始终≥90=hit（'跌破90继续往下概率不高'）；盘中破90收回=partial；收盘<90=miss（无期限词→我方阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果日线级别阴包阳跌破，阴包阳如果把昨天的跌破形成一个放量向下地去补缺口的走势的话呢，也就意味着29800合并三万点是一个大级别的压力。这里如果出现压力呢，市场可能会去再去考验日隧道大概呢是29300点左右",
+      "locator": "00:08",
+      "ref_price": 29581.15,
+      "tags": ["ndx", "price-action"],
+      "payload": {
+        "asset_text": "纳指100", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"target": 29300},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": "日线阴包阳跌破29800（放量补缺口）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-06-03"],
+          "success_def": "若出现NDX日收盘<29800，其后至2026-06-03任一日最低价≤29300=hit；未破位=condition_not_met（'今天要守'语境→我方7天窗口）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "对于半导体指数我们觉得，这个564左右是很重要的日内支撑，如果丢掉的话，要下看到这个528左右。这里站稳，向上动量市场延伸到617等等",
+      "locator": "00:09",
+      "ref_price": 533.56,
+      "tags": ["soxx", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "半导体指数（SOXX，已丢564）", "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"target": 528},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-06-03"],
+          "success_def": "至2026-06-03任一日SOXX最低价≤528=hit（564发布时已丢，向下看日隧道528；短期语境→我方7天窗口）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "美光的话过掉了76和82。它上方的结构目标呢，应该和很多机构给上调的1100多，大概在这个位置。那注意这是一个远期目标位，它不一定你说完之后马上就到，我们要看动量市场会不会延伸",
+      "locator": "00:10",
+      "ref_price": 891.90,
+      "tags": ["mu", "memory-storage", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "美光", "asset_symbol": "MU", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 1100},
+        "horizon": {"type": "within_duration", "duration_days": 365},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2027-05-27"],
+          "success_def": "至2027-05-27任一日MU最高价≥1100=hit（'远期结构目标'→我方365天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "尤其是十年债的大概是4.45%左右呢，其实是很好的趋势支撑。如果你看图交易的话，这个位置反倒是美债收益率十年期的一个多头的支撑位。这个位置是很容易反弹，或者是它挺住不下跌的",
+      "locator": "04:44",
+      "ref_price": 4.461,
+      "tags": ["us10y", "macro-data", "price-action"],
+      "payload": {
+        "asset_text": "美债10年期收益率", "asset_symbol": "US10Y", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 4.45},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-06-26"],
+          "success_def": "至2026-06-26 US10Y日收盘始终≥4.45%=hit（趋势支撑成立，对股市传导压力）；盘中破收回=partial；收盘<4.45%=miss（短期语境→我方30天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我觉得当前市场的风险是大于机会的。机会就是集中在非常少的这些抱团的赛道里边",
+      "locator": null,
+      "tags": ["spx", "market-breadth", "risk-mgmt"],
+      "payload": {
+        "asset_text": "美股整体", "asset_symbol": "SPX", "priceable": true,
+        "claim_class": "risk_warning", "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "因为它涨得很快，涨得很快不代表它不会去和两小时隧道协商。我们一直会看到它去在两小时级别上去做这种协商，有很多啊。每次呢可能会有点噪声，会有点暂时的跌破，但是再拉回的时候带量的话其实都可以",
+      "locator": null,
+      "tags": ["mu", "ema-tunnel", "price-action"],
+      "payload": {
+        "name": "急涨股的两小时隧道协商买点",
+        "summary": "涨速快的强势股回踩两小时级别隧道视为'协商'而非转弱，暂时跌破后带量拉回构成右侧买点",
+        "family": "trend",
+        "rules": [
+          "急涨标的回踩两小时级别EMA隧道视为协商行为，不轻判趋势转弱",
+          "暂时跌破隧道后带量拉回=右侧买点，持续给出",
+          "配合大盘/板块关键位（如纳指29800、SOXX 564）判断能否继续走强"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["个股2小时K线", "成交量"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "其实黄金呢就是备份的美债。而如果黄金价格在这一轮被打压得过低的话呢，其实其它的各个国家呢也会趁机地会继续大量地囤金",
+      "locator": null,
+      "tags": ["xauusd", "fed-policy", "macro-data"],
+      "payload": {
+        "canonical_statement": "黄金是美债的备份资产：金价被打压过低会引来各国央行趁低囤金，长期反噬美元/美债体系——深跌区的买盘强度是关键观察点",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "利率路径上移、金价承压期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "要么你就把仓位怎么样去降一降，让自己比较舒服的能睡着觉，等到市场的右侧确认出来。注意这个右侧一定比当前价格要高，到时候别后悔对不对",
+      "locator": null,
+      "tags": ["risk-mgmt", "position-sizing"],
+      "payload": {
+        "canonical_statement": "看不清时降仓等右侧确认；右侧确认价必然高于当前价，这是为确定性支付的成本；趋势内动态调仓比割低追高的情绪化操作更理性",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为它是一个流动性指标嘛，当前的流动性也是偏紧的，甚至会继续变紧",
+      "locator": "00:06",
+      "tags": ["btc", "macro-data"],
+      "payload": {
+        "canonical_statement": "BTC可视为市场流动性指标：BTC走弱=流动性偏紧信号，对应谨慎对待高风险资产",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就无论他出什么，我不管，我还是按照我自己的这个图表，按照自己的逻辑去交易就可以了",
+      "locator": null,
+      "tags": ["price-action", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "地缘/谈判消息当噪音处理，按图表与既定逻辑交易；越预判消息越容易被反复打脸",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    }
+  ]
+}

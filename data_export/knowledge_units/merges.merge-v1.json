@@ -1,0 +1,120 @@
+{
+  "merger_version": "merge-v1",
+  "nodes": [
+    {
+      "kind": "concept",
+      "title": "消息当噪音，按价格行为决策",
+      "canonical": "不以消息面与地缘政治作决策依据，一律当噪音处理，通过价格行为读资金动向——越预判消息越容易被反复打脸",
+      "tags": ["price-action", "risk-mgmt"],
+      "notes": "Andy 跨两期重复（c7 屏蔽美伊噪音语境 / c10 美伊和解协议语境），命题一致：消息面=噪音、价格行为=依据",
+      "units": [
+        {"id": 12, "relation": "restates"},
+        {"id": 54, "relation": "restates", "note": "补充'越预判越被打脸'的操作面"}
+      ]
+    },
+    {
+      "kind": "concept",
+      "title": "K型经济：消费由高收入主导",
+      "canonical": "美国当前为K型经济：消费由高收入人群主导（高工资增速+股市财富效应），整体消费韧性强于直觉；油价冲击是其压力测试",
+      "tags": ["consumer", "macro-data", "ai-capex"],
+      "notes": "跨源印证：美投君（c2，数据论证）+ Andy 转述机构共识（c8，并扩展到美中都是K型、AI引领牛市）",
+      "units": [
+        {"id": 24, "relation": "restates"},
+        {"id": 96, "relation": "restates", "note": "Andy 转述机构共识，跨源独立提及；扩展'美中都是'"}
+      ]
+    },
+    {
+      "kind": "concept",
+      "title": "高位分批止盈并切换风格",
+      "canonical": "高位用保护性对冲或分批止盈锁定拥挤板块利润，再切换风格/分散到慢周期赛道——本轮吃到半导体行情者的成熟做法",
+      "tags": ["rotation", "risk-mgmt", "position-sizing"],
+      "notes": "同一实践的两面（退出节奏+再配置方向），语境高度重叠（都指AI/半导体拥挤筹码），按 merge-guide §1.4 裁量合并",
+      "units": [
+        {"id": 40, "relation": "restates"},
+        {"id": 14, "relation": "restates", "note": "具体化为'分散至道指/周期/防御赛道'"}
+      ]
+    },
+    {
+      "kind": "concept",
+      "title": "预期打满板块：容错极低与踩踏循环",
+      "canonical": "预期交易过满的板块容错极低：小利空（'没那么好'的业绩）→踩踏离场→低位资金承接拖起→追高动能不足→宽幅震荡（三星财报案例）",
+      "tags": ["market-breadth", "memory-storage", "psychology"],
+      "notes": "同一现象同一案例（三星财报）：c3 述容错机制，c1 细化为完整循环结构，canonical 取细化版",
+      "units": [
+        {"id": 166, "relation": "restates"},
+        {"id": 182, "relation": "refines", "note": "补全'踩踏→承接→拖起→动能不足'的循环链条"}
+      ]
+    },
+    {
+      "kind": "concept",
+      "title": "AI时代软件收费：席位→按量→按结果",
+      "canonical": "企业从无脑冲AI转向严格核算ROI（'输出outcome而非output'）：席位制两硬伤（裁员减席位+token成本自担）使按量收费兴起，但按量只是中间形态、终局=按结果收费（HubSpot被迫转型、甲骨文定价与价值对齐、Palantir为标杆）",
+      "tags": ["software", "ai-capex"],
+      "notes": "观点演进链：2026-05-31'按量收费是唯一出路'→2026-06-21'按量只是中间形态，按结果是终局'。canonical 取最新表述并保留两硬伤机制（未被推翻）",
+      "units": [
+        {"id": 203, "relation": "restates", "note": "首次表述：席位两硬伤+按量=唯一出路"},
+        {"id": 236, "relation": "supersedes", "note": "修正结论：按量=中间形态，终局按结果收费"}
+      ]
+    },
+    {
+      "kind": "concept",
+      "title": "不择时：以风险管理替代进出场",
+      "canonical": "不做择时（无法精准预判时点）：短期做好风险应对、不被波动赶下牌桌，择机买入优质公司等待风险释放——留在市场上才等得到后面的机会",
+      "tags": ["risk-mgmt", "psychology"],
+      "notes": "美投君跨两期重复：c2 立原则（不择时+择机买入），c16 风险期重申（不下牌桌）；c15 的'正股择时三麻烦'命题不同（工具选择）未并入",
+      "units": [
+        {"id": 28, "relation": "restates"},
+        {"id": 222, "relation": "restates", "note": "加息风险期语境重申"}
+      ]
+    },
+    {
+      "kind": "method",
+      "title": "黄金叙事切换日的识别",
+      "canonical": "等待黄金逆实际利率/流动性逻辑独立走强的信号日：消息面（滞胀/衰退/危机叙事）与价格共振、或金跌幅明显小于股市甚至股跌金涨（资金流入）——该日之前保持耐心，之后才是中长期进攻号角",
+      "tags": ["xauusd", "macro-data", "rotation", "price-action"],
+      "notes": "同名方法两期重复：c6 版本以消息面共振为信号，c5 版本以金股相对强弱为信号——同一识别目标的两个观察变体，rules 并集",
+      "units": [
+        {"id": 108, "relation": "restates"},
+        {"id": 129, "relation": "restates", "note": "变体：以'金跌得比股市小/股跌金涨'为信号面"}
+      ]
+    },
+    {
+      "kind": "method",
+      "title": "长债收益率两小时反转信号",
+      "canonical": "30年期收益率冲击关键位（5%+）时观察两小时级别的反转形态——高位十字星+向下反包、或强度明显超过前阳线的大阴线=干预/反转确认，对应风险资产的短多买点；确认前不逆势抄底、让过最低点",
+      "tags": ["us30y", "ndx", "macro-data", "price-action"],
+      "notes": "同一方法两个形态变体（c12：十字星+反包；c11：大阴线强过前阳线并给出5/18、5/20、5/21三次实例），rules 并集",
+      "units": [
+        {"id": 37, "relation": "restates"},
+        {"id": 67, "relation": "restates", "note": "变体表述+三次信号日实例"}
+      ]
+    },
+    {
+      "kind": "claim",
+      "title": "标普500 2026年底 8200 点",
+      "canonical": "标普500 2026年底目标 8200 点（target_close ±2%）——美投君三个月前定下，2026-06-08 与 2026-07-05 两次公开重申不变",
+      "tags": ["spx"],
+      "notes": "claim 字面重申（同标的+同目标+同期限口径），符合 merge-guide §0 的 claim 归并唯一情形",
+      "units": [
+        {"id": 212, "relation": "restates", "note": "6/8 加息风险语境下重申"},
+        {"id": 15, "relation": "restates", "note": "7/5 下半年展望中再确认'没有任何变化'"}
+      ]
+    },
+    {
+      "kind": "concept",
+      "title": "半导体=数字地租（周期已破）",
+      "canonical": "半导体已由消费电子驱动的周期行业转为'数字地租'（数字文明的物理底座）：需求侧突变（scaling law+数据中心军备，算力需求60-100%复合增长）vs 供给侧物理上限（扩产率20-30%），剪刀差长期化",
+      "tags": ["semiconductor-cycle", "ai-capex"],
+      "notes": "与节点'芯片板块的周期性涨法'（美投君）构成跨源对立命题（周期已破 vs 周期涨法仍在），不归并，冲突关系留 K6 冲突图",
+      "units": [{"id": 68, "relation": "restates"}]
+    },
+    {
+      "kind": "concept",
+      "title": "芯片板块的周期性涨法",
+      "canonical": "芯片板块历史上是典型周期行业：复苏确认后一个季度翻倍很常见（供需改善的经典表现）；股价节奏=涨一轮→盘整消化估值→再涨一轮，台阶式推进",
+      "tags": ["semiconductor-cycle", "market-breadth"],
+      "notes": "与节点'半导体=数字地租（周期已破）'（Andy）构成跨源对立命题，不归并，冲突关系留 K6 冲突图",
+      "units": [{"id": 193, "relation": "restates"}]
+    }
+  ]
+}

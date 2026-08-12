@@ -1,0 +1,112 @@
+{
+  "content_id": 15,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "而且我认为公司短期内缺乏催化剂，大部分技术进展都要等到下半年才能出现，所以现阶段可能也缺乏上涨动能",
+      "locator": null,
+      "ref_price": 400,
+      "tags": ["tsla", "risk-mgmt"],
+      "payload": {
+        "asset_text": "特斯拉（短期缺乏上涨动能）", "asset_symbol": "TSLA", "priceable": true,
+        "claim_class": "directional", "direction": "flat",
+        "magnitude": {"high": 450},
+        "horizon": {"type": "by_date", "deadline": "2026-07-17"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-17"],
+          "success_def": "至2026-07-17（其海鸥期权到期日）TSLA日收盘始终≤450=hit（'缺乏上涨动能'以其自设的sell call行权价450为上界；他同时定了涨超450即平仓认错的纪律）；收盘>450=miss"
+        }
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "方法并不复杂。首先是在股价的上方卖出一个Call，然后呢，在股价的下方再卖出一个比第一张Put更低行权价的Put。这两条卖期权的腿赚来的期权费，就可以弥补你买Put花出去的这部分钱。如果调整得好，你甚至可以做到零成本",
+      "locator": null,
+      "tags": ["risk-mgmt", "position-sizing"],
+      "payload": {
+        "name": "海鸥三腿期权对冲（long put + short call + short put）",
+        "summary": "持有正股（或以QQQ对冲整体持仓）时，买ATM put＋上方卖call＋下方卖put构成低成本对冲：牺牲上方超额收益与下方极端保护换取近零成本的区间保护",
+        "family": "other",
+        "rules": [
+          "前提：持有100股正股，或以QQQ海鸥对冲整体持仓——定位是对冲保险，不是做空赚钱",
+          "构造：买ATM long put＋上方short call＋下方更低行权价short put，两条短腿权利金覆盖long put成本（可近零成本，例：NVDA 200/220call/180put）",
+          "本质：牺牲上方超过call行权价的收益+下方跌穿short put后的保护，换低成本",
+          "到期时间≤1个月：太长则对冲效果要临近到期才释放，不确定性高",
+          "行权价：long put取ATM（从当前价开始保护）；short put按想保护的跌幅（如-10%）定；short call按判断的最大上涨幅度定；不必强凑零成本，花小钱买安心可取",
+          "涨超call行权价：整体平仓（通常意味着风险已消散）或整体重开新策略，勿单腿rollover（到期日错开难控风险）",
+          "跌穿short put：持有到期拿最大收益，保护不够再加一层对冲",
+          "局限：超出下腿的极端下跌无保护；对冲成功的标准是持仓安心穿越风险期，不是对冲腿盈利"
+        ],
+        "claimed_performance": {"note": "自述2026-03 QQQ海鸥（600/620/580）到期赚3640美元弥补下跌；2026-06案例（710/750/680）成本300未触发但达到安心持有目的（记录不采信）"},
+        "data_requirements": ["期权链（行权价/权利金/到期日）"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "短期由于SpaceX上市所带来的虹吸效应，以及宏观层面上的压力，我计划对特斯拉做一笔短期的海鸥对冲交易",
+      "locator": null,
+      "tags": ["tsla", "spcx", "market-breadth"],
+      "payload": {
+        "canonical_statement": "SpaceX上市对特斯拉构成资金虹吸效应（同属马斯克系、资金分流），叠加宏观压力构成短期压制——大型IPO对关联标的的流动性抽取效应",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "SpaceX上市初期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "对冲就像是你买保险，你得有对冲的标的。比如房屋保险你得有房子，汽车保险你得有车。你买保险的目的不是为了出事故赚钱，而是为了保证资产安全，能够长期安心的持有",
+      "locator": null,
+      "tags": ["risk-mgmt", "psychology"],
+      "payload": {
+        "canonical_statement": "对冲与做空的本质区别：对冲=有标的的保险（目的是长期安心持有），做空=择时赌跌获利——操作逻辑完全不同，新手常混淆两者",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "你琢磨，你要是卖正股，卖早了可能踏空，卖晚了又可能承担不必要的损失。即便说你就是精准的押中了高点卖掉了，更难办的是你什么时候给它买回来呢？你还能再次精准的押中低点吗？更别提说经常买卖还容易触发税务的问题",
+      "locator": null,
+      "tags": ["risk-mgmt", "position-sizing"],
+      "payload": {
+        "canonical_statement": "用卖正股避险的三重麻烦：卖早踏空、卖晚吃亏、买回点更难择时，外加税务摩擦——期权对冲优于正股择时避险",
+        "category": "execution",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "长期交易的看官都知道，你再厉害也不可能每次判断都准。重要的是即便你判断错了，也不会伤你的筋骨，也能够避免不可挽回的损失",
+      "locator": null,
+      "tags": ["psychology", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "高手的标准是容错而非胜率：判断错也不伤筋骨、避免不可挽回的损失（'第一重要的是不要亏钱'）——安心赚钱才是王道，高容错策略间接减少情绪化错误",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我们一开始就说过，我们做海鸥是为了做对冲，而不是为了做空股票赚钱。这里我就是为了对冲保护我整体的持仓，整体持仓没跌我自然应该高兴才对",
+      "locator": null,
+      "tags": ["risk-mgmt", "psychology"],
+      "payload": {
+        "canonical_statement": "对冲交易的成败标准不是对冲腿是否赚钱，而是核心持仓是否安心穿越风险期——保费花掉而风险未兑现是理想结果而非失败",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    }
+  ]
+}

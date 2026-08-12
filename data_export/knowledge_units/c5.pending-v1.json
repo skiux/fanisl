@@ -1,0 +1,392 @@
+{
+  "content_id": 5,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "那悲观一点，可能会碰一碰102，但是呢，它不会上的太远",
+      "locator": "00:00",
+      "ref_price": 101.47,
+      "tags": ["dxy", "macro-data"],
+      "payload": {
+        "asset_text": "美元指数（加速区上限）", "asset_symbol": "DXY", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"high": 102},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-24"],
+          "success_def": "至2026-07-24 DXY日收盘始终≤103.4（'不会上太远'以屏上加速区上沿103.4为判界，系我方约定）=hit；收盘>103.4=miss"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们对于现在的整个标普啊，还有纳指的看法呢，就是认为市场在30400点、600点，还有这个标普的这个7400到7640左右这个区域呢，有很多的压力的筹码。价格上去也不容易完成突破",
+      "locator": "08:30",
+      "ref_price": 7347.60,
+      "tags": ["spx", "ndx", "price-action"],
+      "payload": {
+        "asset_text": "标普500（7400-7640压力区）", "asset_symbol": "SPX", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"high": 7640},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-15"],
+          "success_def": "至2026-07-15 SPX日收盘始终≤7640=hit（压力筹码区内纠结、不易突破）；盘中破收回=partial；收盘>7640=miss（'接下来的几周'→我方21天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我比较保守的看法是要回到三日隧道，甚至是回到以半导体指数费城半导体SOXX为例，可能也有回到526、525的可能性",
+      "locator": "04:58",
+      "ref_price": 592.17,
+      "tags": ["soxx", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "半导体指数（SOXX，保守回调目标）", "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"target": 526},
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-23"],
+          "success_def": "至2026-08-23任一日SOXX最低价≤526=hit（保守情形回踩三日隧道/526；'一两个月'语境→我方60天窗口；'可能性'表述→stance=hedged）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那也就是市场呢很有可能会去告别一个趋势，然后回到一个大概一个百分之之二十、三十左右振幅的箱体中来",
+      "locator": "04:58",
+      "ref_price": 592.17,
+      "tags": ["soxx", "semiconductor-cycle", "market-breadth"],
+      "payload": {
+        "asset_text": "半导体板块（趋势转箱体）", "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "directional", "direction": "range",
+        "magnitude": {"pct": 25},
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "对于美光的财报呢，我个人的这个看法呢是偏中性的，甚至是中性偏保守的。我认为这一波市场已经把预期打得太满了。这一轮财报的话呢，beat几乎是一定的，但是beat不代表股价会涨",
+      "locator": "05:48",
+      "tags": ["mu", "memory-storage"],
+      "payload": {
+        "asset_text": "美光（财报反应）", "asset_symbol": "MU", "priceable": true,
+        "claim_class": "event_outcome", "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": "美光财报公布（约2026年6月末/7月初）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-24"],
+          "success_def": "美光财报公布后第5个交易日收盘低于财报前一日收盘=hit（'beat不代表涨、预期打满'；财报日期需查证，评法系我方约定）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "就是我会看到美光在财报之前必然要回归到均线附近。他不应该是在1200这个位置去等",
+      "locator": "05:48",
+      "tags": ["mu", "memory-storage", "price-action"],
+      "payload": {
+        "asset_text": "美光（财报前回落）", "asset_symbol": "MU", "priceable": true,
+        "claim_class": "directional", "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-01"],
+          "success_def": "至2026-07-01 MU出现盘中价较1200回落≥5%=hit（'财报前必回均线附近'的操作化，幅度判界系我方；其做空进场价≈1200）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "围绕着8100到9800的这个区域去布局，我认为在下方的8100左右是可以考虑的",
+      "locator": "09:58",
+      "ref_price": 8361.33,
+      "tags": ["kospi", "memory-storage", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "韩国综合指数（8100强势区下沿）", "asset_symbol": "KOSPI", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 8100, "high": 9800},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-24"],
+          "success_def": "至2026-07-24 KOSPI日收盘始终≥8100=hit（8100-9800强势区成立、下沿可布局）；盘中破收回=partial；收盘<8100=miss"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那这里一旦破掉的话呢，我们就应该向下去防守7000点了",
+      "locator": "09:58",
+      "ref_price": 8361.33,
+      "tags": ["kospi", "risk-mgmt"],
+      "payload": {
+        "asset_text": "韩国综合指数（破8100看7000）", "asset_symbol": "KOSPI", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"target": 7000},
+        "horizon": {"type": "within_duration", "duration_days": 90},
+        "condition_text": "KOSPI日收盘跌破8100（强势区失守）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-09-22"],
+          "success_def": "若出现KOSPI日收盘<8100，其后至2026-09-22任一日最低价≤7000=hit；未破8100=condition_not_met（窗口系我方90天）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我觉得道指的话呢，在5万点之上反而是非常安全的。它可能没有空间，但是在波动当中呢，它能起到防御的作用",
+      "locator": "11:01",
+      "ref_price": 50117.22,
+      "tags": ["dji", "rotation", "risk-mgmt"],
+      "payload": {
+        "asset_text": "道琼斯（5万上方防御）", "asset_symbol": "DJI", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 50000},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-24"],
+          "success_def": "至2026-07-24 DJI日收盘始终≥50000=hit（5万上方安全/防御成立）；盘中破收回=partial；收盘<50000=miss"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这个支撑破掉，如果把图中所示的这个黄色的箱体区域给丢掉，那么市场呢就是一个动量的空头市场，我们认为市场的下跌的幅度呢可能还会扩大",
+      "locator": "11:32",
+      "ref_price": 29347.27,
+      "tags": ["mags", "mag7", "ndx", "market-breadth"],
+      "payload": {
+        "asset_text": "美股（MAGS破63.8触发主跌浪）", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "directional", "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": "MAGS日收盘跌破63.8（日隧道下轨+箱体下沿）",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-24"],
+          "success_def": "若MAGS日收盘<63.8（条件成立），2026-07-24 NDX收盘低于条件成立日NDX收盘=hit（动量空头、跌幅扩大）；未破位=condition_not_met"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "你看它现在走的是一个主跌浪的这种结构啊，这种结构浪型的话，如果再爆发的话，往下继续把150跌破的话，后面深不见底",
+      "locator": "14:28",
+      "ref_price": 184.06,
+      "tags": ["spcx", "ai-capex"],
+      "payload": {
+        "asset_text": "SpaceX（主跌浪结构）", "asset_symbol": "SPCX", "priceable": true,
+        "claim_class": "directional", "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-24"],
+          "success_def": "2026-07-24 SPCX收盘低于发布参考价184.06=hit（主跌浪结构未完、近期不碰多头）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "而是我做一个大胆一点的判断，就是黄金大概就是围绕着4000左右，完成中长期的逻辑切换",
+      "locator": "15:37",
+      "ref_price": 4077.57,
+      "tags": ["xauusd", "macro-data", "price-action"],
+      "payload": {
+        "asset_text": "黄金（4000附近筑底切换）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 4000},
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-24", "2026-08-23"],
+          "success_def": "至2026-08-23 XAUUSD日收盘始终≥4000=hit（围绕4000完成中长期逻辑切换而不深破，扩展支撑区4012-4084）；盘中破4000收回=partial；收盘<4000=miss"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "微软的走势我认为呢在七日级别上。我们关注他每次雄势回调的一个均线的支撑大概呢这个位置是中长期的。不论从写基本面、从估值，还是从技术上来说，都是一个还不错的位置",
+      "locator": "17:29",
+      "ref_price": 361.62,
+      "tags": ["msft", "software", "mag7"],
+      "payload": {
+        "asset_text": "微软（360-380中长期布局区）", "asset_symbol": "MSFT", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-24", "2026-09-22"],
+          "success_def": "阶梯日MSFT收盘≥发布参考价361.62=hit（'中长期不错的位置'+本人持仓并考虑加仓；无精确期限→我方+30/+90阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我先把结论说在前面，我认为，最近的这个企业端的AI Agent可能会带来一波产业链上的，这么一个估值的修复，因为现在呢估值都被杀得比较狠，那么这些前提是基于大盘能够稳下来",
+      "locator": "01:35",
+      "tags": ["ai-capex", "software"],
+      "payload": {
+        "asset_text": "企业端AI Agent产业链（软件/平台）", "asset_symbol": null, "priceable": false,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": "大盘能够稳下来",
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "就是任何的优秀的投资人你会发现，他都是围绕着需求在哪里，然后卡脖子在哪里，围绕着这两点去精准地定位标的的",
+      "locator": "01:35",
+      "tags": ["ai-capex", "rotation"],
+      "payload": {
+        "name": "需求端第一性原理定位法",
+        "summary": "从需求在哪+卡脖子在哪两问出发定位标的：找到确定性买方，其上游卖方最受益",
+        "family": "other",
+        "rules": [
+          "第一问：需求端在哪（本轮=四大云厂商2027年近1万亿美元数据中心基建投入=确定性买方）",
+          "第二问：卡脖子在哪（供给受限环节议价力最强，半导体/内存=卖方最受益）",
+          "行情传导到高位后回到需求端重新推演下一个剧本（AGI/物理AI/AI Agent的路径比较）"
+        ],
+        "claimed_performance": null,
+        "data_requirements": [],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "就是什么时候你看到黄金跌的比股市小了。甚至是股市跌，黄金开始进钱了，到那个时候，你再去机灵一点。多去搞一点，我觉得问题不大",
+      "locator": "15:37",
+      "tags": ["xauusd", "spx", "rotation", "price-action"],
+      "payload": {
+        "name": "黄金叙事切换日的识别",
+        "summary": "以黄金相对股市的强弱变化识别中长期逻辑切换：金跌幅小于股市、或股跌金涨（资金流入）时才加码",
+        "family": "event",
+        "rules": [
+          "观察黄金相对股市的跌幅是否收窄（金跌得比股市小）",
+          "股跌金涨（黄金开始进钱）=逻辑切换信号，届时再加码，问题不大",
+          "切换确认前维持轻仓/定投/实物，投机多头谨慎"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["XAUUSD日线", "SPX日线"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "抛开前面三点的话呢，其实就回到了我个人最近比较看好的一个方向。就是AI Agent在企业端的一个实现",
+      "locator": "19:00",
+      "tags": ["ai-capex", "software", "macro-data"],
+      "payload": {
+        "canonical_statement": "AI需求端四场景路径图：①云厂商数据中心基建（已发生，硬件狂欢）②AGI（造神运动/刮刮乐，无验证路径）③物理AI/具身智能（5-10年，sim-to-real难关）④企业端AI Agent（当前最确定：有系统集成+合规治理+明确ROI闭环，延伸法律/医疗/金融/制造）——C端Agent缺刚性工作流+隐私/成本/支付闭环障碍，不是资金现在愿投的故事",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "2026年AI产业链高位分化期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那么未来我们可能会看到CPU的重要性，慢慢地会赶上GPU",
+      "locator": "19:02",
+      "tags": ["ai-capex", "semiconductor-cycle"],
+      "payload": {
+        "canonical_statement": "企业Agent时代算力结构切换：从堆GPU的高并发并行计算转向CPU主导的复杂非模型工作流处理，CPU重要性将赶上GPU（算力受限+带宽受限的物理约束下）",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "企业端AI Agent落地期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就是因为大家呢，只讲技术面没意思。因为技术面本来就是概率的问题，你不好copy。然后的话呢，讲基本面，基本面又很慢，所以很多的媒体，很多的博主其实都是讲故事，然后讲消息，再讲行情，结合到一起就是一定要为每一次的上涨和下跌找一个短周期的诱因",
+      "locator": null,
+      "tags": ["psychology", "market-breadth"],
+      "payload": {
+        "canonical_statement": "媒体叙事偏差：为每次涨跌找短周期诱因是财经媒体的生存刚需（技术面是概率不好copy、基本面太慢），此类归因多为噪音——对消息式解读保持怀疑",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "黄金的实物持有，和黄金的数字游戏是完全两个世界的东西。也是两波完全不同的人在玩",
+      "locator": null,
+      "tags": ["xauusd", "market-breadth"],
+      "payload": {
+        "canonical_statement": "黄金实物持有与纸金（数字游戏）是两个市场两批玩家：金价短期由做市商主导的数字游戏决定，与实物供需可长期背离",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为流动性冲击就是美元涨什么都跌。什么都跌，必然有错杀，找到错杀的那些",
+      "locator": null,
+      "tags": ["dxy", "rotation", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "美元驱动的流动性冲击期万物齐跌必有错杀——机会在被错杀的低位品种，而非高位强势板块的惯性延伸",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "美元指数动量走强期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我们还是相对来说要把自己的子弹节省下来，一点一点打出去，不要急，找到你的赛道和你的portfolio，你的组合的时候，你慢慢地把它打出去，现在不要急着一次性打出去",
+      "locator": null,
+      "tags": ["position-sizing", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "高不确定期（美元动能未见顶）子弹分批打：确定赛道与组合后逐步建仓，不一次性打满",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": "美元指数未见微观见顶形态时"
+      }
+    }
+  ]
+}

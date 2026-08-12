@@ -26,7 +26,7 @@ def main() -> None:
     meta = fetch_transcript(video_id)   # 复用：元数据 + 有字幕则白捡
     print(f"元数据: {meta['title']}  {meta['published_at']}  {meta['duration_s']}s", flush=True)
 
-    client = GeminiClient(s.gemini_api_key)
+    client = GeminiClient(s.gemini_api_key, model=s.gemini_model)
     tr = client.transcribe_youtube(url)
     raw = render_l0_text(tr)
     n_notes = len(tr.get("visual_notes", []))

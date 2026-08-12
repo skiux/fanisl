@@ -51,14 +51,14 @@ def weekly_report(pool, *, days: int = 7) -> dict:
             "SELECT u.kind, count(*) AS n FROM knowledge_units u "
             "WHERE u.created_at >= %s GROUP BY u.kind", (since,)).fetchall()
         new_scores = conn.execute("""
-            SELECT s.outcome, s.horizon_label, cr.name AS creator,
+            SELECT s.unit_id, s.outcome, s.horizon_label, s.created_at, cr.name AS creator,
               u.payload->>'asset_symbol' AS sym, u.payload->>'direction' AS dir,
               u.payload->>'verifiability' AS grade
             FROM claim_scores s JOIN knowledge_units u ON u.id=s.unit_id
             JOIN creators cr ON cr.id=u.creator_id
             WHERE s.created_at >= %s ORDER BY s.created_at""", (since,)).fetchall()
         new_edges = conn.execute("""
-            SELECT r.relation, r.note, a.title AS a_title, b.title AS b_title
+            SELECT r.relation, r.note, a.id AS a_id, a.title AS a_title, b.id AS b_id, b.title AS b_title
             FROM node_relations r JOIN knowledge_nodes a ON a.id=r.a_node
             JOIN knowledge_nodes b ON b.id=r.b_node
             WHERE r.created_at >= %s""", (since,)).fetchall()
@@ -68,13 +68,17 @@ def weekly_report(pool, *, days: int = 7) -> dict:
             "SELECT title, status FROM knowledge_nodes "
             "WHERE status NOT IN ('active') ORDER BY status, updated_at DESC").fetchall()
         due_next = conn.execute("""
-            SELECT count(*) AS n FROM knowledge_units u,
+            SELECT u.id AS unit_id, cr.name AS creator, u.payload->>'asset_symbol' AS sym,
+              u.payload->>'direction' AS dir, d AS horizon_label
+            FROM knowledge_units u
+            JOIN creators cr ON cr.id=u.creator_id,
               jsonb_array_elements_text(u.payload->'scoring_spec'->'eval_ladder') AS d
             WHERE u.kind='claim' AND u.payload->'scoring_spec' IS NOT NULL
               AND d::date > %s AND d::date <= %s
               AND NOT EXISTS (SELECT 1 FROM claim_scores s
-                              WHERE s.unit_id=u.id AND s.horizon_label=d)""",
-            (today, today + dt.timedelta(days=7))).fetchone()
+              WHERE s.unit_id=u.id AND s.horizon_label=d)
+            ORDER BY d::date, u.id""",
+            (today, today + dt.timedelta(days=7))).fetchall()
         spot = conn.execute(
             "SELECT count(DISTINCT unit_id) AS checked, "
             "(SELECT count(*) FROM knowledge_units) AS total FROM spot_checks").fetchone()
@@ -108,15 +112,27 @@ def weekly_report(pool, *, days: int = 7) -> dict:
         lines.append(f"- [{r['status']}] {r['title']}")
     lines.append("")
     lines.append("## 运营")
-    lines.append(f"- 未来 7 天将到期评分时点：{due_next['n']}")
+    lines.append(f"- 未来 7 天将到期评分时点：{len(due_next)}")
     lines.append(f"- 抽查覆盖：{spot['checked']}/{spot['total']} 单元")
     md = "\n".join(lines) + "\n"
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     out = REPORT_DIR / f"weekly-{today}.md"
     out.write_text(md)
-    return {"generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "path": str(out), "markdown": md}
+    return {
+        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "path": str(out), "markdown": md,
+        "summary": {
+            "new_contents": list(new_contents),
+            "new_units": list(new_units),
+            "new_scores": list(new_scores),
+            "new_edges": list(new_edges),
+            "node_status": list(node_status),
+            "notable_nodes": list(notable_nodes),
+            "due_next": list(due_next),
+            "spot_check": dict(spot),
+        },
+    }
 
 
 def main() -> None:

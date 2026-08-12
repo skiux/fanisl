@@ -1,0 +1,303 @@
+{
+  "content_id": 4,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "但现在的走势呢，是市场收到了101.20上方。这是一个在走中继的走势。也就是现在的美元指数还仍然看不到任何的转弱的迹象，仍然是一个非常偏强的走势",
+      "locator": "00:00",
+      "ref_price": 101.4,
+      "tags": ["dxy", "macro-data"],
+      "payload": {
+        "asset_text": "美元指数（101.20上方=中继）", "asset_symbol": "DXY", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-08", "2026-07-31", "2026-09-29"],
+          "success_def": "阶梯日DXY收盘≥发布参考价101.4=hit（收上101.20=上涨中继、看不到转弱迹象；无期限词→我方+7/+30/+90阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们觉得接下来的几周交易里呢，股强金弱的走势有可能一定程度上有所缓解。注意不是扭转，不一定扭转，但是会有所缓解",
+      "locator": "05:05",
+      "tags": ["xauusd", "spx", "rotation"],
+      "payload": {
+        "asset_text": "黄金相对标普（股强金弱缓解）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "relative", "direction": "flat",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "C",
+        "scoring_spec": {
+          "method": "relative_return",
+          "eval_ladder": ["2026-07-22"],
+          "benchmark": "SPX",
+          "success_def": "2026-07-22 XAUUSD自发布日收益率-SPX同期收益率≥-2个百分点=hit（'缓解而非扭转'操作化为金跑输不超2pp，判界系我方；依据=SPX/XAUUSD比值1.86逼近1.9分水岭+周线144/169隧道台阶）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "理由呢，就是在4000之下很多大资金还是在接手的，这是第一",
+      "locator": "07:50",
+      "ref_price": 4035,
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金（3900-4000大资金承接）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 3900},
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-31", "2026-08-30"],
+          "success_def": "至2026-08-30 XAUUSD日收盘始终≥3900=hit（4000之下有大资金承接、变盘区不深破）；盘中破3900收回=partial；收盘<3900=miss"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我认为呢，4000到3900左右这个区域呢可能会有一个变盘。变盘呢不是马上它就会上涨，而是它的波动会放大",
+      "locator": "07:50",
+      "ref_price": 4035,
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金（变盘=波动放大）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "timing", "direction": "vol_up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那整体来说呢，我觉得美股呢其实缺乏上涨的空间。但是呢，也非常缺乏下跌的逻辑。所以它只能是一个高位偏震荡的这样的一个走势",
+      "locator": "10:12",
+      "tags": ["ndx", "spx", "market-breadth"],
+      "payload": {
+        "asset_text": "纳指100（30600下高位震荡）", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"high": 30600},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-08"],
+          "success_def": "至2026-07-08 NDX日收盘始终≤30600=hit（缺上涨空间、30600压力带内高位震荡；'接下来几天'→我方7天阶梯；发布日收盘K4回填作下方对照）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "但是呢，像整个这个半导体指数在642之下，以及现在的纳指100在30600之下的这个区间里边呢，我们仍然是觉得做高抛低吸。在短期要更好",
+      "locator": "10:15",
+      "ref_price": 640.76,
+      "tags": ["soxx", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "半导体指数（SOXX，642下高抛低吸）", "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"high": 642},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-08"],
+          "success_def": "至2026-07-08 SOXX日收盘始终≤642=hit（642压力下维持箱体、高抛低吸适用）；盘中破收回=partial；收盘>642=miss（'短期'→我方7天阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "对于MU的走势呢，其实差不多，大概呢也是1200这个位置呢没有收复市场的话，整体应该还是一个偏宽幅震荡的这么一个市场",
+      "locator": "12:15",
+      "tags": ["mu", "memory-storage", "price-action"],
+      "payload": {
+        "asset_text": "美光（1200未收复则宽幅震荡）", "asset_symbol": "MU", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"high": 1200},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-07-31"],
+          "success_def": "至2026-07-31 MU日收盘始终≤1200=hit（1200未收复、宽幅震荡格局成立）；盘中破收回=partial；收盘>1200=miss"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以现在的这个币的走势呢，整体是一个承压的状态。我们认为呢，在熊市当中呢不要找底部",
+      "locator": "12:28",
+      "tags": ["btc", "macro-data"],
+      "payload": {
+        "asset_text": "比特币（承压，五浪下跌+流动性收紧）", "asset_symbol": "BTCUSDT", "priceable": true,
+        "claim_class": "directional", "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-08", "2026-07-31", "2026-09-29"],
+          "success_def": "阶梯日BTCUSDT收盘低于发布日收盘=hit（承压状态延续；发布日收盘K4回填；无期限词→我方+7/+30/+90阶梯）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "总之呢我们不会去和这种极弱的个股去对抗。我们要等市场的真正跑出来一个像样的底部再说啊",
+      "locator": "12:34",
+      "ref_price": 62,
+      "tags": ["crcl", "btc", "risk-mgmt"],
+      "payload": {
+        "asset_text": "Circle（极弱势，观望）", "asset_symbol": "CRCL", "priceable": true,
+        "claim_class": "risk_warning", "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们最近这两天要密切的观察，一个是162左右的一个阶段性目标。这里边的话呢如果过掉，上看是175。整体的走势目前还处在一个多头当中",
+      "locator": "14:44",
+      "tags": ["xlv", "rotation"],
+      "payload": {
+        "asset_text": "健康板块ETF（XLV，162阶段目标）", "asset_symbol": "XLV", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 162},
+        "horizon": {"type": "within_duration", "duration_days": 30},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-07-31"],
+          "success_def": "至2026-07-31任一日XLV最高价≥162=hit（多头趋势中的阶段目标；过162后上看175为后续观察，不入本条判定）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "并且呢在前面两个交易日呢，我们重点呢在会员当中提到了这个闪迪。那我们觉得闪迪是一个可以做增强的市场",
+      "locator": "10:10",
+      "tags": ["sndk", "memory-storage"],
+      "payload": {
+        "asset_text": "闪迪（SanDisk，强势增强仓）", "asset_symbol": "SNDK", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-08", "2026-07-31", "2026-09-29"],
+          "success_def": "阶梯日SNDK收盘≥发布日收盘=hit（'可做增强、减仓可慢'；1950一线为其给出的低吸参考；发布日收盘K4回填）"
+        }
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "就是我们拿来以黄金计价的，标普500的一个走势。拿出这个走势图来，去做一做分析。来判断一下现在的金股的关系和强弱的轮动在历史周期上可寻的一些规律",
+      "locator": "03:38",
+      "tags": ["spx", "xauusd", "rotation", "macro-data"],
+      "payload": {
+        "name": "以黄金计价的标普（SPX/XAUUSD）观察股金轮动",
+        "summary": "构造SPX/XAUUSD比值图观察股金相对强弱与轮动：1.9为中期强弱分水岭，周线144/169隧道为结构台阶，十年周期轮动仅作后视镜参考",
+        "family": "other",
+        "rules": [
+          "在TradingView用SPX除以XAUUSD构造比值走势图，作为股金相对强弱的观察工具",
+          "比值1.9左右为中期强弱分水岭（2015/2017/2018年多次高低点验证）",
+          "周线级别144/169隧道构成比值的结构台阶，触及时轮动可能缓解",
+          "十年周期的股金轮动规律只作后视镜观察，不作为投资依据"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["SPX日线", "XAUUSD日线"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "也就是我们在原来的这个日、周、月、季，这个整数关口的，大家都习以为常的周期上呢，再去错一个周期。比如我们前面日线说看三日K对不对",
+      "locator": null,
+      "tags": ["price-action", "ema-tunnel"],
+      "payload": {
+        "name": "错周期观察（避开整数收线周期）",
+        "summary": "智能交易（CTA/AI盘手）占比上升使日/周/月/季整数收线的信息量下降，在标准周期上偏移一档观察（日线→三日K、季度线→7月中旬偏移）",
+        "family": "other",
+        "rules": [
+          "整数周期收线（日/周/月/季）已被智能交易大量参照，信息量下降",
+          "在习以为常的周期上错开一档：日线看三日K，季度收线偏移至7月第一周或中旬再读",
+          "三日K的隧道支撑压力近年在各资产端有效，可作为傻瓜式顺势系统"
+        ],
+        "claimed_performance": {"note": "自称三日K隧道近年是'可稳定盈利的顺势系统'（记录不采信）"},
+        "data_requirements": ["各资产日线OHLC（合成多日K）"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "黄金是一个没有现金流的资产。所以当它走空的时候，很多理由都来了。当黄金是牛市的时候呢，很多理由也会来了",
+      "locator": null,
+      "tags": ["xauusd", "psychology"],
+      "payload": {
+        "canonical_statement": "无现金流资产（黄金）的叙事跟随价格：走空时空头理由涌现、走牛时多头理由涌现——对事后归因保持怀疑",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "让黄金成为一个未来大国央行，配置美债还是黄金的一个重要的竞争的棋子。这个棋子在竞争过程当中呢，其实央行不是一个价格敏感的，所以我们说不能完全依赖央行什么时候买",
+      "locator": null,
+      "tags": ["xauusd", "fed-policy", "macro-data"],
+      "payload": {
+        "canonical_statement": "黄金二级市场流动性被锁（杠杆资金出清+交易所上调保证金）→沦为大国央行'美债vs黄金'配置竞争的棋子；央行不是价格敏感买家，不能依赖央行买入作为择时依据",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "2026年黄金弱势出清期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "现在呢不要觉得它低，然后呢就去入手，因为就算是你不非常看好它，它呢在杀估值的这个过程当中啊，在去杀价格这个过程当中啊，因为现在它其实我们把它当成一个初创公司就好，其实没有什么估值可以杀",
+      "locator": "12:34",
+      "tags": ["crcl", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "无盈利初创型个股没有估值锚：进入下降压缩通道后越杀越加速（62→45仍是近40%跌幅），低价不等于安全边际——熊市个股不接飞刀，等像样的底部结构",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我们觉得一旦科技走好，你看它就会跌。一旦科技走不好，它就会涨。但是呢它跌现在也比较克制，因此从这个走势上来说呢，仍然还是一个很好的一個对冲和分散的品种",
+      "locator": "14:44",
+      "tags": ["xlv", "rotation", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "健康板块（XLV）与科技呈跷跷板轮动，且弱侧下跌克制——适合作为科技持仓的对冲/分散品种",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "科技拥挤期"
+      }
+    }
+  ]
+}

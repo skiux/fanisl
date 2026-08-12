@@ -375,6 +375,21 @@ def knowledge_recent_scores(days: int = 14, limit: int = 100) -> list[dict]:
     return knowledge_store.recent_scores(days=min(days, 90), limit=min(limit, 300))
 
 
+@app.get("/knowledge/verification-queue")
+def knowledge_verification_queue(days: int = 14, limit: int = 120) -> dict:
+    """验证中心行动队列：即将到期、近期判定、不可判与需复核分开呈现。"""
+    return knowledge_store.verification_queue(days=min(days, 90), limit=min(limit, 300))
+
+
+@app.get("/knowledge/verifications/{score_id}")
+def knowledge_verification_detail(score_id: int) -> dict:
+    """单次机械评分的完整档案：原 Claim、冻结口径、判定结果、出处与节点影响。"""
+    row = knowledge_store.verification_detail(score_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="验证记录不存在")
+    return row
+
+
 @app.get("/knowledge/prices")
 def knowledge_prices(symbol: str, since: str, until: str | None = None) -> dict:
     """daily_bars 日线窗口（claim 证据图用）。symbol 用 claim 的 asset_symbol 口径。"""

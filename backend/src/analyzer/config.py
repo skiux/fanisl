@@ -110,6 +110,10 @@ class Settings(BaseSettings):
     fred_api_key: str = ""  # 宏观日历（FRED）
     eia_api_key: str = ""   # EIA 开放数据（周度石油库存；免费注册 eia.gov/opendata）
     gemini_api_key: str = ""  # Google AI Studio（知识引擎 L0 triage/转录）
+    # 钉死具体模型，不用 `gemini-flash-latest` 这类移动别名：别名换代过两次都直接打断摄取链
+    # （2026-08-12：新模型拒绝 thinkingBudget=0 → 400；且免费档每日仅 20 次请求 → 429）。
+    # 换模型是有意决定，应改这里并记录，而不是被 Google 静默改掉。
+    gemini_model: str = "gemini-3.5-flash"
     youtube_cookies_file: str = ""  # 用户导出的 cookies.txt（YouTube bot 验证时用，相对 backend/）
     coinmarketcal_api_key: str = ""  # 币圈事件（CoinMarketCal）
     cryptocompare_api_key: str = ""  # 新闻（CoinDesk Data，原 CryptoCompare）

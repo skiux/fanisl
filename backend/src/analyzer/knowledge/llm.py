@@ -46,7 +46,7 @@ TRANSCRIBE_PROMPT = (
 
 
 class GeminiClient:
-    def __init__(self, api_key: str, *, model: str = "gemini-flash-latest",
+    def __init__(self, api_key: str, *, model: str = "gemini-3.5-flash",
                  timeout_s: float = 420.0) -> None:
         self.api_key = api_key
         self.model = model
@@ -63,8 +63,10 @@ class GeminiClient:
                 "generationConfig": {
                     "response_mime_type": "application/json",
                     "response_schema": schema,
-                    # 转录/结构化任务不需要扩展思考，省 token（thought 签名照常兼容）
-                    "thinkingConfig": {"thinkingBudget": 0},
+                    # 不写 thinkingConfig：让模型自取（实测最小档 ~190 思考 token，相对视频
+                    # 转录的十万级 token 是噪音）。原先写死 thinkingBudget: 0 省这点 token，
+                    # 但 2026-08-12 `gemini-flash-latest` 别名换代后新模型拒绝 0
+                    # （400 INVALID_ARGUMENT），整条摄取链因此断了一个月——不值得为此再冒险。
                 },
             },
             timeout=self.timeout_s,

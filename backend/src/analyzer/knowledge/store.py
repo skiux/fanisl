@@ -379,6 +379,87 @@ class KnowledgeStore:
                 "ORDER BY s.created_at DESC, s.id DESC LIMIT %s", (days, limit),
             ).fetchall()
 
+    def verification_queue(self, *, days: int = 14, limit: int = 120) -> dict:
+        """验证中心的行动队列。
+
+        评分行只代表已发生的判定；即将到期的 Claim 需从冻结的 eval_ladder
+        反查，不能把“尚未写入评分”误报成没有工作。这是纯读取视图，不改变
+        评分器或任何状态。
+        """
+        with self.pool.connection() as conn:
+            due = conn.execute("""
+                SELECT u.id AS unit_id, u.quote, u.payload, u.published_at,
+                  u.ref_price_at_publish, cr.name AS creator, c.title AS content_title,
+                  ladder.label AS horizon_label
+                FROM knowledge_units u
+                JOIN creators cr ON cr.id=u.creator_id
+                JOIN contents c ON c.id=u.content_id
+                CROSS JOIN LATERAL jsonb_array_elements_text(
+                  COALESCE(u.payload->'scoring_spec'->'eval_ladder', '[]'::jsonb)
+                ) AS ladder(label)
+                WHERE u.kind='claim'
+                  AND ladder.label ~ '^\\d{4}-\\d{2}-\\d{2}$'
+                  AND ladder.label::date BETWEEN current_date AND current_date + %s
+                  AND NOT EXISTS (
+                    SELECT 1 FROM claim_scores s
+                    WHERE s.unit_id=u.id AND s.horizon_label=ladder.label
+                  )
+                ORDER BY ladder.label, u.published_at DESC NULLS LAST
+                LIMIT %s
+            """, (days, limit)).fetchall()
+            scores = conn.execute("""
+                SELECT s.id AS score_id, s.unit_id, s.horizon_label, s.outcome, s.realized,
+                  s.eval_ts, s.created_at AS scored_at, u.quote, u.payload, u.published_at,
+                  u.ref_price_at_publish, cr.name AS creator, c.title AS content_title
+                FROM claim_scores s
+                JOIN knowledge_units u ON u.id=s.unit_id
+                JOIN creators cr ON cr.id=u.creator_id
+                JOIN contents c ON c.id=u.content_id
+                ORDER BY s.created_at DESC, s.id DESC
+                LIMIT %s
+            """, (limit,)).fetchall()
+
+        verdicts = [s for s in scores if s["outcome"] in {"hit", "partial", "miss"}]
+        unavailable = [s for s in scores if s["outcome"] in {
+            "unpriceable", "condition_unverifiable",
+        }]
+        review = [s for s in scores if s["outcome"] in {"condition_not_met", "pending"}]
+        return {
+            "overview": {
+                "due": len(due), "completed": len(verdicts), "unavailable": len(unavailable),
+                "review": len(review),
+            },
+            "due": due,
+            "recent": verdicts,
+            "unavailable": unavailable,
+            "review": review,
+        }
+
+    def verification_detail(self, score_id: int) -> dict | None:
+        """一次已落库验证的不可变判定档案，含出处和受影响的知识节点。"""
+        with self.pool.connection() as conn:
+            row = conn.execute("""
+                SELECT s.id AS score_id, s.unit_id, s.horizon_label, s.outcome, s.realized,
+                  s.eval_ts, s.created_at AS scored_at, s.scorer_version,
+                  u.quote, u.locator, u.payload, u.tags, u.published_at,
+                  u.ref_price_at_publish, u.extractor_version,
+                  cr.id AS creator_id, cr.name AS creator,
+                  c.id AS content_id, c.title AS content_title, c.url AS content_url
+                FROM claim_scores s
+                JOIN knowledge_units u ON u.id=s.unit_id
+                JOIN creators cr ON cr.id=u.creator_id
+                JOIN contents c ON c.id=u.content_id
+                WHERE s.id=%s
+            """, (score_id,)).fetchone()
+            if row is None:
+                return None
+            row["nodes"] = conn.execute("""
+                SELECT n.id, n.title, n.status, n.kind, a.relation, a.note
+                FROM node_attestations a JOIN knowledge_nodes n ON n.id=a.node_id
+                WHERE a.unit_id=%s ORDER BY n.id
+            """, (row["unit_id"],)).fetchall()
+        return row
+
     def units(self, *, kind: str | None = None, creator_id: int | None = None,
               limit: int = 100) -> list[dict]:
         cond, params = [], []

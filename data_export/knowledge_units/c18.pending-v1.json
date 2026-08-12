@@ -1,0 +1,168 @@
+{
+  "content_id": 18,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "所以就短期来看，我认为半导体不会像很多人想象的那样会遭遇崩盘。但我也认为，他们短期的增长潜力已经不足了，可能会经历一段时间的盘整期。机会会逐渐从基础层转移到应用层",
+      "locator": null,
+      "tags": ["soxx", "semiconductor-cycle", "rotation"],
+      "payload": {
+        "asset_text": "费城半导体指数（盘整而非崩盘）", "asset_symbol": "SOX", "priceable": true,
+        "claim_class": "directional", "direction": "range",
+        "magnitude": {"pct": 15},
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-17"],
+          "success_def": "2026-07-17 SOX收盘在发布日收盘±15%区间内=hit（'盘整期：不崩盘也不续涨'操作化，±15%判界系我方；发布日收盘K4回填）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我预计今年下半年将会是AI应用层涌现的节点，届时会有大量应用层公司上市，也会有更多现有公司跑通他们的AI变现的商业模式。那么资金自然会出现一定的轮动",
+      "locator": null,
+      "tags": ["ai-capex", "software", "rotation"],
+      "payload": {
+        "asset_text": "AI应用层（2026下半年涌现）", "asset_symbol": null, "priceable": false,
+        "claim_class": "event_outcome", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以对于我个人而言，我不会选择现在去追高那些热门芯片股。但是我手中的这些龙头公司我也一定会坚定持有，不会减仓也不会卖出。我依旧十分看好他们的长期价值，并且他们的风险我认为也依旧可控",
+      "locator": null,
+      "tags": ["soxx", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "半导体龙头（长期持有）", "asset_symbol": "SOX", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 365},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2027-05-18"],
+          "success_def": "2027-05-18（或最近交易日）SOX收盘≥发布日收盘=hit（'长期价值看好、坚定持有龙头'以指数代理；'长期'→我方365天阶梯；发布日收盘K4回填）"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "就目前来看，我认为这两点风险离我们现在还有一段距离。AI Agent带来的推理需求才刚刚起步，未来很长一段时间内，我们更可能看到的还是需求不断去提升，而不是需求的放缓",
+      "locator": null,
+      "tags": ["ai-capex", "semiconductor-cycle", "macro-data"],
+      "payload": {
+        "asset_text": "AI推理需求（token消耗/大模型ARR）", "asset_symbol": null, "priceable": false,
+        "claim_class": "event_outcome", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D",
+        "scoring_spec": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "我认为有两点：一个是AI token的消耗量，如果有一天我们看到token消耗的增速开始放缓，那将会是行业拐点的一个重要风险。另一个是大模型的ARR。大模型作为最前沿的应用层，他们的变现验证是这轮起飞的关键",
+      "locator": null,
+      "tags": ["ai-capex", "semiconductor-cycle", "macro-data"],
+      "payload": {
+        "name": "半导体周期拐点的需求端监测（token消耗增速+大模型ARR）",
+        "summary": "以AI token消耗量增速与头部大模型ARR兑现度为半导体行情拐点的前瞻监测指标——增长不及预期即是威胁，无需等到负增长",
+        "family": "event",
+        "rules": [
+          "监测AI token消耗量：增速开始放缓=行业拐点的重要风险信号",
+          "监测头部大模型ARR的兑现 vs 市场预期：预期不断上调，兑现不及预期本身即是对全产业的威胁",
+          "依据=00年教训：基础层半导体亮红灯的核心原因是应用层需求下滑，而非基础层自身",
+          "当前判定（2026-05）：推理需求刚起步，两指标离危险还有距离，属长期跟踪项"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["AI token消耗量数据（公开渠道）", "大模型ARR报道/预期"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "费城半导体指数在98年10月确认周期复苏，股价翻了一倍。随后便横盘了半年。99年6月，新经济叙事来临，股价再度翻了一倍，开始了新一轮的炒作，此后又再度盘整了大半年。00年1月，整个行业业绩兑现，配上行业东风，再加上企业们集体投资扩张，泡沫迎来了它的最高潮。00年3月，美联储加息，宏观承压，但是芯片板块的业绩仍然亮眼，此后又苟延残喘了近半年。最后00年9月，需求开始放缓，整个板块一泻千里，泡沫最终破裂",
+      "locator": "15:50",
+      "tags": ["semiconductor-cycle", "market-breadth", "macro-data"],
+      "payload": {
+        "canonical_statement": "00年半导体泡沫四阶段结构：①1998-10复苏确认（一季度翻倍后横盘半年）②1999-06新经济叙事（再翻倍再盘整大半年）③2000-01业绩兑现+行业东风+集体扩张=泡沫高潮④2000-03加息承压但业绩仍好、苟延半年→2000-09需求放缓一泻千里（一个月-50%，至2002-10累计-84%，个股-80~95%，20年才收复高点）",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "科技革命叙事+周期复苏叠加期"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "整体来看我们现在和当年互联网泡沫的所有相似和所有不同，我们可以意识到：尽管现在半导体的情绪确实有些过热，但是不管是在估值层面，还是基本面层面，亦或是宏观背景，都要远比当年要更加坚挺，风险也更低",
+      "locator": "18:01",
+      "tags": ["semiconductor-cycle", "ai-capex", "macro-data"],
+      "payload": {
+        "canonical_statement": "本轮AI半导体vs00年泡沫：五同（革命性技术/未来叙事开启炒作/业绩+东风+扩张三重利好/宏观不确定性逼资金找确定增长/短期不间断狂热走势）四异（当年狂热重心在应用层而今无AI应用层上市可炒=整体未全面泡沫化；前瞻PE 26倍vs当年55倍；当前加息风险低而当年加息是拐点；客户从分散脆弱的PC/互联网企业变为少数财务强健且投资克制的大科技）→定性：更像99年那轮而非00年顶，属业绩+东风+扩张兑现的相对健康上涨",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "2026年AI基建行情"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "从历史经验中我们能够看出，一旦市场情绪发生扭转，基本面再好也不是免死金牌",
+      "locator": null,
+      "tags": ["psychology", "semiconductor-cycle", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "情绪扭转后基本面失效：00年3-8月芯片公司收入仍翻倍增长但股价见顶不涨直至崩塌——'需求强业绩好=永远可以买入'不成立，对基本面优秀的公司同样要敬畏风险",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "情绪拐点前后"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "即便就是整个AI板块遭遇危机，从历史经验上看，我们也发现，应用层企业会率先受到冲击，而基础层半导体则会最后受到影响",
+      "locator": null,
+      "tags": ["semiconductor-cycle", "ai-capex", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "科技危机的传导顺序：应用层先倒、基础层最后受冲击（00年例：互联网公司先崩、半导体靠业绩苟延半年）——不会出现其他板块安全而唯独芯片先崩的情形",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但其实，翻看历史我们就会发现，这种情况在芯片板块上其实非常常见。因为芯片板块历史上就是一个典型的周期性板块。每当复苏周期来临，板块的表现都会非常好",
+      "locator": "04:19",
+      "tags": ["semiconductor-cycle", "market-breadth"],
+      "payload": {
+        "canonical_statement": "芯片板块的周期性涨法：复苏确认后一个季度翻倍很常见（供需改善的经典表现）；股价节奏=涨一轮→盘整消化估值→再涨一轮，台阶式推进而非直线",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "说来也算合理，只有看不清的故事才能够给出想象空间，也才有泡沫的基础",
+      "locator": null,
+      "tags": ["psychology", "market-breadth"],
+      "payload": {
+        "canonical_statement": "泡沫的必要条件是'看不清的故事'：只有无法证伪的叙事才有想象空间（99年新经济基础设施/26年AI Agent推理需求）；业绩复苏本身不构成泡沫",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    }
+  ]
+}
