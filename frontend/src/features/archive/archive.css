@@ -85,7 +85,7 @@
 
 .archive-title > span {
   color: #6d746c;
-  font: 600 10px/1.3 ui-monospace, "SFMono-Regular", monospace;
+  font: 600 var(--text-meta)/1.3 ui-monospace, "SFMono-Regular", monospace;
   letter-spacing: .14em;
 }
 
@@ -103,7 +103,7 @@
   gap: 8px;
   margin: 17px 0 0;
   color: #687068;
-  font-size: 11px;
+  font-size: var(--text-ui);
 }
 
 .archive-title p i {
@@ -129,7 +129,7 @@
   max-width: 485px;
   margin: 11px 0 0;
   color: #687168;
-  font-size: 11px;
+  font-size: var(--text-ui);
   line-height: 1.7;
 }
 
@@ -164,7 +164,7 @@
 .archive-ledger small {
   margin-top: 4px;
   color: #697169;
-  font-size: 10px;
+  font-size: var(--text-meta);
 }
 
 .archive-workbench {
@@ -229,7 +229,7 @@
 .archive-principle > span,
 .archive-sequence > span {
   color: #787f77;
-  font: 600 9px ui-monospace, monospace;
+  font: 600 var(--text-meta) ui-monospace, monospace;
   letter-spacing: .12em;
 }
 
@@ -280,12 +280,12 @@
 }
 
 .archive-rail nav span {
-  font-size: 12px;
+  font-size: var(--text-meta);
 }
 
 .archive-rail nav b {
   color: #7e857e;
-  font: 500 9px ui-monospace, monospace;
+  font: 500 var(--text-meta) ui-monospace, monospace;
 }
 
 .archive-principle,
@@ -298,14 +298,14 @@
   display: block;
   margin-top: 10px;
   color: #4b554a;
-  font-size: 13px;
+  font-size: var(--text-ui);
   font-weight: 630;
 }
 
 .archive-principle p {
   margin: 9px 0 0;
   color: #687168;
-  font-size: 10px;
+  font-size: var(--text-meta);
   line-height: 1.8;
 }
 
@@ -323,7 +323,7 @@
   align-content: start;
   padding-left: 0;
   color: #596259;
-  font-size: 11px;
+  font-size: var(--text-ui);
 }
 
 .archive-sequence li::before {
@@ -360,7 +360,7 @@
   display: block;
   margin-top: 3px;
   color: #858b84;
-  font-size: 9px;
+  font-size: var(--text-meta);
 }
 
 .archive-rail > footer {
@@ -378,7 +378,7 @@
   align-items: center;
   gap: 7px;
   color: #6c746b;
-  font-size: 9px;
+  font-size: var(--text-meta);
 }
 
 .archive-rail > footer i,
@@ -392,7 +392,7 @@
 
 .archive-rail > footer b {
   color: #878c86;
-  font: 600 7px ui-monospace, monospace;
+  font: 600 var(--text-caption) ui-monospace, monospace;
   letter-spacing: .12em;
 }
 
@@ -417,7 +417,7 @@
 .archive-panel-head > div strong {
   display: block;
   color: #3f4840;
-  font-size: 13px;
+  font-size: var(--text-ui);
   font-weight: 630;
 }
 
@@ -426,7 +426,7 @@
   margin-top: 4px;
   overflow: hidden;
   color: #798078;
-  font-size: 9px;
+  font-size: var(--text-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -445,7 +445,7 @@
 
 .archive-panel-head > p span {
   color: #888d87;
-  font-size: 9px;
+  font-size: var(--text-meta);
 }
 
 .archive-filter-trigger {
@@ -475,7 +475,7 @@
   outline: 0;
   color: #3f4840;
   background: transparent;
-  font-size: 11px;
+  font-size: var(--text-ui);
 }
 
 .archive-query input::placeholder {
@@ -492,7 +492,7 @@
   border-radius: 5px;
   color: #8d928c;
   background: rgba(255, 255, 252, .34);
-  font: 8px ui-monospace, monospace;
+  font: var(--text-caption) ui-monospace, monospace;
 }
 
 .archive-document-list {
@@ -553,7 +553,7 @@
   border: 1px solid rgba(134, 91, 81, .23);
   border-radius: 3px;
   color: var(--archive-russet);
-  font: 600 8px ui-monospace, monospace;
+  font: 600 var(--text-caption) ui-monospace, monospace;
   letter-spacing: .08em;
 }
 
@@ -564,7 +564,7 @@
 .archive-document-list small {
   display: block;
   color: #888d87;
-  font: 600 8px ui-monospace, monospace;
+  font: 600 var(--text-caption) ui-monospace, monospace;
   letter-spacing: .1em;
 }
 
@@ -581,7 +581,7 @@
   margin: 8px 0 0;
   overflow: hidden;
   color: #687068;
-  font-size: 10px;
+  font-size: var(--text-meta);
   line-height: 1.65;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -593,7 +593,7 @@
   gap: 11px;
   margin-top: 13px;
   color: #828882;
-  font-size: 8px;
+  font-size: var(--text-caption);
 }
 
 .archive-document-list footer span + span::before {
@@ -605,7 +605,7 @@
 .archive-document-list footer b {
   margin-left: auto;
   color: #66745e;
-  font: 600 8px ui-monospace, monospace;
+  font: 600 var(--text-caption) ui-monospace, monospace;
   letter-spacing: .08em;
 }
 
@@ -653,7 +653,7 @@
 .archive-index-state > span,
 .archive-reader-state > span {
   color: #838982;
-  font: 600 8px ui-monospace, monospace;
+  font: 600 var(--text-caption) ui-monospace, monospace;
   letter-spacing: .12em;
 }
 
@@ -671,7 +671,7 @@
   max-width: 330px;
   margin: 9px auto 0;
   color: #717971;
-  font-size: 10px;
+  font-size: var(--text-meta);
   line-height: 1.7;
 }
 
@@ -686,7 +686,7 @@
   color: #566454;
   background: rgba(250, 248, 241, .55);
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--text-meta);
 }
 
 .archive-reader {
@@ -746,7 +746,7 @@
   align-items: center;
   justify-content: space-between;
   color: #777e76;
-  font: 600 8px ui-monospace, monospace;
+  font: 600 var(--text-caption) ui-monospace, monospace;
   letter-spacing: .12em;
 }
 
@@ -761,7 +761,7 @@
 .archive-document-jacket > p {
   margin: 31px 0 0;
   color: #8b8f89;
-  font: 500 9px ui-monospace, monospace;
+  font: 500 var(--text-meta) ui-monospace, monospace;
 }
 
 .archive-document-jacket h2 {
@@ -778,7 +778,7 @@
   max-width: 620px;
   margin-top: 11px;
   color: #697169;
-  font-size: 11px;
+  font-size: var(--text-ui);
   font-weight: 470;
   line-height: 1.65;
 }
@@ -814,7 +814,7 @@
 .archive-document-facts small {
   margin-top: 4px;
   color: #858a84;
-  font-size: 8px;
+  font-size: var(--text-caption);
 }
 
 .archive-toc {
@@ -841,13 +841,13 @@
 
 .archive-toc > header span {
   color: #818780;
-  font: 600 7px ui-monospace, monospace;
+  font: 600 var(--text-caption) ui-monospace, monospace;
   letter-spacing: .1em;
 }
 
 .archive-toc > header b {
   color: #6e766d;
-  font: 600 9px ui-monospace, monospace;
+  font: 600 var(--text-meta) ui-monospace, monospace;
 }
 
 .archive-toc nav {
@@ -905,14 +905,14 @@
 
 .archive-toc nav i {
   color: #a0a49f;
-  font: 500 7px ui-monospace, monospace;
+  font: 500 var(--text-caption) ui-monospace, monospace;
   font-style: normal;
 }
 
 .archive-toc nav span {
   display: -webkit-box;
   overflow: hidden;
-  font-size: 9px;
+  font-size: var(--text-meta);
   line-height: 1.55;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -930,13 +930,13 @@
 
 .archive-toc > footer span {
   color: #898e88;
-  font: 600 7px ui-monospace, monospace;
+  font: 600 var(--text-caption) ui-monospace, monospace;
   letter-spacing: .1em;
 }
 
 .archive-toc > footer b {
   color: #596558;
-  font: 640 10px ui-monospace, monospace;
+  font: 640 var(--text-meta) ui-monospace, monospace;
 }
 
 .archive-mobile-toc {
@@ -947,7 +947,7 @@
   max-width: 760px;
   padding-top: 5px;
   color: #39423a;
-  font-size: 14px;
+  font-size: var(--text-body);
   line-height: 1.86;
 }
 
@@ -1008,7 +1008,7 @@
 .archive-markdown h5,
 .archive-markdown h6 {
   margin: 28px 0 10px;
-  font-size: 13px;
+  font-size: var(--text-ui);
   font-weight: 650;
 }
 
@@ -1063,7 +1063,7 @@
   right: 12px;
   color: rgba(101, 116, 91, .16);
   content: "ARCHIVE NOTE";
-  font: 600 7px ui-monospace, monospace;
+  font: 600 var(--text-caption) ui-monospace, monospace;
   letter-spacing: .12em;
 }
 
@@ -1110,7 +1110,7 @@
   width: 100%;
   min-width: 560px;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: var(--text-ui);
   line-height: 1.65;
 }
 
@@ -1157,7 +1157,7 @@
   padding: 9px 13px;
   border-bottom: 1px solid rgba(255, 255, 255, .08);
   color: #aeb7aa;
-  font: 600 8px ui-monospace, monospace;
+  font: 600 var(--text-caption) ui-monospace, monospace;
   letter-spacing: .1em;
 }
 
@@ -1169,7 +1169,7 @@
 
 .archive-code-block code {
   color: #e0e4da;
-  font: 11px/1.65 ui-monospace, "SFMono-Regular", monospace;
+  font: var(--text-ui)/1.65 ui-monospace, "SFMono-Regular", monospace;
   tab-size: 2;
 }
 
@@ -1181,7 +1181,7 @@
 
 .archive-document-end > span {
   color: #868b85;
-  font: 600 8px ui-monospace, monospace;
+  font: 600 var(--text-caption) ui-monospace, monospace;
   letter-spacing: .13em;
 }
 
@@ -1196,7 +1196,7 @@
 .archive-document-end > p {
   margin: 13px 0 0;
   color: #777e76;
-  font-size: 10px;
+  font-size: var(--text-meta);
   line-height: 1.7;
 }
 
@@ -1208,21 +1208,21 @@
   align-items: center;
   margin: 0 auto;
   color: #7a8179;
-  font: 600 8px ui-monospace, monospace;
+  font: 600 var(--text-caption) ui-monospace, monospace;
   letter-spacing: .11em;
 }
 
 .archive-page-footer p {
   margin: 0;
   color: #6f776e;
-  font: 10px "SF Pro Text", "PingFang SC", sans-serif;
+  font: var(--text-meta) "SF Pro Text", "PingFang SC", sans-serif;
   letter-spacing: 0;
 }
 
 .archive-page-footer b {
   justify-self: end;
   color: #8b8f89;
-  font-size: 7px;
+  font-size: var(--text-caption);
 }
 
 @media (max-width: 1180px) {
@@ -1257,7 +1257,7 @@
     justify-content: space-between;
     color: #536053;
     cursor: pointer;
-    font-size: 11px;
+    font-size: var(--text-ui);
     list-style: none;
   }
 
@@ -1278,7 +1278,7 @@
   .archive-mobile-toc summary span {
     margin-left: auto;
     color: #8a8f89;
-    font: 8px ui-monospace, monospace;
+    font: var(--text-caption) ui-monospace, monospace;
   }
 
   .archive-mobile-toc nav {
@@ -1294,7 +1294,7 @@
     background: transparent;
     cursor: pointer;
     text-align: left;
-    font-size: 10px;
+    font-size: var(--text-meta);
   }
 
   .archive-mobile-toc nav button.level-3 {
@@ -1427,7 +1427,7 @@
     color: #667066;
     background: transparent;
     cursor: pointer;
-    font-size: 10px;
+    font-size: var(--text-meta);
   }
 
   .archive-index {
@@ -1451,7 +1451,7 @@
     color: #596459;
     background: rgba(255, 255, 252, .35);
     cursor: pointer;
-    font-size: 9px;
+    font-size: var(--text-meta);
   }
 
   .archive-filter-trigger i {
@@ -1512,7 +1512,7 @@
     color: #4f5a50;
     background: rgba(246, 244, 237, .9);
     cursor: pointer;
-    font-size: 10px;
+    font-size: var(--text-meta);
   }
 
   .archive-reader-close b {
@@ -1561,7 +1561,7 @@
   }
 
   .archive-statement p {
-    font-size: 10px;
+    font-size: var(--text-meta);
   }
 
   .archive-ledger {
@@ -1584,11 +1584,11 @@
   }
 
   .archive-panel-head > div strong {
-    font-size: 11px;
+    font-size: var(--text-ui);
   }
 
   .archive-panel-head > div span {
-    font-size: 8px;
+    font-size: var(--text-caption);
   }
 
   .archive-filter-trigger {
@@ -1614,11 +1614,11 @@
   }
 
   .archive-document-list strong {
-    font-size: 14px;
+    font-size: var(--text-body);
   }
 
   .archive-document-list p {
-    font-size: 9px;
+    font-size: var(--text-meta);
   }
 
   .archive-reader {
@@ -1653,7 +1653,7 @@
   }
 
   .archive-markdown {
-    font-size: 13px;
+    font-size: var(--text-ui);
     line-height: 1.82;
   }
 
@@ -1684,7 +1684,7 @@
   }
 
   .archive-table-wrap table {
-    font-size: 10px;
+    font-size: var(--text-meta);
   }
 
   .archive-page-footer {

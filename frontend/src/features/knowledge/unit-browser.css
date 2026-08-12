@@ -25,7 +25,7 @@
 
 .unit-filter-rail > header span {
   color: #6e786e;
-  font: 600 10px ui-monospace, monospace;
+  font: 600 var(--text-meta) ui-monospace, monospace;
   letter-spacing: .12em;
 }
 
@@ -41,7 +41,7 @@
 .unit-filter-rail > section > p {
   margin: 0 7px 9px;
   color: #717b71;
-  font-size: 11px;
+  font-size: var(--text-ui);
 }
 
 .unit-filter-rail > section > button {
@@ -56,7 +56,7 @@
   color: #4f5c50;
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--text-meta);
   text-align: left;
 }
 
@@ -82,7 +82,7 @@
 
 .unit-filter-rail > section > button b {
   color: #788278;
-  font: 500 9px ui-monospace, monospace;
+  font: 500 var(--text-meta) ui-monospace, monospace;
 }
 
 .unit-tag-section > button {
@@ -148,7 +148,7 @@
   display: block;
   padding: 5px 8px;
   color: #7a6b63;
-  font-size: 10px;
+  font-size: var(--text-meta);
 }
 
 .unit-scored-toggle {
@@ -196,7 +196,7 @@
 
 .unit-scored-toggle b {
   color: #566257;
-  font-size: 11px;
+  font-size: var(--text-ui);
   font-weight: 560;
 }
 
@@ -215,11 +215,11 @@
   padding: 0 17px;
   border-top: 1px solid var(--library-line-soft);
   color: #6e786e;
-  font-size: 10px;
+  font-size: var(--text-meta);
 }
 
 .unit-filter-rail > footer b {
-  font: 600 9px ui-monospace, monospace;
+  font: 600 var(--text-meta) ui-monospace, monospace;
   letter-spacing: .08em;
 }
 
@@ -229,7 +229,7 @@
   color: #596759;
   background: transparent;
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--text-meta);
   font-weight: 650;
 }
 
@@ -260,7 +260,7 @@
   color: #4f5c50;
   background: transparent;
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--text-ui);
 }
 
 .unit-catalog > header label {
@@ -301,7 +301,7 @@
 
 .unit-catalog > header kbd {
   color: #7d857c;
-  font: 9px ui-monospace, monospace;
+  font: var(--text-meta) ui-monospace, monospace;
 }
 
 .unit-catalog-state {
@@ -329,7 +329,7 @@
 .unit-catalog-state p span,
 .unit-catalog-state > span {
   color: #717b71;
-  font-size: 10px;
+  font-size: var(--text-meta);
 }
 
 .unit-preview-notice {
@@ -337,7 +337,7 @@
   border-bottom: 1px solid rgba(129, 123, 152, .15);
   color: #645f70;
   background: rgba(228, 223, 237, .3);
-  font-size: 11px;
+  font-size: var(--text-ui);
 }
 
 .unit-list {
@@ -418,7 +418,7 @@
 .unit-row-number {
   padding-top: 2px;
   color: #7c857c;
-  font: 600 10px ui-monospace, monospace;
+  font: 600 var(--text-meta) ui-monospace, monospace;
 }
 
 .unit-row-body {
@@ -431,7 +431,7 @@
   align-items: center;
   gap: 7px;
   color: #6b766b;
-  font-size: 11px;
+  font-size: var(--text-ui);
 }
 
 .unit-row-meta b {
@@ -455,7 +455,7 @@
 
 .unit-row-meta time {
   margin-left: auto;
-  font: 8px ui-monospace, monospace;
+  font: var(--text-caption) ui-monospace, monospace;
   white-space: nowrap;
 }
 
@@ -476,7 +476,7 @@
   margin-top: 10px;
   overflow: hidden;
   color: #707a70;
-  font-size: 10px;
+  font-size: var(--text-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -494,7 +494,7 @@
   overflow: hidden;
   color: #687368;
   background: rgba(232, 230, 219, .68);
-  font-size: 9px;
+  font-size: var(--text-meta);
   font-style: normal;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -503,7 +503,7 @@
 .unit-row-foot b {
   margin-left: auto;
   color: #727c72;
-  font-size: 9px;
+  font-size: var(--text-meta);
   font-weight: 550;
   white-space: nowrap;
 }
@@ -557,7 +557,7 @@
 .unit-search-error > span,
 .unit-list-empty > span {
   color: #7b756e;
-  font: 600 9px ui-monospace, monospace;
+  font: 600 var(--text-meta) ui-monospace, monospace;
   letter-spacing: .13em;
 }
 
@@ -574,7 +574,7 @@
   max-width: 280px;
   margin: 8px 0 0;
   color: #687368;
-  font-size: 11px;
+  font-size: var(--text-ui);
   line-height: 1.55;
 }
 
@@ -587,7 +587,7 @@
   color: #465347;
   background: rgba(242, 239, 230, .58);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--text-ui);
 }
 
 .unit-reader {
@@ -635,7 +635,7 @@
     color: #4f5c50;
     background: transparent;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--text-meta);
   }
 
   .unit-catalog {
@@ -684,7 +684,7 @@
     color: #465246;
     background: rgba(240, 237, 228, .97);
     cursor: pointer;
-    font-size: 13px;
+    font-size: var(--text-ui);
   }
 
   .unit-reader-close b {
@@ -721,7 +721,7 @@
   }
 
   .unit-row-body > strong {
-    font-size: 13px;
+    font-size: var(--text-ui);
   }
 
   .unit-row-meta time {

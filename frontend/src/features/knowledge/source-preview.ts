@@ -45,70 +45,61 @@ function unit(contentId: number, input: PreviewUnitInput): KnowledgeContentUnit 
   }
 }
 
+function sourceSummary(
+  id: number,
+  creatorId: number,
+  creator: string,
+  videoId: string,
+  title: string,
+  date: string,
+  rawLength: number,
+  counts: [number, number, number],
+  scores: [number, number, number] = [0, 0, 0],
+): KnowledgeContentSummary {
+  const [claims, methods, concepts] = counts
+  const [hit, partial, miss] = scores
+  return {
+    id,
+    creator_id: creatorId,
+    creator,
+    platform: 'youtube',
+    url: `https://www.youtube.com/watch?v=${videoId}`,
+    content_type: 'video',
+    title,
+    published_at: `${date}T20:00:00+08:00`,
+    fetched_at: `${date}T23:00:00+08:00`,
+    lang: 'zh',
+    status: 'extracted',
+    raw_len: rawLength,
+    n_units: claims + methods + concepts,
+    n_claims: claims,
+    n_methods: methods,
+    n_concepts: concepts,
+    n_hit: hit,
+    n_partial: partial,
+    n_miss: miss,
+  }
+}
+
 export const previewSourceContents: KnowledgeContentSummary[] = [
-  {
-    id: 13,
-    creator_id: 2,
-    creator: '美投君',
-    platform: 'youtube',
-    url: 'https://www.youtube.com/watch?v=0kvj3lbJqoY',
-    content_type: 'video',
-    title: 'AI竟与100年前电力革命如此相似？90%的人都看错方向，历史已指明最大商机！',
-    published_at: publishedAt[13],
-    fetched_at: '2026-07-14T23:32:05+08:00',
-    lang: 'zh',
-    status: 'extracted',
-    raw_len: 13657,
-    n_units: 9,
-    n_claims: 3,
-    n_methods: 0,
-    n_concepts: 6,
-    n_hit: 0,
-    n_partial: 0,
-    n_miss: 0,
-  },
-  {
-    id: 17,
-    creator_id: 2,
-    creator: '美投君',
-    platform: 'youtube',
-    url: null,
-    content_type: 'video',
-    title: 'AI是威胁？还是机遇？软件股多点开花预示什么？哪些公司能率先迎来爆发？',
-    published_at: publishedAt[17],
-    fetched_at: publishedAt[17],
-    lang: 'zh',
-    status: 'extracted',
-    raw_len: 0,
-    n_units: 13,
-    n_claims: 6,
-    n_methods: 1,
-    n_concepts: 6,
-    n_hit: 0,
-    n_partial: 0,
-    n_miss: 0,
-  },
-  {
-    id: 12,
-    creator_id: 1,
-    creator: 'Andy Lee 财经',
-    platform: 'youtube',
-    url: null,
-    content_type: 'video',
-    title: '美债会通杀市场吗？金银油、纳指、SOXX关键判断依据。',
-    published_at: publishedAt[12],
-    fetched_at: publishedAt[12],
-    lang: 'zh',
-    status: 'extracted',
-    raw_len: 0,
-    n_units: 10,
-    n_claims: 6,
-    n_methods: 1,
-    n_concepts: 3,
-    n_hit: 1,
-    n_partial: 0,
-    n_miss: 1,
-  },
+  sourceSummary(13, 2, '美投君', '0kvj3lbJqoY', 'AI竟与100年前电力革命如此相似？90%的人都看错方向，历史已指明最大商机！', '2026-07-12', 13657, [3, 0, 6]),
+  sourceSummary(1, 1, 'Andy Lee 财经', '9q2VneDmauM', '如何看美股牛熊指标超买？半导体板块最佳节奏！AUDJPY是风险领先指标。', '2026-07-12', 7888, [8, 2, 5]),
+  sourceSummary(3, 1, 'Andy Lee 财经', 'xZp3zzsdc8U', '扭曲油价的风险，韩指暴跌如何看？美股财报季，花旗定量模型。', '2026-07-07', 8249, [8, 3, 5]),
+  sourceSummary(2, 2, '美投君', 'px5M4ry8IO4', '涨的要跌？跌的要涨？下半年2大风险，1大致富机会，你必须了解！', '2026-07-05', 12636, [7, 1, 8], [0, 0, 1]),
+  sourceSummary(4, 1, 'Andy Lee 财经', 'TFnsaRDIpIU', '股强金弱格局，下半年会继续吗？关注一个指标！闪迪、美光、CRCL、BTC、XLV跟踪。', '2026-07-01', 6302, [11, 2, 4], [2, 0, 3]),
+  sourceSummary(5, 1, 'Andy Lee 财经', 'Hg2RjmU0IU8', '精准预判下跌，后市美股黄金如何看，AI交易新的机会在哪？', '2026-06-24', 9368, [14, 2, 6], [2, 0, 0]),
+  sourceSummary(14, 2, '美投君', '-ih9NBMHiU8', 'AI商业发展暗藏4大前瞻趋势！提前埋伏这些机会，押注下一轮AI暴涨？', '2026-06-21', 10182, [3, 0, 6]),
+  sourceSummary(6, 1, 'Andy Lee 财经', '7nByo0IjiBE', '风险信号：美元指数上破101，黄金与美股关键价位再分析。', '2026-06-19', 4757, [8, 1, 5], [2, 0, 0]),
+  sourceSummary(7, 1, 'Andy Lee 财经', 'aRyOMsKkm3g', '如期反弹，黄金、纳指、SOXX、IGV目标和压力分析，川普签啥协议由他去吧！', '2026-06-15', 6659, [8, 3, 3], [2, 0, 5]),
+  sourceSummary(15, 2, '美投君', 'ByBLjNA3MvY', '高手是如何在牛市中赚钱的？1招让你告别踏空，无惧下跌！', '2026-06-14', 7241, [1, 1, 5]),
+  sourceSummary(8, 1, 'Andy Lee 财经', 'gtY5Md7o1W4', '如期回调。纳指、半导体后市判断，黄金的牛熊分水岭，Nvda与TSLA。', '2026-06-09', 6844, [10, 1, 4], [3, 0, 6]),
+  sourceSummary(16, 2, '美投君', 'xEkNd6xG1qo', '美股涨到头了？这3类股票不要碰！还有1类反而出大机会？', '2026-06-08', 8970, [7, 2, 6], [1, 0, 1]),
+  sourceSummary(9, 1, 'Andy Lee 财经', '7DR2q2gXiZs', '软件板块再续强势，盘点投行推荐的低位股，CRWV CRM TEAM，纳指面临均值回归？', '2026-06-01', 6027, [10, 0, 4], [2, 0, 6]),
+  sourceSummary(17, 2, '美投君', 'tUI3ITjo2Bw', 'AI是威胁？还是机遇？软件股多点开花预示什么？哪些公司能率先迎来爆发？', '2026-05-31', 16151, [6, 1, 6], [0, 0, 2]),
+  sourceSummary(10, 1, 'Andy Lee 财经', 'XzV-L9PjdV0', '美光的新目标和支撑分析，纳指30000点后怎么看，黄金白银BTC原油跟踪。', '2026-05-27', 5388, [9, 1, 4], [2, 1, 5]),
+  sourceSummary(11, 1, 'Andy Lee 财经', 'nfWDeKeJjyY', 'NVDA TSLA MU MRVL QCOM等分析，半导体还是周期行业吗？', '2026-05-22', 10601, [12, 1, 3], [4, 0, 0]),
+  sourceSummary(18, 2, '美投君', '91yRxsdc0gA', '00年互联网泡沫，半导体都发生了什么？悲剧重演？历史已给出答案！', '2026-05-18', 10225, [4, 1, 6]),
+  sourceSummary(12, 1, 'Andy Lee 财经', 'muTemJOTM58', '美债会通杀市场吗？金银油、纳指、SOXX关键判断依据。', '2026-05-18', 5638, [6, 1, 3], [1, 0, 5]),
 ]
 
 const previewUnits: Record<number, KnowledgeContentUnit[]> = {
@@ -254,7 +245,8 @@ const previewUnits: Record<number, KnowledgeContentUnit[]> = {
 }
 
 function detailFor(content: KnowledgeContentSummary): KnowledgeContentDetail {
-  const excerpts = previewUnits[content.id].map((item) => item.quote).join('\n\n')
+  const excerpts = (previewUnits[content.id] ?? []).map((item) => item.quote).join('\n\n')
+  const transcript = excerpts || '离线预览未携带本期完整转录。连接知识接口后，这里将显示数据库中保存的不可变原文。'
   return {
     id: content.id,
     creator_id: content.creator_id,
@@ -267,7 +259,7 @@ function detailFor(content: KnowledgeContentSummary): KnowledgeContentDetail {
     fetched_at: content.fetched_at,
     lang: content.lang,
     status: content.status,
-    raw: `${excerpts}\n\n## 视觉笔记（画面信息，带时间戳）\n- 预览模式仅保留经过逐字核对的节选。`,
+    raw: `${transcript}\n\n## 视觉笔记（画面信息，带时间戳）\n- 预览模式仅保留经过逐字核对的节选。`,
     created_at: content.fetched_at,
   }
 }
@@ -275,6 +267,6 @@ function detailFor(content: KnowledgeContentSummary): KnowledgeContentDetail {
 export const previewSourceBundles = Object.fromEntries(
   previewSourceContents.map((content) => [
     content.id,
-    { detail: detailFor(content), units: previewUnits[content.id] },
+    { detail: detailFor(content), units: previewUnits[content.id] ?? [] },
   ]),
 ) as Record<number, PreviewSourceBundle>

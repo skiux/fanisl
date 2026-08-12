@@ -5,6 +5,7 @@ import EvidenceDossier from './EvidenceDossier'
 import UnitBrowser from './UnitBrowser'
 import { previewNodes } from './preview'
 import { previewSourceBundles, previewSourceContents } from './source-preview'
+import { creatorInitial, youtubeThumbnail } from './video'
 import type {
   AttestationRelation,
   KnowledgeContentDetail,
@@ -20,6 +21,7 @@ import type {
   UnitScore,
 } from './types'
 import './knowledge.css'
+import './source-workspace.css'
 
 const kindLabels: Record<KnowledgeKind, string> = {
   claim: '判断',
@@ -78,6 +80,7 @@ type LoadMode = 'loading' | 'live' | 'preview'
 type ReaderMode = 'idle' | 'loading' | 'loaded' | 'error' | 'preview'
 type KnowledgeView = 'sources' | 'nodes' | 'evidence'
 type KindFilter = 'all' | KnowledgeKind
+type SourceWorkspaceView = 'original' | 'units' | 'nodes' | 'verdicts'
 type ContentBundle = {
   detail: KnowledgeContentDetail
   units: KnowledgeContentUnit[]
@@ -121,19 +124,22 @@ function formatDate(value: string | null | undefined, withYear = false) {
   }).format(new Date(value))
 }
 
-function dateParts(value: string | null | undefined) {
-  if (!value) return { day: '—', month: '日期未知', year: '—' }
-  const date = new Date(value)
-  return {
-    day: new Intl.DateTimeFormat('zh-CN', { day: '2-digit', timeZone: 'Asia/Shanghai' }).format(date),
-    month: new Intl.DateTimeFormat('zh-CN', { month: 'short', timeZone: 'Asia/Shanghai' }).format(date),
-    year: new Intl.DateTimeFormat('zh-CN', { year: 'numeric', timeZone: 'Asia/Shanghai' }).format(date),
-  }
-}
-
 function compactNumber(value: number) {
   if (!value) return '—'
   return new Intl.NumberFormat('zh-CN', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
+}
+
+function relativePublishedDate(value: string | null | undefined) {
+  if (!value) return '日期未知'
+  const published = new Date(value)
+  const now = new Date()
+  const days = Math.floor((now.getTime() - published.getTime()) / 86_400_000)
+  if (days >= 0 && days < 1) return '今天'
+  if (days === 1) return '昨天'
+  if (days > 1 && days < 30) return `${days} 天前`
+  if (days >= 30 && days < 365) return `${Math.max(1, Math.floor(days / 30))} 个月前`
+  if (days >= 365) return `${Math.floor(days / 365)} 年前`
+  return formatDate(value, true)
 }
 
 function asText(value: unknown) {
@@ -626,7 +632,6 @@ function SourceLibrary({
   query: string
   visibleContents: KnowledgeContentSummary[]
 }) {
-  const featured = visibleContents[0] ?? contents[0] ?? null
   const totals = contents.reduce((acc, content) => ({
     raw: acc.raw + content.raw_len,
     units: acc.units + content.n_units,
@@ -636,73 +641,33 @@ function SourceLibrary({
   return (
     <main className="source-library-stage">
       <header className="source-library-lead">
-        <div className="source-lead-title">
-          <span>KNOWLEDGE / ORIGIN FIRST</span>
-          <h1>从原始内容<br />开始。</h1>
+        <div>
+          <span>KNOWLEDGE LIBRARY</span>
+          <h1>内容</h1>
+          <p>从每一期视频进入，阅读原文、知识提取与后续裁决。</p>
         </div>
-        <div className="source-lead-copy">
-          <p>先保留谁在什么时候说了什么，再从逐字原文中提取判断、方法与认知。知识不是入口处的结论，而是证据经过时间后留下的形状。</p>
-          <div><b>{contents.length}</b> 期内容 <i /> <b>{compactNumber(totals.raw)}</b> 字原文</div>
-        </div>
-      </header>
-
-      <section className="knowledge-flow" aria-label="知识形成顺序">
-        <div className="is-current"><span>01</span><b>原始内容</b><p>{contents.length || '—'} 期不可变来源</p></div>
-        <div><span>02</span><b>结构化单元</b><p>{totals.units || '—'} 条判断、方法与认知</p></div>
-        <div><span>03</span><b>长期知识</b><p>{nodes.length || '—'} 个归并节点</p></div>
-        <div><span>04</span><b>市场裁决</b><p>{totals.scores || '—'} 个有效时点</p></div>
-      </section>
-
-      {loadMode === 'preview' && (
-        <div className="preview-notice"><i /><span>后端未连接，当前以仓库内的真实内容样本展示来源优先的阅读顺序。</span></div>
-      )}
-
-      {loadMode === 'loading' ? (
-        <section className="featured-source source-skeleton"><i /><span /><span /><span /></section>
-      ) : featured && (
-        <section className="featured-source">
-          <header>
-            <span>LATEST INTAKE</span>
-            <p>{formatDate(featured.published_at, true)}</p>
-          </header>
-          <div className="featured-source-main">
-            <p><b>{featured.creator}</b><span>{platformLabels[featured.platform] ?? featured.platform}</span></p>
-            <h2>{featured.title}</h2>
-            <div className="featured-distribution">
-              <span style={{ flex: featured.n_claims || .001 }}><i />{featured.n_claims} 判断</span>
-              <span style={{ flex: featured.n_methods || .001 }}><i />{featured.n_methods} 方法</span>
-              <span style={{ flex: featured.n_concepts || .001 }}><i />{featured.n_concepts} 认知</span>
-            </div>
-            <button onClick={() => onOpenContent(featured.id)} type="button">进入这期内容 <i>↗</i></button>
-          </div>
-          <aside>
-            <span>为什么从这里开始</span>
-            <p>标题、发布时间、完整转录和画面笔记构成不可变的 L0。后续提取、归并和评分都必须能回到这里。</p>
-            <dl>
-              <div><dt>原文字数</dt><dd>{compactNumber(featured.raw_len)}</dd></div>
-              <div><dt>提取单元</dt><dd>{featured.n_units}</dd></div>
-              <div><dt>已裁决</dt><dd>{featured.n_hit + featured.n_partial + featured.n_miss || '待到期'}</dd></div>
-            </dl>
-          </aside>
-        </section>
-      )}
-
-      <section className="source-archive">
-        <header className="source-archive-head">
-          <div><span>SOURCE ARCHIVE</span><h2>全部原始内容</h2></div>
+        <div className="source-lead-actions">
           <label>
             <span aria-hidden="true">⌕</span>
             <input
-              aria-label="搜索原始内容"
+              aria-label="搜索内容"
               onChange={(event) => onChangeQuery(event.target.value)}
-              placeholder="搜索标题或信源"
+              placeholder="搜索视频标题或创作者"
               value={query}
             />
             {query && <button aria-label="清空搜索" onClick={() => onChangeQuery('')} type="button">×</button>}
           </label>
-        </header>
+          <button onClick={onShowNodes} type="button">长期知识</button>
+          <button onClick={onShowEvidence} type="button">逐字证据</button>
+        </div>
+      </header>
 
-        <div className="source-creators" aria-label="按信源筛选">
+      {loadMode === 'preview' && (
+        <div className="preview-notice"><i /><span>后端未连接，当前显示仓库内的真实内容样本。</span></div>
+      )}
+
+      <section className="video-library">
+        <div className="video-library-tabs" aria-label="按信源筛选">
           <button aria-pressed={creatorId === null} onClick={() => onChangeCreator(null)} type="button">全部信源 <small>{contents.length}</small></button>
           {creators.map((creator) => {
             const count = contents.filter((content) => content.creator_id === creator.id).length
@@ -711,42 +676,61 @@ function SourceLibrary({
           })}
         </div>
 
-        <div className="source-list" aria-busy={loadMode === 'loading'}>
-          {loadMode === 'loading' && [0, 1, 2, 3].map((item) => <div className="source-row source-row-skeleton" key={item}><i /><span /><span /></div>)}
-          {loadMode !== 'loading' && visibleContents.map((content, index) => {
-            const date = dateParts(content.published_at)
+        <header className="video-library-heading">
+          <h2>{query ? `“${query}”的结果` : creatorId ? creators.find((creator) => creator.id === creatorId)?.name : '全部视频'}</h2>
+          <p>{visibleContents.length} 期</p>
+        </header>
+
+        <div className="video-grid" aria-busy={loadMode === 'loading'}>
+          {loadMode === 'loading' && Array.from({ length: 8 }, (_, item) => <div className="video-card video-card-skeleton" key={item}><i /><span /><span /></div>)}
+          {loadMode !== 'loading' && visibleContents.map((content) => {
+            const thumbnail = youtubeThumbnail(content.url)
             const scored = content.n_hit + content.n_partial + content.n_miss
-            const total = Math.max(content.n_units, 1)
             return (
-              <button className="source-row" key={content.id} onClick={() => onOpenContent(content.id)} type="button">
-                <span className="source-date"><b>{date.day}</b><em>{date.month} {date.year}</em></span>
-                <span className="source-row-main">
-                  <span><b>{content.creator}</b><em>{platformLabels[content.platform] ?? content.platform}</em></span>
-                  <strong>{content.title}</strong>
-                  <span className="source-unit-bar" aria-label={`${content.n_units} 个知识单元`}>
-                    <i className="bar-claim" style={{ flex: content.n_claims / total }} />
-                    <i className="bar-method" style={{ flex: content.n_methods / total }} />
-                    <i className="bar-concept" style={{ flex: content.n_concepts / total }} />
+              <article className="video-card" key={content.id}>
+                <button aria-label={`打开内容：${content.title}`} className="video-thumbnail" onClick={() => onOpenContent(content.id)} type="button">
+                  {thumbnail ? (
+                    <img
+                      alt=""
+                      loading="lazy"
+                      onError={(event) => {
+                        const image = event.currentTarget
+                        if (image.dataset.fallback === 'true') return
+                        image.dataset.fallback = 'true'
+                        image.src = youtubeThumbnail(content.url, 'medium') ?? ''
+                      }}
+                      src={thumbnail}
+                    />
+                  ) : <span aria-hidden="true" className="video-thumbnail-fallback" />}
+                  <span className="video-card-badges">
+                    <b>{content.n_units} 个知识单元</b>
+                    {scored > 0 && <b>{scored} 个裁决</b>}
                   </span>
-                </span>
-                <span className="source-row-facts">
-                  <span><b>{content.n_units}</b> 个单元</span>
-                  <span>{scored ? `${scored} 个裁决` : '等待裁决'}</span>
-                </span>
-                <span className="source-row-index">{String(index + 1).padStart(2, '0')} ↗</span>
-              </button>
+                  <span className="video-card-play" aria-hidden="true">▶</span>
+                </button>
+                <div className="video-card-copy">
+                  <span className={`creator-avatar creator-${content.creator_id}`}>{creatorInitial(content.creator)}</span>
+                  <div>
+                    <button onClick={() => onOpenContent(content.id)} type="button"><strong>{content.title}</strong></button>
+                    <p>{content.creator}</p>
+                    <p>{relativePublishedDate(content.published_at)} · {content.n_claims} 判断 · {content.n_methods} 方法 · {content.n_concepts} 认知</p>
+                  </div>
+                </div>
+              </article>
             )
           })}
           {loadMode !== 'loading' && visibleContents.length === 0 && (
-            <div className="source-empty"><span>NO MATCHED SOURCE</span><strong>没有匹配的原始内容</strong><button onClick={() => { onChangeQuery(''); onChangeCreator(null) }} type="button">清除条件</button></div>
+            <div className="source-empty"><span>NO MATCHED VIDEO</span><strong>没有匹配的视频内容</strong><button onClick={() => { onChangeQuery(''); onChangeCreator(null) }} type="button">清除条件</button></div>
           )}
         </div>
       </section>
 
-      <section className="source-next">
-        <header><span>CONTINUE FROM SOURCE</span><h2>证据之后，才是知识。</h2></header>
-        <button onClick={onShowNodes} type="button"><span>长期知识</span><p>查看跨内容归并、修正并保留来源的规范知识。</p><i>02 / 归并层 ↗</i></button>
-        <button onClick={onShowEvidence} type="button"><span>逐字证据</span><p>跨全部内容检索原句、标的、判据与评分结果。</p><i>全文检索 · ⌘K</i></button>
+      <section className="source-library-summary">
+        <div><strong>{contents.length}</strong><span>收录内容</span></div>
+        <div><strong>{compactNumber(totals.raw)}</strong><span>原文总字数</span></div>
+        <div><strong>{totals.units}</strong><span>提取单元</span></div>
+        <div><strong>{nodes.length}</strong><span>长期知识</span></div>
+        <div><strong>{totals.scores}</strong><span>到期裁决</span></div>
       </section>
 
       <footer className="knowledge-footer"><span>FANISL / SOURCE PRESERVED</span><p>原文不可变，结论可以随新证据继续修正。</p></footer>
@@ -774,6 +758,8 @@ function SourceDocument({
   onRetry: () => void
 }) {
   const [kind, setKind] = useState<KindFilter>('all')
+  const [activeView, setActiveView] = useState<SourceWorkspaceView>('original')
+  const viewScrollRef = useRef<HTMLDivElement>(null)
   const units = bundle?.units ?? []
   const visibleUnits = kind === 'all' ? units : units.filter((unit) => unit.kind === kind)
   const scoreEntries = units.flatMap((unit) => unit.scores.map((score) => ({ score, unit })))
@@ -784,7 +770,15 @@ function SourceDocument({
     weight: node.tags.reduce((sum, tag) => sum + (topicCount.get(tag) ?? 0), 0),
   })).filter((item) => item.weight > 0).sort((a, b) => b.weight - a.weight || compareEvidence(a.node, b.node)).slice(0, 5)
   const raw = bundle ? splitRaw(bundle.detail.raw) : null
-  const opening = raw?.transcript.slice(0, 1100) ?? ''
+
+  useEffect(() => {
+    setActiveView('original')
+    setKind('all')
+  }, [content.id])
+
+  useEffect(() => {
+    viewScrollRef.current?.scrollTo({ top: 0 })
+  }, [activeView, kind])
 
   if (mode === 'loading' || mode === 'idle') return <SourceReaderSkeleton content={content} />
   if (mode === 'error' || !bundle || !raw) {
@@ -792,97 +786,146 @@ function SourceDocument({
   }
 
   return (
-    <article className="source-document">
-      <nav className="document-flow" aria-label="本期内容的知识形成顺序">
-        <a className="is-current" href="#source-original"><span>01</span><b>原始内容</b></a>
-        <a href="#source-units"><span>02</span><b>提取单元</b></a>
-        <a href="#source-nodes"><span>03</span><b>长期知识</b></a>
-        <a href="#source-verdicts"><span>04</span><b>市场裁决</b></a>
-      </nav>
-
-      <header className="source-document-lead">
-        <div><span>CONTENT / {String(content.id).padStart(3, '0')}</span><b>{platformLabels[content.platform] ?? content.platform}</b></div>
-        <p>{content.creator} · {formatDate(content.published_at, true)}</p>
-        <h1>{content.title}</h1>
-        <dl>
-          <div><dt>原文字数</dt><dd>{compactNumber(content.raw_len)}</dd></div>
-          <div><dt>知识单元</dt><dd>{content.n_units}</dd></div>
-          <div><dt>判断 / 方法 / 认知</dt><dd>{content.n_claims} / {content.n_methods} / {content.n_concepts}</dd></div>
-          <div><dt>状态</dt><dd>{content.status === 'extracted' ? '已提取' : '待提取'}</dd></div>
-        </dl>
+    <article className="source-workspace">
+      <header className="source-workspace-head">
+        <div className="source-workspace-kicker">
+          <span>CONTENT / {String(content.id).padStart(3, '0')}</span>
+          <b>{platformLabels[content.platform] ?? content.platform}</b>
+        </div>
+        <div className="source-workspace-title">
+          <h1>{content.title}</h1>
+          <p>{content.creator} · {formatDate(content.published_at, true)} · {content.status === 'extracted' ? '已完成提取' : '等待提取'}</p>
+        </div>
+        {content.url && <a className="source-external-link" href={content.url} rel="noreferrer" target="_blank">打开原始视频 ↗</a>}
       </header>
 
-      {isPreview && <div className="document-preview-note">预览模式仅显示经过核对的原文节选与部分提取单元。</div>}
+      <div className="source-workspace-body">
+        <aside className="source-context-pane">
+          {youtubeThumbnail(content.url) && (
+            <a className="source-context-media" href={content.url ?? undefined} rel="noreferrer" target="_blank">
+              <img
+                alt={`${content.title} 视频缩略图`}
+                onError={(event) => {
+                  const image = event.currentTarget
+                  if (image.dataset.fallback === 'true') return
+                  image.dataset.fallback = 'true'
+                  image.src = youtubeThumbnail(content.url, 'medium') ?? ''
+                }}
+                src={youtubeThumbnail(content.url) ?? ''}
+              />
+              <span aria-hidden="true">▶</span>
+            </a>
+          )}
+          <section className="source-context-summary">
+            <div><span>本期内容</span><b>原文与知识结构</b></div>
+            <p>左侧保留来源身份，右侧分别阅读原文、提取结果、长期知识和市场裁决。</p>
+          </section>
+          <dl className="source-context-stats">
+            <div><dt>原文</dt><dd>{compactNumber(content.raw_len)} 字</dd></div>
+            <div><dt>提取</dt><dd>{content.n_units} 单元</dd></div>
+            <div><dt>结构</dt><dd>{content.n_claims} / {content.n_methods} / {content.n_concepts}</dd></div>
+            <div><dt>裁决</dt><dd>{scoreEntries.length || '等待到期'}</dd></div>
+          </dl>
+          <div className="source-context-legend" aria-label="知识单元构成">
+            <span style={{ flex: content.n_claims || .001 }}><i />{content.n_claims} 判断</span>
+            <span style={{ flex: content.n_methods || .001 }}><i />{content.n_methods} 方法</span>
+            <span style={{ flex: content.n_concepts || .001 }}><i />{content.n_concepts} 认知</span>
+          </div>
+          {isPreview && <div className="source-workspace-notice">离线预览仅包含已核对的原文节选和部分提取单元。</div>}
+        </aside>
 
-      <section className="source-document-section original-section" id="source-original">
-        <header><span>01 / L0</span><div><h2>原始内容</h2><p>来源、发布时间和逐字表达保持不变，是之后所有提取与裁决的锚点。</p></div></header>
-        <div className="original-reading">
-          <div className="original-reading-meta"><span>原文起始</span>{content.url && <a href={content.url} rel="noreferrer" target="_blank">访问原始来源 ↗</a>}</div>
-          <p>{opening}{raw.transcript.length > opening.length ? '…' : ''}</p>
-          <details>
-            <summary><span>完整转录</span><b>{compactNumber(raw.transcript.length)} 字 · 展开</b></summary>
-            <div>{raw.transcript}</div>
-          </details>
-          {raw.visualNotes && <details><summary><span>画面信息与图表笔记</span><b>带时间戳 · 展开</b></summary><div>{raw.visualNotes}</div></details>}
-        </div>
-      </section>
-
-      <section className="source-document-section units-section" id="source-units">
-        <header><span>02 / L1</span><div><h2>从原文提取出的知识</h2><p>每个结构化单元都保留完整引文，判断的验证口径在这一刻冻结。</p></div></header>
-        <div className="unit-reading">
-          <div className="unit-kind-switch">
-            {(['all', 'claim', 'method', 'concept'] as const).map((value) => (
-              <button aria-pressed={kind === value} key={value} onClick={() => setKind(value)} type="button">
-                {value === 'all' ? '全部' : kindLabels[value]}
-                <small>{value === 'all' ? units.length : units.filter((unit) => unit.kind === value).length}</small>
+        <section className="source-research-pane">
+          <nav aria-label="内容研究视图" className="source-view-tabs" role="tablist">
+            {([
+              ['original', '原始内容', compactNumber(raw.transcript.length)],
+              ['units', '提取单元', String(units.length)],
+              ['nodes', '长期知识', String(relatedNodes.length)],
+              ['verdicts', '市场裁决', String(scoreEntries.length)],
+            ] as const).map(([value, label, count]) => (
+              <button
+                aria-selected={activeView === value}
+                key={value}
+                onClick={() => setActiveView(value)}
+                role="tab"
+                type="button"
+              >
+                <span>{label}</span><b>{count}</b>
               </button>
             ))}
+          </nav>
+
+          <div aria-live="polite" className="source-view-scroll" ref={viewScrollRef} role="tabpanel">
+            {activeView === 'original' && (
+              <section className="source-original-view">
+                <header><div><span>L0 / IMMUTABLE SOURCE</span><h2>逐字原文</h2></div><p>原始表达不被覆盖；提取和裁决必须能回到这里。</p></header>
+                <article>{raw.transcript}</article>
+                {raw.visualNotes && <section className="source-visual-notes"><span>画面信息与图表笔记</span><p>{raw.visualNotes}</p></section>}
+              </section>
+            )}
+
+            {activeView === 'units' && (
+              <section className="source-units-view">
+                <header className="source-view-heading"><div><span>L1 / EXTRACTION</span><h2>提取单元</h2></div><p>每个单元保留原句和发布时冻结的口径。</p></header>
+                <div className="source-unit-filters">
+                  {(['all', 'claim', 'method', 'concept'] as const).map((value) => (
+                    <button aria-pressed={kind === value} key={value} onClick={() => setKind(value)} type="button">
+                      {value === 'all' ? '全部' : kindLabels[value]}
+                      <small>{value === 'all' ? units.length : units.filter((unit) => unit.kind === value).length}</small>
+                    </button>
+                  ))}
+                </div>
+                <div className="source-unit-list">
+                  {visibleUnits.map((unit, index) => (
+                    <button className={`source-unit-row kind-${unit.kind}`} disabled={isPreview} key={unit.id} onClick={() => onOpenUnit(unit.id)} type="button">
+                      <span className="source-unit-index">{String(index + 1).padStart(2, '0')}</span>
+                      <span className="source-unit-copy">
+                        <span><b>{kindLabels[unit.kind]}</b><time>{unit.locator ?? `#${unit.id}`}</time></span>
+                        <strong>{unitStatement(unit)}</strong>
+                        <blockquote>{unit.quote}</blockquote>
+                        {unitFacts(unit).map((fact, factIndex) => <em key={`${factIndex}-${fact}`}>{fact}</em>)}
+                        <span className="source-unit-tags">{unit.tags.map((tag) => <i key={tag}>{tag}</i>)}</span>
+                        {unit.kind === 'claim' && <UnitScores scores={unit.scores} />}
+                      </span>
+                      <span className="source-row-arrow">{isPreview ? '节选' : '核查 ↗'}</span>
+                    </button>
+                  ))}
+                  {!visibleUnits.length && <p className="section-empty">本期没有这一类提取单元。</p>}
+                </div>
+              </section>
+            )}
+
+            {activeView === 'nodes' && (
+              <section className="source-nodes-view">
+                <header className="source-view-heading"><div><span>L3 / CANONICAL KNOWLEDGE</span><h2>同主题的长期知识</h2></div><p>共同标签只用于发现路径，具体归并仍以提及关系为准。</p></header>
+                <div className="source-node-list">
+                  {relatedNodes.map(({ node }, index) => (
+                    <button key={node.id} onClick={() => onOpenNode(node.id)} type="button">
+                      <span>{String(index + 1).padStart(2, '0')}</span>
+                      <div><p><b>{kindLabels[node.kind]}</b><em>{statusLabels[node.status]}</em></p><strong>{node.title}</strong><blockquote>{node.canonical}</blockquote></div>
+                      <i>{node.n_attest} 次提及 ↗</i>
+                    </button>
+                  ))}
+                  {!relatedNodes.length && <p className="section-empty">当前还没有与本期主题相接的长期知识。新内容归并后，这里会形成继续阅读的路径。</p>}
+                </div>
+              </section>
+            )}
+
+            {activeView === 'verdicts' && (
+              <section className="source-verdicts-view">
+                <header className="source-view-heading"><div><span>L2 / MARKET VERDICT</span><h2>市场裁决</h2></div><p>只显示按照发布时冻结判据机械执行的结果。</p></header>
+                <div className="source-workspace-verdicts">
+                  {scoreEntries.map(({ score, unit }, index) => (
+                    <button className={`outcome-${score.outcome}`} disabled={isPreview} key={`${unit.id}-${score.horizon_label}-${index}`} onClick={() => onOpenUnit(unit.id)} type="button">
+                      <span>{outcomeLabels[score.outcome] ?? score.outcome}</span><time>{score.horizon_label}</time><strong>{unitStatement(unit)}</strong><p>{unit.quote}</p><i>{isPreview ? '预览结果' : '核查 ↗'}</i>
+                    </button>
+                  ))}
+                  {!scoreEntries.length && <div className="source-pending-state"><span>WAITING FOR MATURITY</span><strong>判断尚未到达裁决时点</strong><p>没有提前汇总的命中率；冻结判据到期后，结果才会出现在这里。</p></div>}
+                </div>
+              </section>
+            )}
           </div>
-          {visibleUnits.map((unit, index) => (
-            <article className={`source-unit kind-${unit.kind}`} key={unit.id}>
-              <aside><b>{String(index + 1).padStart(2, '0')}</b><span>{kindLabels[unit.kind]}</span><em>{unit.locator ?? `#${unit.id}`}</em></aside>
-              <div>
-                <h3>{unitStatement(unit)}</h3>
-                <blockquote>{unit.quote}</blockquote>
-                {unitFacts(unit).map((fact, factIndex) => <p className="unit-fact" key={`${factIndex}-${fact}`}>{fact}</p>)}
-                <footer>
-                  <span>{unit.tags.map((tag) => <i key={tag}>{tag}</i>)}</span>
-                  <button disabled={isPreview} onClick={() => onOpenUnit(unit.id)} type="button">{isPreview ? '预览节选' : '核查完整单元 ↗'}</button>
-                </footer>
-                {unit.kind === 'claim' && <UnitScores scores={unit.scores} />}
-              </div>
-            </article>
-          ))}
-          {!visibleUnits.length && <p className="section-empty">本期没有这一类提取单元。</p>}
-        </div>
-      </section>
-
-      <section className="source-document-section nodes-section" id="source-nodes">
-        <header><span>03 / L3</span><div><h2>同主题的长期知识</h2><p>按本期主题寻找已有节点。共同标签只表示继续阅读的方向，具体归并仍以提及关系为准。</p></div></header>
-        <div className="source-related-nodes">
-          {relatedNodes.map(({ node }) => (
-            <button key={node.id} onClick={() => onOpenNode(node.id)} type="button">
-              <span><b>{kindLabels[node.kind]}</b><em>{statusLabels[node.status]}</em></span>
-              <strong>{node.title}</strong><p>{node.canonical}</p><i>{node.n_attest} 次提及 ↗</i>
-            </button>
-          ))}
-          {!relatedNodes.length && <p className="section-empty">当前还没有与本期主题相接的长期节点。新内容归并后，这里会形成继续阅读的路径。</p>}
-        </div>
-      </section>
-
-      <section className="source-document-section verdicts-section" id="source-verdicts">
-        <header><span>04 / L2</span><div><h2>市场裁决</h2><p>只呈现按照提取时冻结的判据机械执行后得到的结果。</p></div></header>
-        <div className="source-verdict-list">
-          {scoreEntries.map(({ score, unit }, index) => (
-            <div className={`source-verdict outcome-${score.outcome}`} key={`${unit.id}-${score.horizon_label}-${index}`}>
-              <span>{outcomeLabels[score.outcome] ?? score.outcome}</span><time>{score.horizon_label}</time><strong>{unitStatement(unit)}</strong><p>{unit.quote}</p>
-            </div>
-          ))}
-          {!scoreEntries.length && <p className="section-empty">本期判断尚未形成到期裁决。没有百分比，只有仍在等待的冻结判据。</p>}
-        </div>
-      </section>
-
-      <footer className="source-document-foot"><span>原始表达不被覆盖</span><b>SOURCE → UNIT → KNOWLEDGE → VERDICT</b></footer>
+        </section>
+      </div>
     </article>
   )
 }
@@ -893,7 +936,7 @@ function UnitScores({ scores }: { scores: UnitScore[] }) {
 }
 
 function SourceReaderSkeleton({ content }: { content: KnowledgeContentSummary }) {
-  return <article className="source-document source-reader-skeleton"><span>CONTENT / {String(content.id).padStart(3, '0')}</span><h1>{content.title}</h1><i /><i /><i /><i /></article>
+  return <article className="source-workspace source-reader-skeleton"><span>CONTENT / {String(content.id).padStart(3, '0')}</span><h1>{content.title}</h1><i /><i /><i /><i /></article>
 }
 
 function NodeLibrary({
