@@ -1,0 +1,326 @@
+{
+  "content_id": 31,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "所以对于剩下的四个多月的时间里面，我认为纳指再出现5%到7%的回调，是一个大概率的事件。",
+      "locator": "05:10",
+      "ref_price": 29621.8,
+      "tags": ["ndx", "price-action", "macro-data"],
+      "payload": {
+        "asset_text": "纳指",
+        "asset_symbol": "NDX",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "magnitude": {"target": 28140.71, "pct": 5},
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-12-31"],
+          "success_def": "2026-08-12 至 2026-12-31 期间纳指任一日最低价触及 28140.71 = hit，未触及 = miss。原文说的是'从最高点再回调 5% 到 7%'，而'最高点'是随后续走势浮动的量、不可机械追踪，故以发布日收盘 29621.80（当时指数已在区间高位附近）为回撤起算锚、取 5% 下沿=29621.80×0.95，此锚系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "一来，市场如果出现回调，它是一个比较好的一个防守板块，它下跌的幅度也不会非常的大。市场如果出现反弹的话，那XLU整个这一个板块我对他一个期待是，它有可能会出现反弹。",
+      "locator": "03:10",
+      "ref_price": 43.13,
+      "tags": ["xlu", "defensive-sector", "oversold", "rotation"],
+      "payload": {
+        "asset_text": "XLU（公用事业板块 ETF）",
+        "asset_symbol": "XLU",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "hedged",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-18", "2026-09-10", "2026-11-09"],
+          "success_def": "阶梯各时点收盘 ≥ 发布日收盘 43.13 = hit。原文未给期限词，+7/+30/+90 阶梯系我方指定。注：作者的表述是两侧兜底（回调时抗跌、反弹时跟涨），本条只评其中带方向的一侧（期待反弹），故 stance 记 hedged。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以现在我认为像VST这样的标的，我认为某种程度技术面、估值、基本面出现一个共振，现在是一个非常好的一个，不说加仓，起码是一个非常好的建仓的一个区间。",
+      "locator": "03:50",
+      "ref_price": 142.87,
+      "tags": ["vst", "xlu", "defensive-sector", "ai-capex"],
+      "payload": {
+        "asset_text": "VST（Vistra，公用事业板块成分股，作者持仓约 4%）",
+        "asset_symbol": "VST",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-18", "2026-09-10", "2026-11-09"],
+          "success_def": "阶梯各时点收盘 ≥ 发布日收盘 142.87 = hit。'非常好的建仓区间'按'自此买入不亏'解，即到期收盘不低于发布日收盘；原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后我说黄金可以长期布局，比特币也进入了一个加仓区间，那对于这两点的话，我仍然保持相同的看法。",
+      "locator": "08:20",
+      "ref_price": 4361.8,
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "within_duration", "duration_days": 365},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2027-08-11"],
+          "success_def": "2027-08-11（或此前最近交易日）收盘 ≥ 发布日收盘 4361.80 = hit。原文期限词为'长期'，按规范 §3 映射为 365 个自然日。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后我说黄金可以长期布局，比特币也进入了一个加仓区间，那对于这两点的话，我仍然保持相同的看法。",
+      "locator": "08:20",
+      "ref_price": 63910.59,
+      "tags": ["btc", "price-action"],
+      "payload": {
+        "asset_text": "比特币",
+        "asset_symbol": "BTCUSDT",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-12-31"],
+          "success_def": "2026-12-31（或此前最近交易日）收盘 ≥ 发布日收盘 63910.59 = hit。原文未给比特币单独的期限词，但该条出自作者对'今年下半年展望'的逐条复核，故按其自述时间尺度取年底。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "第三点，我认为牛市还是在的，主要是AI为主。ROI，那关注EPS这块的增速。",
+      "locator": "07:00",
+      "ref_price": 29621.8,
+      "tags": ["ndx", "ai-capex", "price-action"],
+      "payload": {
+        "asset_text": "美股（AI 驱动的牛市，以纳指为代理）",
+        "asset_symbol": "NDX",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-12-31"],
+          "success_def": "2026-12-31 收盘 ≥ 发布日收盘 29621.80 = hit。'牛市还在'无原文标的，代理取纳指（作者全篇以纳指衡量这轮 AI 行情），代理系我方指定故降 C；期限取年底，因该条出自作者对下半年展望的复核。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "核心CPI，市场预期是，环比增速0.2%，彭博他们的预期是0.1%。上一个，上一个月的数据是0%。所以他们的预期是比市场预期要低了0.1%。然后周四PPI的数据市场预期是0.3%，他们预期是0.3%。所以彭博Anlayon这一个团队预期CPI将会比市场预期要好，然后PPI是符合市场的预期。",
+      "locator": "13:43",
+      "tags": ["macro-data", "inflation"],
+      "payload": {
+        "asset_text": "美国核心 CPI 环比（2026-08-12 公布）与核心 PPI（2026-08-13 公布）",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "down",
+        "magnitude": {"pct": 0.1},
+        "horizon": {"type": "by_date", "deadline": "2026-08-13"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "当然，这背后另外一个代表什么，另外一个代表有可能，我是说小概率，有可能在过去的一两周之内，接下去英特尔有一个大的一个订单，是在过去的一两周之内所敲定下来。",
+      "locator": "09:50",
+      "tags": ["intc", "semiconductor-cycle", "capital-raise"],
+      "payload": {
+        "asset_text": "英特尔（增发背后可能已敲定的大额代工订单）",
+        "asset_symbol": "INTC",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": null,
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "speculative",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "另外一点，如果我们去写XLU它的一个技术走势的话，我这边是日K线，日K线截止到周一的收盘，RSI差不多在33左右。那回过头去看过去一年的走势，其实XLU从来没有看到过RSI是进入超卖的，所以我们可以理解为33或者34已经在属于一个比较超卖的区间。",
+      "locator": "02:46",
+      "tags": ["xlu", "oversold", "price-action"],
+      "payload": {
+        "name": "自适应超卖阈值（按标的自身 RSI 历史分布定位）",
+        "summary": "不用固定的 RSI 30 作超卖线，而看该标的过去一年 RSI 的实际下沿：某些低波动标的一年都没触过 30，那么它自己的 33-34 就已经是超卖区。",
+        "family": "reversion",
+        "rules": [
+          "取日线 RSI（作者未说明周期，按通用默认 14）",
+          "回看过去一年该标的 RSI 的历史最低区间，确定它自己的超卖分位，而不是套用 30",
+          "XLU 的实例：过去一年 RSI 从未进入 30 以下，故 33-34 即视为其超卖区间",
+          "超卖只作为建仓的技术面条件之一，需与基本面、估值同向才动手"
+        ],
+        "data_requirements": ["日线收盘（算 RSI）", "至少一年的历史窗口"],
+        "overlap_with_killed": ["H1/H2 反转类（均已 KILLED：信号存在但 < 成本地板）——本法的差别在于用标的自身分位而非固定阈值，且只作为多因子共振的一腿，未直接构成同一假设"],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "我当时给它foundry这一块的业务的一个估值，就是它现在设备值多少钱，这些设备值多少钱，这家公司就foundry这块的业务就值多少钱。如果你去写台积电的话，台积电也有这个数据，也有PP&E。台积电的估值是PP&E的可能十几倍吧，13倍14倍吧。但是英特尔因为它foundry这一块是亏钱的。所以我就当它foundry这一块的业务，最差的情况下它完全剥离出去，剥离出去的话它在手里的这些硬件值多少钱，它就卖多少钱。",
+      "locator": "10:21",
+      "tags": ["intc", "valuation", "semiconductor-cycle"],
+      "payload": {
+        "name": "用 PP&E 给亏损代工业务估下限",
+        "summary": "对还在亏钱、无法用盈利倍数估值的重资产业务（英特尔 foundry），直接按其 PP&E（EUV/DUV 等设备的账面值）作剥离清算价，并可再打六到七折作保守下限；盈利的同类（台积电）市值约为 PP&E 的 13-14 倍，两端给出估值区间。",
+        "family": "other",
+        "rules": [
+          "取资产负债表的 Property, Plant & Equipment 账面值（英特尔当期 1131 亿美元）",
+          "业务亏损时不给盈利倍数，按设备可变现价值作估值下限",
+          "保守情形在账面值上打六至七折（英特尔按此得 700-800 亿美元下限）",
+          "对照组：盈利的同业台积电市值约为其 PP&E 的 13-14 倍",
+          "长期负债与现金另算（英特尔长债 470 亿、现金 368 亿）"
+        ],
+        "data_requirements": ["季度资产负债表 PP&E", "长期负债与现金", "同业对照的市值/PP&E 倍数"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "周一的市场非常的有意思，你很难得的会看到美元指数上涨、美债收益率上涨、美股几乎是在横盘，非常小幅度这个下跌。同时，黄金出现上涨，通常来说美元指数上涨黄金是下跌的，但周一的黄金还是相对比较强一些。",
+      "locator": "00:40",
+      "tags": ["xauusd", "dxy", "price-action", "macro-data"],
+      "payload": {
+        "canonical_statement": "黄金与美元、与美债收益率的常规负相关当前失效：2026-08-10 出现美元指数上涨、美债收益率上涨、原油上涨而黄金同时上涨的组合，说明黄金的驱动因子已不是实际利率或美元强弱。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "单日观察；作者用它说明当前阶段各资产同涨的异常状态"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "上半年3月份出现的下跌，然后下半年某一个时间点，再出现7到10的回调，非常的正常，一年里面出现两次10%左右的回调，经常看到，很少会看到，当然有小概率事件，你会看到只有一次的回调。但是大概率情况下我们都会看到两次这种调整。股市不可能一年之内持续每个月都出现上涨，不可能的。",
+      "locator": "05:40",
+      "tags": ["price-action", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "一年内出现两次 10% 量级的回调是常态而非风险事件：只出现一次是小概率；短期涨得越急、走得越好，随后出现调整的可能性越高。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "通常来说当一家公司选择去融资的时候，其实对于资产负债表是有影响的。那很多时候从公司这个角度他们有两种融资的方法：一种是举债，一种是直接增发。那举债的话对于债务会有影响，对于杠杆比例会有影响。而如果增发的话，其实对于杠杆比例是一个利好。",
+      "locator": "10:00",
+      "tags": ["capital-raise", "balance-sheet", "valuation"],
+      "payload": {
+        "canonical_statement": "两种融资方式对资产负债表的作用相反：举债推高杠杆比例，增发（摊薄股权但增厚 equity）反而改善杠杆比例——评估一次融资的好坏要先分清是哪一种。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "Debt to equity ratio，这一个比例本身如果是在1以下的话，杠杆比例属于是偏低的。在1以上，在2以上的话就属于杠杆比例是偏高的。",
+      "locator": "12:16",
+      "tags": ["balance-sheet", "valuation", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "债务权益比（total debt / equity）的判读阈值：低于 1 属杠杆偏低，高于 1、尤其高于 2 属杠杆偏高。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那对于很多企业来说，并不是没有债务就一定是一家好企业。而且很多时候从corporate finance这个角度去看，CFO去承担一部分的债务，从一个效率上来说不值钱，不见得是一件坏事。",
+      "locator": "13:20",
+      "tags": ["balance-sheet", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "零负债不等于好企业：从公司金融的资本效率角度看，CFO 主动承担一部分债务往往是合理的，不应把负债本身读作风险信号。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那看到这边基本上，很多时候我们会有个概念，就是它，短期这一块的现金在手里的现金有37个billion，长端这一块的负债47个billion，那47个billion它会有利息这一块的支出。而手里的现金里有37个billion，那足以去应付利息这一块的支出了。",
+      "locator": "11:40",
+      "tags": ["intc", "balance-sheet", "capital-raise"],
+      "payload": {
+        "canonical_statement": "英特尔当前的杠杆位置健康：现金及有价证券 368 亿美元、长期负债 470 亿美元、债务权益比 48%，现金足以覆盖长债的利息支出，本次 150-200 亿美元增发不构成偿债压力信号。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "基于 2026 Q2 资产负债表"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就是在上周和大家分享财政部这块、倍森特和日本财政部那一块去救日元这个行为本身，最终的目的是为了去压制美国这边，美债这一块的一个长端收益率，他不希望看到美国国债的长端收益率继续出现上涨。所以这对于市场来说其实一个利好。",
+      "locator": "07:30",
+      "tags": ["fed-policy", "fx-intervention", "macro-data"],
+      "payload": {
+        "canonical_statement": "贝森特联手日本财政部救日元，真实目的不在汇率本身而在压制美债长端收益率（阻断套息平仓→美债抛售的链条），因此该干预对美股是利好。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那最后一点，IPO这一块的风险。因为最近这段时间关于这两大模型公司IPO到底什么时候上，今年会不会上，一直在反复，如果说推到明年的话，那IPO的这个风险就降低。那如果还是放在今年的话，那这个风险还是在今年下半，今年接下去的四个月里面我们会看到。IPO本身对于市场是一个抽水的行为。",
+      "locator": "07:50",
+      "tags": ["ipo-supply", "ai-capex", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "大型 IPO 对二级市场是抽水行为：两家大模型公司若在 2026 年内上市，会在剩余四个多月里构成资金面风险；推迟到明年则该风险相应下降。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "第四点，AI Agent落地比我们想象中的要慢。那这一点其实有些更新了，那么上周、上周五的时候我说，听了Cloudflare的一个报之后，我看到了AI Agent这一块的进展。一个progress，它是有开始往前走的。",
+      "locator": "08:10",
+      "tags": ["ai-agent", "ai-capex", "software"],
+      "payload": {
+        "canonical_statement": "AI Agent 的落地速度慢于市场想象，但并未停滞——从 Cloudflare 等公司的财报里能看到进展在持续推进，只是过去半年的讨论热度下降。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我说上一年市场就开始担心AI这一块的落地，那今年财报已经证明了，但市场仍然去回馈那些收支票的，我说市场当时非常的短视。",
+      "locator": "06:20",
+      "tags": ["ai-capex", "software", "psychology"],
+      "payload": {
+        "canonical_statement": "市场对 AI 的定价长期短视：只回馈直接收支票的卖铲人，即使财报已经证明应用侧的落地，估值也迟迟不给——这一错配是配置软件与大科技的机会来源。",
+        "category": "psychology",
+        "stance": "assert"
+      }
+    }
+  ]
+}

@@ -1,0 +1,391 @@
+{
+  "content_id": 33,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "就我说了叠加上一周是微软，微软之后我说整个市场情绪面如果要学到比较高，甚至于我们说回到以前这种水平，估值回到以前这种水平的话，是需要不断的叠加，需要不断的有公司出来，拿财报去证明自己的业务并没有受到AI的破坏。那这个市场的情绪面一旦叠加起来之后，我相信软件板块的估值是可以回到以前的。",
+      "locator": "01:20",
+      "ref_price": 102.69,
+      "tags": ["igv", "software", "valuation", "ai-capex"],
+      "payload": {
+        "asset_text": "软件板块（IGV）",
+        "asset_symbol": "IGV",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "condition_text": "需要不断有公司用财报证明业务未被 AI 破坏、市场情绪面持续叠加",
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-15", "2026-09-07", "2026-11-06"],
+          "success_def": "阶梯各时点 IGV 收盘 ≥ 参考价 102.69（2026-08-07 收盘）= hit。原文的前置条件（情绪面叠加）不可机械判定，故不进入评分、只记 condition_text，并按规范把等级压到 C；'估值回到以前'以价格上行作代理，代理系我方指定。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那25倍左右我个人认为仍然是在一个相对比较低的位置。我这边画了一条红线，红线是30倍，30倍差不多是23、24、25年在这过去三年里面相对比较中性的这个位置。所以我认为微软的价格，或者微软的估值没有到30倍之前，都没有必要去进行减仓，特别是现在微软的一个财报，包括亚马逊的这个财报，它刚刚开始进行加速。",
+      "locator": "05:11",
+      "ref_price": 499.99,
+      "tags": ["msft", "valuation", "ai-capex"],
+      "payload": {
+        "asset_text": "微软",
+        "asset_symbol": "MSFT",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": {"pct": 21},
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-15", "2026-09-07", "2026-11-06"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 499.99（2026-08-07 收盘）= hit。原文是持有指令（估值不到 30 倍不减仓）加'当前 24.8 倍仍偏低'，按'继续持有不会亏'解为方向向上；magnitude 记的是 24.8→30 倍的算术空间 21%，不作 hit 门槛。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "最后这边是VST得这个估值，这是今天收盘的一个价格，13.7倍，13.8倍。已经是过去一年多以来的一个新低了吧，所以我认为VST现在就是一个加仓的一个点位，就对我个人来说，就是加仓的点位，那我今天也稍微加了一些仓位。我的目标就是把VST和BE这两个标的加在一起的仓位加到8%，现在差不多在7.2%，7.3%左右。",
+      "locator": "15:08",
+      "ref_price": 140.59,
+      "tags": ["vst", "power-demand", "valuation", "ai-capex"],
+      "payload": {
+        "asset_text": "VST（Vistra）",
+        "asset_symbol": "VST",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-15", "2026-09-07", "2026-11-06"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 140.59（2026-08-07 收盘）= hit。作者当日实际加仓并给出仓位目标（VST+BE 合计 8%），是带执行的明确看多。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "稳定币，那其实，能够利好两家公司，就是Coinbase和Circle。",
+      "locator": "17:30",
+      "ref_price": 66.67,
+      "tags": ["crcl", "coin", "stablecoin", "ai-agent"],
+      "payload": {
+        "asset_text": "Circle（与 Coinbase 同列为稳定币支付轨道的受益者；作者持有 Circle）",
+        "asset_symbol": "CRCL",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "condition_text": "智能体高频微额付费的需求真实落地（传统支付轨道无法承载）",
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-15", "2026-09-07", "2026-11-06"],
+          "success_def": "阶梯各时点 CRCL 收盘 ≥ 参考价 66.67（2026-08-07 收盘）= hit。原文点名两家公司，取作者自己持有的 Circle 作评分腿；前置条件（agent 付费落地）不可机械判定故不进评分、等级压到 C。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "在他们财报会议里面管理层聊到，现在非人类的一个访问量已经超过了人类，并且他们预计在未来的5年之后，非人类，或者机器人AI agent这个访问量，将会是人类访问量的1000倍。",
+      "locator": "15:28",
+      "tags": ["ai-agent", "software"],
+      "payload": {
+        "asset_text": "全网非人类（AI agent）访问量相对人类访问量的倍数（Cloudflare 管理层预计五年后达 1000 倍）",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "magnitude": {"target": 1000},
+        "horizon": {"type": "within_duration", "duration_days": 1826},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "是因为我说即使它选择去加息，今年加息的次数不会超过两次，而当时市场已经定价了今年要加息1.8次，也就是当美联储已经接近于最鹰派的那时候，接下去只可能往相对比较鸽派的这个方向去走。",
+      "locator": "04:20",
+      "tags": ["fed-policy", "xauusd", "risk-mgmt"],
+      "payload": {
+        "name": "政策定价触及极值时的反向配置",
+        "summary": "当市场对政策路径的定价已经贴到自己判断的极端（市场定价今年加息 1.8 次，而自己判断上限是 2 次），后续修正只能往反方向走，此时按反方向建仓的风险回报最好。",
+        "family": "event",
+        "rules": [
+          "先独立给出政策路径的合理上限（本例：今年加息次数不超过两次）",
+          "读市场当前定价的隐含次数（利率期货，本例 1.8 次）",
+          "定价贴到上限 → 后续只能往鸽派修正 → 买入受益于鸽派的资产（本例黄金）",
+          "该判断在议息会议之前做出，不等结果"
+        ],
+        "claimed_performance": {"note": "作者称两周前在 X 上按此发出黄金买入判断，随后会议偏鸽、金价反弹（记录不采信）"},
+        "data_requirements": ["联邦基金利率期货隐含加息次数", "黄金日线"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "纳指这边比昨天出现了一波上涨，20日均线这一块来到了56%，那昨天的是50%不到，昨天是中性，现在还是在中性偏乐观那么一点点。罗素2000这边，64%和63%，相对也是在中性偏乐观的位置。",
+      "locator": "03:16",
+      "tags": ["market-breadth", "ndx", "spx", "price-action"],
+      "payload": {
+        "name": "用成分股站上均线的比例读市场参与度",
+        "summary": "以指数成分股中站在 20/50/100/150/200 日均线上方的百分比作参与度读数，分档为中性（约 50%）、中性偏乐观（55-65%）、接近乐观（70%），用来判断当前该不该继续买。",
+        "family": "positioning",
+        "rules": [
+          "对纳指、罗素 2000、标普 500 分别算成分股在各均线上方的占比",
+          "50% 上下判中性；56-65% 判中性偏乐观；70% 判接近乐观",
+          "多个指数与多条均线交叉读，短周期（20 日）反映情绪、长周期（100/150 日）反映趋势健康度",
+          "参与度并非满仓/空仓开关，而是决定'在当下环境里还能不能找到可买标的'"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["指数成分股名单", "成分股日线收盘（算各周期均线）"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "所以我认为，就投资这两家公司，一个是，电网这一边的通电，另外一个就是behind the meter自己，自己带电。",
+      "locator": "15:00",
+      "tags": ["vst", "power-demand", "ai-capex", "position-sizing"],
+      "payload": {
+        "name": "缺电主题的两条腿配置（上网电 + 自带电）",
+        "summary": "布局数据中心缺电主题时同时持有两类供电路径：接电网的电力运营商（VST）与 behind the meter 的自发电设备商（Bloom Energy），因为电网上电速度慢、两条路径互为对冲。",
+        "family": "positioning",
+        "rules": [
+          "腿一：电网侧电力运营商（VST）",
+          "腿二：behind the meter 自带电（BE / Bloom Energy）",
+          "理由：电网的电一定要走线路、上线速度慢，电网供不上时需求会转向自带电",
+          "作者的仓位目标：两者合计 8%（当时 7.2-7.3%）"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["两标的日线"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "当基本面刚刚开始加速的时候，不是我们要去减仓的时候，为什么？就是因为市场通常来说非常的短视，且会做一个线性外推。所谓的线性外推就是你这个季度比上个季度要好，上个季度，然后下一个季度比这个季度还要好，马上就做一个线性外推，认为你接下去每一个季度都会比上个季度要好，这就是市场喜欢做的，所以在这一段时间里面就以基本面做主导，然后中间可能会有一些宏观的一些其他一些噪音等等，那些噪音基本上是可以忽略的。",
+      "locator": "05:50",
+      "tags": ["valuation", "psychology", "position-sizing"],
+      "payload": {
+        "canonical_statement": "基本面刚开始加速的阶段不该减仓：市场短视且会把环比改善线性外推到未来每一个季度，这段时间由基本面主导定价，宏观噪音可以忽略。",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": "适用于基本面拐点刚确认、加速尚未被完全定价的阶段"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那在刚刚过去的这一周是一个比较明显的一个risk on，什么意思？一些相对防守属性比较强的板块，必需品消费、能源板块、公共事业和REITs其实都出现了下跌，但整体的指数上涨的幅度非常的好。",
+      "locator": "02:40",
+      "tags": ["rotation", "market-breadth", "price-action"],
+      "payload": {
+        "canonical_statement": "判断一周是不是真 risk on，看防守板块（必需消费、能源、公用事业、REITs）是否同时下跌：指数大涨而防守板块下跌才是资金从防守转向进攻的确证，指数与防守板块齐涨只是普涨。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "而芯片板块反弹的还可以，说明什么？因为芯片板块也在动能指数里面嘛，说明在上一周其实动能板块里面的那些标的出现了一些分歧。那么一些芯片板块反弹的比较好，一些非芯片板块反弹的幅度可能就没有那么的好。那所以整个动能板块在上一周只反弹了2.8%。",
+      "locator": "02:10",
+      "tags": ["rotation", "semiconductor-cycle", "market-breadth"],
+      "payload": {
+        "canonical_statement": "高贝塔动能指数只反弹 2.8%、而其成分中的芯片板块反弹 7.6%，说明动能板块内部出现分歧——跌得最深的高动能标的并没有等比例反弹，这一次反弹不是无差别的空头回补。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那这一次合作的一个方向，贝森特他聊到，他说许多年以来，日本国债的利率，那主要指的是长端，和短端没有关系，和他们加息不加息这没有任何的关系，他说日本国债的利率一直是全世界利率的一个锚，但凡市场认为这个锚如果失效了，将会带来不确定性。",
+      "locator": "06:29",
+      "tags": ["bond-yields", "fiscal-policy", "fx-intervention"],
+      "payload": {
+        "canonical_statement": "日本国债长端利率是全球利率的锚（与日本加不加息的短端无关）：日元过弱推高日债长端收益率，会把美债长端一起带上去，所以稳住日元＝稳住日债长端＝压住美债长端。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为长端这一块的利率压下去，我已经聊过的，首先你对于美国国债这一块的融资成本是有帮助，另外一点，你对于普通老百姓房贷这一块的利率是非常大的一个帮助，因为房贷的利率是和10年期的美债收益率是挂钩的。那么10年期美债收益率最近这段时间也不断的上涨，房贷的利率也不断的上涨，对于房地产市场是一个致命的打击。",
+      "locator": "08:10",
+      "tags": ["bond-yields", "fiscal-policy", "consumer"],
+      "payload": {
+        "canonical_statement": "压低长端收益率对政府和居民同时有用：一头降低国债融资成本，一头通过与 10 年期挂钩的房贷利率救房地产——这是财政部有动机干预长端的两个具体理由。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "另外一个是来自于休闲和酒店。休闲和酒店下跌了4万，然后零售业是下跌了2万。那彭博他们认为是和世界杯的举办时间是有关系的，所以这是一次性的一个事件。如果你把政府这一块的5万加上一次性因为世界杯所导致的休闲加酒店全部加在一起就已经超过了10万了，所以你把这10万，其实有哈塞特他出来，我也聊过，他说如果你把这10万算进去的话，其实这个月的大非农数据没有那么的糟糕，因为这是一些一次性事件所影响。",
+      "locator": "10:52",
+      "tags": ["labor-market", "macro-data"],
+      "payload": {
+        "canonical_statement": "2026 年 7 月非农 -2.3 万的降幅主要来自一次性因素：政府部门 -5 万、世界杯举办时点错位导致的休闲酒店 -4 万与零售 -2 万，合计已超 10 万，剔除后本月非农并不糟糕。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "而其中一个和整个经济比较相关的一个行业，其实是建筑业。如果你去看建筑业的话，其实增加了2.2万，所以整个经济其实并没有太大的问题，如果从劳动力这角度去出发的话。建筑业是一个比较好的衡量指标。",
+      "locator": "11:10",
+      "tags": ["labor-market", "macro-data"],
+      "payload": {
+        "canonical_statement": "读非农要看建筑业这一分项作经济体温计：它与整体经济关联度高且不受政府与一次性事件干扰，2026 年 7 月建筑业 +2.2 万，说明从劳动力角度看经济本身没有大问题。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "然后是失业率这一块，那失业率为什么失业率会出现下降？前面我说是两个完全不同的口径，失业率的一个下降主要是因为整个劳动力市场的一个参与度在下降，参与度从5月份的61.8%下降到了这个月的61.4%，什么叫参与度的下降？我举个例子，你看一下失业人口是下降了17.8万，那失业人口下降了17.8万，不代表这一部分人是就业了，不代表他们找到了工作。恰恰相反，是因为他们离开了劳动力市场，有26.4万人离开了劳动力市场。",
+      "locator": "11:43",
+      "tags": ["labor-market", "macro-data"],
+      "payload": {
+        "canonical_statement": "非农与失业率来自两套完全不同的口径，非农差不蕴含失业率差：2026 年 7 月失业率降到 4.1% 是因为 26.4 万人离开劳动力市场（参与率 61.8%→61.4%），失业人口 -17.8 万不代表这些人找到了工作，数据变好的理由并不好。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "他们给出的这个结论是43%的那个原因是因为在1月份的时候对于整个统计的方法做出了改变，也就是因为统计的方法做出了改变，某种程度导致了参与度的下降，也导致了失业率的这个下降。通过人为的原因使失业率，使失业率这组数据变得越来越好了，你可以理解为是他们去篡改这个数据，可以这么去理解。",
+      "locator": "12:33",
+      "tags": ["labor-market", "macro-data"],
+      "payload": {
+        "canonical_statement": "圣路易斯联储把 2025 年 12 月至 2026 年 6 月劳动参与率下降 0.82 个百分点拆为三块：43% 来自 1 月的人口控制口径调整（统计方法变更）、16% 来自老龄化（长期趋势）、41% 来自行为因素；只有行为那一块才是真正的劳动力市场信号。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但即使无论你是负的2.3万还是正的3万，美联储，对于美联储来说，4月份的时候鲍威尔就有讲过，他说未来一段时间有可能在大非农这一块的一个break even，就是一个平衡的那个时间点可能就是零，没有任何的增速，以前他们认为可能在7万到10万左右，或者5万到10万左右，现在他们认为可能就是接近于零。所以没有任何增长的这个大非农数据，其实是美联储内部可以接受的。",
+      "locator": "10:10",
+      "tags": ["labor-market", "fed-policy", "macro-data"],
+      "payload": {
+        "canonical_statement": "美联储的非农盈亏平衡线已从 5-10 万下调到接近零（鲍威尔 2026 年 4 月表述）：因此零增长甚至微幅负增长的非农在美联储内部是可接受的，不构成宽松触发条件。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为在现在美联储的一个视角里面，它不是一个平衡的一个mandate。它并不是劳动力市场和通胀同样的重要。而是现在他们对于劳动力市场没有那么的担心，所以他们那个视角都是在通胀这边。那所以如果去我们看，那衡量通胀的一个指标核心PCE，那暂时来说就是核心PCE这一个指标。核心PCE在过去4个月里面，3.3%、3.3%、3.4%、3.3%。几乎没有任何下降那些趋势，那虽然这是一个同比数据，但是你把时间线拉长的话，你会发现这也是一个比较明显的一个趋势，美联储的目标是多少？2%。",
+      "locator": "13:08",
+      "tags": ["fed-policy", "inflation", "macro-data"],
+      "payload": {
+        "canonical_statement": "当前美联储不是平衡双目标而是单看通胀：对劳动力市场已不担心，所以非农的重要性下降、通胀数据的重要性上升；核心 PCE 连续四个月 3.3/3.3/3.4/3.3 毫无下行趋势，且已剔除油价与能源，仍显著高于 2% 目标。",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "沃什任内、2026 年下半年的美联储反应函数"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那VST这一家公司，因为它的营收里面包括了它的一些对冲，所以它营收不是一个非常好的衡量指标，你基本上不用去管它每一次的营收到底是好还是差。主要去看它得一个adjusted EBITDA，调整之后的这个盈利有没有比市场预期要高。那这一块是比市场预期高出了7%。",
+      "locator": "13:52",
+      "tags": ["vst", "power-demand", "valuation"],
+      "payload": {
+        "canonical_statement": "电力运营商（VST）的营收含对冲损益，不是有效指标——财报只看调整后 EBITDA 是否超预期；2026 Q2 营收低于预期 18%，而调整后 EBITDA 高于预期约 7%，结果实际是 OK 的。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "从2023年自从有了GPT落地之后，你看一下，整个市场其实对于电，这一块的需求，从原本的年化增长0.6%，2.4%，现在直接上调到了年化增长3%和3.3%。",
+      "locator": "14:18",
+      "tags": ["power-demand", "ai-capex", "vst"],
+      "payload": {
+        "canonical_statement": "GPT 落地后美国电力负荷增长预期被结构性上调：PJM 的复合年增速从 0.6% 上调到 3.0%，ERCOT 从 2.4% 上调到 3.3%——数据中心把一个零增长行业变成了 3% 增长行业。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "一年才一个trillion，背后申请的订单已经多少？两，20个trillion，20 20个trillion。我只是，而且我只是按50个billion一个吉瓦，你如果按100个billion一个吉瓦计算的话，那就是40个trillion，哪来40万亿的这个钱？不可能有那么多钱，所以这背后的需求并不是所有都是真实的需求。这背后的申请非常有可能是一些double-order，非常有可能是一些，包括有一些，二手的一些贩卖，什么是二手的贩卖？就是我先去申请这个电，如果我申请到的话，我可以把我申请到的这个电，去卖给这些云厂，去卖给这些neo-cloud。",
+      "locator": "14:42",
+      "tags": ["power-demand", "ai-capex"],
+      "payload": {
+        "canonical_statement": "德州排队申请的 474 吉瓦电力需求不能当真实需求读：按 500 亿美元/吉瓦折算已是 20 万亿美元的数据中心投资，而全部大科技一年资本开支才不到 1 万亿——差额说明其中大量是重复下单（double order）与'先占电再转卖'的二手申请。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以德州那边的审批就很停，他就说你先停一下，我要对于每一个项目都去进行审计。提供更多的这些资料，然后我确定这个项目是真实的，才批。所以在德州那一块，就批准的这个时间点往后延，那往后延的话，就是你的营收可能要往后延一些，所以这只是一些短期之内的这些风险，从长期这个角度，其实HELIX这个项目是非常的有前景。",
+      "locator": "14:50",
+      "tags": ["vst", "power-demand", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "德州因申请积压启动逐项目审计、审批时点后延，会把电力运营商的营收确认往后推——这是短期风险而非需求消失，对项目的长期前景不构成否定。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那这背后其实每一步都没有那么的简单，那现在有了这个HELIX这家公司之后，有了VST可以供电，然后KKR他可以出资，然后英伟达可以提供技术。",
+      "locator": "14:20",
+      "tags": ["vst", "power-demand", "ai-capex", "datacenter-financing"],
+      "payload": {
+        "canonical_statement": "数据中心正在从大科技自建转为交钥匙外包：HELIX 把供电（VST）、出资（KKR、科威特主权基金 KIA）、技术（英伟达）打包成一站式开发商，服务大科技与新云——电力公司的身份由供电方升级为合作股东。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那对于纽约时报来说，他们绝对有很多个理由，有100个理由去打开这一种变现的一个方式，而不会被这些模型公司去白嫖。",
+      "locator": "16:00",
+      "tags": ["ai-agent", "software", "stablecoin"],
+      "payload": {
+        "canonical_statement": "AI 时代的知识付费即将成形：同一篇内容被 agent 调用的次数是人类阅读量的几何倍数，广告模式无法承接，内容方（纽约时报、Reddit）会转向按调用次数向 agent 收费——训练期的版权争议之外，推理期每调用一次就该收一次费。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那那么问题就来了。因为他每次，收费，首先它频率非常的高，就是高频，频率非常的高，且每次收费的这个体量非常的小，所以传统的这些支付的一些轨道是根本就没有办法去满足这个需求。",
+      "locator": "17:20",
+      "tags": ["stablecoin", "ai-agent", "crcl", "coin"],
+      "payload": {
+        "canonical_statement": "agent 付费是高频微额（量级 0.001 美元/次），传统支付轨道在费率与吞吐上都无法承载，只能走稳定币——这条推理链是稳定币需求从叙事变成刚需的关键一环，受益者是 Coinbase 与 Circle（轨道）、Cloudflare 与亚马逊（平台）、Reddit 与纽约时报（内容）。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但之后半年几乎没有人再讨论AI agent，因为AI agent这个价格非常的高。那现在有了开源模型之后，我说AI agent要落地的话，API的价格一定要下来。现在AI现在开源模型进来之后，API的价格下来。",
+      "locator": "18:10",
+      "tags": ["ai-agent", "software"],
+      "payload": {
+        "canonical_statement": "AI Agent 落地的前置条件是 API 单价下降：过去半年 agent 话题冷却的原因是调用太贵，开源模型压低 API 价格之后才重新具备规模化条件——Cloudflare 财报里非人类访问量首次超过人类就是这一变化的观测点。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    }
+  ]
+}

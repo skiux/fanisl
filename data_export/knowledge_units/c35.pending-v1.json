@@ -1,0 +1,306 @@
+{
+  "content_id": 35,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "method",
+      "quote": "市场最喜欢的就是当你的毛利润在扩张的时候，你的一价格涨幅会非常的快。为什么？是因为有这个想象空间在那边。当毛利润在扩张的时候，说明你的产品本身非常的受到欢迎。且这时候，通常陪伴的都是，通常伴随的都是你营收增速的一个扩张。营收增速又扩张，你的毛利润又扩张，你EPS增速的扩张非常的快。",
+      "locator": "17:20",
+      "tags": ["valuation", "memory-storage", "semiconductor-cycle", "software"],
+      "payload": {
+        "name": "按毛利率所处阶段给成长股分段定价",
+        "summary": "用毛利率是在扩张、见顶还是下滑，把一家公司的股价阶段分成三段：扩张段涨幅最猛（营收与毛利双扩张、EPS 加速），见顶段 EPS 增速塌回营收增速、市场开始 de-rating，下滑段直接杀估值。",
+        "family": "other",
+        "rules": [
+          "扩张段：毛利率与营收同时扩张 → EPS 增速远高于营收增速 → 想象空间最大、涨幅最快，持有",
+          "见顶段：管理层给出毛利率上限（闪迪 85%、AppLovin 运营利润率打满）→ 此后 EPS 增速只能等于营收增速 → 降低回报预期，最大一波涨幅已在身后",
+          "见顶段的验证：看一致预期里 EPS 增速是否已收敛到营收增速（AppLovin 2027 营收 +31%、EPS +34%，几乎没有运营杠杆）",
+          "下滑段：毛利率一旦回落，市场立刻杀估值",
+          "跨行业通用：AppLovin（软件）与美光、闪迪（存储）市场担心的是同一件事——毛利率无法长期停在高位"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["季度毛利率与运营利润率历史及一致预期", "营收与 EPS 增速一致预期", "forward PE 历史"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "你不可能营收低于市场预期，但是你的盈利却比市场预期高出40%。那这就说明，如果这数据是真实的话，那就说明你有非常大的一个运营效率的一个扩张在那边。那实际上，如果我们去看一些数据的话，Gross Profit，毛利润其实不错的，比市场预期高出了3.5%。但是它的运营开支比市场预期高了7.5%。毛利润高，运营开支也高。最后Operating Income，运营利润其实是比市场预期低了7%。",
+      "locator": "08:38",
+      "tags": ["valuation", "risk-mgmt"],
+      "payload": {
+        "name": "EPS 大幅超预期而营收不及时，往下拆到运营利润",
+        "summary": "财报出现营收 miss 但 EPS 大幅 beat 的组合时先警觉：这要么意味着罕见的运营效率跃升，要么是一次性调整。拆到毛利润与运营开支两层，看运营利润是否也超预期，再下结论。",
+        "family": "other",
+        "rules": [
+          "触发条件：营收低于一致预期而 EPS 高出一致预期 20% 以上",
+          "第一层：毛利润 vs 预期（Uber +3.5%）",
+          "第二层：运营开支 vs 预期（Uber +7.5%）",
+          "第三层：运营利润 vs 预期（Uber -7%）——以此层为准",
+          "结论口径：营收 miss + 运营利润 miss = double miss，EPS 的 beat 不作数",
+          "同法用于 Circle：营收 -1.55%、运营开支 +7.6%、运营利润 -28.68% = triple miss"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["分层的一致预期（营收/毛利/运营开支/运营利润/EPS）"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "首先，我们看它上调的这个幅度是多少？1.6亿美金。而其实，整个上调的幅度或者3.1亿美金至3.3亿美金里面，其中包括了1.8亿美金是来自于上一次token的这个Sale。Arc Token的这个Sale。销售所获得的这一部分营收，算到了Other Revenue里面来。也就是说，如果把这个Token销售的这个营收给去掉的话，其实Other Revenue从上一次，上一个季度所给全年的这个指引反而下降了2000万。",
+      "locator": "01:38",
+      "tags": ["crcl", "stablecoin", "valuation"],
+      "payload": {
+        "name": "指引上调先剔除一次性项再比",
+        "summary": "看到公司大幅上调某项指引时，先到财报会议里找上调金额的构成，把一次性收入剔除后再与上一次指引对比——剔除后可能是下调。",
+        "family": "other",
+        "rules": [
+          "算上调的绝对额（Circle 其他收入指引 1.5-1.7 亿 → 3.1-3.3 亿，上调 1.6 亿）",
+          "去财报会议找构成，识别一次性项（其中 1.8 亿来自 Arc Token 一次性销售）",
+          "剔除后重算：其他收入的全年指引实际比上季下调 2000 万",
+          "带着'这个数为什么好'的疑问去听电话会，而不是看到数字就下结论"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["前后两次指引", "财报电话会记录"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那如果可以持续扩张的话，我期待这一类的标的，你从六倍的估值起码可以到十倍至 15 倍之间。",
+      "locator": "20:40",
+      "ref_price": 1350.5,
+      "tags": ["sndk", "memory-storage", "valuation", "ai-capex"],
+      "payload": {
+        "asset_text": "闪迪（Sandisk）等存储标的",
+        "asset_symbol": "SNDK",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": {"low": 10, "high": 15},
+        "horizon": {"type": "open_ended"},
+        "condition_text": "整个 AI 资本开支持续扩张、大云继续签长期订单",
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-13", "2026-09-05", "2026-11-04"],
+          "success_def": "阶梯各时点 SNDK 收盘 ≥ 参考价 1350.50（2026-08-05 收盘，视频录于当日盘后）= hit。magnitude 记的是作者期待的 forward PE 区间 10-15 倍（当前 6 倍），不作 hit 门槛——估值倍数不在行情库，只以价格方向代理。前置条件（AI 持续扩张）不可机械判定，故不进评分、等级压到 C。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以Disney现在从估值这个角度去，我认为是低估的。那未来的这个潜力就是他们流媒体这一块利润的一个扩张。",
+      "locator": "08:05",
+      "ref_price": 101.76,
+      "tags": ["dis", "valuation", "consumer"],
+      "payload": {
+        "asset_text": "迪士尼",
+        "asset_symbol": "DIS",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-13", "2026-09-05", "2026-11-04"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 101.76（2026-08-05 收盘，视频录于当日盘后）= hit。判断依据是静态市盈率约 16 倍、未来三年 EPS 增速 11-12%，而传统价值股应给 19-20 倍。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这就是我今天发了一条X，我说相对于闪迪呀、美光啊，包括英伟达，他们最大这一波涨幅已经在身后了。",
+      "locator": "18:20",
+      "tags": ["sndk", "mu", "nvda", "memory-storage", "valuation"],
+      "payload": {
+        "asset_text": "闪迪、美光、英伟达（毛利率见顶后的涨幅空间）",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "directional",
+        "direction": "flat",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以接下去从Other，我估计Other Revenue，比如说CPN这个网络变现之后的这一块利润或者这一块营收其实还没有算入到管理层所给的这个指引里面。",
+      "locator": "03:54",
+      "tags": ["crcl", "stablecoin"],
+      "payload": {
+        "asset_text": "Circle 其他收入（CPN 支付网络变现的部分尚未计入管理层指引）",
+        "asset_symbol": "CRCL",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "horizon": {"type": "within_duration", "duration_days": 180},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "什么叫周期股？周期股就是你的毛利润不可能长期保持在高位。你的毛利润接下去可能是，不可能保持到85%，70%、60%甚至会回到以前的负毛利润。这就是标准的一个周期股。",
+      "locator": "17:50",
+      "tags": ["memory-storage", "semiconductor-cycle", "valuation"],
+      "payload": {
+        "canonical_statement": "周期股的定义就是毛利率无法长期停在高位（可以从 85% 一路回到 70%、60% 甚至负毛利）；市场之所以给美光、闪迪周期股定价，交易的正是这一条，而不是它们当期的利润。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以，越来越多的这些长期订单是确保这一类的公司可以走出一个周期行情的一个必要条件。",
+      "locator": "19:44",
+      "tags": ["sndk", "mu", "memory-storage", "ai-capex"],
+      "payload": {
+        "canonical_statement": "长期订单是存储公司走出周期定价的必要条件：闪迪与最大客户在谈四年、力争五年的合约，锁量锁价——27 财年逾 50%、28 财年三分之二产能已被预订，违约将没收 165 亿美元定金；确定性每往后延伸一个财年，市场就能重估一次。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "从美光或者像闪迪这一类的公司来说，他们牺牲的是未来继续涨价或者这个涨价的幅度，和现在保持一样的这个空间，就未来这个涨价幅度不会和现在一样了。",
+      "locator": "20:00",
+      "tags": ["memory-storage", "ai-capex", "sndk", "mu"],
+      "payload": {
+        "canonical_statement": "长期订单是双向让渡：存储厂放弃未来继续大幅涨价的空间（换取毛利率稳定在 85% 附近），大云锁定两到三年的供应（换取不再被乱涨价）——这也是厂商向客户承诺不再乱涨价的方式。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "至于我们很多时候可能会讨论闪迪，他们的产品本身有没有优势，有没有这个竞争力，然后会不会被其他的技术，其他的产品所替代。这些东西其实背后本身都会 Translate（转化），都会翻译到，都会转化成它的订单。如果它的产品本身没有这个竞争力的话，那大云不会和它去签这个长期的订单。",
+      "locator": "20:20",
+      "tags": ["sndk", "memory-storage", "valuation"],
+      "payload": {
+        "canonical_statement": "产品竞争力不必单独判断，它最终会翻译成订单：大云不会和没有竞争力的供应商签四五年的长期合约，所以长单本身就是竞争力的可观测代理。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "市场现在标准的预期，这一类的公司就是一个周期股。甚至，但如果真的是周期股的话，你的毛利润绝对不可能74%，一定是60%、50%以下。那么市场的这个预期是不是一定正确？不一定。",
+      "locator": "18:51",
+      "tags": ["sndk", "memory-storage", "valuation"],
+      "payload": {
+        "canonical_statement": "一致预期里已经写进了周期定价但写得不彻底：市场预计闪迪 2029 年营收 -19%、2030 年 -16%，毛利率降到 80%、74%——若真按周期股演绎，毛利率不该止步于 74% 而应跌破 60%，所以这套预期本身内部不一致、未必正确。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是如果市场真的认为自动驾驶马上就可以短期真的吗？马上就可以破坏Uber的话，那特斯拉的股价就不会在一个相对的低位。那所以明显市场不可能既杀跌Uber，然后同时又杀跌特斯拉。",
+      "locator": "10:20",
+      "tags": ["uber", "tsla", "psychology", "valuation"],
+      "payload": {
+        "canonical_statement": "用定价的内部一致性检验叙事：若市场真的相信自动驾驶即将颠覆 Uber，那么受益方特斯拉就不该同时处在低位——同一叙事下的输家和赢家被一起杀跌，说明这个叙事并没有真的被定价。",
+        "category": "psychology",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "然后，从一个长期的这个角度，长期可能是三年以上。我认为AIAgent对于Uber可能会设进行一定的挑战。",
+      "locator": "10:50",
+      "tags": ["uber", "ai-agent", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "对 Uber 的风险按时间分层：短期基本面无问题、估值相对便宜（EV/运营利润 22 倍对三年 25% 的运营利润增速，PEG 不到 1）；中期面临自动驾驶挑战（公司以 100 亿美元同时投软件与 12 万辆车对冲）；三年以上的长期风险来自 AI Agent 对聚合入口的替代。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是Unit Price却下降了5%。你一来一回的话，总共的广告收入只增加了3%。Unit Pricing下降了5%，代表他们背后这一块的一个变现能力可能不是那么的好。",
+      "locator": "06:06",
+      "tags": ["dis", "consumer", "valuation"],
+      "payload": {
+        "canonical_statement": "广告单价是平台变现效率的代理指标：迪士尼流媒体曝光量 +8% 而单价 -5%、广告收入只增 3%——广告主在各平台间可自由选择，单价被压说明该平台的转化率不如同行。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为这一块的运营利润，未来Disney它有可能是市场会改变看待它的估值的一个方向，或者一个条件吧。就一定是他们在流媒体这一块的Margin越来越扩张。那可以去对标谁？可以去对标奈飞。",
+      "locator": "06:30",
+      "tags": ["dis", "valuation", "consumer"],
+      "payload": {
+        "canonical_statement": "迪士尼估值重估的唯一抓手是流媒体运营利润率的扩张：该业务两年前还在亏钱，利润率已从去年同期 6.7% 升到本季 13%，若能一路对标奈飞，市场看待它的估值框架就会整体改变。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那另外一块就是整个稳定币这块，如果我们相信未来万物都会上链，就几乎所有的资产都会以链上的这种形式去存在的话，那你只要以链上的形式去存在，无论是你支付也好，交割也好，交易也好，它中间都需要一个媒介。而这一个媒介一定不是美元，而是以美元为背书的这个稳定币。",
+      "locator": "05:20",
+      "tags": ["crcl", "stablecoin"],
+      "payload": {
+        "canonical_statement": "稳定币的长期逻辑：若资产普遍上链，链上的支付、交割、交易都需要媒介，而这个媒介不会是美元本身而是以美元为背书的稳定币；应用场景越多、使用者越多，网络效应越强。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这也是我任务为什么未来稳定币是有这个空间在里面。是因为它得到了背后传统金融这一块比较大的机构的一个背书。那这些机构他们本身自己有这个利益在背后。",
+      "locator": "03:06",
+      "tags": ["crcl", "stablecoin"],
+      "payload": {
+        "canonical_statement": "稳定币出圈的判据是传统金融大机构的实际参与而非叙事：贝莱德作为创始验证节点把 BUIDL 部署在 Circle 的 Arc 主网（9 月上线），这些机构自身有利益在其中，才构成 Circle 脱离币圈的路径。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以最终这一次Circle一个财报，我认为从管理层这个执行力去看的话，我任务管理层的执行力是一般的。有点类似于Coinbase Brian。这两家公司，我任务管理层在执行力这一块，推出新产品的这个速度来看，我任务是一般。并没有到非常的快。我拿来做对比的就是Robinhood。",
+      "locator": "05:00",
+      "tags": ["crcl", "coin", "stablecoin"],
+      "payload": {
+        "canonical_statement": "以新产品推出速度衡量管理层执行力：金融科技公司里 Robinhood 的创新节奏最快，Circle 与 Coinbase 的执行力只算一般——这项差异是同一赛道内选标的的依据之一。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "不用再希望，不用在期待这一类的公司还可以像过去一年的时间里面出现什么五倍、十倍这样一个增长，不可能。因为他们的毛利润已经见顶了。你要在期待五倍十倍的话，你得期待它的营收的扩张翻五倍、翻十倍。",
+      "locator": "19:20",
+      "tags": ["sndk", "mu", "nvda", "memory-storage", "valuation"],
+      "payload": {
+        "canonical_statement": "毛利率见顶之后，五倍十倍的涨幅只能靠营收翻五倍十倍来支撑：闪迪、美光乃至英伟达都已进入这一阶段，EPS 增速的上限等于营收增速，估值扩张这条腿已经用完。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以我们会看到市场的预期是没有错的。你看27年营收增速是31%，但是EPS增速是多少？34%。也就是说他们并没有任何的一个运营效率在那边。为什么？不是说他们没有这个运营效率的空间了，而是因为他估值，而是因为他Margin这一块已经打满了。",
+      "locator": "11:47",
+      "tags": ["app", "valuation", "software"],
+      "payload": {
+        "canonical_statement": "AppLovin 的运营杠杆已经用尽：2027 年一致预期营收 +31%、EPS +34%，两者几乎相等，说明利润率已打满、再无运营效率释放空间；其 forward PE 也已从 2025 年初的 70 倍以上降到 19-25 倍，市场正在为利润率见顶做 de-rating。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    }
+  ]
+}

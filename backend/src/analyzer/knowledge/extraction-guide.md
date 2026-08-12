@@ -107,7 +107,10 @@ magnitude 的键约定：target（目标价）/ low, high（区间）/ pct（百
 - **主题标签** = kebab-case 英文受控词，起始集：fed-policy, inflation, oil-supply,
   ai-capex, semiconductor-cycle, memory-storage, software, mag7, midterm-election,
   consumer, macro-data, price-action, ema-tunnel, fibonacci, market-breadth,
-  rotation, risk-mgmt, position-sizing。
+  rotation, risk-mgmt, position-sizing；2026-08 新增（投资TALK君语料带入）：
+  valuation, balance-sheet, capital-raise, labor-market, bond-yields, fiscal-policy,
+  fx-intervention, ipo-supply, ai-agent, stablecoin, power-demand, neocloud,
+  datacenter-financing, compute-pricing, gpu-depreciation, defensive-sector, oversold。
 - 新主题词可加，但先查本表避免同义分裂；新增词回填进本表（本文件即受控词表）。
 
 ## 8. Method / Concept 填写要点

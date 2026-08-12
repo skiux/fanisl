@@ -1,0 +1,277 @@
+{
+  "content_id": 34,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "那我个人的看法是，现在的美联储其实对于劳动力市场这块没有那么的担心。无论最终明天的失业率是4.2也好，还是4.3也好，我并不认为，我并不认为会改变美联储的这个态度。",
+      "locator": "02:31",
+      "tags": ["labor-market", "fed-policy", "macro-data"],
+      "payload": {
+        "asset_text": "美联储对 2026 年 7 月非农与失业率（市场预期非农 18 万、失业率 4.2%；彭博预期 6.5 万、4.3%）的政策反应",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "flat",
+        "horizon": {"type": "by_date", "deadline": "2026-09-30"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那如果这三样东西都没有受到影响的话，市场不可能把他们的估值打压在一个非常低的位置，非常长的时间。",
+      "locator": "16:20",
+      "ref_price": 99.42,
+      "tags": ["igv", "software", "valuation", "ai-capex"],
+      "payload": {
+        "asset_text": "软件板块（IGV）",
+        "asset_symbol": "IGV",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "condition_text": "毛利率、营收增速、现金流三项均未被 AI 影响",
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-14", "2026-09-06", "2026-11-05"],
+          "success_def": "阶梯各时点 IGV 收盘 ≥ 参考价 99.42（2026-08-06 收盘，视频录于当日盘后）= hit。原文的三项前置条件属基本面判断、不可用日线机械判定，故不进评分、等级压到 C。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以非常有可能在整个2027财年，他们接下去在营收这一块，大概率的情况下会比市场的预期要高。",
+      "locator": "14:20",
+      "tags": ["software", "valuation", "ai-agent"],
+      "payload": {
+        "asset_text": "Figma 2027 财年营收相对市场一致预期",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "horizon": {"type": "by_date", "deadline": "2027-12-31"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "其实市场这边是低估了，因为管理层所给出的运营利润率是在9%以上了。那现在市场预期是5.57%，那么所以明显市场是低估了Figma，他们的毛利润率和他们的运营利润率。",
+      "locator": "13:31",
+      "tags": ["software", "valuation"],
+      "payload": {
+        "asset_text": "Figma 未来两个季度的毛利率与运营利润率相对市场一致预期（市场预期毛利率约 81%、运营利润率 5.57%，管理层指引运营利润率 9% 以上）",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "horizon": {"type": "within_duration", "duration_days": 180},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "但其实你把这个时间线放长的话，我只放到2021年，你会发现起码在过去5年的时间里面，有三次都比现在还要高。",
+      "locator": "09:39",
+      "tags": ["risk-mgmt", "psychology", "price-action"],
+      "payload": {
+        "name": "看极端指标先拉长时间轴取历史分位",
+        "summary": "社交媒体传播的\"指标飙升\"图往往只截近段；判断是否真的极端，先把同一指标拉到五年以上的窗口，看历史上有几次比现在更高、当时对应什么事件。",
+        "family": "other",
+        "rules": [
+          "把图的时间窗拉到至少五年",
+          "数出历史上高于当前读数的次数与时点（亚马逊债券利差：2022 全年、2024-08、2025 关税期，三次都更高）",
+          "逐一对上当时的宏观事件，判断该指标当时是否真的对应了基本面恶化",
+          "对不上基本面 → 当前读数同样不能当基本面信号读"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["该指标的五年以上历史序列", "同期事件时间表"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那我的一个期待就会非常的理性，那我的期待是PE不会扩张，但是它EPS的增速，EPS这个提高的增速还会非常的快。",
+      "locator": "06:40",
+      "tags": ["memory-storage", "valuation", "semiconductor-cycle"],
+      "payload": {
+        "name": "周期股只赚 EPS 的钱、不赚估值扩张的钱",
+        "summary": "持有周期行业标的时先判定周期是否被打破：若判定没被打破，就把回报来源锁定在 EPS 增长上、假设 PE 不扩张（三星海力士 forward PE 6 倍维持），据此设定预期。",
+        "family": "other",
+        "rules": [
+          "先独立判断周期是否被结构性打破（本例：判定 memory 仍是周期行业，只是本轮周期更长）",
+          "周期未被打破 → 估值倍数假设不变（6 倍 forward PE 保持）",
+          "回报预期 = EPS 增速；EPS 翻倍即股价翻倍",
+          "拉长周期的依据是厂商在扩产上保持纪律，不疯狂扩产能",
+          "该框架的用处是避免在'是不是周期股'的黑白之争上二选一——可以投资它同时不认为它摆脱周期"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["forward PE 历史", "EPS 一致预期", "行业产能扩张数据"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "利差上升，CDS上升，它并不会因为利差的上升，CDS的上升导致股价下跌，而是我们看到利差上升的同时，CDS上升的同时，股价会下跌。这两者之间是一个相关性，不是一个因果关系。那明显是一个宏观事件所导致利差的上升，CDS的上升。同时，股价的这个下跌，那和它公司的基本面是没有关系的。",
+      "locator": "10:10",
+      "tags": ["risk-mgmt", "bond-yields", "mag7", "psychology"],
+      "payload": {
+        "canonical_statement": "大科技 CDS/债券利差上升与股价下跌是相关而非因果：两者同为宏观事件（2024-08 套息平仓、2025 关税、2022 加息周期）的共同结果，与公司自身信用基本面无关，因此利差飙升不能读作大科技的债务风险信号。",
+        "category": "market_structure",
+        "stance": "reject"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那再上一次比现在还水平还要高的，就是整个2022年。2022年几乎所有的实际都比现在这个利差要高。那如果从债务这个角度去看，其实在2022年亚马逊所承担的债务，比利现在要低很多了。那为什么当时的一个利差比现在还要高呢？就是因为整个2022年是在一个加息周期里面。",
+      "locator": "10:40",
+      "tags": ["bond-yields", "fed-policy", "amzn"],
+      "payload": {
+        "canonical_statement": "信用利差的水平主要由利率周期决定而非发行人负债水平：2022 年亚马逊负债远低于现在、利差却全年更高，原因是当时处在加息周期、全行业利差同步抬升。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我说过，如果美光不再是一个周期股，你起码要保证这些大科技它一个AI这块的一个投资投资是有回报的。大科技这边如果投资没有回报的话，不可能这些硬件板块出现一个15倍、20倍的这种PE，不可能。因为现在这些硬件板块的前金主爸爸是谁？就是这些大科技。所以大科技才是底层落地最重要的一个环节，只要大科技有问题，剩下整个产业链所有的硬件，包括芯片，包括芯片最上端的台积电、阿斯麦都会有问题。",
+      "locator": "05:30",
+      "tags": ["mag7", "semiconductor-cycle", "memory-storage", "ai-capex", "valuation"],
+      "payload": {
+        "canonical_statement": "硬件板块的估值重估必须以大科技的 AI 投资有回报为前提：大科技是产业链的付款方与落地环节，它出问题则芯片乃至台积电、阿斯麦全部出问题，因此不可能出现\"只看好硬件、不看好大科技\"的持续状态（美光要脱周期、拿到 15-20 倍 PE，前提是大科技的投资回报先被证明）。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "一般个股出现，大科技出现那么大涨幅是很少见的。一般出现那么大的涨幅，必须要匹配的这个条件是什么？条件一定是市场的仓位不在上面，市场的关注度不在上面，才有可能出现这种结果。",
+      "locator": "06:00",
+      "tags": ["mag7", "psychology", "positioning"],
+      "payload": {
+        "canonical_statement": "大市值个股财报后出现异常大涨的必要条件是市场仓位与关注度事先不在它身上：亚马逊、微软 2026 年 Q2 财报后的大幅上涨，前提是大科技 YTD 表现落后于标普与芯片、机构仓位已从其撤出。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "他们首先持有这个标的，他们也看好整个Memory，但是非常意思，他们并不认为整个Memory会走出一个周期行业。他们认为Memory仍然是一个周期行业，只是这一轮的周期比很多人想象的要长，所以他们现在仍然持有SK Square。同时加上这些公司现在在扩产能上保持这个纪律，不会去疯狂的扩产能，也使得这个周期会比以前的周期要长，但是他们并不认为整个Memory会走出以前的这种周期行业。",
+      "locator": "06:20",
+      "tags": ["memory-storage", "semiconductor-cycle", "valuation"],
+      "payload": {
+        "canonical_statement": "存储仍是周期行业，只是本轮周期被拉长（厂商在扩产上保持纪律）——不是脱离周期。作者转述的机构据此持有 SK Square，但不给 PE 扩张的预期。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "转述自作者常年沟通的一家基本面机构的 2026 Q2 review"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是，没有必要像现在就声音非常的极端，要么就是AI有泡沫，要么就是看好未来的AI，5年10年都非常好。不可能5年10年都非常好。At one point，在未来某个时间点，市场一定会投资过度。",
+      "locator": "08:00",
+      "tags": ["ai-capex", "risk-mgmt", "psychology"],
+      "payload": {
+        "canonical_statement": "AI 的两极叙事都不成立：不必在\"现在就是泡沫\"和\"未来五到十年一直好\"之间二选一——某个时点市场一定会投资过度，所以持有 AI 个股就必须持续跟踪行业资本开支与动向，看到风吹草动就考虑调仓；不愿承担这项跟踪成本的人应该直接买指数。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我们来看一下财报会议里边的内容，2/3的客户在续约时都会增加Full seat，seat就是席位了，然后整体的一个Retention稳定在90%。那所以，即使现在有了AI，AI所创造这些工具本身，现在还没有，起码没有看到任何的现象破坏Figma现在的客户，因为他们现在客户的Retention保留率仍然在90%，和以前稳定在90%。",
+      "locator": "12:02",
+      "tags": ["software", "ai-agent", "valuation"],
+      "payload": {
+        "canonical_statement": "判断 AI 是否在破坏一家软件公司，看续约时的席位增减与留存率：Figma 2026 Q2 有三分之二的客户续约时增加正式席位、整体留存率稳定在 90%，与 AI 出现之前一致，破坏尚未发生。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "也就是因为现在有了这些AI平台，有了这些分发渠道之后，使得你的这些user base，使得你的使用者的这个广度其实比以前要大，要大很多了。那以前只是因为做设计的才会来接触你这些软件，现在即使不做设计的，因为你这些软件也变得非常容易去使用，整个背后的使用人群的这个基数明显扩大。",
+      "locator": "12:40",
+      "tags": ["software", "ai-agent"],
+      "payload": {
+        "canonical_statement": "AI 对工具类软件的一阶效应是扩大用户基数而非替代：门槛下降让非专业人群进入（Figma 客户里工程师席位已超过设计师，原来写代码的人开始做设计），软件的可寻址人群比 AI 之前明显更大。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "等于你新加入了这一部分AI的业务，而新加入了这一部分AI的业务，只要它的毛利润没有达到90%，就会对于原本的业务这个毛利润进行一部分的一个冲击。稍微往下拉一些。但是，最终如果稳定下来之后，他们整个的软件，毛利润还是可以保持在80%到85%左右，我认为是完全可以接受的。",
+      "locator": "13:31",
+      "tags": ["software", "valuation", "ai-capex"],
+      "payload": {
+        "canonical_statement": "软件公司毛利率因 AI 下滑是结构摊薄而非恶化：席位业务毛利率约 90%，新增的 AI 业务成本是模型 API 与算力、定价上不去，只要其毛利率低于 90% 就会把综合毛利率往下拉（Figma 从 90% 降到 85%），稳定在 80-85% 是可接受的终态。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为软件公司的这个成本会下降。对软件公司来说，他们调用这些闭源模型的API就是他们的成本。那么，如果开源进来之后成本下降，那对于这些软件公司，他们的成本也下降。",
+      "locator": "14:00",
+      "tags": ["software", "ai-capex", "valuation"],
+      "payload": {
+        "canonical_statement": "开源模型能力上来后利好软件公司的毛利率：调用闭源模型 API 是软件公司的直接成本，开源替代压低这项成本即等于毛利率回升空间——Figma 目前仍主要用美国闭源模型，这块降本尚未兑现。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "你看看一下他们Cloud这一块营收的一个增速。除了2025年的第一季度，当时是31%，接下去你看一下。29.66，这同比增速，每一个季度的同比增速，25.反而是在2025年的Q3稍微放缓了一些，25.23，接下去25.71，25.92，26，28.62，刚刚过去的这个季度，30.8。然后在这个基础上，它的毛利润，2025年的第一季度84%，刚刚过去的这个季度多少？89%。",
+      "locator": "13:59",
+      "tags": ["software", "ai-agent", "valuation"],
+      "payload": {
+        "canonical_statement": "Atlassian 是 AI 加速而非破坏软件的正面样本：云收入同比增速从 2025 Q3 的 25.23% 一路回升到最新季度的 30.8%，同期非 GAAP 毛利率还从 84% 升到 89%，财报后股价盘后涨逾 30%。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "你可以看到，AI就是市场对于AI对于软件所造成的这个破坏，这个观点本身到现在都没有被证实。已经已经，这个观点本身已经两年了。我觉得这也说明了一点，就是就股价已经下跌了两年，软件板块也被下跌了两年，市场情绪也低迷了两年。但是最终我认为市场还是会回归到理智，什么是理智？就是这些公司，毛利润有没有受到影响？增速有没有说，就营，营收的这个增速有没有受到影响？最重要的是他们的现金流有没有受到影响？",
+      "locator": "16:00",
+      "tags": ["igv", "software", "valuation", "psychology"],
+      "payload": {
+        "canonical_statement": "\"AI 会破坏软件\"这一叙事已交易两年、股价与情绪也压了两年，但至今未被任何一份财报证实（微软、Figma、Atlassian、Unity 依次证否）；检验它的三个硬指标是毛利率、营收增速、现金流，三者不受损则估值压制无法长期维持。",
+        "category": "market_structure",
+        "stance": "reject"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为AI肯定是不可造就所有的软件公司都是一个破坏，也不可能对于所有的软件公司都是一个利好。我们就得去区分，找出一些一个或者两个我们认为不会被AI所破坏，甚至乎AI对于他们来说是一个利好的公司。",
+      "locator": "16:40",
+      "tags": ["software", "risk-mgmt", "ai-agent"],
+      "payload": {
+        "canonical_statement": "AI 对软件的影响必须逐家区分而非板块整体判定：它不会破坏所有软件公司，也不会利好所有软件公司；投资者的工作是先不被情绪与故事线带走，再自己找出一两家不被破坏、甚至受益的公司。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那过去这段时间，过去一周吧，市场反弹的幅度比较大。三大指数都走的非常的好，但其实市场的参与度，并没有大家想象的那么的乐观。那指这边20日和50日均线分别在52%和47%，处在一个非常中性的一个位置。包括100日均线、200日均线，43%、100日在46%，都处在一个非常中性的位置。",
+      "locator": "00:08",
+      "tags": ["market-breadth", "ndx", "spx", "price-action"],
+      "payload": {
+        "canonical_statement": "2026-08-06 的参与度读数与指数涨幅背离：三大指数大幅反弹，但纳指成分股站上 20/50/100/200 日均线的比例只有 52%/47%/46%/43%（中性），罗素 2000 与标普 500 在 60-64%（中性偏乐观）——反弹的广度并不像指数看上去那么乐观。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    }
+  ]
+}

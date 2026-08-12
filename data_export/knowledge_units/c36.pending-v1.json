@@ -1,0 +1,284 @@
+{
+  "content_id": 36,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "method",
+      "quote": "然后我们来看一下具体它三家业务，或者三个，那这三个业务我之后再给大家做估值更新的时候，一定要把这三个业务分开去看。对吧？你如果不分开去看的话，习惯我前面和大家看的，你一年的operating income在一个billion，你如果分，你如果合在一起去看的话，那一年才一个billion的利润，你一个，一个trillion的一个估值，你的估值是上天了，对吧？所以没办法这么去看，一定要把三个业务分开去看。",
+      "locator": "04:08",
+      "tags": ["spcx", "valuation"],
+      "payload": {
+        "name": "多业务公司的分部估值（每块业务各配可比锚）",
+        "summary": "业务结构差异极大的公司不能用合并利润估值（SpaceX 合并运营利润不到 10 亿美元、市值 1 万亿，合并看必然荒谬）；拆成三块业务，每块各找一个可比锚：营收倍数、利润倍数或实物产能对标。",
+        "family": "other",
+        "rules": [
+          "火箭业务：按同业市值/营收倍数外推——SpaceX 营收约为 Rocket Lab 四倍、增速略慢，按 Rocket Lab 500 亿市值 ×4 得 2000 亿美元",
+          "Starlink：按运营利润倍数——上半年运营利润 28 亿年化为 56 亿，给 200 倍（依据是未来两年运营利润年增速 70%+，PEG 约 3，偏慷慨），得 1.12 万亿",
+          "AI/算力业务：按实物产能对标——CoreWeave 1 GW 对应 500 亿市值，SpaceX 1.4 GW 得 700 亿，加 Cursor 收购价 600 亿及零散业务，凑 2000 亿",
+          "远期交叉验证：用可比公司的未来市销率给远期营收定价——甲骨文三年后营收 1284 亿、当前市值约 4000 亿，即三年后 P/S 约 2 倍；按此给 SpaceX AI 三年后 800 亿营收定 1600 亿",
+          "汇总后除以股本得每股价值（本例 1.52 万亿 → 113 美元），并声明所用假设偏乐观还是保守"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["分部营收与运营利润的一致预期", "可比公司市值/营收/运营利润", "算力产能（GW）"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "他们财报出来，每一次的财报结果出来，你都很会发现，他们超出市场预期非常的多。我这边举了他们过去八个季度财报出来之后，EPS好于市场预期的这个幅度。我们可以看到只有一个季度，2025年的第四季度超出市场预期15.62%。其他所有的季度，几乎都和市场的预期一样。其中有一个季度还比市场预期稍微低了那么一些。就基本上每一次华尔街的这个摸底，或者说AMD给予下一个季度这个指引都非常地准确。完全不给自己留任何的空间在那边。",
+      "locator": "16:30",
+      "tags": ["amd", "valuation", "risk-mgmt"],
+      "payload": {
+        "name": "用历史超预期幅度分布判断财报的意外风险",
+        "summary": "财报前先看该公司过去八个季度 EPS 相对一致预期的偏离分布：分布越窄，说明公司指引与卖方摸底越准、越不给自己留空间，财报当天出现大幅意外的概率就越低。",
+        "family": "event",
+        "rules": [
+          "取过去八个季度的 EPS surprise%（AMD：+2.73、+6.76、+15.62、+2.76、-1.66 …）",
+          "分布集中在零附近且有负值 → 判定该股财报不会有大冲击",
+          "分布右偏且幅度大 → 公司习惯留余量，财报有正向意外空间",
+          "该判断只用于财报当天的意外风险，不改变对基本面的判断"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["八个季度的 EPS 实际值与一致预期"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "而且接下去会有非常大的一个解禁。几乎我能够接触到的一些一级市场上的投资者，SpaceX的投资者，没有一个不等着解禁之后卖出的。所以接下去SpaceX这一块的抛压，我仍然认为会非常极度地强。",
+      "locator": "10:20",
+      "ref_price": 108.27,
+      "tags": ["spcx", "valuation", "ipo-supply"],
+      "payload": {
+        "asset_text": "SpaceX",
+        "asset_symbol": "SPCX",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "magnitude": {"target": 90},
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-12", "2026-09-04", "2026-11-03"],
+          "success_def": "阶梯各时点收盘 < 参考价 108.27 = hit。参考价取 2026-08-05 收盘而非发布前一日收盘：视频录于 08-04 盘后、SpaceX 当日盘后发财报，08-04 的 125.33 是财报前价格，08-05 才是作者所议论信息对应的首个可交易收盘（此选择系我方指定）。magnitude 记的是作者自述的观望位 90 美元（其分部估值给出的合理价为 113），不作 hit 门槛。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以听完AMD的财报之后，我认为AMD的估值非常地合理，且AMD的估值是便宜的。",
+      "locator": "21:00",
+      "ref_price": 482.05,
+      "tags": ["amd", "valuation", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "AMD",
+        "asset_symbol": "AMD",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-12", "2026-09-04", "2026-11-03"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 482.05 = hit。参考价取 2026-08-05 收盘：视频录于 08-04 盘后、AMD 当日盘后发财报，作者全程按盘后约 472 美元计算估值，08-04 的 518.58 是财报前价格、不对应作者的判断（此选择系我方指定）。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "第二点，如果说我们看好SpaceX的话，你必须要看好英伟达。为什么？是因为老马接下去他所建的这些数据中心，全部是和英伟达去合作，起码现在他表达的是全部是和英伟达去合作。并且他说到期待明年英伟达有很大一部分的GPU会安排给SpaceX。",
+      "locator": "13:30",
+      "ref_price": 211.94,
+      "tags": ["nvda", "spcx", "ai-capex", "datacenter-financing"],
+      "payload": {
+        "asset_text": "英伟达",
+        "asset_symbol": "NVDA",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-12", "2026-09-04", "2026-11-03"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 211.94（2026-08-04 收盘）= hit。英伟达当日无财报，故参考价用发布前最后一个收盘。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "你从一个相对的risk-reward两家公司去做对比的话，英伟达这个risk-reward会比AMD的话要稍微好一些。因为毕竟相对便宜一些嘛。",
+      "locator": "23:10",
+      "ref_price": 211.94,
+      "tags": ["nvda", "amd", "valuation", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "英伟达相对 AMD",
+        "asset_symbol": "NVDA",
+        "priceable": true,
+        "claim_class": "relative",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "hedged",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "relative_return",
+          "benchmark": "AMD",
+          "eval_ladder": ["2026-08-12", "2026-09-04", "2026-11-03"],
+          "success_def": "自发布日起至阶梯时点，NVDA 收益率 − AMD 收益率 > 0 = hit。原文说的是'相对风险回报更好'（依据是英伟达 2028 forward PE 16.4 倍低于 AMD 的 27.3 倍），并非直接预测跑赢；以相对收益作代理系我方指定，故等级压到 C，且 stance 记 hedged（作者同时说两家都可布局、AMD 的故事线更好）。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "第三点，老马说到，认为今年年底，ARR，营收的这个ARR就可以达到1000亿美金，100个billion。我去看了一下，1000亿美金，而且他在财报会议里面特别强调，他说我们什么事情都不能，都不用干，就可以达到1000亿美金ARR。我还是打上一个问号，因为我去算了一笔账。",
+      "locator": "14:20",
+      "tags": ["spcx", "ai-capex"],
+      "payload": {
+        "asset_text": "SpaceX 2026 年底 ARR 能否达到 1000 亿美元（作者逐项加总只得约 200 亿，差 500 亿美元）",
+        "asset_symbol": "SPCX",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "down",
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "他一个人要建15个G瓦，他是他说20个G瓦，20个G瓦假设其中四分之一是会被延后的，所以我们就按15个G瓦去算。即使是15个G瓦也是非常非常的夸张。我觉得是做做不到的。也没有那么多的，也没有那么多的钱。",
+      "locator": "12:10",
+      "tags": ["spcx", "ai-capex", "datacenter-financing"],
+      "payload": {
+        "asset_text": "SpaceX 在 2027 年之前上线 15-20 GW 数据中心的目标",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "down",
+        "horizon": {"type": "by_date", "deadline": "2027-12-31"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "估值本身它是一个模糊的正确，我强调过很多次，它没有办法帮助您每天去做这一个交易。并且，今天即使涨了2%，涨了3%，也不代表这个估值就会去到非常高的这个位置，不会。所以估值是一个模糊的正确，且估值我们用来判断高估还是低估，它是要有时间的这个跨度的，没有时间的这个跨度，或者涨幅，你短期之内涨了3%，跌了3%，再去看估值的话，没有什么意义。",
+      "locator": "01:20",
+      "tags": ["valuation", "risk-mgmt", "position-sizing"],
+      "payload": {
+        "canonical_statement": "估值是模糊的正确：它只能用来判断高估还是低估、且必须有时间跨度，不能用来做日常交易；短期 2-3% 的涨跌不改变估值位置，因此不需要天天盯估值。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "美股的一个基本面、估值，才是整个美股的一个核心。在低估值的时候，很多市场里面那些宏观因素也好，技术指标也好，我个人认为都是偏向于噪音。",
+      "locator": "00:40",
+      "tags": ["valuation", "macro-data", "price-action"],
+      "payload": {
+        "canonical_statement": "美股的定价核心是基本面与估值；处在低估值区间时，宏观因素与技术指标都偏向噪音——2026 年 3 月与 7 月两次低估值区间都验证了这一点。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "限于估值处在历史低位区间时；高估值区间未作同样声明"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "最后另外一点，老马提到了，就包括他们的CFO也有提到，他说现在他们整个数据中心的一个回报周期是多少？小于一年。小于一年。然后你会发现，如果大家有仔细去听的话，在亚马逊的财报里面，Andy有说到，Andy亚马逊他的一个回报周期是两到三年。",
+      "locator": "15:30",
+      "tags": ["ai-capex", "spcx", "amzn", "neocloud"],
+      "payload": {
+        "canonical_statement": "数据中心回本周期的差异揭示的是租约结构而非效率差异：SpaceX 报小于一年、亚马逊报两到三年，区别在短租（on demand）与长租——短期算力紧缺时短租价格极贵，所以谷歌与 OpenAI 向 SpaceX 买算力、Meta 开始外卖自有算力。但几个 GW 以上的数据中心不可能全部用于短租，因此小于一年的回报率不可持续。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以SpaceX大举进军AI市场或者算力市场，其实是对于New Cloud整个运行模式的一个验证。",
+      "locator": "16:00",
+      "tags": ["spcx", "neocloud", "ai-capex"],
+      "payload": {
+        "canonical_statement": "SpaceX 大举进军算力出租市场，本身是对 neocloud 商业模式的第三方验证——一家现金流与融资能力都很强的公司选择这条路，说明该模式的经济性成立。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以其实如果把这三家公司放在一起去看的话，我们可以得出一个结论，就是现在市场其实对于纯GPU这类的公司，像英伟达这类的公司，给了一个非常低的这个估值。而相反，对于未来在ASICs这一块，定制ASICs这一块，包括CPU这一块都给了一个相对比较高的这个估值。为什么？是因为现在市场给于inference，给于推理这一块的一些公司，就只要和推理相关的一些公司，给了一个估值上的一个溢价。",
+      "locator": "22:20",
+      "tags": ["nvda", "amd", "avgo", "valuation", "semiconductor-cycle"],
+      "payload": {
+        "canonical_statement": "市场当前给推理相关标的估值溢价、给纯 GPU 折价：英伟达 2028 财年 forward PE 16.4 倍、2029 约 13 倍，博通 2027 年 21.7 倍、2028 年 16 倍，AMD 2028 年 27.3 倍——三者增速都高，倍数差异反映的是市场把定制 ASIC 与 CPU 这类推理侧标的定价得更贵。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "截至 2026-08-04 的一致预期口径"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那如果HBM，你HBM memory这一块的涨价，涨价之后对你来说是直接的这个成本的一个上涨。而你成本的这个上涨，你是不能在这个成本上面再去加这个溢价的，不可能的。你也就是只能把HBM的这个成本完全转到消费者身上，但是你统一的价格绑定在一起，将会因为HBM的这个涨价将会使得一个毛利润出现下降。",
+      "locator": "17:07",
+      "tags": ["amd", "nvda", "memory-storage", "valuation"],
+      "payload": {
+        "canonical_statement": "HBM 与芯片捆绑销售，使存储涨价直接压缩 GPU 厂商的毛利率：成本能转嫁但不能在成本上再加溢价，捆绑定价下毛利率必然下滑；AMD 的 GPU 比英伟达多用 50% 的 HBM，受影响更大，两家的应对都是从产品端减少 HBM 用量（英伟达下一代 Vera Rubin 可能把 HBM 数量减半）。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那么所以他们一下子PE静态的市盈率的PE就从113跌到了82。这就是当财报的增速非常高的时候，你PE下降的速度也会非常地快。",
+      "locator": "20:11",
+      "tags": ["amd", "valuation"],
+      "payload": {
+        "canonical_statement": "高增速阶段静态市盈率会自己塌下来：AMD 单季 EPS 同比 +246% 之后，滚动十二个月 EPS 变成 5.76 美元，静态 PE 从 113 倍直接降到 82 倍——用静态 PE 判贵贱在这种阶段会系统性误判。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "最后一点，其实在他们上一个投资者大会里面有给过这个指引。他们给出了未来三年之内他们EPS这个体量可以达到20美元，就是每股收益可以达到20美元。然后在这一次财报会议里面，CFO有聊到，这个数据将会significantly远远高于20美元。",
+      "locator": "19:30",
+      "tags": ["amd", "valuation", "semiconductor-cycle"],
+      "payload": {
+        "canonical_statement": "AMD 管理层对三年内 EPS 的指引已从 20 美元上修为\"远高于 20 美元\"：若按 25 美元代入，2028 年 forward PE 只有 19 倍，而市场一致预期对应的是 27.34 倍（预期 EPS 18.97）——管理层口径与卖方口径之间存在一个可观测的缺口。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那这一块的服务一个CPU，你也可以理解为接下去27年英特尔的一个增速。那我在上一次分析英特尔估值的时候，我说你得把英特尔的product和他们的foundry这一块分开去看。product这一块我假设27年是多少？我给50%的这个假设。",
+      "locator": "17:07",
+      "tags": ["amd", "intc", "valuation", "semiconductor-cycle"],
+      "payload": {
+        "canonical_statement": "AMD 给出的 2027 年服务器 CPU 增速 70% 可以横向外推到英特尔的产品业务：作者此前给英特尔 product 业务 2027 年 50% 的增速假设，据此判定偏保守——同一终端需求下，一家的指引可作另一家的交叉验证。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "市场预期SpaceX将会在28年的时候能够做到，但其实Oracle在27财年，也就是他们的下一个财年，马上就可以做到。市场现在预期Oracle 27财年营收，正好是90个billion，那比比SpaceX、比SpaceX里面的AI稍微高一些。",
+      "locator": "06:35",
+      "tags": ["spcx", "orcl", "valuation", "ai-capex"],
+      "payload": {
+        "canonical_statement": "给高增长预期找一个已实现的参照系：市场预期 SpaceX 的 AI 业务 2028 年做到 840 亿美元营收、223 亿运营利润，而甲骨文 2027 财年就能做到 901 亿营收、359 亿运营利润——把远期预期换算成\"相当于某家公司哪一年的体量\"，能立刻看出这个预期有多激进。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    }
+  ]
+}

@@ -27,13 +27,13 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `models.py` | L1 单元 pydantic 模型（**schema SSOT**）：KnowledgeUnit 信封 + Claim/Method/Concept 载荷 + ScoringSpec，入库前强校验 |
 | `store.py` | 持久化（独立库 `fanisl_knowledge`，7 表 schema 内嵌）：L0 追加式、(content_id, extractor_version) 唯一、版本化重放 |
 | `register.py` | 信源登记 CLI：`python -m analyzer.knowledge.register <名称> <平台> <handle>` |
-| `sources/youtube.py` | yt-dlp 封装：频道清单、元数据（+字幕白捡；两起步频道无字幕）、cookies 注入 |
+| `sources/youtube.py` | yt-dlp 封装：频道清单、元数据（+字幕白捡；三个已登记频道实测都取不到可用字幕轨）、cookies 注入 |
 | `llm.py` | GeminiClient：URL 直读转录（transcript + 带时间戳视觉笔记）、clip 二次细读（start/end offset）、`render_l0_text` L0 排版约定 |
 | `transcribe_video.py` | 单视频转录 CLI：`python -m analyzer.knowledge.transcribe_video <handle> <video_id>` |
 | `backfill_transcripts.py` | 批量转录回填 CLI（幂等、限速、429/5xx 退避）：`python -m analyzer.knowledge.backfill_transcripts <handle> --since-days 60` |
 | `backfill_creator.py` | 单信源历史内容登记辅助 |
 | `import_units.py` | L1 单元导入 CLI（PendingBackend 的入库端）：JSON → pydantic 校验 + quote∈原文校验 → record_extraction；`--dry-run` 只验不写 |
-| `prices.py` | K4 价格层：daily_bars 表 + SYMBOL_MAP（39 符号，yfinance/FRED；期货代理现货者已注明）：`python -m analyzer.knowledge.prices`（幂等 upsert） |
+| `prices.py` | K4 价格层：daily_bars 表 + SYMBOL_MAP（73 符号，yfinance/FRED；期货代理现货者已注明）：`python -m analyzer.knowledge.prices`（幂等 upsert） |
 | `scorers.py` | K4 评分器：按冻结 ScoringSpec 到期机械评分（sign/target_touch/target_close/range_hold/relative_return + 条件解析），`python -m analyzer.knowledge.scorers [--dry-run]`（幂等）；口径细节见模块 docstring |
 | `scoring_overrides.json` | success_def 的机械化编译（pending-v1 存量 103 条专用）：条件结构化/判界修正/组合定义，语义仲裁=success_def；新提取应走规范 v2 结构化字段 |
 | `nodes.py` | K5 归并层：knowledge_nodes/node_attestations 两表 + 生命周期重算 + CLI（export/import/seed-singletons/recompute/retire），判据见 merge-guide.md |

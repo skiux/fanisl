@@ -1,0 +1,324 @@
+{
+  "content_id": 39,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "我原本其实有打算微软的股价反弹到 460 以上 470 以上，我可能会开始慢慢进行地减仓，但是看到这一份财报之后，暂时我不会有任何减仓的想法。",
+      "locator": "16:00",
+      "ref_price": 451.1,
+      "tags": ["msft", "valuation", "ai-capex"],
+      "payload": {
+        "asset_text": "微软",
+        "asset_symbol": "MSFT",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-07", "2026-08-30", "2026-10-29"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 451.10（2026-07-30 收盘，已含财报后 +16% 的涨幅，视频录于当日盘后）= hit。作者原定 460-470 减仓、看完财报后取消减仓计划并拒绝换仓到甲骨文，按'继续持有不会亏'解为方向向上。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这也是为什么我在盘后看到听完财报会之后，我再次对苹果进行了一部分的一个减仓，是我认为未来的两个季度他们的营收增速和利润率都会受到这个影响，营收增速受到芯片的一个影响，因为他们下单下少了，然后利润率这一块受到存储芯片这一块的一个影响。",
+      "locator": "33:00",
+      "ref_price": 308.91,
+      "tags": ["aapl", "memory-storage", "valuation"],
+      "payload": {
+        "asset_text": "苹果",
+        "asset_symbol": "AAPL",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "horizon": {"type": "within_duration", "duration_days": 180},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2027-01-26"],
+          "success_def": "2027-01-26（发布日后 180 个自然日）收盘 < 参考价 308.91 = hit。参考价取 2026-07-31 收盘而非 07-30 的 333.43：苹果 07-30 盘后发财报，作者正是听完电话会后在盘后 314 减仓，07-31 才是对应信息的首个可交易收盘（此选择系我方指定）。期限取原文的'未来两个季度'，按规范 §3 的'季度内/未来几个月 = 90 天'外推两个季度为 180 天。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那我个人认为周四这家机构爆仓，它可以是一个事件。",
+      "locator": "05:30",
+      "ref_price": 28106.35,
+      "tags": ["ndx", "price-action", "psychology", "positioning"],
+      "payload": {
+        "asset_text": "美股（以纳指为代理）在对冲基金爆仓事件后的短期见底",
+        "asset_symbol": "NDX",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-21"],
+          "success_def": "2026-08-21（发布日后 21 个自然日）收盘 ≥ 参考价 28106.35（2026-07-30 收盘）= hit。原文的判断是'机构爆仓属于见底事件'、未指明标的，以纳指作代理系我方指定故降 C；'短期之内'按规范 §3 无对应词条，取'未来几周 = 21 天'。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "但是 2026 年 27 年他们是最大化，那最大化对于算力这一块，对于电力这一块，电力的这个上限这一块的要求就会非常的高，所以对一些基建的公司可能是一个利好。那比如说我最近这段时间在加仓，然后在换仓过去的 Bloom Energy 这家公司。",
+      "locator": "20:30",
+      "ref_price": 207.12,
+      "tags": ["be", "power-demand", "ai-capex", "meta"],
+      "payload": {
+        "asset_text": "Bloom Energy",
+        "asset_symbol": "BE",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-07", "2026-08-30", "2026-10-29"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 207.12（2026-07-30 收盘）= hit。逻辑链是 Meta 明确 2026-2027 最大化资本开支 → 电力上限成为瓶颈 → 利好供电基建，作者据此持续加仓并换仓过去。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "包括你看一下现在市场的预期，我们如果看 27 财年 28 财年 29 财年，营收的这个预期 9% 7% 和 8%，我认为在 27 年底吧 27 财年底吧，包括 28 财年我认为这个营收增速会比较的高，会起码会比这个数据要高，甚至达到 10% 以上。",
+      "locator": "33:59",
+      "tags": ["aapl", "ai-agent", "consumer"],
+      "payload": {
+        "asset_text": "苹果 2027-2028 财年营收增速相对市场一致预期（市场给 9%/7%/8%，作者判断可达 10% 以上）",
+        "asset_symbol": "AAPL",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "magnitude": {"pct": 10},
+        "horizon": {"type": "by_date", "deadline": "2028-12-31"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "接下去的两个季度市场预期是 33% 和 34%，所以 margin 在 30% 左右这个区间可能要保持一段时间。什么时候可能会出现反转？当他们的 margin 出现反转的时候，市场可能会再次以一个比较正面价格上的一个反馈给到 Meta 身上。",
+      "locator": "22:00",
+      "tags": ["meta", "valuation", "ai-capex"],
+      "payload": {
+        "asset_text": "Meta 未来两个季度的运营利润率（本季调整后约 36%、市场预期 33% 与 34%）",
+        "asset_symbol": "META",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "flat",
+        "horizon": {"type": "within_duration", "duration_days": 180},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "然后 EPS 这个增速，EPS 就我教过大家很多次，你看 EPS 的增速，市场预期 1.83，最后 5.75，这种数据一定是不真实的。因为你营收才超了 2% 不到，你 EPS 怎么可能超 200%？所以这时候就去看他们的运营盈利，Operating Income 超了多少？超了 16%，那就非常的合理。",
+      "locator": "22:32",
+      "tags": ["amzn", "valuation", "risk-mgmt"],
+      "payload": {
+        "name": "EPS 大幅超预期而营收不及时，往下拆到运营利润",
+        "summary": "营收只超预期 2% 而 EPS 超 200% 的组合一定不真实，必须下沉到运营利润才能得出该季财报的真实成色（亚马逊 2026 Q2 运营利润超预期 16%，才是合理读数）。",
+        "family": "other",
+        "rules": [
+          "触发条件：营收与 EPS 的超预期幅度严重不匹配",
+          "以运营利润（Operating Income）相对一致预期的偏离为准，而非 EPS",
+          "亚马逊 2026 Q2 实例：营收 +1.8%、EPS 名义超 200%、运营利润 +16.3%"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["分层的一致预期（营收/运营利润/EPS）"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以我今天这个视频的标题取了一个“天才的陨落”。",
+      "locator": "01:40",
+      "tags": ["risk-mgmt", "psychology", "positioning"],
+      "payload": {
+        "canonical_statement": "在市场上活下来的第一条是不加杠杆：2026 年 7 月硬件板块下跌中，一家被社媒捧为股神、两年做到几百亿美元的多空对冲基金整体爆仓，抵押给做市商的仓位被 Citadel 全部接走——自己加杠杆才是原罪，与阴谋论无关。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "昨天有一条推我说的是，市场里面见顶是一个过程，见底是一个事件。",
+      "locator": "05:20",
+      "tags": ["price-action", "psychology", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "见顶是一个过程、见底是一个事件：顶部由分批派发慢慢形成，底部往往由一次可识别的爆仓事件确立——机构爆仓后带血筹码落到市场被接走（Archegos、三箭资本为先例），通常对应短期见底信号。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "也就是说凯文·沃什在第一次会议里面所建立的这一个和市场的沟通渠道，包括对市场来说所建立的，因为第一次会议嘛，大家也在了解的流程之中，所以第一次会议里面所建立的这种威信，第二次会议之后弹指无存。",
+      "locator": "04:43",
+      "tags": ["fed-policy", "bond-yields", "macro-data"],
+      "payload": {
+        "canonical_statement": "沃什第二次议息会议的沟通失败：第一次会议放出的鹰派信号让市场替美联储做紧缩（抛美债推高长端收益率），第二次会议只重申要把通胀压回 2% 却拒绝给出任何信号，市场随即认定他不会真做、把此前的紧缩定价全部平掉、反过来替他做宽松（2 年期收益率连日下行）——威信在一次会议后荡然无存。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我到现在我都认为在周三的美联储会议最好的这个结果，想要去压制通胀，从压制通胀这个角度去看，包括和市场去建立这个沟通渠道，去建立这个信心的这个角度去看，最好的结果是加息，而不是不加。",
+      "locator": "08:13",
+      "tags": ["fed-policy", "inflation", "bond-yields"],
+      "payload": {
+        "canonical_statement": "从压制通胀与重建沟通渠道两个角度看，2026-07 议息会议最好的结果本应是加息而非不加：不加息且不给信号，等于让市场撤回替美联储完成的紧缩；退而求其次也该在措辞上打开 9 月加息的想象空间（布拉德的建议），而沃什没有。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "他们聊到自己内部的这个模型，在用他们自己产品 Dynamics 365 的时候，直接可以省掉 89% 的 GPU，GPU 的这个算力。然后在 PowerPoint 里面可以直接省掉 84% GPU 的这个使用量。省出来这部分 GPU 你可以卖出去。",
+      "locator": "11:28",
+      "tags": ["msft", "ai-capex", "software"],
+      "payload": {
+        "canonical_statement": "大科技自研内部小模型的目的不是与 OpenAI、Anthropic 竞争，而是把不需要前沿模型的任务卸载下来省算力：微软用自研模型在 Dynamics 365 省掉 89%、在 PowerPoint 省掉 84% 的 GPU 用量，省下的算力转手卖出——这正是其云增速从 40% 抬到 43%、下季指引 45% 的直接来源。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那这就是管理层聪明的点，他知道市场担心的是什么。然后另外一个就是 2027 年自由现金流保持是正的。",
+      "locator": "12:30",
+      "tags": ["msft", "amzn", "ai-capex", "valuation"],
+      "payload": {
+        "canonical_statement": "沟通质量本身影响股价：谷歌与亚马逊同样上调资本开支，结果一跌一涨——微软与亚马逊先替市场解释 ROI 与折旧口径、承诺 2027 财年自由现金流为正、说明云订单增量全部来自非模型公司，把市场的担忧逐条对上再宣布加大开支；谷歌先发财报、没做这层铺垫。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "当然有一点我们要区分开来的是自由现金流正不代表他们不会融资，因为像微软他如果还是持续在进行回购的话，很多时候他们会通过融资、通过举债去进行回购，这是大科技的常规操作。",
+      "locator": "13:00",
+      "tags": ["msft", "balance-sheet", "capital-raise"],
+      "payload": {
+        "canonical_statement": "自由现金流为正不等于不融资：大科技的常规操作是通过举债为回购融资，因此\"承诺 FCF 为正\"回应的是烧钱风险、不是发债规模。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以 Meta 的问题是虽然营收增速也非常好，但是没有反映到 margin 上面来，没有反映到这个运营效率上面来，反而运营效率还出现了一个下降。就是 ROI 在 Meta 身上其实没有表现得那么的淋漓尽致，如果和其他大科技去对比的话。",
+      "locator": "19:00",
+      "tags": ["meta", "ai-capex", "valuation"],
+      "payload": {
+        "canonical_statement": "Meta 的问题是 AI 投入没有转化为利润率：营收增速仍好，但运营利润率从上季 42% 降到本季调整后约 36%（前期烧在开源模型上的钱以折旧与三方 coding token 费用回到报表），四块 AI 新业务（个人 Agent、企业 Agent、API 出租、算力出租）都还没起量，市场按利润率下滑砸估值是合理反应；margin 出现反转才是价格反馈转正的信号。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "之所以有人会出这个非常高的溢价去买这个裸算力，去像 Meta 买这个裸算力，去像 xAI 买这个裸算力，就是因为他们的这个落地非常的好。所以当时我就说过，Meta 也好，xAI 也好，当他们开始卖自己算力的时候，不代表整个市场里面算力是有多余的，恰恰相反是因为整个市场里面落地非常的好，所以有其他公司愿意以非常高的这个溢价去收购这个算力。",
+      "locator": "21:00",
+      "tags": ["ai-capex", "neocloud", "compute-pricing", "meta"],
+      "payload": {
+        "canonical_statement": "有公司外卖自有算力不是算力过剩的信号，恰好相反：Anthropic、OpenAI 这类落地最好（Anthropic 毛利率约 80%）的公司愿意付高溢价收购裸算力，算力自然向变现能力最强的一方集中——算力就是营收。",
+        "category": "market_structure",
+        "stance": "reject"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以亚马逊聊到他说从需求曲线去看，现在非常的极端，像一个杠铃，杠铃的左边是些模型公司，就是模型公司需求非常大，杠铃的右边是真正现在用 AI 可以获取价值的公司，比如说就非常直接这种落地，自动化的客服，客服很简单你用 AI 就可以替代；企业流程的一个自动化，反诈骗等等，这些是非常直接 AI 的这个落地，这些公司身上 AI 的个应用非常地明显。",
+      "locator": "27:00",
+      "tags": ["ai-agent", "ai-capex", "software", "amzn"],
+      "payload": {
+        "canonical_statement": "当前 AI 需求曲线呈杠铃型：左端是模型公司的巨量需求，右端是能直接落地取值的场景（自动化客服、流程自动化、反诈骗），中间那一大段做企业生产流程的客户大多还不用也不懂 AI——而中间段才是未来最大的增量来源，所以 AI 仍处在相对早期。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以亚马逊说到，现在硬件的这个寿命起码是 5 到 6 年。",
+      "locator": "23:50",
+      "tags": ["nvda", "amzn", "ai-capex", "gpu-depreciation"],
+      "payload": {
+        "canonical_statement": "AWS 的口径是 AI 硬件寿命至少 5 到 6 年、芯片投入约 3 年回本，因此从第 3 年半起是纯赚；且亚马逊称凭数据中心经验还能进一步缩短回本、拉长寿命——这直接证伪了 Michael Burry 一类看空所依赖的\"GPU 寿命只有 2-3 年\"假设。",
+        "category": "market_structure",
+        "stance": "reject"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "如果说 4 5 月这两个月苹果走的是一个基本面，那整个 7 月份苹果其实走的是一个防守属性的一个上涨。",
+      "locator": "31:47",
+      "tags": ["aapl", "rotation", "positioning", "memory-storage"],
+      "payload": {
+        "canonical_statement": "苹果 2026 年 7 月上涨 20% 走的是防守属性而非基本面：自 6 月 25 日起它与 DRAM（存储/芯片 ETF）走出完全负相关——一个涨另一个必跌，说明机构在做多苹果、做空硬件的成对交易，把苹果当避险腿用。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "管理层说 100% 的这个毛利润的这个下降全部是来自于存储价格的这个上涨，下一个季度指引继续下跌 46.5%，而他们预期全部还是来自于存储价格的这个上涨。",
+      "locator": "32:46",
+      "tags": ["aapl", "memory-storage", "inflation", "consumer"],
+      "payload": {
+        "canonical_statement": "存储涨价已经压到终端品牌的利润表上：苹果毛利率从上上季 49.3% 降到 48.1%、下季指引 46.5%，管理层称降幅 100% 来自存储涨价；同时因低估需求而下单不足、芯片短缺又限制了营收（本季 iPhone 营收同比 +22%、Mac +29%）——量价两头都被上游卡住。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为他们我个人认为在 AI Agent 这一块的落地未来在三家公司身上是最有可能会发生的：一个是 Meta，他们有 C 端这一块的盘发；另外就是谷歌和苹果。",
+      "locator": "20:00",
+      "tags": ["ai-agent", "meta", "aapl", "goog"],
+      "payload": {
+        "canonical_statement": "AI Agent 最可能率先落地的是掌握 C 端入口的三家公司——Meta、谷歌、苹果：Agent 需要分发面而不只是模型能力，因此终端与用户关系是比模型排名更强的判据。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那就取决于这些软件公司怎么把 AI 去添加到他们的产品里面，一旦你这个产品落地落得好，AI 植入得好，因为价格也便宜嘛，那就会引起企业对于 AI 这一块的一个 hungry，就企业对于 AI 这一块的 FOMO 就和科技公司对于 coding 这一块的 FOMO 是一样的。",
+      "locator": "28:30",
+      "tags": ["software", "ai-agent", "ai-capex"],
+      "payload": {
+        "canonical_statement": "API 降价之后的传导路径：软件公司把 AI 植入产品 → 落地效果好则引发企业端的 FOMO（如同科技公司对 coding 的 FOMO）→ IT 预算抬升 → 传统公司先用裁员控住运营开支保住利润率，再考虑 AI 能否带来增收。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "他既然这么说的话就很简单，就我在其实在增速这一块他是有调整的这个空间的。那这一个季度经过调整完之后，马上就看到了增速来到了 43%，特别下一个季度指引 45%，出现了一个再加速，acceleration。",
+      "locator": "11:00",
+      "tags": ["msft", "ai-capex", "valuation"],
+      "payload": {
+        "canonical_statement": "管理层把增速归因于供给约束时，应读作\"增速有调节空间\"而非借口：微软上季称云增速停在 40% 是因为算力受限、要优先内部使用，下一季就把增速调到 43%、指引 45%——供给约束型的增速上限是可由公司自己重新分配的。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    }
+  ]
+}

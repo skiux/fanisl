@@ -1,322 +1,335 @@
 {
-  "_readme": "success_def 的机械化编译（v1，2026-07-17）。这不是重新判断：每条 override 忠实转写该单元冻结的 success_def 文本中评分器标准语义覆盖不了的条款；语义歧义一律以 success_def 为仲裁。范围=pending-v1 提取的 103 条 A/B/C。新提取应走规范 v2 的结构化条件字段，而非扩充本文件。",
-  "1": {
-    "note": "条件：日收盘≥4288 后 touch 4440",
-    "condition": {
-      "type": "close_above_eq",
-      "level": 4288
-    }
-  },
-  "2": {
-    "note": "只判下沿 4000（4200 为区间上沿标注）",
-    "bounds": "low_only"
-  },
-  "4": {
-    "note": "回踩获守（低点≤29950 且收盘≥29800）后，阶梯日收盘>29800",
-    "condition": {
-      "type": "dip_hold",
-      "touch_below": 29950,
-      "close_at_least": 29800
-    },
-    "mode": "close_at_eval",
-    "level": 29800,
-    "op": ">"
-  },
-  "6": {
-    "note": "条件在 MAGS：收盘>66.5；之后 SPX vs 条件日收盘",
-    "condition": {
-      "type": "close_above",
-      "level": 66.5,
-      "symbol": "MAGS"
-    },
-    "vs": "condition_close"
-  },
-  "16": {
-    "note": "判界修正：payload 的 5.5 系屏价污染（Gemini 误读 CME 图，发布日 DFEDTARU 实为 3.75）。success_def 本义='年内不加息'→上界=发布日值+0",
-    "high_from_pub_plus": 0.0
-  },
-  "19": {
-    "note": "基准日=2026-10-30 收盘（'10月后回升'窗口）",
-    "baseline_date": "2026-10-30"
-  },
-  "31": {
-    "note": "条件：收盘<28800 后 touch 26500",
-    "condition": {
-      "type": "close_below",
-      "level": 28800
-    }
-  },
-  "33": {
-    "note": "下沿 4300，极端补偿位 4100：收盘<4100=miss，4100-4300=partial",
-    "bounds": "low_only",
-    "floor": 4100
-  },
-  "41": {
-    "note": "条件：收盘<4420 后 touch 4000",
-    "condition": {
-      "type": "close_below",
-      "level": 4420
-    }
-  },
-  "45": {
-    "note": "条件：收盘<29800 后 touch 29300",
-    "condition": {
-      "type": "close_below",
-      "level": 29800
-    }
-  },
-  "62": {
-    "note": "条件：盘中触及≤205 后，阶梯日收盘≥201",
-    "condition": {
-      "type": "touch_below",
-      "level": 205
-    },
-    "mode": "close_at_eval",
-    "level": 201,
-    "op": ">="
-  },
-  "63": {
-    "note": "条件：盘中触及≤205 后，阶梯日收盘>条件日收盘",
-    "condition": {
-      "type": "touch_below",
-      "level": 205
-    },
-    "vs": "condition_close"
-  },
-  "72": {
-    "note": "两时点判界不同：2027 中间点=正收益观察，2029 终点=+30%",
-    "per_ladder": {
-      "2027-06-01": {
-        "ref_factor": 1.0
-      },
-      "2029-06-01": {
-        "ref_factor": 1.3
-      }
-    }
-  },
-  "74": {
-    "note": "条件：收盘<564 后 touch 528",
-    "condition": {
-      "type": "close_below",
-      "level": 564
-    }
-  },
-  "75": {
-    "note": "条件：触及≤970 且当日收盘≥960 后 touch 1100",
-    "condition": {
-      "type": "dip_hold",
-      "touch_below": 970,
-      "close_at_least": 960
-    }
-  },
-  "77": {
-    "note": "条件：收盘≥108 后，阶梯日收盘>条件日收盘",
-    "condition": {
-      "type": "close_above_eq",
-      "level": 108
-    },
-    "vs": "condition_close"
-  },
-  "78": {
-    "note": "条件：盘中触及≤105 后，阶梯日收盘>条件日收盘",
-    "condition": {
-      "type": "touch_below",
-      "level": 105
-    },
-    "vs": "condition_close"
-  },
-  "88": {
-    "note": "下沿 4200，硬下界 4000：收盘<4000=miss，4000-4200=partial",
-    "bounds": "low_only",
-    "floor": 4000
-  },
-  "91": {
-    "note": "语义=阶梯日收盘≥400（发布时价在 400 下方，判'收复并守住'而非持续），非持续 range",
-    "mode": "close_at_eval",
-    "level": 400,
-    "op": ">="
-  },
-  "92": {
-    "note": "守护条件：窗口内 NDX 收盘始终≥27000，破则 condition_not_met；主体判 NVDA 下沿 200",
-    "condition": {
-      "type": "guard_hold",
-      "symbol": "NDX",
-      "level": 27000
-    },
-    "bounds": "low_only"
-  },
-  "93": {
-    "note": "'高油价维持'=收盘≥发布日收盘×0.95",
-    "ref_factor": 0.95,
-    "op": ">="
-  },
-  "101": {
-    "note": "条件：收盘<4140 后 touch 3800",
-    "condition": {
-      "type": "close_below",
-      "level": 4140
-    }
-  },
-  "102": {
-    "note": "下沿 4100，硬下界 4000：收盘<4000=miss，4000-4100=partial",
-    "bounds": "low_only",
-    "floor": 4000
-  },
-  "103": {
-    "note": "'当日'级 claim：基准=发布前一交易日收盘（回填发布日收盘会自我参照恒 hit）",
-    "baseline_date": "2026-06-18"
-  },
-  "106": {
-    "note": "条件：收盘>626 突破且其后回踩低点≥620（破 620=确认失败）；成立后阶梯日收盘>626",
-    "condition": {
-      "type": "breakout_retest",
-      "breakout_close": 626,
-      "retest_floor": 620
-    },
-    "mode": "close_at_eval",
-    "level": 626,
-    "op": ">"
-  },
-  "114": {
-    "note": "判界以 success_def 的 103.4（屏上加速区上沿）为准，非 mag 的 102",
-    "bounds": "high_only",
-    "level_high": 103.4
-  },
-  "118": {
-    "manual": "需美光财报日期（约 2026-06 末/07 初）：财报后第 5 个交易日收盘 vs 财报前一日收盘。财报日历数据源未接，暂 condition_unverifiable"
-  },
-  "119": {
-    "note": "'较1200回落≥5%'=窗口内任一日最低价≤1140",
-    "mode": "touch",
-    "touch_side": "low",
-    "touch_level": 1140
-  },
-  "120": {
-    "note": "只判下沿 8100（9800 为强势区上沿标注）",
-    "bounds": "low_only"
-  },
-  "121": {
-    "note": "条件：收盘<8100 后 touch 7000",
-    "condition": {
-      "type": "close_below",
-      "level": 8100
-    }
-  },
-  "123": {
-    "note": "条件在 MAGS：收盘<63.8；之后 NDX vs 条件日收盘（看跌）",
-    "condition": {
-      "type": "close_below",
-      "level": 63.8,
-      "symbol": "MAGS"
-    },
-    "vs": "condition_close"
-  },
-  "137": {
-    "note": "'缓解而非扭转'=金相对标普收益差≥-2pp",
-    "margin": -0.02
-  },
-  "156": {
-    "note": "只判下沿 4080（4200 为压制标注不判）",
-    "bounds": "low_only"
-  },
-  "170": {
-    "note": "双边区间 524-640 都判（上破/下破均 miss）",
-    "bounds": "both"
-  },
-  "173": {
-    "note": "'不会太坏'=收盘≥发布日收盘×0.97",
-    "ref_factor": 0.97,
-    "op": ">="
-  },
-  "174": {
-    "manual": "条件=AUDJPY 三日K收盘上破 8/13EMA 隧道：需多日K合成+EMA 计算，口径待定（v2 实现），暂 condition_unverifiable"
-  },
-  "175": {
-    "manual": "同 174：AUDJPY 三日K隧道突破条件，v2 实现"
-  },
-  "184": {
-    "note": "'盘整'=收盘在发布日收盘±15%内",
-    "band": 0.15
-  },
-  "197": {
-    "note": "资产腿=DDOG/TWLO/SNOW 等权收益均值",
-    "basket": [
-      "DDOG",
-      "TWLO",
-      "SNOW"
-    ]
-  },
-  "210": {
-    "note": "判界修正同 16：'累计上调≤25bp'→上界=发布日 DFEDTARU 实际值+0.25（payload 5.75 系污染基准）",
-    "high_from_pub_plus": 0.25
-  },
-  "211": {
-    "note": "窗口内任一收盘较发布日收盘回撤≥20%=miss，否则到期 hit",
-    "mode": "max_drawdown_lt",
-    "pct": 20
-  },
-  "230": {
-    "note": "资产腿=OKTA/NOW 等权收益均值",
-    "basket": [
-      "OKTA",
-      "NOW"
-    ]
-  },
-  "248": {
-    "note": "只判下沿 28000（28800 为压制位上沿标注，success_def 明示不参与）",
-    "bounds": "low_only"
-  },
-  "249": {
-    "note": "条件：NDX 日收盘≥28800（'指数空间打开'）后 AMZN touch 300",
-    "condition": {
-      "type": "close_above_eq",
-      "level": 28800,
-      "symbol": "NDX"
-    }
-  },
-  "250": {
-    "note": "条件：NDX 日收盘≥28800（'指数空间打开'）后 MSFT touch 600",
-    "condition": {
-      "type": "close_above_eq",
-      "level": 28800,
-      "symbol": "NDX"
-    }
-  },
-  "255": {
-    "note": "只判下沿 6288（6666=0.618 为压制位上沿标注）",
-    "bounds": "low_only"
-  },
-  "259": {
-    "note": "条件裁定为 XLI 日收盘≥177（'守住 30 隧道高位整理'不可机械判定，success_def 已明示不参与）",
-    "condition": {
-      "type": "close_above_eq",
-      "level": 177
-    }
-  },
-  "271": {
-    "note": "只判下沿 3960（4780 为五周框架上方压力标注）",
-    "bounds": "low_only"
-  },
-  "278": {
-    "note": "只判下沿 300（340–350 为退档后箱体上沿压力）",
-    "bounds": "low_only"
-  },
-  "302": {
-    "note": "条件='134 形成阻力'：某日最高价≥134 且当日收盘<134；成立后 touch 124",
-    "condition": {
-      "type": "touch_above_close_below",
-      "level": 134
-    }
-  },
-  "366": {
-    "note": "判'本周收线收回 330-350 之上'=到期日收盘≥330，不是盘中触及",
-    "mode": "close_at_eval",
-    "op": ">=",
-    "level": 330
-  },
-  "380": {
-    "note": "'大盘不受系统性冲击'=窗口内自发布日收盘的最大回撤不超过 20%（20% 判界系我方）",
-    "mode": "max_drawdown_lt",
-    "pct": 20.0
+ "_readme": "success_def 的机械化编译（v1，2026-07-17）。这不是重新判断：每条 override 忠实转写该单元冻结的 success_def 文本中评分器标准语义覆盖不了的条款；语义歧义一律以 success_def 为仲裁。范围=pending-v1 提取的 103 条 A/B/C。新提取应走规范 v2 的结构化条件字段，而非扩充本文件。",
+ "1": {
+  "note": "条件：日收盘≥4288 后 touch 4440",
+  "condition": {
+   "type": "close_above_eq",
+   "level": 4288
   }
+ },
+ "2": {
+  "note": "只判下沿 4000（4200 为区间上沿标注）",
+  "bounds": "low_only"
+ },
+ "4": {
+  "note": "回踩获守（低点≤29950 且收盘≥29800）后，阶梯日收盘>29800",
+  "condition": {
+   "type": "dip_hold",
+   "touch_below": 29950,
+   "close_at_least": 29800
+  },
+  "mode": "close_at_eval",
+  "level": 29800,
+  "op": ">"
+ },
+ "6": {
+  "note": "条件在 MAGS：收盘>66.5；之后 SPX vs 条件日收盘",
+  "condition": {
+   "type": "close_above",
+   "level": 66.5,
+   "symbol": "MAGS"
+  },
+  "vs": "condition_close"
+ },
+ "16": {
+  "note": "判界修正：payload 的 5.5 系屏价污染（Gemini 误读 CME 图，发布日 DFEDTARU 实为 3.75）。success_def 本义='年内不加息'→上界=发布日值+0",
+  "high_from_pub_plus": 0.0
+ },
+ "19": {
+  "note": "基准日=2026-10-30 收盘（'10月后回升'窗口）",
+  "baseline_date": "2026-10-30"
+ },
+ "31": {
+  "note": "条件：收盘<28800 后 touch 26500",
+  "condition": {
+   "type": "close_below",
+   "level": 28800
+  }
+ },
+ "33": {
+  "note": "下沿 4300，极端补偿位 4100：收盘<4100=miss，4100-4300=partial",
+  "bounds": "low_only",
+  "floor": 4100
+ },
+ "41": {
+  "note": "条件：收盘<4420 后 touch 4000",
+  "condition": {
+   "type": "close_below",
+   "level": 4420
+  }
+ },
+ "45": {
+  "note": "条件：收盘<29800 后 touch 29300",
+  "condition": {
+   "type": "close_below",
+   "level": 29800
+  }
+ },
+ "62": {
+  "note": "条件：盘中触及≤205 后，阶梯日收盘≥201",
+  "condition": {
+   "type": "touch_below",
+   "level": 205
+  },
+  "mode": "close_at_eval",
+  "level": 201,
+  "op": ">="
+ },
+ "63": {
+  "note": "条件：盘中触及≤205 后，阶梯日收盘>条件日收盘",
+  "condition": {
+   "type": "touch_below",
+   "level": 205
+  },
+  "vs": "condition_close"
+ },
+ "72": {
+  "note": "两时点判界不同：2027 中间点=正收益观察，2029 终点=+30%",
+  "per_ladder": {
+   "2027-06-01": {
+    "ref_factor": 1.0
+   },
+   "2029-06-01": {
+    "ref_factor": 1.3
+   }
+  }
+ },
+ "74": {
+  "note": "条件：收盘<564 后 touch 528",
+  "condition": {
+   "type": "close_below",
+   "level": 564
+  }
+ },
+ "75": {
+  "note": "条件：触及≤970 且当日收盘≥960 后 touch 1100",
+  "condition": {
+   "type": "dip_hold",
+   "touch_below": 970,
+   "close_at_least": 960
+  }
+ },
+ "77": {
+  "note": "条件：收盘≥108 后，阶梯日收盘>条件日收盘",
+  "condition": {
+   "type": "close_above_eq",
+   "level": 108
+  },
+  "vs": "condition_close"
+ },
+ "78": {
+  "note": "条件：盘中触及≤105 后，阶梯日收盘>条件日收盘",
+  "condition": {
+   "type": "touch_below",
+   "level": 105
+  },
+  "vs": "condition_close"
+ },
+ "88": {
+  "note": "下沿 4200，硬下界 4000：收盘<4000=miss，4000-4200=partial",
+  "bounds": "low_only",
+  "floor": 4000
+ },
+ "91": {
+  "note": "语义=阶梯日收盘≥400（发布时价在 400 下方，判'收复并守住'而非持续），非持续 range",
+  "mode": "close_at_eval",
+  "level": 400,
+  "op": ">="
+ },
+ "92": {
+  "note": "守护条件：窗口内 NDX 收盘始终≥27000，破则 condition_not_met；主体判 NVDA 下沿 200",
+  "condition": {
+   "type": "guard_hold",
+   "symbol": "NDX",
+   "level": 27000
+  },
+  "bounds": "low_only"
+ },
+ "93": {
+  "note": "'高油价维持'=收盘≥发布日收盘×0.95",
+  "ref_factor": 0.95,
+  "op": ">="
+ },
+ "101": {
+  "note": "条件：收盘<4140 后 touch 3800",
+  "condition": {
+   "type": "close_below",
+   "level": 4140
+  }
+ },
+ "102": {
+  "note": "下沿 4100，硬下界 4000：收盘<4000=miss，4000-4100=partial",
+  "bounds": "low_only",
+  "floor": 4000
+ },
+ "103": {
+  "note": "'当日'级 claim：基准=发布前一交易日收盘（回填发布日收盘会自我参照恒 hit）",
+  "baseline_date": "2026-06-18"
+ },
+ "106": {
+  "note": "条件：收盘>626 突破且其后回踩低点≥620（破 620=确认失败）；成立后阶梯日收盘>626",
+  "condition": {
+   "type": "breakout_retest",
+   "breakout_close": 626,
+   "retest_floor": 620
+  },
+  "mode": "close_at_eval",
+  "level": 626,
+  "op": ">"
+ },
+ "114": {
+  "note": "判界以 success_def 的 103.4（屏上加速区上沿）为准，非 mag 的 102",
+  "bounds": "high_only",
+  "level_high": 103.4
+ },
+ "118": {
+  "manual": "需美光财报日期（约 2026-06 末/07 初）：财报后第 5 个交易日收盘 vs 财报前一日收盘。财报日历数据源未接，暂 condition_unverifiable"
+ },
+ "119": {
+  "note": "'较1200回落≥5%'=窗口内任一日最低价≤1140",
+  "mode": "touch",
+  "touch_side": "low",
+  "touch_level": 1140
+ },
+ "120": {
+  "note": "只判下沿 8100（9800 为强势区上沿标注）",
+  "bounds": "low_only"
+ },
+ "121": {
+  "note": "条件：收盘<8100 后 touch 7000",
+  "condition": {
+   "type": "close_below",
+   "level": 8100
+  }
+ },
+ "123": {
+  "note": "条件在 MAGS：收盘<63.8；之后 NDX vs 条件日收盘（看跌）",
+  "condition": {
+   "type": "close_below",
+   "level": 63.8,
+   "symbol": "MAGS"
+  },
+  "vs": "condition_close"
+ },
+ "137": {
+  "note": "'缓解而非扭转'=金相对标普收益差≥-2pp",
+  "margin": -0.02
+ },
+ "156": {
+  "note": "只判下沿 4080（4200 为压制标注不判）",
+  "bounds": "low_only"
+ },
+ "170": {
+  "note": "双边区间 524-640 都判（上破/下破均 miss）",
+  "bounds": "both"
+ },
+ "173": {
+  "note": "'不会太坏'=收盘≥发布日收盘×0.97",
+  "ref_factor": 0.97,
+  "op": ">="
+ },
+ "174": {
+  "manual": "条件=AUDJPY 三日K收盘上破 8/13EMA 隧道：需多日K合成+EMA 计算，口径待定（v2 实现），暂 condition_unverifiable"
+ },
+ "175": {
+  "manual": "同 174：AUDJPY 三日K隧道突破条件，v2 实现"
+ },
+ "184": {
+  "note": "'盘整'=收盘在发布日收盘±15%内",
+  "band": 0.15
+ },
+ "197": {
+  "note": "资产腿=DDOG/TWLO/SNOW 等权收益均值",
+  "basket": [
+   "DDOG",
+   "TWLO",
+   "SNOW"
+  ]
+ },
+ "210": {
+  "note": "判界修正同 16：'累计上调≤25bp'→上界=发布日 DFEDTARU 实际值+0.25（payload 5.75 系污染基准）",
+  "high_from_pub_plus": 0.25
+ },
+ "211": {
+  "note": "窗口内任一收盘较发布日收盘回撤≥20%=miss，否则到期 hit",
+  "mode": "max_drawdown_lt",
+  "pct": 20
+ },
+ "230": {
+  "note": "资产腿=OKTA/NOW 等权收益均值",
+  "basket": [
+   "OKTA",
+   "NOW"
+  ]
+ },
+ "248": {
+  "note": "只判下沿 28000（28800 为压制位上沿标注，success_def 明示不参与）",
+  "bounds": "low_only"
+ },
+ "249": {
+  "note": "条件：NDX 日收盘≥28800（'指数空间打开'）后 AMZN touch 300",
+  "condition": {
+   "type": "close_above_eq",
+   "level": 28800,
+   "symbol": "NDX"
+  }
+ },
+ "250": {
+  "note": "条件：NDX 日收盘≥28800（'指数空间打开'）后 MSFT touch 600",
+  "condition": {
+   "type": "close_above_eq",
+   "level": 28800,
+   "symbol": "NDX"
+  }
+ },
+ "255": {
+  "note": "只判下沿 6288（6666=0.618 为压制位上沿标注）",
+  "bounds": "low_only"
+ },
+ "259": {
+  "note": "条件裁定为 XLI 日收盘≥177（'守住 30 隧道高位整理'不可机械判定，success_def 已明示不参与）",
+  "condition": {
+   "type": "close_above_eq",
+   "level": 177
+  }
+ },
+ "271": {
+  "note": "只判下沿 3960（4780 为五周框架上方压力标注）",
+  "bounds": "low_only"
+ },
+ "278": {
+  "note": "只判下沿 300（340–350 为退档后箱体上沿压力）",
+  "bounds": "low_only"
+ },
+ "302": {
+  "note": "条件='134 形成阻力'：某日最高价≥134 且当日收盘<134；成立后 touch 124",
+  "condition": {
+   "type": "touch_above_close_below",
+   "level": 134
+  }
+ },
+ "366": {
+  "note": "判'本周收线收回 330-350 之上'=到期日收盘≥330，不是盘中触及",
+  "mode": "close_at_eval",
+  "op": ">=",
+  "level": 330
+ },
+ "380": {
+  "note": "'大盘不受系统性冲击'=窗口内自发布日收盘的最大回撤不超过 20%（20% 判界系我方）",
+  "mode": "max_drawdown_lt",
+  "pct": 20.0
+ },
+ "476": {
+  "note": "条件：长端（30 年期）美债收益率日收盘低于 5.21（作者引用的 2026-08-07 收盘）后，再评标普方向",
+  "condition": {
+   "symbol": "US30Y",
+   "type": "close_below",
+   "level": 5.21
+  }
+ },
+ "596": {
+  "note": "\"日元升值不会对美股有大影响\"机械化为最大回撤不超过 5%（阈值系我方指定，见 success_def）",
+  "mode": "max_drawdown_lt",
+  "pct": 5
+ }
 }

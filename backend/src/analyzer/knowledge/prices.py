@@ -36,7 +36,10 @@ SYMBOL_MAP: dict[str, tuple[str, float, str]] = {
         "CRCL", "CRM", "CRWV", "DDOG", "META", "MRVL", "PLTR", "QCOM", "SPCX", "UFOX",
         "XLV", "OKTA", "NOW", "SNOW", "TWLO",
         # 2026-08 新语料带入（c19-21：微软/亚马逊成长空间、工业 vs 公用事业分散配置）
-        "AMZN", "GOOG", "XLI", "XLU", "RSP", "AAPL", "MOAT", "SEMI", "ITA", "DRAM", "SMH", "AAXJ"]},
+        "AMZN", "GOOG", "XLI", "XLU", "RSP", "AAPL", "MOAT", "SEMI", "ITA", "DRAM", "SMH", "AAXJ",
+        # 2026-08 新信源投资TALK君带入（c30-39：公用事业防守配置、英特尔增发、软件/支付/存储）
+        "VST", "CEG", "NEE", "INTC", "AVGO", "AMD", "APP", "COIN", "V", "MA", "PYPL", "SHOP",
+        "UBER", "DIS", "NET", "TSM", "ASML", "GOOGL", "ORCL", "HOOD", "BE", "NOK", "FIG"]},
     "GSCI": ("^SPGSCI", 1.0, "标普高盛商品指数（能源权重约 40%）"),
 }
 # 已核不可用（勿反复试）：恒生科技指数 —— ^HSTECH 无数据，HSTECH.HK 一个月仅 1 根有效，
