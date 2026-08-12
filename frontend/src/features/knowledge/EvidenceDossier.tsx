@@ -639,6 +639,7 @@ function EvidenceDossier({
   const [unit, setUnit] = useState<KnowledgeUnitDetail | null>(null)
   const [state, setState] = useState<LoadState>('loading')
   const [requestKey, setRequestKey] = useState(0)
+  const [activeView, setActiveView] = useState<'structure' | 'verdict' | 'source'>('structure')
   const bodyRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
@@ -661,6 +662,7 @@ function EvidenceDossier({
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: 0 })
+    setActiveView('structure')
     if (!embedded) closeRef.current?.focus({ preventScroll: true })
   }, [embedded, unitId])
 
@@ -704,37 +706,43 @@ function EvidenceDossier({
                 <time>{formatDate(unit.published_at)}</time>
               </p>
             </header>
+            <div className="unit-review-layout">
+              <aside className="unit-evidence-anchor">
+                <section className="unit-quote">
+                  <span>逐字证据</span>
+                  <blockquote>{unit.quote}</blockquote>
+                  <footer>
+                    <p>{unit.content_title}</p>
+                    <b>{unit.locator ? `定位 ${unit.locator}` : '全文文本'}</b>
+                  </footer>
+                </section>
+                <div className="unit-tags">{unit.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+                <footer className="unit-provenance">
+                  <div><span>提取版本</span><b>{unit.extractor_version}</b></div>
+                  <div><span>提取模型</span><b>{unit.model ?? '未记录'}</b></div>
+                  <strong>QUOTE VERIFIED IN SOURCE</strong>
+                </footer>
+              </aside>
 
-            <section className="unit-quote">
-              <span>逐字证据</span>
-              <blockquote>{unit.quote}</blockquote>
-              <footer>
-                <p>{unit.content_title}</p>
-                <b>{unit.locator ? `定位 ${unit.locator}` : '全文文本'}</b>
-              </footer>
-            </section>
-
-            <div className="unit-tags">
-              {unit.tags.map((tag) => <span key={tag}>{tag}</span>)}
+              <section className="unit-analysis-workspace">
+                <nav aria-label="证据核查视图" className="dossier-section-tabs" role="tablist">
+                  {([
+                    ['structure', '结构化结论', '01'],
+                    ['verdict', '市场裁决', '02'],
+                    ['source', '原文上下文', '03'],
+                  ] as const).map(([value, label, count]) => <button aria-selected={activeView === value} key={value} onClick={() => setActiveView(value)} role="tab" type="button"><span>{label}</span><b>{count}</b></button>)}
+                </nav>
+                <div className="dossier-section-content" role="tabpanel">
+                  {activeView === 'structure' && <div className="dossier-view dossier-structure-view">
+                    {unit.kind === 'claim' && <ClaimContract unit={unit} />}
+                    {unit.kind === 'method' && <MethodStructure unit={unit} />}
+                    {unit.kind === 'concept' && <ConceptStructure unit={unit} />}
+                  </div>}
+                  {activeView === 'verdict' && <div className="dossier-view dossier-verdict-view">{unit.kind === 'claim' && <PriceEvidence unit={unit} />}<ScoreSection unit={unit} /></div>}
+                  {activeView === 'source' && <div className="dossier-view dossier-source-view"><ContentGateway key={unit.id} unit={unit} /></div>}
+                </div>
+              </section>
             </div>
-
-            {unit.kind === 'claim' && <ClaimContract unit={unit} />}
-            {unit.kind === 'method' && <MethodStructure unit={unit} />}
-            {unit.kind === 'concept' && <ConceptStructure unit={unit} />}
-
-            {unit.kind === 'claim' && <PriceEvidence unit={unit} />}
-            <ScoreSection unit={unit} />
-            <ContentGateway key={unit.id} unit={unit} />
-
-            <footer className="unit-provenance">
-              <div>
-                <span>提取版本</span><b>{unit.extractor_version}</b>
-              </div>
-              <div>
-                <span>提取模型</span><b>{unit.model ?? '未记录'}</b>
-              </div>
-              <strong>QUOTE VERIFIED IN SOURCE</strong>
-            </footer>
           </article>
         )}
       </div>

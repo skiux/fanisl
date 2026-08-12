@@ -989,7 +989,7 @@
   }
 
   .content-unit-entry > blockquote {
-    font-size: 12.5px;
+    font-size: var(--text-body);
   }
 
   .content-unit-entry > footer {

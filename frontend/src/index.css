@@ -13,14 +13,14 @@
   --violet: #817b98;
   --peach: #bb816d;
   --line: rgba(37, 45, 38, .13);
-  --text-caption: 11px;
-  --text-meta: 12px;
-  --text-ui: 13px;
-  --text-body: 14px;
-  --text-reading: 16px;
-  --text-card-title: 16px;
-  --text-section-title: 20px;
-  --text-page-title: 32px;
+  --text-caption: .8125rem;
+  --text-meta: .875rem;
+  --text-ui: .875rem;
+  --text-body: .9375rem;
+  --text-reading: 1.125rem;
+  --text-card-title: 1.0625rem;
+  --text-section-title: 1.375rem;
+  --text-page-title: 2.125rem;
   --text-display: clamp(42px, 4.6vw, 64px);
 }
 
@@ -1390,8 +1390,8 @@ body::-webkit-scrollbar-thumb {
 }
 
 .spatial-nav {
-  --nav-label-size: 13px;
-  --nav-shortcut-size: 11px;
+  --nav-label-size: .875rem;
+  --nav-shortcut-size: .8125rem;
   position: absolute;
   z-index: 100;
   top: 20px;
@@ -1977,7 +1977,7 @@ body::-webkit-scrollbar-thumb {
   }
 
   .spatial-nav {
-    --nav-label-size: 11px;
+    --nav-label-size: .8125rem;
     top: 10px;
     grid-template-columns: 1fr auto;
     width: calc(100% - 20px);
