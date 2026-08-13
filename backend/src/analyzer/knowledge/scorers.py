@@ -127,7 +127,13 @@ def score_unit_at(ps: PriceStore, unit: dict, ladder_date: dt.date) -> tuple[str
     if any(v is None or v[0] < ladder_date for v in last.values()):
         return None  # 行情未覆盖到 L=未到期
 
-    ref = unit.get("ref_price_at_publish") or _pub_close(ps, syms[0], pub)
+    # ref 只认单元上冻结的那个；没冻结才回查发布日收盘，并在 realized 里标出来是回查的。
+    # 回查值必须由调用方固化回单元（见 run()）——否则同一条 claim 的 +7/+30/+90 三个时点
+    # 可能各自查到不同的 ref：yfinance 返回的是复权价，标的一旦拆股，历史行情整体改写。
+    ref = unit.get("ref_price_at_publish")
+    if ref is None:
+        ref = _pub_close(ps, syms[0], pub)
+        realized["ref_backfilled"] = True
     if ov.get("baseline_date"):
         base = ps.close_on_or_before(syms[0], dt.date.fromisoformat(ov["baseline_date"]))
         if base is None:
@@ -245,6 +251,12 @@ def run(*, dry: bool) -> None:
                     n_pending += 1
                     continue
                 outcome, realized = res
+                # 首次回查出来的 ref 立刻固化到单元上：PIT 锚点不能每次评分现查，否则
+                # 拆股复权一改，同一条 claim 的不同阶梯时点会各自对着不同的参考价。
+                if realized.pop("ref_backfilled", False) and realized.get("ref") is not None:
+                    if not dry:
+                        store.freeze_ref_price(u["id"], realized["ref"])
+                    u["ref_price_at_publish"] = realized["ref"]
                 counts[outcome] = counts.get(outcome, 0) + 1
                 print(f"  #{u['id']:<4} {u['payload'].get('asset_symbol') or 'basket':8s} "
                       f"{u['payload']['scoring_spec']['method']:15s} @{lad}  {outcome:22s} {realized}", flush=True)
@@ -259,7 +271,66 @@ def run(*, dry: bool) -> None:
         pool.close()
 
 
+def freeze_refs(*, dry: bool = True) -> dict:
+    """给还空着 ref_price_at_publish 的可定价 claim 补上发布日收盘并钉死。
+
+    顺带体检：把补进去的值和该单元**已有评分**里记下的 ref 对一遍——两者不一致就说明
+    行情序列在评分之后被改写过（拆股复权是最常见的原因），那些历史评分是对着一个
+    已经不存在的参考价算的。带 baseline_date / vs=condition_close 这两类 override 的
+    单元跳过对账：它们的 realized.ref 本来就不是发布日收盘。
+    """
+    from .store import ACTIVE_RUN, KnowledgeStore
+
+    pool = make_pool(get_settings().pg_knowledge_conninfo)
+    stat = {"missing": 0, "frozen": 0, "no_bar": 0, "drifted": []}
+    try:
+        store, ps = KnowledgeStore(pool), PriceStore(pool)
+        with pool.connection() as conn:
+            rows = conn.execute(f"""
+                SELECT u.id, u.published_at, u.payload,
+                       (SELECT s.realized->>'ref' FROM claim_scores s
+                        WHERE s.unit_id=u.id ORDER BY s.horizon_label LIMIT 1) AS scored_ref
+                FROM knowledge_units u
+                WHERE u.kind='claim' AND (u.payload->>'priceable')::bool
+                  AND u.ref_price_at_publish IS NULL AND {ACTIVE_RUN}
+                ORDER BY u.id""").fetchall()
+        stat["missing"] = len(rows)
+        for r in rows:
+            sym = (r["payload"] or {}).get("asset_symbol")
+            if not sym:
+                continue    # 组合腿（basket override）没有单一标的，"发布日参考价"无从谈起
+            pub_close = _pub_close(ps, sym, r["published_at"].date())
+            if pub_close is None:
+                stat["no_bar"] += 1
+                continue
+            ov = OVERRIDES.get(str(r["id"]), {})
+            if r["scored_ref"] and not ov.get("baseline_date") and ov.get("vs") != "condition_close":
+                if abs(float(r["scored_ref"]) - float(pub_close)) > 0.01:
+                    stat["drifted"].append(
+                        {"unit_id": r["id"], "sym": sym,
+                         "scored_with": float(r["scored_ref"]), "now": round(float(pub_close), 4)})
+            if dry:
+                stat["frozen"] += 1          # dry-run 也要报出"会钉死几条"，否则没法预检
+            elif store.freeze_ref_price(r["id"], round(float(pub_close), 4)):
+                stat["frozen"] += 1
+    finally:
+        pool.close()
+    return stat
+
+
 def main() -> None:
+    if "--freeze-refs" in sys.argv:
+        st = freeze_refs(dry="--dry-run" in sys.argv)
+        verb = "预计钉死" if "--dry-run" in sys.argv else "已钉死"
+        print(f"缺参考价的可定价 claim {st['missing']} 条：{verb} {st['frozen']}，"
+              f"无行情跳过 {st['no_bar']}")
+        if st["drifted"]:
+            print(f"\n⚠ 行情已被改写、历史评分对着的参考价现在查不到了（{len(st['drifted'])} 条）：")
+            for d in st["drifted"]:
+                print(f"   #{d['unit_id']} {d['sym']}: 评分时 {d['scored_with']} → 现在 {d['now']}")
+        else:
+            print("对账：已评分单元的参考价与当前行情一致，没有发生漂移")
+        return
     run(dry="--dry-run" in sys.argv)
 
 

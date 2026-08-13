@@ -20,7 +20,7 @@ import time
 from ..config import get_settings
 from ..db import make_pool
 from .keyframes import DEFAULT_HEIGHT, OUT_DIR, grab
-from .store import KnowledgeStore
+from .store import LIVE_CONTENT, KnowledgeStore
 
 # render_l0_text 写出的视觉笔记行：- [MM:SS] (kind) note
 _NOTE_RE = re.compile(r"^-\s*\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(?:\(([^)]*)\))?\s*(.*)$")
@@ -149,9 +149,9 @@ def fill_gaps(store: KnowledgeStore, *, limit: int = 20,
     """
     with store.pool.connection() as conn:
         rows = conn.execute(
-            "SELECT c.id, c.url, c.title, c.raw FROM contents c "
-            "WHERE c.platform='youtube' AND c.content_type='video' "
-            "AND c.status <> 'superseded' "   # 旧稿的帧由取代它的那条负责，不重抓
+            f"SELECT c.id, c.url, c.title, c.raw FROM contents c "
+            f"WHERE c.platform='youtube' AND c.content_type='video' "
+            f"AND {LIVE_CONTENT} "   # 旧稿的帧由取代它的那条负责，不重抓
             "AND NOT EXISTS (SELECT 1 FROM keyframes k WHERE k.content_id=c.id) "
             "ORDER BY c.published_at DESC NULLS LAST LIMIT %s", (limit,)).fetchall()
     return sum(grab_for_content(store, c, height=height) for c in rows)
@@ -200,7 +200,7 @@ def _select_contents(store: KnowledgeStore, *, handle: str | None, content_id: i
         conds.append("c.id=%s")
         params.append(content_id)
     else:                                     # 点名某条时照抓；批量时跳过被取代的旧稿
-        conds.append("c.status <> 'superseded'")
+        conds.append(LIVE_CONTENT)
     if handle:
         conds.append("EXISTS (SELECT 1 FROM creator_handles h WHERE h.creator_id=c.creator_id "
                      "AND h.handle=%s)")

@@ -132,6 +132,11 @@ CREATE TABLE IF NOT EXISTS keyframes (
 ACTIVE_RUN = ("EXISTS (SELECT 1 FROM extraction_runs r "
               "WHERE r.id = u.run_id AND r.status = 'active')")
 
+# 同理，重转录后的旧稿（contents.status='superseded'）不该进任何"有几期内容"的计数。
+# 别名固定为 c。**去重前置闸不能带它**（upsert_content 的 dedup_hash 查询、
+# content_url_exists）——那两处正需要看见旧稿，否则同一个视频会被反复付费转录。
+LIVE_CONTENT = "c.status <> 'superseded'"
+
 
 def dedup_hash(raw: str) -> str:
     return hashlib.sha256(raw.strip().encode()).hexdigest()[:32]
@@ -235,7 +240,7 @@ class KnowledgeStore:
         默认排除 superseded：重转录后的旧稿是 L0 的历史记录（append-only 不删），但任何
         "这个信源有几期"的计数都不该把同一期算两遍。要看旧稿传 status='superseded'。
         """
-        cond = "WHERE c.status=%s" if status else "WHERE c.status <> 'superseded'"
+        cond = "WHERE c.status=%s" if status else f"WHERE {LIVE_CONTENT}"
         params: tuple = (status, limit) if status else (limit,)
         with self.pool.connection() as conn:
             return conn.execute(
@@ -284,6 +289,19 @@ class KnowledgeStore:
             rows = conn.execute("SELECT ts_s FROM keyframes WHERE content_id=%s",
                                 (content_id,)).fetchall()
         return {int(r["ts_s"]) for r in rows}
+
+    def freeze_ref_price(self, unit_id: int, ref: float) -> bool:
+        """把回查到的发布日参考价固化到单元上（只在还空着时写，绝不覆盖已有值）。
+
+        ref_price_at_publish 是 PIT 锚点。提取时拿不到屏价就会空着，评分器只好回查
+        发布日收盘——但 yfinance 给的是复权价，标的一拆股历史行情整体改写，同一条 claim
+        的 +7/+30/+90 三个时点就会各自对着不同的参考价。第一次查到就钉死，之后不再漂。
+        """
+        with self.pool.connection() as conn:
+            r = conn.execute(
+                "UPDATE knowledge_units SET ref_price_at_publish=%s "
+                "WHERE id=%s AND ref_price_at_publish IS NULL", (ref, unit_id))
+        return r.rowcount > 0
 
     def activate_run(self, run_id: int) -> dict:
         """把某个 run 设为该 content 当前生效的那一版（其余转 superseded）。

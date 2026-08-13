@@ -17,7 +17,7 @@ import sys
 
 from ..config import get_settings
 from ..db import make_pool
-from .store import ACTIVE_RUN
+from .store import ACTIVE_RUN, LIVE_CONTENT
 
 REPORT_DIR = pathlib.Path(__file__).resolve().parents[4] / "data_export" / "reports"
 
@@ -45,9 +45,9 @@ def weekly_report(pool, *, days: int = 7) -> dict:
     today = dt.date.today()
     with pool.connection() as conn:
         new_contents = conn.execute(
-            "SELECT cr.name, count(*) AS n, COALESCE(sum(length(c.raw)),0) AS chars "
-            "FROM contents c JOIN creators cr ON cr.id=c.creator_id "
-            "WHERE c.fetched_at >= %s AND c.status <> 'superseded' "  # 重转录的旧稿不算增量
+            f"SELECT cr.name, count(*) AS n, COALESCE(sum(length(c.raw)),0) AS chars "
+            f"FROM contents c JOIN creators cr ON cr.id=c.creator_id "
+            f"WHERE c.fetched_at >= %s AND {LIVE_CONTENT} "  # 重转录的旧稿不算增量
             "GROUP BY cr.name", (since,)).fetchall()
         new_units = conn.execute(
             f"SELECT u.kind, count(*) AS n FROM knowledge_units u "
