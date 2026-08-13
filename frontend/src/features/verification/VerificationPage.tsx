@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
+import { isVerificationPage, isVerificationSummary } from '../../shared/api/contracts'
 import AppHeader from '../../shared/navigation/AppHeader'
 import { VerificationReader } from './VerificationDossier'
 import type {
@@ -160,14 +161,26 @@ function VerificationPage() {
     const controller = new AbortController()
     setLoadState('loading')
     const bucket = view === 'watch' ? 'review' : view
-    Promise.all([
-      apiJson<VerificationSummary>(`/knowledge/verification-summary?days=${windowDays}`, { signal: controller.signal }),
-      apiJson<VerificationPageData>(`/knowledge/verification-page?bucket=${bucket}&days=${windowDays}&limit=200&offset=0`, { signal: controller.signal }),
-    ]).then(([summaryPayload, pagePayload]) => {
+    const load = async () => {
+      const [summaryPayload, firstPage] = await Promise.all([
+        apiJson<VerificationSummary>(`/knowledge/verification-summary?days=${windowDays}`, { signal: controller.signal }, isVerificationSummary),
+        apiJson<VerificationPageData>(`/knowledge/verification-page?bucket=${bucket}&days=${windowDays}&limit=200&offset=0`, { signal: controller.signal }, isVerificationPage),
+      ])
+      const items = [...firstPage.items]
+      let current = firstPage
+      while (current.has_more) {
+        current = await apiJson<VerificationPageData>(
+          `/knowledge/verification-page?bucket=${bucket}&days=${windowDays}&limit=200&offset=${items.length}`,
+          { signal: controller.signal },
+          isVerificationPage,
+        )
+        items.push(...current.items)
+      }
       setSummary(summaryPayload)
-      setPage(pagePayload)
+      setPage({ ...firstPage, items, has_more: false })
       setLoadState('loaded')
-    }).catch(() => {
+    }
+    load().catch(() => {
       if (!controller.signal.aborted) setLoadState('error')
     })
     return () => controller.abort()

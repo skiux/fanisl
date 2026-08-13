@@ -1767,6 +1767,28 @@ button.library-status {
   box-shadow: 0 35px 110px rgba(43, 51, 43, .2);
 }
 
+.route-error {
+  display: grid;
+  min-height: 100svh;
+  place-content: center;
+  padding: 32px;
+  color: #354036;
+  background: #efede5;
+  text-align: center;
+}
+
+.route-error > span {
+  color: #798278;
+  font: 650 var(--text-meta) ui-monospace, monospace;
+  letter-spacing: .12em;
+}
+
+.route-error h1 { margin: 18px 0 8px; font: 580 clamp(30px, 4vw, 48px) / 1.2 "Noto Serif SC", serif; }
+.route-error p { margin: 0; color: #667066; font-size: var(--text-ui); }
+.route-error div { display: flex; justify-content: center; gap: 10px; margin-top: 28px; }
+.route-error button,
+.route-error a { padding: 11px 18px; border: 1px solid rgba(48, 59, 49, .2); border-radius: 8px; color: inherit; background: rgba(255, 255, 251, .55); font-size: var(--text-ui); text-decoration: none; cursor: pointer; }
+
 .search-field {
   display: grid;
   grid-template-columns: 25px 1fr auto 28px;

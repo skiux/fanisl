@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
+import { isKnowledgeNodePage, isKnowledgeUnitPage } from '../../shared/api/contracts'
+import { nextTabIndex } from '../../shared/interaction/tabs'
+import { useModalFocus } from '../../shared/interaction/useModalFocus'
 import AppHeader from '../../shared/navigation/AppHeader'
 import EvidenceDossier from './EvidenceDossier'
 import UnitBrowser from './UnitBrowser'
@@ -15,6 +18,7 @@ import type {
   KnowledgeKind,
   KnowledgeNode,
   KnowledgeNodeDetail,
+  KnowledgeNodePage,
   KnowledgeUnitPage,
   NodeRelationKind,
   NodeStatus,
@@ -212,6 +216,20 @@ function compareEvidence(a: KnowledgeNode, b: KnowledgeNode) {
   return b.n_attest - a.n_attest || b.n_creators - a.n_creators || a.id - b.id
 }
 
+async function loadAllNodes(signal: AbortSignal) {
+  const items: KnowledgeNode[] = []
+  let page: KnowledgeNodePage
+  do {
+    page = await apiJson<KnowledgeNodePage>(
+      `/knowledge/nodes-page?limit=200&offset=${items.length}`,
+      { signal },
+      isKnowledgeNodePage,
+    )
+    items.push(...page.items)
+  } while (page.has_more)
+  return items
+}
+
 function KnowledgeTrace({ node }: { node: KnowledgeNode }) {
   const count = Math.max(1, Math.min(node.n_attest, 6))
   return (
@@ -264,7 +282,7 @@ function KnowledgePage() {
     const controller = new AbortController()
     Promise.all([
       apiJson<KnowledgeContentSummary[]>('/knowledge/contents?limit=200', { signal: controller.signal }),
-      apiJson<KnowledgeNode[]>('/knowledge/nodes?limit=300', { signal: controller.signal }),
+      loadAllNodes(controller.signal),
       apiJson<KnowledgeCreator[]>('/knowledge/creators', { signal: controller.signal }),
     ]).then(([contentRows, nodeRows, creatorRows]) => {
       setContents(contentRows)
@@ -298,6 +316,7 @@ function KnowledgePage() {
     }
     if (!selectedContent) {
       setContentId(null)
+      window.history.replaceState(null, '', '#/knowledge')
       return
     }
     if (loadMode === 'preview') {
@@ -337,6 +356,7 @@ function KnowledgePage() {
     if (!selectedNode) {
       if (nodeId !== null) setNodeId(null)
       if (peekNodeId !== null) setPeekNodeId(null)
+      window.history.replaceState(null, '', contentId !== null ? `#/knowledge?content=${contentId}` : '#/knowledge?view=nodes')
       return
     }
     if (loadMode === 'preview') {
@@ -364,7 +384,7 @@ function KnowledgePage() {
         if (!controller.signal.aborted) setNodeMode('error')
       })
     return () => controller.abort()
-  }, [loadMode, nodeId, nodeRequestKey, peekNodeId, requestedNodeId, selectedNode])
+  }, [contentId, loadMode, nodeId, nodeRequestKey, peekNodeId, requestedNodeId, selectedNode])
 
   useEffect(() => {
     if (view !== 'evidence' || unitsLoaded || loadMode === 'loading') return
@@ -374,7 +394,7 @@ function KnowledgePage() {
       return
     }
     const controller = new AbortController()
-    apiJson<KnowledgeUnitPage>('/knowledge/units-page?limit=100', { signal: controller.signal })
+    apiJson<KnowledgeUnitPage>('/knowledge/units-page?limit=100', { signal: controller.signal }, isKnowledgeUnitPage)
       .then((page) => {
         setUnits(page)
         setSelectedUnitId((current) => current ?? page.items[0]?.id ?? null)
@@ -428,7 +448,7 @@ function KnowledgePage() {
     setContentId(id)
     setEvidenceUnitId(null)
     setEvidenceParentTitle(null)
-    window.history.pushState({ fanislContent: id }, '', `#/knowledge?content=${id}`)
+    window.history.pushState({ fanislContent: id, fanislReturn: window.location.hash }, '', `#/knowledge?content=${id}`)
     window.scrollTo({ top: 0, left: 0 })
   }
 
@@ -439,7 +459,7 @@ function KnowledgePage() {
     setNodeId(id)
     setEvidenceUnitId(null)
     setEvidenceParentTitle(null)
-    window.history.pushState({ fanislNode: id }, '', `#/knowledge?node=${id}`)
+    window.history.pushState({ fanislNode: id, fanislReturn: window.location.hash }, '', `#/knowledge?node=${id}`)
     window.scrollTo({ top: 0, left: 0 })
   }
 
@@ -470,7 +490,9 @@ function KnowledgePage() {
     setPeekNodeId(null)
     setEvidenceUnitId(null)
     setEvidenceParentTitle(null)
-    if (contentId !== null) window.history.replaceState({ fanislContent: contentId }, '', `#/knowledge?content=${contentId}`)
+    const state = window.history.state as { fanislPeekNode?: number } | null
+    if (state?.fanislPeekNode) window.history.back()
+    else if (contentId !== null) window.history.replaceState({ fanislContent: contentId }, '', `#/knowledge?content=${contentId}`)
     window.requestAnimationFrame(() => {
       if (trigger?.isConnected) trigger.focus()
       contextTriggerRef.current = null
@@ -500,7 +522,9 @@ function KnowledgePage() {
     setPeekNodeId(null)
     setEvidenceUnitId(null)
     setEvidenceParentTitle(null)
-    window.history.replaceState(null, '', next === 'sources' ? '#/knowledge' : '#/knowledge?view=nodes')
+    const state = window.history.state as { fanislContent?: number; fanislNode?: number } | null
+    if (state?.fanislContent || state?.fanislNode) window.history.back()
+    else window.history.replaceState(null, '', next === 'sources' ? '#/knowledge' : '#/knowledge?view=nodes')
     window.scrollTo({ top: 0, left: 0 })
   }
 
@@ -552,7 +576,7 @@ function KnowledgePage() {
   if (contentId !== null && selectedContent) {
     return (
       <div className="knowledge-page source-document-page">
-        <AppHeader current="knowledge" onSearch={headerSearch} />
+        {evidenceUnitId === null && <AppHeader current="knowledge" onSearch={headerSearch} />}
         <main className="source-document-stage">
           <button className="reader-back" onClick={closeReader} type="button">← 返回原始内容</button>
           <SourceDocument
@@ -597,7 +621,7 @@ function KnowledgePage() {
   if (nodeId !== null && selectedStandaloneNode) {
     return (
       <div className="knowledge-page node-document-page">
-        <AppHeader current="knowledge" onSearch={headerSearch} />
+        {evidenceUnitId === null && <AppHeader current="knowledge" onSearch={headerSearch} />}
         <main className="node-document-stage">
           <NodeContextPreview
             contentTitle="从长期知识总库打开"
@@ -935,7 +959,20 @@ function SourceDocument({
         </aside>
 
         <section className="source-research-pane">
-          <nav aria-label="内容研究视图" className="source-view-tabs" role="tablist">
+          <nav
+            aria-label="内容研究视图"
+            className="source-view-tabs"
+            onKeyDown={(event) => {
+              const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'))
+              const index = tabs.indexOf(event.target as HTMLButtonElement)
+              const next = nextTabIndex(event.key, index, tabs.length)
+              if (next === null) return
+              event.preventDefault()
+              tabs[next].click()
+              tabs[next].focus()
+            }}
+            role="tablist"
+          >
             {([
               ['original', '原始内容', compactNumber(raw.transcript.length)],
               ['units', '提取单元', String(units.length)],
@@ -944,9 +981,12 @@ function SourceDocument({
             ] as const).map(([value, label, count]) => (
               <button
                 aria-selected={activeView === value}
+                aria-controls={`content-${content.id}-panel-${value}`}
+                id={`content-${content.id}-tab-${value}`}
                 key={value}
                 onClick={() => setActiveView(value)}
                 role="tab"
+                tabIndex={activeView === value ? 0 : -1}
                 type="button"
               >
                 <span>{label}</span><b>{count}</b>
@@ -954,7 +994,7 @@ function SourceDocument({
             ))}
           </nav>
 
-          <div aria-live="polite" className="source-view-scroll" ref={viewScrollRef} role="tabpanel">
+          <div aria-labelledby={`content-${content.id}-tab-${activeView}`} aria-live="polite" className="source-view-scroll" id={`content-${content.id}-panel-${activeView}`} ref={viewScrollRef} role="tabpanel" tabIndex={0}>
             {activeView === 'original' && (
               <section className="source-original-view">
                 <header><div><span>L0 / IMMUTABLE SOURCE</span><h2>逐字原文</h2></div><p>原始表达不被覆盖；提取和裁决必须能回到这里。</p></header>
@@ -1133,16 +1173,18 @@ function NodeContextPreview({
   standalone?: boolean
 }) {
   const [activeView, setActiveView] = useState<NodePeekView>('overview')
+  const dialogRef = useRef<HTMLElement>(null)
   const resolvedDetail = detail?.id === node.id ? detail : null
   const scoreCount = node.hit + node.partial + node.miss
   const hitRate = scoreCount ? Math.round(((node.hit + node.partial * .5) / scoreCount) * 100) : null
 
   useEffect(() => setActiveView('overview'), [node.id])
+  useModalFocus(dialogRef, !standalone && !obscured, onClose)
 
   return (
     <div className={`node-context-layer${standalone ? ' is-standalone' : ''}`}>
       {!standalone && <button aria-label="关闭关联知识" className="node-context-backdrop" onClick={onClose} type="button" />}
-      <section aria-hidden={obscured || undefined} aria-labelledby="node-context-title" aria-modal={standalone || obscured ? undefined : true} className={`node-context-dialog kind-${node.kind}`} role={standalone ? 'region' : 'dialog'}>
+      <section aria-hidden={obscured || undefined} aria-labelledby="node-context-title" aria-modal={standalone || obscured ? undefined : true} className={`node-context-dialog kind-${node.kind}`} ref={dialogRef} role={standalone ? 'region' : 'dialog'}>
         <header className="node-context-head">
           <button autoFocus onClick={onClose} type="button">← {standalone ? '返回长期知识' : '返回本期内容'}</button>
           <div><span>{standalone ? '独立知识节点' : '来自内容'}</span><p>{contentTitle}</p></div>
@@ -1157,15 +1199,27 @@ function NodeContextPreview({
             <dl><div><dt>提及</dt><dd>{node.n_attest}</dd></div><div><dt>内容</dt><dd>{node.n_contents}</dd></div><div><dt>信源</dt><dd>{node.n_creators}</dd></div><div><dt>跨度</dt><dd>{formatDate(node.first_seen)} — {formatDate(node.last_seen)}</dd></div></dl>
           </aside>
           <section className="node-context-research">
-            <nav aria-label="关联知识视图" role="tablist">
+            <nav
+              aria-label="关联知识视图"
+              onKeyDown={(event) => {
+                const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'))
+                const index = tabs.indexOf(event.target as HTMLButtonElement)
+                const next = nextTabIndex(event.key, index, tabs.length)
+                if (next === null) return
+                event.preventDefault()
+                tabs[next].click()
+                tabs[next].focus()
+              }}
+              role="tablist"
+            >
               {([
                 ['overview', '归并说明', '01'],
                 ['evidence', '原始证据', String(resolvedDetail?.attestations.length ?? node.n_attest)],
                 ['verdicts', '市场裁决', String(scoreCount)],
                 ['relations', '关联知识', String(resolvedDetail?.relations.length ?? 0)],
-              ] as const).map(([value, label, count]) => <button aria-selected={activeView === value} key={value} onClick={() => setActiveView(value)} role="tab" type="button"><span>{label}</span><b>{count}</b></button>)}
+              ] as const).map(([value, label, count]) => <button aria-controls={`node-${node.id}-panel-${value}`} aria-selected={activeView === value} id={`node-${node.id}-tab-${value}`} key={value} onClick={() => setActiveView(value)} role="tab" tabIndex={activeView === value ? 0 : -1} type="button"><span>{label}</span><b>{count}</b></button>)}
             </nav>
-            <div className="node-context-scroll" role="tabpanel">
+            <div aria-labelledby={`node-${node.id}-tab-${activeView}`} className="node-context-scroll" id={`node-${node.id}-panel-${activeView}`} role="tabpanel" tabIndex={0}>
               {activeView === 'overview' && <section className="node-context-overview"><span>01 / SYNTHESIS</span><h3>这条知识如何形成</h3><blockquote>{node.notes || '该节点由单次提及建立，尚未形成归并注记。'}</blockquote><KnowledgeTrace node={node} /></section>}
               {activeView === 'evidence' && <section className="node-context-evidence"><span>02 / PROVENANCE</span><h3>从哪些原始内容形成</h3>
                 {mode === 'loading' && <p className="section-empty">正在读取完整提及链…</p>}

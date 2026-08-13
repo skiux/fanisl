@@ -4,6 +4,8 @@ import type { ArchiveSceneHandle } from './ArchiveScene'
 import type { KnowledgeOverview, KnowledgeUnitSummary } from './features/knowledge/types'
 import { chapters, getActiveChapter } from './journey'
 import { apiJson } from './shared/api/client'
+import { isKnowledgeOverview } from './shared/api/contracts'
+import { useModalFocus } from './shared/interaction/useModalFocus'
 import AppHeader from './shared/navigation/AppHeader'
 
 const kindLabels = {
@@ -23,12 +25,14 @@ function useMediaQuery(query: string) {
   return matches
 }
 
-function SearchPanel({ close }: { close: () => void }) {
+function SearchPanel({ close, restoreRef }: { close: () => void; restoreRef: React.RefObject<HTMLElement | null> }) {
+  const panelRef = useRef<HTMLElement>(null)
   const [query, setQuery] = useState('')
   const [resolvedQuery, setResolvedQuery] = useState('')
   const [results, setResults] = useState<KnowledgeUnitSummary[]>([])
   const [state, setState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
   const [requestKey, setRequestKey] = useState(0)
+  useModalFocus(panelRef, true, close, restoreRef)
 
   useEffect(() => {
     const value = query.trim()
@@ -82,7 +86,7 @@ function SearchPanel({ close }: { close: () => void }) {
 
   return (
     <div className="search-backdrop" onMouseDown={close} role="presentation">
-      <section aria-label="搜索知识库" aria-modal="true" className="search-panel" onMouseDown={(event) => event.stopPropagation()} role="dialog">
+      <section aria-label="搜索知识库" aria-modal="true" className="search-panel" onMouseDown={(event) => event.stopPropagation()} ref={panelRef} role="dialog">
         <div className="search-field">
           <span aria-hidden="true">⌕</span>
           <input aria-label="搜索知识库" autoFocus onChange={(event) => setQuery(event.target.value)} placeholder="搜索认知、方法、判断或主题" value={query} />
@@ -128,6 +132,7 @@ function App() {
   const [stats, setStats] = useState<KnowledgeOverview | null>(null)
   const [statsState, setStatsState] = useState<'loading' | 'live' | 'error'>('loading')
   const [statsRequestKey, setStatsRequestKey] = useState(0)
+  const searchTriggerRef = useRef<HTMLElement | null>(null)
   const progress = useRef(0)
   const targetProgress = useRef(0)
   const progressNumber = useRef<HTMLSpanElement>(null)
@@ -139,7 +144,7 @@ function App() {
   useEffect(() => {
     const controller = new AbortController()
     setStatsState('loading')
-    apiJson<KnowledgeOverview>('/knowledge/overview', { signal: controller.signal })
+    apiJson<KnowledgeOverview>('/knowledge/overview', { signal: controller.signal }, isKnowledgeOverview)
       .then((payload) => {
         setStats(payload)
         setStatsState('live')
@@ -240,14 +245,17 @@ function App() {
     return () => document.body.classList.remove('modal-open')
   }, [searchOpen])
 
-  const openSearch = () => setSearchOpen(true)
+  const openSearch = () => {
+    searchTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setSearchOpen(true)
+  }
 
   if (staticExperience) {
     return (
       <div className="static-shell">
         <AppHeader onHomeClick={() => jumpTo(0)} onSearch={openSearch} />
         <StaticJourney openSearch={openSearch} />
-        {searchOpen && <SearchPanel close={() => setSearchOpen(false)} />}
+        {searchOpen && <SearchPanel close={() => setSearchOpen(false)} restoreRef={searchTriggerRef} />}
       </div>
     )
   }
@@ -279,7 +287,7 @@ function App() {
         <div className="journey-hud" aria-hidden="true"><div><span>{chapters[active].index}</span><strong>{chapters[active].english}</strong></div><div className="progress-rule"><span ref={progressBar} /></div><span ref={progressNumber}>00%</span></div>
         <div className="scroll-cue" aria-hidden="true"><span>{active === 0 ? 'SCROLL TO ENTER' : active === 5 ? 'KNOWLEDGE, WITH A MEMORY' : 'MOVE THROUGH THE ARCHIVE'}</span><i /></div>
       </div>
-      {searchOpen && <SearchPanel close={() => setSearchOpen(false)} />}
+      {searchOpen && <SearchPanel close={() => setSearchOpen(false)} restoreRef={searchTriggerRef} />}
     </div>
   )
 }

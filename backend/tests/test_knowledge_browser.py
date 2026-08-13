@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
-from analyzer.knowledge.browser import browse_units_page, verification_page, verification_summary
+from analyzer.knowledge.browser import browse_nodes_page, browse_units_page, verification_page, verification_summary
+from analyzer.knowledge.nodes import NodeStore
 from analyzer.knowledge.models import KnowledgeUnit
 from analyzer.knowledge.store import KnowledgeStore
 
@@ -114,3 +115,51 @@ def test_verification_pages_use_uncapped_bucket_counts(pool):
     assert first["total"] == 3 and first["has_more"]
     assert len(first["items"]) == 2 and len(second["items"]) == 1
     assert not second["has_more"]
+
+
+def test_node_browser_returns_every_node_in_stable_pages(pool):
+    store = KnowledgeStore(pool)
+    nodes = NodeStore(pool)
+    with pool.connection() as conn:
+        conn.execute(
+            "TRUNCATE creators, creator_handles, contents, extraction_runs, knowledge_units, "
+            "knowledge_nodes, node_attestations, claim_scores, spot_checks, keyframes "
+            "RESTART IDENTITY CASCADE"
+        )
+
+    creator = store.ensure_creator("节点分页信源")
+    content_id, _ = store.upsert_content(
+        creator,
+        platform="manual",
+        url="https://example.test/node-pages",
+        content_type="article",
+        title="节点分页",
+        published_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+        raw="三条长期认知",
+    )
+    unit_ids = store.record_extraction(
+        content_id,
+        extractor_version="node-page-v1",
+        model="test",
+        units=[_concept(index) for index in range(3)],
+    )
+    nodes.import_nodes({
+        "merger_version": "node-page-v1",
+        "nodes": [
+            {
+                "kind": "concept",
+                "title": f"分页节点 {index}",
+                "canonical": f"分页节点认知 {index}",
+                "tags": ["node-paging"],
+                "units": [{"id": unit_id}],
+            }
+            for index, unit_id in enumerate(unit_ids)
+        ],
+    })
+
+    first = browse_nodes_page(pool, q="分页节点", limit=2, offset=0)
+    second = browse_nodes_page(pool, q="分页节点", limit=2, offset=2)
+    assert first["total"] == 3 and first["has_more"]
+    assert len(first["items"]) == 2 and len(second["items"]) == 1
+    assert not second["has_more"]
+    assert len({row["id"] for row in first["items"] + second["items"]}) == 3

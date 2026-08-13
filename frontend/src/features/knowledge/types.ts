@@ -77,6 +77,14 @@ export type KnowledgeNodeDetail = KnowledgeNode & {
   relations: NodeRelation[]
 }
 
+export type KnowledgeNodePage = {
+  items: KnowledgeNode[]
+  total: number
+  offset: number
+  limit: number
+  has_more: boolean
+}
+
 export type UnitScore = {
   horizon_label: string
   outcome: string

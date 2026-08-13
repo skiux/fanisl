@@ -268,7 +268,7 @@ class NodeStore:
         having = "HAVING count(DISTINCT u.creator_id) >= 2" if cross_source else ""
         with self.pool.connection() as conn:
             return conn.execute(f"""
-                SELECT n.*, count(a.id) AS n_attest,
+                SELECT n.*, count(DISTINCT a.id) AS n_attest,
                   count(DISTINCT u.creator_id) AS n_creators,
                   count(DISTINCT u.content_id) AS n_contents,
                   min(u.published_at) AS first_seen, max(u.published_at) AS last_seen,

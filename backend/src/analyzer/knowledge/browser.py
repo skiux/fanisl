@@ -87,6 +87,67 @@ def browse_units_page(
     }
 
 
+def browse_nodes_page(
+    pool: ConnectionPool,
+    *,
+    kind: str | None = None,
+    status: str | None = None,
+    tag: str | None = None,
+    q: str | None = None,
+    limit: int = 200,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Return all long-term nodes through a stable, searchable page contract."""
+    conditions: list[str] = []
+    params: list[object] = []
+    if kind:
+        conditions.append("n.kind=%s")
+        params.append(kind)
+    if status:
+        conditions.append("n.status=%s")
+        params.append(status)
+    if tag:
+        conditions.append("%s = ANY(n.tags)")
+        params.append(tag)
+    if q:
+        conditions.append("(n.title ILIKE %s OR n.canonical ILIKE %s OR array_to_string(n.tags, ' ') ILIKE %s)")
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+    where = "WHERE " + " AND ".join(conditions) if conditions else ""
+    aggregate = f"""
+        FROM knowledge_nodes n
+        JOIN node_attestations a ON a.node_id=n.id
+        JOIN knowledge_units u ON u.id=a.unit_id
+        LEFT JOIN claim_scores s ON s.unit_id=u.id
+        {where}
+        GROUP BY n.id
+    """
+    with pool.connection() as conn:
+        total = conn.execute(
+            f"SELECT count(*) AS n FROM (SELECT n.id {aggregate}) rows",
+            tuple(params),
+        ).fetchone()["n"]
+        rows = conn.execute(
+            f"""SELECT n.*, count(DISTINCT a.id) AS n_attest,
+              count(DISTINCT u.creator_id) AS n_creators,
+              count(DISTINCT u.content_id) AS n_contents,
+              min(u.published_at) AS first_seen, max(u.published_at) AS last_seen,
+              count(*) FILTER (WHERE s.outcome='hit') AS hit,
+              count(*) FILTER (WHERE s.outcome='partial') AS partial,
+              count(*) FILTER (WHERE s.outcome='miss') AS miss
+              {aggregate}
+              ORDER BY n_attest DESC, n.updated_at DESC, n.id DESC LIMIT %s OFFSET %s""",
+            (*params, limit, offset),
+        ).fetchall()
+    total_int = int(total)
+    return {
+        "items": rows,
+        "total": total_int,
+        "offset": offset,
+        "limit": limit,
+        "has_more": offset + len(rows) < total_int,
+    }
+
+
 _VERIFICATION_BUCKETS = {
     "recent": ("hit", "partial", "miss"),
     "unavailable": ("unpriceable", "condition_unverifiable"),

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import App from './App'
+import ErrorBoundary from './shared/ErrorBoundary'
 
 const ArchivePage = lazy(() => import('./features/archive/ArchivePage'))
 const DiscoveryPage = lazy(() => import('./features/discovery/DiscoveryPage'))
@@ -46,9 +47,9 @@ function Root() {
         : route === 'discovery'
           ? <DiscoveryPage />
           : <ArchivePage />
-    return <Suspense fallback={<main className="route-loading"><span>FANISL</span><p>正在进入工作区</p></main>}>{page}</Suspense>
+    return <ErrorBoundary key={route}><Suspense fallback={<main className="route-loading"><span>FANISL</span><p>正在进入工作区</p></main>}>{page}</Suspense></ErrorBoundary>
   }
-  return <App />
+  return <ErrorBoundary key={route}><App /></ErrorBoundary>
 }
 
 export default Root

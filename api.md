@@ -276,6 +276,10 @@ n_attest, n_creators, n_contents, first_seen, last_seen, hit, partial, miss}]`
 按提及数倒序；`cross_source=true` 只看跨信源共识（n_creators≥2）。
 hit/partial/miss 是节点关联 claim 的评分聚合。
 
+#### GET /knowledge/nodes-page?kind=&status=&tag=&q=&limit=200&offset=0
+长期知识索引的分页契约：`{items:[...], total, offset, limit, has_more}`。`q` 同时检索
+标题、规范陈述和标签；排序固定为 `n_attest DESC, updated_at DESC, id DESC`，用于完整节点索引。
+
 #### GET /knowledge/nodes/{id}
 节点详情：`{...同上, attestations:[{relation, note, unit_id, kind, quote, locator,
 published_at, tags, payload, creator, content_id, content_title, scores:[...]}],

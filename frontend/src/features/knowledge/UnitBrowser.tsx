@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { apiJson } from '../../shared/api/client'
+import { isKnowledgeUnitPage } from '../../shared/api/contracts'
 import EvidenceDossier from './EvidenceDossier'
 import type {
   KnowledgeCreator,
@@ -144,7 +145,7 @@ function UnitBrowser({
 
       apiJson<KnowledgeUnitPage>(`/knowledge/units-page?${params.toString()}`, {
         signal: controller.signal,
-      }).then((payload) => {
+      }, isKnowledgeUnitPage).then((payload) => {
         setPage(payload)
         setUnits(payload.items)
         setSearchState('loaded')
@@ -195,7 +196,7 @@ function UnitBrowser({
     if (scoredOnly) params.set('scored', 'true')
     loadingMoreRef.current = true
     setLoadingMore(true)
-    apiJson<KnowledgeUnitPage>(`/knowledge/units-page?${params.toString()}`, { signal: controller.signal })
+    apiJson<KnowledgeUnitPage>(`/knowledge/units-page?${params.toString()}`, { signal: controller.signal }, isKnowledgeUnitPage)
       .then((payload) => {
         setPage(payload)
         setUnits((current) => [...current, ...payload.items])

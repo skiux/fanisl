@@ -35,7 +35,7 @@ from .runtime import (
     trading_store,
 )
 from .knowledge import discovery, spotcheck
-from .knowledge.browser import browse_units_page, verification_page, verification_summary
+from .knowledge.browser import browse_nodes_page, browse_units_page, verification_page, verification_summary
 from .knowledge.overview import overview_stats
 from .storage import display_messages
 
@@ -361,6 +361,22 @@ def knowledge_nodes(kind: str | None = None, status: str | None = None,
     cross_source=true 只看跨信源共识节点。"""
     return node_store.list_nodes(kind=kind, status=status, tag=tag,
                                  cross_source=cross_source, limit=min(limit, 500))
+
+
+@app.get("/knowledge/nodes-page")
+def knowledge_nodes_page(kind: str | None = None, status: str | None = None,
+                         tag: str | None = None, q: str | None = None,
+                         limit: int = 200, offset: int = 0) -> dict:
+    """长期知识节点分页索引；返回全量总数并保持排序稳定。"""
+    return browse_nodes_page(
+        knowledge_pool,
+        kind=kind,
+        status=status,
+        tag=tag,
+        q=q,
+        limit=min(max(limit, 1), 500),
+        offset=max(offset, 0),
+    )
 
 
 @app.get("/knowledge/nodes/{node_id}")
