@@ -27,6 +27,32 @@ _NOTE_RE = re.compile(r"^-\s*\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(?:\(([^)]*)\))?\s
 _VIDEO_ID_RE = re.compile(r"[?&]v=([A-Za-z0-9_-]{11})")
 SLEEP_BETWEEN_S = 1.0
 
+# 图表/表格：折线的形状、表格的格子，文字笔记天然装不下 → 帧永远有增量
+_EVIDENCE_KINDS = {"chart", "table"}
+# 精确数值 = 会被转录改写、且改写后无从发现的东西（小数/百分比/倍数万亿/货币/长整数）。
+# 刻意排除孤立年份（"2026年"）——它是叙述而不是读数。gemini-3.5-flash-lite 把 SOX 的
+# 19.94 倍转成 "9.94倍" 那次事故，正是这类数字，帧是唯一能翻案的凭据。
+_PRECISE_NUM = re.compile(r"\d+\.\d+|\d+\s*%|\d+\s*[倍万亿]|[$￥]\s*\d+|(?<!\d)\d{4,}(?!\s*年)")
+
+
+def worth_a_frame(kind: str | None, note: str | None) -> bool:
+    """这一时刻值不值得存一张 1080p 的帧。
+
+    判据只有一条：**帧能不能回答笔记回答不了的问题**。
+    - chart / table → 能。留。
+    - 笔记里有精确数值 → 能（数值可能被转录改写，帧是仲裁）。留。
+    - 其余纯文字画面（章节标题卡、Logo、口号、手写板书）→ 不能。笔记就是那段文字本身，
+      再打开帧看一遍不会多知道任何事。删。
+
+    实测这条规则把三个信源砍成 39% / 94% / 83%——差异不是配额调出来的，是信源形态不同：
+    美投君是剪辑过的视频论文（标题卡、手绘板书、B-roll），Andy 和投资TALK君是直接投屏看盘。
+    刻意不做关键词广告过滤：'Pro' 会命中 Procore，'订阅' 会命中"FSD订阅用户由128万增加到
+    148万"，误删一张真实数据图的代价远大于留几张推广图。带数值的推广页会漏网，认了。
+    """
+    if kind in _EVIDENCE_KINDS:
+        return True
+    return bool(_PRECISE_NUM.search(note or ""))
+
 
 def _to_seconds(ts: str) -> int:
     parts = [int(x) for x in ts.split(":")]
@@ -57,7 +83,9 @@ def grab_for_content(store: KnowledgeStore, content: dict, *, height: int = DEFA
     video_id_m = _VIDEO_ID_RE.search(content.get("url") or "")
     if not video_id_m:
         return 0
-    notes = {n["ts_s"]: n for n in visual_notes(content["raw"])}
+    # 先按 worth_a_frame 筛，再去下载——省的是带宽，不只是磁盘
+    notes = {n["ts_s"]: n for n in visual_notes(content["raw"])
+             if worth_a_frame(n["kind"], n["note"])}
     todo = sorted(set(notes) - store.keyframe_seconds(content["id"]))
     if not todo:
         return 0
@@ -70,6 +98,45 @@ def grab_for_content(store: KnowledgeStore, content: dict, *, height: int = DEFA
                               kind=note.get("kind"), note=note.get("note"))
         n += 1
     return n
+
+
+def prune(store: KnowledgeStore, *, dry_run: bool = True, root=None) -> dict:
+    """按 worth_a_frame 清理存量帧（规则是 2026-08-14 才定的，之前抓的是全量）。
+
+    删文件前必须确认没有别的 keyframe 行还引用同一路径：文件按 video_id/秒 命名，
+    重转录产生的 superseded 旧稿与取代它的新稿**共用同一批文件**，只按 content 删行
+    会把还在用的图删掉。
+
+    `root` 指向 data_export（默认由 `__file__` 推出来）。**git worktree 里必须显式传**：
+    data_export 是 gitignore 的数据目录，只存在于主工作区，而 OUT_DIR 从 __file__ 推导
+    会指向 worktree 里那个根本不存在的路径。不加下面这道闸的话，删库行会成功、删文件会
+    静默跳过（f.exists() 恒为 False），结果是文件全成孤儿、一点空间没省。
+    """
+    base = (root or OUT_DIR.parent)
+    if not (base / "keyframes").is_dir():
+        raise SystemExit(
+            f"找不到帧目录 {base / 'keyframes'}——大概是在 git worktree 里跑的。"
+            f"用 --root 指向主工作区的 data_export，否则只会删库不删文件。")
+    with store.pool.connection() as conn:
+        rows = conn.execute("SELECT id, content_id, kind, note, path, bytes FROM keyframes").fetchall()
+        doomed = [r for r in rows if not worth_a_frame(r["kind"], r["note"])]
+        keep_paths = {r["path"] for r in rows if worth_a_frame(r["kind"], r["note"])}
+        stat = {"total": len(rows), "drop_rows": len(doomed),
+                "keep_rows": len(rows) - len(doomed),
+                "freed_mb": round(sum(r["bytes"] or 0 for r in doomed) / 1048576, 1),
+                "files_deleted": 0, "files_shared_kept": 0}
+        if dry_run:
+            return stat
+        for r in doomed:
+            conn.execute("DELETE FROM keyframes WHERE id=%s", (r["id"],))
+            if r["path"] in keep_paths:          # 同一文件仍被保留的行引用
+                stat["files_shared_kept"] += 1
+                continue
+            f = base / r["path"]
+            if f.exists():
+                f.unlink()
+                stat["files_deleted"] += 1
+    return stat
 
 
 def fill_gaps(store: KnowledgeStore, *, limit: int = 20,
@@ -154,8 +221,26 @@ def main() -> None:
     ap.add_argument("--limit", type=int)
     ap.add_argument("--height", type=int, default=DEFAULT_HEIGHT)
     ap.add_argument("--workers", type=int, default=4)
-    ap.add_argument("--dry-run", action="store_true", help="只统计待抓帧数，不抓")
+    ap.add_argument("--dry-run", action="store_true", help="只统计，不抓/不删")
+    ap.add_argument("--prune", action="store_true",
+                    help="按 worth_a_frame 清理存量帧（规则定之前抓的是全量）")
+    ap.add_argument("--root", help="data_export 目录；在 git worktree 里跑 --prune 时必须指定")
     a = ap.parse_args()
+    if a.prune:
+        import pathlib
+        pool = make_pool(get_settings().pg_knowledge_conninfo)
+        try:
+            st = prune(KnowledgeStore(pool), dry_run=a.dry_run,
+                       root=pathlib.Path(a.root).resolve() if a.root else None)
+            verb = "预计删" if a.dry_run else "已删"
+            print(f"存量 {st['total']} 帧：{verb} {st['drop_rows']}，留 {st['keep_rows']}"
+                  f"，释放约 {st['freed_mb']} MB")
+            if not a.dry_run:
+                print(f"  实删文件 {st['files_deleted']}，"
+                      f"因与保留行共用而保留的文件 {st['files_shared_kept']}")
+        finally:
+            pool.close()
+        return
     run(handle=a.handle, content_id=a.content_id, limit=a.limit, height=a.height,
         workers=a.workers, dry_run=a.dry_run)
 
