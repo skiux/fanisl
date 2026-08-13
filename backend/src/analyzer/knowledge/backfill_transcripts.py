@@ -1,7 +1,14 @@
 """批量转录回填：频道近 N 天视频 → Gemini URL 直读 → L0（幂等、限速、失败不中断）。
 
-用法：python -m analyzer.knowledge.backfill_transcripts <handle> [--since-days 60] [--limit N]
+用法：python -m analyzer.knowledge.backfill_transcripts <handle>
+      [--since-days 60] [--limit N] [--max-new N] [--models a,b,c]
 - 频道 /videos 按新→旧列出；URL 已入库的跳过（不重复付 Gemini）；发布早于窗口即停止。
+- --limit 限制列多少个视频，--max-new 限制这一轮实际转录多少条新内容。
+- --models 是模型阶梯：免费额度按模型独立计，主模型当天用尽就换下一个继续，全部用尽才停。
+  **阶梯里不要放 lite 档**：2026-08-13 实测 gemini-3.5-flash-lite 转录会丢数字
+  （投资TALK君 c41 把 SOX 的 19.94 倍转成 "9.94倍，那接近有20倍了"，自相矛盾）。
+  对数字密集的财报/估值类内容，L0 的数字就是内容本身，quote 又是评分争议的仲裁依据，
+  丢一位数会一路污染到 ScoringSpec。宁可等次日额度重置，也只用 flash 档及以上。
 - Gemini 429/5xx 退避重试（视频转录是慢活，本脚本设计为后台慢跑）。
 """
 
@@ -81,13 +88,16 @@ def _transcribe_with_retry(client: GeminiClient, url: str) -> dict | None:
     return None
 
 
-def run(handle: str, *, since_days: int = 60, limit: int | None = None) -> None:
+def run(handle: str, *, since_days: int = 60, limit: int | None = None,
+        max_new: int | None = None, models: list[str] | None = None) -> None:
     s = get_settings()
     if not s.gemini_api_key:
         raise SystemExit("缺 GEMINI_API_KEY")
     set_cookies_file(s.youtube_cookies_file)
     cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
-    client = GeminiClient(s.gemini_api_key, model=s.gemini_model)
+    # 免费额度是按模型计的：主模型当天用尽就顺着阶梯换下一个，而不是整轮停掉
+    ladder = list(models or [s.gemini_model])
+    client = GeminiClient(s.gemini_api_key, model=ladder[0])
     pool = make_pool(s.pg_knowledge_conninfo)
     try:
         store = KnowledgeStore(pool)
@@ -113,10 +123,20 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None) -> None:
             if pub is not None and pub < cutoff:
                 print(f"  [{i}] {pub.date()} 早于窗口，停止（频道按新→旧）", flush=True)
                 break
-            try:
-                tr = _transcribe_with_retry(client, url)
-            except DailyQuotaExhausted as e:
-                print(f"  [{i}] {e}；本轮停止（已入库 {n_new} 条不受影响）", flush=True)
+            while True:
+                try:
+                    tr = _transcribe_with_retry(client, url)
+                    break
+                except DailyQuotaExhausted as e:
+                    ladder.pop(0)
+                    if not ladder:
+                        print(f"  [{i}] {e}；阶梯上的模型都已用尽，本轮停止"
+                              f"（已入库 {n_new} 条不受影响）", flush=True)
+                        tr = None
+                        break
+                    print(f"  [{i}] {e}；换用 {ladder[0]} 继续", flush=True)
+                    client = GeminiClient(s.gemini_api_key, model=ladder[0])
+            if tr is None and not ladder:
                 break
             if tr is None or not tr.get("transcript"):
                 n_fail += 1
@@ -131,6 +151,9 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None) -> None:
             print(f"  [{i}] {'新' if created else '重复'} {(meta['title'] or '')[:36]}  "
                   f"{len(tr['transcript'])}字/{len(tr.get('visual_notes', []))}笔记  "
                   f"tok={u.get('totalTokenCount', '?')}  {pub.date() if pub else '?'}", flush=True)
+            if max_new is not None and n_new >= max_new:
+                print(f"  已达 --max-new {max_new}，停止", flush=True)
+                break
             time.sleep(SLEEP_BETWEEN_S)
         print(f"完成 {handle}：新 {n_new}，跳过 {n_skip}，失败 {n_fail}", flush=True)
     finally:
@@ -139,9 +162,11 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None) -> None:
 
 def main() -> None:
     handle = sys.argv[1]
-    since = int(sys.argv[sys.argv.index("--since-days") + 1]) if "--since-days" in sys.argv else 60
-    limit = int(sys.argv[sys.argv.index("--limit") + 1]) if "--limit" in sys.argv else None
-    run(handle, since_days=since, limit=limit)
+    def _arg(flag, cast=int, default=None):
+        return cast(sys.argv[sys.argv.index(flag) + 1]) if flag in sys.argv else default
+    run(handle, since_days=_arg("--since-days", default=60), limit=_arg("--limit"),
+        max_new=_arg("--max-new"),
+        models=_arg("--models", lambda v: [m.strip() for m in v.split(",")]))
 
 
 if __name__ == "__main__":
