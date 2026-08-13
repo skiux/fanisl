@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
+import { useModalFocus } from '../../shared/interaction/useModalFocus'
 import AppHeader from '../../shared/navigation/AppHeader'
 import type { KnowledgeNodeDetail } from '../knowledge/types'
 import {
@@ -222,7 +223,7 @@ function LocalNavigation({ current, openDelta }: { current: DiscoveryView; openD
           </a>
         ))}
       </div>
-      <button onClick={openDelta} type="button"><span>本期变化</span><b>↗</b></button>
+      <button aria-label="本期变化" onClick={openDelta} type="button"><span>本期变化</span><b>↗</b></button>
     </nav>
   )
 }
@@ -333,39 +334,38 @@ function CandidateRow({ candidate, from = 'harness' }: { candidate: HarnessCandi
 
 function DeltaDialog({
   close,
+  restoreRef,
   report,
   spotChecks,
   state,
   retry,
 }: {
   close: () => void
+  restoreRef: React.RefObject<HTMLElement | null>
   report: WeeklyReport | null
   spotChecks: SpotCheckStats | null
   state: LoadState
   retry: () => void
 }) {
+  const dialogRef = useRef<HTMLElement>(null)
+  useModalFocus(dialogRef, true, close, restoreRef)
   useEffect(() => {
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close()
-    }
-    window.addEventListener('keydown', onKey)
     return () => {
       document.body.style.overflow = previous
-      window.removeEventListener('keydown', onKey)
     }
-  }, [close])
+  }, [])
 
   const summary = report?.summary
   const contents = summary?.new_contents.reduce((total, row) => total + row.n, 0) ?? 0
   const units = summary?.new_units.reduce((total, row) => total + row.n, 0) ?? 0
   return (
     <div className="discovery-delta-overlay" onMouseDown={close} role="presentation">
-      <section aria-label="本期知识变化" aria-modal="true" className="discovery-delta-dialog" onMouseDown={(event) => event.stopPropagation()} role="dialog">
+      <section aria-label="本期知识变化" aria-modal="true" className="discovery-delta-dialog" onMouseDown={(event) => event.stopPropagation()} ref={dialogRef} role="dialog">
         <header>
           <div><span>KNOWLEDGE DELTA / 7 DAYS</span><h2>本期变化</h2></div>
-          <button aria-label="关闭本期变化" onClick={close} type="button">×</button>
+          <button aria-label="关闭本期变化" autoFocus onClick={close} type="button">×</button>
         </header>
         {state === 'loading' && <LoadingBlock label="本期变化" />}
         {state === 'error' && <ErrorBlock label="本期变化" retry={retry} />}
@@ -431,6 +431,7 @@ function DiscoveryPage() {
   const [clusterLimit, setClusterLimit] = useState(() => window.matchMedia('(max-width: 760px)').matches ? 4 : 8)
   const [openFamilies, setOpenFamilies] = useState<Set<string>>(() => new Set())
   const [deltaOpen, setDeltaOpen] = useState(false)
+  const deltaTriggerRef = useRef<HTMLElement | null>(null)
   const previousViewScroll = useRef(0)
   const previousWasDetail = useRef(false)
   const previousView = useRef(location.view)
@@ -645,7 +646,10 @@ function DiscoveryPage() {
           </p>
         </header>
 
-        <LocalNavigation current={location.view} openDelta={() => setDeltaOpen(true)} />
+        <LocalNavigation current={location.view} openDelta={() => {
+          deltaTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+          setDeltaOpen(true)
+        }} />
 
         {location.view === 'briefing' && (
           <div className="discovery-briefing">
@@ -755,7 +759,7 @@ function DiscoveryPage() {
 
       <footer className="discovery-v2-footer"><span>FANISL / DISCOVERY</span><p>分歧不被抹平，候选不被包装成结论，每条发现都回到证据。</p></footer>
 
-      {deltaOpen && <DeltaDialog close={() => setDeltaOpen(false)} report={weekly} retry={() => setWeeklyRequest((value) => value + 1)} spotChecks={spotChecks} state={weeklyState} />}
+      {deltaOpen && <DeltaDialog close={() => setDeltaOpen(false)} report={weekly} restoreRef={deltaTriggerRef} retry={() => setWeeklyRequest((value) => value + 1)} spotChecks={spotChecks} state={weeklyState} />}
     </div>
   )
 }

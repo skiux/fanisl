@@ -102,3 +102,37 @@ def test_dedup_by_raw_hash_still_sees_superseded(store):
                                            content_type="video", title="t2",
                                            published_at=ts, raw="一模一样的原文")
     assert again == first and not created2
+
+
+# --- 升版重提：只有生效那版进分页/概览（codex 的新端点合并进来时补的）-------
+
+@pytest.fixture
+def two_runs(store):
+    """同一条 content 的两版提取：v1 被取代、v2 生效。"""
+    cid = store.ensure_creator("升版信源")
+    content_id, _ = store.upsert_content(
+        cid, platform="manual", url="https://example.test/two-runs", content_type="article",
+        title="升版样本", published_at=datetime(2026, 7, 20, tzinfo=timezone.utc), raw="判断原文")
+    unit = KnowledgeUnit(kind="concept", quote="判断原文",
+                         payload={"canonical_statement": "一条认知", "category": "regime"})
+    store.record_extraction(content_id, extractor_version="pending-v1", model="m",
+                            units=[unit, unit, unit])
+    store.record_extraction(content_id, extractor_version="pending-v2", model="m", units=[unit])
+    return store
+
+
+def test_overview_counts_only_the_active_run(two_runs):
+    from analyzer.knowledge.overview import overview_stats
+
+    stats = overview_stats(two_runs.pool)
+    assert stats["units"] == 1, "v1 的 3 条已被取代，概览不该把两版加在一起"
+    assert stats["concepts"] == 1
+
+
+def test_unit_paging_counts_only_the_active_run(two_runs):
+    from analyzer.knowledge.browser import browse_units_page
+
+    page = browse_units_page(two_runs.pool, limit=50, offset=0)
+    assert page["total"] == 1
+    assert page["counts"]["concept"] == 1
+    assert {u["extractor_version"] for u in page["items"]} == {"pending-v2"}

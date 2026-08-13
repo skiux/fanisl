@@ -30,6 +30,12 @@ export type KnowledgeStats = {
   corroborated: number
 }
 
+export type KnowledgeOverview = KnowledgeStats & {
+  claims: number
+  methods: number
+  concepts: number
+}
+
 export type AttestationRelation = 'restates' | 'refines' | 'supersedes' | 'contradicts'
 export type NodeRelationKind = 'conflicts' | 'relates'
 
@@ -69,6 +75,14 @@ export type NodeRelation = {
 export type KnowledgeNodeDetail = KnowledgeNode & {
   attestations: NodeAttestation[]
   relations: NodeRelation[]
+}
+
+export type KnowledgeNodePage = {
+  items: KnowledgeNode[]
+  total: number
+  offset: number
+  limit: number
+  has_more: boolean
 }
 
 export type UnitScore = {
@@ -157,6 +171,16 @@ export type KnowledgeContentUnit = {
 export type KnowledgeUnitSummary = KnowledgeContentUnit & {
   creator: string
   content_title: string
+}
+
+export type KnowledgeUnitPage = {
+  items: KnowledgeUnitSummary[]
+  total: number
+  offset: number
+  limit: number
+  has_more: boolean
+  counts: Record<KnowledgeKind, number>
+  creator_counts: Record<string, number>
 }
 
 export type KnowledgeCreator = {

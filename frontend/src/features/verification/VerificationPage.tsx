@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
+import { isVerificationPage, isVerificationSummary } from '../../shared/api/contracts'
 import AppHeader from '../../shared/navigation/AppHeader'
 import { VerificationReader } from './VerificationDossier'
 import type {
   DueVerification,
   ScoredVerification,
   VerificationOutcome,
-  VerificationQueue,
+  VerificationPageData,
+  VerificationSummary,
 } from './types'
 import './verification.css'
 
@@ -142,7 +144,8 @@ function routeFor(item: QueueItem) {
 
 function VerificationPage() {
   const searchRef = useRef<HTMLInputElement>(null)
-  const [queue, setQueue] = useState<VerificationQueue | null>(null)
+  const [summary, setSummary] = useState<VerificationSummary | null>(null)
+  const [page, setPage] = useState<VerificationPageData | null>(null)
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [requestKey, setRequestKey] = useState(0)
   const [windowDays, setWindowDays] = useState(14)
@@ -157,16 +160,31 @@ function VerificationPage() {
   useEffect(() => {
     const controller = new AbortController()
     setLoadState('loading')
-    apiJson<VerificationQueue>(`/knowledge/verification-queue?days=${windowDays}&limit=120`, {
-      signal: controller.signal,
-    }).then((payload) => {
-      setQueue(payload)
+    const bucket = view === 'watch' ? 'review' : view
+    const load = async () => {
+      const [summaryPayload, firstPage] = await Promise.all([
+        apiJson<VerificationSummary>(`/knowledge/verification-summary?days=${windowDays}`, { signal: controller.signal }, isVerificationSummary),
+        apiJson<VerificationPageData>(`/knowledge/verification-page?bucket=${bucket}&days=${windowDays}&limit=200&offset=0`, { signal: controller.signal }, isVerificationPage),
+      ])
+      const items = [...firstPage.items]
+      let current = firstPage
+      while (current.has_more) {
+        current = await apiJson<VerificationPageData>(
+          `/knowledge/verification-page?bucket=${bucket}&days=${windowDays}&limit=200&offset=${items.length}`,
+          { signal: controller.signal },
+          isVerificationPage,
+        )
+        items.push(...current.items)
+      }
+      setSummary(summaryPayload)
+      setPage({ ...firstPage, items, has_more: false })
       setLoadState('loaded')
-    }).catch(() => {
+    }
+    load().catch(() => {
       if (!controller.signal.aborted) setLoadState('error')
     })
     return () => controller.abort()
-  }, [requestKey, windowDays])
+  }, [requestKey, view, windowDays])
 
   useEffect(() => {
     const update = () => {
@@ -216,29 +234,22 @@ function VerificationPage() {
     setVisibleLimit(18)
   }, [creator, query, view, windowDays])
 
-  const allItems = useMemo(() => queue
-    ? [...queue.recent, ...queue.due, ...queue.review, ...queue.unavailable]
-    : [], [queue])
+  const allItems = useMemo(() => page?.items ?? [], [page])
   const creators = useMemo(() => {
     const counts = new Map<string, number>()
     allItems.forEach((item) => counts.set(item.creator, (counts.get(item.creator) ?? 0) + 1))
     return [...counts.entries()].sort((left, right) => right[1] - left[1])
   }, [allItems])
-  const viewItems = useMemo<QueueItem[]>(() => {
-    if (!queue) return []
-    if (view === 'watch') return queue.review
-    return queue[view]
-  }, [queue, view])
   const filteredItems = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase()
-    return viewItems.filter((item) => {
+    return allItems.filter((item) => {
       if (creator && item.creator !== creator) return false
       if (!normalized) return true
       return `${item.quote} ${item.creator} ${item.content_title} ${JSON.stringify(item.payload)}`
         .toLocaleLowerCase()
         .includes(normalized)
     })
-  }, [creator, query, viewItems])
+  }, [allItems, creator, query])
   const groups = useMemo(() => groupItems(filteredItems), [filteredItems])
   const visibleGroups = groups.slice(0, visibleLimit)
   const datedGroups = useMemo(() => {
@@ -251,12 +262,13 @@ function VerificationPage() {
   }, [visibleGroups])
 
   const dueItem = useMemo(() => {
-    if (!queue || recordRoute.dueUnitId === null) return null
-    return queue.due.find((item) => (
+    if (recordRoute.dueUnitId === null) return null
+    const match = allItems.find((item) => !isScored(item) && (
       item.unit_id === recordRoute.dueUnitId
       && (!recordRoute.dueHorizon || item.horizon_label === recordRoute.dueHorizon)
-    )) ?? null
-  }, [queue, recordRoute.dueHorizon, recordRoute.dueUnitId])
+    ))
+    return match && !isScored(match) ? match : null
+  }, [allItems, recordRoute.dueHorizon, recordRoute.dueUnitId])
 
   const recordItems = allItems
   const recordIndex = recordItems.findIndex((item) => (
@@ -276,14 +288,14 @@ function VerificationPage() {
     window.location.hash = routeFor(item).slice(1)
   }
 
-  const overview = queue?.overview ?? { due: 0, completed: 0, unavailable: 0, review: 0 }
+  const overview = summary?.overview ?? { due: 0, completed: 0, unavailable: 0, review: 0 }
   const overviewItems: Array<{ key: QueueView; count: number; label: string; note: string }> = [
     { key: 'recent', count: overview.completed, label: '最新裁决', note: '已执行' },
     { key: 'due', count: overview.due, label: '待执行', note: `${windowDays} 天内` },
     { key: 'unavailable', count: overview.unavailable, label: '质量异常', note: '不可机械验' },
     { key: 'watch', count: overview.review, label: '观察中', note: '保留语境' },
   ]
-  const nearestDue = queue?.due.slice(0, 4) ?? []
+  const nearestDue = summary?.nearest_due ?? []
 
   if (recordRoute.scoreId !== null || recordRoute.dueUnitId !== null) {
     return (
@@ -372,7 +384,7 @@ function VerificationPage() {
               <h2>{queueLabels[view]}</h2>
               <p>{queueDescriptions[view]}</p>
             </div>
-            <p><b>{loadState === 'loading' ? '—' : groups.length}</b><span>份判断档案</span></p>
+              <p><b>{loadState === 'loading' ? '—' : page?.total ?? 0}</b><span>个评分时点</span></p>
           </header>
 
           <div className="verification-tools">

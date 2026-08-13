@@ -1,11 +1,19 @@
-import { useEffect, useRef } from 'react'
-import type { CSSProperties, RefObject } from 'react'
+import { forwardRef, useImperativeHandle, useRef } from 'react'
+import type { CSSProperties } from 'react'
 import ResearchBackdrop from './ResearchBackdrop'
+import type { ResearchBackdropHandle } from './ResearchBackdrop'
+import type { KnowledgeOverview } from './features/knowledge/types'
 
 type ArchiveSceneProps = {
   active: number
   openSearch: () => void
-  progress: RefObject<number>
+  retryStats: () => void
+  stats: KnowledgeOverview | null
+  statsState: 'loading' | 'live' | 'error'
+}
+
+export type ArchiveSceneHandle = {
+  update: (progress: number) => void
 }
 
 type MotionStyle = CSSProperties & {
@@ -44,16 +52,16 @@ function StageLabel({ index, label }: { index: string; label: string }) {
   )
 }
 
-function ArchiveScene({ active, openSearch, progress }: ArchiveSceneProps) {
+const ArchiveScene = forwardRef<ArchiveSceneHandle, ArchiveSceneProps>(function ArchiveScene({ active, openSearch, retryStats, stats, statsState }, ref) {
   const stageRefs = useRef<Array<HTMLElement | null>>([])
+  const backdropRef = useRef<ResearchBackdropHandle>(null)
 
-  useEffect(() => {
-    const stages = stageRefs.current.filter((stage): stage is HTMLElement => Boolean(stage))
-    const animatedChildren = stages.map((stage) => Array.from(stage.querySelectorAll<HTMLElement>('[data-animate]')))
-    let frame = 0
-
-    const update = () => {
-      const value = clamp(progress.current)
+  useImperativeHandle(ref, () => ({
+    update(progress: number) {
+      const stages = stageRefs.current.filter((stage): stage is HTMLElement => Boolean(stage))
+      const animatedChildren = stages.map((stage) => Array.from(stage.querySelectorAll<HTMLElement>('[data-animate]')))
+      const value = clamp(progress)
+      backdropRef.current?.update(value)
 
       stages.forEach((stage, index) => {
         const [start, end] = stageRanges[index]
@@ -74,16 +82,12 @@ function ArchiveScene({ active, openSearch, progress }: ArchiveSceneProps) {
         })
       })
 
-      frame = window.requestAnimationFrame(update)
-    }
-
-    frame = window.requestAnimationFrame(update)
-    return () => window.cancelAnimationFrame(frame)
-  }, [progress])
+    },
+  }), [])
 
   return (
     <div className="archive-scene">
-      <ResearchBackdrop progress={progress} />
+      <ResearchBackdrop ref={backdropRef} />
 
       <section
         aria-hidden={active !== 0}
@@ -100,12 +104,17 @@ function ArchiveScene({ active, openSearch, progress }: ArchiveSceneProps) {
             FANISL 保存原始内容，拆出判断、方法与认知，再把一次表达沉淀为可以合并、修正和连接的知识。
           </p>
           <div className="entry-ledger" data-animate style={motionStyle(0.3)}>
-            <span><b>18</b> 篇原始内容</span>
+            <span><b>{stats?.contents ?? '—'}</b> 篇原始内容</span>
             <i />
-            <span><b>247</b> 个知识单元</span>
+            <span><b>{stats?.units ?? '—'}</b> 个知识单元</span>
             <i />
-            <span><b>105</b> 个长期节点</span>
+            <span><b>{stats?.nodes ?? '—'}</b> 个长期节点</span>
           </div>
+          {statsState === 'error' && (
+            <button className="entry-data-retry" data-animate onClick={retryStats} style={motionStyle(0.36)} type="button">
+              统计暂不可用 · 重新连接
+            </button>
+          )}
         </div>
         <div className="entry-waypoint" data-animate style={motionStyle(0.25)}>
           <span>从原文出发</span>
@@ -174,7 +183,7 @@ function ArchiveScene({ active, openSearch, progress }: ArchiveSceneProps) {
           </article>
         </div>
         <div className="unit-index" data-animate style={motionStyle(0.34)}>
-          <span>135 判断</span><span>23 方法</span><span>89 认知</span>
+          <span>{stats?.claims ?? '—'} 判断</span><span>{stats?.methods ?? '—'} 方法</span><span>{stats?.concepts ?? '—'} 认知</span>
         </div>
       </section>
 
@@ -246,21 +255,27 @@ function ArchiveScene({ active, openSearch, progress }: ArchiveSceneProps) {
             新内容进入同一套结构：保留证据、归并节点、发现关系，并在未来的验证中继续更新。
           </p>
           <button data-animate onClick={openSearch} style={motionStyle(0.3)} type="button">
-            浏览当前知识样本 <span>↗</span>
+            搜索当前知识库 <span>↗</span>
           </button>
         </div>
-        <div className="library-shelf" aria-label="当前知识库样本">
-          <span data-animate style={motionStyle(0.08)}><i>01</i><b>信源</b><strong>2</strong></span>
-          <span data-animate style={motionStyle(0.14)}><i>02</i><b>内容</b><strong>18</strong></span>
-          <span data-animate style={motionStyle(0.2)}><i>03</i><b>单元</b><strong>247</strong></span>
-          <span data-animate style={motionStyle(0.26)}><i>04</i><b>节点</b><strong>105</strong></span>
+        <div className="library-shelf" aria-label="当前知识库规模">
+          <span data-animate style={motionStyle(0.08)}><i>01</i><b>信源</b><strong>{stats?.creators ?? '—'}</strong></span>
+          <span data-animate style={motionStyle(0.14)}><i>02</i><b>内容</b><strong>{stats?.contents ?? '—'}</strong></span>
+          <span data-animate style={motionStyle(0.2)}><i>03</i><b>单元</b><strong>{stats?.units ?? '—'}</strong></span>
+          <span data-animate style={motionStyle(0.26)}><i>04</i><b>节点</b><strong>{stats?.nodes ?? '—'}</strong></span>
         </div>
-        <div className="library-status" data-animate style={motionStyle(0.36)}>
-          <i /> KNOWLEDGE BASE · ACTIVE
-        </div>
+        {statsState === 'error' ? (
+          <button className="library-status is-error" data-animate onClick={retryStats} style={motionStyle(0.36)} type="button">
+            <i /> DATA UNAVAILABLE · RETRY
+          </button>
+        ) : (
+          <div className="library-status" data-animate style={motionStyle(0.36)}>
+            <i /> {statsState === 'loading' ? 'KNOWLEDGE BASE · CONNECTING' : 'KNOWLEDGE BASE · ACTIVE'}
+          </div>
+        )}
       </section>
     </div>
   )
-}
+})
 
 export default ArchiveScene

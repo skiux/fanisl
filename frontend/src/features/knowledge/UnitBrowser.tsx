@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { apiJson } from '../../shared/api/client'
+import { isKnowledgeUnitPage } from '../../shared/api/contracts'
 import EvidenceDossier from './EvidenceDossier'
 import type {
   KnowledgeCreator,
   KnowledgeKind,
   KnowledgeTagSummary,
+  KnowledgeUnitPage,
   KnowledgeUnitSummary,
 } from './types'
 import './unit-browser.css'
@@ -34,7 +37,8 @@ function UnitBrowser({
   creators,
   filtersOpen,
   focusRequestKey,
-  initialUnits,
+  initialQuery,
+  initialPage,
   isPreview,
   onCloseFilters,
   onCloseReader,
@@ -46,7 +50,8 @@ function UnitBrowser({
   creators: KnowledgeCreator[]
   filtersOpen: boolean
   focusRequestKey: number
-  initialUnits: KnowledgeUnitSummary[]
+  initialQuery: string
+  initialPage: KnowledgeUnitPage | null
   isPreview: boolean
   onCloseFilters: () => void
   onCloseReader: () => void
@@ -56,14 +61,20 @@ function UnitBrowser({
   selectedUnitId: number | null
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const loadingMoreRef = useRef(false)
   const [kind, setKind] = useState<KindFilter>('all')
   const [creatorId, setCreatorId] = useState<number | null>(null)
   const [tag, setTag] = useState<string | null>(null)
   const [scoredOnly, setScoredOnly] = useState(false)
-  const [query, setQuery] = useState('')
-  const [units, setUnits] = useState<KnowledgeUnitSummary[]>(initialUnits)
+  const [query, setQuery] = useState(initialQuery)
+  const [page, setPage] = useState<KnowledgeUnitPage | null>(initialPage)
+  const [units, setUnits] = useState<KnowledgeUnitSummary[]>(initialPage?.items ?? [])
   const [tags, setTags] = useState<KnowledgeTagSummary[]>([])
-  const [searchState, setSearchState] = useState<SearchState>(initialUnits.length ? 'loaded' : 'idle')
+  const [searchState, setSearchState] = useState<SearchState>(initialPage ? 'loaded' : 'idle')
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadMoreError, setLoadMoreError] = useState(false)
+  const [loadMoreRequestKey, setLoadMoreRequestKey] = useState(0)
   const [tagState, setTagState] = useState<TagState>('loading')
   const [requestKey, setRequestKey] = useState(0)
 
@@ -71,6 +82,16 @@ function UnitBrowser({
     if (!focusRequestKey) return
     inputRef.current?.focus()
   }, [focusRequestKey])
+
+  useEffect(() => {
+    setQuery(initialQuery)
+  }, [initialQuery])
+
+  useEffect(() => {
+    if (!initialPage) return
+    setPage(initialPage)
+    setUnits(initialPage.items)
+  }, [initialPage])
 
   useEffect(() => {
     if (isPreview) {
@@ -94,6 +115,7 @@ function UnitBrowser({
   const hasRemoteFilters = kind !== 'all'
     || creatorId !== null
     || tag !== null
+    || scoredOnly
     || query.trim().length > 0
 
   useEffect(() => {
@@ -102,26 +124,32 @@ function UnitBrowser({
       setSearchState('idle')
       return
     }
-    if (!hasRemoteFilters) {
-      setUnits(initialUnits)
+    if (!hasRemoteFilters && initialPage) {
+      setPage(initialPage)
+      setUnits(initialPage.items)
       setSearchState('loaded')
       return
     }
-
     const controller = new AbortController()
     const timeout = window.setTimeout(() => {
-      const params = new URLSearchParams({ limit: '500' })
+      const params = new URLSearchParams({ limit: '100', offset: '0' })
       if (kind !== 'all') params.set('kind', kind)
       if (creatorId !== null) params.set('creator', String(creatorId))
       if (tag) params.set('tag', tag)
       if (query.trim()) params.set('q', query.trim())
+      if (scoredOnly) params.set('scored', 'true')
+      setPage(null)
+      setUnits([])
+      setLoadMoreError(false)
       setSearchState('loading')
 
-      apiJson<KnowledgeUnitSummary[]>(`/knowledge/units?${params.toString()}`, {
+      apiJson<KnowledgeUnitPage>(`/knowledge/units-page?${params.toString()}`, {
         signal: controller.signal,
-      }).then((payload) => {
-        setUnits(payload)
+      }, isKnowledgeUnitPage).then((payload) => {
+        setPage(payload)
+        setUnits(payload.items)
         setSearchState('loaded')
+        listRef.current?.scrollTo({ top: 0 })
       }).catch(() => {
         if (!controller.signal.aborted) setSearchState('error')
       })
@@ -131,29 +159,59 @@ function UnitBrowser({
       window.clearTimeout(timeout)
       controller.abort()
     }
-  }, [creatorId, hasRemoteFilters, initialUnits, isPreview, kind, query, requestKey, tag])
+  }, [creatorId, hasRemoteFilters, initialPage, isPreview, kind, query, requestKey, scoredOnly, tag])
 
-  const visibleUnits = useMemo(
-    () => scoredOnly ? units.filter((unit) => unit.scores.length > 0) : units,
-    [scoredOnly, units],
-  )
+  const visibleUnits = units
   const selectedUnit = visibleUnits.find((unit) => unit.id === selectedUnitId)
     ?? visibleUnits[0]
     ?? null
 
-  const initialKindCounts = useMemo(() => ({
-    all: initialUnits.length,
-    claim: initialUnits.filter((unit) => unit.kind === 'claim').length,
-    method: initialUnits.filter((unit) => unit.kind === 'method').length,
-    concept: initialUnits.filter((unit) => unit.kind === 'concept').length,
-  }), [initialUnits])
-  const creatorCounts = useMemo(() => {
-    const counts = new Map<number, number>()
-    initialUnits.forEach((unit) => {
-      counts.set(unit.creator_id, (counts.get(unit.creator_id) ?? 0) + 1)
-    })
-    return counts
-  }, [initialUnits])
+  const kindCounts = {
+    all: initialPage?.total ?? 0,
+    claim: initialPage?.counts.claim ?? 0,
+    method: initialPage?.counts.method ?? 0,
+    concept: initialPage?.counts.concept ?? 0,
+  }
+  const creatorCounts = initialPage?.creator_counts ?? {}
+
+  const rowVirtualizer = useVirtualizer({
+    count: visibleUnits.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => 196,
+    overscan: 4,
+    useFlushSync: false,
+  })
+  const virtualItems = rowVirtualizer.getVirtualItems()
+  const lastVirtualIndex = virtualItems[virtualItems.length - 1]?.index ?? -1
+
+  useEffect(() => {
+    if (!page?.has_more || searchState !== 'loaded' || loadingMoreRef.current || loadMoreError) return
+    if (lastVirtualIndex < units.length - 8) return
+    const controller = new AbortController()
+    const params = new URLSearchParams({ limit: '100', offset: String(units.length) })
+    if (kind !== 'all') params.set('kind', kind)
+    if (creatorId !== null) params.set('creator', String(creatorId))
+    if (tag) params.set('tag', tag)
+    if (query.trim()) params.set('q', query.trim())
+    if (scoredOnly) params.set('scored', 'true')
+    loadingMoreRef.current = true
+    setLoadingMore(true)
+    apiJson<KnowledgeUnitPage>(`/knowledge/units-page?${params.toString()}`, { signal: controller.signal }, isKnowledgeUnitPage)
+      .then((payload) => {
+        setPage(payload)
+        setUnits((current) => [...current, ...payload.items])
+        loadingMoreRef.current = false
+        setLoadingMore(false)
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          loadingMoreRef.current = false
+          setLoadingMore(false)
+          setLoadMoreError(true)
+        }
+      })
+    return () => controller.abort()
+  }, [creatorId, kind, lastVirtualIndex, loadMoreError, loadMoreRequestKey, page?.has_more, query, scoredOnly, searchState, tag, units.length])
 
   const resetFilters = () => {
     setKind('all')
@@ -217,7 +275,7 @@ function UnitBrowser({
               onClick={() => setKind(value)}
               type="button"
             >
-              <span>{label}</span><b>{initialKindCounts[value]}</b>
+              <span>{label}</span><b>{kindCounts[value]}</b>
             </button>
           ))}
         </section>
@@ -234,7 +292,7 @@ function UnitBrowser({
               onClick={() => setCreatorId(creator.id)}
               type="button"
             >
-              <span>{creator.name}</span><b>{creatorCounts.get(creator.id) ?? 0}</b>
+              <span>{creator.name}</span><b>{creatorCounts[String(creator.id)] ?? 0}</b>
             </button>
           ))}
         </section>
@@ -273,7 +331,7 @@ function UnitBrowser({
         </label>
 
         <footer>
-          <span>{activeFilterCount ? `${activeFilterCount} 个条件` : '全库范围'}</span>
+          <span>{activeFilterCount ? `${activeFilterCount} 个条件` : `${page?.total ?? 0} 个全库单元`}</span>
           {activeFilterCount ? <button onClick={resetFilters} type="button">清除</button> : <b>L1 EVIDENCE</b>}
         </footer>
       </aside>
@@ -309,7 +367,7 @@ function UnitBrowser({
 
         <div className="unit-catalog-state">
           <p aria-live="polite">
-            <strong>{visibleUnits.length}</strong><span>个单元</span>
+            <strong>{page?.total ?? 0}</strong><span>个单元</span>
           </p>
           <span>{query.trim() ? '匹配引文与结构字段' : tag ? `标签 / ${tag}` : '按发布时间倒序'}</span>
         </div>
@@ -318,12 +376,12 @@ function UnitBrowser({
           <div className="unit-preview-notice">后端未连接，单元全文检索需要真实知识接口。</div>
         )}
 
-        <div className="unit-list" aria-busy={searchState === 'loading'}>
-          {searchState === 'loading' && [0, 1, 2, 3].map((item) => (
+        <div className="unit-list" aria-busy={searchState === 'loading'} ref={listRef}>
+          {searchState === 'loading' && units.length === 0 && [0, 1, 2, 3].map((item) => (
             <div className="unit-row unit-row-skeleton" key={item}><i /><span /><span /></div>
           ))}
 
-          {searchState === 'error' && (
+          {searchState === 'error' && units.length === 0 && (
             <div className="unit-search-error">
               <span>SEARCH UNAVAILABLE</span>
               <strong>单元检索暂时不可用</strong>
@@ -332,41 +390,48 @@ function UnitBrowser({
             </div>
           )}
 
-          {searchState !== 'loading' && searchState !== 'error' && visibleUnits.map((unit, index) => (
-            <button
-              aria-pressed={selectedUnit?.id === unit.id}
-              className={`unit-row kind-${unit.kind}`}
-              data-unit-id={unit.id}
-              key={unit.id}
-              onClick={() => onSelectUnit(unit.id, true)}
-              onKeyDown={(event) => handleUnitKeyDown(event, index)}
-              type="button"
-            >
-              <span className="unit-row-number">{String(index + 1).padStart(3, '0')}</span>
-              <span className="unit-row-body">
-                <span className="unit-row-meta">
-                  <b>{kindLabels[unit.kind]}</b>
-                  <i />
-                  <em>{unit.creator}</em>
-                  <time>{formatDate(unit.published_at)}</time>
-                </span>
-                <strong>{unit.quote}</strong>
-                <span className="unit-row-source">{unit.content_title}</span>
-                <span className="unit-row-foot">
-                  {unit.tags.slice(0, 3).map((item) => <em key={item}>{item}</em>)}
-                  <b>
-                    {unit.kind === 'claim'
-                      ? unit.scores.length
-                        ? `${unit.scores.length} 个裁决`
-                        : '等待裁决'
-                      : '不直接计分'}
-                  </b>
-                </span>
-              </span>
-            </button>
-          ))}
+          {visibleUnits.length > 0 && (
+            <div className="unit-list-virtual" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+              {virtualItems.map((virtualRow) => {
+                const unit = visibleUnits[virtualRow.index]
+                return (
+                  <button
+                    aria-posinset={virtualRow.index + 1}
+                    aria-pressed={selectedUnit?.id === unit.id}
+                    aria-setsize={page?.total}
+                    className={`unit-row kind-${unit.kind}`}
+                    data-index={virtualRow.index}
+                    data-unit-id={unit.id}
+                    key={unit.id}
+                    onClick={() => onSelectUnit(unit.id, true)}
+                    onKeyDown={(event) => handleUnitKeyDown(event, virtualRow.index)}
+                    ref={rowVirtualizer.measureElement}
+                    style={{ transform: `translateY(${virtualRow.start}px)` }}
+                    type="button"
+                  >
+                    <span className="unit-row-number">{String(virtualRow.index + 1).padStart(3, '0')}</span>
+                    <span className="unit-row-body">
+                      <span className="unit-row-meta">
+                        <b>{kindLabels[unit.kind]}</b><i /><em>{unit.creator}</em><time>{formatDate(unit.published_at)}</time>
+                      </span>
+                      <strong>{unit.quote}</strong>
+                      <span className="unit-row-source">{unit.content_title}</span>
+                      <span className="unit-row-foot">
+                        {unit.tags.slice(0, 3).map((item) => <em key={item}>{item}</em>)}
+                        <b>{unit.kind === 'claim' ? unit.scores.length ? `${unit.scores.length} 个裁决` : '等待裁决' : '不直接计分'}</b>
+                      </span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
-          {searchState !== 'loading' && searchState !== 'error' && visibleUnits.length === 0 && (
+          {loadingMore && <div className="unit-loading-more">继续读取 · {units.length} / {page?.total ?? units.length}</div>}
+
+          {loadMoreError && <button className="unit-load-retry" onClick={() => { setLoadMoreError(false); setLoadMoreRequestKey((value) => value + 1) }} type="button">后续数据读取失败 · 重试</button>}
+
+          {searchState === 'loaded' && visibleUnits.length === 0 && (
             <div className="unit-list-empty">
               <span>NO MATCHED UNIT</span>
               <strong>没有匹配的知识单元</strong>

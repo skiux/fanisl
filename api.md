@@ -224,6 +224,11 @@ canonical 已取最新表述) / `contradicts`(否定)。
 
 ### 5.1 信源与内容（L0）
 
+#### GET /knowledge/overview
+首页和全局状态使用的未截断汇总：
+`{contents, units, claims, methods, concepts, nodes, corroborated, creators}`。
+contents 与各类 units 排除 `superseded` 的旧稿；nodes 保留全部生命周期状态；creators 只计 active。
+
 #### GET /knowledge/creators
 `[{id, name, lang, focus, notes, active, created_at, handles:[{platform, handle, url}]}]`
 
@@ -274,6 +279,13 @@ bytes, source, created_at}]`。`note` 是该时刻视觉笔记的原文，`path`
 跨内容单元浏览 + 全文检索（q 匹配 quote 与 payload）。返回结构同上另加
 `creator`(名), `content_title`。上限 500。
 
+#### GET /knowledge/units-page?kind=&creator=&tag=&symbol=&q=&scored=false&limit=100&offset=0
+单元浏览的分页契约：`{items:[...], total, offset, limit, has_more,
+counts:{claim, method, concept}, creator_counts:{creator_id:count}}`。排序固定为
+`published_at DESC NULLS LAST, id DESC`；
+total 与 counts 是当前服务端筛选的完整结果，不是当前页长度。默认排除 `superseded` 旧稿。
+`scored=true` 只返回至少有一条市场裁决的单元。
+
 #### GET /knowledge/units/{id}
 单元详情：同上另加 `content_url`。
 
@@ -299,6 +311,10 @@ content_frame_span_s:[lo,hi]|null, warning|null}`，`frames` 按与 locator 的�
 n_attest, n_creators, n_contents, first_seen, last_seen, hit, partial, miss}]`
 按提及数倒序；`cross_source=true` 只看跨信源共识（n_creators≥2）。
 hit/partial/miss 是节点关联 claim 的评分聚合。
+
+#### GET /knowledge/nodes-page?kind=&status=&tag=&q=&limit=200&offset=0
+长期知识索引的分页契约：`{items:[...], total, offset, limit, has_more}`。`q` 同时检索
+标题、规范陈述和标签；排序固定为 `n_attest DESC, updated_at DESC, id DESC`，用于完整节点索引。
 
 #### GET /knowledge/nodes/{id}
 节点详情：`{...同上, attestations:[{relation, note, unit_id, kind, quote, locator,
@@ -333,6 +349,14 @@ recent:[近期已判定（hit/partial/miss）], unavailable:[不可判（unprice
 review:[需复核（condition_not_met/pending）]}`。
 行结构：due 项 `{unit_id, quote, payload, published_at, ref_price_at_publish, creator,
 content_title, horizon_label}`；其余三组另带 `{score_id, outcome, realized, eval_ts, scored_at}`。
+
+#### GET /knowledge/verification-summary?days=14
+验证中心未截断汇总：`{overview:{due, completed, unavailable, review}, nearest_due:[最多4条]}`。
+
+#### GET /knowledge/verification-page?bucket=recent&days=14&limit=100&offset=0
+分类分页：`bucket=recent|due|review|unavailable`，返回
+`{items, total, offset, limit, has_more}`。recent/review/unavailable 按评分落库时刻与 id 倒序；
+due 按执行日期、发布时间与单元 id 确定排序。
 
 #### GET /knowledge/verifications/{score_id}
 单次评分完整档案（判定下钻页）：`{score_id, unit_id, horizon_label, outcome, realized,

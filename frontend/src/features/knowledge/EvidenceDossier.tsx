@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
+import { nextTabIndex } from '../../shared/interaction/tabs'
+import { useModalFocus } from '../../shared/interaction/useModalFocus'
 import type {
   KnowledgeContentDetail,
   KnowledgeKind,
@@ -331,7 +333,7 @@ function ScoreRecord({ score }: { score: UnitScore }) {
 
 function ScoreSection({ unit }: { unit: KnowledgeUnitDetail }) {
   return (
-    <section className="unit-scores">
+    <section className="unit-score-section">
       <header>
         <div>
           <p>市场裁决</p>
@@ -642,6 +644,8 @@ function EvidenceDossier({
   const [activeView, setActiveView] = useState<'structure' | 'verdict' | 'source'>('structure')
   const bodyRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+  const dossierRef = useRef<HTMLElement>(null)
+  useModalFocus(dossierRef, !embedded, onClose)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -669,7 +673,9 @@ function EvidenceDossier({
   return (
     <section
       aria-label={`证据单元 ${unitId}`}
+      aria-modal={embedded ? undefined : true}
       className={`evidence-dossier${embedded ? ' is-embedded' : ''}`}
+      ref={dossierRef}
       role={embedded ? 'region' : 'dialog'}
     >
       {!embedded && (
@@ -725,14 +731,27 @@ function EvidenceDossier({
               </aside>
 
               <section className="unit-analysis-workspace">
-                <nav aria-label="证据核查视图" className="dossier-section-tabs" role="tablist">
+                <nav
+                  aria-label="证据核查视图"
+                  className="dossier-section-tabs"
+                  onKeyDown={(event) => {
+                    const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'))
+                    const index = tabs.indexOf(event.target as HTMLButtonElement)
+                    const next = nextTabIndex(event.key, index, tabs.length)
+                    if (next === null) return
+                    event.preventDefault()
+                    tabs[next].click()
+                    tabs[next].focus()
+                  }}
+                  role="tablist"
+                >
                   {([
                     ['structure', '结构化结论', '01'],
                     ['verdict', '市场裁决', '02'],
                     ['source', '原文上下文', '03'],
-                  ] as const).map(([value, label, count]) => <button aria-selected={activeView === value} key={value} onClick={() => setActiveView(value)} role="tab" type="button"><span>{label}</span><b>{count}</b></button>)}
+                  ] as const).map(([value, label, count]) => <button aria-controls={`unit-${unitId}-panel-${value}`} aria-selected={activeView === value} id={`unit-${unitId}-tab-${value}`} key={value} onClick={() => setActiveView(value)} role="tab" tabIndex={activeView === value ? 0 : -1} type="button"><span>{label}</span><b>{count}</b></button>)}
                 </nav>
-                <div className="dossier-section-content" role="tabpanel">
+                <div aria-labelledby={`unit-${unitId}-tab-${activeView}`} className="dossier-section-content" id={`unit-${unitId}-panel-${activeView}`} role="tabpanel" tabIndex={0}>
                   {activeView === 'structure' && <div className="dossier-view dossier-structure-view">
                     {unit.kind === 'claim' && <ClaimContract unit={unit} />}
                     {unit.kind === 'method' && <MethodStructure unit={unit} />}
