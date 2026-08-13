@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ArchiveScene from './ArchiveScene'
+import type { ArchiveSceneHandle } from './ArchiveScene'
 import type { KnowledgeOverview, KnowledgeUnitSummary } from './features/knowledge/types'
 import { chapters, getActiveChapter } from './journey'
 import { apiJson } from './shared/api/client'
@@ -131,6 +132,7 @@ function App() {
   const targetProgress = useRef(0)
   const progressNumber = useRef<HTMLSpanElement>(null)
   const progressBar = useRef<HTMLSpanElement>(null)
+  const sceneRef = useRef<ArchiveSceneHandle>(null)
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const staticExperience = reducedMotion
 
@@ -163,31 +165,51 @@ function App() {
   useEffect(() => {
     if (staticExperience) return
     let frame = 0
-    const readScroll = () => {
-      const maximum = Math.max(1, document.documentElement.scrollHeight - window.innerHeight)
-      targetProgress.current = Math.min(1, Math.max(0, window.scrollY / maximum))
-      const nextActive = getActiveChapter(targetProgress.current)
-      if (nextActive !== activeRef.current) { activeRef.current = nextActive; setActive(nextActive) }
-    }
     let previousTime = performance.now()
+    const renderProgress = () => {
+      sceneRef.current?.update(progress.current)
+      if (progressNumber.current) progressNumber.current.textContent = `${Math.round(progress.current * 100).toString().padStart(2, '0')}%`
+      if (progressBar.current) progressBar.current.style.transform = `scaleX(${progress.current})`
+    }
     const update = (time: number) => {
       const delta = Math.min(0.05, Math.max(0, (time - previousTime) / 1000))
       previousTime = time
       const difference = targetProgress.current - progress.current
       progress.current += difference * (1 - Math.exp(-delta * 7.4))
       if (Math.abs(difference) < 0.0001) progress.current = targetProgress.current
-      if (progressNumber.current) progressNumber.current.textContent = `${Math.round(progress.current * 100).toString().padStart(2, '0')}%`
-      if (progressBar.current) progressBar.current.style.transform = `scaleX(${progress.current})`
+      renderProgress()
+      if (Math.abs(targetProgress.current - progress.current) >= 0.0001) frame = window.requestAnimationFrame(update)
+      else frame = 0
+    }
+    const startAnimation = () => {
+      if (frame || document.hidden) return
+      previousTime = performance.now()
       frame = window.requestAnimationFrame(update)
+    }
+    const readScroll = () => {
+      const maximum = Math.max(1, document.documentElement.scrollHeight - window.innerHeight)
+      targetProgress.current = Math.min(1, Math.max(0, window.scrollY / maximum))
+      const nextActive = getActiveChapter(targetProgress.current)
+      if (nextActive !== activeRef.current) { activeRef.current = nextActive; setActive(nextActive) }
+      startAnimation()
+    }
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (frame) window.cancelAnimationFrame(frame)
+        frame = 0
+      } else {
+        readScroll()
+      }
     }
     readScroll()
     window.addEventListener('scroll', readScroll, { passive: true })
     window.addEventListener('resize', readScroll)
-    frame = window.requestAnimationFrame(update)
+    document.addEventListener('visibilitychange', onVisibility)
     return () => {
-      window.cancelAnimationFrame(frame)
+      if (frame) window.cancelAnimationFrame(frame)
       window.removeEventListener('scroll', readScroll)
       window.removeEventListener('resize', readScroll)
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [staticExperience])
 
@@ -240,7 +262,7 @@ function App() {
           <ArchiveScene
             active={active}
             openSearch={openSearch}
-            progress={progress}
+            ref={sceneRef}
             retryStats={() => setStatsRequestKey((value) => value + 1)}
             stats={stats}
             statsState={statsState}

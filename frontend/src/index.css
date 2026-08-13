@@ -24,6 +24,27 @@
   --text-display: clamp(42px, 4.6vw, 64px);
 }
 
+.route-loading {
+  display: grid;
+  min-height: 100svh;
+  place-content: center;
+  gap: 9px;
+  color: #59645a;
+  background: #efede5;
+  text-align: center;
+}
+
+.route-loading span {
+  font: 650 14px ui-monospace, monospace;
+  letter-spacing: .16em;
+}
+
+.route-loading p {
+  margin: 0;
+  color: #7b837b;
+  font-size: var(--text-meta);
+}
+
 * {
   box-sizing: border-box;
 }

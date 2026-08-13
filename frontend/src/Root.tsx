@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import App from './App'
-import ArchivePage from './features/archive/ArchivePage'
-import DiscoveryPage from './features/discovery/DiscoveryPage'
-import KnowledgePage from './features/knowledge/KnowledgePage'
-import VerificationPage from './features/verification/VerificationPage'
+
+const ArchivePage = lazy(() => import('./features/archive/ArchivePage'))
+const DiscoveryPage = lazy(() => import('./features/discovery/DiscoveryPage'))
+const KnowledgePage = lazy(() => import('./features/knowledge/KnowledgePage'))
+const VerificationPage = lazy(() => import('./features/verification/VerificationPage'))
 
 type Route = 'home' | 'knowledge' | 'verification' | 'discovery' | 'archive'
 
@@ -37,10 +38,16 @@ function Root() {
             : 'FANISL · 个人投资知识引擎'
   }, [route])
 
-  if (route === 'knowledge') return <KnowledgePage />
-  if (route === 'verification') return <VerificationPage />
-  if (route === 'discovery') return <DiscoveryPage />
-  if (route === 'archive') return <ArchivePage />
+  if (route !== 'home') {
+    const page = route === 'knowledge'
+      ? <KnowledgePage />
+      : route === 'verification'
+        ? <VerificationPage />
+        : route === 'discovery'
+          ? <DiscoveryPage />
+          : <ArchivePage />
+    return <Suspense fallback={<main className="route-loading"><span>FANISL</span><p>正在进入工作区</p></main>}>{page}</Suspense>
+  }
   return <App />
 }
 

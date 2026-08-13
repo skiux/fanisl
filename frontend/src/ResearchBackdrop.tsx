@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react'
-import type { CSSProperties, RefObject } from 'react'
+import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
+import type { CSSProperties } from 'react'
 
-type ResearchBackdropProps = {
-  progress: RefObject<number>
+export type ResearchBackdropHandle = {
+  update: (progress: number) => void
 }
 
 type Candle = {
@@ -64,7 +64,7 @@ function createLinePath(values: number[], toX: (index: number) => number, toY: (
     .join(' ')
 }
 
-function ResearchBackdrop({ progress }: ResearchBackdropProps) {
+const ResearchBackdrop = forwardRef<ResearchBackdropHandle>(function ResearchBackdrop(_props, ref) {
   const field = useRef<HTMLDivElement>(null)
   const cursor = useRef<SVGGElement>(null)
   const trace = useRef<SVGLineElement>(null)
@@ -92,11 +92,9 @@ function ResearchBackdrop({ progress }: ResearchBackdropProps) {
     }
   }, [candles])
 
-  useEffect(() => {
-    let frame = 0
-
-    const update = () => {
-      const value = clamp(progress.current)
+  useImperativeHandle(ref, () => ({
+    update(progress: number) {
+      const value = clamp(progress)
       const index = Math.min(CANDLE_COUNT - 1, Math.floor(value * (CANDLE_COUNT - 1)))
       const candle = candles[index]
       const x = geometry.toX(index)
@@ -106,12 +104,8 @@ function ResearchBackdrop({ progress }: ResearchBackdropProps) {
       cursor.current?.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)})`)
       trace.current?.setAttribute('x1', x.toFixed(2))
       trace.current?.setAttribute('x2', x.toFixed(2))
-      frame = window.requestAnimationFrame(update)
-    }
-
-    frame = window.requestAnimationFrame(update)
-    return () => window.cancelAnimationFrame(frame)
-  }, [candles, geometry, progress])
+    },
+  }), [candles, geometry])
 
   return (
     <div aria-hidden="true" className="research-backdrop" ref={field}>
@@ -230,6 +224,6 @@ function ResearchBackdrop({ progress }: ResearchBackdropProps) {
       <div className="research-grain" />
     </div>
   )
-}
+})
 
 export default ResearchBackdrop

@@ -1,15 +1,19 @@
-import { useEffect, useRef } from 'react'
-import type { CSSProperties, RefObject } from 'react'
+import { forwardRef, useImperativeHandle, useRef } from 'react'
+import type { CSSProperties } from 'react'
 import ResearchBackdrop from './ResearchBackdrop'
+import type { ResearchBackdropHandle } from './ResearchBackdrop'
 import type { KnowledgeOverview } from './features/knowledge/types'
 
 type ArchiveSceneProps = {
   active: number
   openSearch: () => void
-  progress: RefObject<number>
   retryStats: () => void
   stats: KnowledgeOverview | null
   statsState: 'loading' | 'live' | 'error'
+}
+
+export type ArchiveSceneHandle = {
+  update: (progress: number) => void
 }
 
 type MotionStyle = CSSProperties & {
@@ -48,16 +52,16 @@ function StageLabel({ index, label }: { index: string; label: string }) {
   )
 }
 
-function ArchiveScene({ active, openSearch, progress, retryStats, stats, statsState }: ArchiveSceneProps) {
+const ArchiveScene = forwardRef<ArchiveSceneHandle, ArchiveSceneProps>(function ArchiveScene({ active, openSearch, retryStats, stats, statsState }, ref) {
   const stageRefs = useRef<Array<HTMLElement | null>>([])
+  const backdropRef = useRef<ResearchBackdropHandle>(null)
 
-  useEffect(() => {
-    const stages = stageRefs.current.filter((stage): stage is HTMLElement => Boolean(stage))
-    const animatedChildren = stages.map((stage) => Array.from(stage.querySelectorAll<HTMLElement>('[data-animate]')))
-    let frame = 0
-
-    const update = () => {
-      const value = clamp(progress.current)
+  useImperativeHandle(ref, () => ({
+    update(progress: number) {
+      const stages = stageRefs.current.filter((stage): stage is HTMLElement => Boolean(stage))
+      const animatedChildren = stages.map((stage) => Array.from(stage.querySelectorAll<HTMLElement>('[data-animate]')))
+      const value = clamp(progress)
+      backdropRef.current?.update(value)
 
       stages.forEach((stage, index) => {
         const [start, end] = stageRanges[index]
@@ -78,16 +82,12 @@ function ArchiveScene({ active, openSearch, progress, retryStats, stats, statsSt
         })
       })
 
-      frame = window.requestAnimationFrame(update)
-    }
-
-    frame = window.requestAnimationFrame(update)
-    return () => window.cancelAnimationFrame(frame)
-  }, [progress])
+    },
+  }), [])
 
   return (
     <div className="archive-scene">
-      <ResearchBackdrop progress={progress} />
+      <ResearchBackdrop ref={backdropRef} />
 
       <section
         aria-hidden={active !== 0}
@@ -276,6 +276,6 @@ function ArchiveScene({ active, openSearch, progress, retryStats, stats, statsSt
       </section>
     </div>
   )
-}
+})
 
 export default ArchiveScene
