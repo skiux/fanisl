@@ -34,6 +34,7 @@ function UnitBrowser({
   creators,
   filtersOpen,
   focusRequestKey,
+  initialQuery,
   initialUnits,
   isPreview,
   onCloseFilters,
@@ -46,6 +47,7 @@ function UnitBrowser({
   creators: KnowledgeCreator[]
   filtersOpen: boolean
   focusRequestKey: number
+  initialQuery: string
   initialUnits: KnowledgeUnitSummary[]
   isPreview: boolean
   onCloseFilters: () => void
@@ -60,7 +62,7 @@ function UnitBrowser({
   const [creatorId, setCreatorId] = useState<number | null>(null)
   const [tag, setTag] = useState<string | null>(null)
   const [scoredOnly, setScoredOnly] = useState(false)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialQuery)
   const [units, setUnits] = useState<KnowledgeUnitSummary[]>(initialUnits)
   const [tags, setTags] = useState<KnowledgeTagSummary[]>([])
   const [searchState, setSearchState] = useState<SearchState>(initialUnits.length ? 'loaded' : 'idle')
@@ -71,6 +73,10 @@ function UnitBrowser({
     if (!focusRequestKey) return
     inputRef.current?.focus()
   }, [focusRequestKey])
+
+  useEffect(() => {
+    setQuery(initialQuery)
+  }, [initialQuery])
 
   useEffect(() => {
     if (isPreview) {

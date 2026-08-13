@@ -224,6 +224,11 @@ canonical 已取最新表述) / `contradicts`(否定)。
 
 ### 5.1 信源与内容（L0）
 
+#### GET /knowledge/overview
+首页和全局状态使用的未截断汇总：
+`{contents, units, claims, methods, concepts, nodes, corroborated, creators}`。
+contents 与各类 units 排除 `superseded` 的旧稿；nodes 保留全部生命周期状态；creators 只计 active。
+
 #### GET /knowledge/creators
 `[{id, name, lang, focus, notes, active, created_at, handles:[{platform, handle, url}]}]`
 

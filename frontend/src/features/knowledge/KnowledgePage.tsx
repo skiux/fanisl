@@ -91,6 +91,8 @@ type HashState = {
   contentId: number | null
   nodeId: number | null
   peekNodeId: number | null
+  query: string
+  unitId: number | null
   view: KnowledgeView
 }
 
@@ -105,11 +107,14 @@ function readHashState(): HashState {
   const contentId = positiveId(params.get('content'))
   const nodeId = positiveId(params.get('node'))
   const peekNodeId = contentId ? positiveId(params.get('peekNode')) : null
+  const unitId = positiveId(params.get('unit'))
   const requestedView = params.get('view')
   return {
     contentId,
     nodeId,
     peekNodeId,
+    query: params.get('q')?.trim() ?? '',
+    unitId,
     view: contentId ? 'sources' : nodeId ? 'nodes' : requestedView === 'nodes'
       ? 'nodes'
       : requestedView === 'evidence' || params.get('search') === '1'
@@ -251,7 +256,8 @@ function KnowledgePage() {
   const [unitMode, setUnitMode] = useState<LoadMode>('loading')
   const [unitFiltersOpen, setUnitFiltersOpen] = useState(false)
   const [unitReaderOpen, setUnitReaderOpen] = useState(false)
-  const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null)
+  const [selectedUnitId, setSelectedUnitId] = useState<number | null>(initialRef.current.unitId)
+  const [routeQuery, setRouteQuery] = useState(initialRef.current.query)
   const [unitFocusKey, setUnitFocusKey] = useState(view === 'evidence' ? 1 : 0)
 
   useEffect(() => {
@@ -390,6 +396,8 @@ function KnowledgePage() {
       setContentId(next.contentId)
       setNodeId(next.nodeId)
       setPeekNodeId(next.peekNodeId)
+      setRouteQuery(next.query)
+      setSelectedUnitId(next.unitId)
       setEvidenceUnitId(null)
       setEvidenceParentTitle(null)
     }
@@ -406,6 +414,8 @@ function KnowledgePage() {
     setEvidenceParentTitle(null)
     setUnitReaderOpen(false)
     setUnitFiltersOpen(false)
+    setRouteQuery('')
+    setSelectedUnitId(null)
     window.history.pushState(null, '', next === 'sources' ? '#/knowledge' : `#/knowledge?view=${next}`)
     window.scrollTo({ top: 0, left: 0 })
     if (next === 'evidence') setUnitFocusKey((value) => value + 1)
@@ -637,6 +647,7 @@ function KnowledgePage() {
               creators={creators}
               filtersOpen={unitFiltersOpen}
               focusRequestKey={unitFocusKey}
+              initialQuery={routeQuery}
               initialUnits={units}
               isPreview={unitMode === 'preview'}
               onCloseFilters={() => setUnitFiltersOpen(false)}

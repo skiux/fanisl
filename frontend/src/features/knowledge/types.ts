@@ -30,6 +30,12 @@ export type KnowledgeStats = {
   corroborated: number
 }
 
+export type KnowledgeOverview = KnowledgeStats & {
+  claims: number
+  methods: number
+  concepts: number
+}
+
 export type AttestationRelation = 'restates' | 'refines' | 'supersedes' | 'contradicts'
 export type NodeRelationKind = 'conflicts' | 'relates'
 

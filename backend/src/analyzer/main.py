@@ -35,6 +35,7 @@ from .runtime import (
     trading_store,
 )
 from .knowledge import discovery, spotcheck
+from .knowledge.overview import overview_stats
 from .storage import display_messages
 
 # 注意：API 进程**不起后台调度器**。采集/交易由独立的 collector / trader worker 进程跑
@@ -279,6 +280,12 @@ def trading_positions(account: str | None = None) -> list[dict]:
 def knowledge_creators() -> list[dict]:
     """信源登记表（含各平台 handle）。"""
     return knowledge_store.creators()
+
+
+@app.get("/knowledge/overview")
+def knowledge_overview() -> dict[str, int]:
+    """首页与导航使用的当前知识库规模；不受列表接口 limit 截断。"""
+    return overview_stats(knowledge_pool)
 
 
 @app.get("/knowledge/contents")
