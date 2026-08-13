@@ -1,0 +1,303 @@
+{
+  "content_id": 43,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "我在周日的时候我录了一期视频，我说我其实思考了一段时间，包括我看了美联储的一篇文章，看完之后我个人的看法是在周三非常有可能，美联储会选择加息。当时我给了70%这个概率，因为市场现在只预期只有30%到40%左右嘛。",
+      "locator": "06:32",
+      "ref_price": 3.75,
+      "tags": ["fed-policy", "macro-data", "bond-yields"],
+      "payload": {
+        "asset_text": "2026-07-29 美联储议息会议是否加息（作者给 70% 概率，市场当时定价 30-40%）",
+        "asset_symbol": "DFEDTARU",
+        "priceable": true,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "horizon": {"type": "by_date", "deadline": "2026-07-30"},
+        "stance_strength": "explicit",
+        "verifiability": "A",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-30"],
+          "success_def": "联邦基金目标区间上限（FRED DFEDTARU）在 2026-07-30 严格高于会前的 3.75 = hit（加息落地），等于或低于 = miss。用严格大于而非默认的大于等于：不加息时读数不变，按标准语义会被误判为 hit。期限与标的均出自原文（周三的议息会议）。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那比如说我个人来说，我知道现在苹果的估值非常的，苹果估值在历史上的一个高位，那这时候对我来说就是非常好去减仓苹果的时候，去加仓一些我比较喜欢长期比较喜欢的一些硬件标的。",
+      "locator": "10:40",
+      "ref_price": 340.08,
+      "tags": ["aapl", "valuation", "position-sizing", "rotation"],
+      "payload": {
+        "asset_text": "苹果（估值处于历史高位，作者判定为减仓时机）",
+        "asset_symbol": "AAPL",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-05", "2026-08-28", "2026-10-27"],
+          "success_def": "阶梯各时点收盘 < 参考价 340.08（2026-07-28 收盘）= hit。原文是基于估值分位的减仓判断（并计划把仓位换到硬件标的），按'该减仓'解为方向向下。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那管理层在这个季度财报里面给出来是中位数在2.7，管理层给的这个2.7。那最后的数据，我认为起码每股收益是在3美金以上。",
+      "locator": "18:01",
+      "tags": ["be", "power-demand", "valuation"],
+      "payload": {
+        "asset_text": "Bloom Energy 2026 财年 EPS（市场原预期 2.08、管理层指引中位数 2.7，作者判 3 美元以上）",
+        "asset_symbol": "BE",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "magnitude": {"target": 3.0},
+        "horizon": {"type": "by_date", "deadline": "2027-03-31"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那在现在修正之后的基本上，我假设在27年EPS体量每股收益是在6美金，那按照现在的这个价格，Forward PE，27年的这个Forward PE就是27倍，那现在市场的一个预期多少？38倍。",
+      "locator": "18:40",
+      "tags": ["be", "valuation", "power-demand"],
+      "payload": {
+        "asset_text": "Bloom Energy 2027 财年 EPS（作者假设 6 美元，对应 forward PE 27 倍，市场口径为 38 倍）",
+        "asset_symbol": "BE",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "magnitude": {"target": 6.0},
+        "horizon": {"type": "by_date", "deadline": "2028-03-31"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "而有一个不对称的风险，最重要的是我们怎么去做。最重要的是最重要其实不是去预测这个风险会不会发生，或者这个事件会不会发生，而是如果这一个事件发生，我们怎么去应对？",
+      "locator": "07:20",
+      "tags": ["risk-mgmt", "position-sizing", "fed-policy", "valuation"],
+      "payload": {
+        "name": "不对称风险：先备好应对表，而不是押事件方向",
+        "summary": "面对结果不对称的事件（会不会加息），工作重心不是提高预测准确率，而是在事件之前把每种结果对应的动作写好：跌到哪个估值区间加仓、哪些没信心的持仓先设止损、哪些高估值仓位换到哪里、以及反向情形能不能接受。",
+        "family": "event",
+        "rules": [
+          "事前算好加仓区间：用指数估值定位（纳指再跌 5% 即回到今年 3 月低位的 20.2 倍，费半再跌 10% 到 18 倍接近两年两次底部）",
+          "审视持仓：对自己本就没信心的标的先设止损，事件当天触发即出",
+          "准备换仓对：高估值的减（苹果），低估值的加（硬件、诺基亚）",
+          "现金仓位 15-20% 以上就不必恐慌，按估值区间分批买入即可；带杠杆或持有高波动标的进入事件才需要小心",
+          "对小概率的反向结果也给答案：若鸽派、股市上涨，当前仓位能不能接受上涨（踏空风险同样要认）"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["指数与个股的 forward PE 历史区间", "现金仓位", "事件日历"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "就像在一个月的时候，我当时估值在28倍，在29.6倍，还没有到30倍，但是我说在这个位置我们知道就已经在一个相对的高点了。我并没有去猜测，当然当时我说，我说如果去到30倍以上的话，30倍以上就去到了，超过了2024年的最高点，那去到30倍以上我们要作主动止盈，但是接近于29倍、28倍、29.6倍的时候我们应该去做一个被动止盈。",
+      "locator": "05:10",
+      "tags": ["valuation", "position-sizing", "sox", "risk-mgmt"],
+      "payload": {
+        "name": "估值上沿的主动止盈与被动止盈分档",
+        "summary": "把估值上沿拆成两档：接近历史高位区间（费半 28-29.6 倍）用被动/移动止盈，突破历史极值（30 倍以上、超过 2024 年最高点）才主动止盈——不猜情绪能堆到哪，只按区间分档动作。",
+        "family": "positioning",
+        "rules": [
+          "识别该标的历史估值的高位区间与历史极值（费半：高位区 28-29.6 倍，极值 30 倍=2024 年最高）",
+          "进入高位区间 → 被动/移动止盈（跟随价格上移止盈位，不主动卖）",
+          "突破历史极值 → 主动止盈（直接减仓）",
+          "同一逻辑用于下沿：不预测 17 倍一定止跌，只认这是低位区间",
+          "前提是承认估值只是模糊正确，给区间而不给点位"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["标的 forward PE 的多年历史序列"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "首先第一个策略，其实是我一直和大家分享，就是以指数为核心。然后我们要做一个satellite strategy，就是一个卫星策略。以指数为核心，然后比较少部分的一些仓位20%或者30%去选择自己喜欢的一些标的。",
+      "locator": "13:30",
+      "tags": ["position-sizing", "risk-mgmt", "rsp"],
+      "payload": {
+        "name": "核心—卫星配置，用等权指数化解集中度",
+        "summary": "以指数为核心仓、20-30% 作卫星仓选个股，避免被单一叙事破裂全额冲击；当市场涨幅高度集中于少数权重股时，核心仓改用等权指数（RSP）而非市值加权指数，集中度就不会同时放大涨幅与跌幅。",
+        "family": "positioning",
+        "rules": [
+          "核心仓：指数（集中度高时用 RSP 等权）",
+          "卫星仓：20-30% 配自己看好的个股",
+          "个股仓位要分散，尤其对当下走得最好的板块必须用仓位上限压住（硬件走得好时更要止盈）",
+          "理由是错误必然发生，控制的是错的时候的代价而不是错的概率",
+          "持有个股就必须持续跟踪前沿进展，看到 AI 落地放缓的信号立刻考虑调仓"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["指数与等权指数日线", "个股仓位表"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那，图里蓝色这条线波动会比较大一些，它看的是每一个季度，比如说刚刚过去的第二季度，只有30%不到的这些标的是跑赢了指数本身。说明什么？说明整个市场都是非常的narrow，说明整个市场的涨幅非常的窄。",
+      "locator": "12:35",
+      "tags": ["market-breadth", "psychology", "valuation"],
+      "payload": {
+        "name": "Winner ratio 判市场宽度与泡沫相似度",
+        "summary": "用跑赢指数的成分股占比（FTSE 世界指数口径，数据可追到 1988 年）衡量涨幅集中度：季度值跌到 30% 以下即极窄，历史上最近一次这么低是 2000 年科技泡沫。",
+        "family": "positioning",
+        "rules": [
+          "季度口径（波动大）看当下宽度：2026 Q2 只有不到 30% 的成分股跑赢指数",
+          "两年滚动口径（平滑）看趋势，判断是短暂收窄还是结构性收窄",
+          "读数极低不等于立刻见顶，只说明当前处在与 2000 年可比的窄幅结构里，据此调整集中度与仓位纪律"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["全球指数成分股与指数本身的区间收益（可跑赢比例）"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "因为非常有意思就公司在上一个季度财报里面就说今年全年的毛利润在34%，但是即使在这种情况，市场仍然预期全年就32%。也就是市场几乎，几乎管理层是一定能够必得，管理层给这个指引，大多数时候能够做的比指标要高。但是市场却给了一个比指引还要低的这个预期。所以这一个setup在那边，就是为了数据出来之后会比市场预期要好。",
+      "locator": "14:04",
+      "tags": ["be", "valuation", "power-demand"],
+      "payload": {
+        "name": "市场预期低于管理层指引 = 财报 beat 的结构性 setup",
+        "summary": "把管理层已公开的指引与卖方一致预期逐项对齐；当一致预期低于管理层自己给的指引时，这份财报几乎注定超预期——因为管理层通常还会做得比自己的指引更好。",
+        "family": "event",
+        "rules": [
+          "取管理层上季度给出的全年指引（Bloom Energy 全年毛利率 34%）",
+          "取当前一致预期同一口径（市场只给 32%）",
+          "一致预期 < 管理层指引 → 判定为 beat setup",
+          "验证：本季实际毛利率高于预期 2 个百分点，EPS 因此高出预期 94%、营收高出 27%"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["管理层历次指引", "卖方一致预期同口径数据"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那也就是说，短期之内市场的交易逻辑就是动能指数和非动能指数。你其实可以看到芯片板块里面几乎所有的标的一定是在动能指数里面。",
+      "locator": "00:07",
+      "tags": ["rotation", "positioning", "semiconductor-cycle", "market-breadth"],
+      "payload": {
+        "canonical_statement": "2026 年 7 月的市场只在交易一条线：标的在不在高贝塔动能指数里。该指数单日 -9.4%、一个月 -31%、QTD -35.4%，把 YTD 涨幅全部抹平，而同期标普等权 +2.3%、大科技仅 -1.7%——芯片股几乎全部落在动能指数内，板块归属已被动能属性取代。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "2026 年 7 月的去杠杆阶段"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为高盛他们很坏，高盛他们只要看到有一波趋势，他们就会做一个策略出来，这个策略里面有一些标的，然后让背后的一些机构投资者去购买。那这些标的本身对于这些机构投资者来说就会是一个比较好的对冲标的。",
+      "locator": "01:20",
+      "tags": ["positioning", "rotation", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "投行把已成形的趋势打包成动能策略卖给机构，这些篮子随后成为机构的对冲腿——于是平仓时篮子内的标的被同步抛售，跌幅与基本面无关而与是否入选篮子有关。这是动能指数暴跌时个股同涨同跌的机制来源。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为估值本身它就是一个模糊正确，它并没有办法帮我们去预测，到了17倍就一定会止跌，不可能。",
+      "locator": "05:40",
+      "tags": ["valuation", "risk-mgmt", "sox"],
+      "payload": {
+        "canonical_statement": "估值给的是区间不是点位：不知道费半跌到 17 倍会不会止跌，但 2025 年 3 月与 2026 年 3 月两次都在 17 倍附近见底，这个参考区间就够用了——高位同理，不猜情绪能堆到哪，只认区间。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "而当这两股力量碰撞或者当这两股力量叠加的时候，最终会回归到一个什么？我认为最终就是回归到估值。",
+      "locator": "09:40",
+      "tags": ["valuation", "fed-policy", "semiconductor-cycle", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "当市场同时被多股力量拉扯（硬件去杠杆 + 美联储鹰派）时，需要一条最高优先级的判断主线，而这条主线是基本面与估值：估值低到一定位置就可以无视其余噪音——长期看美联储是噪音、战争是噪音、去杠杆也是噪音，杠杆出清完标的仍回到估值上。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "比如现在大科技和当初2000年的思科、英特尔，他们大幅度去增加这个资本开支去造这个基建。现在的大科技一样投入那么多资本开支，是一样的。如果说未来大科技资本开支没有回报的话，那我们现在就是处在一个2000年的科技泡沫之中。",
+      "locator": "13:00",
+      "tags": ["ai-capex", "valuation", "psychology", "mag7"],
+      "payload": {
+        "canonical_statement": "当下与 2000 年的可比之处是资本开支结构：当年思科、英特尔大举建基建，如今大科技同样在砸资本开支——判定是不是泡沫的唯一分水岭是这些开支最终有没有回报，而不是估值高低或叙事热度。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为我们知道在未来这条投资道路里面，我们一定会错。那问题就是我们错之后的这个代价到底是什么？那么当我们仓位非常大的时候，那我们错的这个代价就会比较大。",
+      "locator": "14:00",
+      "tags": ["risk-mgmt", "position-sizing", "psychology"],
+      "payload": {
+        "canonical_statement": "仓位控制的目标不是降低出错概率而是降低出错代价：判断错误在投资中必然发生，仓位越大错的代价越大，因此对当下走得最好、最容易重仓的板块反而要主动用仓位上限压住。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "Semi Analysis预计，我们看整个26年大多数的供电，21吉瓦的这个供电，蓝色这一部分是behind the meter，蓝色这一部分是自己带电的。就是像Blue Energy这一类的公司。21个吉瓦里面可能只有一两个吉瓦是来自于自己带电进去。但27年的时候，39吉瓦的这个增速里面有15个吉瓦是来自于自己带电的，到28年的时候，54个吉瓦里面40.26个吉瓦，43个吉瓦全部是来自于带电。为什么？是因为整个电网的这个增速会非常得慢，跟不上市场的这个需求。",
+      "locator": "15:14",
+      "tags": ["power-demand", "ai-capex", "be", "neocloud"],
+      "payload": {
+        "canonical_statement": "美国数据中心新增供电将从电网快速转向自带电（behind the meter）：按 Semi Analysis 预测，2026 年新增 21 GW 中自带电只有 1-2 GW，2027 年 39 GW 中占 15 GW，2028 年 54 GW 中约 43 GW——原因是电网扩容速度根本跟不上需求。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以Blue Energy的一个特色就是，它速度，通电的速度快，而且产能能够绝对能够保证。但它的一个负面的一个影响就是，它一定是比Grid要贵，包括其他的一些方式，都比其他的方式要贵。",
+      "locator": "16:28",
+      "tags": ["be", "power-demand", "valuation"],
+      "payload": {
+        "canonical_statement": "Bloom Energy 在自带电赛道里的定位是\"快而贵\"：通电速度快、产能有保证（供电上限 2026 年 2 GW、2027 年 3.5 GW、2028 年 5.5 GW，近乎逐年翻倍），代价是单位成本高于电网及西门子、GE Vernova、卡特彼勒等其他自带电方案——云厂在速度与性价比之间的取舍，决定它拿到多少份额。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "对吧，那对这些数据中心来说，你一年就假设最低点，你有12个Billion的一个营收，一个月就是1个Billion的营收，你的净利润就是2亿美金。那1个Billion，11亿美金，2亿美金的一个净利润就没了。所以从云厂的这个角度，他们当然希望通电的速度越快越好。",
+      "locator": "17:20",
+      "tags": ["power-demand", "ai-capex", "neocloud", "be"],
+      "payload": {
+        "canonical_statement": "数据中心的单位经济给出了云厂愿意为通电速度付溢价的量化理由：1 GW 数据中心年营收约 120-240 亿美元、毛利率 40-50%、净利率 20-25%，按下限算晚通电一个月就少赚约 2 亿美元净利——这正是自带电方案虽贵仍有市场的原因。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那在发这一副财报之前，如果看后视镜的TTM的话。进它的一个市盈率是146倍，这一个季度发布完财报之后直接降到了92倍。",
+      "locator": "18:01",
+      "tags": ["be", "valuation"],
+      "payload": {
+        "canonical_statement": "高增速阶段静态市盈率会被财报自己压下来：Bloom Energy 财报前滚动十二个月 PE 为 146 倍，仅这一个季度入账后直接降到 92 倍，价格分毫未动——用静态 PE 判这类公司贵贱会系统性偏高。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    }
+  ]
+}

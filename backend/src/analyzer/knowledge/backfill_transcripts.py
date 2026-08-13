@@ -22,7 +22,7 @@ import httpx
 
 from ..config import get_settings
 from ..db import make_pool
-from .llm import make_client, render_l0_text
+from .llm import TruncatedGeneration, make_client, render_l0_text
 from .sources.youtube import fetch_transcript, list_videos, set_cookies_file
 from .store import KnowledgeStore
 
@@ -79,7 +79,7 @@ def _transcribe_with_retry(client, url: str) -> dict | None:
                 continue
             print(f"    Gemini 失败：HTTP {code}", flush=True)
             return None
-        except (httpx.HTTPError, KeyError, ValueError) as e:
+        except (httpx.HTTPError, KeyError, ValueError, TruncatedGeneration) as e:
             if attempt < RETRIES:
                 time.sleep(30.0)
                 continue

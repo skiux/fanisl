@@ -18,6 +18,11 @@ import httpx
 _BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 _VERTEX_BASE = "https://aiplatform.googleapis.com/v1/projects/{project}/locations/global/publishers/google/models"
 _ADC_PATH = pathlib.Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
+_MAX_OUTPUT_TOKENS = 65535   # 一期 30 分钟视频的转录+视觉笔记约 1.5 万 token，留足余量
+
+
+class TruncatedGeneration(RuntimeError):
+    """生成被截断（MAX_TOKENS 等）——不能当成功结果落库。"""
 
 # 转录+视觉笔记的结构化输出 schema（response_schema）
 TRANSCRIBE_SCHEMA = {
@@ -59,6 +64,19 @@ class GeminiClient:
         self.timeout_s = timeout_s
         self.last_usage: dict | None = None   # 最近一次调用的 usageMetadata（成本可见性）
 
+    def _parse(self, data: dict) -> dict:
+        """取回结构化结果，并挡住截断——截断的转录会变成一份残缺 L0 静默入库。
+
+        2026-08-13 实测：Vertex 通道把一期 23 分钟的视频只转了前 3 分钟就 MAX_TOKENS 收尾，
+        字数从 1 万掉到 1 千，而调用方无从察觉。finishReason 不是 STOP 一律按失败处理。
+        """
+        self.last_usage = data.get("usageMetadata")
+        cand = data["candidates"][0]
+        reason = cand.get("finishReason")
+        if reason not in (None, "STOP"):
+            raise TruncatedGeneration(f"生成未正常结束：finishReason={reason}")
+        return json.loads(cand["content"]["parts"][0]["text"])
+
     def generate_json(self, parts: list[dict], schema: dict) -> dict:
         """带 response_schema 的结构化生成。parts 由调用方组装（text/file_data）。"""
         r = httpx.post(
@@ -78,15 +96,13 @@ class GeminiClient:
             timeout=self.timeout_s,
         )
         r.raise_for_status()
-        data = r.json()
-        self.last_usage = data.get("usageMetadata")
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        return json.loads(text)
+        return self._parse(r.json())
 
     def transcribe_youtube(self, url: str, *, start_s: int | None = None,
                            end_s: int | None = None) -> dict:
         """URL 直读视频 → {lang, transcript, visual_notes}。offset 用于 clip 二次细读。"""
-        fd: dict = {"file_data": {"file_uri": url}}
+        # mime_type 对 AI Studio 可省，Vertex 必填（缺了报 empty mimeType parameter）
+        fd: dict = {"file_data": {"file_uri": url, "mime_type": "video/*"}}
         if start_s is not None or end_s is not None:
             fd["video_metadata"] = {}
             if start_s is not None:
@@ -148,14 +164,14 @@ class VertexGeminiClient(GeminiClient):
                 "generationConfig": {
                     "responseMimeType": "application/json",
                     "responseSchema": schema,
+                    # Vertex 的默认输出上限比 AI Studio 低，不显式给会把长视频截断
+                    "maxOutputTokens": _MAX_OUTPUT_TOKENS,
                 },
             },
             timeout=self.timeout_s,
         )
         r.raise_for_status()
-        data = r.json()
-        self.last_usage = data.get("usageMetadata")
-        return json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
+        return self._parse(r.json())
 
 
 def make_client(settings, *, model: str | None = None) -> GeminiClient:

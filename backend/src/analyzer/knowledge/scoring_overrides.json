@@ -331,5 +331,11 @@
   "note": "\"日元升值不会对美股有大影响\"机械化为最大回撤不超过 5%（阈值系我方指定，见 success_def）",
   "mode": "max_drawdown_lt",
   "pct": 5
+ },
+ "651": {
+  "note": "加息=DFEDTARU 严格高于会前 3.75；标准 sign/up 用 >=，不加息时读数不变会被误判为 hit",
+  "mode": "close_at_eval",
+  "op": ">",
+  "level": 3.75
  }
 }

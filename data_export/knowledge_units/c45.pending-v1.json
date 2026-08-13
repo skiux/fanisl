@@ -1,0 +1,304 @@
+{
+  "content_id": 45,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "根据当下我所有的信息全部综合在一起的话，我认为这一次他加息的这个概率可能要超过70%。",
+      "locator": "09:40",
+      "ref_price": 3.75,
+      "tags": ["fed-policy", "macro-data", "bond-yields"],
+      "payload": {
+        "asset_text": "2026-07-29 美联储议息会议是否加息（作者判概率超过 70%）",
+        "asset_symbol": "DFEDTARU",
+        "priceable": true,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "horizon": {"type": "by_date", "deadline": "2026-07-30"},
+        "stance_strength": "explicit",
+        "verifiability": "A",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-30"],
+          "success_def": "联邦基金目标区间上限（FRED DFEDTARU）在 2026-07-30 严格高于会前的 3.75 = hit，等于或低于 = miss。用严格大于而非默认的大于等于：不加息时读数不变，按标准语义会被误判为 hit。期限与标的均出自原文（本周三的议息会议）。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那在这样的一個判断之下，如果说最鹰派的这个时间点在不远处，那就意味着接下去两年期或者10年期的一个真实利率可能会往下降，美元指数可能会往下降，对于黄金来说就是一个利好。",
+      "locator": "05:50",
+      "ref_price": 4067.6,
+      "tags": ["xauusd", "fed-policy", "dxy", "bond-yields"],
+      "payload": {
+        "asset_text": "黄金（作者上周五已买入金矿股仓位）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-03", "2026-08-26", "2026-10-25"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 4067.60（2026-07-24 收盘）= hit。判断链是：最鹰派时点已在演出 → 真实利率与美元后续下行 → 利好黄金；作者已实际买入金矿股。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那如果我们认为最多市场今年就会加息两次，且美联储不会进入一个加息周期。这是我的一个看法。",
+      "locator": "05:50",
+      "ref_price": 3.75,
+      "tags": ["fed-policy", "macro-data"],
+      "payload": {
+        "asset_text": "2026 全年加息次数上限（作者判最多两次、且不会进入加息周期）",
+        "asset_symbol": "DFEDTARU",
+        "priceable": true,
+        "claim_class": "event_outcome",
+        "direction": "flat",
+        "magnitude": {"high": 4.25},
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-12-31"],
+          "success_def": "自 2026-07-28 至 2026-12-31，联邦基金目标区间上限从未收在 4.25 以上 = hit（两次 25bp 加息即 3.75→4.25，仍算命中上限）；任一日超过 4.25 = miss。上沿 4.25 由原文的'最多加息两次'换算，期限按规范 §3 的'今年'映射到年底。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "反而是苹果有可能出现 sell the news。财报不会差，但是有可能出现 sell the news。为什么？因为现在估值非常的高。",
+      "locator": "13:00",
+      "ref_price": 333.02,
+      "tags": ["aapl", "valuation", "psychology"],
+      "payload": {
+        "asset_text": "苹果（2026-07-30 盘后财报，作者判财报不差但可能 sell the news）",
+        "asset_symbol": "AAPL",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "horizon": {"type": "by_date", "deadline": "2026-08-03"},
+        "stance_strength": "hedged",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-03"],
+          "success_def": "2026-08-03 收盘 < 参考价 333.02（2026-07-24 收盘）= hit。期限取财报（07-30 盘后）之后的首个交易周初，用以观察 sell the news 是否发生；该时点系我方指定。stance 记 hedged：原文是'有可能'。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "最后一部分聊一下上周四发布财报的诺基亚，这个标的本身我应该会开仓，只是多少仓位的一个问题。",
+      "locator": "16:19",
+      "ref_price": 9.1,
+      "tags": ["nok", "valuation", "ai-capex"],
+      "payload": {
+        "asset_text": "诺基亚",
+        "asset_symbol": "NOK",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-03", "2026-08-26", "2026-10-25"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 9.10（2026-07-24 收盘）= hit。作者明确表示会开仓、只剩仓位大小的问题，依据是 forward PE 从 40 倍跌到 21.5 倍而基本面未变。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "但是这一波调整完之后，我认为我们可以再次把这个焦点放到 AI 上面。那之后会聊一些个股的一些基本面，包括财报。我角认为将会有一个非常好的进场点。",
+      "locator": "11:20",
+      "ref_price": 28128.34,
+      "tags": ["ndx", "ai-capex", "position-sizing"],
+      "payload": {
+        "asset_text": "美股（以纳指为代理）在加息冲击消化之后",
+        "asset_symbol": "NDX",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": "加息落地引发的短期调整先走完",
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-09-25"],
+          "success_def": "2026-09-25（发布日后 60 个自然日）收盘 ≥ 参考价 28128.34（2026-07-24 收盘）= hit。原文未给标的与期限，以纳指作代理、按'中期'映射 60 天，两者均系我方指定，故等级压到 C；前置条件（调整走完）不可机械判定，不进评分。"
+        }
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那么什么叫真实利率？什么是名义利率？大家往前去翻，可能在两周之前吧，我有特地做过一期视频和大家解释一下真实利率背后一个意义。从这两条线我们可以看到，下面是两条线之间的一个相关性。大多数的情况下，这两条线都是负相关，什么意思？就是当美债、两年期美债的一个真实利率在往上升的时候，黄金的一个价格就要往下跌。",
+      "locator": "02:29",
+      "tags": ["xauusd", "dxy", "bond-yields", "macro-data"],
+      "payload": {
+        "name": "黄金方向的三个负相关锚（真实利率 × 美元指数）",
+        "summary": "判断黄金方向不看名义利率，看三条负相关锚：2 年期美债真实利率、10 年期美债真实利率、美元指数。负相关强度依次递增，美元指数最强、10 年期强于 2 年期。",
+        "family": "other",
+        "rules": [
+          "锚一：黄金 vs 2 年期真实利率（反映美联储加降息路径的预期）",
+          "锚二：黄金 vs 10 年期真实利率（反映经济增速预期与美债供给），负相关比 2 年期更明显直接",
+          "锚三：黄金 vs 美元指数（DXY），三者中负相关最强",
+          "传导链：真实收益率上行（鹰派政策或经济向好）→ 美元走强 → 黄金下跌",
+          "重要限制：负相关只给方向不给幅度——2023 年中到 2024 年中美元横盘期间黄金仍缓慢上涨，因此只能用于'预期美元与真实利率走弱时黄金有上涨可能'，不能据此推涨跌幅"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["XAUUSD 日线", "DXY 日线", "2 年期与 10 年期美债真实利率序列"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "所以我会做的是因为结合现在期货市场出现了反弹。如果周一反弹不错，周二也反弹不错的话，我认为周三之前是可以做出一些指引的行为，是可以做出一些减仓，甚至于在周三那一天可以做好一定的一个移动指引，或者直接设一个 stop loss、设一个止损或者指引在那里。因为两天的反弹可以给下跌带来了这个空间。",
+      "locator": "10:40",
+      "tags": ["risk-mgmt", "position-sizing", "fed-policy"],
+      "payload": {
+        "name": "事件前若先反弹，就用反弹的空间做防守",
+        "summary": "高不确定事件（议息会议）之前的一两天若市场先反弹，把这段反弹当作做防守动作的窗口：减仓、上移止盈或直接设止损——反弹恰恰给随后的下跌腾出了空间。",
+        "family": "event",
+        "rules": [
+          "条件：事件前 1-2 个交易日出现像样的反弹（本例为周一、周二反弹、周三议息）",
+          "动作：减仓 / 移动止盈 / 设 stop loss，优先处理自己本就没信心的仓位",
+          "配合参与度读数判空间：标普 500 参与度处在中性偏乐观即意味着有下跌空间",
+          "事件风险打的是整体指数而非某个板块，所以防守要落在宽基敞口上，不要只调硬件或软件"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["事件日历", "指数参与度读数", "持仓表"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "所以我们在看、即使我们在看机构所生产的这些研报的时候，我们对于数据一定要有这个概念。没有这个概念的话，我们完全就按照这个数据去解读的话，你会发现，你用的数据都是错的，所以你得出的结论一定是错的。",
+      "locator": "14:02",
+      "tags": ["valuation", "goog", "risk-mgmt"],
+      "payload": {
+        "name": "读机构研报先分清 GAAP 与调整后口径",
+        "summary": "机构研报（含 AI 生成的摘要）常直接引用 GAAP EPS 得出增速结论，而 GAAP 含投资损益；用错口径得出的结论必然错。看到异常高的同比增速先反查是不是口径问题。",
+        "family": "other",
+        "rules": [
+          "看到异常增速先问用的是 GAAP 还是 adjusted（本例 FactSet 用谷歌 GAAP EPS 9.11 美元，同比 300-400%）",
+          "换成调整后口径重算（谷歌 2026 全年 17.11 美元对 2025 年 12.85 美元，实际同比约 25%；Q2 调整后 3.40 美元而非 9.11）",
+          "判断标准是'这个数据能不能支撑我想得出的结论'，而不是数据本身对不对"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["GAAP 与 adjusted EPS 的分季度序列"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以站在当下，我觉得我已经没有必要再和留言区的各位观众去讨论或者去争论。上一次的美联储会议到底是鸽派还是鹰派，已经没有意义。因为在当下，市场已经对于卡尔温沃什这个讲话做出了反馈。即使在 CPI 数据好于预期的情况下，即使在 PPI 预期好于、好于市场的预期的。",
+      "locator": "06:31",
+      "tags": ["fed-policy", "macro-data", "psychology"],
+      "payload": {
+        "canonical_statement": "议息会议是鹰是鸽不必争论，看市场随后的定价即可反推：上次会议前市场给 9 月加息 40% 概率，会后即便 CPI 与 PPI 都好于预期，定价仍升到 110%——市场用真金白银给出的答案就是那次会议非常鹰派。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "并且如果他选择加息的话，其实也符合了为什么他认为格林斯潘是他最敬重的美联储主席。以前的格林斯潘就是不和市场沟通。他说如果市场真的听懂了我在说什么，那说明我说的不够清楚。格林斯潘喜欢的是一个琢磨不透的美联储，他不希望市场能够完全知道美联储的一个想法到底是什么，不希望市场在短期真的过于去定价，并且给美联储自己有这个可以调整的空间。",
+      "locator": "07:30",
+      "tags": ["fed-policy", "macro-data"],
+      "payload": {
+        "canonical_statement": "沃什的沟通范式取自格林斯潘——刻意让市场读不透，以保留政策调整空间；他明确表示希望开\"更混乱的\"议息会议、结果不提前敲定，这与鲍威尔时代主席与两位副主席会前形成提案、让市场提前洞察的做法相反。过去二十年美联储与市场之间的沟通默契会因此被打破。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "为什么呢？因为无论7月份加、9月份加，不会打开这个加息周期，才是最重要的。欧洲那边就是，加了25个基点之后，他们认为就可以了。现在就在一个中心利率，我们接下去不需要再加。那加25个基点对于整体市场的影响不会太大。对于市场影响比较大的是其实是美联储和市场之间的这个沟通渠道。",
+      "locator": "11:40",
+      "tags": ["fed-policy", "macro-data", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "决定影响量级的不是 7 月还是 9 月加息，而是会不会打开一个加息周期：单次 25 个基点对市场影响有限（欧洲加一次即停、停在中性利率就是范例），真正冲击更大的是美联储与市场沟通渠道的改变。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "最后一点要提醒一下大家的是，不要去空仓，不要去做空。得知道在这个市场里面，判断的主逻辑是什么。如果判断的主逻辑是以基本面去出发的话，那这些宏观只是在主逻辑之下。在基本面没有出现问题的情况下，没有必要对于个股这一块需要去进行清仓。",
+      "locator": "12:00",
+      "tags": ["risk-mgmt", "position-sizing", "fed-policy"],
+      "payload": {
+        "canonical_statement": "宏观事件面前不空仓、不做空：判断的主逻辑是基本面，宏观位于主逻辑之下；基本面没出问题就没有理由对个股清仓，最多做防守性的减仓与止损。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我给大家举个例子，大家应该就能能够理解，如果从能够提供算力的这个角度去。很简单，hyperscaler，这些大云，他们下面的算力中心是最大的。你任何现在开源、闭源的模型，只要你背后的基数 parameter 比较的多，你必须要去这些大云里面去运行去计算。但是，未来并不是所有的模型都需要跑到大云上面去。你有可能可以通过什么？我们叫 Edge Cloud，可以通过边缘云去计算。这些边缘云就可以完全是基于这些电信基站，也就是边缘云未来的边缘云全部是现在的所有的电信基站。",
+      "locator": "17:19",
+      "tags": ["nok", "ai-agent", "ai-capex", "neocloud"],
+      "payload": {
+        "canonical_statement": "算力将分成三层，按模型规模与延迟需求分流：大参数模型必须回超大规模云；中间层是以电信基站改造成的边缘云（Edge Cloud）；最下层是端侧 AI。作者预期 AI Agent 会先在端侧以免费形态落地，额外功能上边缘云，更高需求才回大云——边缘云这一层的买单方是传统电信运营商。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这一个 AI-RAN 的一个平台是他们和英伟达之间的这个合作。简单来说他们对于未来的这个设想，就是要把现在的通讯、电信基站转换成 AI 的一个电信基站。所以他们的一个设想和 vision 就是，未来所有的基建，电信这一块的一个普通的电信基站全部要变成 AI 的电信基站。原本普通的电信基站你背后用的是 ASICs 的定制芯片，那未来全部要换成英伟达的通用 GPU。",
+      "locator": "17:19",
+      "tags": ["nok", "nvda", "ai-capex", "semiconductor-cycle"],
+      "payload": {
+        "canonical_statement": "AI-RAN 是诺基亚与英伟达合作的基站改造路线：把电信基站从定制 ASIC 换成英伟达通用 GPU，使基站本身成为边缘算力节点。该业务当前仍在测试阶段、尚未反映到营收，运营商需要先证明模式可行；一旦成立，可寻址市场很大。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那原本的这个电信通讯业务，你可以看一下25年、他们自己预期25年到28年平均每年的增速1%，非常低增速的一个行业。AI 和 AI Cloud 他们预期未来的三年平均增速16%。而且在他们的业绩里面和 AI 相关的这些收入，整个上半年和上年、第二季度和上年同比、同期去做对比的话，翻了一倍。",
+      "locator": "16:48",
+      "tags": ["nok", "ai-capex", "valuation"],
+      "payload": {
+        "canonical_statement": "诺基亚的重估逻辑是业务结构切换：传统电信业务 2025-2028 年均增速仅 1%（市场规模 720 亿美元），AI 与云业务年均增速 16%（240 亿美元），且 AI 相关收入本季已同比翻倍至 4.46 亿美元、在手订单 28 亿美元且一半以上会在一年内转为收入。风险落在大科技放缓资本开支。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以诺基亚主要是两个逻辑。第一个逻辑就是现在光模块、光芯片，他们自己本身全占的，就是他们是自己产光模块、产芯片的。产能的话在未来一年，我记得是要增加10倍。",
+      "locator": "17:19",
+      "tags": ["nok", "ai-capex", "semiconductor-cycle", "neocloud"],
+      "payload": {
+        "canonical_statement": "诺基亚的两条 AI 硬件逻辑：一是自产光模块与光芯片、未来一年产能扩十倍，服务超大规模厂商与新云（数据中心内部及中心之间的互联）；二是边缘云（AI-RAN），服务传统电信运营商的基建大升级。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "如果我们看过去，除了23、24年这家公司相对比较的低迷之外，如果把18年到21年这段时间拉进来的话，我认为15倍是一个非常中间的一个位置。我并不认为会跌到15倍，如果跌到15倍的话，就是一个非常非常好加仓的这个空间在那边，加仓这个价格在那边。而我认为现在21.5倍，我没有看技术面，如果我有看过技术面的话，我可能能够知道什么样的一个价格会比较的合适。但是现在这个价格已经合适很多。",
+      "locator": "18:16",
+      "tags": ["nok", "valuation"],
+      "payload": {
+        "canonical_statement": "诺基亚的估值锚：过去八年 forward PE 序列里 15 倍是中位位置（把 2018-2021 年纳入、剔除 2023-2024 的低迷期），当前 21.5 倍已从高点 40 倍腰斩而基本面一两个月内没有改变——21.5 倍算合适，15 倍则是很好的加仓位。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    }
+  ]
+}
