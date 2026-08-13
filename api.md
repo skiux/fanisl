@@ -243,6 +243,20 @@ lang, status, raw_len, n_units, n_claims, n_methods, n_concepts, n_hit, n_partia
 ref_price_at_publish|null, created_at, scores:[{horizon_label, outcome, realized}]}]`
 （claim 优先排前；scores 为空数组=尚无到期评分）。
 
+#### GET /knowledge/contents/{id}/keyframes
+该篇留存的关键帧，按视频内时刻升序：`[{id, content_id, ts_s, kind, note, path, height,
+bytes, source, created_at}]`。`note` 是该时刻视觉笔记的原文，`path` 只作记录，**取图走
+下面的 `/image` 端点，不要自己拼路径**。
+
+帧数远少于笔记条数是正常的：只有"帧能回答笔记回答不了的问题"的时刻才留帧——`chart`/`table`
+（折线形状、表格格子文字装不下），以及笔记里带精确数值的画面（数值会被转录改写，帧是仲裁）。
+纯文字画面（章节标题卡、Logo、手写板书）不留：笔记就是那段文字本身。判据在
+`backfill_keyframes.worth_a_frame`。
+
+#### GET /knowledge/keyframes/{id}/image
+帧图片本体（`image/jpeg`，1920×1080）。**按帧 id 取，路径由服务端从库里查**——接口不接受
+调用方传路径。库里有记录但磁盘上没有时返回 404 并说明原因（多半是部署没配 `KEYFRAME_ROOT`）。
+
 ### 5.2 单元浏览与检索（L1）
 
 #### GET /knowledge/units?kind=&creator=&tag=&symbol=&q=&limit=200
@@ -251,6 +265,17 @@ ref_price_at_publish|null, created_at, scores:[{horizon_label, outcome, realized
 
 #### GET /knowledge/units/{id}
 单元详情：同上另加 `content_url`。
+
+#### GET /knowledge/units/{id}/keyframes?window_s=90
+该单元 `locator` 附近的帧——抽查"视觉笔记的读数忠不忠实"的落点。返回
+`{unit_id, content_id, locator, locator_s|null, frames:[…同上 + distance_s], 
+content_frame_span_s:[lo,hi]|null, warning|null}`，`frames` 按与 locator 的距离升序。
+`window_s` 上限 600。
+
+**`locator` 不可尽信，前端必须显示 `warning`**：长视频上模型会编时间戳——实测 c2 片长
+25:57、视觉笔记却标到 53:37，unit #15（标普年底 8200 那条 A 级）的 locator `45:12` 指向
+一个不存在的时刻。越界时不静默返回空数组，`warning` 会写明"时间戳很可能是模型虚构的，
+判断请以 quote 为准"；与"该时刻附近本来就没抓帧"（纯文字画面）措辞区分开。
 
 #### GET /knowledge/tags
 标签枢纽：`[{tag, n, n_claims, n_methods, n_concepts}]` 按使用数倒序。

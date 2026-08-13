@@ -119,6 +119,9 @@ class Settings(BaseSettings):
     # （generateContent 恒 403 PERMISSION_DENIED，而 ListModels/countTokens 正常）。
     gcp_project: str = ""
     youtube_cookies_file: str = ""  # 用户导出的 cookies.txt（YouTube bot 验证时用，相对 backend/）
+    # 关键帧图片目录（默认按源码位置推 data_export/keyframes）。git worktree 里源码和
+    # 数据目录不在一起，得显式指过去，否则读图 404、清理只删库不删文件。
+    keyframe_root: str = ""
     coinmarketcal_api_key: str = ""  # 币圈事件（CoinMarketCal）
     cryptocompare_api_key: str = ""  # 新闻（CoinDesk Data，原 CryptoCompare）
     # 新闻聚合（多源，填了哪个就启用哪个，结果合并去重）

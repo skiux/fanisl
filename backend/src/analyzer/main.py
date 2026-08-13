@@ -6,11 +6,12 @@
 from __future__ import annotations
 
 import json
+import re
 
 import anthropic
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from . import metrics as metrics_registry
@@ -34,7 +35,7 @@ from .runtime import (
     node_store,
     trading_store,
 )
-from .knowledge import discovery, league, spotcheck
+from .knowledge import discovery, keyframes, league, spotcheck
 from .storage import display_messages
 
 # 注意：API 进程**不起后台调度器**。采集/交易由独立的 collector / trader worker 进程跑
@@ -57,6 +58,18 @@ app.add_middleware(
 )
 
 _DEFAULT_TICKER = "BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT"
+
+# unit.locator 的时间戳形态：MM:SS 或 HH:MM:SS。提取时是人/模型写的自由文本，
+# 也可能是字符偏移或空——解析不出来就返回 None，由调用方给出解释，不要抛。
+_LOCATOR_RE = re.compile(r"(?<!\d)(\d{1,2}):([0-5]\d)(?::([0-5]\d))?(?!\d)")
+
+
+def _locator_seconds(locator: str | None) -> int | None:
+    m = _LOCATOR_RE.search(locator or "")
+    if not m:
+        return None
+    a, b, c = m.group(1), m.group(2), m.group(3)
+    return int(a) * 3600 + int(b) * 60 + int(c) if c else int(a) * 60 + int(b)
 
 
 def _sse(event: str, data: dict) -> str:
@@ -300,6 +313,62 @@ def knowledge_content(content_id: int) -> dict:
 def knowledge_content_units(content_id: int) -> list[dict]:
     """某内容提取出的 L1 单元（claim/method/concept，含冻结的评分规格与到期评分）。"""
     return knowledge_store.units_for_content(content_id)
+
+
+@app.get("/knowledge/contents/{content_id}/keyframes")
+def knowledge_content_keyframes(content_id: int) -> list[dict]:
+    """某内容留存的关键帧（按视频内时刻排序，带该时刻的视觉笔记原文）。
+
+    只有"帧能回答笔记回答不了的问题"的时刻才有帧——图表/表格，以及笔记里带精确数值的
+    画面（判据见 backfill_keyframes.worth_a_frame）。所以帧数远少于笔记条数是正常的。
+    """
+    return knowledge_store.keyframes_for_content(content_id)
+
+
+@app.get("/knowledge/units/{unit_id}/keyframes")
+def knowledge_unit_keyframes(unit_id: int, window_s: int = 90) -> dict:
+    """单元 locator 附近的帧——抽查"视觉笔记的读数忠实不忠实"的落点。
+
+    locator 不可尽信：长视频上模型会编时间戳（实测 c2 片长 25:57、笔记标到 53:37，
+    unit #15 那条 A 级标普 8200 的 locator 45:12 指向不存在的时刻）。所以越界时不静默
+    返回空，而是带上该内容的帧跨度和一句明确的告警——**判断以 quote 为准，不以时间戳为准**。
+    """
+    unit = knowledge_store.unit_detail(unit_id)
+    if unit is None:
+        raise HTTPException(status_code=404, detail="单元不存在")
+    out: dict = {"unit_id": unit_id, "content_id": unit["content_id"],
+                 "locator": unit.get("locator"), "locator_s": None,
+                 "frames": [], "content_frame_span_s": None, "warning": None}
+    span = knowledge_store.keyframe_span(unit["content_id"])
+    out["content_frame_span_s"] = list(span) if span else None
+    ts = _locator_seconds(unit.get("locator"))
+    if ts is None:
+        out["warning"] = "该单元没有可解析的时间戳（locator 为空或非 MM:SS 格式）"
+        return out
+    out["locator_s"] = ts
+    out["frames"] = knowledge_store.keyframes_near(
+        unit["content_id"], ts, window_s=max(0, min(window_s, 600)))
+    if not out["frames"] and span and ts > span[1]:
+        out["warning"] = (f"locator {ts}s 超出该内容已有帧的最大时刻 {span[1]}s——"
+                          f"时间戳很可能是模型虚构的，判断请以 quote 为准")
+    elif not out["frames"]:
+        out["warning"] = "该时刻附近没有留存帧（多半是纯文字画面，按判据未抓）"
+    return out
+
+
+@app.get("/knowledge/keyframes/{keyframe_id}/image")
+def knowledge_keyframe_image(keyframe_id: int):
+    """帧图片本体。**按 id 取、路径来自库**——不接受调用方传路径，杜绝目录穿越。"""
+    row = knowledge_store.keyframe(keyframe_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="帧不存在")
+    path = (keyframes.keyframe_root().parent / row["path"]).resolve()
+    root = keyframes.keyframe_root().resolve()
+    if not str(path).startswith(str(root)) or not path.is_file():
+        # 库里有记录、磁盘上没有：多半是换了工作区/没配 keyframe_root，别当成"帧不存在"
+        raise HTTPException(status_code=404,
+                            detail=f"帧文件不在磁盘上（找的是 {path}；worktree 里需配置 keyframe_root）")
+    return FileResponse(path, media_type="image/jpeg")
 
 
 @app.get("/knowledge/tags")

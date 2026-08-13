@@ -27,6 +27,17 @@ import yt_dlp
 from ..config import get_settings
 
 OUT_DIR = pathlib.Path(__file__).resolve().parents[4] / "data_export" / "keyframes"
+
+
+def keyframe_root() -> pathlib.Path:
+    """帧目录。settings.keyframe_root 优先，空则按 __file__ 推。
+
+    有这个开关是因为 OUT_DIR 依赖源码位置：git worktree 里 data_export（gitignore 的
+    数据目录）只存在于主工作区，从 __file__ 推会指向一个不存在的路径。2026-08-14 的
+    存量清理差点因此只删库不删文件，API 读图同样会踩。
+    """
+    configured = (get_settings().keyframe_root or "").strip()
+    return pathlib.Path(configured).expanduser().resolve() if configured else OUT_DIR
 PLAYER_CLIENTS = ("android_vr", "tv", "ios", "web_safari", "web")
 DEFAULT_HEIGHT = 1080   # 财经视频的画面主体是表格/图表，读数清晰度优先；单帧 ~230KB
 

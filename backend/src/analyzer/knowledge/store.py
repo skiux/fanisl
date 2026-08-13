@@ -270,6 +270,27 @@ class KnowledgeStore:
                                 (content_id,)).fetchall()
         return {int(r["ts_s"]) for r in rows}
 
+    def keyframe(self, keyframe_id: int) -> dict | None:
+        """按 id 取单帧（读图端点用 id 而不是路径——路径来自库里，不给穿越的口子）。"""
+        with self.pool.connection() as conn:
+            return conn.execute("SELECT * FROM keyframes WHERE id=%s", (keyframe_id,)).fetchone()
+
+    def keyframes_near(self, content_id: int, ts_s: int, *, window_s: int) -> list[dict]:
+        """某内容里落在 [ts-window, ts+window] 的帧，按与 ts 的距离排序。"""
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "SELECT *, abs(ts_s - %s) AS distance_s FROM keyframes "
+                "WHERE content_id=%s AND ts_s BETWEEN %s AND %s ORDER BY distance_s, ts_s",
+                (ts_s, content_id, ts_s - window_s, ts_s + window_s)).fetchall()
+
+    def keyframe_span(self, content_id: int) -> tuple[int, int] | None:
+        """该内容已有帧的时间跨度（判断 locator 是否越界用）。"""
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "SELECT min(ts_s) AS lo, max(ts_s) AS hi FROM keyframes WHERE content_id=%s",
+                (content_id,)).fetchone()
+        return (int(row["lo"]), int(row["hi"])) if row and row["lo"] is not None else None
+
     # --- L1 提取（版本化重放）----------------------------------------------
 
     def record_extraction(self, content_id: int, *, extractor_version: str,
