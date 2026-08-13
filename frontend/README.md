@@ -29,6 +29,14 @@ npx playwright install chromium
 
 视觉差异只有在确认是预期改动后才更新：`npm run test:e2e:update`。基线按浏览器项目和操作系统保存；当前覆盖 1440×900 与 390×844。
 
+生产同源联调使用已经构建的 `dist` 和显式 API 代理，不会默认运行：
+
+```bash
+FANISL_PREVIEW_API=http://127.0.0.1:8001 npm run preview -- --host 127.0.0.1 --port 5192
+FANISL_LIVE_TEST=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5192 \
+  PLAYWRIGHT_SKIP_WEBSERVER=1 npx playwright test e2e/live-production.spec.ts --project=desktop-chromium
+```
+
 ## Current structure
 
 ```text

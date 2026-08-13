@@ -7,11 +7,15 @@ import pytest
 from datetime import datetime, timezone
 
 from analyzer.knowledge.models import ClaimPayload, KnowledgeUnit
+from analyzer.knowledge.nodes import NodeStore
 from analyzer.knowledge.store import KnowledgeStore
 
 
 @pytest.fixture
 def kstore(pool):
+    # verification_detail joins the node provenance tables; initialize that
+    # schema explicitly so this fixture is independent of test collection order.
+    NodeStore(pool)
     st = KnowledgeStore(pool)
     with pool.connection() as conn:
         conn.execute("TRUNCATE creators, creator_handles, contents, extraction_runs, "
