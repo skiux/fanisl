@@ -54,7 +54,7 @@
 |---|---|---|---|
 | K0 | 库/表/models/store/登记 CLI/测试 | — | ✅ 2026-07-13 |
 | K1 | 抓取（YouTube 清单+元数据；字幕实测两频道全无 → 改判） | — | ✅ |
-| K2 | Gemini URL 直读转录+视觉笔记（双频道实测可靠；提帧被 bot 墙双侧拦死 → 视觉笔记为唯一画面记录）；批量回填器落地，近 60 天 18 条 / 15.7 万字入库 | 积累 | ✅ 2026-07-15 |
+| K2 | Gemini URL 直读转录+视觉笔记（双频道实测可靠）；批量回填器落地，近 60 天 18 条 / 15.7 万字入库；**提帧 2026-08-14 解封并接回主链**（墙回退，视觉笔记不再是唯一画面记录，见下文"视频摄取决定"第 3 条） | 积累 | ✅ 2026-07-15 |
 | K3 | **提取+沉淀**：提取规范冻结（四类知识平权、期限映射、标签体系，见 `knowledge/extraction-guide.md`）→ import 管线（quote∈原文机械校验）→ 试提取 2 条人审通过 → **18 条全提取 ✅ 2026-07-16**：247 单元（claim 135 = 3A/65B/35C/32D，method 23，concept 89），标签 52 个，claim 带屏价 ref 78/135；语料教训回写规范（屏价须与正文互证、stance=承诺度非语气词） | 积累、检索 | ✅ |
 | K4 | **验证**：daily_bars 价格层（39 符号 yfinance/FRED，与语料屏价互验）+ scoring_overrides（103 条 success_def 机械化编译，质量核心）+ 评分器×5（含条件解析/守护条件/组合腿）+ scoreboard API + 前端联赛表与单元评分徽标；**首轮 60 时点评分 ✅ 2026-07-17**：Andy 命中率 42%（sign 类 10/25，p=0.212 不显著）、美投君 5 条 1 hit；日常=prices+scorers 两条幂等 CLI 按天跑 | 可验证 | ✅ |
 | K5 | **归并与检索**：knowledge_nodes/node_attestations 两表 + 归并规范冻结（`knowledge/merge-guide.md`：判据/提及关系 restates·refines·supersedes·contradicts/生命周期规则 v1）+ 首次归并 ✅ 2026-07-17：**105 节点**（9 个多提及：K型经济跨源、软件收费 supersedes 演进、8200 重申等；94 单例种子；数字地租 vs 周期涨法对立标注留 K6）+ 每日维护挂 collector 调度（daily.py）+ nodes API×2（前端接线留前端会话） | 复用、学习 | ✅ |
@@ -81,12 +81,17 @@
    的结构化描述）——关键帧的**信息**以文字形式进 L0，不提像素。
 2. 提取层需要细看某段时，用 video_metadata 的 start/end offset 做 **clip 二次细读**（只看那
    几十秒），全程不下载视频。
-3. 真需要图像的兜底（低优先）：YouTube storyboard 缩略图（免下载、低清）或 ffmpeg 流式 seek
-   抓单帧（几 MB 级）。风险如实记：视频被删则画面信息只剩文字化记录——所以摄取时视觉笔记做厚。
-   **提帧攻关记录（2026-07-16，暂搁置）**：yt-dlp 全客户端矩阵×cookies 全被 bot 墙拦
-   （PO Token 强制，非 IP 问题）；可行出路=Playwright 浏览器渲染层截帧（真实浏览器指纹
-   不受 PO Token 限制），受阻于 Chromium 下载被掐+系统无 Chrome，细节见
-   `backend/src/analyzer/knowledge/README.md`。用户决定：先留着，K4 优先。
+3. 图像层：ffmpeg 对 yt-dlp 解析出的直链做输入级 seek 抓单帧（不下载全片）。
+   **状态改判（2026-08-14，已可用）**：2026-07-16 曾判"全客户端矩阵×cookies 被 PO Token
+   墙拦死、只剩 Playwright 出路"，复测发现墙已回退——`android_vr` 客户端带不带 cookies 都
+   放行，单帧 1080p 约 4s / 230KB。据此把提帧接回主链：视觉笔记的每个时间戳配一张帧
+   （`keyframes` 表 + `backfill_keyframes` CLI，摄取时同步抓），存量 52 期 1048 帧回填。
+   帧的用途不是配图，是让"画面上写的是 63/61/63"这类读数可核——K6 抽查此前只能核转录、
+   核不了画面。风险仍在：墙是会来回动的（7 月拦死、8 月放开），所以①摄取当时就抓，别等
+   回填；②`keyframes.source` 记下走的哪个 client，墙再动时能看出是哪一级在扛；③墙再起时
+   的后续梯队依次为 PO Token provider 插件（bgutil，本机 node/deno 可跑）→ Playwright
+   渲染层截帧（cdn.playwright.dev 已可下载）→ storyboard 缩略图（320×180，只够存证）。
+   视频被删则画面只剩笔记+帧——所以摄取时视觉笔记仍要做厚。
 4. yt-dlp 职责收窄为：频道清单 + 元数据（标题/时长/发布日期）+ 有字幕时白捡。
    cookies 经 settings.youtube_cookies_file 注入（.env 不进 os.environ，已修）。
 5. 文字源（文章/帖子）不经转录直接入 L0 → Claude 提取；Gemini 只做廉价 triage（前期量小可跳过）。

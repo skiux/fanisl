@@ -11,6 +11,8 @@
 ```
 YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读──▶ L0 contents（转录+视觉笔记，不可变）
                                                             │
+                        视觉笔记时间戳 ──ffmpeg 流式 seek──▶ keyframes（画面凭据，可重抓）
+                                                            │
                               Claude 会话/ClaudeBackend 按 extraction-guide.md 提取
                                                             ▼
                      units JSON ──import_units 校验──▶ L1 knowledge_units（版本化）
@@ -25,7 +27,7 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | 文件 | 职责 |
 |---|---|
 | `models.py` | L1 单元 pydantic 模型（**schema SSOT**）：KnowledgeUnit 信封 + Claim/Method/Concept 载荷 + ScoringSpec，入库前强校验 |
-| `store.py` | 持久化（独立库 `fanisl_knowledge`，7 表 schema 内嵌）：L0 追加式、(content_id, extractor_version) 唯一、版本化重放 |
+| `store.py` | 持久化（独立库 `fanisl_knowledge`，8 表 schema 内嵌）：L0 追加式、(content_id, extractor_version) 唯一、版本化重放 |
 | `register.py` | 信源登记 CLI：`python -m analyzer.knowledge.register <名称> <平台> <handle>` |
 | `sources/youtube.py` | yt-dlp 封装：频道清单、元数据（+字幕白捡；三个已登记频道实测都取不到可用字幕轨）、cookies 注入 |
 | `llm.py` | GeminiClient：URL 直读转录（transcript + 带时间戳视觉笔记）、clip 二次细读（start/end offset）、`render_l0_text` L0 排版约定 |
@@ -37,15 +39,16 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `scorers.py` | K4 评分器：按冻结 ScoringSpec 到期机械评分（sign/target_touch/target_close/range_hold/relative_return + 条件解析），`python -m analyzer.knowledge.scorers [--dry-run]`（幂等）；口径细节见模块 docstring |
 | `scoring_overrides.json` | success_def 的机械化编译（pending-v1 存量 103 条专用）：条件结构化/判界修正/组合定义，语义仲裁=success_def；新提取应走规范 v2 结构化字段 |
 | `nodes.py` | K5 归并层：knowledge_nodes/node_attestations 两表 + 生命周期重算 + CLI（export/import/seed-singletons/recompute/retire），判据见 merge-guide.md |
-| `daily.py` | 每日维护封装（行情→评分→节点状态，best-effort）：`python -m analyzer.knowledge.daily`；已挂 collector 调度（knowledge_daily_interval_s，默认 86400s） |
+| `daily.py` | 每日维护封装（行情→评分→节点状态→补齐缺帧，best-effort）：`python -m analyzer.knowledge.daily`；已挂 collector 调度（knowledge_daily_interval_s，默认 86400s） |
 | `discovery.py` | K6 发现层：harness 候选（testability=A 的 method 节点，`discovery harness`）+ 周报生成（`discovery weekly [--days 7]`，落 data_export/reports/，collector 每周自动跑） |
 | `spotcheck.py` | K6 抽查队列（spot_checks 启用）：`spotcheck sample [n]` 随机抽未查单元 / `spotcheck record <unit_id> <verdict> [note]` / `spotcheck stats` |
-| `keyframes.py` | 提帧（ffmpeg 流式 seek）——**暂不可用，2026-07-16 诊断后搁置**：yt-dlp 全客户端矩阵（tv/tv_embedded/ios/android/android_vr/web_safari/mweb/web_embedded/web × 有无 cookies）均被"Sign in to confirm you're not a bot"拦（=YouTube 对非浏览器客户端的 PO Token 强制，与 IP 无关，用户终端同样被拦）。**已验证的出路=浏览器渲染层截帧**（Playwright 驱动真实 Chromium，seek 后对 video 元素截图，绕过 player API）：playwright 已装，但 cdn.playwright.dev 下载 Chromium 被网络掐断，系统 Chrome 未装；待用户装 Chrome（或代理 HTTPS_PROXY=127.0.0.1:1082 下载通）后启用。次选兜底=storyboard 缩略图（走网页端点，~320×180 低清）。在此之前**视觉笔记是唯一画面记录**（转录时已按"做厚"设计） |
+| `keyframes.py` | 提帧（ffmpeg 对直链输入级 seek，不下载全片）：`keyframes <video_id> <MM:SS…> [--height 1080]`。客户端梯队 android_vr→tv→ios→web_safari→web，逐个试到解析出流，用了哪个记进 `source`。**2026-08-14 复测已可用**（详见下方"提帧的墙"） |
+| `backfill_keyframes.py` | 视觉笔记时间戳 → 关键帧回填/记账（幂等）：`backfill_keyframes [--handle @x] [--content-id N] [--height 1080] [--dry-run]`；`grab_for_content()` 同时挂在摄取链上（transcribe_video / backfill_transcripts 内 best-effort 调用，失败不影响 L0） |
 
 ## 日常运转（K4 起；K5 起自动化）
 
 ```
-python -m analyzer.knowledge.daily      # 行情刷新 → 到期评分 → 节点状态重算（幂等）
+python -m analyzer.knowledge.daily      # 行情刷新 → 到期评分 → 节点状态重算 → 补齐缺帧（幂等）
 ```
 collector 进程已按天自动跑（worker_collector 的 knowledge job）；手动跑等价。
 分步命令仍可用：`prices` / `scorers` / `nodes recompute`。
@@ -60,9 +63,28 @@ K6 起的发现与运营（周报 collector 每周自动跑，其余按需）：
 评分 outcome：hit / miss / partial / condition_not_met / condition_unverifiable / unpriceable；
 显著性口径：仅 sign 类给 50% 随机基线的单侧二项 p，其余类型 v1 无基线（联赛表已注明）。
 
+## 提帧的墙（会来回动，别把结论钉死）
+
+- **2026-07-16**：yt-dlp 全客户端矩阵 × 有无 cookies 全被 "Sign in to confirm you're not a
+  bot" 拦（PO Token 强制，与 IP 无关，用户终端同样被拦）→ 当时判定"提帧不可用"，视觉笔记
+  是唯一画面记录。
+- **2026-08-14**：复测发现墙已回退，`android_vr` 带不带 cookies 都放行；1080p 单帧约 4s /
+  230KB。同时修掉两个自身缺陷：`--height` 的值被当成时间戳解析（IndexError），以及
+  `best[ext=mp4]` 只能选到 640×360 的混流 fmt 18（`--height` 形同虚设）→ 改用 DASH 视频轨
+  `bv*[vcodec^=avc1][height<=H]`。存量 52 期 1048 帧已回填。
+- **墙再起时的梯队**（按顺序试）：① PO Token provider 插件（bgutil，本机 node/deno 可跑，
+  无需 Docker）；② Playwright 渲染层截帧（cdn.playwright.dev 现可下载 Chromium；真实浏览器
+  指纹不吃 PO Token 那一套，风险是无头截 YouTube 播放可能拿黑帧，需实测）；③ storyboard
+  缩略图（320×180，只够存证不够读数）。`keyframes.source` 记着每帧走的哪一级。
+- **直链约束**：googlevideo 直链绑发起 IP、约 6 小时过期 → 一期视频的时间戳在同一次解析里
+  抓完，直链不入库；帧文件在 `data_export/keyframes/`（gitignore，可按 `keyframes` 表重抓）。
+
 ## 约定
 
 - **L0 不可变**：contents.raw 永不改；重转录=新行（dedup_hash 幂等）。
+- **画面凭据**：每条视觉笔记配一帧（`keyframes` 表，(content_id, ts_s) 唯一）。笔记是模型对
+  画面的转述，帧是凭据——抽查读数忠实度、以及视频被删后的画面留存都靠它，所以**摄取当时
+  就抓**，不留到回填。
 - **提取可重放**：改规范 → 升 extractor_version → 重跑出新行，旧行保留；同 (content, version) 重跑报错。
 - **验证语义冻结在提取时**：评分器只机械执行 ScoringSpec，不做任何现场解释。
 - **模型分工**：转录/triage=Gemini（`GEMINI_API_KEY`）；提取=Claude（官方 key 到位前由

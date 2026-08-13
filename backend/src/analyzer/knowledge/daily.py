@@ -1,7 +1,8 @@
-"""知识引擎每日维护：行情刷新 → 到期评分 → 节点状态重算（幂等，挂在 collector 调度）。
+"""知识引擎每日维护：行情刷新 → 到期评分 → 节点状态重算 → 补齐缺帧（幂等，挂 collector 调度）。
 
-等价于手动跑 prices / scorers / nodes recompute 三条 CLI；任何一步失败不影响后续
-（best-effort，scheduler 的 job 约定）。也可单独跑：python -m analyzer.knowledge.daily
+等价于手动跑 prices / scorers / nodes recompute / backfill_keyframes 四条 CLI；任何一步
+失败不影响后续（best-effort，scheduler 的 job 约定）。
+也可单独跑：python -m analyzer.knowledge.daily
 """
 
 from __future__ import annotations
@@ -11,12 +12,14 @@ import logging
 
 from ..config import get_settings
 from ..db import make_pool
-from . import prices, scorers
+from . import backfill_keyframes, prices, scorers
 from .nodes import NodeStore
+from .store import KnowledgeStore
 
 log = logging.getLogger("analyzer.knowledge")
 
 SINCE = dt.date(2026, 5, 1)   # 语料最早发布日前的固定起点（幂等 upsert，不必滚动）
+KEYFRAME_GAP_LIMIT = 20       # 每日最多补几条内容的帧（别让日维护变成长批处理）
 
 
 def run_daily(pool) -> None:
@@ -34,6 +37,13 @@ def run_daily(pool) -> None:
             log.info("知识引擎日维护：节点状态变化 %s", changed)
     except Exception:
         log.exception("知识引擎日维护：节点状态重算失败")
+    try:
+        # 提帧的墙会来回动：墙起时摄取的内容一帧都没有，落下后在这里自动补上
+        n = backfill_keyframes.fill_gaps(KnowledgeStore(pool), limit=KEYFRAME_GAP_LIMIT)
+        if n:
+            log.info("知识引擎日维护：补齐关键帧 %d 张", n)
+    except Exception:
+        log.exception("知识引擎日维护：关键帧补齐失败")
 
 
 def main() -> None:

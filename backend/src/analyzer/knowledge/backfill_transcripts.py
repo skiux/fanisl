@@ -22,6 +22,7 @@ import httpx
 
 from ..config import get_settings
 from ..db import make_pool
+from .backfill_keyframes import grab_for_content
 from .llm import TruncatedGeneration, make_client, render_l0_text
 from .sources.youtube import fetch_transcript, list_videos, set_cookies_file
 from .store import KnowledgeStore
@@ -141,15 +142,22 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None,
                 time.sleep(SLEEP_BETWEEN_S)
                 continue
             u = client.last_usage or {}
-            _, created = store.upsert_content(
+            raw = render_l0_text(tr)
+            cid, created = store.upsert_content(
                 creator["id"], platform="youtube", url=url, content_type="video",
-                title=meta["title"], published_at=pub, raw=render_l0_text(tr),
+                title=meta["title"], published_at=pub, raw=raw,
                 lang=tr.get("lang"),
                 triage={"model": client.model, "channel": type(client).__name__,
                         "tokens": u.get("totalTokenCount")})
             n_new += created
+            # 摄取时顺手提帧：视频被删后画面就只剩文字记录了（失败不影响 L0）
+            n_frames = 0
+            try:
+                n_frames = grab_for_content(store, {"id": cid, "url": url, "raw": raw})
+            except Exception as e:  # noqa: BLE001
+                print(f"    提帧失败（可用 backfill_keyframes 补）：{str(e)[:80]}", flush=True)
             print(f"  [{i}] {'新' if created else '重复'} {(meta['title'] or '')[:36]}  "
-                  f"{len(tr['transcript'])}字/{len(tr.get('visual_notes', []))}笔记  "
+                  f"{len(tr['transcript'])}字/{len(tr.get('visual_notes', []))}笔记/{n_frames}帧  "
                   f"tok={u.get('totalTokenCount', '?')}  {pub.date() if pub else '?'}", flush=True)
             if max_new is not None and n_new >= max_new:
                 print(f"  已达 --max-new {max_new}，停止", flush=True)

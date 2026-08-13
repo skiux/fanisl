@@ -10,6 +10,7 @@ import sys
 
 from ..config import get_settings
 from ..db import make_pool
+from .backfill_keyframes import grab_for_content
 from .llm import make_client, render_l0_text
 from .sources.youtube import fetch_transcript, set_cookies_file
 from .store import KnowledgeStore
@@ -43,9 +44,15 @@ def main() -> None:
             title=meta["title"], published_at=meta["published_at"],
             raw=raw, lang=tr.get("lang"))
         print(f"L0 content#{cid} {'新建' if created else '已存在(同文去重)'}", flush=True)
-        # 视觉笔记时间戳顺手打印（供 keyframes 提帧验证）
         for n in tr.get("visual_notes", [])[:8]:
             print(f"  [{n['t']}] {n['kind']}: {n['note'][:60]}", flush=True)
+        # 视觉笔记的像素凭据。提帧失败不回滚 L0（视频还在，随时可回填）
+        try:
+            n_frames = grab_for_content(store, {"id": cid, "url": url, "raw": raw})
+            print(f"关键帧 +{n_frames}", flush=True)
+        except Exception as e:  # noqa: BLE001
+            print(f"关键帧提取失败（不影响 L0，可用 backfill_keyframes 补）：{str(e)[:120]}",
+                  flush=True)
     finally:
         pool.close()
 

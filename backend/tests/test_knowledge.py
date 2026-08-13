@@ -1,6 +1,7 @@
 """知识引擎 K0：schema 往返 / 载荷校验 / 幂等与版本化重放。"""
 
 import pathlib
+import sys
 
 import pytest
 from datetime import datetime, timezone
@@ -14,7 +15,8 @@ def kstore(pool):
     st = KnowledgeStore(pool)
     with pool.connection() as conn:
         conn.execute("TRUNCATE creators, creator_handles, contents, extraction_runs, "
-                     "knowledge_units, claim_scores, spot_checks RESTART IDENTITY CASCADE")
+                     "knowledge_units, claim_scores, spot_checks, keyframes "
+                     "RESTART IDENTITY CASCADE")
     return st
 
 
@@ -355,3 +357,97 @@ def test_keyframes_ts_parse():
     from analyzer.knowledge.keyframes import _to_seconds
     assert _to_seconds("03:15") == 195
     assert _to_seconds("1:02:05") == 3725
+    assert _to_seconds("90") == 90 and _to_seconds(90) == 90
+
+
+def test_keyframes_cli_height_not_taken_as_timestamp(monkeypatch):
+    """--height 的值曾被当成时间戳解析（IndexError），且 --height 对清晰度不起作用。"""
+    from analyzer.knowledge import keyframes
+
+    seen = {}
+    monkeypatch.setattr(keyframes, "grab", lambda vid, ts, **kw: seen.update(
+        video_id=vid, ts=list(ts), **kw) or [])
+    monkeypatch.setattr(sys, "argv",
+                        ["keyframes", "vid123", "03:15", "10:00", "--height", "720"])
+    keyframes.main()
+    assert seen["video_id"] == "vid123" and seen["ts"] == ["03:15", "10:00"]
+    assert seen["max_height"] == 720
+
+
+def test_keyframes_format_selector_prefers_dash_video_track(monkeypatch):
+    """混流 mp4 只有 640×360 的 fmt 18：选串必须先要 DASH 视频轨，否则清晰度封顶 360p。"""
+    from analyzer.knowledge import keyframes
+
+    captured = {}
+
+    class _FakeYDL:
+        def __init__(self, opts):
+            captured.update(opts)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def extract_info(self, url, download=False):
+            return {"url": "https://cdn/seg", "height": 1080, "duration": 1800}
+
+    monkeypatch.setattr(keyframes.yt_dlp, "YoutubeDL", _FakeYDL)
+    st = keyframes.stream_url("vid123", max_height=1080)
+    assert captured["format"].startswith("bv*[vcodec^=avc1][height<=1080]")
+    assert st.source == "ytdlp:android_vr" and st.height == 1080 and st.duration_s == 1800
+
+
+def test_visual_notes_parse_from_l0():
+    from analyzer.knowledge.backfill_keyframes import visual_notes
+
+    raw = ("正文若干\n\n## 视觉笔记（画面信息，带时间戳）\n"
+           "- [00:08] (table) 盘面表现表格\n"
+           "- [03:15] (chart) WTI 日线标注 75 阻力\n"
+           "- [03:15] (chart) 同一画面的第二条笔记\n"
+           "- [1:02:05] (text_slide) 免责声明\n"
+           "- 不带时间戳的行应忽略\n")
+    notes = visual_notes(raw)
+    assert [n["ts_s"] for n in notes] == [8, 195, 3725]          # 同秒合并、按时间排序
+    assert notes[1]["note"].endswith("第二条笔记") and "75 阻力" in notes[1]["note"]
+    assert notes[2]["kind"] == "text_slide"
+
+
+def test_keyframe_store_roundtrip(kstore):
+    creator = kstore.ensure_creator("测试创作者")
+    cid, _ = kstore.upsert_content(
+        creator, platform="youtube", url="https://y/t9", content_type="video",
+        title="提帧测试", published_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+        raw="正文\n- [03:15] (chart) WTI")
+    kstore.record_keyframe(cid, ts_s=195, path="keyframes/vid/00195s_h720.jpg", height=720,
+                           bytes_=100_000, source="ytdlp:android_vr", kind="chart", note="WTI")
+    assert kstore.keyframe_seconds(cid) == {195}
+    # 重抓更高清晰度：同 (content, ts) 覆盖，不留重复行；kind/note 不被 NULL 冲掉
+    kstore.record_keyframe(cid, ts_s=195, path="keyframes/vid/00195s_h1080.jpg", height=1080,
+                           bytes_=230_000, source="ytdlp:tv")
+    rows = kstore.keyframes_for_content(cid)
+    assert len(rows) == 1 and rows[0]["height"] == 1080 and rows[0]["source"] == "ytdlp:tv"
+    assert rows[0]["note"] == "WTI" and rows[0]["bytes"] == 230_000
+
+
+def test_keyframe_fill_gaps_only_touches_frameless_contents(kstore, monkeypatch):
+    from analyzer.knowledge import backfill_keyframes as bk
+
+    creator = kstore.ensure_creator("测试创作者")
+    ids = []
+    for i in (1, 2):
+        cid, _ = kstore.upsert_content(
+            creator, platform="youtube", url=f"https://www.youtube.com/watch?v=vid0000000{i}",
+            content_type="video", title=f"第{i}期",
+            published_at=datetime(2026, 8, i, tzinfo=timezone.utc),
+            raw=f"正文{i}\n- [00:10] (chart) 画面")
+        ids.append(cid)
+    kstore.record_keyframe(ids[0], ts_s=10, path="keyframes/a/00010s_h1080.jpg", height=1080,
+                           bytes_=1, source="ytdlp:tv")
+
+    touched = []
+    monkeypatch.setattr(bk, "grab_for_content",
+                        lambda store, c, **kw: touched.append(c["id"]) or 3)
+    assert bk.fill_gaps(kstore, limit=10) == 3      # 只跑没帧的那条
+    assert touched == [ids[1]]
