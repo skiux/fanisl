@@ -2,11 +2,16 @@
 .env
 **/.env
 *.local
+# yt-dlp 的 YouTube 登录态：内含 __Secure-3PSID 等 Google 会话凭据，绝不入库
+cookies.txt
+**/cookies.txt
 
 # --- 数据库 / 数据 ---
 *.db
 *.sqlite
 *.sqlite3
+# 提帧产物（二进制、可重生成）
+data_export/keyframes/
 
 # --- Python ---
 __pycache__/
