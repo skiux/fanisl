@@ -331,7 +331,7 @@ function ScoreRecord({ score }: { score: UnitScore }) {
 
 function ScoreSection({ unit }: { unit: KnowledgeUnitDetail }) {
   return (
-    <section className="unit-scores">
+    <section className="unit-score-section">
       <header>
         <div>
           <p>市场裁决</p>
