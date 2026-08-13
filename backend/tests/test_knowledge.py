@@ -71,11 +71,58 @@ def test_store_roundtrip_and_replay(kstore):
     with pytest.raises(Exception):
         kstore.record_extraction(content_id, extractor_version="v1", model="m", units=[unit])
     ids2 = kstore.record_extraction(content_id, extractor_version="v2", model="m", units=[unit])
-    assert len(kstore.units(kind="claim")) == 2 and ids2 != ids
+    assert ids2 != ids
+    # 升版重提：旧单元一条不删，但**只有当前生效那版进下游视图**——否则联赛表/含糊率/
+    # 抽查覆盖率会把同一期内容数两遍
+    assert len(kstore.units(kind="claim")) == 1
+    assert kstore.units(kind="claim")[0]["extractor_version"] == "v2"
+    runs = kstore.runs_for_content(content_id)
+    assert [(r["extractor_version"], r["status"]) for r in runs] == [
+        ("v1", "superseded"), ("v2", "active")]
     # 列表视图：带信源名/字数/单元数，不含 raw 全文
     rows = kstore.list_contents()
-    assert rows[0]["creator"] == "测试创作者" and rows[0]["n_units"] == 2
+    assert rows[0]["creator"] == "测试创作者" and rows[0]["n_units"] == 1
     assert rows[0]["raw_len"] > 0 and "raw" not in rows[0]
+
+
+def test_activate_run_switches_back_without_losing_either_version(kstore):
+    """回退路径：v2 重提后发现不如 v1，切回去即可，两版单元都还在库里。"""
+    cid = kstore.ensure_creator("回退信源")
+    content_id, _ = kstore.upsert_content(
+        cid, platform="manual", url="https://example.test/rollback", content_type="article",
+        title="回退样本", published_at=datetime(2026, 7, 1, tzinfo=timezone.utc), raw="原油判断")
+    unit = KnowledgeUnit(kind="claim", quote="原油会去测 75", payload=_claim())
+    kstore.record_extraction(content_id, extractor_version="v1", model="m", units=[unit])
+    kstore.record_extraction(content_id, extractor_version="v2", model="m", units=[unit, unit])
+
+    assert len(kstore.units_for_content(content_id)) == 2      # 当前是 v2
+    v1_run = next(r for r in kstore.runs_for_content(content_id)
+                  if r["extractor_version"] == "v1")
+    kstore.activate_run(v1_run["id"])
+
+    active = kstore.units_for_content(content_id)
+    assert len(active) == 1 and active[0]["extractor_version"] == "v1"
+    # v2 的单元没被删，只是不再生效
+    assert [(r["extractor_version"], r["status"]) for r in kstore.runs_for_content(content_id)] == [
+        ("v1", "active"), ("v2", "superseded")]
+
+
+def test_only_one_run_can_be_active_per_content(kstore):
+    """数据库层兜底：部分唯一索引不允许同一条 content 出现两个 active run。"""
+    import psycopg
+
+    cid = kstore.ensure_creator("并发信源")
+    content_id, _ = kstore.upsert_content(
+        cid, platform="manual", url="https://example.test/one-active", content_type="article",
+        title="唯一 active", published_at=datetime(2026, 7, 1, tzinfo=timezone.utc), raw="判断")
+    unit = KnowledgeUnit(kind="claim", quote="原油会去测 75", payload=_claim())
+    kstore.record_extraction(content_id, extractor_version="v1", model="m", units=[unit])
+    kstore.record_extraction(content_id, extractor_version="v2", model="m", units=[unit])
+
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        with kstore.pool.connection() as conn:
+            conn.execute("UPDATE extraction_runs SET status='active' WHERE content_id=%s",
+                         (content_id,))
 
 
 def test_verification_views_keep_due_and_scored_records_distinct(kstore):

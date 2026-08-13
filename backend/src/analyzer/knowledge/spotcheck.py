@@ -15,19 +15,21 @@ import sys
 
 from ..config import get_settings
 from ..db import make_pool
+from .store import ACTIVE_RUN
 
 _VERDICTS = {"faithful", "unfaithful", "unclear"}
 
 
 def sample(pool, n: int = 10) -> list[dict]:
     with pool.connection() as conn:
-        return conn.execute("""
+        return conn.execute(f"""
             SELECT u.id, u.kind, u.locator, u.quote, cr.name AS creator,
               c.id AS content_id, c.title AS content_title
             FROM knowledge_units u
             JOIN creators cr ON cr.id=u.creator_id
             JOIN contents c ON c.id=u.content_id
             WHERE NOT EXISTS (SELECT 1 FROM spot_checks s WHERE s.unit_id=u.id)
+              AND {ACTIVE_RUN}
             ORDER BY random() LIMIT %s""", (n,)).fetchall()
 
 
@@ -41,8 +43,8 @@ def record(pool, unit_id: int, verdict: str, note: str | None) -> None:
 
 def stats(pool) -> dict:
     with pool.connection() as conn:
-        r = conn.execute("""
-            SELECT (SELECT count(*) FROM knowledge_units) AS total,
+        r = conn.execute(f"""
+            SELECT (SELECT count(*) FROM knowledge_units u WHERE {ACTIVE_RUN}) AS total,
               count(DISTINCT unit_id) AS checked,
               count(*) FILTER (WHERE verdict='faithful') AS faithful,
               count(*) FILTER (WHERE verdict='unfaithful') AS unfaithful,

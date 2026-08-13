@@ -20,6 +20,7 @@ from psycopg_pool import ConnectionPool
 
 from ..config import get_settings
 from ..db import make_pool
+from .store import ACTIVE_RUN
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS knowledge_nodes (
@@ -311,9 +312,9 @@ class NodeStore:
         payload，不涉裁量——人工判断只负责'哪些不是单例'）。claim 不建（见 merge-guide §0）。"""
         n = 0
         with self.pool.connection() as conn, conn.transaction():
-            rows = conn.execute("""
+            rows = conn.execute(f"""
                 SELECT u.id, u.kind, u.tags, u.payload FROM knowledge_units u
-                WHERE u.kind IN ('method','concept')
+                WHERE u.kind IN ('method','concept') AND {ACTIVE_RUN}
                   AND NOT EXISTS (SELECT 1 FROM node_attestations a WHERE a.unit_id=u.id)
                 ORDER BY u.id""").fetchall()
             for r in rows:
@@ -337,11 +338,12 @@ class NodeStore:
     def export_pending(self) -> list[dict]:
         """待归并清单：尚未挂节点的全部单元（紧凑行，归并会话的输入）。"""
         with self.pool.connection() as conn:
-            return conn.execute("""
+            return conn.execute(f"""
                 SELECT u.id, u.kind, u.content_id, cr.name AS creator, u.published_at::date AS pub,
                   u.tags, u.payload
                 FROM knowledge_units u JOIN creators cr ON cr.id=u.creator_id
-                WHERE NOT EXISTS (SELECT 1 FROM node_attestations a WHERE a.unit_id=u.id)
+                WHERE {ACTIVE_RUN}
+                  AND NOT EXISTS (SELECT 1 FROM node_attestations a WHERE a.unit_id=u.id)
                 ORDER BY u.kind, u.id""").fetchall()
 
 

@@ -38,6 +38,7 @@ from __future__ import annotations
 import datetime as dt
 
 from .scorers import OVERRIDES
+from .store import ACTIVE_RUN
 
 # 让基线与 _score_sign 用同一套默认阈值
 _DEFAULT_BAND = 0.02
@@ -96,7 +97,7 @@ def sign_stats(pool) -> dict[int, dict]:
     """
     with pool.connection() as conn:
         closes = _bars_by_symbol(conn)
-        rows = conn.execute("""
+        rows = conn.execute(f"""
             SELECT u.creator_id, s.unit_id, s.outcome,
                    u.payload->>'asset_symbol'  AS sym,
                    u.payload->>'direction'     AS dir,
@@ -104,7 +105,8 @@ def sign_stats(pool) -> dict[int, dict]:
             FROM claim_scores s JOIN knowledge_units u ON u.id = s.unit_id
             WHERE u.payload->'scoring_spec'->>'method' = 'sign'
               AND s.outcome IN ('hit', 'miss')
-              AND s.horizon_label ~ '^[0-9]{4}-'
+              AND s.horizon_label ~ '^[0-9]{{4}}-'
+              AND {ACTIVE_RUN}
         """).fetchall()
 
     per_claim: dict[int, dict] = {}

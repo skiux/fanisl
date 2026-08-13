@@ -243,6 +243,17 @@ lang, status, raw_len, n_units, n_claims, n_methods, n_concepts, n_hit, n_partia
 ref_price_at_publish|null, created_at, scores:[{horizon_label, outcome, realized}]}]`
 （claim 优先排前；scores 为空数组=尚无到期评分）。
 
+#### GET /knowledge/contents/{id}/runs
+该篇的全部提取版本：`[{id, extractor_version, model, n_units, status, created_at}]`，按时间升序。
+
+**只有 `status='active'` 的那一版进下游统计**。升版重提（v1→v2）后旧版单元一条不删（版本化
+重放），但若两版同时计入，联赛表、含糊率、抽查覆盖率都会把同一期内容数两遍——所以库层用
+部分唯一索引保证一条内容最多一个 active run。切换走 CLI
+`python -m analyzer.knowledge.import_units --activate <run_id>`（发现新版不如旧版就切回去）。
+
+前端注意：`/contents/{id}/units`、`/units`、`/tags`、`/scoreboard`、`/spot-checks` 等
+**返回的都只是生效版本**；要看历史版本得先从这里拿 run 列表。
+
 #### GET /knowledge/contents/{id}/keyframes
 该篇留存的关键帧，按视频内时刻升序：`[{id, content_id, ts_s, kind, note, path, height,
 bytes, source, created_at}]`。`note` 是该时刻视觉笔记的原文，`path` 只作记录，**取图走

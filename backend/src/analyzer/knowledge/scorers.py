@@ -223,14 +223,15 @@ def score_unit_at(ps: PriceStore, unit: dict, ladder_date: dt.date) -> tuple[str
 
 
 def run(*, dry: bool) -> None:
-    from .store import KnowledgeStore
+    from .store import ACTIVE_RUN, KnowledgeStore
     pool = make_pool(get_settings().pg_knowledge_conninfo)
     try:
         store, ps = KnowledgeStore(pool), PriceStore(pool)
         with pool.connection() as conn:
             units = conn.execute(
-                "SELECT * FROM knowledge_units WHERE kind='claim' "
-                "AND payload->>'verifiability' IN ('A','B','C') ORDER BY id").fetchall()
+                f"SELECT u.* FROM knowledge_units u WHERE u.kind='claim' "
+                f"AND u.payload->>'verifiability' IN ('A','B','C') AND {ACTIVE_RUN} "
+                f"ORDER BY u.id").fetchall()
         n_new = n_skip = n_pending = 0
         counts: dict[str, int] = {}
         for u in units:

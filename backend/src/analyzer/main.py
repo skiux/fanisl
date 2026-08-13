@@ -315,6 +315,17 @@ def knowledge_content_units(content_id: int) -> list[dict]:
     return knowledge_store.units_for_content(content_id)
 
 
+@app.get("/knowledge/contents/{content_id}/runs")
+def knowledge_content_runs(content_id: int) -> list[dict]:
+    """该内容的全部提取版本：`[{id, extractor_version, model, n_units, status, created_at}]`。
+
+    升版重提后旧版仍在库里（版本化重放），但**只有 status=active 的那版进下游统计**——
+    否则联赛表、含糊率、抽查覆盖率会把同一期内容数两遍。切换走 CLI：
+    `python -m analyzer.knowledge.import_units --activate <run_id>`。
+    """
+    return knowledge_store.runs_for_content(content_id)
+
+
 @app.get("/knowledge/contents/{content_id}/keyframes")
 def knowledge_content_keyframes(content_id: int) -> list[dict]:
     """某内容留存的关键帧（按视频内时刻排序，带该时刻的视觉笔记原文）。
