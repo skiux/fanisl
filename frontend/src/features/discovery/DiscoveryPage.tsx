@@ -223,7 +223,7 @@ function LocalNavigation({ current, openDelta }: { current: DiscoveryView; openD
           </a>
         ))}
       </div>
-      <button onClick={openDelta} type="button"><span>本期变化</span><b>↗</b></button>
+      <button aria-label="本期变化" onClick={openDelta} type="button"><span>本期变化</span><b>↗</b></button>
     </nav>
   )
 }

@@ -3102,8 +3102,10 @@
 }
 
 .source-library-lead > div:first-child > span {
+  display: block;
+  margin-bottom: 7px;
   color: var(--library-muted);
-  font: 650 var(--text-ui) ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 650 var(--text-meta) ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: .14em;
 }
 
@@ -3111,7 +3113,7 @@
   display: inline;
   margin: 0 14px 0 0;
   font-family: inherit;
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 670;
   letter-spacing: -.045em;
   line-height: 1.2;
@@ -3560,7 +3562,9 @@
 
   .source-library-lead > div:first-child > p {
     display: block;
-    margin-top: 6px;
+    max-width: 34em;
+    margin-top: 8px;
+    line-height: 1.6;
   }
 
   .source-lead-actions {

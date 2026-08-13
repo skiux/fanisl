@@ -767,8 +767,8 @@ function SourceLibrary({
       <header className="source-library-lead">
         <div>
           <span>KNOWLEDGE LIBRARY</span>
-          <h1>内容</h1>
-          <p>从每一期视频进入，阅读原文、知识提取与后续裁决。</p>
+          <h1>原始内容</h1>
+          <p>从每期视频进入，阅读原文、知识提取与后续裁决。</p>
         </div>
         <div className="source-lead-actions">
           <label>

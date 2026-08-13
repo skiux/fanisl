@@ -1,42 +1,25 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import App from './App'
 import ErrorBoundary from './shared/ErrorBoundary'
+import { routeFromHash, titleForRoute, type AppRoute } from './shared/navigation/route'
 
 const ArchivePage = lazy(() => import('./features/archive/ArchivePage'))
 const DiscoveryPage = lazy(() => import('./features/discovery/DiscoveryPage'))
 const KnowledgePage = lazy(() => import('./features/knowledge/KnowledgePage'))
 const VerificationPage = lazy(() => import('./features/verification/VerificationPage'))
 
-type Route = 'home' | 'knowledge' | 'verification' | 'discovery' | 'archive'
-
-function readRoute(): Route {
-  if (window.location.hash.startsWith('#/knowledge')) return 'knowledge'
-  if (window.location.hash.startsWith('#/verification')) return 'verification'
-  if (window.location.hash.startsWith('#/discovery')) return 'discovery'
-  if (window.location.hash.startsWith('#/archive')) return 'archive'
-  return 'home'
-}
-
 function Root() {
-  const [route, setRoute] = useState<Route>(readRoute)
+  const [route, setRoute] = useState<AppRoute>(() => routeFromHash(window.location.hash))
 
   useEffect(() => {
-    const update = () => setRoute(readRoute())
+    const update = () => setRoute(routeFromHash(window.location.hash))
     window.addEventListener('hashchange', update)
     return () => window.removeEventListener('hashchange', update)
   }, [])
 
   useEffect(() => {
     window.scrollTo({ left: 0, top: 0 })
-    document.title = route === 'knowledge'
-      ? '知识库 · FANISL'
-      : route === 'verification'
-        ? '验证中心 · FANISL'
-        : route === 'discovery'
-          ? '发现 · FANISL'
-          : route === 'archive'
-            ? '研究档案 · FANISL'
-            : 'FANISL · 个人投资知识引擎'
+    document.title = titleForRoute(route)
   }, [route])
 
   if (route !== 'home') {

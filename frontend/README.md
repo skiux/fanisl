@@ -9,6 +9,8 @@ npm install
 npm run dev
 npm run typecheck
 npm run lint
+npm test
+npm run test:e2e
 npm run build
 ```
 
@@ -19,16 +21,23 @@ VITE_API_BASE=https://api.example.com npm run dev
 VITE_API_BASE= npm run build
 ```
 
+Playwright 首次运行前安装固定版本的 Chromium：
+
+```bash
+npx playwright install chromium
+```
+
+视觉差异只有在确认是预期改动后才更新：`npm run test:e2e:update`。基线按浏览器项目和操作系统保存；当前覆盖 1440×900 与 390×844。
+
 ## Current structure
 
 ```text
 src/
-├── App.tsx                  temporary application entry
-├── main.tsx                 React bootstrap
-├── index.css                minimal global styles
-└── shared/
-    ├── api/client.ts        fetch and API error boundary
-    └── config/env.ts        environment configuration
+├── App.tsx                  首页空间叙事与真实知识搜索
+├── Root.tsx                 hash 路由、按路由拆包与故障边界
+├── features/                知识、验证、发现、档案工作区
+└── shared/                  API 契约、导航与交互基础设施
+e2e/                         Playwright 流程测试与视觉基线
 ```
 
-路由、服务端状态、图表、组件库和产品目录暂未选型。后端契约参考 [`../api.md`](../api.md)，实现以 [`../backend/src/analyzer/main.py`](../backend/src/analyzer/main.py) 为准。
+后端契约参考 [`../api.md`](../api.md)，实现以 [`../backend/src/analyzer/main.py`](../backend/src/analyzer/main.py) 为准。测试使用确定性接口夹具，不替代联调环境对真实 PostgreSQL 数据和同源代理的终验。
