@@ -140,12 +140,14 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None,
                 n_fail += 1
                 time.sleep(SLEEP_BETWEEN_S)
                 continue
+            u = client.last_usage or {}
             _, created = store.upsert_content(
                 creator["id"], platform="youtube", url=url, content_type="video",
                 title=meta["title"], published_at=pub, raw=render_l0_text(tr),
-                lang=tr.get("lang"))
+                lang=tr.get("lang"),
+                triage={"model": client.model, "channel": type(client).__name__,
+                        "tokens": u.get("totalTokenCount")})
             n_new += created
-            u = client.last_usage or {}
             print(f"  [{i}] {'新' if created else '重复'} {(meta['title'] or '')[:36]}  "
                   f"{len(tr['transcript'])}字/{len(tr.get('visual_notes', []))}笔记  "
                   f"tok={u.get('totalTokenCount', '?')}  {pub.date() if pub else '?'}", flush=True)

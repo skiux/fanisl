@@ -110,8 +110,13 @@ magnitude 的键约定：target（目标价）/ low, high（区间）/ pct（百
   rotation, risk-mgmt, position-sizing；2026-08 新增（投资TALK君语料带入）：
   valuation, balance-sheet, capital-raise, labor-market, bond-yields, fiscal-policy,
   fx-intervention, ipo-supply, ai-agent, stablecoin, power-demand, neocloud,
-  datacenter-financing, compute-pricing, gpu-depreciation, defensive-sector, oversold。
+  datacenter-financing, compute-pricing, gpu-depreciation, defensive-sector, oversold；
+  2026-08-14 质检回填（已在用但漏登记）：psychology, positioning, market-structure,
+  execution, moat。
 - 新主题词可加，但先查本表避免同义分裂；新增词回填进本表（本文件即受控词表）。
+- **已发生的同义分裂（勿再用左侧）**：`semi` → 用 `semiconductor-cycle`；`dram` →
+  用 `memory-storage`。资产标签只写规范符号本身（soxx/sox/smh/semi 是四个不同标的，
+  按 claim 实际映射的 asset_symbol 写，不可互替）。
 
 ## 8. Method / Concept 填写要点
 

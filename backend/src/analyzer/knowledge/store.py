@@ -149,8 +149,13 @@ class KnowledgeStore:
 
     def upsert_content(self, creator_id: int, *, platform: str, url: str | None,
                        content_type: str, title: str | None, published_at,
-                       raw: str, lang: str | None = None) -> tuple[int, bool]:
-        """按 dedup_hash 幂等插入。返回 (content_id, 是否新建)。已存在时不改原文。"""
+                       raw: str, lang: str | None = None,
+                       triage: dict | None = None) -> tuple[int, bool]:
+        """按 dedup_hash 幂等插入。返回 (content_id, 是否新建)。已存在时不改原文。
+
+        triage 记转录出处（model/channel）。2026-08 的教训：lite 档模型会改写数字，
+        事后想圈出受影响的内容却发现库里没留通道记录，只能靠会话日志回溯。
+        """
         h = dedup_hash(raw)
         with self.pool.connection() as conn:
             row = conn.execute("SELECT id FROM contents WHERE dedup_hash=%s", (h,)).fetchone()
@@ -158,9 +163,10 @@ class KnowledgeStore:
                 return int(row["id"]), False
             row = conn.execute(
                 "INSERT INTO contents(creator_id, platform, url, content_type, title, "
-                "published_at, lang, raw, dedup_hash) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) "
-                "RETURNING id",
-                (creator_id, platform, url, content_type, title, published_at, lang, raw, h),
+                "published_at, lang, raw, dedup_hash, triage) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                (creator_id, platform, url, content_type, title, published_at, lang, raw, h,
+                 Json(triage) if triage else None),
             ).fetchone()
         return int(row["id"]), True
 

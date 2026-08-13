@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import operator
 import pathlib
 import sys
 
@@ -22,6 +23,9 @@ from ..db import make_pool
 from .prices import SYMBOL_MAP, FRED_SERIES, PriceStore
 
 SCORER_VERSION = "v1"
+# close_at_eval 的比较符。四个方向都要有：阶梯函数标的（如 DFEDTARU）用严格号才不会
+# 把"没变"读成"发生了"，而"维持在低位"这类判断要的是 <=，用 < 等于要求再创新低。
+_CMP = {">": operator.gt, ">=": operator.ge, "<": operator.lt, "<=": operator.le}
 OVERRIDES = json.loads(
     (pathlib.Path(__file__).parent / "scoring_overrides.json").read_text())
 
@@ -157,7 +161,7 @@ def score_unit_at(ps: PriceStore, unit: dict, ladder_date: dt.date) -> tuple[str
     # override 模式优先
     mode = ov.get("mode")
     if mode == "close_at_eval":
-        ok = eval_close > ov["level"] if ov["op"] == ">" else eval_close >= ov["level"]
+        ok = _CMP[ov["op"]](eval_close, ov["level"])
         return ("hit" if ok else "miss"), realized
     if mode == "touch":
         touched = any(b["low"] <= ov["touch_level"] for b in bars)
