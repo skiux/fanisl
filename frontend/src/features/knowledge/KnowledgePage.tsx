@@ -15,7 +15,7 @@ import type {
   KnowledgeKind,
   KnowledgeNode,
   KnowledgeNodeDetail,
-  KnowledgeUnitSummary,
+  KnowledgeUnitPage,
   NodeRelationKind,
   NodeStatus,
   UnitScore,
@@ -251,7 +251,7 @@ function KnowledgePage() {
   const [creatorId, setCreatorId] = useState<number | null>(null)
   const [nodeQuery, setNodeQuery] = useState('')
   const [nodeKind, setNodeKind] = useState<KindFilter>('all')
-  const [units, setUnits] = useState<KnowledgeUnitSummary[]>([])
+  const [units, setUnits] = useState<KnowledgeUnitPage | null>(null)
   const [unitsLoaded, setUnitsLoaded] = useState(false)
   const [unitMode, setUnitMode] = useState<LoadMode>('loading')
   const [unitFiltersOpen, setUnitFiltersOpen] = useState(false)
@@ -374,10 +374,10 @@ function KnowledgePage() {
       return
     }
     const controller = new AbortController()
-    apiJson<KnowledgeUnitSummary[]>('/knowledge/units?limit=500', { signal: controller.signal })
-      .then((rows) => {
-        setUnits(rows)
-        setSelectedUnitId(rows[0]?.id ?? null)
+    apiJson<KnowledgeUnitPage>('/knowledge/units-page?limit=100', { signal: controller.signal })
+      .then((page) => {
+        setUnits(page)
+        setSelectedUnitId((current) => current ?? page.items[0]?.id ?? null)
         setUnitMode('live')
         setUnitsLoaded(true)
       })
@@ -648,7 +648,7 @@ function KnowledgePage() {
               filtersOpen={unitFiltersOpen}
               focusRequestKey={unitFocusKey}
               initialQuery={routeQuery}
-              initialUnits={units}
+              initialPage={units}
               isPreview={unitMode === 'preview'}
               onCloseFilters={() => setUnitFiltersOpen(false)}
               onCloseReader={() => setUnitReaderOpen(false)}

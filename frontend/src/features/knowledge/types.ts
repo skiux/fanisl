@@ -165,6 +165,16 @@ export type KnowledgeUnitSummary = KnowledgeContentUnit & {
   content_title: string
 }
 
+export type KnowledgeUnitPage = {
+  items: KnowledgeUnitSummary[]
+  total: number
+  offset: number
+  limit: number
+  has_more: boolean
+  counts: Record<KnowledgeKind, number>
+  creator_counts: Record<string, number>
+}
+
 export type KnowledgeCreator = {
   id: number
   name: string

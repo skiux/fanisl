@@ -41,6 +41,19 @@ export type VerificationQueue = {
   review: ScoredVerification[]
 }
 
+export type VerificationSummary = {
+  overview: VerificationOverview
+  nearest_due: DueVerification[]
+}
+
+export type VerificationPageData = {
+  items: Array<DueVerification | ScoredVerification>
+  total: number
+  offset: number
+  limit: number
+  has_more: boolean
+}
+
 export type VerificationNodeImpact = {
   id: number
   title: string

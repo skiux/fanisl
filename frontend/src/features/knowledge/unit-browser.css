@@ -357,6 +357,42 @@
   background: rgba(72, 84, 70, .2);
 }
 
+.unit-list-virtual {
+  position: relative;
+  width: 100%;
+}
+
+.unit-list-virtual .unit-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.unit-loading-more,
+.unit-load-retry {
+  display: flex;
+  position: sticky;
+  z-index: 3;
+  bottom: 10px;
+  width: max-content;
+  min-height: 34px;
+  align-items: center;
+  margin: 0 auto;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, .76);
+  border-radius: 99px;
+  color: #667166;
+  background: rgba(246, 244, 236, .93);
+  box-shadow: 0 8px 28px rgba(46, 52, 45, .12);
+  font-size: var(--text-meta);
+  backdrop-filter: blur(14px);
+}
+
+.unit-load-retry {
+  color: #795d52;
+  cursor: pointer;
+}
+
 .unit-row {
   --unit-accent: #647657;
   --unit-tint: rgba(220, 230, 198, .46);

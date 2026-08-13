@@ -35,6 +35,7 @@ from .runtime import (
     trading_store,
 )
 from .knowledge import discovery, spotcheck
+from .knowledge.browser import browse_units_page, verification_page, verification_summary
 from .knowledge.overview import overview_stats
 from .storage import display_messages
 
@@ -324,6 +325,25 @@ def knowledge_units(kind: str | None = None, creator: int | None = None,
         kind=kind, creator_id=creator, tag=tag, symbol=symbol, q=q, limit=min(limit, 500))
 
 
+@app.get("/knowledge/units-page")
+def knowledge_units_page(kind: str | None = None, creator: int | None = None,
+                         tag: str | None = None, symbol: str | None = None,
+                         q: str | None = None, scored: bool = False, limit: int = 100,
+                         offset: int = 0) -> dict:
+    """跨内容单元分页浏览；返回完整筛选总数，不把当前页长度当作全库规模。"""
+    return browse_units_page(
+        knowledge_pool,
+        kind=kind,
+        creator_id=creator,
+        tag=tag,
+        symbol=symbol,
+        q=q,
+        scored=scored,
+        limit=min(max(limit, 1), 200),
+        offset=max(offset, 0),
+    )
+
+
 @app.get("/knowledge/units/{unit_id}")
 def knowledge_unit(unit_id: int) -> dict:
     """单元详情：单元 + 信源/内容元信息 + 全部评分行（证据链下钻的落点）。"""
@@ -386,6 +406,27 @@ def knowledge_recent_scores(days: int = 14, limit: int = 100) -> list[dict]:
 def knowledge_verification_queue(days: int = 14, limit: int = 120) -> dict:
     """验证中心行动队列：即将到期、近期判定、不可判与需复核分开呈现。"""
     return knowledge_store.verification_queue(days=min(days, 90), limit=min(limit, 300))
+
+
+@app.get("/knowledge/verification-summary")
+def knowledge_verification_summary(days: int = 14) -> dict:
+    """验证中心未截断总数与最近待执行记录。"""
+    return verification_summary(knowledge_pool, days=min(max(days, 1), 90))
+
+
+@app.get("/knowledge/verification-page")
+def knowledge_verification_page(bucket: str = "recent", days: int = 14,
+                                limit: int = 100, offset: int = 0) -> dict:
+    """验证队列按分类分页；bucket=recent|due|review|unavailable。"""
+    if bucket not in {"recent", "due", "review", "unavailable"}:
+        raise HTTPException(status_code=400, detail="非法验证分类")
+    return verification_page(
+        knowledge_pool,
+        bucket=bucket,
+        days=min(max(days, 1), 90),
+        limit=min(max(limit, 1), 200),
+        offset=max(offset, 0),
+    )
 
 
 @app.get("/knowledge/verifications/{score_id}")
