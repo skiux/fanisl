@@ -37,9 +37,9 @@
   overflow: hidden;
   border: 1px solid rgba(48, 58, 49, .13);
   border-radius: 16px;
-  background: rgba(246, 245, 239, .78);
-  box-shadow: 0 24px 70px rgba(47, 47, 39, .08);
-  backdrop-filter: blur(18px) saturate(1.02);
+  background: rgba(242, 240, 232, .82);
+  box-shadow: 0 24px 70px rgba(47, 47, 39, .095);
+  backdrop-filter: blur(18px) saturate(.98);
 }
 
 .source-workspace-head {
@@ -739,364 +739,227 @@
   }
 }
 
-/* Immersive source research workspace */
+/* Restored editorial reader: preserves the earlier reading hierarchy while keeping
+   the larger shared type scale introduced in the later pass. */
 
-.source-document-stage {
-  width: 100%;
+.source-document-page .source-document-stage {
+  width: min(1500px, calc(100% - 40px));
   height: 100svh;
-  min-height: 620px;
-  margin: 0;
-  padding: 0;
+  min-height: 640px;
+  margin: 0 auto;
+  padding: 100px 0 18px;
 }
 
-.source-workspace {
+.source-document-page .source-workspace {
   width: 100%;
-  height: 100%;
-  border: 0;
-  border-radius: 0;
-  background: rgba(246, 245, 239, .96);
-  box-shadow: none;
-  backdrop-filter: none;
+  height: auto;
+  min-height: 0;
+  border: 1px solid rgba(48, 58, 49, .13);
+  border-radius: 16px;
+  background: rgba(242, 240, 232, .82);
+  box-shadow: 0 24px 70px rgba(47, 47, 39, .095);
+  backdrop-filter: blur(18px) saturate(.98);
 }
 
-.source-workspace-head {
-  min-height: 68px;
-  grid-template-columns: 112px minmax(0, 1fr) auto;
-  gap: 20px;
-  padding: 8px 22px;
-  background: rgba(249, 248, 243, .92);
+.source-document-page .source-workspace-head {
+  min-height: 96px;
+  grid-template-columns: 128px minmax(0, 1fr) 158px;
+  gap: 22px;
+  padding: 14px 20px;
+  background: transparent;
 }
 
-.source-workspace-back {
-  min-height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--library-line-soft);
-  border-radius: 9px;
-  color: #4f5b50;
-  background: rgba(255, 255, 252, .52);
-  cursor: pointer;
-  font-size: var(--text-ui);
-  text-align: left;
-}
-
-.source-workspace-back:hover,
-.source-workspace-back:focus-visible {
-  border-color: rgba(75, 89, 73, .28);
-  background: rgba(220, 230, 198, .34);
-}
-
-.source-workspace-title h1 {
-  max-width: 980px;
-  font-family: "SF Pro Text", "PingFang SC", system-ui, sans-serif;
-  font-size: clamp(18px, 1.6vw, 22px);
-  font-weight: 660;
-  letter-spacing: -.025em;
-  line-height: 1.28;
-  -webkit-line-clamp: 1;
-}
-
-.source-workspace-title p {
-  margin-top: 5px;
-  font-size: var(--text-caption);
-}
-
-.source-workspace-actions {
+.source-document-page .source-workspace-kicker {
   display: flex;
-  align-items: center;
-  gap: 9px;
 }
 
-.source-workspace-actions > a:first-child {
-  padding: 9px 4px;
-  color: #384239;
-  font-size: var(--text-ui);
-  font-weight: 720;
-  letter-spacing: -.02em;
+.source-document-page .source-workspace-title h1 {
+  max-width: 900px;
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: clamp(23px, 2vw, 29px);
+  font-weight: 580;
+  line-height: 1.35;
+  -webkit-line-clamp: 2;
 }
 
-.source-external-link {
-  min-height: 40px;
-  padding: 0 13px;
-  white-space: nowrap;
+.source-document-page .source-workspace-title p {
+  margin-top: 8px;
+  font-size: var(--text-meta);
 }
 
-.source-workspace-body {
-  grid-template-columns: 272px minmax(0, 1fr);
+.source-document-page .source-workspace-body {
+  grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
 }
 
-.source-context-pane {
-  display: flex;
-  padding: 16px 14px 14px;
-  flex-direction: column;
+.source-document-page .source-context-pane {
+  display: block;
+  padding: 18px;
   overflow: auto;
-  background: rgba(239, 238, 231, .54);
+  background: transparent;
 }
 
-.source-context-media {
-  flex: 0 0 auto;
-  border-radius: 9px;
+.source-document-page .source-context-summary {
+  display: block;
 }
 
-.source-context-identity {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 11px 2px 13px;
-  color: var(--library-muted);
-  font-size: var(--text-caption);
+.source-document-page .source-context-stats {
+  margin-top: 0;
+  padding: 13px 0;
 }
 
-.source-context-identity b {
-  color: var(--library-sage);
-  font-weight: 680;
+.source-document-page .source-context-legend {
+  margin-top: 0;
+  padding: 14px 0 0;
 }
 
-.source-view-tabs {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--library-line-soft);
-  border-radius: 10px;
-  overflow: hidden;
-  background: rgba(255, 255, 252, .34);
+.source-document-page .source-research-pane {
+  grid-template-rows: 54px minmax(0, 1fr);
+  background: transparent;
 }
 
-.source-view-tabs button {
-  min-height: 48px;
-  padding: 0 13px;
-  border-right: 0;
-  border-bottom: 1px solid var(--library-line-soft);
-  font-size: var(--text-ui);
+.source-document-page .source-view-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  flex-direction: initial;
+  border: 0;
+  border-bottom: 1px solid var(--library-line);
+  border-radius: 0;
+  overflow: visible;
+  background: transparent;
 }
 
-.source-view-tabs button:last-child {
+.source-document-page .source-view-tabs button {
+  min-height: 0;
+  padding: 0 16px;
+  border-right: 1px solid var(--library-line-soft);
   border-bottom: 0;
 }
 
-.source-view-tabs button::after {
-  top: 9px;
-  right: auto;
-  bottom: 9px;
-  left: 0;
-  width: 3px;
-  height: auto;
-  transform: scaleY(0);
+.source-document-page .source-view-tabs button::after {
+  top: auto;
+  right: 15px;
+  bottom: -1px;
+  left: 15px;
+  width: auto;
+  height: 2px;
+  transform: scaleX(0);
 }
 
-.source-view-tabs button[aria-selected="true"]::after {
-  transform: scaleY(1);
+.source-document-page .source-view-tabs button[aria-selected="true"]::after {
+  transform: scaleX(1);
 }
 
-.source-view-tabs b {
-  font-size: var(--text-caption);
+.source-document-page .source-view-scroll > section {
+  padding: 28px 32px 52px;
 }
 
-.source-context-stats {
-  margin-top: 12px;
-  padding: 7px 0;
+.source-document-page .source-original-view > header,
+.source-document-page .source-view-heading {
+  grid-template-columns: minmax(220px, .55fr) minmax(280px, 1fr);
+  gap: 30px;
+  padding-bottom: 20px;
 }
 
-.source-context-stats > div {
-  padding: 7px 8px;
-}
-
-.source-context-stats dt,
-.source-context-legend {
-  font-size: var(--text-caption);
-}
-
-.source-context-stats dd {
-  font-size: var(--text-ui);
-}
-
-.source-context-legend {
-  margin-top: auto;
-  padding: 12px 2px 0;
-}
-
-.source-research-pane {
-  grid-template-rows: minmax(0, 1fr);
-  background: rgba(251, 250, 246, .52);
-}
-
-.source-view-scroll > section {
-  padding: clamp(24px, 3.4vw, 46px) clamp(28px, 4.4vw, 64px) 64px;
-}
-
-.source-original-view > header,
-.source-view-heading {
-  grid-template-columns: minmax(260px, .72fr) minmax(280px, 1fr);
-  gap: 44px;
-  padding-bottom: 22px;
-}
-
-.source-original-view > header span,
-.source-view-heading span,
-.source-unit-copy > span:first-child,
-.source-unit-copy > em,
-.source-unit-tags i,
-.source-row-arrow,
-.source-node-list > button > span,
-.source-node-list > button > div > p,
-.source-node-list > button > i,
-.source-workspace-verdicts time,
-.source-workspace-verdicts > button > i {
-  font-size: var(--text-caption);
-}
-
-.source-original-view h2,
-.source-view-heading h2 {
+.source-document-page .source-original-view h2,
+.source-document-page .source-view-heading h2 {
   font-size: clamp(25px, 2.2vw, 31px);
 }
 
-.source-original-view > header > p,
-.source-view-heading > p {
-  font-size: var(--text-body);
-}
-
-.source-original-view > article {
-  max-width: 860px;
-  padding-top: 28px;
+.source-document-page .source-original-view > article {
+  max-width: 820px;
+  padding-top: 26px;
   font-size: var(--text-reading);
-  line-height: 2;
+  line-height: 1.95;
 }
 
-.source-unit-row,
-.source-node-list > button,
-.source-workspace-verdicts > button {
-  padding-top: 21px;
-  padding-bottom: 23px;
-}
-
-.source-unit-copy blockquote,
-.source-node-list blockquote,
-.source-workspace-verdicts > button > p {
-  font-size: var(--text-body);
-}
-
-@media (max-width: 900px) {
-  .source-workspace-head {
-    grid-template-columns: 104px minmax(0, 1fr) auto;
-    gap: 12px;
-    padding-right: 14px;
-    padding-left: 14px;
+@media (max-width: 1100px) {
+  .source-document-page .source-document-stage {
+    width: calc(100% - 28px);
   }
 
-  .source-workspace-actions > a:first-child {
-    display: none;
+  .source-document-page .source-workspace-head {
+    grid-template-columns: 104px minmax(0, 1fr) 138px;
+    gap: 16px;
   }
 
-  .source-workspace-body {
-    grid-template-columns: 224px minmax(0, 1fr);
-  }
-
-  .source-context-pane {
-    padding: 12px;
-  }
-
-  .source-context-stats,
-  .source-context-legend {
-    display: none;
-  }
-
-  .source-view-scroll > section {
-    padding: 24px 24px 56px;
-  }
-
-  .source-original-view > header,
-  .source-view-heading {
-    grid-template-columns: 1fr;
-    gap: 12px;
+  .source-document-page .source-workspace-body {
+    grid-template-columns: 280px minmax(0, 1fr);
   }
 }
 
-@media (max-width: 640px) {
-  .source-document-page,
-  .source-document-stage {
-    height: 100svh;
+@media (max-width: 720px) {
+  .source-document-page .source-document-stage {
+    width: calc(100% - 20px);
     min-height: 100svh;
-    overflow: hidden;
+    padding: 88px 0 10px;
   }
 
-  .source-workspace {
-    height: 100%;
-    min-height: 100svh;
-    overflow: hidden;
+  .source-document-page .source-document-stage > .reader-back {
+    flex-basis: 28px;
+    margin-bottom: 7px;
   }
 
-  .source-workspace-head {
-    position: sticky;
-    z-index: 5;
-    top: 0;
-    grid-template-columns: 96px minmax(0, 1fr);
-  }
-
-  .source-workspace-actions,
-  .source-workspace-title p {
-    display: none;
-  }
-
-  .source-workspace-body {
-    display: grid;
+  .source-document-page .source-workspace {
     min-height: 0;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 55px minmax(0, 1fr);
+    border-radius: 12px;
   }
 
-  .source-context-pane {
+  .source-document-page .source-workspace-head {
     position: static;
-    display: block;
-    padding: 0 12px 10px;
-    overflow: hidden;
-    border-right: 0;
-    border-bottom: 1px solid var(--library-line);
+    min-height: 76px;
+    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 12px;
+    padding: 10px 12px;
   }
 
-  .source-context-media,
-  .source-context-identity,
-  .source-context-stats,
-  .source-context-legend {
+  .source-document-page .source-workspace-title p,
+  .source-document-page .source-external-link {
     display: none;
   }
 
-  .source-view-tabs {
-    flex-direction: row;
-    border-radius: 0 0 9px 9px;
+  .source-document-page .source-workspace-title h1 {
+    font-size: 18px;
+    line-height: 1.35;
+    -webkit-line-clamp: 2;
   }
 
-  .source-view-tabs button {
-    min-height: 44px;
-    flex: 1;
+  .source-document-page .source-workspace-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .source-document-page .source-context-pane {
+    display: none;
+  }
+
+  .source-document-page .source-view-tabs {
+    min-height: 48px;
+  }
+
+  .source-document-page .source-view-tabs button {
+    min-height: 48px;
     justify-content: center;
-    padding: 0 7px;
-    border-right: 1px solid var(--library-line-soft);
-    border-bottom: 0;
+    padding: 0 5px;
+    font-size: 14px;
   }
 
-  .source-view-tabs button b {
+  .source-document-page .source-view-tabs b {
     display: none;
   }
 
-  .source-view-tabs button::after {
-    top: auto;
-    right: 8px;
-    bottom: 0;
-    left: 8px;
-    width: auto;
-    height: 3px;
-    transform: scaleX(0);
+  .source-document-page .source-view-scroll > section {
+    padding: 23px 18px 48px;
   }
 
-  .source-view-tabs button[aria-selected="true"]::after {
-    transform: scaleX(1);
+  .source-document-page .source-original-view > header,
+  .source-document-page .source-view-heading {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
-  .source-view-scroll {
-    min-height: 0;
-    overflow-y: auto;
-  }
-
-  .source-view-scroll > section {
-    padding: 24px 18px 54px;
+  .source-document-page .source-original-view > article {
+    padding-top: 22px;
+    font-size: 17px;
+    line-height: 1.9;
   }
 }
