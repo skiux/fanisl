@@ -246,6 +246,24 @@ class NodeStore:
                     changed[st] = changed.get(st, 0) + 1
         return changed
 
+    def correct_canonical(self, node_id: int, canonical: str, reason: str) -> dict:
+        """订正节点 canonical，并把订正理由留痕在 notes 里。
+
+        用于**忠实度订正**，不是重新归并：单元层是冻结的证据（quote 逐字校验过、
+        extractor_version 锁死），而 canonical 是节点层的归纳，写偏了要能改。改动附
+        原值与理由，事后可核——不留痕的静默改写和它要修的那类问题是一回事。
+        """
+        with self.pool.connection() as conn:
+            old = conn.execute("SELECT canonical FROM knowledge_nodes WHERE id=%s",
+                               (node_id,)).fetchone()
+            if old is None:
+                raise ValueError(f"节点 {node_id} 不存在")
+            conn.execute(
+                "UPDATE knowledge_nodes SET canonical=%s, updated_at=now(), "
+                "notes = COALESCE(notes || E'\\n', '') || %s WHERE id=%s",
+                (canonical, f"[订正 canonical] {reason}｜原值：{old['canonical']}", node_id))
+        return {"node_id": node_id, "old": old["canonical"], "new": canonical}
+
     def retire(self, node_id: int, reason: str) -> None:
         with self.pool.connection() as conn:
             conn.execute(

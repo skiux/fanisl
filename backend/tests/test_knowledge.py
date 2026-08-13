@@ -498,3 +498,37 @@ def test_keyframe_fill_gaps_only_touches_frameless_contents(kstore, monkeypatch)
                         lambda store, c, **kw: touched.append(c["id"]) or 3)
     assert bk.fill_gaps(kstore, limit=10) == 3      # 只跑没帧的那条
     assert touched == [ids[1]]
+
+
+def test_correct_canonical_keeps_an_audit_trail(kstore):
+    """canonical 订正必须留痕：不留痕的静默改写，和它要修的那类问题是一回事。"""
+    from analyzer.knowledge.nodes import NodeStore
+
+    ns = NodeStore(kstore.pool)
+    cid = kstore.ensure_creator("订正信源")
+    content_id, _ = kstore.upsert_content(
+        cid, platform="manual", url="https://example.test/correct", content_type="article",
+        title="订正样本", published_at=datetime(2026, 7, 1, tzinfo=timezone.utc), raw="原文")
+    uid = kstore.record_extraction(content_id, extractor_version="v1", model="m", units=[
+        KnowledgeUnit(kind="concept", quote="原文", payload={
+            "canonical_statement": "甲骨文 27 财年营收 901 亿", "category": "market_structure"}),
+    ])[0]
+    node_id = ns.import_nodes({"merger_version": "merge-v1", "nodes": [{
+        "kind": "concept", "title": "甲骨文体量", "canonical": "甲骨文 27 财年营收 901 亿",
+        "units": [{"id": uid}]}]})[0]
+
+    out = ns.correct_canonical(node_id, "甲骨文 27 财年营收 900 亿", "原文说的是 90 个 billion")
+    assert out["old"].endswith("901 亿") and out["new"].endswith("900 亿")
+
+    node = ns.get_node(node_id)
+    assert node["canonical"] == "甲骨文 27 财年营收 900 亿"
+    assert "[订正 canonical]" in node["notes"]
+    assert "901 亿" in node["notes"]          # 原值可追
+    assert "90 个 billion" in node["notes"]   # 理由可追
+
+
+def test_correct_canonical_rejects_unknown_node(kstore):
+    from analyzer.knowledge.nodes import NodeStore
+
+    with pytest.raises(ValueError):
+        NodeStore(kstore.pool).correct_canonical(999999, "x", "y")
