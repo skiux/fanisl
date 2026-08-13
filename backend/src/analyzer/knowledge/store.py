@@ -215,8 +215,12 @@ class KnowledgeStore:
             ).fetchone()
 
     def list_contents(self, *, status: str | None = None, limit: int = 200) -> list[dict]:
-        """内容列表（不含 raw 全文，带信源名/字数/单元构成/评分摘要）——前端列表页用。"""
-        cond = "WHERE c.status=%s" if status else ""
+        """内容列表（不含 raw 全文，带信源名/字数/单元构成/评分摘要）——前端列表页用。
+
+        默认排除 superseded：重转录后的旧稿是 L0 的历史记录（append-only 不删），但任何
+        "这个信源有几期"的计数都不该把同一期算两遍。要看旧稿传 status='superseded'。
+        """
+        cond = "WHERE c.status=%s" if status else "WHERE c.status <> 'superseded'"
         params: tuple = (status, limit) if status else (limit,)
         with self.pool.connection() as conn:
             return conn.execute(

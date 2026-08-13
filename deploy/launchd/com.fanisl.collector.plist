@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  开发机（macOS）上让 collector 常驻。服务器侧对应 deploy/fanisl-collector.service（systemd）。
+
+  为什么需要它：collector 是 knowledge daily（行情→评分→节点状态重算）和 weekly（周报）
+  的唯一宿主。2026-08-14 排查发现 collector 最后一次跑是 2026-06-14，而这两个 job 是
+  7 月中 K5/K6 才挂上去的——也就是说它们从来没有自动跑过，评分全靠会话里手动触发。
+
+  LaunchAgent（用户级，登录即起）而不是 LaunchDaemon：不需要 root，也不该在无人登录时跑。
+  单实例由 PG advisory lock 兜底（worker_base.acquire_single_instance），手动再起一个会
+  自行退出；ThrottleInterval 防止那种情况下 launchd 疯狂重启。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.fanisl.collector</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/enin/fanisl/backend/.venv/bin/python</string>
+        <string>-m</string>
+        <string>analyzer.worker_collector</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/enin/fanisl/backend</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- 包在 src/ 下，不是安装态；.env 由 config.get_settings 按 cwd 读 -->
+        <key>PYTHONPATH</key>
+        <string>/Users/enin/fanisl/backend/src</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <!-- 取不到 advisory lock 时进程会立刻退出；给足间隔免得空转重启 -->
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/enin/Library/Logs/fanisl-collector.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/enin/Library/Logs/fanisl-collector.log</string>
+</dict>
+</plist>
