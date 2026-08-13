@@ -345,5 +345,11 @@
    "type": "close_above",
    "level": 4.57
   }
+ },
+ "670": {
+  "note": "加息=DFEDTARU 严格高于会前 3.75；政策利率是阶梯函数，标准 sign/up 的 >= 会把'利率不变'误判为 hit（本条曾因此被误评为 hit，2026-08-13 质检发现并修正）",
+  "mode": "close_at_eval",
+  "op": ">",
+  "level": 3.75
  }
 }
