@@ -34,7 +34,7 @@ from .runtime import (
     node_store,
     trading_store,
 )
-from .knowledge import discovery, spotcheck
+from .knowledge import discovery, league, spotcheck
 from .storage import display_messages
 
 # 注意：API 进程**不起后台调度器**。采集/交易由独立的 collector / trader worker 进程跑
@@ -439,48 +439,36 @@ def research_doc(name: str) -> dict:
 
 @app.get("/knowledge/scoreboard")
 def knowledge_scoreboard() -> list[dict]:
-    """信源联赛表：claim 战绩（hit=1/partial=0.5 计命中率）+ 含糊率 + sign 类 50% 基线二项检验。
+    """信源联赛表：claim 战绩（hit=1/partial=0.5 计命中率）+ 含糊率 + sign 类显著性。
 
-    p 值口径：仅 sign 类（方向判断）有天然 50% 随机基线；其余 method 的基线由价格路径决定，
-    v1 不给显著性。样本极小时 p 无意义，前端如实展示。
+    显著性口径见 `knowledge/league.py`——零假设不是 50%，是**各标的自身的无条件漂移**
+    （up 向判断在上行市里天然占便宜，50% 会把这部分算成技能）；观测单位是 claim 不是评分行
+    （同一判断的多个阶梯时点高度相关，按行算会灌水 n）。两项修正对投资TALK君的合计影响：
+    p 从 0.0017 → 0.006 量级，命中率与基线的差从 27 个百分点收窄到 25 个左右。
 
-    **二项检验的观测单位是 claim，不是评分行**：一条 claim 的 +7/+30/+90 三个阶梯时点是
-    对同一判断的三次相关观测，当成三次独立抛硬币会把 n 灌水、p 值虚低（2026-08-14 质检发现：
-    按行算 Andy 17/38=44.7%「劣于随机」，按 claim 算 16/29=55.2%「优于随机」，结论符号都翻了）。
-    这里按阶梯多数决把每条 claim 折成一票。
-
-    仍未解决、读数时须自行折价的是基线本身：50% 只对「涨跌各半」成立，而语料里 up 向判断
-    占多数、评分窗口又落在一段上行行情里，真实基线高于 50%，故 p 值只可作排序参考。"""
-    import math
-
+    字段分工，读的时候别混：
+    - `hit_rate` / `sign_hits`·`sign_n` —— **全部** claim 的战绩，头条数字；
+    - `sign_baseline` —— 无技能基线，`sign_p` 是对着它算的，不是对着 50%；
+    - `sign_tested_*` —— 真正进了显著性检验的子集（判据被 override 改写的进不来）；
+    - `sign_excluded_hits`·`sign_excluded_misses` —— 被排除的那些是赢是输，暴露排除的偏向。
+    """
     rows = knowledge_store.scoreboard()
-    with knowledge_store.pool.connection() as conn:
-        sign_rows = conn.execute("""
-            WITH per_claim AS (
-              SELECT u.creator_id, s.unit_id,
-                     count(*) FILTER (WHERE s.outcome='hit') * 2 >= count(*) AS hit
-              FROM claim_scores s JOIN knowledge_units u ON u.id=s.unit_id
-              WHERE u.payload->'scoring_spec'->>'method'='sign'
-                AND s.outcome IN ('hit','miss')
-              GROUP BY u.creator_id, s.unit_id)
-            SELECT creator_id, count(*) FILTER (WHERE hit) AS hits, count(*) AS n
-            FROM per_claim GROUP BY creator_id""").fetchall()
-    sign_by = {r["creator_id"]: r for r in sign_rows}
+    sign_by = league.sign_stats(knowledge_pool)
     for r in rows:
         scored = r["scored"] or 0
         r["hit_rate"] = round((r["hits"] + 0.5 * r["partials"]) / scored, 3) if scored else None
         r["vague_rate"] = round(r["d_claims"] / r["claims"], 3) if r["claims"] else None
-        sg = sign_by.get(r["creator_id"])
-        if sg and sg["n"]:
-            k, n = sg["hits"], sg["n"]
-            # 单侧二项检验 vs 50%：P(X≥k)（优于随机）；k<n/2 时报 P(X≤k)（劣于随机），符号区分
-            tail_ge = sum(math.comb(n, i) for i in range(k, n + 1)) / 2 ** n
-            tail_le = sum(math.comb(n, i) for i in range(0, k + 1)) / 2 ** n
-            r["sign_n"], r["sign_hits"] = n, k
-            r["sign_p"] = round(min(tail_ge, tail_le), 3)
-            r["sign_side"] = "above" if k * 2 >= n else "below"
+        g = sign_by.get(r["creator_id"])
+        if g and g["n"]:
+            r["sign_n"], r["sign_hits"] = g["n"], g["hits"]
+            r["sign_baseline"], r["sign_p"], r["sign_side"] = g["baseline"], g["p"], g["side"]
+            r["sign_tested_n"], r["sign_tested_hits"] = g["tested_n"], g["tested_hits"]
+            r["sign_excluded_hits"] = g["excluded_hits"]
+            r["sign_excluded_misses"] = g["excluded_misses"]
         else:
             r["sign_n"] = r["sign_hits"] = r["sign_p"] = r["sign_side"] = None
+            r["sign_baseline"] = r["sign_tested_n"] = r["sign_tested_hits"] = None
+            r["sign_excluded_hits"] = r["sign_excluded_misses"] = None
     return rows
 
 
