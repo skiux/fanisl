@@ -57,6 +57,19 @@ const directionLabels: Record<string, string> = {
   vol_down: '波动↓',
 }
 
+function relationSummary(relation: DiscoveryRelation) {
+  const prefix = relation.note.match(/^对立命题（([^）]+)）：/u)?.[1] ?? ''
+  const cleaned = relation.note
+    .replace(/^对立命题（[^）]+）：/u, '')
+    .replace(/^互补关系[：:]\s*/u, '')
+    .trim()
+  const firstSentence = cleaned.split('。')[0]?.trim() ?? relation.note
+  if (prefix.includes('同源') && prefix.includes('反转')) {
+    return `同一信源在九天内发生立场反转：${firstSentence}。`
+  }
+  return `${firstSentence}${/[。！？]$/u.test(firstSentence) ? '' : '。'}`
+}
+
 function formatDate(value: string | null | undefined, includeTime = false) {
   if (!value) return '—'
   return new Intl.DateTimeFormat('zh-CN', {
@@ -129,10 +142,12 @@ function NodeProposition({
   detail,
   position,
   onOpenEvidence,
+  showEvidence = true,
 }: {
   detail: KnowledgeNodeDetail
   position: 'a' | 'b'
   onOpenEvidence: (unitId: number) => void
+  showEvidence?: boolean
 }) {
   const evidenceStats = nodeEvidenceStats(detail)
   const scoring = scoredSummary(detail).split(' · ')
@@ -154,18 +169,20 @@ function NodeProposition({
         <span><strong>{scoring[0]}</strong><small>{scoring[1] ?? '市场裁决'}</small></span>
       </div>
       {detail.notes && <p className="discovery-node-notes">{detail.notes}</p>}
-      <div className="discovery-evidence-trail">
-        <div className="discovery-section-label">
-          <span>证据轨迹</span><b>{String(detail.attestations.length).padStart(2, '0')}</b>
+      {showEvidence && (
+        <div className="discovery-evidence-trail">
+          <div className="discovery-section-label">
+            <span>证据轨迹</span><b>{String(detail.attestations.length).padStart(2, '0')}</b>
+          </div>
+          {detail.attestations.map((attestation) => (
+            <NodeEvidenceTrail
+              attestation={attestation}
+              key={`${detail.id}-${attestation.unit_id}`}
+              onOpenEvidence={onOpenEvidence}
+            />
+          ))}
         </div>
-        {detail.attestations.map((attestation) => (
-          <NodeEvidenceTrail
-            attestation={attestation}
-            key={`${detail.id}-${attestation.unit_id}`}
-            onOpenEvidence={onOpenEvidence}
-          />
-        ))}
-      </div>
+      )}
       <footer className="discovery-proposition-foot">
         <div>{detail.tags.slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</div>
         <a href={`#/knowledge?node=${detail.id}&from=discovery`}>打开完整节点 →</a>
@@ -175,19 +192,15 @@ function NodeProposition({
 }
 
 export function RelationDossier({
-  evidenceUnitId,
-  onCloseEvidence,
-  onOpenEvidence,
   relation,
 }: {
-  evidenceUnitId: number | null
-  onCloseEvidence: () => void
-  onOpenEvidence: (unitId: number) => void
   relation: DiscoveryRelation
 }) {
   const [pair, setPair] = useState<[KnowledgeNodeDetail, KnowledgeNodeDetail] | null>(null)
   const [state, setState] = useState<LoadState>('loading')
   const [requestKey, setRequestKey] = useState(0)
+  const [tab, setTab] = useState<'compare' | 'evidence' | 'verdict' | 'context'>('compare')
+  const [evidenceUnitId, setEvidenceUnitId] = useState<number | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -204,6 +217,11 @@ export function RelationDossier({
     })
     return () => controller.abort()
   }, [relation.a_id, relation.b_id, requestKey])
+
+  useEffect(() => {
+    setTab('compare')
+    setEvidenceUnitId(null)
+  }, [relation.id])
 
   if (state === 'loading') {
     return (
@@ -237,47 +255,105 @@ export function RelationDossier({
 
         <section className="relation-thesis">
           <span>{relation.relation === 'conflicts' ? '对立点是正文' : '合读理由是正文'}</span>
-          <p>{relation.note}</p>
+          <p>{relationSummary(relation)}</p>
         </section>
 
-        <div className="relation-pair">
-          <NodeProposition detail={pair[0]} onOpenEvidence={onOpenEvidence} position="a" />
-          <div aria-hidden="true" className="relation-axis">
-            <i />
-            <span>{relation.relation === 'conflicts' ? 'VS' : '＋'}</span>
-            <i />
+        <nav aria-label="关系档案内容" className="relation-dossier-tabs">
+          {([
+            ['compare', '观点对照'],
+            ['evidence', '证据轨迹'],
+            ['verdict', '市场裁决'],
+            ['context', '关系上下文'],
+          ] as const).map(([key, label]) => (
+            <button aria-pressed={tab === key} key={key} onClick={() => setTab(key)} type="button">{label}</button>
+          ))}
+        </nav>
+
+        {tab === 'compare' && (
+          <div className="relation-pair relation-pair-summary">
+            <NodeProposition detail={pair[0]} onOpenEvidence={setEvidenceUnitId} position="a" showEvidence={false} />
+            <div aria-hidden="true" className="relation-axis">
+              <i />
+              <span>{relation.relation === 'conflicts' ? 'VS' : '＋'}</span>
+              <i />
+            </div>
+            <NodeProposition detail={pair[1]} onOpenEvidence={setEvidenceUnitId} position="b" showEvidence={false} />
           </div>
-          <NodeProposition detail={pair[1]} onOpenEvidence={onOpenEvidence} position="b" />
-        </div>
+        )}
+
+        {tab === 'evidence' && (
+          <div className="relation-evidence-columns">
+            {[pair[0], pair[1]].map((detail, index) => (
+              <section key={detail.id}>
+                <header><span>PROPOSITION / {index === 0 ? 'A' : 'B'}</span><b>{detail.attestations.length} 条证据</b></header>
+                <h2>{detail.title}</h2>
+                {detail.attestations.map((attestation) => (
+                  <NodeEvidenceTrail attestation={attestation} key={`${detail.id}-${attestation.unit_id}`} onOpenEvidence={setEvidenceUnitId} />
+                ))}
+              </section>
+            ))}
+          </div>
+        )}
+
+        {tab === 'verdict' && (
+          <div className="relation-verdict-grid">
+            {[pair[0], pair[1]].map((detail, index) => {
+              const stats = nodeEvidenceStats(detail)
+              const total = stats.hit + stats.partial + stats.miss
+              return (
+                <section className={index === 0 ? 'verdict-a' : 'verdict-b'} key={detail.id}>
+                  <header><span>PROPOSITION / {index === 0 ? 'A' : 'B'}</span><b>{total > 0 ? scoredSummary(detail) : '尚待裁决'}</b></header>
+                  <h2>{detail.title}</h2>
+                  <div><span><strong>{stats.hit}</strong><small>命中</small></span><span><strong>{stats.partial}</strong><small>部分</small></span><span><strong>{stats.miss}</strong><small>未中</small></span></div>
+                  <p>{total > 0 ? `当前结果来自 ${total} 个评分时点。样本量仍需与结论同时阅读。` : '当前没有完成机械评分，不能据此选择一方。'}</p>
+                </section>
+              )
+            })}
+          </div>
+        )}
+
+        {tab === 'context' && (
+          <>
+            <section className="relation-full-note"><span>完整关系说明</span><p>{relation.note}</p></section>
+            <div className="relation-context-grid">
+              {[pair[0], pair[1]].map((detail, index) => (
+                <section key={detail.id}>
+                  <header><span>PROPOSITION / {index === 0 ? 'A' : 'B'}</span><b>{statusLabels[detail.status]}</b></header>
+                  <h2>{detail.title}</h2>
+                  <p>{detail.notes ?? '该节点没有额外归并说明。'}</p>
+                  <div>{detail.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+                  <a href={`#/knowledge?node=${detail.id}&from=discovery`}>打开完整知识节点 →</a>
+                </section>
+              ))}
+            </div>
+          </>
+        )}
       </article>
 
       {evidenceUnitId !== null && (
-        <EvidenceDossier
-          backLabel="返回关系档案"
-          onClose={onCloseEvidence}
-          parentLabel={relation.relation === 'conflicts' ? 'CONFLICT' : 'RELATION'}
-          parentTitle={`#${relation.id}`}
-          unitId={evidenceUnitId}
-        />
+        <div className="discovery-evidence-overlay">
+          <EvidenceDossier
+            backLabel="返回关系档案"
+            onClose={() => setEvidenceUnitId(null)}
+            parentLabel={relation.relation === 'conflicts' ? 'CONFLICT' : 'RELATION'}
+            parentTitle={`#${relation.id}`}
+            unitId={evidenceUnitId}
+          />
+        </div>
       )}
     </>
   )
 }
 
 export function ConsensusDossier({
-  evidenceUnitId,
   node,
-  onCloseEvidence,
-  onOpenEvidence,
 }: {
-  evidenceUnitId: number | null
   node: DiscoveryConsensusNode
-  onCloseEvidence: () => void
-  onOpenEvidence: (unitId: number) => void
 }) {
   const [detail, setDetail] = useState<KnowledgeNodeDetail | null>(null)
   const [state, setState] = useState<LoadState>('loading')
   const [requestKey, setRequestKey] = useState(0)
+  const [evidenceUnitId, setEvidenceUnitId] = useState<number | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -338,7 +414,7 @@ export function ConsensusDossier({
             <NodeEvidenceTrail
               attestation={attestation}
               key={`${detail.id}-${attestation.unit_id}`}
-              onOpenEvidence={onOpenEvidence}
+              onOpenEvidence={setEvidenceUnitId}
             />
           ))}
         </section>
@@ -349,13 +425,15 @@ export function ConsensusDossier({
       </article>
 
       {evidenceUnitId !== null && (
-        <EvidenceDossier
-          backLabel="返回共识档案"
-          onClose={onCloseEvidence}
-          parentLabel="CONSENSUS"
-          parentTitle={`#${detail.id}`}
-          unitId={evidenceUnitId}
-        />
+        <div className="discovery-evidence-overlay">
+          <EvidenceDossier
+            backLabel="返回共识档案"
+            onClose={() => setEvidenceUnitId(null)}
+            parentLabel="CONSENSUS"
+            parentTitle={`#${detail.id}`}
+            unitId={evidenceUnitId}
+          />
+        </div>
       )}
     </>
   )
