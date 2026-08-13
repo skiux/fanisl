@@ -1,0 +1,224 @@
+{
+  "content_id": 52,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "method",
+      "quote": "真实收益率，平时我们在讲十年期美债收益率，比如说在4.5%、在4.6%，这4.5%和4.6%，我们主要讲的叫做名义利率。而名义利率等于真实收益率加上通胀预期",
+      "locator": "02:40",
+      "tags": ["bond-yields", "inflation", "macro-data"],
+      "payload": {
+        "name": "把名义利率拆成真实利率与通胀预期",
+        "summary": "名义利率＝真实利率＋通胀预期。真实利率交易于 TIPS（抗通胀国债）市场，名义利率交易于普通国债市场，通胀预期（breakeven）是两者之差、本身不可交易、只是结果。看利率变动必须先拆开是哪一条腿在动。",
+        "family": "other",
+        "rules": [
+          "取同期限的名义国债收益率与 TIPS 收益率，差值即 breakeven 通胀预期",
+          "担心通胀 → 买入 TIPS → TIPS 价格上涨、真实收益率下跌",
+          "不担心通胀 → 抛售 TIPS → 价格下跌、真实收益率上升",
+          "2026 年 YTD 名义利率的上行几乎全部来自真实利率上行，说明市场对通胀的担心不升反降",
+          "佐证：10 年期 breakeven 6 月底低于年初，2 年期从 2.3% 降到 2.0%，即便中间经历 3 月的战争事件"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["同期限名义国债与 TIPS 收益率序列"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "因为这紧缩的一个货币政策，第一点和第二点，紧缩的货币政策和强劲的经济增长都会使得真实利率往上升。但是，这两个真实利率往上升对于美股的这个影响是不一样的。",
+      "locator": "09:04",
+      "tags": ["bond-yields", "spx", "fed-policy", "macro-data"],
+      "payload": {
+        "name": "真实利率上行的三个来源与其对美股的相反含义",
+        "summary": "真实利率上行有三个互相独立的来源——紧缩的货币政策、强劲的经济增长、国债供给增加——其中前两者对美股的含义完全相反，因此\"利率上升所以股票该跌\"是错的，必须先判断是哪一条在推。",
+        "family": "other",
+        "rules": [
+          "来源一：紧缩货币政策（高利率维持更久/缩表）→ 真实利率上行 → 利空美股",
+          "来源二：强劲经济增长（高 GDP、高生产率）→ 真实利率上行 → 利好美股（企业营收与盈利同步改善）",
+          "来源三：国债供给增加（财政赤字扩大、举债增多）→ 债权人要求更高回报 → 真实利率上行",
+          "判别办法：看真实利率与美股的滚动相关性（见配套方法），正相关＝增长主导，负相关＝货币政策主导",
+          "80 年代与 2000-2020 年多数时间属来源二，利率与股市同向上行"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["真实利率序列", "GDP 与盈利数据", "国债发行规模"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "也就是说当看到真实利率往上升，美股也往上升，真实利率和美股之间出现一个正相关的时候说明什么？说明市场在走一个经济增长为主导的真实利率的一个故事线。",
+      "locator": "14:22",
+      "tags": ["bond-yields", "spx", "fed-policy", "price-action"],
+      "payload": {
+        "name": "用真实利率与美股的滚动相关性判定当前主导逻辑",
+        "summary": "计算真实利率与标普 500 的短窗口滚动相关性（20 个交易日）：正相关＝经济增长在主导，负相关＝货币政策在主导。相关性走到极值后出现拐点，本身就是主导逻辑即将换手的信号。",
+        "family": "other",
+        "rules": [
+          "用 20 交易日滚动相关性，不用多年趋势——长趋势得出的负相关来自估值与风险溢价，对交易无用",
+          "正相关 → 增长主导（2000-2020 年多数时间）；负相关 → 货币政策主导（2020-2026 年多数时间，2022 年最典型）",
+          "读极值：2026 年 6 月初该相关性达到 -0.8 至 -0.9，属极致读数（常态负相关约 -0.5 至 -0.6）",
+          "极值之后的拐点是关键时点：从 -0.9 回到 -0.6、-0.5 意味着即将转向无相关或正相关",
+          "一旦转向，利率继续上行不再必然利空美股",
+          "反向情形（利率下跌且股票下跌）对应的是衰退叙事，只有在衰退概率上升时才需要考虑"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["10 年期真实利率日序列", "标普 500 日线", "滚动相关性"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那无论是出现一个无规则还是两者之间出现一个正相关，都代表即使接下去美债的真实收益率继续往上升，不代表对于美股的影响是负面的。",
+      "locator": "18:09",
+      "ref_price": 7482.71,
+      "tags": ["spx", "bond-yields", "fed-policy"],
+      "payload": {
+        "asset_text": "美股（标普 500）在真实利率继续上行的情形下",
+        "asset_symbol": "SPX",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "condition_text": "美债真实收益率继续上行",
+        "condition_observable": true,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-16", "2026-08-08", "2026-10-07"],
+          "success_def": "条件：US10Y（10 年期名义收益率，作为真实利率的可得代理）在窗口内出现日收盘高于 4.57（2026-07-08 收盘）；条件成立后，阶梯时点的标普 500 收盘 ≥ 参考价 7482.71 = hit，低于 = miss；条件始终不成立 = condition_not_met。真实利率序列不在行情库，以名义收益率代理系我方指定，故等级压到 C。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我一直劝大家说你们不是做债券市场的话，不要去交易TLT这个标的，TLT这个标的是留给专业的机构投资者去做的，或者其其他一些、一些专业的一些小的机构去做的，不是散户去做。",
+      "locator": "05:48",
+      "ref_price": 84.36,
+      "tags": ["tlt", "bond-yields", "risk-mgmt"],
+      "payload": {
+        "asset_text": "TLT（20 年期以上美债 ETF）",
+        "asset_symbol": "TLT",
+        "priceable": true,
+        "claim_class": "risk_warning",
+        "direction": "down",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-16", "2026-08-08", "2026-10-07"],
+          "success_def": "阶梯各时点收盘 < 参考价 84.36（2026-07-08 收盘）= hit。作者持续两年建议散户不要碰 TLT，理由是久期风险难判、且长债面临财政部举债扩张的供给压力。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那为什么我没有聊这种可能性？因为从概率这个角度去看，现在我们可能不会去思考接下去经济有可能会出现衰退的这个风险。",
+      "locator": "19:30",
+      "tags": ["macro-data", "risk-mgmt"],
+      "payload": {
+        "asset_text": "美国经济短期出现衰退的风险（作者判概率低到不必纳入考虑）",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "flat",
+        "horizon": {"type": "within_duration", "duration_days": 180},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以，YTD到现在为止，我们看到真实利率的这个上升，可以把它理解为，市场对于通胀的这个担心是在下降的。",
+      "locator": "12:57",
+      "tags": ["bond-yields", "inflation", "macro-data"],
+      "payload": {
+        "canonical_statement": "2026 年 YTD 名义利率的上行几乎全部由真实利率贡献，而通胀预期反而回落（10 年期 breakeven 6 月底低于年初，2 年期从 2.3% 降到 2.0%，且经历过 3 月的战争事件）——债市交易出来的结论是市场对通胀的担心在下降，与\"通胀恐慌推高利率\"的通行叙事相反。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这其实也反映了为什么养老基金会有60、40的这个策略，60的股市，40的债券。因为股市和债市之间或者债券市场之间有一个对冲的作用。",
+      "locator": "11:00",
+      "tags": ["bond-yields", "spx", "risk-mgmt", "position-sizing"],
+      "payload": {
+        "canonical_statement": "60/40 组合的对冲原理正建立在\"经济好→真实利率上行→债券价格下跌，同时美股上涨\"这条链上：两类资产在增长驱动的利率变动下方向相反。股票占比更高是因为长期看美国经济向上，权益的长期回报更高。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "然后我们继续看下去，他说从讨论中指出真实收益率在3%和4%之间是历史上的一个危险区间，对于美股这边就会产生这个影响。在3%开始施力，开始对美股开始进行施力，而4%的话则代表更为严重的这个压力点。",
+      "locator": "00:08",
+      "tags": ["bond-yields", "spx", "valuation"],
+      "payload": {
+        "canonical_statement": "真实收益率对美股的历史危险区间是 3%-4%：升到 3% 开始对股市施压，4% 是更严重的压力点。2026 年第二季度末读数为 2.25%，距离该区间尚有距离，因此当前不构成需要担心的水平。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "第一个环境是资本需求的一个强劲。资本需求的这个强劲就是对于债券这一块的需求。",
+      "locator": "05:48",
+      "tags": ["bond-yields", "fiscal-policy", "ai-capex", "tlt"],
+      "payload": {
+        "canonical_statement": "美国长久期难判，是因为五股力量方向不一：资本需求强劲（压低利率）、经济增长有韧性（推高）、消费者强弱参差（中性）、AI 驱动的投资（短期推高，因其抬升通胀风险）、通胀尚未完全消退（推高）——多数指向上行，因此机构对美债久期只能平配。相对地欧洲更明朗：增长放缓、央行职责单一、越来越多证据显示欧洲央行只需再加一次息即可结束紧缩，因此超配欧洲固定收益。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "当然有一点我需要提出来的是，如果你去看一个非常长的一个趋势的话你会发现白色这条线，利率是下跌的，蓝色这条线美股是上涨。你会得出个结论是负相关。这主要的一个问题在，问题就在于你没有办法看那么长的一个趋势。",
+      "locator": "16:00",
+      "tags": ["bond-yields", "spx", "price-action", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "相关性的观察窗口决定结论：把利率与股市拉到二十年看会得到负相关（那实际由估值与风险溢价解释），而 20-60 个交易日的滚动相关性在 2000-2020 年多数时间是正相关。做交易只能用短窗口，用长趋势得出的相关性去指导操作是窗口错配。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这就是为什么只要我们能够看懂债券市场交易的这个结果，我们就会发现整个华尔街每天试图每天都在找原因，每天都在找为什么股市出现下跌，为什么股市出现上涨。给我们灌输各种各样的这些思考、一些思路。最重要就是一些故事线，而这些故事线往往都是错的。",
+      "locator": "13:46",
+      "tags": ["bond-yields", "psychology", "macro-data"],
+      "payload": {
+        "canonical_statement": "债券市场交易出来的结果比华尔街的解释更可靠：每天为涨跌找原因、编故事线是财经叙事的生产方式，而这些故事线往往是错的——看懂 breakeven 与真实利率的走向，就不需要那些故事。",
+        "category": "psychology",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "也就是市场其实已经通过两年期美债收益率的上升帮助美联储去作了一个、做了一个紧缩的行为。所以即使YTD到现在为止，美联储什么都没做，没有任何的一个货币政策，但是市场交易了什么？",
+      "locator": "17:19",
+      "tags": ["fed-policy", "bond-yields", "macro-data"],
+      "payload": {
+        "canonical_statement": "美联储不动利率也能实施货币政策——真正起作用的是前瞻性指引：沃什说要把通胀带回 2% 之后，两年期收益率立刻上行，市场从年初预期降息两次改为预期加息一到五次，等于替美联储完成了紧缩。因此 2026 年 YTD 真实利率与美股呈负相关的\"货币政策主导\"，主导者是言语而非动作。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以也很难得出个结论，那今年YTD到现在为止真实收益率这个上升是来自于市场对于经济增速非常的乐观所导致它的一个上升。",
+      "locator": "20:00",
+      "tags": ["bond-yields", "macro-data", "spx"],
+      "payload": {
+        "canonical_statement": "排除法定位主导来源：2026 年一季度 GDP 增速只有 1.6-1.8%，算不上强劲，因此今年真实利率的上行不能归因于增长乐观；结合真实利率与美股的负相关，主导力量确定为货币政策（市场交易出来的那一个），而非经济增速预期。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    }
+  ]
+}

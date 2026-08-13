@@ -1,0 +1,241 @@
+{
+  "content_id": 48,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "那因为上周公布的CPI数据、PPI数据，基本上已经确定7月份是不会加息，即使现在市场还有15%的这个概率在那边。但7月份是不会加息，9月份现在加息的这个概率仍然是在67%、65%左右。",
+      "locator": "09:49",
+      "ref_price": 3.75,
+      "tags": ["fed-policy", "macro-data", "inflation"],
+      "payload": {
+        "asset_text": "2026-07-29 美联储议息会议是否加息（作者判定不会，市场当时残留 15% 概率）",
+        "asset_symbol": "DFEDTARU",
+        "priceable": true,
+        "claim_class": "event_outcome",
+        "direction": "flat",
+        "horizon": {"type": "by_date", "deadline": "2026-07-30"},
+        "stance_strength": "explicit",
+        "verifiability": "A",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-30"],
+          "success_def": "联邦基金目标区间上限（FRED DFEDTARU）在 2026-07-30 与会前的 3.75 相比变动在 ±2% 以内（即未加息）= hit；一次 25bp 加息使读数变为 4.00、偏离 6.7%，判 miss。标的与期限均出自原文。注：作者在 9 天后的 c45（07-27）与 c43（07-29）把同一事件改判为加息概率超过 70%，两个判断构成同源立场反转。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那我个人认为这一个数字最后可能会停在40%左右。因为基本上大多数的Mag 7，他们最后出来的结果，财报出来的这个结果都会比市场的预期要高。",
+      "locator": "07:32",
+      "tags": ["mag7", "macro-data", "valuation"],
+      "payload": {
+        "asset_text": "2026 Q2 前七大科技股的 EPS 同比增速（市场预期 31.1%，作者判最终约 40%）",
+        "asset_symbol": "MAGS",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "magnitude": {"pct": 40},
+        "horizon": {"type": "by_date", "deadline": "2026-09-30"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那我个人猜测在这一次财报会议里面，在资本开支这一块，谷歌可能不会透露，从数量上去看，可能不会透露任何会放缓了这些信号，从体量上去看。",
+      "locator": "12:30",
+      "tags": ["goog", "ai-capex", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "谷歌 2026 Q2 财报是否释放资本开支放缓信号",
+        "asset_symbol": "GOOG",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "flat",
+        "horizon": {"type": "by_date", "deadline": "2026-07-23"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "其实在所有AI的相关标的里面，我个人认为英特尔其实是比较稳，而且不但是从一个，从各个角度。要从CPU也好，和AI相关也好，从Foundry也好，从美国这边的一个制造业的这个角度去出发也好，包括从陈黎武的执行力也好，包括他们的良率也好。我只能看到英特尔的基本面在变得越来越好。",
+      "locator": "14:20",
+      "ref_price": 95.04,
+      "tags": ["intc", "semiconductor-cycle", "valuation"],
+      "payload": {
+        "asset_text": "英特尔",
+        "asset_symbol": "INTC",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-27", "2026-08-19", "2026-10-18"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 95.04（2026-07-17 收盘）= hit。作者在所有 AI 相关标的里判定英特尔最稳、基本面持续变好（CPU、代工、良率、执行力多角度），并自述持有。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我个人认为特斯拉的一个爆发点是在他们下一代芯片要推出的时候。市场可能会提前去走，提前去布局。",
+      "locator": "11:40",
+      "tags": ["tsla", "ai-capex", "position-sizing"],
+      "payload": {
+        "asset_text": "特斯拉（作者判爆发点在下一代自研芯片推出时，市场会提前布局；当下尚未开始累积仓位）",
+        "asset_symbol": "TSLA",
+        "priceable": false,
+        "claim_class": "timing",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那避风港需求它主要衡量的是股市和债市之间的一个回报差。当这一个回报差在比较高的位置，也就是代表过去20天里面股市跑赢债市。那当时我说如果画这条线的话，接下去我们可以期待的是股市和债市之间的一个相对回报差，可能债市这一边要走的好一点。",
+      "locator": "03:13",
+      "tags": ["spx", "bond-yields", "market-breadth", "psychology"],
+      "payload": {
+        "name": "用 Safe Haven Demand 的股债回报差做均值回归判断",
+        "summary": "CNN 恐慌贪婪指数里的 Safe Haven Demand 分项衡量的是过去 20 天股市相对债市的回报差；读数处在高位说明股票已明显跑赢债券，可预期这个差值向中枢回归（债相对走强或股回调）。",
+        "family": "reversion",
+        "rules": [
+          "取该分项的 20 日股债相对回报差",
+          "读数偏高 → 预期回报差收敛，方向上偏向债市相对占优",
+          "收敛可以由股跌完成而非债涨：本轮债市基本没动、股市下跌，差值回到接近 0",
+          "回到 0 附近即视为中性，不再提供方向信息",
+          "同时看整体恐慌贪婪指数的位置（本例从中性降到 37 的悲观区）"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["股票与债券指数的 20 日滚动回报", "CNN 恐慌贪婪指数分项"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "来看一下台湾这边的Margin Loans，台湾这边的杠杆。这边是日交易的一个杠杆。可以看到在过去一段时间里面，这个杠杆下跌的幅度非常的大。那其实在X上，在社交媒体上已经有人在讨论韩国那边的杠杆现在处在什么那个位置，我看完之后，基本上还是处在一个相对比较高的位置。",
+      "locator": "04:06",
+      "tags": ["soxx", "positioning", "semiconductor-cycle", "risk-mgmt"],
+      "payload": {
+        "name": "用亚洲融资余额与杠杆 ETF 跟踪芯片去杠杆进度",
+        "summary": "判断半导体这一轮回调走到哪一步，不看指数点位而看杠杆存量：台湾的日融资余额、韩国的融资水平、以及美国芯片相关杠杆 ETF 的规模，三者一起读出杠杆出清的深度。",
+        "family": "positioning",
+        "rules": [
+          "台湾 margin loans 出现 2025 年 4 月以来最急的一次去化 → 出清已深",
+          "韩国杠杆自高点回落约 20%，但绝对水平仍高 → 未完全出清",
+          "美国芯片相关杠杆 ETF 的回撤幅度可比 2022 年那一轮",
+          "结论只到'最艰难的时刻可能已在身后'，不等于可以期待马上创新高"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["台湾/韩国融资余额", "杠杆 ETF 规模与净值"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "如果我们把两家芯片公司，美光和英伟达去掉的话，那整个标普500，EPS增速从24.7%就直接会下降到16.8%。",
+      "locator": "07:22",
+      "tags": ["spx", "mag7", "valuation", "macro-data"],
+      "payload": {
+        "name": "剔除少数贡献股检验指数盈利增速的集中度",
+        "summary": "指数级的 EPS 增速要先做集中度检验：把贡献最大的几家公司剔除后重算，看增速塌多少——塌得越多，说明这个\"高增速\"越依赖个别公司而非整体盈利改善。",
+        "family": "other",
+        "rules": [
+          "找出对本季增速贡献最大的公司（2026 Q2 是美光、雪佛龙、埃克森、博通、英伟达五家）",
+          "剔除后重算（剔除美光与英伟达，标普 500 增速从 24.7% 降到 16.8%）",
+          "同时把 Mag 7 与标普 493 拆开对照（Q2：31.1% vs 22.8%），并看这个差值的季度轨迹",
+          "差值收敛不等于该换仓：标普 493 自身增速 18%/23%/26% 已经很高，只是 Mag 7 更高"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["成分股 EPS 一致预期与实际值", "指数加权明细"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "图里紫色这条线是Semiconductor，芯片板块的一个现金流。你可以看到在过去这一段时间上涨的幅度、速度非常的快，而且这边是很高的体量，已经达到了4500亿美元。黄色这条线，Hyperscalers，所有的这些大云，大云厂商，他们的现金流从3000亿美金，现在下降到几乎为零。",
+      "locator": "05:20",
+      "tags": ["semiconductor-cycle", "ai-capex", "mag7", "valuation"],
+      "payload": {
+        "canonical_statement": "未来十二个月的现金流预测在芯片与大云之间完全背离：半导体板块升到约 4500 亿美元，超大规模厂商从 3000 亿降到接近零——市场因此偏好芯片、冷落大云。但这条背离的成因正是大云的资本开支，主动权握在大云手里。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我觉得主动权是掌握在大科技这边。这也是我手里现在拿的大科技，我完全不担心市场出现回调。那么有任何资本开支放缓的这些增速，就来自这些大科技的话，我认为对于大科技的股价应该都是一个利好。",
+      "locator": "05:50",
+      "tags": ["mag7", "ai-capex", "semiconductor-cycle", "position-sizing"],
+      "payload": {
+        "canonical_statement": "资本开支放缓对芯片与大科技的方向相反：放缓利空芯片（其现金流预测正来自大云的开支），却利好大科技本身（开支回报的担忧解除）。因此持有大科技的人不必担心这类回调，两侧配置时要认清自己站在哪一端。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "通常来说在一波去杠杆之后，你再要回到这个新高的话，这中间有很多事情要发生。起码这个故事，就以前的这个故事已经结束了，结束完之后你需要一个新的故事线，可以把价格带到更高。",
+      "locator": "04:40",
+      "tags": ["soxx", "positioning", "psychology", "price-action"],
+      "payload": {
+        "canonical_statement": "去杠杆之后不会直接回到新高：旧的故事线随杠杆一起结束了，价格要再上一个台阶必须先出现新的故事线或新的基本面（本例的候选是随后的大科技财报）——最艰难的时刻可能已过去，与马上创新高是两回事。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以现在罗素2000其实已经和中小盘股或者整个市场风险偏好有一点脱钩了，因为里面的一些权重股是和AI相关的，有点类似于标普500一样的一个道理。",
+      "locator": "01:40",
+      "tags": ["rotation", "ai-capex", "market-breadth"],
+      "payload": {
+        "canonical_statement": "罗素 2000 已与中小盘属性和市场风险偏好脱钩：其权重股（如 Bloom Energy）与 AI 高度相关，涨跌跟的是 AI 而不是小盘风格——结构上已经与标普 500 被少数权重主导是同一回事。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那如果大家担心说Mag 7这一个同比增速和标普493之间可能会缩小，是不是应该去投资标普493？其实这一个问题在上年年底，上年第三季度和第四季度说市场就已经讨论过，原本市场预期在2026年就会出现EPS增速反转的这种情况。但是，我们在2026年完全没有看到，相反第一季度这一个同比增速的一个差距在越来越大。",
+      "locator": "08:20",
+      "tags": ["mag7", "spx", "valuation", "rotation"],
+      "payload": {
+        "canonical_statement": "\"Mag 7 与标普 493 的盈利增速差会收敛、该换仓到 493\"这一预期已经落空过一次：市场在 2025 年下半年就预期 2026 年反转，实际 2026 Q1 差距反而拉大到 63.2% 对 17.9%。按当前一致预期，反转要到 2026 Q4 才出现（22.8% 对 25.3%）。",
+        "category": "market_structure",
+        "stance": "reject"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "整个2026年，现在市场预期EPS同比增速24.5%，在年初的时候市场预期是15%，也就是和年初对比现在已经比年初要高了近10%。",
+      "locator": "09:00",
+      "tags": ["spx", "valuation", "macro-data"],
+      "payload": {
+        "canonical_statement": "2026 年标普 500 的盈利预期被一路上修：年初一致预期全年 EPS 同比 15%，到 7 月已升到 24.5%，上修近 10 个百分点——这是同期指数上涨而 forward PE 没有扩张的原因。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那我的看法是掌握这些独有的数据，他们在评级这一块的一些业务包括核心业务本身不大，会受到AI的这个影响。",
+      "locator": "10:20",
+      "tags": ["software", "ai-agent", "valuation"],
+      "payload": {
+        "canonical_statement": "掌握独有数据的公司（标普全球、MSCI、穆迪一类）核心业务不易被 AI 破坏：护城河在数据与评级资质本身，而不在信息加工环节——AI 冲击的是加工，不是数据所有权。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    }
+  ]
+}

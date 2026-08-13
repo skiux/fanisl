@@ -1,0 +1,336 @@
+{
+  "content_id": 46,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "好吗？所以从估值这个角度，截止到周四的这个收盘，20.26倍，我认为已经是一个非常合理可以去开仓的这个价格和区间了和估值了。再往下的话，加仓的一个点是在18倍的这个估值，再往下的话就是15倍的这个估值。",
+      "locator": "12:25",
+      "ref_price": 318.34,
+      "tags": ["goog", "valuation", "ai-capex"],
+      "payload": {
+        "asset_text": "谷歌",
+        "asset_symbol": "GOOG",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-31", "2026-08-23", "2026-10-22"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 318.34（2026-07-23 收盘，已含财报后 -7% 的下跌）= hit。作者明确判定当前 20.26 倍 forward PE 是合理开仓区间（18 倍、15 倍分别对应 278、202 美元的加仓位），并称\"谷歌现在绝对值得开仓\"。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那两个业务加在一起，905个billion，现在的市值是500个billion。所以即使在一个比较保守的情况下，我认为英特尔都有80%的一个上涨空间。",
+      "locator": "24:30",
+      "ref_price": 92.32,
+      "tags": ["intc", "valuation", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "英特尔",
+        "asset_symbol": "INTC",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": {"pct": 80},
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-31", "2026-08-23", "2026-10-22"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 92.32（2026-07-24 收盘）= hit。参考价取财报次日而非 07-23 收盘：英特尔于 07-23 盘后发财报，作者全程点评的是这份财报（此选择系我方指定）。magnitude 记的是分部估值给出的 80% 空间（产品业务 8000 亿 + 晶圆代工 1050 亿对当时市值 5000 亿），不作 hit 门槛。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以整个26年非常有可能在运营利润这块能够达到20个billion以上。而市场的预期是多少？12，那么可能比市场预期要高出1倍了。",
+      "locator": "23:40",
+      "tags": ["intc", "valuation", "semiconductor-cycle"],
+      "payload": {
+        "asset_text": "英特尔 2026 全年产品业务运营利润（市场预期 110-120 亿美元，作者判 200 亿以上）",
+        "asset_symbol": "INTC",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "magnitude": {"target": 20},
+        "horizon": {"type": "by_date", "deadline": "2027-03-31"},
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那所以我觉得特斯拉下一步可能又在裁员的这个路上了。因为基本上特斯拉就习惯这样。人员、人工的这个成本增加，增加完之后老马发现好像没有什么效率，就进行一波裁员。",
+      "locator": "16:40",
+      "tags": ["tsla", "risk-mgmt"],
+      "payload": {
+        "asset_text": "特斯拉下一步的裁员",
+        "asset_symbol": "TSLA",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "speculative",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "市场担心这些大科技的一个资本开支，那ROIC是一个非常非常好的一个指标，没有之一。那这一个指标如果我们看到是一个拐点的话，也许可以消化一些或者淡化一些华尔街的担心。",
+      "locator": "05:48",
+      "tags": ["goog", "ai-capex", "valuation", "mag7"],
+      "payload": {
+        "name": "用 ROIC 衡量大科技资本开支的回报",
+        "summary": "市场担心大科技资本开支时，最该看的单一指标是投入资本回报率（ROIC）——它把过去一年全部资本开支计入分母，比只看运营利润率更能回答\"钱花得值不值\"；重点看的是拐点而非绝对水平。",
+        "family": "other",
+        "rules": [
+          "按滚动四个季度算 ROIC（谷歌：2025Q3 35%、2025Q4 35%、2026Q1 32%、2026Q2 30%）",
+          "读法是看拐点与斜率：连续下滑但仍在 30% 属高位回落，尚不构成警报",
+          "配合运营利润率的长期趋势交叉验证（谷歌四年从不到 25% 升到 34-36%）",
+          "同时看营收增速方向：营收加速 + 利润率扩张 = 资本开支已有回报"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["季度 NOPAT 与投入资本（含资本开支）", "季度运营利润率与营收增速"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那么所以，必须要英特尔的这两块业务给分开去，一块是产品业务，一块是晶圆代工。",
+      "locator": "23:00",
+      "tags": ["intc", "valuation", "semiconductor-cycle"],
+      "payload": {
+        "name": "亏损与盈利业务混装的公司必须分部估值",
+        "summary": "把一块赚钱的业务和一块亏钱的业务合并算净利润再套 PE，结果必然是错的（英特尔合并口径 PE 92 倍、2028 年仍 42 倍，看上去极贵）。拆成产品与晶圆代工两块，各用各的锚。",
+        "family": "other",
+        "rules": [
+          "产品业务用盈利倍数：取滚动十二个月运营利润（160 亿美元，已远超市场对全年的 110-120 亿预期）",
+          "增速假设保守取 50%/30%/20%（三年均值 33%），给 1.5 倍 PEG 得 50 倍 PE → 8000 亿美元",
+          "晶圆代工用清算锚：PP&E 设备账面 1050 亿给 1 倍倍数 → 1050 亿美元（乐观情形可对标台积电十几倍，此处不取）",
+          "合计 9050 亿对当时市值 5000 亿",
+          "判据来源：台积电与 AMD 不在同一层级，一个做制造一个做设计，不能放进同一个倍数"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["分部运营利润", "PP&E 账面值", "同业倍数"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那么，怎么去衡量软件板块到底是受到AI正面的影响还是负面的影响？我说很简单。我们就从他们的财报里面去看。这家软件板块的这家软件公司到底是营收增速加速，它一个margin有没有加速？一共有四种情况对吧。营收增速加速，margin加，margin减，或者营收增速放缓，margin加，margin减。",
+      "locator": "18:57",
+      "tags": ["software", "ai-capex", "valuation", "goog"],
+      "payload": {
+        "name": "营收增速 × 利润率的四象限判 AI 对公司的净影响",
+        "summary": "判断 AI 对一家公司是利好还是利空，只看两个方向量的组合：营收增速在加速还是放缓、利润率在扩张还是收缩，四种组合给出四种结论。营收加速且利润率扩张即为 AI 已产生正回报。",
+        "family": "other",
+        "rules": [
+          "轴一：营收同比增速的方向（加速/放缓），用整年而非单季看以过滤噪音",
+          "轴二：运营利润率的方向（扩张/收缩）",
+          "双加 = AI 投入已有回报（谷歌营收加速且利润率从 25% 升至 34%）",
+          "收购会同时抬高营收与费用，须检查利润率是否仍守住（ServiceNow 收购不盈利的网络安全公司后利润率仍从 31.25% 微升到 31.5%）",
+          "该框架同样用于判断软件公司是否被 AI 破坏"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["年度营收增速", "年度运营利润率"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "我说过，原词我用的就是。我说什么叫low-balling？就是他给的这个指引，他基本上都能做到。他如果做不到的话，他不会给这个指引。所以一旦给出了这个指引，那基本上除非华尔街在买方市场这一块它给了一个非常bullish的一个预期。不然的话，只要能够给这个指引，就一定能beat。",
+      "locator": "21:02",
+      "tags": ["intc", "valuation", "semiconductor-cycle"],
+      "payload": {
+        "name": "识别管理层的 low-balling 风格并据此预判 beat",
+        "summary": "有些管理层（陈立武治下的英特尔、台积电）只给自己一定做得到的指引，做不到就不给。识别出这种风格后，只要指引给出且卖方没有给出更高的预期，就可以预判财报会 beat。",
+        "family": "event",
+        "rules": [
+          "先用历史验证风格：该公司过去几个季度是否每次都达到或超过自己的指引",
+          "比对本次指引与卖方一致预期（英特尔 Q1 给毛利率 39%、华尔街 39.2%）",
+          "指引 ≥ 或接近一致预期 → 预判 beat（实际 41.8%，超指引 2.8 个百分点）",
+          "毛利率超指引对 EPS 的杠杆效应很大，不要只看营收",
+          "例外：卖方给出明显更 bullish 的预期时该判断失效"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["管理层历次指引与实际值", "同期一致预期"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那这一个问题管理层没有直接回答。那在我的理解里面，当管理层没有直接回答的话，那就是对于整个GCP，起码现在来说，可能是一个减法。",
+      "locator": "11:00",
+      "tags": ["goog", "valuation", "semiconductor-cycle"],
+      "payload": {
+        "name": "管理层回避的问题按不利方向读",
+        "summary": "电话会上分析员问到具体口径而管理层绕开不答时，把答案按不利方向假设：谷歌被问 TPU 外售对 GCP 利润率是加法还是减法，管理层只答\"会增加营收、扩大 TAM\"，即应读作当前对利润率是减法。",
+        "family": "event",
+        "rules": [
+          "记录分析员问了什么具体口径、管理层是否正面回答",
+          "回避即按不利方向假设，并把该假设写进自己的模型",
+          "同时记录管理层选择替代回答的角度（此处是营收与 TAM），那是他们希望市场关注的口径"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["财报电话会问答记录"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "当然了，因为谷歌的下跌，谷歌的下跌主要是市场担心资本开支。那么不然的话，谷歌的下跌不会把亚马逊也带下来。马上亚马逊在下周应该是发布财报了。那在亚马逊发布财报的时候，市场为什么今天杀跌亚马逊？背后的逻辑线就是非常有可能亚马逊也会把他们的资本开支往上抬。就市场明显现在在继续惩罚大科技在资本开支上面的花费和增速。",
+      "locator": "00:08",
+      "tags": ["goog", "amzn", "ai-capex", "mag7", "psychology"],
+      "payload": {
+        "canonical_statement": "市场正在惩罚大科技的资本开支本身：谷歌因上调 capex 指引单日跌近 7%，并把尚未发财报的亚马逊一起带下来——因为市场预判亚马逊也会上调开支。杀跌的对象是开支决策而非当期业绩。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "2026 年 7 月的市场情绪；同年 8 月微软与亚马逊用 ROI 沟通改变了这一反应"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那同时在这个基础上，图里白色这条线是它营收的一个同比增速。而它的营收同比增速也从22年最低的时候接近于0%，接下去基本上过去四年一直在出现上涨。所以我认为比起一个季度的财报，甚至于两个季度的财报，这些趋势才是我们更加应该去关注的。",
+      "locator": "04:54",
+      "tags": ["goog", "valuation", "ai-capex"],
+      "payload": {
+        "canonical_statement": "看公司要看多年趋势而非一两个季度：谷歌四年间运营利润率从不到 25% 升到 34-36%，营收同比增速从 2022 年接近 0% 一路回升——这条双升趋势比任何单季财报都更能说明问题。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是在二季度他们把原本资本开支这个指引继续往上调，从1850亿上升至2000亿，上调了150亿。至于他们对于27年的这个指引，其实用，用话术上来说的话，这个话术本身没有任何的改变。",
+      "locator": "08:00",
+      "tags": ["goog", "ai-capex", "bond-yields"],
+      "payload": {
+        "canonical_statement": "谷歌 2026 资本开支指引从 1850 亿上调到 2000 亿，对 2027 年仍只用\"significantly increase\"这一措辞（与一季度相同）；行业分析员据此推测 2027 年可能到 3500-3700 亿、同比增约 75%。若兑现，其在债券市场的融资供给会把整体信用利差推高。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "他说我们刚刚发布的3.6 Flash这个版本，我认为非常的好。为什么？是因为这个版本从性能、价格、稳定和延迟，达到了一个甜蜜点。所以谷歌不是单单只看性能。它并不是要把大模型做到最好的那个大模型，而是它现在所发的这个模型是为了去服务他们现在的现有业务。",
+      "locator": "10:00",
+      "tags": ["goog", "ai-agent", "software"],
+      "payload": {
+        "canonical_statement": "谷歌的模型策略不是追单点性能最优，而是在性能、价格、稳定性、延迟四项之间找甜蜜点，目的是服务既有业务并为 AI agent 铺路（agent 规模化的前提是调用价格降下来）——因此用\"模型排名\"评判谷歌会得出错误结论。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我觉得这就是非常标准的一个故事线。当我们退后一步去看，最终影响到谷歌股价的是什么，不是现在市场写的这个故事线，不是他们的营收会不会受到广告业务会不会受到其他大模型的影响。而是你就去看他们的这个落地。你就去看他们营收增速有没有加速，你看它的margin有没有expand。",
+      "locator": "12:25",
+      "tags": ["goog", "psychology", "valuation"],
+      "payload": {
+        "canonical_statement": "谷歌估值在一年半内被故事线来回摆动：2025 年中\"AI 落后\"叙事把 PE 打到 15-16 倍，模型推出后\"AI 很强\"叙事半年内买到 28 倍，如今\"又落后了\"叙事再压回 20 倍。真正决定股价的只有落地——营收增速是否加速、利润率是否扩张；跟着故事线做线性外推的人在低点不敢买、在高点追高。",
+        "category": "psychology",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "原本我们都认为特斯拉有一个operating leverage，运营的一个效益在那边。但是从过去四年的这个时间去看，特斯拉的一个operating leverage，运营的一个利润率一直在下降。",
+      "locator": "17:20",
+      "tags": ["tsla", "valuation"],
+      "payload": {
+        "canonical_statement": "特斯拉的运营杠杆叙事被四年数据证否：市场一直假设它存在 operating leverage，实际运营利润率四年来持续下降。本季运营利润 4 亿美元、低于市场预期 13 亿的近 70%，即便把毛利率里的一次性因素加回，运营开支超预期 15% 这一项仍在。",
+        "category": "market_structure",
+        "stance": "reject"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "投资周期这一个花费，如果仅仅停留在资本开支上，对于EPS是不会有影响的。但是如果你在运营开支这一块也增加的话，那马上就会反映在你的EPS增速里面，反映在你的bottom line里面。",
+      "locator": "16:20",
+      "tags": ["tsla", "valuation", "ai-capex"],
+      "payload": {
+        "canonical_statement": "投资周期落在资本开支还是运营开支，对 EPS 的影响完全不同：资本开支通过折旧摊到多年、当期 EPS 不受冲击；运营开支（特斯拉本轮全部加在研发上）立刻压低当期 EPS，且研发投入短期看不到任何回报。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但这一次财报会议里面，管理层讲得非常的清楚，长期来说因为竞争非常的激烈，它的毛利润就是在20%到25%左右。那所以，接近40%这个毛利润一定不是一个常态。而且当管理层意料到竞争非常激烈的时候，这已经告诉你这背后的竞争是非常的激烈。",
+      "locator": "15:30",
+      "tags": ["tsla", "valuation"],
+      "payload": {
+        "canonical_statement": "特斯拉能源业务近 40% 的毛利率不是常态，管理层明确长期区间是 20-25%——而管理层主动提示\"竞争非常激烈\"这一行为本身，就是竞争强度的证据。把某一季度的高毛利率线性外推是典型误读。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这也是在他们的财报会议里面管理层有提到，他说你们在年底的时候你们会发现，虽然我们进行了这个收购，收购完之后在年底的时候我们能够保证我们年底的员工数量和年初的时候是持平的。",
+      "locator": "18:57",
+      "tags": ["software", "valuation"],
+      "payload": {
+        "canonical_statement": "并购后利润率能否守住，看的是控费执行力而非协同故事：ServiceNow 收购了一家不盈利的网络安全公司，运营费用增速从 13.55% 升到 17.34%，但运营利润率仍从 31.25% 微升到 31.5%——管理层承诺年底员工数与年初持平是这项执行力的可核对指标。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "整个SaaS板块里面，你去看唯一一个板块在今年走的比硬件还要好、还要硬的，就是网络安全。",
+      "locator": "18:37",
+      "tags": ["software", "rotation", "valuation"],
+      "payload": {
+        "canonical_statement": "2026 年 SaaS 内部只有网络安全这一细分走得比硬件还强——ServiceNow 在 2025 年底收购网络安全公司这一决定，从后视镜看是正确的方向选择。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "陈立武，包括他们的CFO说得非常的明确。如果我们背后没有这个客户订单的话，没有这个客户的commitment和承诺的话，我们根本就不可去进行扩产。所以现在英特尔终于决定了14A在28年进行全面扩产。就几乎告诉你，28年就一定会有这个订单进来。",
+      "locator": "22:30",
+      "tags": ["intc", "semiconductor-cycle", "ai-capex"],
+      "payload": {
+        "canonical_statement": "扩产决定本身就是订单的可观测代理：英特尔管理层明确\"没有客户承诺就不扩产\"，因此宣布 14A 于 2027 下半年 risk production、2028 全面扩产，等同于告诉市场 2028 年的外部订单已经落定——一年前市场还在讨论 14A 会不会有外部客户。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以你会发现，三个，三个方向：CPU有长期客户；封装这一块，前三星海力士CEO所带领，接下去非常有可能会和三星海力士之间针对HBM 4这块的设计进行合作，然后封装这一块27年大规模提速；晶圆制造这一块，14A在28年也会进行全面的一个扩产，也有外部的这个客户。",
+      "locator": "22:00",
+      "tags": ["intc", "semiconductor-cycle", "memory-storage", "ai-capex"],
+      "payload": {
+        "canonical_statement": "英特尔的三条线各自都有可核对的订单证据：CPU 已签十个长期合约客户（AMD 同期把 CPU 市场年增速上调到 2030 年前年均 45%）；封装由前三星海力士 CEO 带队、2027 年大规模提速、可能与三星海力士在 HBM 4 设计上合作；晶圆制造 18A 良率好于预期、14A 2028 年全面扩产并已有外部客户。一年前市场的判断是英特尔完全错过了 AI。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我们在投资一家公司的时候，最好的情况下是我们可以看到这家公司它一个护城河在越来越强。这就是growing moat，它的一个护城河在增加。",
+      "locator": "25:00",
+      "tags": ["intc", "valuation", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "最好的持有理由是护城河在变宽（growing moat）而不是估值便宜：判据是连续几个季度的财报都能看到同一方向的加固——英特尔的三条业务线在连续季度里都出现了新的长期客户与产能承诺。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    }
+  ]
+}

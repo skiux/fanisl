@@ -337,5 +337,13 @@
   "mode": "close_at_eval",
   "op": ">",
   "level": 3.75
+ },
+ "788": {
+  "note": "条件：US10Y（真实利率的可得代理）日收盘高于 4.57（2026-07-08 收盘）后，再评标普方向",
+  "condition": {
+   "symbol": "US10Y",
+   "type": "close_above",
+   "level": 4.57
+  }
  }
 }

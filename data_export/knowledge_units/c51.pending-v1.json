@@ -1,0 +1,216 @@
+{
+  "content_id": 51,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "7月份的会议我认为加息的概率比较的低，所以接下去市场可能会把这40%的概率给交易掉。那到会议之前的话，这个概率应该要低于10%。",
+      "locator": "03:07",
+      "ref_price": 3.75,
+      "tags": ["fed-policy", "macro-data"],
+      "payload": {
+        "asset_text": "2026-07-29 美联储议息会议是否加息（作者判概率低、会前市场定价应跌破 10%）",
+        "asset_symbol": "DFEDTARU",
+        "priceable": true,
+        "claim_class": "event_outcome",
+        "direction": "flat",
+        "horizon": {"type": "by_date", "deadline": "2026-07-30"},
+        "stance_strength": "explicit",
+        "verifiability": "A",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-30"],
+          "success_def": "联邦基金目标区间上限（FRED DFEDTARU）在 2026-07-30 与会前的 3.75 相比变动在 ±2% 以内（即未加息）= hit；一次 25bp 加息使读数变为 4.00、偏离 6.7%，判 miss。标的与期限均出自原文。这是作者对该事件时间上最早的一次判断（07-13），其后 07-16、07-20 重申，再于 07-27 与 07-29 反向改判为加息概率超 70%。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我讲这话两年了，不要去碰TLT。久期这一块，因为我们将面临的是财政部的这个举债，包括举债的这个规模。所以对于长债这一块的一个回报并不是非常的好，除非我们未来会有一个衰退，但短期之内并看不到这个衰退的一个风险。",
+      "locator": "00:20",
+      "ref_price": 84.47,
+      "tags": ["tlt", "bond-yields", "fiscal-policy", "risk-mgmt"],
+      "payload": {
+        "asset_text": "TLT（20 年期以上美债 ETF）",
+        "asset_symbol": "TLT",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "horizon": {"type": "open_ended"},
+        "condition_text": "除非出现衰退（作者判短期看不到衰退风险）",
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-20", "2026-08-12", "2026-10-11"],
+          "success_def": "阶梯各时点收盘 < 参考价 84.47（2026-07-10 收盘）= hit。这是作者持续两年的立场，理由是财政部举债规模压制长久期回报。原文自带例外条件（出现衰退），不可机械判定故不进评分、等级压到 C。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "但通常来说，在这个季度里面，市场会把EPS增速往下调，为什么要往下调，调完之后，当最终财报由银行发布财报公司发布财报公布这个结果的时候，容易去超过原本市场的这个预期。这是华尔街惯用的这一套，在这个季度里面先下调。下调完之后就容易去Beat。但是，在过去的一个季度里面反而上调了。",
+      "locator": "14:21",
+      "tags": ["spx", "macro-data", "valuation"],
+      "payload": {
+        "name": "用一致预期在季内的调整方向判断基本面强弱",
+        "summary": "华尔街的惯例是在季度进行中把 EPS 预期往下调，好让最终财报容易 beat。因此预期在季内被上调是反常信号——说明基本面强到卖方不得不逆着惯例上修。",
+        "family": "event",
+        "rules": [
+          "取季初与当下的同季一致预期（2026 Q2：3 月 31 日为 18.8%，7 月已升到 23.6%）",
+          "季内下调 = 常态，不构成信息",
+          "季内上调 = 基本面强于惯例假设，且最终结果往往比上调后的预期还好（2026 Q1 已验证过一次）",
+          "配合超预期比例读：每季约 70-80% 的公司都会 beat，所以'好于预期'本身不构成上涨理由"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["同季 EPS 一致预期的时间序列", "历史超预期比例"],
+        "overlap_with_killed": ["H-PEAD 系列（已 KILLED）：本法读的是预期修正方向而非财报后漂移"],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "通常来说，银行板块，我们所过去几个季度我们所看到的习惯是在财报之前会走得比较好，然后财报之后会出现一个sell the news，然后在财报之前又开始出现反弹。",
+      "locator": "01:40",
+      "tags": ["kbwb", "price-action", "risk-mgmt"],
+      "payload": {
+        "name": "银行板块的财报季节律",
+        "summary": "银行板块过去几个季度稳定重复同一节律：财报前走强 → 财报后 sell the news → 下一次财报前再走强。配合周线超买读数判断当前处在哪一段。",
+        "family": "event",
+        "rules": [
+          "银行板块通常最先公布财报，因此它的节律先于整个财报季出现",
+          "财报前的上涨阶段可持有，但接近财报时看周线是否超买（本例 KBWB 周 K 已到超买）",
+          "周线超买 + 临近财报 → 对财报后的走势保持谨慎",
+          "该板块波动相对温和，不会连续上涨，节律因此比成长股更稳定"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["银行板块 ETF 的周线与 RSI", "财报日历"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以内部争论非常的激烈，整体来说是偏鹰，偏鹰派的一次美联储会议。然后三位美联储成员认为那一次会议就要加息的，那几乎是不可能在那一次就要加息的。多数的美联储成员认为GDP的增速比例要强，为什么要强？因为是AI的这个投资。有4位到5位美联储成员认为通胀在扩张，所以他们对通胀是产生一定的担心的。",
+      "locator": "03:59",
+      "tags": ["fed-policy", "macro-data", "inflation", "ai-capex"],
+      "payload": {
+        "canonical_statement": "2026 年 6 月会议纪要显示内部分歧激烈且整体偏鹰：三位成员当次就主张加息，多数成员认为 GDP 增速强劲的原因是 AI 投资，四到五位认为通胀正在扩张。多数成员同时担心通胀已连续四年高于 2% 会让高通胀预期变成习惯，但仍判断中期通胀预期符合 2% 目标。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以，在这种情况，我个人以为，美联储要跟从市场。就是市场认为要加息，9月份要加息的话，美联储就应该要加息。而如果卡尔·沃斯不去这么做的话，那接下去市场对于它所释放的一些信号，对于他所讲的一些话，可能会失效。",
+      "locator": "05:40",
+      "tags": ["fed-policy", "bond-yields", "psychology"],
+      "payload": {
+        "canonical_statement": "市场已经用两年期与十年期收益率的上行替美联储完成了紧缩，因此美联储应当跟从市场定价去加息；若沃什不跟，他后续释放的信号与讲话在市场眼中会失效——美联储与市场之间一旦产生误解，对市场不是好事。作者据此不认同彭博、美银等机构\"沃什会用五个工作小组拖延决策\"的判断。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "比如说，Consumer Discretionary里面就有两家、就有两家大科技，一家是亚马逊然后一家是特斯拉。而且是Consumer Discretionary，如果把亚马逊给去掉的话，整个这一个板块的一个Margin其实完全没有扩张的。",
+      "locator": "16:28",
+      "tags": ["spx", "mag7", "valuation", "rotation"],
+      "payload": {
+        "canonical_statement": "大科技并不都在信息技术板块：亚马逊与特斯拉归在非必需消费，Meta 与谷歌归在通讯服务。因此\"IT 板块 EPS 增速超 60%\"主要来自芯片而非大科技；而剔除亚马逊后，非必需消费板块的利润率完全没有扩张——按板块读增速前必须先确认成分归属。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "标普500 EPS增速23.6%，那哪些板块会比平均数要好，哪些板块会差？其实主要是来自于三个板块，是非常非常的集中。基本上两个板块和战争是有关系的，那么一个是Material材料板块，一个是能源板块，然后夹在中间的是Technology Info Technology同比增速超过60%。",
+      "locator": "16:28",
+      "tags": ["spx", "semiconductor-cycle", "valuation", "macro-data"],
+      "payload": {
+        "canonical_statement": "2026 Q2 标普 500 的 23.6% EPS 增速高度集中在三个板块：材料与能源（都与战争推高的商品价格有关）以及信息技术（同比超 60%，主要来自芯片）——指数级的高增速不代表盈利改善是普遍的。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是，其实我们把战争的事件放在一边，因为其实战争的事件并不会影响到这些公司的一个EPS增速。不会。那么而只是和年初去做的对比的话，我们应该怎么说。市场其实是没有预料到芯片板块的公司能够那么的赚钱",
+      "locator": "17:28",
+      "tags": ["semiconductor-cycle", "spx", "valuation"],
+      "payload": {
+        "canonical_statement": "2026 年标普 500 全年 EPS 增速预期从年初的 15% 上修到 24.2%（营收增速 10.7%），差额几乎全部来自市场在年初低估了芯片板块的盈利能力——这也解释了芯片 YTD 接近 100% 的涨幅在事后看是合理的，因为起点就被低估。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是我经常和大家说，说你财报本身好于预期不太胖你要涨，因为80%的公司最后都会比市场的预期好。难道80%的公司发布完财报之后价格就都一定要上涨，肯定不是这样。",
+      "locator": "15:10",
+      "tags": ["macro-data", "psychology", "valuation"],
+      "payload": {
+        "canonical_statement": "财报好于预期不构成上涨理由：每个季度都有 70-80% 的公司超预期，这是常态而非信息——决定股价反应的是超预期的幅度、事前的仓位与情绪，而不是 beat 本身。",
+        "category": "psychology",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以把我们前面所有的信息，对于当下现状的这些描述呢，全部综合在一起的话。我以为当下就是一个比较明显的等机会的时候。就持股等机会的时候，现在并不适合空仓，也不适合满仓。",
+      "locator": "09:30",
+      "tags": ["position-sizing", "risk-mgmt", "ndx"],
+      "payload": {
+        "canonical_statement": "指数高位横盘、盘整消耗筹码而个股已深度回调的阶段，正确的姿势是持股等机会：不空仓也不满仓，留出一点仓位等个股给出估值机会（作者自述当时现金不到 3%）。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "对于消费者这一块的一些影响，使得我在年初认为今年美联储会降息两次，现在我是赞同市场这个看法，我认为今年美联储是有可能加息的。所以我自己的这个看法，随着不同的数据进来之后，我是会发生改变的，我并不会一直去坚持，我年初是这么判断，然后我现在还是这么判断，而去忽略中间的一些数据上的更新。",
+      "locator": "11:20",
+      "tags": ["fed-policy", "psychology", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "对政策路径的判断要随数据更新而更新：作者年初判断今年降息两次，随着劳动力市场未如预期放缓、存储涨价传导到 3C 产品，已改判为今年可能加息——坚持年初的判断而忽略中间的数据更新是错误的做法。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "有一些数据可以去关注的。消费者的一个增速、同比增速到底是多。只要停在4.5%到5%之间，就代表整个消费没有任何的问题。",
+      "locator": "12:00",
+      "tags": ["consumer", "macro-data"],
+      "payload": {
+        "canonical_statement": "美国银行财报里的消费同比增速是每季度衡量消费者健康的固定指标，判据是停在 4.5%-5% 之间即无问题——这个阈值也解释了后来 Q2 读数 6% 为何被判为多年未见的再加速。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那这个避风港需求主要衡量的是股市和债市之间过去20天的一个回报差。所以当这个数据在比较高的位置的时候，就是股市跑赢了债市。当股市跑赢债市在20天之内大幅跑赢了债市，就代表股市可能走得太乐观了，那短期之内就会出现这个回调。反之也是一样，当比较悲观的时候，就像在两周之前吧，你看到股市和债市之间的一个回报差是负的。",
+      "locator": "07:27",
+      "tags": ["spx", "bond-yields", "market-breadth", "psychology"],
+      "payload": {
+        "canonical_statement": "Safe Haven Demand 的读数可当超买超卖用：20 日股债回报差接近 +5% 属偏超买（此后股相对债走弱），负 4% 属偏超卖（两周前该读数为负，随后大科技反弹把纳指带回来）。当下接近 +5%，意味着接下来一段时间股票相对债券可能走弱。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那所以如果再涨5%的话，财报出来之后，比如说财报出来财报绝对不会太差，如果财报太差的话，这段时间市场就不会涨，这段时间市场在UNH上的一个上涨，就是在定价这一次这一个季度的财报不会差。所以市场是提前去走位的。",
+      "locator": "13:00",
+      "tags": ["unh", "valuation", "psychology"],
+      "payload": {
+        "canonical_statement": "财报前的涨幅本身就是市场对这份财报的定价：UNH 财报前的持续上涨说明市场已经在为\"财报不会差\"走位，因此财报结果本身不再是变量——真正的决策依据回到估值（23 倍即卖点，当时 22 倍不到），财报好反而是兑现的时点。",
+        "category": "psychology",
+        "stance": "assert"
+      }
+    }
+  ]
+}

@@ -1,0 +1,277 @@
+{
+  "content_id": 49,
+  "extractor_version": "pending-v1",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "好。那随着这两天的数据出来之后，起码7月份加息的这个概率现在已经跌到了10%几。那基本上7月份是不大可能加息了。9月份加息的概率还是在50%左右。",
+      "locator": "10:32",
+      "ref_price": 3.75,
+      "tags": ["fed-policy", "macro-data", "inflation"],
+      "payload": {
+        "asset_text": "2026-07-29 美联储议息会议是否加息（作者判基本不可能，最早 9 月）",
+        "asset_symbol": "DFEDTARU",
+        "priceable": true,
+        "claim_class": "event_outcome",
+        "direction": "flat",
+        "horizon": {"type": "by_date", "deadline": "2026-07-30"},
+        "stance_strength": "explicit",
+        "verifiability": "A",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-30"],
+          "success_def": "联邦基金目标区间上限（FRED DFEDTARU）在 2026-07-30 与会前的 3.75 相比变动在 ±2% 以内（即未加息）= hit；一次 25bp 加息使读数变为 4.00、偏离 6.7%，判 miss。标的与期限均出自原文。这是作者对同一事件最早的一次判断，其后在 c45（07-27）与 c43（07-29）改判为加息概率超 70%。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "随着美元、美债收益率的一个下跌，黄金出现了小幅反弹。我认为黄金这个反弹可能会持续的。因为这两天确实宏观的这个风险、加息的这个风险要小了很多了。",
+      "locator": "01:40",
+      "ref_price": 4044.0,
+      "tags": ["xauusd", "fed-policy", "dxy"],
+      "payload": {
+        "asset_text": "黄金",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-23", "2026-08-15", "2026-10-14"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 4044.00（2026-07-15 收盘）= hit。依据是 CPI 与 PPI 双双好于预期使加息风险显著下降、美元与美债收益率同步回落。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "说到估值稍微带一嘴：Bloom Energy, BE。今天我开仓的这个标的，这个标的其实我在年初的时候买过，后来在3月份的时候被卖掉了。",
+      "locator": "21:24",
+      "ref_price": 239.38,
+      "tags": ["be", "power-demand", "valuation"],
+      "payload": {
+        "asset_text": "Bloom Energy（作者当日开仓 2% 仓位）",
+        "asset_symbol": "BE",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-07-23", "2026-08-15", "2026-10-14"],
+          "success_def": "阶梯各时点收盘 ≥ 参考价 239.38（2026-07-15 收盘）= hit。作者当日实际开仓 2% 仓位，依据是从最高点回落近 40%、PEG 约 1.9 已进入合理区间（未来三年 EPS 增速预期 171%/107%/64%，静态 PE 约 210 倍）。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那，我对于这个问题的一个解答就是，可能是一半一半。就介于两者之间。什么叫介于两者之间？就是并不一定这100万订单就完全没有了。最终可能就是40万和50万，而不是这个订单往后延。",
+      "locator": "13:38",
+      "tags": ["software", "memory-storage", "valuation"],
+      "payload": {
+        "asset_text": "IBM 被挪走的 IT 预算订单是延后还是永久缩水（作者判约一半永久流失）",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": "down",
+        "horizon": {"type": "within_duration", "duration_days": 180},
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那所以很多时候估值再高，到底是减仓还是继续持有？某一种程度是决定于我们现在的仓位是多少。我们还想不想加仓。",
+      "locator": "18:07",
+      "tags": ["valuation", "position-sizing", "risk-mgmt", "aapl"],
+      "payload": {
+        "name": "估值到上沿减不减仓，取决于当前仓位够不够",
+        "summary": "同一个高估值读数对不同仓位的人给出不同动作：仓位已经太大才减仓；仓位不足或还想加仓的人不必在上沿减，而是等估值回落后在右侧继续加。估值给区间，仓位决定动作。",
+        "family": "positioning",
+        "rules": [
+          "先划该标的的估值上下区间与中位（阿斯麦五年 forward PE：上沿 46 倍、下沿 22 倍、中位 36 倍）",
+          "触及上沿（45 倍以上）：仓位过大 → 减仓；仓位不足 → 不动，等回落",
+          "回到中位（36 倍）且基本面无恙 → 可开仓",
+          "当前 39.5 倍位于中位与上沿之间 → 继续等",
+          "同一逻辑用于苹果：明知估值在高位，但因为自己仓位不够，动作是等回调加仓而不是减仓",
+          "理想情形是基本面、估值、技术面三者共振；技术面不满足时可以接受错过"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["标的五年 forward PE 序列", "自身仓位"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "还是说这一个订单的甲方，他们未来，比如说原本这个订单是100万，那现在是不是这个订单还是100万，100万延后了。还是说原本100万的这个订单最终我们只会达到50万或者60万？剩下的40万和50万被我们的甲方分配到其他地方去。而这一个变化是永久性的。这才是决定了能不能够影响到基本面。",
+      "locator": "13:38",
+      "tags": ["software", "valuation", "risk-mgmt"],
+      "payload": {
+        "name": "订单未达预期时，先分清延后还是永久缩水",
+        "summary": "公司把营收不及预期归因于客户预算挪走时，唯一决定基本面是否受损的问题是：这笔订单是延后（营收晚一两个季度确认，不影响基本面）还是永久缩水（金额被切走，基本面受损）。管理层不主动交代时，这就是电话会必须追问的那一个问题。",
+        "family": "event",
+        "rules": [
+          "把归因拆成两种可能：时间平移 vs 金额缩水",
+          "时间平移的参照是阿斯麦——订单常延后，但营收总额不变，对基本面无影响",
+          "金额缩水才是基本面受损，需要下调模型",
+          "管理层在公告里回避该问题时，按介于两者之间保守假设，并等电话会的答复再修正",
+          "同时警惕媒体从价格结果反推的解释：IBM 的公告与'AI 冲击软件'无关，主因是客户把 IT 预算优先挪去囤涨价的存储，主机硬件订单未签、配套软件被连带"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["公司公告原文", "电话会问答"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "所以我就没有办法把消费增速那么的强劲和通胀，6月份的通胀环比增速0.0%去reconcile。你互相之间没有办法去验证。那当然你问我，我更加相信什么？我当然更加相信美国银行的财报。",
+      "locator": "08:00",
+      "tags": ["consumer", "inflation", "macro-data"],
+      "payload": {
+        "name": "用银行财报的消费增速交叉验证通胀数据",
+        "summary": "官方通胀读数要与银行财报里的消费增速对账：消费同比增速的临界值是 5%（保持 5% 即无放缓），而这是名义增速、本身含通胀。名义消费很强却对应零通胀，两者无法调和时，相信银行的数据、不对通胀读数做线性外推。",
+        "family": "other",
+        "rules": [
+          "取大型零售银行（美国银行）的消费同比增速：2026 Q1 4.5%、Q2 6%",
+          "以 5% 为临界值判断消费是否放缓；6% 属多年未见的再加速",
+          "与核心 CPI 环比对账（当月 0.0%，市场预期 0.2%）",
+          "名义消费强而通胀为零 = 不可调和 → 不把通胀数据线性外推",
+          "同时看银行的坏账率是否好于自身预期（本季两家银行均好于预期）",
+          "依据：美国 GDP 六成以上来自消费，消费无恙则 GDP 无恙"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["大型银行财报的消费增速与坏账率", "核心 CPI 环比"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "通常来说当上一个数据进行了下修，而且这个下修的幅度很大。环比1.1%下修到了0.6%。通常当上一个数据环比增速进行下修之后，这一个季度的数据容易超出上个月的数据。这是一个数学上的问题。这并不是什么逻辑上的一些问题。",
+      "locator": "06:23",
+      "tags": ["inflation", "macro-data"],
+      "payload": {
+        "name": "前值被下修后，本期读数的基数效应校正",
+        "summary": "环比序列的前值被大幅下修时，本期读数在数学上更容易偏高（基数被压低）。因此在前值下修的背景下本期仍然走低，说明这份数据比表面看到的更强。",
+        "family": "other",
+        "rules": [
+          "先看前值是否被修订以及修订幅度（PPI 最终需求前值从 1.1% 下修到 0.6%）",
+          "前值下修 → 本期环比读数天然偏高，属数学效应而非经济含义",
+          "本期读数在此背景下仍为负（-0.3%，市场预期 0.0%）→ 判定实际比表面更好",
+          "PPI 看 final demand 口径，它对 GDP 的影响最直接"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["PPI/CPI 环比原始值与修订记录"],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但其实退后一步去看，7月份加息还是9月份加息其实没有那么的重要。为什么？是因为两年的美债收益率，债券市场早就已经定价了加息。所以最终美联储加还是不加，等到美联储会议那一天，市场其实就已经紧缩了一个多月了。",
+      "locator": "01:00",
+      "tags": ["fed-policy", "bond-yields", "macro-data"],
+      "payload": {
+        "canonical_statement": "市场已经替美联储完成了紧缩：自沃什第一次会议起债券市场就在定价加息、把两年期收益率推上去，等于金融环境提前一个多月收紧。加息的目的本就是通过紧缩压通胀，目的已达成，因此 7 月还是 9 月落地并不重要——这正是沃什要的结果。",
+        "category": "macro_framework",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "什么是另外一个周期？就是以前是涨价，涨价之后你会发现他们的赔付率会变得非常的好。当他们涨价的这个幅度开始放缓之后，赔付率就跟上来。赔付率跟上来，你的财报自然就不好看。所以保险板块进入了一个赔付率上升的一个周期。然后直到上升到保险公司开始亏钱，然后再一次进入下一个什么？涨价周期。",
+      "locator": "02:30",
+      "tags": ["consumer", "valuation"],
+      "payload": {
+        "canonical_statement": "财险的周期由赔付率驱动：涨价 → 赔付率改善、财报好看 → 涨价幅度放缓 → 赔付率回升、财报转差 → 直到亏钱才重启涨价周期。Progressive 6 月综合赔付率升到 90%、高于预期，即是这一轮由改善转向回升的拐点信号。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我说过像Lemonade这类的公司，你可以看好它一个基本面，可以看好AI对于它的一些基本面上的一些影响或者利好。但是这类公司没有经历过一个非常像样整个保险行业的一个下行周期。所以这个周期是一个非常好的去考验Lemonade到底有没有这个赔付率上的优势。",
+      "locator": "03:10",
+      "tags": ["consumer", "ai-agent", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "没经历过完整下行周期的新型公司，其宣称的优势只有在下行期才能被证伪：Lemonade 一类 AI 驱动的保险公司若在同业赔付率普遍上升时自己不升，才算真有定价优势；若同步上升，则说明它也只是一家走周期的传统保险公司。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但实际上公告里面想要表达的是因为存储挤掉了他们在硬件这一块的一个销售。包括他们内部的一个销售，即是没有意识到这个问题。当没有意识到这个问题已经晚了。所以，因为销售没有意识到这个问题，因为硬件受到了影响，所以连带他们软件受到影响。",
+      "locator": "11:22",
+      "tags": ["software", "memory-storage", "psychology", "igv"],
+      "payload": {
+        "canonical_statement": "IBM 提前发布财报后单日跌 26%，真实原因是存储涨价挤占了企业 IT 预算——客户优先囤存储与服务器，大型主机订单未能签下，连带配套软件销售不及预期。媒体把它写成\"AI 冲击软件\"并带动 IGV 下跌，属于从价格结果反推的错误叙事；IBM 的软件并非传统 SaaS，不在 AI 颠覆的射程内。",
+        "category": "market_structure",
+        "stance": "reject"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "他们在27年扩产30%，28年继续扩产30%。财报会议里面聊到。几乎在之前很多年里面我们从来没有看到过的是，我们现在还在26年，我们已经在思考28年、28年的这个产能。27年都就已经跳过了。就从来没有看到过背后的需求那么的大。",
+      "locator": "16:37",
+      "tags": ["asml", "semiconductor-cycle", "ai-capex"],
+      "payload": {
+        "canonical_statement": "阿斯麦 2027 与 2028 年各扩产 30%，且行业在 2026 年就已经跳过 2027 直接讨论 2028 年产能——这种可见度是过去多年从未有过的，本身就是需求强度的证据。叠加阿斯麦拥有绝对定价权，涨价几乎不可避免（台积电作为最大买家只能就幅度谈判）。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这意味着端侧这一块的AI终于可以落地。而端侧这一块的AI落地完之后才会有C端对于AI的这个真正的落地，或者C端真正地，每一个消费者真正可以感受到AI。",
+      "locator": "22:14",
+      "tags": ["ai-agent", "aapl", "software", "compute-pricing"],
+      "payload": {
+        "canonical_statement": "端侧 AI 落地的关键是成本归零：PrismML 把千问压缩到能在 iPhone 上运行（Bonsai 27B），意味着本地推理不需要调用任何 API、没有 token 成本。这正是 C 端能真正接触 AI 的前提——大多数消费者只会以免费或看广告的方式接受 AI，而闭源模型的 API 价格根本支撑不起个人 agent。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那现在如果这个AI模型已经强大到了，你压缩版本之后还是非常、压缩完之后还是非常的强大。且你可以在端侧这一块运行的话，那对于硬件这一块的需求又直接上去了。因为你的硬件拉得越高，硬件的、硬件的这个GPU、CPU拉得越高之后，你自然你可以运行的这个模型、本地模型就会越厉害。",
+      "locator": "23:30",
+      "tags": ["ai-agent", "aapl", "semiconductor-cycle", "consumer"],
+      "payload": {
+        "canonical_statement": "端侧模型能跑之后，AI PC 与 AI 手机的逻辑才成立：本地硬件规格越高、能跑的模型越强、对用户越有用，因此会触发一轮硬件更新周期。两三年前苏姿丰讲 AI PC 时被质疑没有意义，正是因为当时没有可落地的端侧模型——现在因果关系反了过来。端侧落地也不否定云端需求，两者服务不同场景。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那大科技在过去一周的这个反弹4.7%，等权指数只有0.4%。再次拉近了大科技和等权指数之间的这个回报差。这个回报差其实我经常在视频里面聊。At one point这个回报差高达12%、13%。",
+      "locator": "00:08",
+      "tags": ["mag7", "rotation", "semiconductor-cycle"],
+      "payload": {
+        "canonical_statement": "大科技与标普等权指数的 YTD 回报差是这一轮轮动的刻度：差值一度高达 12-13%（大科技为负），过去一个月收敛到约 6%（大科技 YTD 回到 5.1%），同期芯片板块下跌 6.9%——资金明确从芯片流回大科技。",
+        "category": "market_structure",
+        "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "在过去一个多月的时间里面，我在各式各样的场合，在视频里面、在直播里面一直和大家分享的是，你大仓位的这些硬件板块，一定要做好移动止盈。一个非常简单的被动型的防守，那么如果指数下，如果从最高点回调了10%、15%就止盈一部分的仓位。剩下的，我们认为基本面没有改变的，可以继续持有。但是没有必要满仓，甚至是去加杠杆持有这些标的。",
+      "locator": "00:30",
+      "tags": ["soxx", "position-sizing", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "对大仓位的强势板块用被动式移动止盈：从最高点回撤 10-15% 即止盈一部分，基本面没变的部分继续持有，但不满仓、更不加杠杆。盈亏同源——用同一套方式赚到的钱会用同一套方式亏回去，靠仓位而不是靠判断来控制下行。",
+        "category": "risk_mgmt",
+        "stance": "assert"
+      }
+    }
+  ]
+}
