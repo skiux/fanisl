@@ -10,7 +10,7 @@ import sys
 
 from ..config import get_settings
 from ..db import make_pool
-from .llm import GeminiClient, render_l0_text
+from .llm import make_client, render_l0_text
 from .sources.youtube import fetch_transcript, set_cookies_file
 from .store import KnowledgeStore
 
@@ -18,15 +18,13 @@ from .store import KnowledgeStore
 def main() -> None:
     handle, video_id = sys.argv[1], sys.argv[2]
     s = get_settings()
-    if not s.gemini_api_key:
-        raise SystemExit("缺 GEMINI_API_KEY")
     set_cookies_file(s.youtube_cookies_file)
     url = f"https://www.youtube.com/watch?v={video_id}"
 
     meta = fetch_transcript(video_id)   # 复用：元数据 + 有字幕则白捡
     print(f"元数据: {meta['title']}  {meta['published_at']}  {meta['duration_s']}s", flush=True)
 
-    client = GeminiClient(s.gemini_api_key, model=s.gemini_model)
+    client = make_client(s)
     tr = client.transcribe_youtube(url)
     raw = render_l0_text(tr)
     n_notes = len(tr.get("visual_notes", []))

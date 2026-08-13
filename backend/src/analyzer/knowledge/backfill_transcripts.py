@@ -22,7 +22,7 @@ import httpx
 
 from ..config import get_settings
 from ..db import make_pool
-from .llm import GeminiClient, render_l0_text
+from .llm import make_client, render_l0_text
 from .sources.youtube import fetch_transcript, list_videos, set_cookies_file
 from .store import KnowledgeStore
 
@@ -55,7 +55,7 @@ def _quota_detail(e: httpx.HTTPStatusError) -> tuple[bool, float | None]:
     return per_day, delay
 
 
-def _transcribe_with_retry(client: GeminiClient, url: str) -> dict | None:
+def _transcribe_with_retry(client, url: str) -> dict | None:
     for attempt in range(RETRIES + 1):
         try:
             return client.transcribe_youtube(url)
@@ -91,13 +91,11 @@ def _transcribe_with_retry(client: GeminiClient, url: str) -> dict | None:
 def run(handle: str, *, since_days: int = 60, limit: int | None = None,
         max_new: int | None = None, models: list[str] | None = None) -> None:
     s = get_settings()
-    if not s.gemini_api_key:
-        raise SystemExit("缺 GEMINI_API_KEY")
     set_cookies_file(s.youtube_cookies_file)
     cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
     # 免费额度是按模型计的：主模型当天用尽就顺着阶梯换下一个，而不是整轮停掉
     ladder = list(models or [s.gemini_model])
-    client = GeminiClient(s.gemini_api_key, model=ladder[0])
+    client = make_client(s, model=ladder[0])
     pool = make_pool(s.pg_knowledge_conninfo)
     try:
         store = KnowledgeStore(pool)
@@ -135,7 +133,7 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None,
                         tr = None
                         break
                     print(f"  [{i}] {e}；换用 {ladder[0]} 继续", flush=True)
-                    client = GeminiClient(s.gemini_api_key, model=ladder[0])
+                    client = make_client(s, model=ladder[0])
             if tr is None and not ladder:
                 break
             if tr is None or not tr.get("transcript"):

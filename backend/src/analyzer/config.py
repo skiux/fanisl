@@ -114,6 +114,10 @@ class Settings(BaseSettings):
     # （2026-08-12：新模型拒绝 thinkingBudget=0 → 400；且免费档每日仅 20 次请求 → 429）。
     # 换模型是有意决定，应改这里并记录，而不是被 Google 静默改掉。
     gemini_model: str = "gemini-3.5-flash"
+    # 填了就走 Agent Platform（Vertex）通道、鉴权用 ADC，不再用 gemini_api_key。
+    # 2026-08-13 起的第二条通道：AI Studio 那个项目被 Google 整体封禁生成权限
+    # （generateContent 恒 403 PERMISSION_DENIED，而 ListModels/countTokens 正常）。
+    gcp_project: str = ""
     youtube_cookies_file: str = ""  # 用户导出的 cookies.txt（YouTube bot 验证时用，相对 backend/）
     coinmarketcal_api_key: str = ""  # 币圈事件（CoinMarketCal）
     cryptocompare_api_key: str = ""  # 新闻（CoinDesk Data，原 CryptoCompare）
