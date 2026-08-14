@@ -1,0 +1,486 @@
+{
+  "content_id": 53,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "我们看费城半导体的这个走势 七日级别该建仓可以建仓 但是我们并不期望价格会给一个更高的高点 更多呢 我认为会是一个宽幅的高位震荡",
+      "locator": "05:20",
+      "ref_price": 540.0,
+      "tags": ["soxx", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "费城半导体（SOXX）", "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "directional", "direction": "range",
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-09-04"],
+          "success_def": "至2026-09-04 SOXX 日收盘始终未创出发布日之后的新高（不超过发布日屏价 540 的 +8%=583.2）且未跌破 -8%=496.8 = hit（'宽幅的高位震荡'＋'不期望更高的高点'）；单边突破任一侧 = miss。±8% 的宽幅带系我方指定，取自他同期对闪迪'百分之八左右、百分之十不到'的空间口径；'更多呢我认为会是'语气仍属单侧承诺故 explicit。原文期限词为空但语境是'接下来'的板块基调，按 §3 无期限词本应 open_ended，此处因作者明确把结论限定在'今年三四季度之前'的中段，取映射表'未来几周'21 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "就是今年的话呢 想要再见高点的这种可能性呢 其实是在降低的",
+      "locator": "00:30",
+      "ref_price": 540.0,
+      "tags": ["soxx", "semiconductor-cycle", "valuation"],
+      "payload": {
+        "asset_text": "费城半导体（SOXX）年内是否再创新高", "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "directional", "direction": "range",
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "C",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-12-31"],
+          "success_def": "至2026-12-31 SOXX 未创出 2026 年内新高 = hit（'今年想要再见高点的可能性在降低'）。作者说的是概率下降而非否定，故降 C 且 stance=hedged；'高点'我方口径取 2026 年内最高收盘价，判据系我方机械化"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "IGV的上涨应该还有一定的动能可以持续",
+      "locator": "02:33",
+      "ref_price": 106.31,
+      "tags": ["igv", "software", "rotation"],
+      "payload": {
+        "asset_text": "软件板块 IGV", "asset_symbol": "IGV", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-21", "2026-09-13", "2026-11-12"],
+          "success_def": "阶梯各时点 IGV 收盘 ≥ 发布日屏价 106.31 = hit。原文无期限词，按 §3 用 +7/+30/+90 的冻结阶梯，系我方指定"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "软件反倒有可能会比硬件 啊 比费城 比啊内存更容易看到一个高点 甚至是新高的可能性 那它在增加",
+      "locator": "02:40",
+      "ref_price": 106.31,
+      "tags": ["igv", "soxx", "software", "rotation"],
+      "payload": {
+        "asset_text": "软件（IGV）相对半导体（SOXX）", "asset_symbol": "IGV", "priceable": true,
+        "claim_class": "relative", "direction": "up",
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "relative_return",
+          "eval_ladder": ["2026-09-04"],
+          "benchmark": "SOXX",
+          "success_def": "至2026-09-04 IGV 自发布日收益率 > SOXX 同期收益率 = hit（'软件比费城、比内存更容易看到高点'）。'更容易看到新高'我方机械化为跑赢；期限取 §3'未来几周'21 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "观察一下今天的走势 价格能不能有效的 上破三日隧道 上破6,935",
+      "locator": "13:33",
+      "ref_price": 6832.0,
+      "tags": ["kospi", "price-action", "ema-tunnel"],
+      "payload": {
+        "asset_text": "韩国综合指数 KOSPI", "asset_symbol": "KOSPI", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 6935},
+        "horizon": {"type": "within_duration", "duration_days": 7},
+        "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-21"],
+          "success_def": "至2026-08-21 KOSPI 任一日最高价 ≥ 6935 = hit（三日隧道上轨与 0.236 结构位重叠处）。原文是'观察能不能上破'的待验证位而非方向承诺，故 stance=hedged、级别降 C；'今天'扩到 §3 短线 7 天，因他随后说'这个位置可能还会在中短期继续影响价格'"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "以MU为例 向上呢在九六六左右遇到压力 而这个位置同样的 也是2026年3月以来AB浪的0.236结构点",
+      "locator": "15:17",
+      "ref_price": 949.83,
+      "tags": ["mu", "memory-storage", "fibonacci"],
+      "payload": {
+        "asset_text": "美光 MU", "asset_symbol": "MU", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"high": 966},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-09-04"],
+          "success_def": "至2026-09-04 MU 日收盘始终 ≤ 966 = hit（'向上在 966 左右遇到压力'）；盘中上破但收盘回落 = partial；日收盘站上 966 = miss。原文'九六六'即 966（同句给出 0.236 结构点与屏价 949.83 互证）；期限取 §3'未来几周'21 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们认为呢以闪迪为例 还需要再涨破 1,550点 那也是昨天的高点",
+      "locator": "15:47",
+      "ref_price": 1528.11,
+      "tags": ["sndk", "memory-storage", "price-action"],
+      "payload": {
+        "asset_text": "闪迪 SNDK", "asset_symbol": "SNDK", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 1550},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-09-04"],
+          "success_def": "至2026-09-04 SNDK 任一日最高价 ≥ 1550 = hit（'向上空间再打开还需涨破 1550，也是昨天的高点'）。期限取 §3'未来几周'21 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "把短期呢目标位呢 啊 和结构压力呢 放到1,693左右",
+      "locator": "16:10",
+      "ref_price": 1528.11,
+      "tags": ["sndk", "memory-storage", "fibonacci"],
+      "payload": {
+        "asset_text": "闪迪 SNDK（偏乐观情形下的目标位）", "asset_symbol": "SNDK", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 1693},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": "以'对个股偏乐观'为前提的修正后模型",
+        "condition_observable": false,
+        "stance_strength": "speculative", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-09-04"],
+          "success_def": "至2026-09-04 SNDK 任一日最高价 ≥ 1693 = hit。这是他在'如果对个股偏乐观'这一前提下给的修正模型目标位（同段口述 1,694 与 1,693 各出现一次，取他最终落定的 1,693），前提不可机械判定故降 C、stance=speculative"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "对现在内存、半导体、AI硬件整个板块 我个人的看法呢 应该是一个高位宽幅震荡的走势",
+      "locator": "16:30",
+      "ref_price": 56.93,
+      "tags": ["dram", "memory-storage", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "内存/半导体/AI 硬件板块（以 DRAM ETF 为代理）", "asset_symbol": "DRAM", "priceable": true,
+        "claim_class": "directional", "direction": "range",
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-09-04"],
+          "success_def": "至2026-09-04 DRAM 日收盘始终落在发布日屏价 56.93 的 ±10% 内（51.24~62.62）= hit（'高位宽幅震荡'）；单边收出区间 = miss。标的系我方指定代理（他说的是整个内存/半导体/AI 硬件板块，取他自己在上一期点名的四个 ETF 里最集中的 DRAM），故降 C；±10% 的带宽系我方指定"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "道指呢我认为他的空间还是打开的",
+      "locator": "18:18",
+      "ref_price": 53839.0,
+      "tags": ["dji", "rotation", "defensive-sector"],
+      "payload": {
+        "asset_text": "道琼斯工业指数", "asset_symbol": "DJI", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-21", "2026-09-13", "2026-11-12"],
+          "success_def": "阶梯各时点 DJI 收盘 ≥ 发布日屏价 53839 = hit（'空间还是打开的'）。原文无期限词，按 §3 用 +7/+30/+90 的冻结阶梯，系我方指定"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们看图中所显示的 也就是昨天的低点 啊 53,700点这里呢就会对价格有支撑",
+      "locator": "18:20",
+      "ref_price": 53839.0,
+      "tags": ["dji", "price-action"],
+      "payload": {
+        "asset_text": "道琼斯工业指数（53,700 支撑）", "asset_symbol": "DJI", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 53700},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_text": "乐观情形下（突破 53,000-53,800 区域后回踩）",
+        "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "C",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-09-04"],
+          "success_def": "至2026-09-04 DJI 日收盘始终不破 53700 = hit；盘中破而收盘收回 = partial；日收盘失守 = miss。他明说这是'乐观的情形下'的支撑判断，前提不可机械判定故降 C；期限取 §3'未来几周'21 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "黄金重回右侧的标准 其实呢 还是看 四千三 百 我们说四千三百五十吧 4,350点的收复情况",
+      "locator": "19:06",
+      "tags": ["xauusd", "price-action", "ema-tunnel"],
+      "payload": {
+        "asset_text": "黄金（重回右侧的判据：收复 4,350）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 4350},
+        "horizon": {"type": "within_duration", "duration_days": 21},
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_close",
+          "eval_ladder": ["2026-09-04"],
+          "success_def": "至2026-09-04 XAUUSD 出现日收盘 ≥ 4350 = hit（'重回右侧的标准是 4,350 的收复情况'）。他口述先说'四千三百'随即自我修正为'四千三百五十'，取修正后的 4350；期限取 §3'未来几周'21 天。不填 ref_price：他报的是现货亚市收盘 4,325，与我方行情源（COMEX 期货）存在基差，按 §5 宁缺毋滥由 K4 回填"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果收复 上方 就是4,530点",
+      "locator": "19:20",
+      "tags": ["xauusd", "fibonacci"],
+      "payload": {
+        "asset_text": "黄金（收复 4,350 后的上方目标 4,530）", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 4530},
+        "horizon": {"type": "within_duration", "duration_days": 60},
+        "condition_text": "先收复 4,350",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-10-13"],
+          "success_def": "条件：先出现日收盘 ≥ 4350；成立后至2026-10-13 任一日最高价 ≥ 4530 = hit（0.236 回调位）；条件始终不成立 = condition_not_met。期限取 §3'中期'60 天"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "在四千四往上其 实已经进入到你保护和直营的一个区间了",
+      "locator": "20:30",
+      "tags": ["xauusd", "risk-mgmt", "position-sizing"],
+      "payload": {
+        "asset_text": "黄金（4,400 以上转为保护/止盈区间）", "asset_symbol": "XAUUSD", "priceable": false,
+        "claim_class": "risk_warning",
+        "horizon": {"type": "open_ended"},
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果再上冲的话 要留意4,530",
+      "locator": "21:00",
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金回调后的再上冲目标", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 4530},
+        "horizon": {"type": "open_ended"},
+        "condition_text": "这一轮小幅回调之后若再上冲",
+        "condition_observable": false,
+        "stance_strength": "speculative", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这轮上涨的话 我们为什么参与 主要还是因为赔率的问题",
+      "locator": "23:51",
+      "ref_price": 75.44,
+      "tags": ["crcl", "stablecoin", "position-sizing"],
+      "payload": {
+        "asset_text": "Circle（CRCL）", "asset_symbol": "CRCL", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "horizon": {"type": "open_ended"},
+        "condition_observable": false,
+        "stance_strength": "speculative", "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-21", "2026-09-13", "2026-11-12"],
+          "success_def": "阶梯各时点 CRCL 收盘 ≥ 发布日屏价 75.44 = hit。他自述已在 64 与 69-71 两档建仓且'昨天继续拉涨'，方向明确；但他同时说'确定性并不是很强'、参与理由是赔率而非胜率，故 stance=speculative 且降 C。原文无期限词，+7/+30/+90 阶梯系我方指定"
+        }
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "底层市场逻辑切换: 旧周期 (拼资本开支) vs 新周期 (重视现金流与信用)",
+      "locator": "08:06",
+      "tags": ["ai-capex", "valuation", "bond-yields", "market-structure"],
+      "payload": {
+        "canonical_statement": "AI 行情的定价逻辑正在从旧周期切到新周期：旧周期奖励资本开支规模本身（花钱越多越领先，看故事与产能扩张速度），新周期改看投资回报、自由现金流、单位算力收入与信用利差。同一份'扩大 CapEx'的公告放到新周期下不再是利好，甚至可能是利空——不能再默认产能扩张就等于 AI 上下游普涨。",
+        "category": "market_structure", "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "以英伟达为例 那五年期CDS呢从五月末的 40bp 现在已经飙升到多少了 到80 然后7月底 7月底刚刚过去的这个7月底 触及记录 83.7",
+      "locator": "09:15",
+      "tags": ["nvda", "bond-yields", "ai-capex", "datacenter-financing"],
+      "payload": {
+        "canonical_statement": "信用违约掉期（CDS）是当前科技板块的一个逆风读数：英伟达五年期 CDS 从 2026 年 5 月末的 40bp 升到 80bp，7 月底触及 83.7bp 的纪录高位；亚马逊、谷歌、Meta、微软、甲骨文五大云厂商同步飙升。作者据此判断 CDS 严重制约科技板块股价继续拉升的空间。",
+        "category": "market_structure", "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "上游的存储的高毛利 它是优先供给AI的数据中心呢 所以挤压了下游的消费电子",
+      "locator": "09:40",
+      "tags": ["memory-storage", "consumer", "semiconductor-cycle"],
+      "payload": {
+        "canonical_statement": "存储的高毛利产能优先供给 AI 数据中心，挤压下游消费电子——苹果是这条上下游矛盾的观察点：IDC 数据、内存价格、苹果供应链预期以及 Mac 与 iPad 的被迫提价都指向同一件事。",
+        "category": "market_structure", "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "现在的这个护城河 MOAT的这个ETF的上涨啊 飙涨 也说明了其实市场呢 是开始从进攻转防御的",
+      "locator": "11:00",
+      "tags": ["moat", "rotation", "defensive-sector", "market-breadth"],
+      "payload": {
+        "canonical_statement": "护城河因子 ETF（MOAT）飙涨是资金从进攻转防御的读数：市场不是在积极拉估值买成长，而是从高拥挤赛道分散出来、把原来低位的资产买起来。微软与亚马逊的上涨同属对此前过度压制估值的修复，而非新的进攻。",
+        "category": "market_structure", "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "沃什本身呢 实际上是一个嘴上比较鹰 但是实际呢还会偏鸽 这样的一个政策路径和风格",
+      "locator": "07:10",
+      "tags": ["fed-policy", "macro-data", "inflation"],
+      "payload": {
+        "canonical_statement": "读沃什的政策路径要把言辞和行动分开：嘴上偏鹰、实际偏鸽，近期所有预期管理（含对数据的预期管理）都可能是在为未来更多宽松铺路。据此作者判断今年有可能全年按兵不动，而 9 月、10 月、12 月三次议息会议前后市场会反复重新修正预期，这构成下半年美股的支撑。",
+        "category": "macro_framework", "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "花旗认为是可以同时成立的 也就是说 现在还不是一个真正意义上的泡沫期 后面的话呢 应该还会 有更好的主升浪",
+      "locator": "03:42",
+      "tags": ["valuation", "ai-capex", "psychology"],
+      "payload": {
+        "canonical_statement": "花旗的判断是「基本面、价格泡沫、短期继续上涨」三者可以同时成立，因此现在还不是真正意义上的泡沫期、后面还会有更好的主升浪；作者认同这一框架并把自己的立场概括为「谨慎看多」。同时他转述投行与主力资金的共识：AI 成长周期自英伟达暴涨起已持续数年、后面还有三到五年延伸，但 2026 年下半年到 2027 年上半年这个窗口存在杀估值风险。",
+        "category": "macro_framework", "stance": "assert"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "在过去历史的每一轮科技革命和泡沫诞生的 这个阶段里边呢 都会有阶段性的阵痛 而且这个阵痛呢 比很多人预期的都要疼",
+      "locator": "04:20",
+      "tags": ["psychology", "valuation", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "复盘历次科技革命与泡沫，退出泡沫时市场回吐的幅度与持续时间——尤其是时间长度——通常超出普通人的预期。作者据此把「阶段性阵痛比预期更疼」当作下半年必须计入的风险，同时承认从产业、基本面财务与宏观周期看当下都没有退出的理由。",
+        "category": "psychology", "stance": "assert"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "今天我们会在价格行为上去做一些配对式的观察",
+      "locator": "00:50",
+      "tags": ["price-action", "rotation", "market-structure"],
+      "payload": {
+        "name": "配对式观察：用同类资产的结构差异判板块共振",
+        "summary": "不孤立看单一标的，而是成对地看结构差异，用共振与否判断反弹是否打开了右侧空间。",
+        "family": "flow",
+        "rules": [
+          "黄金 ↔ Circle：两者共同的底层驱动是宏观流动性边际改善，看数字币能不能接力黄金",
+          "韩指 ↔ 内存板块：判断这一轮反弹是不是已经打开右侧空间",
+          "MU ↔ 闪迪：同板块两只代表性个股，比结构差异（回调深浅、修正幅度）",
+          "IGV ↔ 费城半导体：软件与硬件配对，看资金在两端的相对强弱",
+          "道琼斯 ↔ 纳指100：周期防御与科技此消彼长的关系",
+          "读法：把同类资产放在一起找代表性个股与板块结构的联动性，看共振能不能出现"
+        ],
+        "data_requirements": ["各标的日线/多日级别K线", "板块 ETF 与成分股价格"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "触底是不可以直接摸的 因为这是左侧 价格一定是上涨 涨破日隧道 回踩 在六十四左右 开第一仓 然后再往上 到了六十九到七十一的结构位 啊 价格在结构位 的下沿附近 六十九七十左右见第二仓",
+      "locator": "23:51",
+      "tags": ["crcl", "ema-tunnel", "position-sizing", "execution"],
+      "payload": {
+        "name": "不摸左侧底，等涨破日隧道回踩再分批建仓",
+        "summary": "触底价位本身不可直接买入（那是左侧）；必须等价格涨破日隧道、回踩到隧道附近才开第一仓，再到上方结构位下沿开第二仓。",
+        "family": "trend",
+        "rules": [
+          "触底位（Circle 例：61）不直接摸——左侧不接",
+          "等价格涨破日隧道并回踩，在回踩位（64 左右）开第一仓",
+          "价格上行到结构位（69-71）的下沿附近开第二仓",
+          "只围绕这两个位置布局，不追高",
+          "若价格跌回低位，反倒应视为保护离场的信号而非加仓机会",
+          "若标的一直保持右侧，则须在更高位置寻找更强的买点"
+        ],
+        "claimed_performance": {"note": "自述带会员在 64 与 69-70 两档分批追入，'昨天继续拉涨'——记录不采信"},
+        "data_requirements": ["日线级别EMA隧道", "斐波那契结构位"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那万一猜对了 可能就是一个 啊 一倍左右的这么一个上涨空间 但你的止损呢 可能也仅仅是百分之十左右 所以我认为这是一个 十倍左右这么一个赔率的机会",
+      "locator": "24:30",
+      "tags": ["crcl", "position-sizing", "risk-mgmt", "btc"],
+      "payload": {
+        "name": "按赔率而非确定性选参与标的",
+        "summary": "在确定性不高的品种上，以「潜在涨幅 ÷ 止损幅度」的赔率决定参不参与：约一倍的上涨空间对约 10% 的止损即十倍赔率，值得小仓位参与；赔率不够就不碰。",
+        "family": "other",
+        "rules": [
+          "先算赔率＝潜在上涨空间 ÷ 计划止损幅度（Circle 例：约 1 倍 ÷ 约 10% ≈ 10 倍）",
+          "赔率够高时，确定性不强也可以参与——但仓位与入场位置必须按前一条方法严格限定",
+          "赔率不够就不参与：同期不碰比特币，理由正是'没有看到那么好的短期赔率空间'",
+          "标的基本面不可预判时（Circle 依赖政策、不知何时启动）不做基本面判断，只做赔率与位置"
+        ],
+        "data_requirements": ["结构位（定目标与止损）"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "如果我们把交易量考虑进来的话呢 其实可以把A点的落点放到2026年的3月26号",
+      "locator": "16:00",
+      "tags": ["sndk", "fibonacci", "price-action"],
+      "payload": {
+        "name": "按量能修正波浪起点，再重算结构压力位",
+        "summary": "画 AB 浪时若起点段的成交量不足，该段上涨不算有效结构，应把 A 点后移到量能起来的那一天重画，压力位随之改变。",
+        "family": "trend",
+        "rules": [
+          "先按价格极值画 A 点（闪迪例：2025-08-25，得压力位 1,550）",
+          "检查 A 点到 B 点之间的成交量：量能不足的区段不算有效结构",
+          "把 A 点后移到量能起来之处重画（闪迪例：2026-03-26），压力位随之上移到 1,694",
+          "修正后的模型用于'对个股偏乐观'的情形，未修正模型用于中性情形——两套并存，按对板块的态度选用"
+        ],
+        "data_requirements": ["日线成交量", "斐波那契扩展位"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "我们应该去应对的策略呢 就是不关闭敞口 因为市场还是有顺风 那在下半场还是一个宏观偏顺风 而且有业绩的支撑 那这些呢是我们能够长线持有的基础条件",
+      "locator": "16:40",
+      "tags": ["risk-mgmt", "position-sizing", "semiconductor-cycle"],
+      "payload": {
+        "name": "拐点抓不准时不关敞口，用持有条件代替择时",
+        "summary": "承认短期每一个拐点都极难抓准，因此不以择时应对，而是检查「能否长线持有」的基础条件是否还在：宏观是否顺风、有无业绩支撑。条件在就不关闭敞口，只是不对行情抱过高期望。",
+        "family": "other",
+        "rules": [
+          "先承认短期拿到每一个位置的拐点非常困难，不以此为目标",
+          "改判两个持有条件：宏观是否仍偏顺风、是否有业绩支撑",
+          "条件成立则不关闭敞口，回调到位（费城半导体 525/520）照常建仓",
+          "同时把预期调低：不期望更高的高点，接受高位宽幅震荡",
+          "在周期防御（道指）与科技之间做混搭，理由是市场已进入重视现金流与信用的新周期"
+        ],
+        "data_requirements": ["宏观政策路径判断", "板块业绩"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    }
+  ]
+}
