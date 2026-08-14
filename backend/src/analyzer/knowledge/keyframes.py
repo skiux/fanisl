@@ -17,11 +17,13 @@ from __future__ import annotations
 import argparse
 import pathlib
 import subprocess
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Sequence
 
+import httpx
 import yt_dlp
 
 from ..config import get_settings
@@ -48,6 +50,7 @@ class Stream:
     source: str          # ytdlp:<player_client>
     height: int
     duration_s: int | None
+    headers: tuple[tuple[str, str], ...] = ()   # 取流必须带上，见下
 
 
 @dataclass(frozen=True)
@@ -83,10 +86,32 @@ def stream_url(video_id: str, *, max_height: int = DEFAULT_HEIGHT) -> Stream:
             errors.append(f"{client}: {str(e)[:80]}")
             continue
         if info.get("url"):
+            # **直链是绑 User-Agent 的**：YouTube 按解析时那个 client 的 UA 签发，换个 UA
+            # 去取就是 403。ffmpeg 用自己的 UA，所以必须把 yt-dlp 报的请求头透传下去。
+            # （2026-08-14 实测：同一条直链 httpx 带 UA 取到 206，ffmpeg 不带就 403。）
             return Stream(info["url"], f"ytdlp:{client}", int(info.get("height") or 0),
-                          info.get("duration"))
+                          info.get("duration"),
+                          tuple((info.get("http_headers") or {}).items()))
         errors.append(f"{client}: 无可用流")
     raise RuntimeError(f"{video_id} 全客户端解析失败 —— " + " | ".join(errors))
+
+
+def _ffmpeg_header_args(stream: Stream) -> list[str]:
+    """把 yt-dlp 的请求头翻译成 ffmpeg 参数。
+
+    User-Agent 走 -user_agent（ffmpeg 的 http 协议单列了这个选项，塞进 -headers 会被
+    它自己的默认 UA 覆盖掉）；其余头拼成 CRLF 分隔的 -headers。
+    """
+    hdrs = dict(stream.headers)
+    args: list[str] = []
+    ua = hdrs.pop("User-Agent", None)
+    if ua:
+        args += ["-user_agent", ua]
+    rest = "".join(f"{k}: {v}\r\n" for k, v in hdrs.items()
+                   if k.lower() not in ("accept-encoding", "range"))
+    if rest:
+        args += ["-headers", rest]
+    return args
 
 
 def _to_seconds(ts: str | int) -> int:
@@ -98,16 +123,58 @@ def _to_seconds(ts: str | int) -> int:
     return parts[0] * 3600 + parts[1] * 60 + parts[2]
 
 
-def _grab_one(stream: Stream, sec: int, out_dir: pathlib.Path, *, retries: int = 2) -> Frame | None:
+# 2026-08-14：提帧整体失效，逐层测下来的结论（不是墙、不是 cookie 过期、不是 yt-dlp 过期）：
+#   · 不带 Range 取直链           → 403
+#   · Range: bytes=0-2047         → 206      Range: bytes=0-2MB   → 206
+#   · Range: bytes=2MB-4MB        → 403      Range: bytes=10-11MB → 403
+#   · 换 &range= 查询参数、换 itag（137/248/399/136/247/398）、换 player client：同样
+#   · 出口 IP 稳定且与直链里的 ip= 一致；yt-dlp 已是最新发行版 2026.07.04
+# 即**只有从偏移 0 开始的区间会被服务**，任何非零起点一律 403 —— 这是 YouTube 的 n 参数
+# 节流（没有有效的 n 签名就只给开头那 2 MB）。ffmpeg 的 http seek 发 bytes=N- 必然踩中。
+#
+# 结论：现有通道拿不到任意时刻的画面，只能拿到开头 2 MB。真正的解法是顶注列的下一级手段
+# —— PO Token provider（bgutil，本机 node/deno 可跑）让 yt-dlp 拿到合法 n 签名。在那之前
+# 提帧对新视频不可用；L0/L1/L2 全链不受影响（grab_for_content 是 best-effort）。
+_RANGE_CHUNK = 2 << 20
+
+
+def download_stream(stream: Stream, dest: pathlib.Path, *, on_progress=None) -> int:
+    """按有界 Range 分块把直链拉到本地。返回字节数。"""
+    headers = dict(stream.headers)
+    with httpx.Client(timeout=60.0, follow_redirects=True) as cl:
+        probe = cl.get(stream.url, headers={**headers, "Range": "bytes=0-1"})
+        probe.raise_for_status()
+        total = int(probe.headers.get("content-range", "bytes 0-1/0").rsplit("/", 1)[-1])
+        got = 0
+        with dest.open("wb") as fh:
+            while got < total:
+                end = min(got + _RANGE_CHUNK - 1, total - 1)
+                r = cl.get(stream.url, headers={**headers, "Range": f"bytes={got}-{end}"})
+                if r.status_code not in (200, 206) or not r.content:
+                    raise RuntimeError(
+                        f"取流在偏移 {got} 处 HTTP {r.status_code}——YouTube 的 n 参数节流："
+                        f"只有从 0 开始的区间会被服务，拿不到任意时刻的画面。"
+                        f"解法见 keyframes.py 顶注：装 PO Token provider（bgutil）")
+                fh.write(r.content)
+                got += len(r.content)
+                if on_progress:
+                    on_progress(got, total)
+    return got
+
+
+def _grab_one(stream: Stream, sec: int, out_dir: pathlib.Path, *,
+              local: pathlib.Path | None, retries: int = 2) -> Frame | None:
     out = out_dir / f"{sec:05d}s_h{stream.height}.jpg"
     if out.exists() and out.stat().st_size > 0:      # 幂等：已抓过不重抓
         return Frame(sec, out, out.stat().st_size, stream.height, stream.source)
+    if local is None:
+        return None
     for attempt in range(retries + 1):
         try:
-            # -ss 在 -i 之前 = 输入级 seek：只请求目标时刻附近的分片
+            # -ss 在 -i 之前 = 输入级 seek。输入是本地文件，seek 不走网络
             subprocess.run(
                 ["ffmpeg", "-y", "-loglevel", "error", "-ss", str(sec),
-                 "-i", stream.url, "-frames:v", "1", "-q:v", "2", str(out)],
+                 "-i", str(local), "-frames:v", "1", "-q:v", "2", str(out)],
                 check=True, capture_output=True, timeout=180,
             )
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
@@ -137,8 +204,22 @@ def grab(video_id: str, timestamps: Sequence[str | int], *,
         secs = [s for s in secs if s < stream.duration_s]
     out_dir = out_root / video_id
     out_dir.mkdir(parents=True, exist_ok=True)
-    with ThreadPoolExecutor(max_workers=workers) as ex:
-        frames = list(ex.map(lambda s: _grab_one(stream, s, out_dir), secs))
+    todo = [s for s in secs
+            if not (out_dir / f"{s:05d}s_h{stream.height}.jpg").exists()]
+    if not todo:
+        return [f for f in (_grab_one(stream, s, out_dir, local=None) for s in secs)
+                if f is not None]
+
+    # 整条流先落到本地临时文件（见 download_stream 顶注：直链只认有界 Range，
+    # ffmpeg 直接 seek 必 403）。抽完即删，不占长期磁盘。
+    with tempfile.TemporaryDirectory(prefix="fanisl-kf-") as tmp:
+        local = pathlib.Path(tmp) / f"{video_id}.bin"
+        t0 = time.time()
+        size = download_stream(stream, local)
+        print(f"    取流 {size / 1048576:.0f} MB / {time.time() - t0:.0f}s "
+              f"（{stream.source} {stream.height}p，{len(todo)} 帧待抽）", flush=True)
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            frames = list(ex.map(lambda s: _grab_one(stream, s, out_dir, local=local), secs))
     return [f for f in frames if f is not None]
 
 
