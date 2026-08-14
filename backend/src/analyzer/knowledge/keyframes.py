@@ -123,18 +123,21 @@ def _to_seconds(ts: str | int) -> int:
     return parts[0] * 3600 + parts[1] * 60 + parts[2]
 
 
-# 2026-08-14：提帧整体失效，逐层测下来的结论（不是墙、不是 cookie 过期、不是 yt-dlp 过期）：
-#   · 不带 Range 取直链           → 403
-#   · Range: bytes=0-2047         → 206      Range: bytes=0-2MB   → 206
-#   · Range: bytes=2MB-4MB        → 403      Range: bytes=10-11MB → 403
-#   · 换 &range= 查询参数、换 itag（137/248/399/136/247/398）、换 player client：同样
-#   · 出口 IP 稳定且与直链里的 ip= 一致；yt-dlp 已是最新发行版 2026.07.04
-# 即**只有从偏移 0 开始的区间会被服务**，任何非零起点一律 403 —— 这是 YouTube 的 n 参数
-# 节流（没有有效的 n 签名就只给开头那 2 MB）。ffmpeg 的 http seek 发 bytes=N- 必然踩中。
+# 2026-08-14：提帧整体失效。逐层排除后的结论——**这条路被 YouTube 关掉了，不是本地问题**：
+#   · 不带 Range 取直链 → 403；Range: bytes=0-2MB → 206；bytes=2MB-4MB / 10-11MB → 403
+#     即只有从偏移 0 开始的区间被服务（当天稍晚连偏移 0 也开始 403 了，还在收紧）
+#   · 换 &range= 查询参数、加 rn/rbuf、换 6 个 itag、换 5 个 player client：同样
+#   · 出口 IP 稳定且与直链里的 ip= 一致（不是代理漂移）
+#   · cookies 有效（解析和头 2MB 当时能过）；yt-dlp 已是最新发行版 2026.07.04
+#   · **PO Token provider（bgutil 1.3.1 + deno）已装好并确实在签发 token**，但没用：
+#     token 服务的是 web/web_safari 客户端，而这些客户端现在只给 SABR 流、根本不暴露
+#     普通直链；唯一还给直链的 android_vr 又不吃 token（直链里 c=ANDROID_VR）。
+#   · 注意直链里**没有 n= 参数**，所以这不是经典的 n 签名节流，是 SABR 迁移。
 #
-# 结论：现有通道拿不到任意时刻的画面，只能拿到开头 2 MB。真正的解法是顶注列的下一级手段
-# —— PO Token provider（bgutil，本机 node/deno 可跑）让 yt-dlp 拿到合法 n 签名。在那之前
-# 提帧对新视频不可用；L0/L1/L2 全链不受影响（grab_for_content 是 best-effort）。
+# 也就是说要恢复提帧，得等 yt-dlp 的 SABR/UMP 支持落地（或改走渲染层截图那条路）。
+# 在那之前提帧对新视频不可用；L0/L1/L2 全链不受影响（grab_for_content 是 best-effort），
+# 存量帧也不受影响。下面这套有界分块下载在 SABR 支持落地后仍然有用——比"每帧一次网络
+# seek"快，每期只下一次——所以留着。
 _RANGE_CHUNK = 2 << 20
 
 
@@ -154,7 +157,7 @@ def download_stream(stream: Stream, dest: pathlib.Path, *, on_progress=None) -> 
                     raise RuntimeError(
                         f"取流在偏移 {got} 处 HTTP {r.status_code}——YouTube 的 n 参数节流："
                         f"只有从 0 开始的区间会被服务，拿不到任意时刻的画面。"
-                        f"解法见 keyframes.py 顶注：装 PO Token provider（bgutil）")
+                        f"YouTube 已切 SABR，这条取流路径被关掉了，见 keyframes.py 顶注")
                 fh.write(r.content)
                 got += len(r.content)
                 if on_progress:
