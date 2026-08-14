@@ -155,9 +155,10 @@ def download_stream(stream: Stream, dest: pathlib.Path, *, on_progress=None) -> 
                 r = cl.get(stream.url, headers={**headers, "Range": f"bytes={got}-{end}"})
                 if r.status_code not in (200, 206) or not r.content:
                     raise RuntimeError(
-                        f"取流在偏移 {got} 处 HTTP {r.status_code}——YouTube 的 n 参数节流："
-                        f"只有从 0 开始的区间会被服务，拿不到任意时刻的画面。"
-                        f"YouTube 已切 SABR，这条取流路径被关掉了，见 keyframes.py 顶注")
+                        f"取流在偏移 {got} 处 HTTP {r.status_code}：YouTube 已切 SABR，"
+                        f"普通直链只服务从 0 开始的区间，取不到任意时刻的画面。"
+                        f"PO Token 也解决不了（原因见 keyframes.py 顶注），"
+                        f"要等 yt-dlp 的 SABR 支持")
                 fh.write(r.content)
                 got += len(r.content)
                 if on_progress:
