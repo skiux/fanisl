@@ -105,12 +105,22 @@ class PriceStore:
 
 
 def fetch_yf(symbol: str, since: dt.date) -> list[tuple]:
+    """日线（不含今天）。
+
+    **今天那根一律丢掉**：盘中调用时 yfinance 会把"到此刻为止"的行情当成当日 K 返回，
+    收盘价是个还在动的快照。写进库就等于让评分器拿盘中价当收盘价——而 claim_scores 对
+    (unit, 时点, 版本) 唯一、score_exists 命中即跳过，所以**一旦按盘中价评过就永久定死，
+    当天收盘后也不会自我纠正**。2026-08-14 实测：库里 08-13 收盘 SNDK 1528.11，同日盘中
+    再拉是 1636.96（+7.1%），差一档就能把判定翻过来。代价只是所有判定推迟到次日，而
+    评分器本来就按"行情覆盖到阶梯日才评"运行，推迟一天不丢任何东西。
+    """
     import yfinance as yf
     ticker, scale, _ = SYMBOL_MAP[symbol]
     df = yf.Ticker(ticker).history(start=str(since), auto_adjust=False, actions=False)
+    today = dt.date.today()
     rows = []
     for idx, r in df.iterrows():
-        if r.isna()["Close"]:
+        if r.isna()["Close"] or idx.date() >= today:
             continue
         rows.append((idx.date(), float(r["Open"]) * scale, float(r["High"]) * scale,
                      float(r["Low"]) * scale, float(r["Close"]) * scale))

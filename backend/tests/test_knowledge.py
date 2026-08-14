@@ -536,3 +536,30 @@ def test_correct_canonical_rejects_unknown_node(kstore):
 
     with pytest.raises(ValueError):
         NodeStore(kstore.pool).correct_canonical(999999, "x", "y")
+
+
+def test_fetch_yf_drops_todays_incomplete_bar(monkeypatch):
+    """盘中拉到的"当日 K"是还在动的快照，写进库会让评分器拿盘中价当收盘价永久定死。"""
+    import datetime as dt
+
+    import pandas as pd
+
+    import analyzer.knowledge.prices as pricemod
+
+    today = dt.date.today()
+    idx = pd.to_datetime([today - dt.timedelta(days=2), today - dt.timedelta(days=1), today])
+    df = pd.DataFrame({"Open": [1.0, 2.0, 3.0], "High": [1.0, 2.0, 3.0],
+                       "Low": [1.0, 2.0, 3.0], "Close": [1.0, 2.0, 3.0]}, index=idx)
+
+    class _T:
+        def __init__(self, *_a, **_k): pass
+        def history(self, **_k): return df
+
+    fake_yf = type("m", (), {"Ticker": _T})
+    monkeypatch.setitem(__import__("sys").modules, "yfinance", fake_yf)
+    monkeypatch.setitem(pricemod.SYMBOL_MAP, "ZZTEST", ("ZZTEST", 1.0, ""))
+
+    rows = pricemod.fetch_yf("ZZTEST", today - dt.timedelta(days=10))
+    got = [r[0] for r in rows]
+    assert today not in got, "今天那根未收盘的 K 不能进库"
+    assert got == [today - dt.timedelta(days=2), today - dt.timedelta(days=1)]
