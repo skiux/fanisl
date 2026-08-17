@@ -84,6 +84,35 @@ def _derive_title(canonical: str) -> str:
     return head[:_TITLE_MAX - 1] + "…"
 
 
+# 归并候选提示：按**标签** Jaccard 取最近的几个既有节点，给人一张短名单。
+#
+# **文本相似度试过，不管用，别再试**：字级 bigram 的 Dice 系数在 2026-08-16 那次实测里
+# 5 条真该归并的单元全部落在 0.10-0.14，而把阈值降到那里会在 460+ 个节点里淹进误报。
+# 根因是同一个人隔两个月重述同一命题时用词几乎完全不同——6 月说"组织架构围绕人类脑力
+# 搭建…给垂暮老人换年轻心脏"，8 月说"技术革新只是前提，组织架构创新才是关键"，字面
+# 重合极低而命题相同。标签是人在提取时按受控词表打的，反而稳：同一批 5 条的标签 Jaccard
+# 是 0.50/0.67/0.75/1.00/0.75，候选集 2-17 个、目标 5 次里 4 次排前二。
+#
+# 这只是**短名单**，不是判决。merge-guide §1 的判据是"同一核心命题"，那是语义判断。
+_HINT_TOP_N = 2
+
+
+def _nearest_by_tags(tags, nodes: list[dict]) -> list[tuple[dict, float]]:
+    a = set(tags or ())
+    if not a:
+        return []
+    scored = []
+    for n in nodes:
+        b = set(n["tags"] or ())
+        if not b:
+            continue
+        j = len(a & b) / len(a | b)
+        if j > 0:
+            scored.append((n, round(j, 2)))
+    scored.sort(key=lambda x: -x[1])
+    return scored[:_HINT_TOP_N]
+
+
 class NodeStore:
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool = pool
@@ -325,9 +354,49 @@ class NodeStore:
         node["relations"] = self.relations_for(node_id)
         return node
 
-    def seed_singletons(self, *, merger_version: str) -> int:
+    def _singleton_payload(self, row: dict) -> tuple[str, str]:
+        p = row["payload"]
+        if row["kind"] == "method":
+            return p["name"][:60], (p.get("summary") or p["name"])
+        canonical = p["canonical_statement"]
+        return _derive_title(canonical), canonical
+
+    def pending_singletons(self) -> list[dict]:
+        """待建单例的单元 + 每条最像的既有节点（归并候选提示）。
+
+        **建单例是不可逆的一步**：attestation 上 unit_id 唯一，一旦种下，本该并入既有
+        节点的单元就被锁住了，得先删掉那个单例节点才能重新归并。merge-guide §4 的步骤
+        本来就是"先归并会话、后 seed 兜底"，但工具此前不拦顺序——2026-08-16 摄取美投君
+        c54 时就撞了：他在重讲自己 6 月的框架，5 条本该并入 N17/N102/N105 的单元被种成
+        了单例，只能删掉重来。所以这里先把最像的既有节点摆出来给人看。
+        """
+        with self.pool.connection() as conn:
+            rows = conn.execute(f"""
+                SELECT u.id, u.kind, u.tags, u.payload, u.content_id FROM knowledge_units u
+                WHERE u.kind IN ('method','concept') AND {ACTIVE_RUN}
+                  AND NOT EXISTS (SELECT 1 FROM node_attestations a WHERE a.unit_id=u.id)
+                ORDER BY u.id""").fetchall()
+            nodes = conn.execute(
+                "SELECT id, kind, title, tags FROM knowledge_nodes "
+                "WHERE kind IN ('method','concept')").fetchall()
+        by_kind: dict[str, list[dict]] = {}
+        for n in nodes:
+            by_kind.setdefault(n["kind"], []).append(n)
+        out = []
+        for r in rows:
+            title, canonical = self._singleton_payload(r)
+            out.append({"unit_id": r["id"], "kind": r["kind"], "content_id": r["content_id"],
+                        "title": title, "canonical": canonical,
+                        "candidates": _nearest_by_tags(r["tags"], by_kind.get(r["kind"], []))})
+        return out
+
+    def seed_singletons(self, *, merger_version: str, dry_run: bool = False) -> int:
         """把尚未挂节点的 method/concept 每条建单例节点（title/canonical 机械派生自
-        payload，不涉裁量——人工判断只负责'哪些不是单例'）。claim 不建（见 merge-guide §0）。"""
+        payload，不涉裁量——人工判断只负责'哪些不是单例'）。claim 不建（见 merge-guide §0）。
+
+        dry_run=True 只数不写。CLI 默认就是 dry-run，要落库得显式加 --commit——见
+        pending_singletons 的顶注：种早了要删节点才能补救。
+        """
         n = 0
         with self.pool.connection() as conn, conn.transaction():
             rows = conn.execute(f"""
@@ -335,13 +404,10 @@ class NodeStore:
                 WHERE u.kind IN ('method','concept') AND {ACTIVE_RUN}
                   AND NOT EXISTS (SELECT 1 FROM node_attestations a WHERE a.unit_id=u.id)
                 ORDER BY u.id""").fetchall()
+            if dry_run:
+                return len(rows)
             for r in rows:
-                p = r["payload"]
-                if r["kind"] == "method":
-                    title, canonical = p["name"][:60], p.get("summary") or p["name"]
-                else:
-                    canonical = p["canonical_statement"]
-                    title = _derive_title(canonical)
+                title, canonical = self._singleton_payload(r)
                 node = conn.execute(
                     "INSERT INTO knowledge_nodes(kind, title, canonical, tags, notes, merger_version) "
                     "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
@@ -397,8 +463,29 @@ def main() -> None:
             doc = json.loads(pathlib.Path(sys.argv[2]).read_text())
             print(f"关系边入库 {ns.import_relations(doc)} 条")
         elif cmd == "seed-singletons":
-            n = ns.seed_singletons(merger_version=sys.argv[2] if len(sys.argv) > 2 else "merge-v1")
-            print(f"单例种子 {n} 个")
+            # **默认只预览**：种单例是不可逆的（attestation 上 unit_id 唯一），种早了得
+            # 先删节点才能补救。merge-guide §4 的顺序是"先归并会话、后 seed 兜底"。
+            args = [a for a in sys.argv[2:] if not a.startswith("--")]
+            version = args[0] if args else "merge-v1"
+            pending = ns.pending_singletons()
+            if not pending:
+                print("没有待建单例的单元（method/concept 都已挂节点）")
+                return
+            print(f"待建单例 {len(pending)} 个。右侧是按标签最近的既有节点（短名单，不是判决）——"
+                  f"**逐条确认它们不该归并再落库**\n")
+            for p in pending:
+                print(f"  #{p['unit_id']:<4} c{p['content_id']:<3} {p['kind']:7} {p['title'][:42]}")
+                for node, j in p["candidates"]:
+                    print(f"       ↳ N{node['id']:<4} 标签重合 {j:<5} {node['title'][:48]}")
+            if "--commit" not in sys.argv:
+                print("\n以上仅为预览，未写库。种单例是不可逆的（attestation 上 unit_id 唯一），"
+                      "\n种早了必须先删节点才能补救——merge-guide §4 的顺序是先归并会话、后 seed 兜底。")
+                print("\n确认无可归并项后加 --commit 落库：")
+                print(f"  python -m analyzer.knowledge.nodes seed-singletons {version} --commit")
+                print("  （若其中有该并入既有节点的，先走 nodes import 归并，剩下的再 seed）")
+                return
+            n = ns.seed_singletons(merger_version=version)
+            print(f"\n单例种子 {n} 个")
             print("状态重算：", ns.recompute() or "无变化")
         elif cmd == "recompute":
             print("状态重算：", ns.recompute() or "无变化")

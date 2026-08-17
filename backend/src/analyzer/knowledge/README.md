@@ -53,7 +53,13 @@ python -m analyzer.knowledge.daily      # 行情刷新 → 到期评分 → 节�
 collector 进程已按天自动跑（worker_collector 的 knowledge job）；手动跑等价。
 分步命令仍可用：`prices` / `scorers` / `nodes recompute`。
 新内容入库后的归并：`nodes export` 列未挂单元 → 会话按 merge-guide 判归并 JSON →
-`nodes import <file>` → 单例兜底 `nodes seed-singletons`。
+`nodes import <file>` → 单例兜底 `nodes seed-singletons --commit`。
+
+**顺序不能颠倒**：种单例是不可逆的（`node_attestations.unit_id` 唯一），本该并入既有节点
+的单元一旦被种成单例就锁住了，只能删掉那个节点才能重来。所以 `seed-singletons` **默认只
+预览**，列出待建项与按标签最近的既有节点作短名单，确认后才加 `--commit`。
+（2026-08-16 摄取美投君 c54 时撞过：他在重讲自己 6 月的框架，5 条本该并入 N17/N102/N105
+的单元被种成单例，只能删节点重来。）
 
 K6 起的发现与运营（周报 collector 每周自动跑，其余按需）：
 - 关系边（对立/互补，判据 merge-guide §6）：会话判边 JSON → `nodes import-relations <file>`；

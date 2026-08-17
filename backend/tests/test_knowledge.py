@@ -563,3 +563,75 @@ def test_fetch_yf_drops_todays_incomplete_bar(monkeypatch):
     got = [r[0] for r in rows]
     assert today not in got, "今天那根未收盘的 K 不能进库"
     assert got == [today - dt.timedelta(days=2), today - dt.timedelta(days=1)]
+
+
+# --- seed-singletons 的顺序闸（2026-08-16 撞过一次）---------------------------
+
+def _concept_unit(text, tags):
+    return KnowledgeUnit(kind="concept", quote=text, tags=tags,
+                         payload={"canonical_statement": text, "category": "market_structure"})
+
+
+def test_seed_singletons_dry_run_writes_nothing(kstore):
+    from analyzer.knowledge.nodes import NodeStore
+
+    ns = NodeStore(kstore.pool)
+    cid = kstore.ensure_creator("闸门信源")
+    content_id, _ = kstore.upsert_content(
+        cid, platform="manual", url="https://example.test/seed", content_type="article",
+        title="种子", published_at=datetime(2026, 8, 16, tzinfo=timezone.utc), raw="一条认知")
+    kstore.record_extraction(content_id, extractor_version="v1", model="m",
+                             units=[_concept_unit("一条认知", ["ai-capex"])])
+
+    assert ns.seed_singletons(merger_version="merge-v1", dry_run=True) == 1
+    assert ns.list_nodes() == [], "dry_run 不许写库"
+    assert ns.seed_singletons(merger_version="merge-v1") == 1
+    assert len(ns.list_nodes()) == 1
+
+
+def test_pending_singletons_surfaces_tag_nearest_existing_node(kstore):
+    """真实场景：同一信源隔期重述同一命题，用词几乎全变，靠标签才捞得回来。"""
+    from analyzer.knowledge.nodes import NodeStore
+
+    ns = NodeStore(kstore.pool)
+    cid = kstore.ensure_creator("重述信源")
+    old_id, _ = kstore.upsert_content(
+        cid, platform="manual", url="https://example.test/jun", content_type="article",
+        title="六月", published_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        raw="组织架构围绕人类脑力搭建")
+    uid = kstore.record_extraction(old_id, extractor_version="v1", model="m", units=[
+        _concept_unit("组织架构围绕人类脑力搭建", ["ai-capex", "macro-framework"])])[0]
+    node_id = ns.import_nodes({"merger_version": "merge-v1", "nodes": [{
+        "kind": "concept", "title": "生产力未质变的根因",
+        "canonical": "组织架构围绕人类脑力搭建", "tags": ["ai-capex", "macro-framework"],
+        "units": [{"id": uid}]}]})[0]
+
+    new_id, _ = kstore.upsert_content(
+        cid, platform="manual", url="https://example.test/aug", content_type="article",
+        title="八月", published_at=datetime(2026, 8, 16, tzinfo=timezone.utc),
+        raw="技术革新只是前提，组织架构创新才是关键")
+    kstore.record_extraction(new_id, extractor_version="v1", model="m", units=[
+        _concept_unit("技术革新只是前提，组织架构创新才是关键",
+                      ["ai-capex", "macro-framework"])])
+
+    pending = ns.pending_singletons()
+    assert len(pending) == 1
+    cands = pending[0]["candidates"]
+    assert cands and cands[0][0]["id"] == node_id, "该并入的既有节点必须出现在短名单里"
+    assert cands[0][1] == 1.0                       # 标签完全一致
+
+
+def test_pending_singletons_ignores_units_already_on_a_node(kstore):
+    from analyzer.knowledge.nodes import NodeStore
+
+    ns = NodeStore(kstore.pool)
+    cid = kstore.ensure_creator("已挂信源")
+    content_id, _ = kstore.upsert_content(
+        cid, platform="manual", url="https://example.test/done", content_type="article",
+        title="已挂", published_at=datetime(2026, 8, 16, tzinfo=timezone.utc), raw="已挂认知")
+    uid = kstore.record_extraction(content_id, extractor_version="v1", model="m",
+                                   units=[_concept_unit("已挂认知", ["valuation"])])[0]
+    ns.import_nodes({"merger_version": "merge-v1", "nodes": [{
+        "kind": "concept", "title": "已挂", "canonical": "已挂认知",
+        "tags": ["valuation"], "units": [{"id": uid}]}]})
+    assert ns.pending_singletons() == []
