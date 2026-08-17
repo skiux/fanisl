@@ -1,7 +1,7 @@
-"""知识引擎每日维护：行情刷新 → 到期评分 → 节点状态重算 → 补齐缺帧（幂等，挂 collector 调度）。
+"""知识引擎每日维护：行情 → 盈利预期修正 → 到期评分 → 节点状态重算 → 补齐缺帧（幂等，挂 collector）。
 
-等价于手动跑 prices / scorers / nodes recompute / backfill_keyframes 四条 CLI；任何一步
-失败不影响后续（best-effort，scheduler 的 job 约定）。
+等价于手动跑 prices / estimates / scorers / nodes recompute / backfill_keyframes 五条 CLI；
+任何一步失败不影响后续（best-effort，scheduler 的 job 约定）。
 也可单独跑：python -m analyzer.knowledge.daily
 """
 
@@ -12,7 +12,7 @@ import logging
 
 from ..config import get_settings
 from ..db import make_pool
-from . import backfill_keyframes, prices, scorers
+from . import backfill_keyframes, estimates, prices, scorers
 from .nodes import NodeStore
 from .store import KnowledgeStore
 
@@ -27,6 +27,13 @@ def run_daily(pool) -> None:
         prices.refresh(pool, since=SINCE)
     except Exception:
         log.exception("知识引擎日维护：行情刷新失败（继续评分）")
+    try:
+        # 盈利预期修正：良性去估值（倍数压、盈利涨）与戴维斯双杀的分界指标，领先价格。
+        # 放在评分之前只是顺序习惯，两者不耦合。
+        st = estimates.refresh(pool)
+        log.info("知识引擎日维护：盈利预期修正入库 %d/%d", st["stored"], st["tried"])
+    except Exception:
+        log.exception("知识引擎日维护：盈利预期修正失败（继续评分）")
     try:
         scorers.run(dry=False)
     except Exception:
