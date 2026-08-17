@@ -202,8 +202,12 @@ function VerificationPriceEvidence({ detail }: { detail: VerificationDetail }) {
   const xForIndex = (index: number) => left + (index / Math.max(1, bars.length - 1)) * chartWidth
   const yForValue = (value: number) => top + ((maximum - value) / range) * chartHeight
   const points = bars.map((bar, index) => `${xForIndex(index)},${yForValue(bar.close)}`).join(' ')
-  const markerIndex = Math.max(0, bars.findIndex((bar) => bar.ts.slice(0, 10) >= detail.horizon_label.slice(0, 10)))
-  const markerBar = bars[markerIndex] ?? bars[bars.length - 1]
+  // 到期时点落在哪根 K 上。找不到（日线止于 horizon 之前——例如当日评分时那根未收盘的
+  // K 已被行情接口丢掉）就退到最后一根，绝不能退到第 0 根：那会把裁决画在窗口最左端。
+  const horizonIndex = bars.findIndex((bar) => bar.ts.slice(0, 10) >= detail.horizon_label.slice(0, 10))
+  const markerIndex = horizonIndex === -1 ? bars.length - 1 : horizonIndex
+  const markerBar = bars[markerIndex] ?? null
+  const markerIsApproximate = horizonIndex === -1
 
   return (
     <section className="verification-price">
@@ -228,7 +232,7 @@ function VerificationPriceEvidence({ detail }: { detail: VerificationDetail }) {
               <text className="verification-price-date" textAnchor="end" x={width - right} y={height - 8}>{bars[bars.length - 1].ts.slice(5, 10)}</text>
             </svg>
           </div>
-          <footer className="verification-price-legend"><span><i />收盘价</span><span><i />发布参考</span>{thresholds.length > 0 && <span><i />冻结判界</span>}<b>{data?.note || '日线收盘口径'}</b></footer>
+          <footer className="verification-price-legend"><span><i />收盘价</span><span><i />发布参考</span>{thresholds.length > 0 && <span><i />冻结判界</span>}<b>{markerIsApproximate ? `日线止于 ${bars[bars.length - 1].ts.slice(0, 10)}，裁决标记画在最后一根可用日线上` : data?.note || '日线收盘口径'}</b></footer>
         </>
       )}
     </section>

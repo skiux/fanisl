@@ -19,6 +19,18 @@ const unit = {
   creator: creator.name, content_title: '半导体研究样本', content_url: 'https://example.test/source',
 }
 
+// 分页要能被测到：单元总数必须跨过 units-page 的 limit=100。第 1 条保持是那条
+// 半导体判断，其余为形态相同的填充单元。
+const UNIT_TOTAL = 120
+
+const filler = Array.from({ length: UNIT_TOTAL - 1 }, (_, index) => ({
+  ...unit,
+  id: index + 2,
+  quote: `${String(index + 2).padStart(3, '0')} 号填充引文：用于覆盖分页与虚拟列表。`,
+}))
+
+const allUnits = [unit, ...filler]
+
 const content = {
   id: 1, creator_id: 1, creator: creator.name, platform: 'youtube',
   url: 'https://example.test/source', content_type: 'video', title: '半导体研究样本',
@@ -60,7 +72,20 @@ function responseFor(url: URL): unknown {
   if (path === '/knowledge/contents') return [content]
   if (path === '/knowledge/contents/1') return contentDetail
   if (path === '/knowledge/contents/1/units') return [unit]
-  if (path === '/knowledge/units-page') return { items: [unit], total: 1, offset: 0, limit: 100, has_more: false, counts: { claim: 1, method: 0, concept: 0 }, creator_counts: { '1': 1 } }
+  if (path === '/knowledge/units-page') {
+    const limit = Number(url.searchParams.get('limit') ?? 100)
+    const offset = Number(url.searchParams.get('offset') ?? 0)
+    const items = allUnits.slice(offset, offset + limit)
+    return {
+      items,
+      total: allUnits.length,
+      offset,
+      limit,
+      has_more: offset + items.length < allUnits.length,
+      counts: { claim: allUnits.length, method: 0, concept: 0 },
+      creator_counts: { '1': allUnits.length },
+    }
+  }
   if (path === '/knowledge/units') return [unit]
   if (path === '/knowledge/units/1') return unit
   if (path === '/knowledge/tags') return [{ tag: 'semiconductor', n: 1, n_claims: 1, n_methods: 0, n_concepts: 0 }]
@@ -82,6 +107,10 @@ async function fulfill(route: Route) {
   if (!url.pathname.startsWith('/knowledge/') && !url.pathname.startsWith('/research/')) {
     await route.fallback()
     return
+  }
+  // 后续页故意慢：滚动触发的翻页必须在“用户还在继续滚”的窗口内仍然完成。
+  if (url.pathname === '/knowledge/units-page' && Number(url.searchParams.get('offset') ?? 0) > 0) {
+    await new Promise((resolve) => setTimeout(resolve, 1_000))
   }
   const payload = responseFor(url)
   if (payload === null) {

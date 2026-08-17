@@ -12,6 +12,8 @@ import type {
 } from './types'
 import './verification.css'
 
+const PAGE_SIZE = 200
+
 type QueueView = 'recent' | 'due' | 'watch' | 'unavailable'
 type QueueItem = DueVerification | ScoredVerification
 type LoadState = 'loading' | 'loaded' | 'error'
@@ -164,17 +166,21 @@ function VerificationPage() {
     const load = async () => {
       const [summaryPayload, firstPage] = await Promise.all([
         apiJson<VerificationSummary>(`/knowledge/verification-summary?days=${windowDays}`, { signal: controller.signal }, isVerificationSummary),
-        apiJson<VerificationPageData>(`/knowledge/verification-page?bucket=${bucket}&days=${windowDays}&limit=200&offset=0`, { signal: controller.signal }, isVerificationPage),
+        apiJson<VerificationPageData>(`/knowledge/verification-page?bucket=${bucket}&days=${windowDays}&limit=${PAGE_SIZE}&offset=0`, { signal: controller.signal }, isVerificationPage),
       ])
+      // 剩余页并发取；串行 while 会让日志一长就变成 N 次往返才出首屏。
       const items = [...firstPage.items]
-      let current = firstPage
-      while (current.has_more) {
-        current = await apiJson<VerificationPageData>(
-          `/knowledge/verification-page?bucket=${bucket}&days=${windowDays}&limit=200&offset=${items.length}`,
+      if (firstPage.has_more && firstPage.items.length > 0) {
+        const offsets: number[] = []
+        for (let offset = firstPage.items.length; offset < firstPage.total; offset += PAGE_SIZE) {
+          offsets.push(offset)
+        }
+        const rest = await Promise.all(offsets.map((offset) => apiJson<VerificationPageData>(
+          `/knowledge/verification-page?bucket=${bucket}&days=${windowDays}&limit=${PAGE_SIZE}&offset=${offset}`,
           { signal: controller.signal },
           isVerificationPage,
-        )
-        items.push(...current.items)
+        )))
+        rest.forEach((payload) => items.push(...payload.items))
       }
       setSummary(summaryPayload)
       setPage({ ...firstPage, items, has_more: false })

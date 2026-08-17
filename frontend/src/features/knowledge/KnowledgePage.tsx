@@ -216,18 +216,27 @@ function compareEvidence(a: KnowledgeNode, b: KnowledgeNode) {
   return b.n_attest - a.n_attest || b.n_creators - a.n_creators || a.id - b.id
 }
 
+const NODE_PAGE_SIZE = 200
+
+// 首页拿到 total 之后剩下的几页并发取，不再一页等一页——节点上到数百条时
+// 串行往返会直接体现在首屏时间上。
 async function loadAllNodes(signal: AbortSignal) {
-  const items: KnowledgeNode[] = []
-  let page: KnowledgeNodePage
-  do {
-    page = await apiJson<KnowledgeNodePage>(
-      `/knowledge/nodes-page?limit=200&offset=${items.length}`,
-      { signal },
-      isKnowledgeNodePage,
-    )
-    items.push(...page.items)
-  } while (page.has_more)
-  return items
+  const first = await apiJson<KnowledgeNodePage>(
+    `/knowledge/nodes-page?limit=${NODE_PAGE_SIZE}&offset=0`,
+    { signal },
+    isKnowledgeNodePage,
+  )
+  if (!first.has_more || first.items.length === 0) return first.items
+  const offsets: number[] = []
+  for (let offset = first.items.length; offset < first.total; offset += NODE_PAGE_SIZE) {
+    offsets.push(offset)
+  }
+  const rest = await Promise.all(offsets.map((offset) => apiJson<KnowledgeNodePage>(
+    `/knowledge/nodes-page?limit=${NODE_PAGE_SIZE}&offset=${offset}`,
+    { signal },
+    isKnowledgeNodePage,
+  )))
+  return [...first.items, ...rest.flatMap((page) => page.items)]
 }
 
 function KnowledgeTrace({ node }: { node: KnowledgeNode }) {

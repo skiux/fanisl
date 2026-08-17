@@ -57,6 +57,42 @@ test('evidence tabs support arrow keys', async ({ page }) => {
   await expect(page.getByRole('tab', { name: /市场裁决/ })).toHaveAttribute('aria-selected', 'true')
 })
 
+test('unit filter rail counts units, not sources', async ({ page }) => {
+  await page.goto('/#/knowledge?view=evidence')
+  await expect(page.locator('.unit-row').first()).toBeVisible()
+  const filterToggle = page.getByRole('button', { name: /^筛选/ })
+  if (await filterToggle.isVisible()) await filterToggle.click() // 窄屏下筛选栏是抽屉
+  const allSources = page.getByRole('button', { name: /^全部信源/ })
+  await expect(allSources).toBeVisible()
+  // 这一列全是单元数；“全部信源”曾经错显示成信源个数（1），与同列的 120 对不上。
+  await expect(allSources.locator('b')).toHaveText('120')
+})
+
+test('scrolling through a page boundary keeps loading, even while still scrolling', async ({ page }) => {
+  await page.goto('/#/knowledge?view=evidence')
+  const list = page.locator('.unit-list')
+  await expect(page.locator('.unit-row').first()).toBeVisible()
+
+  const lastRenderedIndex = () => page.evaluate(() => Math.max(
+    -1,
+    ...[...document.querySelectorAll<HTMLElement>('.unit-row')].map((row) => Number(row.dataset.index)),
+  ))
+
+  // 持续增量滚动：翻页请求发出后 scrollTop 仍在变，lastVirtualIndex 跟着变，
+  // 正是它自己把自己 abort 掉的那个时序。贴底不动是复现不出来的。
+  for (let step = 0; step < 90; step += 1) {
+    await list.evaluate((node) => { node.scrollTop += 300 })
+    await page.waitForTimeout(35)
+  }
+
+  // 停止滚动后再往下走：修好了就能读到第二页，没修好则永远停在第 99 条。
+  await expect.poll(async () => {
+    await list.evaluate((node) => { node.scrollTop += 600 })
+    return lastRenderedIndex()
+  }, { timeout: 15_000 }).toBeGreaterThanOrEqual(100)
+  await expect(page.locator('.unit-load-retry')).toHaveCount(0)
+})
+
 test('discovery delta is modal and restores focus', async ({ page }) => {
   await page.goto('/#/discovery')
   const trigger = page.getByRole('button', { name: /本期变化/ })

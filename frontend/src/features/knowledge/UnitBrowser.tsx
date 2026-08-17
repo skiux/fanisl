@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { apiJson } from '../../shared/api/client'
@@ -63,6 +63,7 @@ function UnitBrowser({
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const loadingMoreRef = useRef(false)
+  const loadMoreAbortRef = useRef<AbortController | null>(null)
   const [kind, setKind] = useState<KindFilter>('all')
   const [creatorId, setCreatorId] = useState<number | null>(null)
   const [tag, setTag] = useState<string | null>(null)
@@ -118,32 +119,49 @@ function UnitBrowser({
     || scoredOnly
     || query.trim().length > 0
 
+  // 单一口径的筛选参数：首屏、翻页和重试都从这里派生，避免两处各拼一遍。
+  const filterParams = useMemo(() => {
+    const params = new URLSearchParams({ limit: '100' })
+    if (kind !== 'all') params.set('kind', kind)
+    if (creatorId !== null) params.set('creator', String(creatorId))
+    if (tag) params.set('tag', tag)
+    if (query.trim()) params.set('q', query.trim())
+    if (scoredOnly) params.set('scored', 'true')
+    return params.toString()
+  }, [creatorId, kind, query, scoredOnly, tag])
+
   useEffect(() => {
+    // 换筛选就作废在飞的翻页请求，并把闸门放回去——否则下一段列表永远加载不出来。
+    loadMoreAbortRef.current?.abort()
+    loadMoreAbortRef.current = null
+    loadingMoreRef.current = false
+    setLoadingMore(false)
+
     if (isPreview) {
       setUnits([])
       setSearchState('idle')
       return
     }
-    if (!hasRemoteFilters && initialPage) {
+    if (!hasRemoteFilters) {
+      // 无筛选时首屏由 KnowledgePage 取，这里只等它，不重复发同一个请求。
+      if (!initialPage) {
+        setSearchState('loading')
+        return
+      }
       setPage(initialPage)
       setUnits(initialPage.items)
+      setLoadMoreError(false)
       setSearchState('loaded')
       return
     }
     const controller = new AbortController()
     const timeout = window.setTimeout(() => {
-      const params = new URLSearchParams({ limit: '100', offset: '0' })
-      if (kind !== 'all') params.set('kind', kind)
-      if (creatorId !== null) params.set('creator', String(creatorId))
-      if (tag) params.set('tag', tag)
-      if (query.trim()) params.set('q', query.trim())
-      if (scoredOnly) params.set('scored', 'true')
       setPage(null)
       setUnits([])
       setLoadMoreError(false)
       setSearchState('loading')
 
-      apiJson<KnowledgeUnitPage>(`/knowledge/units-page?${params.toString()}`, {
+      apiJson<KnowledgeUnitPage>(`/knowledge/units-page?${filterParams}&offset=0`, {
         signal: controller.signal,
       }, isKnowledgeUnitPage).then((payload) => {
         setPage(payload)
@@ -159,7 +177,9 @@ function UnitBrowser({
       window.clearTimeout(timeout)
       controller.abort()
     }
-  }, [creatorId, hasRemoteFilters, initialPage, isPreview, kind, query, requestKey, scoredOnly, tag])
+  }, [filterParams, hasRemoteFilters, initialPage, isPreview, query, requestKey])
+
+  useEffect(() => () => loadMoreAbortRef.current?.abort(), [])
 
   const visibleUnits = units
   const selectedUnit = visibleUnits.find((unit) => unit.id === selectedUnitId)
@@ -187,31 +207,30 @@ function UnitBrowser({
   useEffect(() => {
     if (!page?.has_more || searchState !== 'loaded' || loadingMoreRef.current || loadMoreError) return
     if (lastVirtualIndex < units.length - 8) return
+    // 注意：这里**不挂 cleanup abort**。触发翻页的动作就是滚动，而滚动会改
+    // lastVirtualIndex 让本 effect 重跑；若在 cleanup 里 abort，用户只要继续往下滚
+    // 就会把自己刚请求的那一页取消掉。作废只发生在换筛选和卸载时。
     const controller = new AbortController()
-    const params = new URLSearchParams({ limit: '100', offset: String(units.length) })
-    if (kind !== 'all') params.set('kind', kind)
-    if (creatorId !== null) params.set('creator', String(creatorId))
-    if (tag) params.set('tag', tag)
-    if (query.trim()) params.set('q', query.trim())
-    if (scoredOnly) params.set('scored', 'true')
+    loadMoreAbortRef.current = controller
     loadingMoreRef.current = true
     setLoadingMore(true)
-    apiJson<KnowledgeUnitPage>(`/knowledge/units-page?${params.toString()}`, { signal: controller.signal }, isKnowledgeUnitPage)
+    apiJson<KnowledgeUnitPage>(`/knowledge/units-page?${filterParams}&offset=${units.length}`, { signal: controller.signal }, isKnowledgeUnitPage)
       .then((payload) => {
         setPage(payload)
         setUnits((current) => [...current, ...payload.items])
+      })
+      .catch(() => {
+        // 被 abort 时也要把闸门放回去，否则 loadingMoreRef 永远停在 true。
+        if (!controller.signal.aborted) setLoadMoreError(true)
+      })
+      .finally(() => {
+        // 只有仍是当前这一笔才放闸门；换筛选时新一轮已经接管，别把它的闸门顶开。
+        if (loadMoreAbortRef.current !== controller) return
+        loadMoreAbortRef.current = null
         loadingMoreRef.current = false
         setLoadingMore(false)
       })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          loadingMoreRef.current = false
-          setLoadingMore(false)
-          setLoadMoreError(true)
-        }
-      })
-    return () => controller.abort()
-  }, [creatorId, kind, lastVirtualIndex, loadMoreError, loadMoreRequestKey, page?.has_more, query, scoredOnly, searchState, tag, units.length])
+  }, [filterParams, lastVirtualIndex, loadMoreError, loadMoreRequestKey, page?.has_more, searchState, units.length])
 
   const resetFilters = () => {
     setKind('all')
@@ -283,7 +302,8 @@ function UnitBrowser({
         <section>
           <p>信源</p>
           <button aria-pressed={creatorId === null} onClick={() => setCreatorId(null)} type="button">
-            <span>全部信源</span><b>{creators.length}</b>
+            {/* 这一列读的是单元数（各信源之和），不是信源个数 */}
+            <span>全部信源</span><b>{kindCounts.all}</b>
           </button>
           {creators.map((creator) => (
             <button

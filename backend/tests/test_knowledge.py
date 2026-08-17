@@ -565,6 +565,62 @@ def test_fetch_yf_drops_todays_incomplete_bar(monkeypatch):
     assert got == [today - dt.timedelta(days=2), today - dt.timedelta(days=1)]
 
 
+def test_fetch_yf_uses_exchange_tz_not_local_date(monkeypatch):
+    """闸门必须按标的自己交易所的时区判"今天"，不能用本机日期。
+
+    2026-08-17 事故：本机 CST(UTC+8)，美股 12:00-16:00 ET 落在本地次日凌晨，
+    `date.today()` 已翻篇而 ET 还没收盘 → 82 个符号的盘中价被当收盘价入库，
+    10 条判定按盘中价定死。yfinance 的索引自带交易所时区，直接拿它比。
+    """
+    import datetime as dt
+
+    import pandas as pd
+
+    import analyzer.knowledge.prices as pricemod
+
+    class _T:
+        def __init__(self, *_a, **_k): pass
+        def history(self, **_k): return _T.df
+
+    fake_yf = type("m", (), {"Ticker": _T})
+    monkeypatch.setitem(__import__("sys").modules, "yfinance", fake_yf)
+    monkeypatch.setitem(pricemod.SYMBOL_MAP, "ZZTEST", ("ZZTEST", 1.0, ""))
+
+    # 冻结成事故当刻：ET 2026-08-17 13:31（美股盘中），本机 CST 已是 08-18。
+    # 不用真实时钟，否则能不能测到这个 bug 取决于跑测试的机器在哪个时区、几点跑。
+    instant = dt.datetime(2026, 8, 17, 13, 31, tzinfo=dt.timezone(dt.timedelta(hours=-4)))
+
+    class _FakeDatetime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return instant.astimezone(tz) if tz else instant.replace(tzinfo=None)
+
+    class _FakeDate(dt.date):
+        @classmethod
+        def today(cls):
+            return dt.date(2026, 8, 18)      # 本机 CST 日期：已经翻篇
+
+    monkeypatch.setattr(pricemod, "dt", type("m", (), {
+        "datetime": _FakeDatetime, "date": _FakeDate,
+        "timedelta": dt.timedelta, "timezone": dt.timezone}))
+
+    def _run(offset_h, days):
+        tz = dt.timezone(dt.timedelta(hours=offset_h))
+        _T.df = pd.DataFrame(
+            {"Open": [1.0] * len(days), "High": [1.0] * len(days),
+             "Low": [1.0] * len(days), "Close": [1.0] * len(days)},
+            index=pd.to_datetime(days).tz_localize(tz))
+        return [r[0] for r in pricemod.fetch_yf("ZZTEST", days[0] - dt.timedelta(days=5))]
+
+    # 美股(ET)：08-17 那根还在走，必须丢掉——本机日期已是 08-18，旧闸门正是在这里失效的
+    us = [dt.date(2026, 8, 14), dt.date(2026, 8, 17)]
+    assert _run(-4, us) == us[:1], "美股盘中那根必须按 ET 判并丢掉"
+
+    # 亚洲(KST)：同一时刻当地已是 08-18 凌晨，08-17 早已收盘，应当保留
+    kr = [dt.date(2026, 8, 14), dt.date(2026, 8, 17)]
+    assert _run(9, kr) == kr, "亚洲标的已收盘的那根不该陪美股一起被丢"
+
+
 # --- seed-singletons 的顺序闸（2026-08-16 撞过一次）---------------------------
 
 def _concept_unit(text, tags):

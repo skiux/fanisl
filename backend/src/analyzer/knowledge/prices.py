@@ -113,13 +113,20 @@ def fetch_yf(symbol: str, since: dt.date) -> list[tuple]:
     当天收盘后也不会自我纠正**。2026-08-14 实测：库里 08-13 收盘 SNDK 1528.11，同日盘中
     再拉是 1636.96（+7.1%），差一档就能把判定翻过来。代价只是所有判定推迟到次日，而
     评分器本来就按"行情覆盖到阶梯日才评"运行，推迟一天不丢任何东西。
+
+    "今天"必须按**该标的自己交易所的时区**算，不能用本机日期：本机在 CST(UTC+8)，美股
+    12:00-16:00 ET 那段对应本地的次日凌晨，`date.today()` 已经翻篇而 ET 还没收盘，上面
+    那道闸门就会整段失效——2026-08-17 实测 82 个符号的盘中价被当成收盘价写进库，并让 10
+    条判定按盘中价定死。yfinance 的索引本身带交易所时区，直接拿它比即可，顺带让亚洲/欧洲
+    标的按各自收盘时间入库，不必陪美股等一天。
     """
     import yfinance as yf
     ticker, scale, _ = SYMBOL_MAP[symbol]
     df = yf.Ticker(ticker).history(start=str(since), auto_adjust=False, actions=False)
-    today = dt.date.today()
     rows = []
     for idx, r in df.iterrows():
+        tz = getattr(idx, "tzinfo", None)
+        today = dt.datetime.now(tz).date() if tz else dt.date.today()
         if r.isna()["Close"] or idx.date() >= today:
             continue
         rows.append((idx.date(), float(r["Open"]) * scale, float(r["High"]) * scale,
