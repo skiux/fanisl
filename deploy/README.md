@@ -561,6 +561,11 @@ cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python tools/check_sources.py
 Gemini 通道选择与取 token；另外单列两项不计入结论的——提帧（当前预期失败，见 §5）
 与 Binance（交易侧，与知识引擎无关）。主线全通才继续。
 
+> **`--llm` 报 403 多半是实例 scope**：token 签得出（元数据服务器照发），但 scope 不含
+> `cloud-platform` 时调 Vertex 必被拒。体检脚本会先于实调把这条挑出来并给出修复命令。
+> IAM 与 scope 是两件独立的事，只做其中一件仍然 403——`roles/aiplatform.user` 授了不代表
+> scope 够（2026-08-19 实测就卡在这里：IAM 已授，scope 还是默认六项）。
+
 > **不要在服务器上装 `bgutil-ytdlp-pot-provider`。** 本机实测：装了它而 provider 服务
 > 没起时，每次 yt-dlp 调用要先等它失败再回退——单次元数据 **59 秒 vs 1.5 秒**，
 > 摄取十几期就是几十分钟的净损失。它也解决不了 SABR（提帧那堵墙），装了没有收益。

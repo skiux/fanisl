@@ -56,24 +56,63 @@ def check_youtube_meta():
     return f"元数据 {m['published_at']:%Y-%m-%d} {m['duration_s']}s 字幕轨{'有' if m.get('transcript') else '无'}"
 
 
+_META_SCOPES = ("http://metadata.google.internal/computeMetadata/v1/"
+                "instance/service-accounts/default/scopes")
+_NEEDED_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
+
+
+def _gce_scopes():
+    """GCE 上取实例 scope；非 GCE 返回 None。"""
+    import httpx
+    try:
+        r = httpx.get(_META_SCOPES, timeout=3.0, headers={"Metadata-Flavor": "Google"})
+        r.raise_for_status()
+        return [s for s in r.text.split() if s]
+    except Exception:
+        return None
+
+
 def check_llm_channel():
+    """通道选择 + 取 token；走元数据服务器时顺带验 scope。
+
+    **不能独立去探测元数据服务器判断"是否在 GCE 上"**：开发机若走代理，
+    `metadata.google.internal` 会被转发到某台 GCE 实例并返回**那台机器的** scope
+    （2026-08-19 在本机实测到，返回的正是服务器那六个默认 scope）。所以这里跟
+    `llm._fetch_token` 走同一条判断：ADC 文件存在就是文件路径，不存在才是元数据。
+    """
     from analyzer.config import get_settings
-    from analyzer.knowledge.llm import make_client
+    from analyzer.knowledge.llm import _ADC_PATH, make_client
     c = make_client(get_settings())
     kind = type(c).__name__
-    if kind == "VertexGeminiClient":
-        tok = c._access_token()
-        return f"{kind} project={c.project} model={c.model} token 已取（{len(tok)} 字符）"
-    return f"{kind} model={c.model}（AI Studio key）"
+    if kind != "VertexGeminiClient":
+        return f"{kind} model={c.model}（AI Studio key）"
+    tok = c._access_token()
+    if _ADC_PATH.exists():
+        return f"{kind} project={c.project} model={c.model} token 已取（ADC 文件，{len(tok)} 字符）"
+    scopes = _gce_scopes()
+    if scopes is not None and _NEEDED_SCOPE not in scopes:
+        raise RuntimeError(
+            "实例 scope 不含 cloud-platform，token 签得出但调 Vertex 必然 403。修（需停机）："
+            "gcloud compute instances stop <实例> ; "
+            "gcloud compute instances set-service-account <实例> --scopes=cloud-platform ; "
+            "gcloud compute instances start <实例>")
+    return f"{kind} project={c.project} model={c.model} token 已取（元数据服务器，{len(tok)} 字符）"
 
 
 def check_llm_call():
+    import httpx
+
     from analyzer.config import get_settings
     from analyzer.knowledge.llm import make_client
     c = make_client(get_settings())
-    d = c.generate_json([{"text": "只回 JSON：{\"ok\": true}"}],
-                        {"type": "object", "properties": {"ok": {"type": "boolean"}},
-                         "required": ["ok"]})
+    try:
+        d = c.generate_json([{"text": "只回 JSON：{\"ok\": true}"}],
+                            {"type": "object", "properties": {"ok": {"type": "boolean"}},
+                             "required": ["ok"]})
+    except httpx.HTTPStatusError as e:
+        # 裸的 "403 Forbidden" 不可行动，Google 的错误体里才有 reason
+        body = e.response.text.replace("\n", " ")[:220]
+        raise RuntimeError(f"HTTP {e.response.status_code}：{body}") from None
     return f"generateContent 通，返回 {d}"
 
 
