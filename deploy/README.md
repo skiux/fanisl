@@ -294,20 +294,35 @@ spot_checks 48、eps_estimates 26、creators 3、daily_bars 9996。
 
 ### 2.6 retention 必须保持关闭
 
-研究平台要永久历史。2026-07 有过一次 365 天策略吃掉全部深回填的事故：
+研究平台要永久历史。2026-07 有过一次 365 天策略吃掉全部深回填的事故。要查的是**挂在
+用户 hypertable 上的** `policy_retention`：
 
 ```bash
 # ── 在【服务器】上跑 ──
-psql -h 127.0.0.1 -U fanisl -tAc \
+psql -h 127.0.0.1 -U fanisl -tAF'|' -c \
   "SELECT job_id, proc_name, hypertable_name FROM timescaledb_information.jobs
-   WHERE proc_name LIKE '%retention%'" fanisl
+   WHERE proc_name = 'policy_retention'" fanisl
 ```
 
-有输出就 `SELECT delete_job(<id>);` 删掉。`.env` 里 `RETENTION_DAYS` 保持 0（默认值）。
+**无输出 = 正常。** 有输出才 `SELECT delete_job(<id>);`。
 
-代码这一侧本来就是防御性的：`retention_days=0` 时不但不注册策略，还会**主动移除**历史上注册过的
-（`marketstore.py:118` 的 `remove_retention_policy`）。所以上面这步是复核，不是机制本身——
-真正要守住的是别把 `RETENTION_DAYS` 配成非 0。
+> 不要用 `proc_name LIKE '%retention%'` 去查——它会捞到 TimescaleDB 自带的
+> `policy_job_stat_history_retention`（job_id 3，`hypertable_name` 为空）。那是清理它自己
+> 作业运行历史的内建管家，每个安装都有，**删掉只会让作业日志无限膨胀**，与 `metric_samples`
+> 的数据毫无关系。判别方法：`hypertable_name` 为空的都是系统内建。
+
+跑完 §3 让应用起过一次之后，`jobs` 表里应当是这样（与本机一致）：
+
+| job_id | proc_name | hypertable_name | 说明 |
+|---|---|---|---|
+| 1 | `policy_telemetry` | 空 | 系统内建，保留 |
+| 3 | `policy_job_stat_history_retention` | 空 | 系统内建，保留 |
+| 1000 | `policy_compression` | `metric_samples` | 应用注册的压缩策略，**应当存在** |
+
+`.env` 里 `RETENTION_DAYS` 保持 0（默认值）。代码这一侧本来就是防御性的：`retention_days=0`
+时不但不注册策略，还会**主动移除**历史上注册过的（`marketstore.py:118` 的
+`remove_retention_policy`）。所以这一节是复核，不是机制本身——真正要守住的是别把
+`RETENTION_DAYS` 配成非 0。
 
 另外 §2.4 用裸 SQL 建的 hypertable 没带压缩设置，这是对的：压缩策略由应用首次启动时补上
 （`compress_after_days`），旧 chunk 随后在后台被压缩，不影响已灌入的数据。
@@ -564,7 +579,7 @@ gsutil rsync -r /opt/fanisl/backups gs://<bucket>/fanisl-backups
 2. 三个库都在：`psql -h 127.0.0.1 -U fanisl -l | grep fanisl`
 2b. `SHOW max_locks_per_transaction` = 512，`SHOW jit` = off（§1.1 调过参）
 3. 12 张表行数与本机一致（§2.5）
-4. `timescaledb_information.jobs` 里没有 retention（§2.6）
+4. `timescaledb_information.jobs` 里没有 `policy_retention`（§2.6；job 1/3 是系统内建，保留）
 5. 冒烟自检打印 `pools ok True True True`（§3.2）
 6. `systemctl is-active fanisl-collector` = active，且 `journalctl` 里能看到
    `prices.refresh` 的输出
