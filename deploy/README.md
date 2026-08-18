@@ -126,9 +126,13 @@ for t in contents extraction_runs knowledge_units claim_scores knowledge_nodes \
 done
 ```
 
-对照本机同一条命令的输出。参考值（2026-08-18）：contents 54、extraction_runs 51、
-knowledge_units 846、claim_scores 172、knowledge_nodes 469、node_attestations 540、
-node_relations 74、keyframes 722、spot_checks 48、eps_estimates 26、creators 3。
+对照本机同一条命令的输出。参考值（2026-08-18，Andy 往前回填 10 期之后）：
+contents 64、extraction_runs 61、knowledge_units 1012、claim_scores 288、
+knowledge_nodes 556、node_attestations 635、node_relations 78、keyframes 722、
+spot_checks 48、eps_estimates 26、creators 3、daily_bars 9996。
+
+> keyframes 停在 722 是因为 YouTube 的 SABR 墙当前立着，回填这 10 期一帧都没抓到；
+> 墙落下后 `daily` 的补帧环节会自动追上，届时该数字会涨。
 
 ### 2.5 retention 必须保持关闭
 
