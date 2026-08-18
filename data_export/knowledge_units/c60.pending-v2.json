@@ -1,0 +1,240 @@
+{
+  "content_id": 60,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "我还是倾向于认为呢，这个半导体指数的462很有可能是这一波逼空的一个搭峰点位",
+      "locator": "01:52",
+      "ref_price": 455.41,
+      "tags": ["soxx", "semiconductor-cycle", "fibonacci"],
+      "payload": {
+        "asset_text": "半导体指数 SOXX（342 中枢向上 1.618 扩展得 462）",
+        "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"target": 462},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign", "benchmark": null,
+          "eval_ladder": ["2026-05-05", "2026-05-28", "2026-07-27"],
+          "success_def": "阶梯各时点收盘 < 455.41（发布前最近收盘 04-27）= hit。作者判 462 是这一波逼空的达峰点位、并说自己在 444 已全空仓，方向取达峰后回落。462 记入 magnitude 作达峰位标注，不作 hit 门槛。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这个结构位呢，我们是判断大概是4700左右。我们最新的观点是4700一旦破掉，市场呢大概就会去走日线级别大小多空协商。那这个协商的话呢，我们就要关注日线级别的144、169通道。这个是这一波回调很有可能会到的位置。这个位置对应的价格呢，是4500到4400区域。",
+      "locator": "09:59",
+      "ref_price": 4675.4,
+      "tags": ["xauusd", "ema-tunnel", "price-action"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"target": 4500, "low": 4400, "high": 4500},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": "跌破 4700 结构位",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch", "benchmark": null,
+          "eval_ladder": ["2026-05-05", "2026-05-28", "2026-07-27"],
+          "success_def": "条件：出现日收盘 < 4700。条件成立后，期内任一日最低价触及 4500 或更低 = hit，未触及 = miss；期内始终未收盘跌破 4700 = condition_not_met。4400-4500 是日线 144/169 隧道对应的回调区，取上沿 4500 作触及门槛。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "全年来看呢，黄金仍然可以比较乐观。",
+      "locator": "12:10",
+      "ref_price": 4675.4,
+      "tags": ["xauusd", "macro-data"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "by_date", "deadline": "2026-12-31", "duration_days": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign", "benchmark": null,
+          "eval_ladder": ["2026-12-31"],
+          "success_def": "2026-12-31 当日或此前最近交易日收盘 ≥ 4675.40（发布前最近收盘）= hit。原文'全年来看'按 §3 映射表取 by_date 当年-12-31。同期他对短线看回调，两者不冲突：本条只判全年方向。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那我们就要对这个财报有一个把控，就是他必须要，要超预期实现。否则的话呢，就必然会有技术性回调的需要。这个回调的话呢，自然就要找到前高位置附近，要到26100到26500。",
+      "locator": "05:47",
+      "ref_price": 27305.68,
+      "tags": ["ndx", "price-action", "market-structure"],
+      "payload": {
+        "asset_text": "纳斯达克 100", "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"low": 26100, "high": 26500},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": "财报未能超预期实现",
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以美元指数呢，我们还是非常坚定的认为美元指数不太可能单边走空。",
+      "locator": "06:51",
+      "ref_price": 98.48,
+      "tags": ["dxy", "macro-data"],
+      "payload": {
+        "asset_text": "美元指数", "asset_symbol": "DXY", "priceable": true,
+        "claim_class": "directional", "direction": "range",
+        "magnitude": null,
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们倾向于认为啊，黄金的下一次变盘呢是很有可能会发生在5月的某一个时点上。这个时点是要配合着大事的。",
+      "locator": "12:20",
+      "ref_price": 4675.4,
+      "tags": ["xauusd", "macro-data", "positioning"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "timing", "direction": null,
+        "magnitude": null,
+        "horizon": {"type": "by_date", "deadline": "2026-05-31", "duration_days": null},
+        "condition_text": "配合地缘或政治上的大事发生",
+        "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "注意这里美元指数呢，在当前情况下，美元已经存在流动性问题了，这是已经发生的问题。大家可以去查一下贝森特现在在主推的这个SWAP的美元互换的机制，其实就是为了救现在中东国家在高油价下它的收入大量减少，支出没有变，所以他的美元不够用了。这个时候呢，他的第一选择应该是抛美债，但美债一抛，流动性的危机就出来了",
+      "locator": "07:30",
+      "tags": ["dxy", "bond-yields", "macro-data"],
+      "payload": {
+        "canonical_statement": "美元流动性问题已经发生：中东国家在高油价下收入大减而支出未变，美元不够用，第一选择本是抛美债，而抛售会引爆流动性危机并向金融体系传导。财政部长贝森特主推的美元互换（SWAP）机制——借美元、收象征性抵押、到期归还——缓冲了这个问题，但在当前窗口内并没有从根本上解决它。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我们重申对黄金的观点啊，黄金的话呢，当前没有展现出他的避险逻辑，仍然还是一个风险资产，它是和美元和美债的一个走势完全相悖的。",
+      "locator": "11:40",
+      "tags": ["xauusd", "dxy", "bond-yields"],
+      "payload": {
+        "canonical_statement": "黄金当前没有展现避险逻辑，仍然是风险资产：它与美元、美债收益率的走势完全相悖，美股上涨时它也不跟。要等它从风险资产切换到避险资产，择时上要看下一个地缘或政治大事，那才是真正的催化剂。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是我这几天呢也做了一些反思。我认为呢，其实我再来一遍，我也还会觉得这一波美股呢，我可能还是不会把仓位建的很足，就是它可能就不是我这个系统在这一波当中应该赚的钱。",
+      "locator": "04:40",
+      "tags": ["psychology", "risk-mgmt", "execution"],
+      "payload": {
+        "canonical_statement": "复盘踏空时要分清『判断错了』与『这段行情不属于我的系统』：这一波反弹里技术性的第一结构买点转瞬即逝甚至根本没有出现，因此即使重来一次也仍然不会把仓位建足——这不是该赚的钱，看热闹为主即可。",
+        "category": "psychology"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这个结论是342的这个位置，是半导体指数从2026年的1月15号一直整理到4月初，这个整理走势呢，342是非常重要的结构的支撑位，注意是多空分水岭，它不是上沿，也不是下沿，但是它是在这之前这个黄色箱体单边走势的非常重要的中轴，中枢价格。",
+      "locator": "03:24",
+      "tags": ["soxx", "fibonacci", "market-structure"],
+      "payload": {
+        "canonical_statement": "半导体指数 342 是 2026-01-15 至 4 月初那段整理的多空分水岭——它既不是箱体上沿也不是下沿，而是单边走势的中轴/中枢价格；该中枢同时是更大级别斐波那契扩展的重要参数落点，由它向上扩展到 1.618 倍正好得到 462。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "但在我们对市场的跟踪当中呢，每一个目标位接近和到达的时候呢，咱们的标准呢是市场一定要去破掉原有的趋势线，形成一个对两小时级别8和13EMA隧道的下破。这个才证明它原来的鼻孔走势结束了。否则的话呢，我们也一直在不断的向上修正目标位。",
+      "locator": "01:52",
+      "tags": ["soxx", "ema-tunnel", "execution"],
+      "payload": {
+        "name": "目标位到达后的达峰验证标准",
+        "summary": "不下破两小时 8/13 EMA 隧道就持续上修目标位",
+        "family": "trend",
+        "rules": [
+          "价格接近或到达既定目标位时，不因『到位』就认定行情结束",
+          "认定结束的唯一标准是破掉原有趋势线、并下破两小时级别的 8/13 EMA 隧道",
+          "未下破则持续向上修正目标位（本例从 423-425 一路上修到 444）",
+          "下破之后即便再向上测试原目标位、走出高位分形，原来的上涨速度也已被破坏，视为达峰"
+        ],
+        "data_requirements": ["两小时 K", "8/13 EMA", "趋势线"],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那我们可能也不会轻易碰它，因为我们想去看一看，比如说日隧道，比如说更大级别的，那放到三日隧道，最后呢如果价格真的进行均值回归，它的回调会非常剧烈。这个走势当中呢，我们并不想去急于去再去所谓的追高。这一个时半会儿我们都不会做的，甚至于我们愿意去做多波动率，或者说高位做一些远期行权的一些空头的期权",
+      "locator": "02:40",
+      "tags": ["soxx", "risk-mgmt", "position-sizing"],
+      "payload": {
+        "name": "达峰后的处置：不追高，转做多波动率",
+        "summary": "等日/三日隧道的均值回归，期间用波动率与远期空头期权替代方向仓",
+        "family": "positioning",
+        "rules": [
+          "判定达峰后不再轻易碰该标的，先观察日隧道与三日隧道",
+          "预期真进入均值回归时回调会非常剧烈，因此不急于追高",
+          "这段时间可考虑做多波动率，或在高位做远期行权的空头期权",
+          "方向仓在目标位附近已清空（本例 444 全空仓），其后的跳空涨幅主动放弃"
+        ],
+        "data_requirements": ["日/三日隧道", "期权链"],
+        "overlap_with_killed": [],
+        "testability": "C",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "他真的如果走到一个在大级别上收到了26000之下，那我们还真的认为他可能是一个震荡市场，否则它仍然是一个强市场。",
+      "locator": "06:20",
+      "tags": ["ndx", "market-structure", "execution"],
+      "payload": {
+        "name": "用 26000 分震荡市与强市场",
+        "summary": "大级别收到 26000 之下才改判震荡市",
+        "family": "trend",
+        "rules": [
+          "回调先看前高附近 26100-26500 区域的支撑情况",
+          "若在大级别上收到 26000 之下，改判为震荡市场（此前的上涨可能是大级别假突破）",
+          "未收到 26000 之下则仍按强市场对待",
+          "该分水岭是判断美股中长期属性的关键，需结合财报一起看"
+        ],
+        "data_requirements": ["纳指日线/三日 K", "财报日历"],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "一旦出现回调，我们就先不去寻找底部在哪，而是等美元和美债，还有战争形式的一个再判断，对吧？结合着这些，我们对黄金的底部做一个谨慎的再判断。因为他这一波呢，他的回调呢是带惯性的。",
+      "locator": "10:40",
+      "tags": ["xauusd", "risk-mgmt", "execution"],
+      "payload": {
+        "name": "带惯性的回调不猜底部",
+        "summary": "回调有惯性时先等外部变量再判底，日线长下影线才算验证",
+        "family": "reversion",
+        "rules": [
+          "回调一旦出现，先不去寻找底部在哪个点位",
+          "改为等美元、美债与战争形势三者的再判断，结合后才谨慎判底",
+          "依据是此前两次价格杀得非常深的教训，不主动断言它一定在某个点位止跌",
+          "出现日线级别的长下影线，才认为止跌验证有效"
+        ],
+        "data_requirements": ["日线 K 与下影线", "DXY", "美债收益率"],
+        "overlap_with_killed": [],
+        "testability": "B",
+        "claimed_performance": null
+      }
+    }
+  ]
+}
