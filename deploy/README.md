@@ -253,7 +253,14 @@ psql -h 127.0.0.1 -U fanisl -tAc \
    WHERE proc_name LIKE '%retention%'" fanisl
 ```
 
-有输出就 `SELECT delete_job(<id>);` 删掉。`.env` 里对应开关保持 0。
+有输出就 `SELECT delete_job(<id>);` 删掉。`.env` 里 `RETENTION_DAYS` 保持 0（默认值）。
+
+代码这一侧本来就是防御性的：`retention_days=0` 时不但不注册策略，还会**主动移除**历史上注册过的
+（`marketstore.py:118` 的 `remove_retention_policy`）。所以上面这步是复核，不是机制本身——
+真正要守住的是别把 `RETENTION_DAYS` 配成非 0。
+
+另外 §2.4 用裸 SQL 建的 hypertable 没带压缩设置，这是对的：压缩策略由应用首次启动时补上
+（`compress_after_days`），旧 chunk 随后在后台被压缩，不影响已灌入的数据。
 
 ### 2.7 关键帧图片（不走 git）
 
