@@ -1,0 +1,592 @@
+{
+  "content_id": 61,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "5月份啊，5月份的美股会有一波大的啊，大概率会有一波大的波动。这是我们的一个中期的展望，但是现在已经比较临近了啊。",
+      "locator": "00:00",
+      "ref_price": 16.99,
+      "tags": [
+        "vix",
+        "spx",
+        "risk-mgmt"
+      ],
+      "payload": {
+        "asset_text": "美股波动（我方用 VIX 作代理）",
+        "asset_symbol": "VIX",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "vol_up",
+        "magnitude": null,
+        "horizon": {
+          "type": "by_date",
+          "deadline": "2026-05-31",
+          "duration_days": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-05-31"
+          ],
+          "success_def": "2026-05-31 当日或此前最近交易日 VIX 收盘 ≥ 16.99（发布前最近收盘 05-01）= hit。原文说的是『5 月美股大概率有一波大的波动』，未指方向只指波动，我方指定 VIX 作代理故降 C 级。原文自带月份范围，取该月末为评估时点。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后在过去的这一周里边呢，其实随着半导体的这个接近达峰，到这个444到463区域，我们看到市场的这个广度呢是快速下降的。我预计呢，市场的广度未来会继续的下降",
+      "locator": "03:00",
+      "ref_price": 202.82,
+      "tags": [
+        "rsp",
+        "spx",
+        "market-breadth"
+      ],
+      "payload": {
+        "asset_text": "美股市场广度（我方用等权标普 RSP 相对市值加权 SPX 作代理）",
+        "asset_symbol": "RSP",
+        "priceable": true,
+        "claim_class": "relative",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "relative_return",
+          "benchmark": "SPX",
+          "eval_ladder": [
+            "2026-05-10",
+            "2026-06-02",
+            "2026-08-01"
+          ],
+          "success_def": "阶梯各时点 RSP 收益率 − SPX 收益率 < 0 = hit（等权跑输市值加权即广度继续下降）。原文讲的是市场广度，我方指定 RSP/SPX 之差作代理故降 C 级。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后，google的走势相对是，最乐观的，最乐观的话我们。向上，好像可以看到400左右，可以看到400左右。",
+      "locator": "12:51",
+      "ref_price": 383.22,
+      "tags": [
+        "goog",
+        "mag7",
+        "fibonacci"
+      ],
+      "payload": {
+        "asset_text": "谷歌",
+        "asset_symbol": "GOOG",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {
+          "target": 400
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": "动力还在、速度不坏掉",
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-05-10",
+            "2026-06-02",
+            "2026-08-01"
+          ],
+          "success_def": "阶梯期内任一日最高价触及 400 或更高 = hit，未触及 = miss。400 是他用扩展线与回调线共振得到的位置，且称谷歌是七巨头里最能打、最被看好的。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那苹果的话呢，我们同样的，按照这个过去的这个通道型的走势啊，大概呢可以从20年3月份做，你看这个通道其实走的也非常的自洽。我不认为这个通道呢，它能够在最近形成有效的这个上破，很难，我认为。尤其是286到这个290，那这个区域。",
+      "locator": "11:29",
+      "ref_price": 280.14,
+      "tags": [
+        "aapl",
+        "mag7",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "苹果（286-290 为 2 分位扩展的考验区）",
+        "asset_symbol": "AAPL",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {
+          "high": 286
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-05-10",
+            "2026-06-02",
+            "2026-08-01"
+          ],
+          "success_def": "上沿判据：阶梯各时点收盘 ≤ 286 = hit（通道上破不成立）；收盘站上 286 = miss。作者说的是『不认为最近能形成有效上破』，属守住上沿而非看跌，按 §2 用 range_hold 上沿。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么特斯拉的走势，378到397。这个是我们的之前的框架，一直一直没有变过。一直没有变过，对不对？然后还是关注397、400的一个突破情况吧。现在短期方向不明，短期方向不明。",
+      "locator": "14:49",
+      "ref_price": 390.82,
+      "tags": [
+        "tsla",
+        "mag7",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "特斯拉",
+        "asset_symbol": "TSLA",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {
+          "low": 378,
+          "high": 397
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-05-10",
+            "2026-06-02",
+            "2026-08-01"
+          ],
+          "success_def": "下沿判据：阶梯各时点收盘 ≥ 378 = hit；盘中跌破但收盘收回 = partial；收盘跌破 378 = miss（他明说『再跌破就有可能会有新低』）。397/400 是转强门槛不是本条判据。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那苹果的话，还有这个英伟达，基本上都看到了一个结构性的这么一个波动区域，大概呢想要往上走比较困难啊，当然不一定会下来，但是往上走会比较困难。",
+      "locator": "06:08",
+      "ref_price": 198.45,
+      "tags": [
+        "nvda",
+        "mag7",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "英伟达（3 日级别关键结构位 206、218）",
+        "asset_symbol": "NVDA",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {
+          "high": 206
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-05-10",
+            "2026-06-02",
+            "2026-08-01"
+          ],
+          "success_def": "上沿判据：阶梯各时点收盘 ≤ 206 = hit（往上走困难成立）；收盘站上 206 = miss。206 是他标出的下一个关键结构位。他明说『不一定会下来』，故只判上沿不判方向（§2）。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "但是MU咱们是给到56、564的，对不对？然后基本上呢。价格也是按照这个进度再去走的。整个这个多头的斜率没有变，我们暂时呢就往564去看一看。",
+      "locator": "18:31",
+      "ref_price": 542.21,
+      "tags": [
+        "mu",
+        "memory-storage",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "美光",
+        "asset_symbol": "MU",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {
+          "target": 564
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-05-10",
+            "2026-06-02",
+            "2026-08-01"
+          ],
+          "success_def": "阶梯期内任一日最高价触及 564 或更高 = hit，未触及 = miss。他同时给了移动止盈位 500 下方一点，那是持仓纪律不是本条判据。原文无期限词，阶梯系我方指定。 口播『56、564』是省略式（§0.6），完整目标取 564——上下文明确以 564 为目标位，且 56 与美光当时 542 的价位量级不符。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那大概呢我们看到这个，4550是支撑位。然后另外一个呢，就是这个回调线，这个回调线。回调线呢，起点就是2022年的10月。啊，10月份。然后最高点呢就是最高点。然后拉什么，拉0.236的。回调线，这个位置是4660，对不对。",
+      "locator": "21:15",
+      "ref_price": 4629.9,
+      "tags": [
+        "xauusd",
+        "fibonacci",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "黄金（4550 支撑、4660 为 2022-10 起 0.236 回调线）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {
+          "low": 4550,
+          "high": 4660
+        },
+        "horizon": {
+          "type": "within_duration",
+          "duration_days": 7,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-05-10"
+          ],
+          "success_def": "下沿判据：2026-05-10 当日或此前最近交易日收盘 ≥ 4550 = hit；盘中跌破但收盘收回 = partial；收盘跌破 4550 = miss。作者说 5 月头两周非常重要，要看 13 日 K 在 5 月 8 日的收线能否站上 4660——站上则中枢上移走自己的逻辑，跌破 4550 则跟风险资产一起杀。取『下周这一周走完』按 §3 映射为 7 天。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "但是大概期。但是大概期，我个人认为呢。是可以围绕着。7270。到7367左右，就大概就是。7260到7360的这个区。如果是比较低的话，可能周五的这根线就已经去验证了。",
+      "locator": "25:00",
+      "ref_price": 7230.12,
+      "tags": [
+        "spx",
+        "fibonacci",
+        "market-structure"
+      ],
+      "payload": {
+        "asset_text": "标普 500（09 年起扩展的下一分位区）",
+        "asset_symbol": "SPX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {
+          "low": 7260,
+          "high": 7367
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们就是。在目前的，最悲观情况的判断，就是回到之前的密集区，前高位置附近，也就是再回到6900点位置附近。",
+      "locator": "25:00",
+      "ref_price": 7230.12,
+      "tags": [
+        "spx",
+        "risk-mgmt",
+        "market-structure"
+      ],
+      "payload": {
+        "asset_text": "标普 500（悲观情形的回归目标：前高密集区 6900）",
+        "asset_symbol": "SPX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "down",
+        "magnitude": {
+          "target": 6900
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": "最悲观情形（复制 2018-2020 式的宽幅震荡扩张）",
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那这里边注意，如果是坏情况发生，就是风险事件触发，那么价格一旦把262到272这个区域呢，给它失守了，把262下沿给有效跌破了，尤其是两日三日这个级别上。那么，价格呢就会走一个，一个压力验证的情况",
+      "locator": "08:53",
+      "ref_price": 268.26,
+      "tags": [
+        "amzn",
+        "mag7",
+        "fibonacci"
+      ],
+      "payload": {
+        "asset_text": "亚马逊（262 为 0.618 扩展支撑、272 为 1.618 压力）",
+        "asset_symbol": "AMZN",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {
+          "low": 262,
+          "high": 272
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-05-10",
+            "2026-06-02",
+            "2026-08-01"
+          ],
+          "success_def": "下沿判据：阶梯各时点收盘 ≥ 262 = hit；盘中跌破但收盘收回 = partial；收盘有效跌破 262 = miss。他另给 255-256 作多头保护位（跌破即离场），那是持仓纪律不是本条判据。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我认为meta的话呢。它的这个成长性短期不太够，它还是一个高波动的市场。而且，上下的话，你看。它每一次反弹的高点都在降低。",
+      "locator": "14:00",
+      "ref_price": 608.75,
+      "tags": [
+        "meta",
+        "mag7",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "Meta",
+        "asset_symbol": "META",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "range",
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这一波基本上就是一个高位震荡的走势，而且刚刚我们也说了这个剧本炒到现在，基本就是小弟们现在起来。然后大哥呢，还是大哥，只是大哥呢不再领涨了。这个节奏应该不会变，短期内不会变。",
+      "locator": "06:08",
+      "tags": [
+        "mag7",
+        "rotation",
+        "market-breadth"
+      ],
+      "payload": {
+        "canonical_statement": "行情演到高位震荡阶段的特征是『小弟起来、大哥不再领涨』——龙头仍是龙头但不再是领涨的那个，涨幅扩散到二线。作者判断这个节奏短期内不会变，并与市场广度快速下降同时出现。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这个马斯克前面在接受数次采访当中啊，就在他展望未来的这个AI世界里面，几乎是把google当成了一个，一个庞大的领域在去概括，也就是google可能就是线上的AI，然后他呢就是物理版的AI，对吧。然后中国呢就是能源版的AI，大概呢这是马斯克给AI做了一个三分天下吧。",
+      "locator": "12:51",
+      "tags": [
+        "goog",
+        "tsla",
+        "ai-capex"
+      ],
+      "payload": {
+        "canonical_statement": "马斯克在多次采访中把未来 AI 世界划成三块：谷歌是线上的 AI、特斯拉是物理版的 AI、中国是能源版的 AI。作者转述此说并以此说明谷歌在七巨头中最被看好，但未对该三分法本身表态。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那么本周的话呢，我尝试去。寻找这个，09年以来这个大结构的，回调自洽线。因为我们前面对黄金的这个，好的节奏的判断。然后，以及我们。对很多个股的这种好的节奏的判断。都是，尤其是这种单边走势。基本上都是基于。他的波动，一旦他的。内在结构变得非常丰富了。我们就可以用这个。回调的自洽原则去寻找。",
+      "locator": "25:00",
+      "tags": [
+        "fibonacci",
+        "spx",
+        "price-action"
+      ],
+      "payload": {
+        "name": "回调自洽原则找关键位",
+        "summary": "单边走势内部结构变丰富后，用历次验证是否自洽来定关键位",
+        "family": "other",
+        "rules": [
+          "只在单边走势的内在结构已经变得丰富（多次验证、突破、回踩）之后才用本法",
+          "从长周期起点拉扩展与回调两套线，检查历史上每一个分位是否都被验证过（压力→回踩换支撑→再突破）",
+          "自洽性成立的那套参数才用来外推下一个关键位",
+          "标普实例：09-03 起 0.382→1930、扩张中轴 2700、月度/季度分水岭 3974、1.382→5238、1.618→6018，外推下一分位在 7300 一带",
+          "级别太大时不追求精确点位，给出区间（7260-7360）即可"
+        ],
+        "data_requirements": [
+          "月线/日线长历史",
+          "斐波那契扩展与回调"
+        ],
+        "overlap_with_killed": [],
+        "testability": "B",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "这里一定要什么，因为。一般做二次冲高的时候呢。它都要把前边的这个，第一次高点的。开收盘价的位置给守住，也就是914。这里你要守住才能往上看，这里守不住回来，那。就是反包",
+      "locator": "27:40",
+      "tags": [
+        "price-action",
+        "execution"
+      ],
+      "payload": {
+        "name": "二次冲高须守住第一高点的开收盘价",
+        "summary": "二次冲高不守住前高实体，回落即成双顶",
+        "family": "trend",
+        "rules": [
+          "二次冲高时，必须守住第一次高点的开盘/收盘价位置（实体区，而非影线）",
+          "守住才继续往上看更高的高点",
+          "守不住而回落即为反包；若把前高的影线也全部吞没，判为双顶",
+          "结构压力位（如 2.618 长期扩展位）未确认突破前，按前高作关键位处理，防虚破"
+        ],
+        "data_requirements": [
+          "日线 OHLC",
+          "前高实体与影线"
+        ],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "就是一部分指营的话是按照结构位主动指营，或按照你认为的估值和基本面的成长性。去主动的分批次的指引。然后另外一部分呢，就是只要趋势还在，我们就不走，对不对？你就沿着这个日线级别，这是4小时啊，沿着4小时级别隧道给的。",
+      "locator": "18:31",
+      "tags": [
+        "position-sizing",
+        "risk-mgmt",
+        "execution"
+      ],
+      "payload": {
+        "name": "止盈拆成主动与移动两部分",
+        "summary": "一部分按结构位/估值主动分批止盈，另一部分跟隧道移动",
+        "family": "positioning",
+        "rules": [
+          "把止盈拆成两块，不是二选一",
+          "第一块按结构位主动止盈，或按自己判断的估值与基本面成长性分批止盈",
+          "第二块只要趋势还在就不走，沿四小时级别隧道推移动止盈",
+          "美光实例：移动止盈放到 500 下方一点，该小平台跌破即认为速度终结"
+        ],
+        "data_requirements": [
+          "四小时隧道",
+          "结构位标注",
+          "持仓分层"
+        ],
+        "overlap_with_killed": [],
+        "testability": "B",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "这个防波动防风险的话呢，要有一个对极端情况下的一个考虑。就是如果出现在亚洲市场盘前盘后市场，你要有能够对冲的工具。这个对冲不论是你期权啊，还是做这个期货市场，对吧。总之一你是买波动率啊，总之你应该有一部分",
+      "locator": "02:30",
+      "tags": [
+        "risk-mgmt",
+        "position-sizing",
+        "execution"
+      ],
+      "payload": {
+        "name": "为盘前盘后极端行情预置对冲工具",
+        "summary": "越往后越要防波动，且对冲工具必须能在亚洲时段上得去",
+        "family": "positioning",
+        "rules": [
+          "短期仍可操作，但越往后越要把防波动、防风险放到更高权重",
+          "对极端情况的考虑落在时段上：行情可能在亚洲的盘前盘后被快速杀出",
+          "因此必须预置在该时段可用的对冲工具——期权或期货，本质是买波动率",
+          "对冲仓要保持一部分常备，确保万一复制此前盘前盘后急杀的走势时能及时上得去"
+        ],
+        "data_requirements": [
+          "期权/期货可交易时段",
+          "持仓敞口"
+        ],
+        "overlap_with_killed": [],
+        "testability": "C",
+        "claimed_performance": null
+      }
+    }
+  ]
+}
