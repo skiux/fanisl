@@ -450,6 +450,10 @@ print('token 前 12 位:', c._access_token()[:12], '…')"
 
 打印出 `VertexGeminiClient` 且拿到 token 就通了。
 
+> 本文里凡是多行 Python，都写成了仓库里的脚本或**无缩进**的 `-c` 单行式。
+> 别把带缩进的 Python 贴进终端——很多终端与 SSH 客户端会吃掉行首空白，
+> 表现是 `IndentationError: expected an indented block`，而代码本身没问题。
+
 > **scope 是最常见的坑**：实例若用默认 scope 创建，`scopes` 里可能没有
 > `https://www.googleapis.com/auth/cloud-platform`，此时 token 拿得到但调 Vertex 会 403。
 > 改 scope 要先停机：`gcloud compute instances set-service-account <实例> --scopes=cloud-platform`。
@@ -465,34 +469,13 @@ print('token 前 12 位:', c._access_token()[:12], '…')"
 # ── 在【服务器】上跑 ──
 cd /opt/fanisl/backend
 
-# 1) 先逐条验连接串——runtime 会同时开三个池，直接跑它的话报错里看不出是哪个库
-PYTHONPATH=src .venv/bin/python - <<'PY'
-import re
-import psycopg
-from analyzer.config import get_settings
-s = get_settings()
-ok = True
-for name, ci in (("PG_CONNINFO", s.pg_conninfo),
-                 ("PG_TRADING_CONNINFO", s.pg_trading_conninfo),
-                 ("PG_KNOWLEDGE_CONNINFO", s.pg_knowledge_conninfo)):
-    shown = re.sub(r"password=\S+", "password=***", ci) or "(空)"
-    try:
-        with psycopg.connect(ci, connect_timeout=5) as c:
-            db = c.execute("SELECT current_database()").fetchone()[0]
-        print(f"  ok   {name:22s} -> {db:18s} {shown}")
-    except Exception as e:
-        ok = False
-        print(f"  FAIL {name:22s} -> {shown}")
-        print(f"       {type(e).__name__}: {str(e).splitlines()[0]}")
-print("全部连通" if ok else "有连不上的，先修 .env 再往下走")
-PY
+# 1) 先逐条验连接串。runtime 会同时开三个池，直接起的话报错里看不出是哪个库
+PYTHONPATH=src .venv/bin/python tools/check_db.py
 
 # 2) 三条都通了再起 runtime（会真正建池并跑 schema init）
-PYTHONPATH=src .venv/bin/python - <<'PY'
-import analyzer.worker_collector, analyzer.runtime as rt
-print("pools ok", bool(rt.pool), bool(rt.trading_pool), bool(rt.knowledge_pool))
-rt.pool.close(); rt.trading_pool.close(); rt.knowledge_pool.close()
-PY
+PYTHONPATH=src .venv/bin/python -c "import analyzer.worker_collector, analyzer.runtime as rt; \
+print('pools ok', bool(rt.pool), bool(rt.trading_pool), bool(rt.knowledge_pool)); \
+rt.pool.close(); rt.trading_pool.close(); rt.knowledge_pool.close()"
 ```
 
 ### 3.4 systemd
