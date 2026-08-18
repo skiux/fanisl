@@ -1,0 +1,279 @@
+{
+  "content_id": 64,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "这一波的话呢，就确认了美国原油WTI的结构性多头。即使后面的话战争有变化，但是它很难再跌回到100之下了，这个是一个很重要的信号啊。",
+      "locator": "00:08",
+      "ref_price": 111.54,
+      "tags": ["wti", "oil-supply", "price-action"],
+      "payload": {
+        "asset_text": "美国原油 WTI", "asset_symbol": "WTI", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 100},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold", "benchmark": null,
+          "eval_ladder": ["2026-04-12", "2026-05-05", "2026-07-04"],
+          "success_def": "阶梯各时点收盘 ≥ 100 = hit；盘中跌破 100 但该时点收盘收回 = partial；收盘跌破 100 = miss。作者称 3 月 27 日有效上破 100 后连续三日回踩站住日隧道，结构性多头成立、即便战争生变也很难跌回 100 之下。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么很多朋友就觉得这个位置可能美元指数会三次冲高失败，然后会往下走，那战争缓和美元向下破位。我感觉这种情况出现的概率比较小。",
+      "locator": "01:25",
+      "ref_price": 100.03,
+      "tags": ["dxy", "price-action"],
+      "payload": {
+        "asset_text": "美元指数", "asset_symbol": "DXY", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign", "benchmark": null,
+          "eval_ladder": ["2026-04-12", "2026-05-05", "2026-07-04"],
+          "success_def": "阶梯各时点收盘 ≥ 100.03（发布前最近收盘 04-02；04-03 为耶稣受难日休市）= hit。作者判『三次冲高失败后向下破位』概率小、美元仍是结构性多头且可能阶段性走强。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "就是你去看这波结构位A点，A点、B点、C点拉完之后，价格往上到101.85左右，这一波冲击的话呢，对应着是一个美元可能的多少呢？百分之一点七左右的涨幅。",
+      "locator": "14:05",
+      "ref_price": 100.03,
+      "tags": ["dxy", "fibonacci", "price-action"],
+      "payload": {
+        "asset_text": "美元指数", "asset_symbol": "DXY", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 101.85, "pct": 1.7},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch", "benchmark": null,
+          "eval_ladder": ["2026-04-12", "2026-05-05", "2026-07-04"],
+          "success_def": "阶梯期内任一日最高价触及 101.85 或更高 = hit，未触及 = miss。101.85 是他用 A（24 年 9 月低点）/B（25 年 1 月高点）/C（26 年 1 月 23 日流动性拐点）三点波浪尺得到的上方分位。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "只要是没有明确的降息放水的信号，政策的这个预期修正之前，美元指数都是易涨难跌的。",
+      "locator": "07:40",
+      "ref_price": 100.03,
+      "tags": ["dxy", "fed-policy", "macro-data"],
+      "payload": {
+        "asset_text": "美元指数", "asset_symbol": "DXY", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": "没有明确的降息放水信号、政策预期未修正",
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我觉得下周这个23688呀，是值得我们去防守的一个位置。如果之前有多头，或者说你在高位的话呢，想要做一些保护。我认为这个23688，也就是周五价格开盘的那点，大概呢是23620点左右。这个位置应该是下周我们积极保护的一个位置。",
+      "locator": "03:57",
+      "ref_price": 24045.53,
+      "tags": ["ndx", "fibonacci", "risk-mgmt"],
+      "payload": {
+        "asset_text": "纳斯达克 100（23 年 1 月起波浪尺 0.618 扩展位 23688）",
+        "asset_symbol": "NDX", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 23688},
+        "horizon": {"type": "within_duration", "duration_days": 7, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold", "benchmark": null,
+          "eval_ladder": ["2026-04-12"],
+          "success_def": "2026-04-12 当日或此前最近交易日收盘 ≥ 23688 = hit；盘中跌破但收盘收回 = partial；收盘跌破 = miss。原文期限词『下周』按 §3 映射为 7 天。23688 已被 04-02 的跳空低开回补验证有效（该日开盘 23621.73、低见 23512.60、收 24045.53）。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "之前测试的4400左右的这个结构支撑，首先它不会被轻易跌破。",
+      "locator": "14:23",
+      "ref_price": 4651.5,
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 4400},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold", "benchmark": null,
+          "eval_ladder": ["2026-04-12", "2026-05-05", "2026-07-04"],
+          "success_def": "阶梯各时点收盘 ≥ 4400 = hit；盘中跌破但该时点收盘收回 = partial；收盘跌破 = miss。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "但是随着美元指数的再冲高的可能性增加，我们也要留意价格不过去4700点，有可能会二次回踩，再去测试一下4500左右的支撑，或者是在悲观的情况下测试4400左右的这个底部区域，这种可能性呢也是存在的。",
+      "locator": "14:23",
+      "ref_price": 4651.5,
+      "tags": ["xauusd", "dxy", "price-action"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"target": 4500, "low": 4400, "high": 4500},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": "价格过不去 4700",
+        "condition_observable": true,
+        "stance_strength": "hedged", "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch", "benchmark": null,
+          "eval_ladder": ["2026-04-12", "2026-05-05", "2026-07-04"],
+          "success_def": "条件：该时点之前未出现日收盘 ≥ 4700。条件成立时，期内任一日最低价触及 4500 或更低 = hit，未触及 = miss；若此前已收盘站上 4700 则记 condition_not_met。",
+          "note": null
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们觉得4月份黄金的走势在下半个月是可期的。",
+      "locator": "14:23",
+      "ref_price": 4651.5,
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "by_date", "deadline": "2026-04-30", "duration_days": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign", "benchmark": null,
+          "eval_ladder": ["2026-04-30"],
+          "success_def": "2026-04-30 当日或此前最近交易日收盘 ≥ 4651.50（发布前最近收盘 04-02）= hit。原文自带时间范围『4 月份下半个月』，取该月末为评估时点。"
+        }
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那我们总结三个关键词，其实美国这场战争的三个战略目标，一个是退圈，然后把水搅浑。第二个的话呢就是化债。第三个的话呢就是再继续去维持自己的美元霸权。",
+      "locator": "08:23",
+      "tags": ["macro-data", "fiscal-policy", "oil-supply"],
+      "payload": {
+        "canonical_statement": "作者把美国这场战争的战略目标归为三个关键词：①退圈——退出之前先把水搅浑，让高油价冲击东亚与欧洲等依赖能源进口的地区；②化债；③继续维持美元霸权。他认为这三个目标达成则战略上就是成功的，其余都是小问题。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "第二个的话呢，他也可以通过战争人为的制造通胀，进而怎么样？让名义利率减去通胀率呢，最终向比较低的值，甚至是负值，也就是让实际利率低于GDP的值。那就意味着什么？就意味着我可以慢慢的稀释自己的债务了。",
+      "locator": "07:00",
+      "tags": ["inflation", "fiscal-policy", "macro-data"],
+      "payload": {
+        "canonical_statement": "战争可以人为制造通胀，把名义利率减通胀率压到很低甚至负值——只要实际利率低于 GDP 增速，债务就会被慢慢稀释。这是化债的一种手段，历史上美国发战争财不止一次。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "其实对于整个这个宏观的一个条件，我们大概可以把它分成五个维度：第一个维度呢是收益率曲线，也就是我们在前面一期专题节目当中专门提到的，美国的长债收益率与短债收益率的利差。",
+      "locator": "08:47",
+      "tags": ["macro-data", "bond-yields", "labor-market"],
+      "payload": {
+        "canonical_statement": "宏观条件拆成五个维度：①收益率曲线（长短端利差，历史级别最长倒挂结束后的衰退压力被掩盖）；②信贷条件（企业信贷与再融资成本是否上升）；③企业行为（资本开支意愿、库存周期、CEO 信心指数，多由投行黑箱调研输出）；④就业市场（不能只看非农数字，要看临时工与兼职比例的微观结构）；⑤流动性与盈利（当前仍在边际改善，标普 EPS 预期良好，财政主导下盈利在扩散，AI 开支的乘数效应沿产业链扩散）。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "摩根士丹利啊，他有一个自己的这个四大宏观因子的偏离历史均值的程度，进而呢制作了一个叫做美国周期或者美国循环指数的这么一个指标。这个指标呢最近的走势呢是如图红色区域的偏下行，也就是正在从高点向下走，叫Downturn的这么一个窗口。这个窗口呢，我们不能把它定义为衰退。",
+      "locator": "10:44",
+      "tags": ["macro-data", "bond-yields", "market-structure"],
+      "payload": {
+        "canonical_statement": "摩根士丹利的美国周期指标（按四大宏观因子偏离历史均值构建，分扩张/下行/修复/复苏四阶段）当前处在 Downturn 下行区。但它只涵盖收益率、信贷、企业行为、就业这前四个维度，不含流动性与盈利——而后者恰是美股牛市最强的支撑。因此该读数应理解为软着陆阶段的调整期，而不是衰退。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以如果我们综合了这五个维度去考量当前的市场，在叠加现在在战争的这种不确定的因素，为什么我说在实际你去操作或布局美股的长期策略的时候呢，可能还是要分批次的，然后在右侧得到基本确认的情况下，再能够去做这个进攻性的操作。",
+      "locator": "11:42",
+      "tags": ["macro-data", "position-sizing", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "五维框架下前四维偏紧、甚至在向下调整，第五维（流动性与盈利）却仍然乐观，叠加战争的不确定性，所以布局美股长期策略要分批次、且等右侧得到基本确认后才做进攻性操作；当下应偏中性或防御，但也不能因此失去对美股中长期的信心。",
+        "category": "risk_mgmt"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "什么时候当它和大科技和美股的走势不再特别正相关，和美元的走势不再特别负相关的时候，那么这个市场呢就基本上确认了黄金作为未来穿越乱世的一个很重要的对冲资产，它还是非常有用的。",
+      "locator": "12:36",
+      "tags": ["xauusd", "dxy", "market-structure"],
+      "payload": {
+        "canonical_statement": "黄金被确认为穿越乱世的对冲资产，判据是相关性结构的改变：与大科技和美股不再特别正相关、与美元不再特别负相关。在此之前它仍按风险资产对待。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那高油价对于地缘上的冲击的话，区域性的呢还是东亚和欧洲，对不对？欧洲本身还有债务危机，你可以观察这个意大利和德国这个利差，德，德意利差（口播说：意德利差）。这个利差的话呢，如果出现异动，那欧债的话可能又会浮出水面。然后日韩的话呢，都是高度依赖能源进口的，所以你也要关注它在债市上可能会出现的一些流动性的问题。",
+      "locator": "06:20",
+      "tags": ["oil-supply", "bond-yields", "macro-data"],
+      "payload": {
+        "canonical_statement": "高油价的区域性冲击主要落在东亚与欧洲：欧洲本就有债务问题，意德国债利差一旦异动，欧债危机可能重新浮出水面；日韩高度依赖能源进口，需关注其债市的流动性问题。这些地区爆雷之前美国本身不会有太大问题——反倒是它成功退圈并把水搅浑。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那从技术上我们看得见啊，首先看结构，后看趋势。",
+      "locator": "01:54",
+      "tags": ["price-action", "fibonacci", "ema-tunnel"],
+      "payload": {
+        "name": "先看结构后看趋势",
+        "summary": "先用波浪尺定分位，再用多级别隧道确认趋势方向",
+        "family": "trend",
+        "rules": [
+          "第一步看结构：拉波浪尺（本例 A=24 年 9 月低点、B=25 年 1 月高点、C=26 年 1 月 23 日流动性拐点），取 0.382 等分位作参考价（99.3、101.71）",
+          "第二步看趋势：在三日、周线、日线上分别确认价格是否位于隧道上方",
+          "价格在隧道之上、且趋势与结构相互配合，判为右侧多头区域的上涨中继",
+          "日线均线反复验证同一结构区（99.3-99.5）形成买盘，即为结构有效的佐证"
+        ],
+        "data_requirements": ["日/三日/周线 K", "EMA 隧道", "波浪尺分位"],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "因为周五是跳空低开，低开的话是开到了23688的下面。这个位置如果价格当日啊，不去向上回补缺口，而是直接往下冲，那么这个走势就很难看了。或者说他不冲，他就收到这个23688的下方，它也是一个空头。",
+      "locator": "04:16",
+      "tags": ["ndx", "price-action", "execution"],
+      "payload": {
+        "name": "用跳空缺口当日是否回补验证结构支撑",
+        "summary": "低开跌穿关键位后，看当日能否回补缺口并收回该位之上",
+        "family": "trend",
+        "rules": [
+          "价格跳空低开并跌到关键结构位下方时，先不判方向",
+          "当日回补跳空缺口并收在该结构位之上 → 判该支撑有效",
+          "当日不回补而继续下冲，或收在该结构位下方 → 判为空头，准备二次探底",
+          "支撑判为有效后，把该结构位（本例 23688，对应开盘价 23620 一带）作为下一周的多头保护位",
+          "一旦再次跌破，上方两日级别 8/13 EMA 的压力（24000 一带）即视为有效，做好二次探底甚至跌破前低的最坏打算"
+        ],
+        "data_requirements": ["日线 OHLC", "两日 8/13 EMA", "波浪尺扩展位"],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    }
+  ]
+}
