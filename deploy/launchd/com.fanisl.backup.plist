@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  每日 pg_dump。服务器侧用 cron/systemd timer 调同一个 deploy/backup.sh。
+
+  为什么要有：2026-08-18 排查发现全仓库没有任何备份机制，而 L0 转录（54 期整片
+  Gemini 调用、视频删了就没了）、469 个节点里约 395 个 seed-singletons 生成的、
+  48 条人工抽查、以及无法回填的 eps_estimates 日快照，都只存在于本机一个库里。
+  fanisl_knowledge 压缩后仅 1.1 MB，代价和风险完全不成比例。
+
+  StartCalendarInterval 而不是 StartInterval：机器休眠很多，按墙钟定点更可预期；
+  错过的那次由 launchd 在唤醒后补跑一次。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.fanisl.backup</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/enin/fanisl/deploy/backup.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>4</integer>
+        <key>Minute</key><integer>30</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/enin/Library/Logs/fanisl-backup.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/enin/Library/Logs/fanisl-backup.log</string>
+</dict>
+</plist>

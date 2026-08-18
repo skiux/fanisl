@@ -1,5 +1,5 @@
 [Unit]
-Description=fanisl collector (数据采集调度：market/catalysts)
+Description=fanisl collector (采集调度：market/catalysts + 知识引擎 daily/weekly)
 After=network-online.target postgresql.service
 Wants=network-online.target
 
