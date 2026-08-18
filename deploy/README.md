@@ -547,6 +547,27 @@ python -m analyzer.knowledge.nodes seed-singletons --commit
 
 ---
 
+## 4.5 数据源体检
+
+部署后、以及任何时候怀疑"取不到数"，先跑这个，别逐个手工试：
+
+```bash
+# ── 在【服务器】上跑 ──
+cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python tools/check_sources.py
+# 加 --llm 会真调一次 Gemini（消耗额度），验证的是 generateContent 而不只是取 token
+```
+
+覆盖 yfinance 日线、FRED 政策利率、yfinance 盈利预期、YouTube 频道清单与元数据、
+Gemini 通道选择与取 token；另外单列两项不计入结论的——提帧（当前预期失败，见 §5）
+与 Binance（交易侧，与知识引擎无关）。主线全通才继续。
+
+> **不要在服务器上装 `bgutil-ytdlp-pot-provider`。** 本机实测：装了它而 provider 服务
+> 没起时，每次 yt-dlp 调用要先等它失败再回退——单次元数据 **59 秒 vs 1.5 秒**，
+> 摄取十几期就是几十分钟的净损失。它也解决不了 SABR（提帧那堵墙），装了没有收益。
+> 它不在 `pyproject.toml` 里，正常安装不会带上。
+
+---
+
 ## 5. 转录搬上服务器
 
 这是收益最大的一步：L0 是最贵也最不可再生的资产（每期一次 Gemini 整片调用，视频删了
