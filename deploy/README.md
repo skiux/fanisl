@@ -14,6 +14,9 @@
 
 约定：代码 `/opt/fanisl`，运行用户 `fanisl`，Postgres 只监听 `127.0.0.1`。
 
+> **每个命令块都标了在哪台机器上跑**：`# 【本机 Mac】` 或 `# 【服务器】`。
+> 混着跑会遇到"表不存在""目录不存在"这类误导性报错——迁移命令天然是两头各一半。
+
 ---
 
 ## 0. 前置
@@ -79,7 +82,8 @@ psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE DATABASE fanisl_knowledge OWNER
 ### 2.1 本机导出
 
 ```bash
-/Users/enin/fanisl/deploy/backup.sh          # 三个库一起，落 ~/fanisl-backups
+# 【本机 Mac】三个库一起 dump，落 ~/fanisl-backups
+/Users/enin/fanisl/deploy/backup.sh
 ```
 
 体量参考：`fanisl_knowledge` 1.3 MB、`fanisl_trading` 488 KB、`fanisl` 45 MB（压缩后）。
@@ -88,9 +92,9 @@ psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE DATABASE fanisl_knowledge OWNER
 `metric_samples.csv.gz`（约 33 MB，导出命令见 2.4）。
 
 ```bash
+# 【本机 Mac】传到服务器
 scp ~/fanisl-backups/fanisl_knowledge-*.dump \
-    ~/fanisl-backups/fanisl_trading-*.dump \
-    ~/fanisl-backups/fanisl-*.dump  <server>:/tmp/
+    ~/fanisl-backups/fanisl_trading-*.dump  <server>:/tmp/
 ```
 
 ### 2.2 先对版本：TimescaleDB 跨版本不能整库还原
@@ -118,6 +122,7 @@ psql -h 127.0.0.1 -U fanisl -tAc \
 `fanisl_knowledge` 不含任何扩展，直接还原，不受版本影响：
 
 ```bash
+# 【服务器】
 pg_restore -h 127.0.0.1 -U fanisl -d fanisl_knowledge --no-owner --no-privileges \
            /tmp/fanisl_knowledge-*.dump
 ```
@@ -145,29 +150,32 @@ psql -h 127.0.0.1 -U fanisl -tAc "SELECT count(*) FROM accounts" fanisl_trading 
 3945 个 chunk 跨版本整库还原会真的坏掉，所以改成"让应用自己建表、我们只灌数据"，
 彻底绕开目录表的版本差异。
 
-本机导出（读的是 hypertable 本体，不是各个 chunk）：
+**第一步在本机跑**，读的是 hypertable 本体而不是各个 chunk，所以产物不含任何版本相关结构：
 
 ```bash
+# 【本机 Mac】——服务器上没有 metric_samples，在服务器跑这条必然报 relation does not exist
 psql -q -c "\copy (SELECT scope,symbol,metric,ts,value FROM metric_samples ORDER BY ts) \
   TO PROGRAM 'gzip > $HOME/fanisl-backups/metric_samples.csv.gz' CSV" fanisl
+
+scp ~/fanisl-backups/metric_samples.csv.gz  <server>:/tmp/
 ```
 
-产物约 33 MB。传上去后：
+产物约 33 MB（已于 2026-08-18 导好，行数核对 3590607 一致）。其余步骤在服务器：
 
 ```bash
-# 1) 建空库 + 扩展
+# 【服务器】1) 建空库 + 扩展
 psql -h 127.0.0.1 -U fanisl -d postgres -c "CREATE DATABASE fanisl OWNER fanisl;"
 psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
 
-# 2) 让应用建表并转成 hypertable（marketstore 的 init 幂等，见 marketstore.py:90）
+# 【服务器】2) 让应用建表并转成 hypertable（marketstore 的 init 幂等，见 marketstore.py:90）
 sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c "
 import analyzer.runtime as rt; print(\"schema ok\"); rt.pool.close(); rt.trading_pool.close(); rt.knowledge_pool.close()"'
 
-# 3) 灌数据（TimescaleDB 会按 ts 自动分 chunk）
+# 【服务器】3) 灌数据（TimescaleDB 会按 ts 自动分 chunk）
 gunzip -c /tmp/metric_samples.csv.gz | \
   psql -h 127.0.0.1 -U fanisl -d fanisl -c "\copy metric_samples FROM STDIN CSV"
 
-# 4) 核对
+# 【服务器】4) 核对
 psql -h 127.0.0.1 -U fanisl -tAc "SELECT count(*) FROM metric_samples" fanisl   # 应为 3590607
 ```
 
@@ -180,6 +188,7 @@ psql -h 127.0.0.1 -U fanisl -tAc "SELECT count(*) FROM metric_samples" fanisl   
 不要只看 "restore 没报错"。本机已用这套比对验过一遍（12 张表全部一致）：
 
 ```bash
+# 【服务器】逐表数行，再与本机同一条命令的输出对照
 for t in contents extraction_runs knowledge_units claim_scores knowledge_nodes \
          node_attestations node_relations keyframes spot_checks daily_bars \
          eps_estimates creators; do
@@ -201,6 +210,7 @@ spot_checks 48、eps_estimates 26、creators 3、daily_bars 9996。
 研究平台要永久历史。2026-07 有过一次 365 天策略吃掉全部深回填的事故：
 
 ```bash
+# 【服务器】
 psql -h 127.0.0.1 -U fanisl -tAc \
   "SELECT job_id, proc_name, hypertable_name FROM timescaledb_information.jobs
    WHERE proc_name LIKE '%retention%'" fanisl
@@ -213,6 +223,7 @@ psql -h 127.0.0.1 -U fanisl -tAc \
 117 MB，`data_export/keyframes/` 在 .gitignore 里：
 
 ```bash
+# 【本机 Mac】
 rsync -av --progress /Users/enin/fanisl/data_export/keyframes/ \
       <server>:/opt/fanisl/data_export/keyframes/
 ```
@@ -301,6 +312,7 @@ journalctl -u fanisl-collector -f
 （双写没有合并故事，一分叉就没救）。
 
 ```bash
+# 【本机 Mac】开隧道，之后本地命令都走它
 ssh -N -L 5433:127.0.0.1:5432 fanisl@<server> &
 ```
 
@@ -313,6 +325,7 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fani
 之后本地命令原样可用：
 
 ```bash
+# 【本机 Mac】（经隧道打到服务器库）
 python -m analyzer.knowledge.nodes export                 # 列未挂单元
 python -m analyzer.knowledge.import_units <file> --dry-run
 python -m analyzer.knowledge.nodes import <file>
