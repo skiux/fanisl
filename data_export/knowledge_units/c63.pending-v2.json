@@ -1,0 +1,340 @@
+{
+  "content_id": 63,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "method",
+      "quote": "在顺势指标当中呢，我们定义一个长短周期的CCI。当我们看到这个长短周期的顺势指标啊，比如说，八和十三，比如说，十三和二十一，都处在相对强势的时候。也就是，他们同时，突破了，九十或者是，一百分位。然后保证，如图所示啊，大家看这个副图，就是，两个，一个大周期，一个小周期的CCI指标。当两个指标同时，处在强侧的时候进行突破，那么，这个K线呢，就把它变成一个什么，变成一个多头的颜色。",
+      "locator": "10:30",
+      "tags": [
+        "price-action",
+        "execution",
+        "market-structure"
+      ],
+      "payload": {
+        "name": "双周期 CCI 动力指标定义趋势",
+        "summary": "长短周期 CCI 同处强侧则 K 线染多头色，快线破 -100 改色",
+        "family": "trend",
+        "rules": [
+          "取长短两个周期的 CCI（如 8 与 13，或 13 与 21）作顺势指标，非超买超卖指标——它上下均无界",
+          "两个周期同时突破 90 或 100 分位（同处强侧）→ K 线染成多头颜色",
+          "其中一个（通常是快线）跌破 -100 或 -80、进入对侧 → 触发改色",
+          "改色后不再看单根 K 线的涨跌，只看颜色表示的强弱状态"
+        ],
+        "data_requirements": [
+          "任意级别 K 线",
+          "双周期 CCI"
+        ],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "首先我们看到三日级别转绿之后，我们肯定是有仓位要先开下来。开下来之后呢，仅仅是这个初始仓位明显拿不到这么好的一个收益。接下来要做得就是我们所说的下沉小级别。下沉到哪个级别呢？它的原则呢是先在四小时级别看。",
+      "locator": "12:40",
+      "tags": [
+        "position-sizing",
+        "execution",
+        "price-action"
+      ],
+      "payload": {
+        "name": "逐级下沉的金字塔加仓",
+        "summary": "三日转绿开底仓，四小时共振加仓，一小时再加并把前一单推平保",
+        "family": "trend",
+        "rules": [
+          "先在三日级别用动力指标定方向，转绿即开初始仓位",
+          "在日线与三日级别不变色的前提下，下沉到四小时；四小时也转绿（多级别共振）时加仓",
+          "该单产生浮盈并进入平保阶段后，再下沉到一小时；一小时转绿时继续加",
+          "每加一层，把上一层的止损推到平保，保证底仓有保护的情况下继续追强势",
+          "级别是自上而下依次成立的：一小时出信号时四小时必已成立，四小时成立时日线必已成立",
+          "小级别不成立就不加；若价格走弱，四小时先撤出，一小时自然不进"
+        ],
+        "data_requirements": [
+          "三日/日线/四小时/一小时 K",
+          "双周期 CCI",
+          "持仓分层与平保位"
+        ],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "第三呢就是，回调加仓和突破追仓是混合的。因为呢，其实我们并不知道呢，市场会不会回调。那如果不回调，你就加不上。如果回调的话呢，你有可能呢，没有办法等到最低点，所以他其实不主动地预测阶段性的走势。",
+      "locator": "09:30",
+      "tags": [
+        "position-sizing",
+        "execution",
+        "risk-mgmt"
+      ],
+      "payload": {
+        "name": "回调加仓与突破追仓混合",
+        "summary": "不预测会不会回调，两种加仓路径同时开着，以区域网格试错",
+        "family": "trend",
+        "rules": [
+          "不主动预测阶段性走势会不会回调——预测错了要么加不上仓，要么等不到最低点",
+          "同时保留两条加仓路径：回调到位则低位回补，一直不回调则突破追入",
+          "具备开仓条件时就以区域化的网格形式进行底层加仓，触发第二层继续加",
+          "回补须在控制净值的前提下进行",
+          "突破追入的头寸要配套高位退出的逻辑"
+        ],
+        "data_requirements": [
+          "多级别 K 线",
+          "分层持仓与净值"
+        ],
+        "overlap_with_killed": [],
+        "testability": "B",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "然后第四呢就是利用杠杆，那盈利大量的一个出金。那这个呢，也是隔绝风险的最好的一种方式。呢，你的本金和锁定收益的这一部分不在账户里，这就是最好的风控。",
+      "locator": "09:50",
+      "tags": [
+        "risk-mgmt",
+        "position-sizing",
+        "execution"
+      ],
+      "payload": {
+        "name": "边赚边出金作为风控",
+        "summary": "本金与已锁定利润撤出账户，是隔绝风险最彻底的方式",
+        "family": "positioning",
+        "rules": [
+          "一边打一边出金，不把本金和已锁定的利润继续留在账户里",
+          "确保本金风险完全消除之后，账户里剩下的才是可承受损失的部分",
+          "在此前提下才高度利用券商提供的杠杆——前提是具备驾驭杠杆的能力",
+          "该做法使账户规模反复变小，纸面时间加权收益率因此被放大，读数不可与常规账户直接比较"
+        ],
+        "data_requirements": [
+          "出入金记录",
+          "账户净值曲线"
+        ],
+        "overlap_with_killed": [],
+        "testability": "C",
+        "claimed_performance": {
+          "note": "转述该盘手的实盘交割单，记录不采信",
+          "deposit_usd": 370000,
+          "withdrawn_usd": 2950000,
+          "peak_equity_usd": 1030000,
+          "remaining_usd": 470000,
+          "max_drawdown_pct": 73.1,
+          "period": "2023-10 ~ 2025-08",
+          "instrument_concentration": "约 90% 盈利来自黄金多头"
+        }
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "第二个呢就是，他认为呢趋势应该在成立之后再介入。不应该去对抗下跌的趋势。",
+      "locator": "09:10",
+      "tags": [
+        "risk-mgmt",
+        "position-sizing",
+        "price-action"
+      ],
+      "payload": {
+        "name": "趋势成立后再介入，不买最低点",
+        "summary": "不对抗下跌趋势，等下跌被完全收复、进入主升浪级别再进",
+        "family": "trend",
+        "rules": [
+          "不去寻找趋势成立之前的最低点在哪里，也不对抗下跌趋势",
+          "等下跌趋势被完全收复、多头刚进入主升浪级别时介入",
+          "因此不买在最低点，但买在大周期的相对低位（低估值或周期起点）",
+          "理由是大方向的压注可能出错——标的持续下跌时，等不到它起来筹码就已耗尽"
+        ],
+        "data_requirements": [
+          "大周期趋势状态",
+          "估值或周期位置"
+        ],
+        "overlap_with_killed": [],
+        "testability": "B",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "第五个呢，是激流勇退。那这个也是我自己觉得做得很厉害的一点，就是他真的是能够在大周期上保持定力，不去吃这最后的疯狂。",
+      "locator": "10:00",
+      "tags": [
+        "risk-mgmt",
+        "psychology",
+        "execution"
+      ],
+      "payload": {
+        "name": "只吃鱼身，主动放弃鱼尾",
+        "summary": "盈亏比转差时主动退出，不吃最后一段疯狂",
+        "family": "positioning",
+        "rules": [
+          "以盈亏比而非剩余空间决定是否继续持有——盈亏比转差即退出",
+          "主动放弃鱼尾行情，不论它有多大（本例黄金 4000 到 5000 那 1000 美金完全没参与，随后又吐了回来）",
+          "退出后把资金转到其他品种上找新的周期性机会",
+          "配套心态：低点错过不懊恼，后面的行情不眼馋"
+        ],
+        "data_requirements": [
+          "盈亏比估算",
+          "大周期位置"
+        ],
+        "overlap_with_killed": [],
+        "testability": "C",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "比如说，他说呢，这个在大周期上不要追求精确。要追求模糊的正确。",
+      "locator": "08:40",
+      "tags": [
+        "psychology",
+        "risk-mgmt",
+        "execution"
+      ],
+      "payload": {
+        "canonical_statement": "大周期上不要追求精确，要追求模糊的正确——没有人能对小级别走势做到完全精确；一旦追求精确、频繁决策，就会大量出错。该盘手把这条概括为『不完美就是最完美』。",
+        "category": "psychology"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "第二个的话呢，就是不要把精力浪费在那些成长性和周期性不强的品种当中。因为我们大概其也就这些钱。然后我们的时间成本也非常的高。所以呢，当你看到一个潜在有5倍10倍回报的机会。和一个只有0.5倍1倍回报的机会。你会去压注哪个呢？",
+      "locator": "08:50",
+      "tags": [
+        "position-sizing",
+        "risk-mgmt",
+        "psychology"
+      ],
+      "payload": {
+        "canonical_statement": "筹码与时间都有限，所以不应把精力浪费在成长性和周期性不强的品种上：面对潜在 5-10 倍与仅 0.5-1 倍的两类机会，只压注前者。与其频繁决策拿小回报，不如把全部能力、精力、耐心用来吃定少数几个周期性大方向。",
+        "category": "risk_mgmt"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "另外的就是历史的峰值最高达到了103万美元。取款的情况呢，一共兑现了295万美元，接近300万的一个水平。而在整个过程中呢，最大的回撤注意啊，是73.1%。也就是说，最大回撤是很高，而且接近爆仓的水平。但这个账户其实是在不断的盈利出金的对不对，所以这个回撤的话，也是可接受的",
+      "locator": "05:30",
+      "tags": [
+        "risk-mgmt",
+        "position-sizing"
+      ],
+      "payload": {
+        "canonical_statement": "同一个最大回撤数字的可接受性取决于本金是否已撤出：该账户最大回撤 73.1%、接近爆仓水平，但因为本金与已锁定利润持续出金，回撤只作用在剩余的可承受部分上，因而是可接受的。脱离出入金结构单看回撤比例会得出错误结论。",
+        "category": "risk_mgmt"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "更细的定性呢，就是它不是一个单纯的，越跌越买的指数倍数加仓的马丁式。也不是一个纯粹的越强越追的一个高位加仓。这是一个混合型长持加金字塔型加仓的一个策略。",
+      "locator": "08:00",
+      "tags": [
+        "execution",
+        "position-sizing",
+        "risk-mgmt"
+      ],
+      "payload": {
+        "canonical_statement": "该策略既不是越跌越买的马丁格尔式指数加仓，也不是纯粹的越强越追高位加仓，而是手工加半自动的长期趋势跟随 + 金字塔加仓；盈利核心来自低位重仓建仓、趋势确认后逐步加仓、然后长期持有。判别依据之一是券商持续兑现——剥头皮与流动性套利类策略的浮盈通常不会被兑现。",
+        "category": "execution"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "然后第二个的话呢，就是超长的持仓。这个和我们刚刚提到理念其实是一致的。也就是他也认为呢黄金是一波长周期的行情。因此他会对黄金保持一个绝对的耐心。OK，大量的持仓啊，其实有达到数月甚至一年左右。也就是在有持仓的情况下，去出掉相当一部分的浮盈。",
+      "locator": "07:30",
+      "tags": [
+        "xauusd",
+        "position-sizing",
+        "execution"
+      ],
+      "payload": {
+        "canonical_statement": "超长持仓与持续兑现可以并存：单笔持仓可达数月甚至一年，同时在有持仓的情况下出掉相当一部分浮盈；风险可控之后，等信号再来时利用杠杆继续加仓。三年前判断黄金会有一波翻倍行情、且流动性极好，因此全程只做多单，不论中途多么波折。",
+        "category": "execution"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "黄金的三日图，我们看到现在它的颜色是什么，是灰的。也就是说在当前的这一波走势里边，黄金还没有收复右侧，还没有强趋势出现。所以其实呢，现在还没到啊，按照这个策略来讲，还没到去顺势继续做多黄金的时候。",
+      "locator": "13:40",
+      "ref_price": 4699.8,
+      "tags": [
+        "xauusd",
+        "price-action",
+        "risk-mgmt"
+      ],
+      "payload": {
+        "asset_text": "黄金",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "risk_warning",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "而且呢对于半导体指数他认为呢可能还有一点空间。半导体也是他考虑的。",
+      "locator": "12:20",
+      "ref_price": 492.36,
+      "tags": [
+        "soxx",
+        "semiconductor-cycle"
+      ],
+      "payload": {
+        "asset_text": "半导体指数 SOXX（转述该盘手的看法，作者复述未明确背书）",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是呢，他认为呢接下来呢应该边打边防守了。",
+      "locator": "12:10",
+      "tags": [
+        "risk-mgmt",
+        "psychology",
+        "positioning"
+      ],
+      "payload": {
+        "canonical_statement": "该盘手判断美股已步入鱼尾行情，接下来应边打边防守；鱼尾能走多高、会不会再有一次类似黄金那样 20% 规模的拉升，他表示不知道。作者转述此说并与自己『黄金还不够强、美股这么强黄金才走成这样』的判断并列，未另作背书。",
+        "category": "psychology"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "它的这个多头啊，实际上是在什么时候开始呢？是两个点。第一个呢是2025年的6月份，在这里边做的顺势的多头一直拿到了这个25年的10月份左右。然后第二波的话呢，实际上是开启于多少？2026年的4月份。",
+      "locator": "12:00",
+      "tags": [
+        "ndx",
+        "price-action",
+        "execution"
+      ],
+      "payload": {
+        "canonical_statement": "把动力指标用在美股上的两段实例：纳指三日级别的空头在 2026-04-14 转为多头成立，该盘手据此在转强之后介入而不是买在低点；他的美股多头共两段——2025 年 6 月到 10 月，以及 2026 年 4 月至今。半导体则在 2026-04-06 左右转强，三日级别双周期 CCI 同处 +100 一侧，长期趋势维持有效。",
+        "category": "execution"
+      }
+    }
+  ]
+}
