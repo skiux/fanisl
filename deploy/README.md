@@ -393,8 +393,13 @@ chmod 660 /opt/fanisl/backend/.env      # 660 而非 600：服务与你都要读
 nano /opt/fanisl/backend/.env
 ```
 
+**三条连接串必须写 `host=127.0.0.1`。** Postgres 在容器里，宿主机上没有 Unix socket；
+不写 host 就会去连 `/var/run/postgresql/.s.PGSQL.5432` 并报 `No such file or directory`。
+三条都要改——少改一条的表现是某个池连不上而另两个正常，而报错里看不出是哪个库
+（§3.3 的第 1 步就是为此准备的）。
+
 **本机的 `.env` 里有真实凭据（Claude 中转端点与 key 等），走 scp/粘贴等带外方式传，
-不要进 git。** 三条连接串改成 TCP：
+不要进 git。**
 
 ```
 PG_CONNINFO=host=127.0.0.1 dbname=fanisl user=fanisl password=<强口令>
@@ -458,7 +463,32 @@ print('token 前 12 位:', c._access_token()[:12], '…')"
 
 ```bash
 # ── 在【服务器】上跑 ──
-cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python - <<'PY'
+cd /opt/fanisl/backend
+
+# 1) 先逐条验连接串——runtime 会同时开三个池，直接跑它的话报错里看不出是哪个库
+PYTHONPATH=src .venv/bin/python - <<'PY'
+import re
+import psycopg
+from analyzer.config import get_settings
+s = get_settings()
+ok = True
+for name, ci in (("PG_CONNINFO", s.pg_conninfo),
+                 ("PG_TRADING_CONNINFO", s.pg_trading_conninfo),
+                 ("PG_KNOWLEDGE_CONNINFO", s.pg_knowledge_conninfo)):
+    shown = re.sub(r"password=\S+", "password=***", ci) or "(空)"
+    try:
+        with psycopg.connect(ci, connect_timeout=5) as c:
+            db = c.execute("SELECT current_database()").fetchone()[0]
+        print(f"  ok   {name:22s} -> {db:18s} {shown}")
+    except Exception as e:
+        ok = False
+        print(f"  FAIL {name:22s} -> {shown}")
+        print(f"       {type(e).__name__}: {str(e).splitlines()[0]}")
+print("全部连通" if ok else "有连不上的，先修 .env 再往下走")
+PY
+
+# 2) 三条都通了再起 runtime（会真正建池并跑 schema init）
+PYTHONPATH=src .venv/bin/python - <<'PY'
 import analyzer.worker_collector, analyzer.runtime as rt
 print("pools ok", bool(rt.pool), bool(rt.trading_pool), bool(rt.knowledge_pool))
 rt.pool.close(); rt.trading_pool.close(); rt.knowledge_pool.close()
