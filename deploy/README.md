@@ -344,23 +344,53 @@ rsync -av --progress /Users/enin/fanisl/data_export/keyframes/ \
 
 ## 3. 后端
 
+### 3.0 服务账号与文件权限（决定了后面维护顺不顺手）
+
+服务用独立账号跑，但**维护不该因此处处 `sudo -u fanisl`**。做法是让你自己的账号进 `fanisl` 组，
+再用默认 ACL 保证两边新建的文件互相可写——之后 `git pull`、改 `.env`、跑 CLI 都不用 sudo，
+只有 `systemctl` 还需要。
+
 ```bash
 # ── 在【服务器】上跑 ──
+sudo apt install -y acl
 sudo useradd -r -m -d /opt/fanisl -s /usr/sbin/nologin fanisl
-sudo -u fanisl git clone <repo> /opt/fanisl
-cd /opt/fanisl/backend
-sudo -u fanisl python3 -m venv .venv
-sudo -u fanisl .venv/bin/pip install --upgrade pip
-sudo -u fanisl .venv/bin/pip install .
+sudo git clone <repo> /opt/fanisl
+sudo chown -R fanisl:fanisl /opt/fanisl
+
+sudo usermod -aG fanisl $USER
+# 现有文件 + 之后新建的都给 fanisl 组读写（d: 是继承用的默认 ACL）
+sudo setfacl -R -m g:fanisl:rwX -m d:g:fanisl:rwX /opt/fanisl
+
+newgrp fanisl      # 或退出重登，让组成员身份生效
+id -nG | tr ' ' '\n' | grep -x fanisl && echo "组已生效"
 ```
 
-### 3.1 .env
+这样两个方向都通：服务以 `fanisl` 建的文件你能改，你建的文件服务能写。
+
+**为什么不干脆全用你自己的账号跑？** 因为摄取链会用 ffmpeg 和 yt-dlp 解析来路不明的视频，
+那是有 CVE 历史的解析器。独立账号挡不住数据库（口令就在 `.env` 里），但挡得住 `~/.ssh`、
+gcloud 凭据和 sudo。代价用上面的 ACL 消掉了，就没必要省这一层。
+
+> 若你确实不在意这层隔离：把三个 `.service` 里的 `User=fanisl` 改成你自己的用户名、
+> 代码放 `~/fanisl`，本节整节可跳过。是个合理选择，只是要清楚放弃的是什么。
+
+### 3.1 装依赖
 
 ```bash
 # ── 在【服务器】上跑 ──
-sudo -u fanisl cp /opt/fanisl/deploy/.env.example /opt/fanisl/backend/.env
-sudo -u fanisl chmod 600 /opt/fanisl/backend/.env
-sudo -u fanisl nano /opt/fanisl/backend/.env
+cd /opt/fanisl/backend
+python3 -m venv .venv
+.venv/bin/pip install --upgrade pip
+.venv/bin/pip install .
+```
+
+### 3.2 .env
+
+```bash
+# ── 在【服务器】上跑 ──
+cp /opt/fanisl/deploy/.env.example /opt/fanisl/backend/.env
+chmod 660 /opt/fanisl/backend/.env      # 660 而非 600：服务与你都要读写
+nano /opt/fanisl/backend/.env
 ```
 
 **本机的 `.env` 里有真实凭据（Claude 中转端点与 key 等），走 scp/粘贴等带外方式传，
@@ -376,17 +406,18 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 dbname=fanisl_knowledge user=fanisl passwor
 `.env` 里只填 `GCP_PROJECT=<项目号>`、留空 `GEMINI_API_KEY`，就不用在服务器上放任何
 密钥。（这条通道本来就是为了绕开 AI Studio 项目被封生成权限而加的。）
 
-### 3.2 冒烟自检
+### 3.3 冒烟自检
 
 ```bash
 # ── 在【服务器】上跑 ──
-sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c "
+cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python - <<'PY'
 import analyzer.worker_collector, analyzer.runtime as rt
-print(\"pools ok\", bool(rt.pool), bool(rt.trading_pool), bool(rt.knowledge_pool))
-rt.pool.close(); rt.trading_pool.close(); rt.knowledge_pool.close()"'
+print("pools ok", bool(rt.pool), bool(rt.trading_pool), bool(rt.knowledge_pool))
+rt.pool.close(); rt.trading_pool.close(); rt.knowledge_pool.close()
+PY
 ```
 
-### 3.3 systemd
+### 3.4 systemd
 
 ```bash
 # ── 在【服务器】上跑 ──
@@ -401,7 +432,7 @@ journalctl -u fanisl-collector -f
 
 > collector 是**单实例**（PG advisory lock），跑第二份会自行退出，不要配多份。
 
-### 3.4 关于 daily job 的触发时刻
+### 3.5 关于 daily job 的触发时刻
 
 `Scheduler` 用墙钟 + 固定 interval，相位取决于**进程启动时间**，且每次重启会立刻
 补跑一次（幂等，不会重复评分）。美股收盘是 20:00 UTC，想让当天的收盘价当晚就入库，
@@ -462,8 +493,8 @@ python -m analyzer.knowledge.nodes seed-singletons --commit
 
 ```bash
 # ── 在【服务器】上跑 ──
-sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python \
-  -m analyzer.knowledge.backfill_transcripts @andyleegogo --since-days 7'
+cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python \
+  -m analyzer.knowledge.backfill_transcripts @andyleegogo --since-days 7
 ```
 
 跑通后按需挂 timer。
@@ -475,7 +506,7 @@ sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/pytho
 - **提帧：本机今天就已经被拦**（`Sign in to confirm you're not a bot`），别指望服务器更好，
   先留在本地按需跑。
 
-`yt-dlp` 要能随时升级：`sudo -u fanisl /opt/fanisl/backend/.venv/bin/pip install -U yt-dlp`。
+`yt-dlp` 要能随时升级：`/opt/fanisl/backend/.venv/bin/pip install -U yt-dlp`。
 
 > **cookies.txt 先不要传上去。** 里面是真实 Google 会话，等同凭据，而那条凭据至今
 > 未轮换。要用先轮换。
@@ -487,8 +518,8 @@ sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/pytho
 ```bash
 # ── 在【服务器】上跑 ──
 cd /opt/fanisl/frontend
-sudo -u fanisl npm ci
-sudo -u fanisl bash -c 'VITE_API_BASE= npm run build'    # 产物 dist/
+npm ci
+VITE_API_BASE= npm run build    # 产物 dist/
 sudo systemctl enable --now fanisl-api
 
 sudo cp /opt/fanisl/deploy/nginx-fanisl.conf /etc/nginx/sites-available/fanisl
@@ -510,8 +541,8 @@ Node 20：`curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash - && sud
 
 ```bash
 # ── 在【服务器】上跑 ──
-sudo -u fanisl git -C /opt/fanisl pull
-sudo -u fanisl /opt/fanisl/backend/.venv/bin/pip install -e /opt/fanisl/backend  # 依赖有变时
+git -C /opt/fanisl pull
+/opt/fanisl/backend/.venv/bin/pip install -e /opt/fanisl/backend   # 依赖有变时
 sudo systemctl restart fanisl-collector fanisl-api
 ```
 
@@ -541,16 +572,52 @@ sudo systemctl restart fanisl-collector fanisl-api
 
 ## 8. 备份
 
-服务器侧用同一个脚本：
+服务器侧用同一个 `deploy/backup.sh`，但**别用 `sudo -u fanisl crontab -e`**：`fanisl` 的 shell 是
+`/usr/sbin/nologin`，cron 拿不到 shell 来执行命令，任务会静默不跑。这台机器本来就是 systemd，
+用 timer 更合适——顺带还能 `systemctl list-timers` 看到下次触发时间。
 
 ```bash
 # ── 在【服务器】上跑 ──
-sudo -u fanisl crontab -e
-# 30 4 * * *  PGPASSWORD='<强口令>' FANISL_BACKUP_DIR=/opt/fanisl/backups \
-#             /opt/fanisl/deploy/backup.sh >> /opt/fanisl/backups/backup.log 2>&1
+sudo tee /etc/systemd/system/fanisl-backup.service >/dev/null <<'UNIT'
+[Unit]
+Description=fanisl 数据库备份（三库 pg_dump，各留最近 14 份）
+After=docker.service
+
+[Service]
+Type=oneshot
+User=fanisl
+Group=fanisl
+Environment=FANISL_BACKUP_DIR=/opt/fanisl/backups
+EnvironmentFile=/opt/fanisl/backend/.env.backup
+ExecStart=/opt/fanisl/deploy/backup.sh
+UNIT
+
+sudo tee /etc/systemd/system/fanisl-backup.timer >/dev/null <<'UNIT'
+[Unit]
+Description=每日跑一次 fanisl 备份
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
+UNIT
+
+# PGPASSWORD 单独放，别塞进 unit 文件（systemctl cat 谁都看得见）
+printf 'PGPASSWORD=%s\nPGHOST=127.0.0.1\nPGUSER=fanisl\n' '<强口令>' \
+  > /opt/fanisl/backend/.env.backup
+chmod 660 /opt/fanisl/backend/.env.backup
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now fanisl-backup.timer
+sudo systemctl start fanisl-backup.service     # 立刻跑一次验证
+journalctl -u fanisl-backup -n 20 --no-pager
+systemctl list-timers fanisl-backup            # 看下次触发时间
 ```
 
-`backup.sh` 默认三个库各留最近 14 份。**再往机器外放一份**（GCS bucket 最省事）：
+`Persistent=true` 让机器关机错过的那次在开机后补跑。`backup.sh` 默认三个库各留最近 14 份。**再往机器外放一份**（GCS bucket 最省事）：
 
 ```bash
 # ── 在【服务器】上跑 ──
@@ -586,4 +653,7 @@ gsutil rsync -r /opt/fanisl/backups gs://<bucket>/fanisl-backups
 7. 手动跑一次 `python -m analyzer.knowledge.daily`，`claim_scores` 有新增或
    打印"未到期"
 8. 本地隧道通：`python -m analyzer.knowledge.nodes export` 能列出服务器库的待挂单元
-9. `deploy/backup.sh` 在服务器上能跑出三个 dump，且 `pg_restore -l` 能列出内容
+9. `systemctl list-timers fanisl-backup` 有下次触发时间；手动 `systemctl start fanisl-backup`
+   能跑出三个 dump，`pg_restore -l` 能列出内容
+10. 维护命令不带 sudo 也能跑：`git -C /opt/fanisl pull`、`nano /opt/fanisl/backend/.env`
+   （§3.0 的 ACL 生效了；不生效多半是没 `newgrp fanisl` 或重登）
