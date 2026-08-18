@@ -71,6 +71,32 @@ sudo docker run -d --name fanisl-pg --restart unless-stopped \
 
 `-p 127.0.0.1:5432:5432` 是关键：**不要**暴露到 0.0.0.0，本地会话通过 SSH 隧道进来。
 
+### 1.1 调参（新装就做，别等撞墙）
+
+镜像起来是 PostgreSQL 的出厂默认值，没跑过 `timescaledb-tune`。实测本机与容器的差距：
+`shared_buffers` 4 GB vs 128 MB、`maintenance_work_mem` 2 GB vs 64 MB、`effective_cache_size`
+12 GB vs 4 GB、`jit` off vs on（TimescaleDB 负载下 JIT 通常是负收益）、
+**`max_locks_per_transaction` 512 vs 64**。最后那项会直接卡死 §2.4 的数据导入。
+
+```bash
+# ── 在【服务器】上跑 ──
+docker exec fanisl-pg timescaledb-tune --quiet --yes    # 按容器可见内存算 shared_buffers 等
+docker exec fanisl-pg psql -U fanisl -d postgres \
+  -c "ALTER SYSTEM SET max_locks_per_transaction = 512;"   # tune 未必覆盖，显式设
+docker restart fanisl-pg && sleep 5
+
+psql -h 127.0.0.1 -U fanisl -tAF'|' -d postgres -c \
+  "SELECT name, setting FROM pg_settings WHERE name IN
+   ('shared_buffers','effective_cache_size','maintenance_work_mem','work_mem',
+    'max_locks_per_transaction','jit') ORDER BY name"
+```
+
+`ALTER SYSTEM` 写的是数据卷里的 `postgresql.auto.conf`，重建容器也在。
+
+`max_locks_per_transaction` 为什么要 512：`metric_samples` 有 3945 个 chunk、每个带 3 个索引，
+一条横跨全部 chunk 的语句要约 15800 把锁，而 `64 × 100 连接 = 6400` 槽不够。512 给到 51200 槽，
+代价约 8 MB 共享内存。这个值不只为导入——以后任何跨 chunk 的维护都要它。
+
 建另外两个库：
 
 ```bash
@@ -176,6 +202,29 @@ scp ~/fanisl-backups/metric_samples.csv.gz  <server>:/tmp/
 
 产物约 33 MB（已于 2026-08-18 导好，行数核对 3590607 一致）。其余步骤在服务器：
 
+**先把锁表调大，否则第 3 步必然失败。** `metric_samples` 有 **3945 个 chunk**（数据跨度
+1914-01-01 ~ 2026-08-19，112 年的研究回填），每个 chunk 带 3 个索引；一条横跨全部 chunk 的
+COPY 要约 `3945 × 4 ≈ 15800` 把锁，而容器默认 `max_locks_per_transaction=64`、锁表总量只有
+`64 × 100 = 6400` 槽，于是报：
+
+```
+ERROR:  out of shared memory
+HINT:  You might need to increase "max_locks_per_transaction".
+```
+
+这**不是内存不足**（8 GB 实例绰绰有余），锁表大小与物理内存无关。也不能靠按行切 CSV 绕开——
+行数分布极不均匀：1914-1999 只有 3.4 万行却横跨 2559 个 chunk，单独灌这一段仍要上万把锁。
+
+**照 §1.1 做过就已经解决了**；若跳过了，现在补：
+
+```bash
+# ── 在【服务器】上跑 ──
+docker exec fanisl-pg psql -U fanisl -d postgres \
+  -c "ALTER SYSTEM SET max_locks_per_transaction = 512;"
+docker restart fanisl-pg && sleep 5
+psql -h 127.0.0.1 -U fanisl -tAc "SHOW max_locks_per_transaction" postgres   # 应为 512
+```
+
 ```bash
 # ── 在【服务器】上跑 ──
 # 1) 建空库 + 扩展
@@ -212,7 +261,8 @@ psql -h 127.0.0.1 -U fanisl -tAc \
 `chunk_time_interval` 与本机一致取 7 天，所以 chunk 数应当接近 3945；差几个不必在意
 （取决于首末 chunk 的边界落点），**以行数为准**。
 
-失败重来要先清空：`psql -h 127.0.0.1 -U fanisl -c "TRUNCATE metric_samples" fanisl`。
+COPY 是单个事务，中途失败会整体回滚，不会留下半截数据（可用 `SELECT count(*)` 确认为 0）。
+若要重来仍可先清空：`psql -h 127.0.0.1 -U fanisl -c "TRUNCATE metric_samples" fanisl`；
 主键是 `(scope, symbol, metric, ts)`，重复灌会撞唯一约束而不是静默翻倍。
 
 > **知识引擎不依赖这一步。** 它有自己的 `daily_bars`（在 `fanisl_knowledge` 里，已随 2.3 还原）。
@@ -512,6 +562,7 @@ gsutil rsync -r /opt/fanisl/backups gs://<bucket>/fanisl-backups
 
 1. `docker ps` 里 `fanisl-pg` 是 `Up`，且 `ss -lntp | grep 5432` 只绑 127.0.0.1
 2. 三个库都在：`psql -h 127.0.0.1 -U fanisl -l | grep fanisl`
+2b. `SHOW max_locks_per_transaction` = 512，`SHOW jit` = off（§1.1 调过参）
 3. 12 张表行数与本机一致（§2.5）
 4. `timescaledb_information.jobs` 里没有 retention（§2.6）
 5. 冒烟自检打印 `pools ok True True True`（§3.2）
