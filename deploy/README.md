@@ -569,8 +569,28 @@ cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python \
 
 `yt-dlp` 要能随时升级：`/opt/fanisl/backend/.venv/bin/pip install -U yt-dlp`。
 
-> **cookies.txt 先不要传上去。** 里面是真实 Google 会话，等同凭据，而那条凭据至今
-> 未轮换。要用先轮换。
+#### cookies.txt：现在不需要传
+
+2026-08-19 实测（本机，三个已登记频道）：**取清单与取元数据在无 cookies 下全部成功**，
+与带 cookies 无差别。`transcribe_video` 依赖的两样——元数据（yt-dlp）与转录（Gemini URL 直读）
+——都不需要它。真正要 cookies 的只有提帧，而提帧当前被 SABR 挡着，给了也没用。
+
+所以 `.env` 里 **`YOUTUBE_COOKIES_FILE` 留空**。
+
+**那个文件里是什么**：`__Secure-3PSID` / `__Secure-3PAPISID` 这一组是 Google 账号在 YouTube 上的
+登录态 cookie。持有者不需要密码、也不经过两步验证（该会话早已通过），可直接以该账号身份访问
+YouTube。它不含 `.google.com` 的第一方会话（`SID`/`HSID`/`SAPISID`），所以范围限于 YouTube 与
+部分 Google API，不是"能读 Gmail"那一级——但仍是真凭据，按凭据对待。
+
+**历史遗留**：`7f006b8` 曾把 `backend/cookies.txt` 提交进去且已推到 `origin/main`。当前该文件
+未被跟踪、`.gitignore` 有两条规则挡着，往后不会再进去；但历史里那份改不掉——推送之后谁
+clone 过就有了。唯一有效的处理是**让那个会话失效**（Google 账号 → 安全性 → 管理所有设备 →
+退出对应会话；或改密码一并踢掉全部会话）。
+
+**将来若真需要**（bot 墙回来、清单也被拦时）：**用专门的小号导出，不要用主账号**——
+yt-dlp 只是用它看频道列表，不需要任何权限。浏览器装 Get cookies.txt LOCALLY 一类扩展，
+在 youtube.com 页面导出 Netscape 格式，放 `/opt/fanisl/backend/cookies.txt`，
+`.env` 写 `YOUTUBE_COOKIES_FILE=cookies.txt`（路径相对 `backend/`）。
 
 ---
 
