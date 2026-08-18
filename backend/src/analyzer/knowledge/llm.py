@@ -18,6 +18,8 @@ import httpx
 _BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 _VERTEX_BASE = "https://aiplatform.googleapis.com/v1/projects/{project}/locations/global/publishers/google/models"
 _ADC_PATH = pathlib.Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
+_METADATA_TOKEN_URL = ("http://metadata.google.internal/computeMetadata/v1/"
+                       "instance/service-accounts/default/token")
 _MAX_OUTPUT_TOKENS = 65535   # 一期 30 分钟视频的转录+视觉笔记约 1.5 万 token，留足余量
 
 
@@ -128,9 +130,11 @@ def _camelize(obj):
 class VertexGeminiClient(GeminiClient):
     """Agent Platform（Vertex）通道：与 GeminiClient 同接口，只换鉴权与端点。
 
-    鉴权用 ADC 的用户凭据（gcloud auth application-default login 生成的
-    application_default_credentials.json）直接换 access token——不引 google-auth，
-    ADC 的 authorized_user 本来就是一份 refresh_token 授权。
+    鉴权两条路，不引 google-auth：
+    - 开发机：读 ADC 文件（gcloud auth application-default login 生成的 authorized_user），
+      它本来就是一份 refresh_token 授权，直接换 access token；
+    - GCE 实例：ADC 文件不存在时走元数据服务器，用实例服务账号签发的 token，
+      盘上不留任何长期凭据。
     """
 
     def __init__(self, project: str, *, model: str = "gemini-3.5-flash",
@@ -143,17 +147,42 @@ class VertexGeminiClient(GeminiClient):
     def _access_token(self) -> str:
         if self._token and time.time() < self._token_exp - 60:
             return self._token
-        if not _ADC_PATH.exists():
-            raise RuntimeError(
-                f"未找到 ADC（{_ADC_PATH}）；先跑 gcloud auth application-default login")
-        cred = json.loads(_ADC_PATH.read_text())
-        r = httpx.post("https://oauth2.googleapis.com/token", timeout=30.0, data={
-            "client_id": cred["client_id"], "client_secret": cred["client_secret"],
-            "refresh_token": cred["refresh_token"], "grant_type": "refresh_token"})
-        r.raise_for_status()
-        d = r.json()
-        self._token, self._token_exp = d["access_token"], time.time() + d.get("expires_in", 3600)
+        tok, ttl = self._fetch_token()
+        self._token, self._token_exp = tok, time.time() + ttl
         return self._token
+
+    def _fetch_token(self) -> tuple[str, float]:
+        """取 access token：开发机用 ADC 文件，GCE 上用元数据服务器（零凭据落盘）。
+
+        顺序是"文件优先"：开发机上 `gcloud auth application-default login` 生成的
+        authorized_user 文件本身就是明确的选择；服务器上不放这个文件，自动落到元数据
+        服务器——实例服务账号签发的 token，不需要在盘上留任何长期凭据。
+        """
+        if _ADC_PATH.exists():
+            cred = json.loads(_ADC_PATH.read_text())
+            if cred.get("type") != "authorized_user":
+                raise RuntimeError(
+                    f"{_ADC_PATH} 的 type 是 {cred.get('type')!r}，本通道只支持 "
+                    "authorized_user（gcloud auth application-default login 生成的）。"
+                    "服务账号请改用 GCE 元数据服务器：删掉该文件即可自动走那条路。")
+            r = httpx.post("https://oauth2.googleapis.com/token", timeout=30.0, data={
+                "client_id": cred["client_id"], "client_secret": cred["client_secret"],
+                "refresh_token": cred["refresh_token"], "grant_type": "refresh_token"})
+            r.raise_for_status()
+            d = r.json()
+            return d["access_token"], float(d.get("expires_in", 3600))
+
+        try:
+            r = httpx.get(_METADATA_TOKEN_URL, timeout=5.0,
+                          headers={"Metadata-Flavor": "Google"})
+            r.raise_for_status()
+            d = r.json()
+            return d["access_token"], float(d.get("expires_in", 3600))
+        except Exception as e:
+            raise RuntimeError(
+                f"取不到 Google access token。开发机：跑 gcloud auth application-default login "
+                f"生成 {_ADC_PATH}；GCE 实例：给实例绑定服务账号并授予 roles/aiplatform.user、"
+                f"且实例 scope 含 cloud-platform。元数据服务器错误：{e}") from e
 
     def generate_json(self, parts: list[dict], schema: dict) -> dict:
         r = httpx.post(

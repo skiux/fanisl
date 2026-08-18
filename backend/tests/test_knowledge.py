@@ -691,3 +691,64 @@ def test_pending_singletons_ignores_units_already_on_a_node(kstore):
         "kind": "concept", "title": "已挂", "canonical": "已挂认知",
         "tags": ["valuation"], "units": [{"id": uid}]}]})
     assert ns.pending_singletons() == []
+
+
+# --- Vertex 通道的两条鉴权路径（2026-08-19 补：服务器上不该放个人 refresh token）---
+
+def _vertex_client(monkeypatch, tmp_path, adc: dict | None):
+    """构造 VertexGeminiClient，并把 ADC 路径指到临时目录（存在与否由 adc 决定）。"""
+    import json as _json
+
+    import analyzer.knowledge.llm as llmmod
+
+    p = tmp_path / "application_default_credentials.json"
+    if adc is not None:
+        p.write_text(_json.dumps(adc))
+    monkeypatch.setattr(llmmod, "_ADC_PATH", p)
+    return llmmod, llmmod.VertexGeminiClient("proj-x")
+
+
+def test_vertex_token_from_adc_file(monkeypatch, tmp_path):
+    """开发机：有 authorized_user 文件就用它换 token，不碰元数据服务器。"""
+    llmmod, c = _vertex_client(monkeypatch, tmp_path, {
+        "type": "authorized_user", "client_id": "cid",
+        "client_secret": "sec", "refresh_token": "rt"})
+
+    calls = []
+
+    class _R:
+        def raise_for_status(self): pass
+        def json(self): return {"access_token": "tok-file", "expires_in": 3600}
+
+    monkeypatch.setattr(llmmod.httpx, "post", lambda *a, **k: (calls.append(a), _R())[1])
+    monkeypatch.setattr(llmmod.httpx, "get", lambda *a, **k: pytest.fail("不该查元数据服务器"))
+    assert c._access_token() == "tok-file"
+    assert calls, "应当走 oauth2 refresh_token 换取"
+
+
+def test_vertex_token_from_metadata_when_no_adc(monkeypatch, tmp_path):
+    """GCE：没有 ADC 文件就走元数据服务器——服务器上零凭据落盘。"""
+    llmmod, c = _vertex_client(monkeypatch, tmp_path, None)
+
+    seen = {}
+
+    class _R:
+        def raise_for_status(self): pass
+        def json(self): return {"access_token": "tok-metadata", "expires_in": 3600}
+
+    def _get(url, **kw):
+        seen["url"], seen["headers"] = url, kw.get("headers")
+        return _R()
+
+    monkeypatch.setattr(llmmod.httpx, "get", _get)
+    assert c._access_token() == "tok-metadata"
+    assert "metadata.google.internal" in seen["url"]
+    assert seen["headers"] == {"Metadata-Flavor": "Google"}, "元数据服务器要求该请求头"
+
+
+def test_vertex_rejects_service_account_file(monkeypatch, tmp_path):
+    """service_account 文件要给出可操作的报错，而不是 KeyError('refresh_token')。"""
+    llmmod, c = _vertex_client(monkeypatch, tmp_path, {
+        "type": "service_account", "private_key": "x", "client_email": "a@b"})
+    with pytest.raises(RuntimeError, match="authorized_user"):
+        c._access_token()

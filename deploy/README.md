@@ -402,9 +402,57 @@ PG_TRADING_CONNINFO=host=127.0.0.1 dbname=fanisl_trading user=fanisl password=<�
 PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 dbname=fanisl_knowledge user=fanisl password=<强口令>
 ```
 
-**Gemini 在 GCE 上优先走 ADC**：给实例绑一个有 Vertex AI User 角色的服务账号，
-`.env` 里只填 `GCP_PROJECT=<项目号>`、留空 `GEMINI_API_KEY`，就不用在服务器上放任何
-密钥。（这条通道本来就是为了绕开 AI Studio 项目被封生成权限而加的。）
+#### Gemini 走哪条通道
+
+两条二选一，由 `GCP_PROJECT` 是否为空决定（`llm.py` 的 `make_client`）：
+
+- 填了 `GCP_PROJECT` → **Vertex / Agent Platform**，忽略 `GEMINI_API_KEY`；
+- 留空 → AI Studio，读 `GEMINI_API_KEY`。
+
+**`GCP_PROJECT` 填项目 ID**（小写串，如 `murgrottos`），不是显示名称。它直接拼进请求 URL 的
+`projects/{project}/locations/global/...` 路径段；项目编号也能用，但 ID 更好认。
+
+服务器上走 Vertex，**盘上不用放任何长期凭据**——用实例服务账号的元数据服务器签发 token。
+先确认实例绑了服务账号、且 scope 含 cloud-platform：
+
+```bash
+# ── 在【服务器】上跑 ──
+curl -s -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email
+curl -s -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/scopes
+```
+
+该服务账号要有 Vertex AI User（这条在有项目管理员权限的地方跑，本机或 Cloud Shell 都行）：
+
+```bash
+# ── 在【本机】上跑 ──
+gcloud projects add-iam-policy-binding <PROJECT_ID> \
+  --member="serviceAccount:<上面查到的 email>" --role="roles/aiplatform.user"
+```
+
+端到端验证——能选对通道、且拿得到 token：
+
+```bash
+# ── 在【服务器】上跑 ──
+cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c "
+from analyzer.config import get_settings
+from analyzer.knowledge.llm import make_client
+c = make_client(get_settings())
+print(type(c).__name__, 'project=', getattr(c, 'project', None))
+print('token 前 12 位:', c._access_token()[:12], '…')"
+```
+
+打印出 `VertexGeminiClient` 且拿到 token 就通了。
+
+> **scope 是最常见的坑**：实例若用默认 scope 创建，`scopes` 里可能没有
+> `https://www.googleapis.com/auth/cloud-platform`，此时 token 拿得到但调 Vertex 会 403。
+> 改 scope 要先停机：`gcloud compute instances set-service-account <实例> --scopes=cloud-platform`。
+
+> **不要把开发机的 `~/.config/gcloud/application_default_credentials.json` 拷到服务器。**
+> 那是你个人账号的长期 refresh token，等同凭据；元数据服务器这条路本来就不需要它。
+> 代码取 token 的顺序是"ADC 文件优先，没有才走元数据服务器"（`llm.py` 的 `_fetch_token`），
+> 所以服务器上只要**不放**这个文件就会自动走对。
 
 ### 3.3 冒烟自检
 
