@@ -1,0 +1,248 @@
+{
+  "content_id": 62,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "我认为下一个目标位啊，你看这个又说目标位了，我们应该说下一个台阶，这个台阶呢，我倾向于认为是在512到526之间。",
+      "locator": "07:17",
+      "ref_price": 506.87,
+      "tags": ["soxx", "semiconductor-cycle", "fibonacci"],
+      "payload": {
+        "asset_text": "半导体指数 SOXX（8 日 K 上 512 为 2 分位、526 为 A-B-C 浪 1 分位扩展）",
+        "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 512, "low": 512, "high": 526},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch", "benchmark": null,
+          "eval_ladder": ["2026-05-14", "2026-06-06", "2026-08-05"],
+          "success_def": "阶梯期内任一日最高价触及 512 或更高 = hit，未触及 = miss。取区间下沿 512 作门槛；他明说按惯性到 512 可能不够、会继续找 526。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后还有整个66左右这个A浪、然后B浪、C浪对吧？然后在这停留了至少三四天在66的支撑位之上，所以这波的话，空间向上再打开，是给了一些加仓的机会。",
+      "locator": "01:00",
+      "ref_price": 68.46,
+      "tags": ["mags", "mag7", "fibonacci"],
+      "payload": {
+        "asset_text": "大科技（MAGS ETF，66 为 0.382 回踩位）", "asset_symbol": "MAGS",
+        "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 66},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold", "benchmark": null,
+          "eval_ladder": ["2026-05-14", "2026-06-06", "2026-08-05"],
+          "success_def": "阶梯各时点收盘 ≥ 66 = hit；盘中跌破但该时点收盘收回 = partial；收盘跌破 66 = miss。作者据『在 66 支撑之上停留三四天 + 动力指标多头 + 财报下影线验证』判断向上空间再打开、给了加仓机会。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这一波加呢，我们觉得它的高点可能要高过之前的高位。但是呢，我们并不想特别的去看短期怎么走。因为它的成长空间是很好的，什么时候好呢？你等加密的整个情绪都回来了，才会好。",
+      "locator": "04:40",
+      "ref_price": 121.8,
+      "tags": ["crcl", "stablecoin", "price-action"],
+      "payload": {
+        "asset_text": "Circle（CRCL）", "asset_symbol": "CRCL", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign", "benchmark": null,
+          "eval_ladder": ["2026-05-14", "2026-06-06", "2026-08-05"],
+          "success_def": "阶梯各时点收盘 ≥ 121.80（发布前最近收盘 05-06）= hit。作者称这一波加仓后高点可能高过之前的高位，但明说不看短期，故只判方向不设目标价。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果能够守住这个6万6，把这个在半月线左右这种级别能够守住隧道，也就是把25年4月份（或视频口误）的那个小熊市的低点给守住。那后面的走势，其实就还可以再看多。",
+      "locator": "05:42",
+      "ref_price": 81427.53,
+      "tags": ["btcusdt", "stablecoin", "ema-tunnel"],
+      "payload": {
+        "asset_text": "比特币（6 万 6 = 66000，即 2025 年 4 月小熊市低点一带）",
+        "asset_symbol": "BTCUSDT", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 66000, "high": 80000},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold", "benchmark": null,
+          "eval_ladder": ["2026-05-14", "2026-06-06", "2026-08-05"],
+          "success_def": "下沿判据：阶梯各时点收盘 ≥ 66000 = hit；盘中跌破但收盘收回 = partial；收盘跌破 66000 = miss。口播『6万6』按 §0.6 补全为 66000（发布时 BTC 报 81427，6.6 万量级自洽；视觉笔记的 62284 与该日实际价不符，不采信）。8 万是他说的上方压力，非本条判据。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "首先这个15200（视频口误2万5），它已经涨破了，这个位置呢，是2009年以来的大结构的，一个一个非常重要的台阶。",
+      "locator": "13:01",
+      "tags": ["market-structure", "price-action"],
+      "payload": {
+        "asset_text": "纳斯达克综合指数 IXIC（口播 15200/16300 按 §0.6 补全为 25200/26300；我方行情库无该指数）",
+        "asset_symbol": null, "priceable": false,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"low": 25200, "high": 26300},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "但在没有这些之前的话，其实恒科的4830到4940还是可以关注的。我们对恒科一般看的就是两个台阶，一个是在5500左右这里失守就是转熊，转熊现在在低位有头肩之后，我们接下来的反弹目标在地缘没有大幅转换的情况下可以看到5600左右。",
+      "locator": "01:52",
+      "tags": ["hstech", "market-structure"],
+      "payload": {
+        "asset_text": "恒生科技指数（我方行情库无该指数，无合理代理）",
+        "asset_symbol": "HSTECH", "priceable": false,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 5600, "low": 4830, "high": 4940},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": "地缘没有大幅转换",
+        "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "38900、39000左右撑住，它的这个空间呢就又打开了。至于上方能不能到4万点的话，我们不知道啊，不知道。",
+      "locator": "11:57",
+      "tags": ["market-structure", "price-action"],
+      "payload": {
+        "asset_text": "日经 225（我方行情库无该指数；同段口播的『5万9』与 38900/39000 矛盾，按 §0.6 取自洽的后者）",
+        "asset_symbol": null, "priceable": false,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"low": 38900, "high": 40000},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就是我发现交易这个事就是当你把自己的思想包袱卸下来的时候，就是你不再去特别纠结你的对错问题，而是能实事求是地看市场。然后你会发现其实其实所谓的打脸只不过是给你一次接下来纠正并且再赚钱的机会。",
+      "locator": "07:17",
+      "tags": ["psychology", "execution", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "卸下对错的思想包袱、实事求是地看市场，判断被打脸只是一次纠正并重新赚钱的机会——越早认错，后面能拿到的越多。",
+        "category": "psychology"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "其实我们在解盘的时候呢，有一个措辞上的问题：就是什么，我们把这个结构位扩展出来的这个支撑压力啊，我们说成是目标位，或者是说成阻力位，对，它没到的时候。对吧？那这个说法呢，其实在没到之前说起来会比较形象，但是这个措辞又一定程度上呢，好像又预设了观点和目标。",
+      "locator": "07:17",
+      "tags": ["psychology", "execution", "price-action"],
+      "payload": {
+        "canonical_statement": "把结构位说成『目标位』或『阻力位』会在到达之前就预设观点与终点，导致人拿不住行情；应改称『台阶』——只是价格推进过程中的一级，到了之后仍要按验证规则判断是继续还是反转。",
+        "category": "execution"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是我们其实在做这个系统过程当中呢，我们一直强调两个原则：就是说所有的结构位都是应该有动力去验证的，也就是它的趋势线必须被跌破。",
+      "locator": "07:17",
+      "tags": ["price-action", "execution", "market-structure"],
+      "payload": {
+        "canonical_statement": "所有结构位都要由动力去验证，趋势线必须被跌破才算反转成立；否则价格到达结构位只是形成波动，随后仍可倒车接人再往上走。",
+        "category": "execution"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因此我个人目前倾向于的这个结论呢，就是其实框架是没有问题的，只是你处理这个框架的方式偏保守了",
+      "locator": "07:17",
+      "tags": ["soxx", "psychology", "execution"],
+      "payload": {
+        "canonical_statement": "框架给出的结构位（半导体 444、463）都成立并被验证过，判断失误出在处理方式偏保守——把它们当成反转位而不是台阶。结论是框架无需推翻，需要调整的是对框架的处理方式。",
+        "category": "execution"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "咱们前面聊恒科相对在弱势的时候，咱们分享过一个模型，就说这个恒科的走势，几乎一半以上的决定性权重都是中美关系。那中美关系要是有改善的预期，那么它就会涨。",
+      "locator": "01:52",
+      "tags": ["hstech", "macro-data", "market-structure"],
+      "payload": {
+        "canonical_statement": "恒生科技走势的决定性权重有一半以上来自中美关系：只要改善预期出现它就会涨。在谈判结果接近出现之前，媒体口径通常偏乐观或互相给面子，除非出现极端的地缘反转。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我认为黄金你评估它接下来是不是走独立行情的标准，不是说它涨多少，因为它肯定涨不过股市。它一定跌的时候抗跌，比如说图中这种收敛三角之前的低点，它每次再往下探的时候低点都不再降低了，这个才是真正的真正的好兆头。",
+      "locator": "03:28",
+      "tags": ["xauusd", "market-structure", "price-action"],
+      "payload": {
+        "canonical_statement": "评估黄金是否走独立行情的标准不是涨幅——风险偏好转暖时它涨不过股市；而是跌时抗跌：收敛三角内每次向下试探时低点不再降低，才是真正的好兆头。这一轮反弹不够强的判据是它没有借势收回 4800。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就是前高很多时候不重要。就是你不要看这个媒体总报道说破新高了什么的。其实价格在前高附近的盘整非常重要。",
+      "locator": "11:57",
+      "tags": ["price-action", "market-structure"],
+      "payload": {
+        "canonical_statement": "前高本身往往不重要，媒体报道的『破新高』也不重要；重要的是价格在前高附近的盘整——过新高那一下常不是真突破，回来之后在该区域震荡整理的过程才定性质。因此该盯的是由结构扩展出来的关键分水岭，而不是前高数字本身。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那么对于像比它走得还强的、在增强的个股方面，我们还是去做指数增强了，对不对？就是只要目前的两小时啊，一小时级别的上升的速度，均线没有被跌破，我们就可以继续持有。",
+      "locator": "10:30",
+      "tags": ["soxx", "execution", "position-sizing"],
+      "payload": {
+        "name": "用强于指数的个股做指数增强",
+        "summary": "个股按指数的结构位判断，持有条件是小级别均线未破",
+        "family": "trend",
+        "rules": [
+          "把走势强于板块指数的个股（英特尔、AMD 一类动量股）当作该指数的增强来处理",
+          "判断依据沿用指数的结构位与节奏（如看 462/463 的突破情况），不单独另立分析",
+          "持有条件是一小时、两小时级别上升速度的均线未被跌破",
+          "均线跌破即认为动量结束，高位该走就走"
+        ],
+        "data_requirements": ["一/两小时 K 与均线", "板块指数结构位"],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "所以就是一旦出现意料之外的一些变动的时候，能够通过期权和期货的形式，在非开盘时间能够形成对冲。这个很重要，好吧？否则的话呢，就应该是有逐步的，我认为就应该逐步的，在我们在接下来看到的这个空间里边去作分批次的利润了解了",
+      "locator": "14:30",
+      "tags": ["risk-mgmt", "position-sizing", "execution"],
+      "payload": {
+        "name": "非开盘时段对冲，否则分批了结",
+        "summary": "要么备好非开盘时段可用的对冲，要么在上方空间里分批止盈",
+        "family": "positioning",
+        "rules": [
+          "任何盈利都基于风险，狂欢阶段更要预先安排风险处置",
+          "首选：用期权与期货在非开盘时间形成对冲，以应对意料之外的变动",
+          "若不具备该对冲能力，则应在接下来看到的上方空间里逐步、分批次了结利润",
+          "两者取其一，不允许既无对冲也不减仓地满仓持有"
+        ],
+        "data_requirements": ["期权/期货可交易时段", "上方结构位"],
+        "overlap_with_killed": [],
+        "testability": "C",
+        "claimed_performance": null
+      }
+    }
+  ]
+}
