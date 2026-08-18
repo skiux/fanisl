@@ -1,0 +1,346 @@
+{
+  "content_id": 55,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "第一个黄金，当它到了四千四百点左右这个位置呢，就计价了今年完全不降息，甚至是小幅加息的利率路径。这个是很多的投行和机构用到的黑箱的定价模型。这个定价模型里面清楚的告诉我们，黄金的四千四百点是当前利率路径下的一个中轴价格，它已经做了充分的计价了。所以价格在这个位置上呢，它就不太轻易的会跌下去。",
+      "locator": "16:25",
+      "ref_price": 4492.0,
+      "tags": [
+        "xauusd",
+        "fed-policy",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "黄金",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {
+          "low": 4400
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-04-04",
+            "2026-04-27",
+            "2026-06-26"
+          ],
+          "success_def": "阶梯各时点收盘 ≥ 4400 = hit；期间盘中跌破 4400 但该时点收盘收回 = partial；收盘跌破 = miss。作者说的是'不太轻易跌下去'即维持不破，故用 range_hold 下沿而非 sign。4400 是他给的定价模型中轴，非目标价。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "比如说黄金未来的话呢，还是ok的，实物资产也是ok的，很多地缘和国家安全方面的，国防方面的，战争方面的，然后以及很多资源型的也一定会是一个长周期的个牛市。",
+      "locator": "19:30",
+      "ref_price": 4492.0,
+      "tags": [
+        "xauusd",
+        "macro-data",
+        "inflation"
+      ],
+      "payload": {
+        "asset_text": "黄金（同句还含实物资产、国防、资源型，均不单独定价）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {
+          "type": "within_duration",
+          "duration_days": 365,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "benchmark": null,
+          "eval_ladder": [
+            "2027-03-28"
+          ],
+          "success_def": "2027-03-28 当日或此前最近交易日收盘 ≥ 4492.0（发布前最近收盘）= hit。原文'长周期'按 §3 映射表取 365 天。同句提到的实物资产/国防/资源型无单一可定价代理，只对黄金评分。作者随后说择时择价困难，那是对操作难度的说明，不改变方向表态。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "股市不急于去抄这个底部啊。不论是技术面还是债市的结构性的风险，以及现在战争的这个演进的方向，都不能够支持我们现在就动手。",
+      "locator": "00:05",
+      "ref_price": 6368.85,
+      "tags": [
+        "spx",
+        "risk-mgmt",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "美股大盘",
+        "asset_symbol": "SPX",
+        "priceable": true,
+        "claim_class": "risk_warning",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "甚至啊，最极端的情况到六千点左右，我们都需要再去看一看，等一等。",
+      "locator": "11:20",
+      "ref_price": 6368.85,
+      "tags": [
+        "spx",
+        "risk-mgmt"
+      ],
+      "payload": {
+        "asset_text": "标普 500",
+        "asset_symbol": "SPX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "down",
+        "magnitude": {
+          "target": 6000
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那如果回顾自1970年以来的美国经济史，十年期、两年期国债收益率倒挂，准确地预测了过去八次衰退当中的七次，并且呢在曲线结束倒挂重新陡峭化之后的六到十二个月之内，那美股呢出现超过20%的这种技术性熊市的概率呢，约为75%到80%。",
+      "locator": "04:16",
+      "tags": [
+        "bond-yields",
+        "macro-data",
+        "spx"
+      ],
+      "payload": {
+        "canonical_statement": "自 1970 年以来，美债 10 年期减 2 年期收益率倒挂准确预测了过去八次衰退中的七次；曲线结束倒挂、重新陡峭化之后的 6-12 个月内，美股出现超过 20% 技术性熊市的概率约 75%-80%；衰退本身一般在倒挂后 6-24 个月出现。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那么倒挂发生呢，尤其是这种深度倒挂，它出现负值了，它的本质呢是时间的定价系统的崩溃。也就是现在的钱比未来的钱要贵。这就意味着市场所有的资金都认为维持当下的生存成本，远远超过了对未来发展的预期回报。说白了就是大资本对未来的发展没有信心。",
+      "locator": "05:40",
+      "tags": [
+        "bond-yields",
+        "macro-data",
+        "psychology"
+      ],
+      "payload": {
+        "canonical_statement": "收益率曲线倒挂的本质是时间定价系统崩溃：现在的钱比未来的钱贵，意味着全市场资金都认为维持当下生存的成本远超对未来发展的预期回报，即大资本对未来没有信心。正常状态下长端收益率更高，是对承担更长时间风险的补偿。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这一波牛市有几个驱动因素。那第一个呢是财政主导的这个政策绕过了银行去进行注水，它做了一个政策的一个掩护。第二个呢就是美股的这个科技巨头啊，本身它有一定的免疫的这种体质，它是一种结构性的掩饰，对不对？本身它有巨大的这种现金流，还可以不断的去回购。科技巨头的这个巨大的这个免疫体质也支撑了这一波牛市的上涨。第三呢就是对软着陆的一个预期管理。",
+      "locator": "07:10",
+      "tags": [
+        "spx",
+        "mag7",
+        "fiscal-policy",
+        "macro-data"
+      ],
+      "payload": {
+        "canonical_statement": "2024 年倒挂结束后这一波牛市由三个因素支撑：①财政主导、绕过银行的注水，充当政策掩护；②科技巨头的免疫体质——巨大现金流与持续回购构成结构性掩饰；③对软着陆的预期管理，市场情绪上自我催眠总会有好事发生。作者判断这三条当下都已显得脆弱。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "倒挂本身呢就是我们在透支未来，而倒挂结束呢，就是我们开始透支现在了。就是为啥呢？因为短端的收益率呢，也没有办法再去透支了。因此短端回归之后，就是你前面透支了十年期的，然后现在呢，你又透支了两年期的。",
+      "locator": "07:50",
+      "tags": [
+        "bond-yields",
+        "macro-data"
+      ],
+      "payload": {
+        "canonical_statement": "倒挂期是在透支未来（长端），倒挂结束是开始透支现在（短端）；两端都透支完之后只能靠外部方式续命，一旦续命方式结束，市场就会出现叙事与周期的转换。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "标普500指数（SPX）月线图。通过测量工具标注了历史倒挂结束后标普500的回调幅度：2001年倒挂结束后回调约37.95%；2007年倒挂结束后回调约50.12%；2020年回调约33.91%；2022年回调约27.53%。",
+      "locator": "09:25",
+      "tags": [
+        "spx",
+        "bond-yields",
+        "market-structure"
+      ],
+      "payload": {
+        "canonical_statement": "倒挂结束后标普 500 的历史回调幅度：2001 年约 −37.95%、2007 年约 −50.12%、2020 年约 −33.91%、2022 年约 −27.53%。作者提示 2020 年那次与疫情相关，可视为把 2022 年的下跌提前了一部分。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那美联储呢，每一次大幅的降息扩表，都是在危机和泡沫被触发之后才可能出现这种政策的大幅的这种转变的。",
+      "locator": "02:30",
+      "tags": [
+        "fed-policy",
+        "macro-data"
+      ],
+      "payload": {
+        "canonical_statement": "美联储每一次大幅降息与扩表，都出现在危机和泡沫被触发之后，而不是之前。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "AI的话呢，你也不能指望它短期的话就会良性的改善生产关系。它呢可能是一种破坏性的冲击在先对不对？然后才可能去重新让人类的文明再上一个台阶。这个过程的话必然是伴随着动荡的。",
+      "locator": "01:55",
+      "tags": [
+        "ai-capex",
+        "software",
+        "macro-data"
+      ],
+      "payload": {
+        "canonical_statement": "不能指望 AI 短期内良性改善生产关系；它可能先是破坏性冲击，之后才让文明再上一个台阶，这个过程必然伴随动荡。作者以去年软件杀估值到科技巨头疲弱为例，说明这场革命的破坏性已经显现。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "其实说白了，就是你只要有胆子，有子弹，大概呢你都可以去在这个市场当中拿到结果。大家的赚钱太容易了。这种市场的话呢，它就不可能长久，这是我们人类的社会学所决定的。当赚钱的门槛太低的时候呢，它就会大幅的抬升，甚至呢会完成收割。",
+      "locator": "20:10",
+      "tags": [
+        "psychology",
+        "market-structure",
+        "risk-mgmt"
+      ],
+      "payload": {
+        "canonical_statement": "过去两年黄金、白银、美股与新兴市场股市全面上涨，只要有胆量和资金基本都能拿到结果——赚钱门槛过低的市场不可能长久，门槛终将大幅抬升甚至完成收割，其后市场会持续动荡。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这个XLU作为公共事业呢，本身它就是一个防守型的板块。在当前的这个AI基建，然后制造业回归，还有呢就是当前那个滞胀或者是准滞胀的这个周期里啊，它呢也是有一定的防御性。不过呢，当前市场是泥沙俱下的，所以这种参与呢，你可参与，也可以不参与。",
+      "locator": "15:47",
+      "tags": [
+        "xlu",
+        "defensive-sector",
+        "macro-data"
+      ],
+      "payload": {
+        "canonical_statement": "公用事业（XLU）本身是防守型板块，且在 AI 基建、制造业回归、准滞胀这三重环境下另有防御性；但市场泥沙俱下时防守板块同样会跌，因此这种参与是可选项而非必需。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "我们其实有去自己做了一个指标，这个指标的话呢，就是把K线按照当前的强趋势，强多头或者是强空头做颜色的改变。比如我们在这个TradingView上把标普的这个上涨和下跌，我们看到绿色的K线，就代表市场处在一个双CCI。也就是短周期的顺势指标CCI和长周期的顺势指标CCI同时处在强区间，那么K线图就染成绿色，代表市场处在一个强周期的上涨里边。",
+      "locator": "12:47",
+      "tags": [
+        "spx",
+        "price-action",
+        "execution"
+      ],
+      "payload": {
+        "summary": "双 CCI 同向染色，识别强趋势周期",
+        "rules": [
+          "短周期 CCI 与长周期 CCI 同时处在强多头区间 → K 线染绿，判为强周期上涨",
+          "短周期与长周期 CCI 同时为空头 → K 线染红，判为强周期下跌",
+          "在三日级别上观察；作者以标普连续三根红色三日 K 判定三日级别强空头已成立"
+        ],
+        "testability": "A",
+        "claimed_performance": null,
+        "overlap_with_killed": [],
+        "name": "双 CCI 同向染色识别强趋势",
+        "family": "trend",
+        "data_requirements": [
+          "标普日线/三日 K",
+          "短周期与长周期 CCI"
+        ]
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那这种下降的强动力空头一旦形成，我们要在当前的周期上去复盘整个历史，你看一看它需要多长的时间来消化。",
+      "locator": "13:30",
+      "tags": [
+        "spx",
+        "price-action",
+        "risk-mgmt"
+      ],
+      "payload": {
+        "summary": "强空头成立后，用同级别历史复盘估算消化所需时间",
+        "rules": [
+          "某级别上强空头动能成立后，在同一级别复盘历史同类形态，统计其消化所需时长",
+          "消化有两条路径：跌得更深后快速反弹；或不再深跌但原地震荡、时间换空间",
+          "参照 2015 年那次较克制的下跌：从触底到真正拉涨之前反复洗盘 40 多天"
+        ],
+        "testability": "A",
+        "claimed_performance": null,
+        "overlap_with_killed": [],
+        "name": "强空头的历史消化时长复盘",
+        "family": "trend",
+        "data_requirements": [
+          "同级别历史 K 线",
+          "强空头形态标注"
+        ]
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那你看这个时候什么支撑位都不能够在没有验证之前直接动手，反倒是过去这两周的时间里边，市场不断的折返，给我们去出逃、减仓的机会。",
+      "locator": "00:40",
+      "tags": [
+        "price-action",
+        "risk-mgmt",
+        "execution"
+      ],
+      "payload": {
+        "summary": "下跌趋势中支撑位未经验证不进场，折返视为减仓窗口",
+        "rules": [
+          "下跌趋势里任何支撑位在未被验证之前都不作为进场依据",
+          "趋势下行期的反复折返当作出逃与减仓的机会，而不是抄底机会",
+          "持仓成本偏高时也不急于摊低成本、把剩余资金打出去"
+        ],
+        "testability": "C",
+        "claimed_performance": null,
+        "overlap_with_killed": [],
+        "name": "支撑位未验证不进场",
+        "family": "positioning",
+        "data_requirements": [
+          "日线支撑位",
+          "趋势方向"
+        ]
+      }
+    }
+  ]
+}

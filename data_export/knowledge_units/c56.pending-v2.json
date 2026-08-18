@@ -1,0 +1,266 @@
+{
+  "content_id": 56,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "昨天我们在盘中预判的这个反弹呢就应该是6500点左右，那实际可能呢价格还会比这再高一点，因为它可能会找到这个6600点左右，大概呢能接近于两日级别的隧道，小隧道的上轨位置附近。这里呢会获得一个压制，然后多空协商呢可能还会继续。",
+      "locator": "01:44",
+      "ref_price": 6528.52,
+      "tags": ["spx", "price-action", "ema-tunnel"],
+      "payload": {
+        "asset_text": "标普 500", "asset_symbol": "SPX", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 6600},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch", "benchmark": null,
+          "eval_ladder": ["2026-04-08", "2026-05-01", "2026-06-30"],
+          "success_def": "阶梯期内任一日最高价触及 6600 = hit，未触及 = miss。6500 那一档在发布前已由 03-31 收盘 6528.52 达成，故只以 6600 为门槛。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "但是从现在的走势上来看呢，我还是更多的愿意把它当做是一个下跌过渡之后的一个技术性的修复，一个修正。",
+      "locator": "03:05",
+      "ref_price": 6528.52,
+      "tags": ["spx", "price-action", "risk-mgmt"],
+      "payload": {
+        "asset_text": "美股大盘（三大指数）", "asset_symbol": "SPX", "priceable": true,
+        "claim_class": "directional", "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果说在后面市场呢没有那么悲观的情况之下，就是其他的指数可能没有新高的情况之下，如果半导体指数能够拉新高去380往上，我觉得也不是一个特别意外的事情啊。",
+      "locator": "13:37",
+      "ref_price": 328.66,
+      "tags": ["soxx", "semiconductor-cycle", "price-action"],
+      "payload": {
+        "asset_text": "半导体指数 SOXX", "asset_symbol": "SOXX", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 380},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": "市场没有那么悲观、其他指数没有新高",
+        "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "现在呢想要去往上突破。到底是不是已经突破成功了？我觉得现在为时尚早。短线上的话呢不排除未来几天呢再有反复。注意啊不排除未来几天再有反复。",
+      "locator": "15:37",
+      "ref_price": 4647.6,
+      "tags": ["xauusd", "price-action"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "directional", "direction": "range",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 7, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那我认为呢，在4730点这个位置还是非常重要的一个分水岭。如果上不去的话呢，在短线一些反复也是有可能的。",
+      "locator": "16:40",
+      "ref_price": 4647.6,
+      "tags": ["xauusd", "fibonacci", "price-action"],
+      "payload": {
+        "asset_text": "黄金（0.618 扩展位 4680-4730）", "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"target": 4730},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "价格如果再下来，再下来，反倒我可能会比较关注4550点左右这个位置。这个位置呢是市场再去转市的一个结构性的修正。前面的话是协商，协商完之后，突破然后一阻，在这里面再回来，加个油，我觉得4500点左右是比较好的位置。",
+      "locator": "17:10",
+      "ref_price": 4647.6,
+      "tags": ["xauusd", "price-action", "position-sizing"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 4500, "high": 4550},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": "价格再回落到 4550/4500 一带",
+        "condition_observable": true,
+        "stance_strength": "explicit", "verifiability": "C",
+        "scoring_spec": {
+          "method": "range_hold", "benchmark": null,
+          "eval_ladder": ["2026-04-08", "2026-05-01", "2026-06-30"],
+          "success_def": "条件：阶梯期内出现日收盘 ≤ 4550 视为回落到位。条件成立后以 4500 为下沿，其后各阶梯时点收盘 ≥ 4500 = hit，收盘跌破 4500 = miss；期内始终未回落到 4550 = condition_not_met。作者把立场与价位挂钩（回落到该区域他会关注、认为是较好位置），故按支撑成立与否判。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "你看原油其实现在走的是一个，一个比较明确的顺势多头突破的信号。",
+      "locator": "18:20",
+      "ref_price": 101.38,
+      "tags": ["wti", "oil-supply", "price-action"],
+      "payload": {
+        "asset_text": "原油（美油 WTI）", "asset_symbol": "WTI", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign", "benchmark": null,
+          "eval_ladder": ["2026-04-08", "2026-05-01", "2026-06-30"],
+          "success_def": "阶梯各时点收盘 ≥ 101.38（发布前最近收盘）= hit。作者称原油已走出明确的顺势多头突破信号，按突破后延续判方向。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那如果倒挂最后又有衰退交易这件事情在这一次也被验证，那么交易衰退从市场现在交易通胀到交易增长困难，再到交易衰退，它也必然有一个过程。这个过程里边的话呢，可能市场它不是一个急跌的走势，因为急跌往往是一些灾难性和突发性的事件。或者说出现一些债市的危机。只有危机出现它才可能暴跌，否则的话衰退它肯定又是一个又粘又滞",
+      "locator": "14:05",
+      "tags": ["macro-data", "bond-yields", "market-structure"],
+      "payload": {
+        "canonical_statement": "衰退不是一步到位的交易，而要经过「交易通胀 → 交易增长困难 → 交易衰退」的过程；这个过程又粘又滞、慢且波动，回头看才认得出来。急跌只出现在灾难性突发事件或债市危机时，不是衰退交易的常态形态。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以大家不要觉得我们上一个视频聊到了市场长短债倒挂之后出现熊市的概率比较高，就认为市场就一定没有任何的这种机会了。我觉得反倒是现在的这个市场呢，你其实多头和空头其实都可以啊做一定的考量",
+      "locator": "14:50",
+      "tags": ["risk-mgmt", "psychology", "market-structure"],
+      "payload": {
+        "canonical_statement": "倒挂之后熊市概率高，不等于市场没有机会：这种环境里多头与空头都可考量——多头挑自己熟悉的标的做小波段，空头当作对冲工具或短线套利，而不是据此清仓离场。",
+        "category": "risk_mgmt"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就是黄金的真正的偏强的走势，应该是市场出现明显的这个趋势的改变了。就是它是不是和股市完全的同涨同跌了。现在呢有一些交叉的迹象。",
+      "locator": "16:00",
+      "tags": ["xauusd", "macro-data", "market-structure"],
+      "payload": {
+        "canonical_statement": "黄金真正的偏强走势要等它与股市脱钩：上涨有两条来源——宽松预期拉满（此时仍与股市同涨），或市场开始交易衰退/温和滞胀的中后期（此时黄金走独立行情）。判据是观察金股是否还完全同涨同跌；仅凭两个交易日的交叉迹象不足以判定趋势已改变。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这个结构呢还是把我们刚刚做到这两个尺所合并出来的一些关键位置啊，全部给展现出来了。第一个呢是236到254这个区域，那价格呢在这个区域里边做盘整",
+      "locator": "10:06",
+      "tags": ["soxx", "semiconductor-cycle", "fibonacci"],
+      "payload": {
+        "canonical_statement": "半导体指数（SOXX）在 8 日级别上由两套波浪尺合并出的关键价位依次是：236-254 盘整区、290、320、380-390。作者据此判断结构未破位——320 在 3 月初与本轮下跌中已两次验证并拉回，趋势与每一级结构台阶都仍有效。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是市场走成现在这种一步一回头的走势呢，其实对于我们交易者来说还是偏友好的。因为你多头和空头不论对和错，应该都不会有太大的损失。",
+      "locator": "12:30",
+      "tags": ["price-action", "risk-mgmt", "execution"],
+      "payload": {
+        "canonical_statement": "一步一回头的震荡走势对交易者反而友好：多空双方判断即使做错，损失都不会太大，且给了持仓成本偏高的人用对冲、做 T 减仓或长短策略混合把成本与敞口逐步下调的窗口。",
+        "category": "execution"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "在标准普尔五百指数的日线级别先观察，观察这个长周期的144, 169和短周期的8和13 EMA两个隧道，一个大一个小。在市场出现下跌过程当中呢，往往会出现类似的这种多空协商的走势。",
+      "locator": "00:35",
+      "tags": ["spx", "ema-tunnel", "price-action"],
+      "payload": {
+        "name": "Vegas 双隧道的多空协商结构",
+        "summary": "大隧道托、小隧道压，震荡协商后选方向",
+        "family": "trend",
+        "rules": [
+          "同级别上同时画两条隧道：长周期 144/169 EMA（大）与短周期 8/13 EMA（小）",
+          "下跌中价格先跌到大隧道下轨（169）获得支撑并反弹",
+          "反弹被小隧道（8/13 EMA）压住后再度回落，即典型的多空协商",
+          "小隧道压着、大隧道拖着，震荡整理后才选择方向；协商结果决定下一段趋势",
+          "级别可上移：日线协商走完后，看两日级别的 144/169 与 8/13 重复同一读法"
+        ],
+        "data_requirements": ["日线/两日 K", "8/13/144/169 EMA"],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "所以在现在的美元和原油的这个趋势还没有得到反转确认的情况之下呢，目前的这个大幅的一个反抽呢我们只能把它视为一个反弹。",
+      "locator": "09:40",
+      "tags": ["dxy", "wti", "spx", "price-action"],
+      "payload": {
+        "name": "用美元与原油的趋势状态判股市反抽性质",
+        "summary": "美元、原油未反转确认前，股市大幅反抽只算反弹",
+        "family": "trend",
+        "rules": [
+          "股市大幅反抽时，先看美元指数与原油的趋势是否已反转确认",
+          "美元指数在 100 附近受阻但未有效跌破，视为趋势内歇脚而非走空",
+          "原油对 100-101 区域连续三次测试仍站稳，视为比美元更强",
+          "两者都未反转确认时，股市的反抽只按反弹处理，不作结构性多头对待",
+          "若见到原油出现明显头部形态、或海峡开放等配合，才在反弹后的回调低位布局多头筹码"
+        ],
+        "data_requirements": ["DXY 日线", "WTI 日线/2 小时", "美股指数日线"],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "在这两个不同落点的波浪尺所排布出来的关键价格位啊，我们把它都做出来，基本呢也能够看到在最近的这个半导体从25年的应该算是8月份吧，25年的7月初，深V完成之后，市场开始走一些结构。",
+      "locator": "11:50",
+      "tags": ["fibonacci", "soxx", "price-action"],
+      "payload": {
+        "name": "多落点波浪尺重合定关键位（含降噪）",
+        "summary": "同一标的用不同起止点各落一套扩展尺，重叠处作关键位",
+        "family": "other",
+        "rules": [
+          "对同一标的选取不同的浪段落点，各画一套波浪扩展尺",
+          "把两套尺排布出的关键价格位合并，重叠处即中长期支撑/压力区域",
+          "对落点做降噪处理，允许一定误差，不追求精确到点",
+          "对熊市低点与牛市起涨点另做多节点处理，得到中长期关键价格"
+        ],
+        "data_requirements": ["周线/8 日级别 K 线", "波浪起止点标注"],
+        "overlap_with_killed": [],
+        "testability": "B",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那这个要取决于接下来两个交易日市场的话呢是偏强区间，就是往上去直接去测试23800, 23900的这个压力位，还是说呢可能今天在开盘的时候偏弱一点，然后呢等着两个隧道的这个8和13 EMA隧道下来，两个均线下来下来去再做一个压制。这个是有本质的区别的。",
+      "locator": "07:30",
+      "tags": ["ndx", "ema-tunnel", "execution"],
+      "payload": {
+        "name": "用关键位与小隧道的先后关系判反转还是修正",
+        "summary": "价格先测压力位，还是等隧道下压，两者性质不同",
+        "family": "trend",
+        "rules": [
+          "反弹未收复关键位（纳指 23800）之前，不判定是反转还是修正",
+          "偏强情形：接下来两个交易日直接上攻测试 23800-23900 压力位",
+          "偏弱情形：开盘走弱，等 8/13 EMA 隧道下移后由均线形成压制",
+          "两种路径性质不同，须先分清再决定是否做中长期仓位的全面进攻"
+        ],
+        "data_requirements": ["两日级别 K 线", "8/13 EMA", "关键位标注"],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    }
+  ]
+}
