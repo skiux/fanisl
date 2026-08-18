@@ -1,0 +1,467 @@
+{
+  "content_id": 57,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "美伊周末的谈判是很可能谈不成的，或者说呢，谈得不好，然后再继续去拖延，搁置分歧，这个概率呢是偏高的。而皆大欢喜，然后风险资产全面的继续回升，或者再出现类似于上周的逼空走势，我认为这种概率呢是非常低的。",
+      "locator": "00:00",
+      "tags": [
+        "macro-data",
+        "risk-mgmt"
+      ],
+      "payload": {
+        "asset_text": "美伊谈判结果（事件本身，无可定价标的）",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {
+          "type": "by_date",
+          "deadline": "2026-04-13",
+          "duration_days": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那所以我还是认为呢，在当前位置、当前时机下，去新开仓做多美股的性价比是比较低的。",
+      "locator": "00:30",
+      "ref_price": 6816.89,
+      "tags": [
+        "spx",
+        "risk-mgmt",
+        "position-sizing"
+      ],
+      "payload": {
+        "asset_text": "美股大盘",
+        "asset_symbol": "SPX",
+        "priceable": true,
+        "claim_class": "risk_warning",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么后面呢，我们倾向于认为啊市场的这一波 1 2 3 4 5 浪的加速上涨，是很有可能在下周出现变盘和震荡的。",
+      "locator": "03:15",
+      "ref_price": 386.6,
+      "tags": [
+        "soxx",
+        "semiconductor-cycle",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "半导体指数 SOXX",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {
+          "type": "within_duration",
+          "duration_days": 7,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-04-19"
+          ],
+          "success_def": "2026-04-19 当日或此前最近交易日收盘 < 386.60（发布前最近收盘 04-10）= hit。作者说加速上涨很可能在下周变盘震荡、且另处明说'回踩的概率呢是相对比较高的'，方向取向下。原文期限词'下周'按 §3 映射为 7 天。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们看到了半导体指数的过快的上涨，以及现在在 380 左右有一个非常重要的分歧区域，这个位置很有可能会在月线级别进行一个确认，那么回踩的概率呢是相对比较高的",
+      "locator": "11:18",
+      "ref_price": 386.6,
+      "tags": [
+        "soxx",
+        "semiconductor-cycle",
+        "fibonacci"
+      ],
+      "payload": {
+        "asset_text": "半导体指数 SOXX（373-380 为 1.414/1.618 扩展位重合的分歧区）",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "down",
+        "magnitude": {
+          "target": 380
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-04-19",
+            "2026-05-12",
+            "2026-07-11"
+          ],
+          "success_def": "阶梯期内任一日最低价触及或跌破 380 = hit（回踩到分歧区下沿即算兑现），全程未回到 380 = miss。380 是他在会员群设的逼空目标位、也是回踩的参照，不是下跌目标价。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么这里的结构位配合着隧道给出来的一个趋势性的压制，很有可能呢会成为目前大科技进行短期修正的一个关键点。",
+      "locator": "05:49",
+      "ref_price": 61.14,
+      "tags": [
+        "mags",
+        "mag7",
+        "ema-tunnel"
+      ],
+      "payload": {
+        "asset_text": "美股大科技（原文以 FNGS 为例；我方用 MAGS 作代理）",
+        "asset_symbol": "MAGS",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-04-19",
+            "2026-05-12",
+            "2026-07-11"
+          ],
+          "success_def": "阶梯各时点收盘 < 61.14（发布前最近收盘）= hit。原文标的是 FNGS（FANG+ ETN），我方行情库无此标的，指定 MAGS（Magnificent 7 ETF）作代理——两者成分高度重叠但不完全相同，故降为 C 级。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这个压力位呢，如果被验证，后面第一个支撑位大概呢就是这个箱体的下沿，也对应的价格是 24400 点左右。",
+      "locator": "10:10",
+      "ref_price": 25116.34,
+      "tags": [
+        "ndx",
+        "fibonacci",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "纳斯达克 100",
+        "asset_symbol": "NDX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {
+          "low": 24400
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": "25100 一带的筹码密集区压力位被验证（价格自该区域回落）",
+        "condition_observable": true,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "range_hold",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-04-19",
+            "2026-05-12",
+            "2026-07-11"
+          ],
+          "success_def": "条件：阶梯期内出现日收盘 < 25100（压力位被验证、价格回落）。条件成立后以 24400 为下沿，其后各阶梯时点收盘 ≥ 24400 = hit，收盘跌破 24400 = miss；期内始终未跌破 25100 = condition_not_met。作者另称 24450 一带是'胜负手'——多头可在此进攻、空头破位则形成下一轮主跌浪，与 24400 同一区域，判据取 24400。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以我个人的判断呢是美元指数接下来应该是一个宽幅震荡的市场，就是它不是一个绝对的多头，也不是绝对的空头。可能我们之前分析的 101 的位置未必会轻易达到，但是市场想要转空也很困难。",
+      "locator": "14:10",
+      "ref_price": 98.65,
+      "tags": [
+        "dxy",
+        "macro-data",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "美元指数",
+        "asset_symbol": "DXY",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "range",
+        "magnitude": {
+          "high": 101
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么黄金我可能要观察一下它是否会去跌破如图所示的 4680 到 4730 这个区域的一个支撑。这个支撑如果跌破的话呢，市场是有可能会跟着下一轮的情绪往后再去测试一下，测试的这个区域呢我们大概判断可能会最低到这个 4500 点 4550 点左右。",
+      "locator": "16:02",
+      "ref_price": 4761.9,
+      "tags": [
+        "xauusd",
+        "price-action",
+        "fibonacci"
+      ],
+      "payload": {
+        "asset_text": "黄金",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "down",
+        "magnitude": {
+          "low": 4500,
+          "high": 4550
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": "跌破 4680-4730 支撑区",
+        "condition_observable": true,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "target_touch",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-04-19",
+            "2026-05-12",
+            "2026-07-11"
+          ],
+          "success_def": "条件：阶梯期内出现日收盘 < 4680（跌破支撑区下沿）。条件成立后，期内任一日最低价触及 4550 或更低 = hit，未触及 = miss；期内始终未收盘跌破 4680 = condition_not_met。"
+        }
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为长周期如果各大指数出现综合的破新高的走势，也就意味着它的估值要继续扩张。在当前这个宏观环境里边啊，我们认为估值想要扩张是非常的困难的。",
+      "locator": "04:20",
+      "tags": [
+        "valuation",
+        "spx",
+        "macro-data"
+      ],
+      "payload": {
+        "canonical_statement": "各大指数要在长周期上综合破新高，等价于估值需要继续扩张；而当前宏观环境下估值扩张非常困难。因此把这一轮回补解释为情绪快速变动加下一个财报季的盈利驱动修复说得通，把它解释为长周期主升浪则说不通。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就是短期的这个逼空的动能必须要建立在什么，要建立在目前的战争局势出现这种非常明确的反转，也就是美伊达成了非常良好的长期平衡。否则的话呢，我认为接下来任何的一个可能的不确定性和利空，都有可能会触发新一轮的算法交易，出现继续的这个波动。",
+      "locator": "04:50",
+      "tags": [
+        "macro-data",
+        "market-structure",
+        "psychology"
+      ],
+      "payload": {
+        "canonical_statement": "短期逼空动能的持续必须建立在战争局势出现非常明确的反转（美伊达成良好的长期平衡）之上；缺了这个前提，任何不确定性与利空都可能触发新一轮算法交易，把波动继续放大。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "然后现在呢又出现了很好的这个盈利的一个回补，又把之前的浮亏啊全部补回来了，当前呢处在一个比较乐观的这个情绪里。如果在这种节奏里的话呢，其实我觉得你反倒应该小心一点。",
+      "locator": "13:20",
+      "tags": [
+        "psychology",
+        "risk-mgmt",
+        "positioning"
+      ],
+      "payload": {
+        "canonical_statement": "套牢后浮亏被快速回补、账户重回乐观的时刻，恰恰是该小心的时刻：这是在一轮节奏没把握好之后市场给的再一次机会，若指望盈利跟着当前曲线的抬升速度继续扩张，概率不高，此时应做减仓或对冲等风险保护。",
+        "category": "psychology"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "在这之前呢，我们一直都把美元指数作为整个市场的节奏器。通过美元指数的微小的涨跌来判断市场情绪的一个来判断市场情绪的好与坏。但是接下来呢，我们可能会对它的关注少一些。因为现在判断美元指数接下来短期的走势呢，变得更加地困难了。",
+      "locator": "15:20",
+      "tags": [
+        "dxy",
+        "macro-data",
+        "market-structure"
+      ],
+      "payload": {
+        "canonical_statement": "美元指数一直被用作整个市场的节奏器——用它的微小涨跌读市场情绪好坏；但当它自身进入宽幅震荡、短期走势变得难判时，应主动降低对这个指标的权重，而不是继续照它做判断。",
+        "category": "execution"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "在整个四月份我重点观察的其实就是黄金和股市之间的同涨同跌的节奏什么时候会发生改变。那么一旦发生改变，黄金的长期趋势呢才会真正地出现。",
+      "locator": "17:00",
+      "tags": [
+        "xauusd",
+        "macro-data",
+        "market-structure"
+      ],
+      "payload": {
+        "canonical_statement": "黄金的长期趋势要等金股同涨同跌的节奏改变才会真正出现；判据是在股市回调时黄金能否走出抗压韧性（做下引线并收复关键位）。战争走势会不会为全球滞胀与衰退预期再加码，是黄金变盘的关键。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "不论是在美股的结构性回调或者是暴跌当中，当它由上自下跌下来去验证日隧道的时候呢，会形成支撑。反过来，反抽的时候，如果配合着前面有比较明确的浪型高点，形成一些 N 字形推动，比如以 2026 年的 3 月 9 号 10 号为例，那么这里的结构位配合着隧道给出来的一个趋势性的压制",
+      "locator": "05:49",
+      "tags": [
+        "ema-tunnel",
+        "mags",
+        "price-action"
+      ],
+      "payload": {
+        "name": "日线 144/169 隧道的双向读法",
+        "summary": "自上而下验证隧道成支撑，反抽到隧道配合浪型高点成压制",
+        "family": "trend",
+        "rules": [
+          "结构性回调或暴跌中，价格自上而下跌到日线 144/169 隧道时形成支撑",
+          "反抽时若前方有明确的浪型高点、形成 N 字形推动，隧道与该结构位叠加成趋势性压制",
+          "同一条隧道在两个方向上给出的含义相反，须先分清价格是从上方来还是从下方来"
+        ],
+        "data_requirements": [
+          "日线 K",
+          "144/169 EMA",
+          "浪型高点标注"
+        ],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "修正的话呢，我们要看左边这个箱体上沿，是我们现在合并斐波纳契扩展线，包括这个箱体的上沿所形成的这个筹码密集区，来对应着一个压力位。",
+      "locator": "09:50",
+      "tags": [
+        "fibonacci",
+        "ndx",
+        "price-action"
+      ],
+      "payload": {
+        "name": "箱体上沿与斐波那契扩展合并成筹码密集区",
+        "summary": "两类独立证据重合处才作压力位",
+        "family": "other",
+        "rules": [
+          "取前一轮回调箱体的上沿作为第一重证据",
+          "以最低点、起点、反转最低点三参数拉斐波那契扩展线，取 0.236 等扩展位作第二重证据",
+          "两者重合的价带即筹码密集区，作为压力位使用",
+          "该压力位被验证后，第一支撑取同一箱体的下沿"
+        ],
+        "data_requirements": [
+          "日线 K",
+          "箱体上下沿标注",
+          "斐波那契扩展"
+        ],
+        "overlap_with_killed": [],
+        "testability": "B",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那么胜负手的话呢，我觉得就是在周五收盘的价位向下波动一个百分之三左右的指数空间，可能会是比较好的一个再观察的位置。",
+      "locator": "13:50",
+      "tags": [
+        "risk-mgmt",
+        "execution",
+        "position-sizing"
+      ],
+      "payload": {
+        "name": "以周五收盘下方 3% 作再观察位",
+        "summary": "重大事件周末前，用固定百分比空间设下一个观察点",
+        "family": "positioning",
+        "rules": [
+          "面临周末重大事件（谈判结果）时，先在盘初根据结果做减仓或对冲等风险保护",
+          "把周五收盘价向下 3% 左右的指数空间作为再观察的位置",
+          "该位置同时是多头可低位进攻、空头破位则形成下一轮主跌浪的分界"
+        ],
+        "data_requirements": [
+          "指数日线收盘"
+        ],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "一个是之前偏高的头寸就躺平，或者说做了适度的减仓，因为我们要控制敞口，就我们基本上是一个装死的状态。然后呢，账户呢也相对是一个有回撤的，但回撤幅度不高，因为我们之前就已经在战略上把整体的仓位在春节之后调低了。但是呢，我们在低位的时候呢，对半导体和相关的一些标的和个股做了一定的移仓和增仓",
+      "locator": "02:00",
+      "tags": [
+        "position-sizing",
+        "risk-mgmt",
+        "semiconductor-cycle"
+      ],
+      "payload": {
+        "name": "暴跌中的躺平加低位移仓",
+        "summary": "高位头寸躺平减仓控敞口，低位向被错杀的交叉赛道移仓",
+        "family": "positioning",
+        "rules": [
+          "战略上先把整体仓位在事件季之前调低，使回撤幅度可控",
+          "暴跌中偏高的头寸躺平或适度减仓，以控制敞口为唯一目的",
+          "低位对被错杀、且处在周期性与 AI 赛道交叉处的板块（半导体、公用事业、材料）做移仓与增仓",
+          "整体仓位保持克制，打的是防守反击而不是全面进攻"
+        ],
+        "data_requirements": [
+          "持仓与敞口记录",
+          "板块相对表现"
+        ],
+        "overlap_with_killed": [],
+        "testability": "C",
+        "claimed_performance": null
+      }
+    }
+  ]
+}
