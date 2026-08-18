@@ -82,7 +82,10 @@ psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE DATABASE fanisl_knowledge OWNER
 /Users/enin/fanisl/deploy/backup.sh          # 三个库一起，落 ~/fanisl-backups
 ```
 
-体量参考：`fanisl_knowledge` 1.1 MB、`fanisl_trading` 488 KB、`fanisl` 45 MB（压缩后）。
+体量参考：`fanisl_knowledge` 1.3 MB、`fanisl_trading` 488 KB、`fanisl` 45 MB（压缩后）。
+
+`fanisl` 的 dump 只作留底——它含 hypertable，跨版本还原不可用（见 2.2/2.4），实际迁移走
+`metric_samples.csv.gz`（约 33 MB，导出命令见 2.4）。
 
 ```bash
 scp ~/fanisl-backups/fanisl_knowledge-*.dump \
@@ -90,30 +93,89 @@ scp ~/fanisl-backups/fanisl_knowledge-*.dump \
     ~/fanisl-backups/fanisl-*.dump  <server>:/tmp/
 ```
 
-### 2.2 恢复：knowledge / trading（无 TimescaleDB，直接还原）
+### 2.2 先对版本：TimescaleDB 跨版本不能整库还原
+
+**这一步不能跳。** 本机是 timescaledb **2.27.2**；`timescale/timescaledb:latest-pg17` 通常更新，
+而它的内部目录表结构改过（`_timescaledb_catalog.chunk` 去掉了 `schema_name`、`chunk_constraint`
+变成了视图）。用新版服务器 `pg_restore` 旧版 dump，会报：
+
+```
+ERROR: column "schema_name" of relation "chunk" does not exist
+ERROR: cannot copy to view "chunk_constraint"
+```
+
+先看服务器装的是哪个版本：
+
+```bash
+psql -h 127.0.0.1 -U fanisl -tAc \
+  "SELECT extversion FROM pg_extension WHERE extname='timescaledb'" postgres
+```
+
+版本与本机不一致时，按 2.3 / 2.4 分别处理——**不要**对含 hypertable 的库做整库 `pg_restore`。
+
+### 2.3 恢复：knowledge / trading
+
+`fanisl_knowledge` 不含任何扩展，直接还原，不受版本影响：
 
 ```bash
 pg_restore -h 127.0.0.1 -U fanisl -d fanisl_knowledge --no-owner --no-privileges \
            /tmp/fanisl_knowledge-*.dump
-pg_restore -h 127.0.0.1 -U fanisl -d fanisl_trading  --no-owner --no-privileges \
-           /tmp/fanisl_trading-*.dump
 ```
 
-### 2.3 恢复：fanisl（**含 hypertable，必须走 pre/post_restore**）
+`fanisl_trading` **装了 timescaledb 但零个 hypertable**（扩展是应用初始化时建的，实际没用上）。
+跨版本还原时会在空的目录表上报 3 条错误：
 
-导出时那几条 `循环外键约束 continuous_agg` 告警就来自这里。直接 `pg_restore` 会失败或
-留下坏掉的 hypertable：
+```
+_timescaledb_catalog.chunk / chunk_constraint / chunk_constraint_name
+pg_restore: warning: errors ignored on restore: 3
+```
+
+**这 3 条可以忽略**——它们全落在空的 TimescaleDB 目录表上，没有业务数据。核对一下即可：
 
 ```bash
-psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
-psql -h 127.0.0.1 -U fanisl -d fanisl -c "SELECT timescaledb_pre_restore();"
-pg_restore -h 127.0.0.1 -U fanisl -d fanisl --no-owner --no-privileges /tmp/fanisl-*.dump
-psql -h 127.0.0.1 -U fanisl -d fanisl -c "SELECT timescaledb_post_restore();"
+psql -h 127.0.0.1 -U fanisl -tAc "SELECT count(*) FROM accounts" fanisl_trading   # 应为 5
 ```
 
-扩展版本要 ≥ 源库（本机 2.27.2）。
+（该库其余 11 张表本来就是空的：orders / trades / trade_plans 等全为 0 行。）
 
-### 2.4 验收：逐表比对行数
+### 2.4 恢复：fanisl —— 走数据导入，不走 pg_restore
+
+`fanisl` 里唯一有份量的是 hypertable `metric_samples`：**359 万行 / 481 MB / 3945 个 chunk**；
+其余表几乎是空的（collection_runs 41 行，catalyst_items / conversations / messages 全 0）。
+3945 个 chunk 跨版本整库还原会真的坏掉，所以改成"让应用自己建表、我们只灌数据"，
+彻底绕开目录表的版本差异。
+
+本机导出（读的是 hypertable 本体，不是各个 chunk）：
+
+```bash
+psql -q -c "\copy (SELECT scope,symbol,metric,ts,value FROM metric_samples ORDER BY ts) \
+  TO PROGRAM 'gzip > $HOME/fanisl-backups/metric_samples.csv.gz' CSV" fanisl
+```
+
+产物约 33 MB。传上去后：
+
+```bash
+# 1) 建空库 + 扩展
+psql -h 127.0.0.1 -U fanisl -d postgres -c "CREATE DATABASE fanisl OWNER fanisl;"
+psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+
+# 2) 让应用建表并转成 hypertable（marketstore 的 init 幂等，见 marketstore.py:90）
+sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c "
+import analyzer.runtime as rt; print(\"schema ok\"); rt.pool.close(); rt.trading_pool.close(); rt.knowledge_pool.close()"'
+
+# 3) 灌数据（TimescaleDB 会按 ts 自动分 chunk）
+gunzip -c /tmp/metric_samples.csv.gz | \
+  psql -h 127.0.0.1 -U fanisl -d fanisl -c "\copy metric_samples FROM STDIN CSV"
+
+# 4) 核对
+psql -h 127.0.0.1 -U fanisl -tAc "SELECT count(*) FROM metric_samples" fanisl   # 应为 3590607
+```
+
+> **知识引擎不依赖这一步。** 它有自己的 `daily_bars`（在 `fanisl_knowledge` 里，已随 2.3 还原）。
+> `fanisl` 只是 collector 的 market/catalysts 两个 job 与研究/交易侧要用；想先跑通知识引擎，
+> 可以先建空的 `fanisl`（第 1、2 步），把第 3 步的历史数据留到之后补。
+
+### 2.5 验收：逐表比对行数
 
 不要只看 "restore 没报错"。本机已用这套比对验过一遍（12 张表全部一致）：
 
@@ -134,7 +196,7 @@ spot_checks 48、eps_estimates 26、creators 3、daily_bars 9996。
 > keyframes 停在 722 是因为 YouTube 的 SABR 墙当前立着，回填这 10 期一帧都没抓到；
 > 墙落下后 `daily` 的补帧环节会自动追上，届时该数字会涨。
 
-### 2.5 retention 必须保持关闭
+### 2.6 retention 必须保持关闭
 
 研究平台要永久历史。2026-07 有过一次 365 天策略吃掉全部深回填的事故：
 
@@ -146,7 +208,7 @@ psql -h 127.0.0.1 -U fanisl -tAc \
 
 有输出就 `SELECT delete_job(<id>);` 删掉。`.env` 里对应开关保持 0。
 
-### 2.6 关键帧图片（不走 git）
+### 2.7 关键帧图片（不走 git）
 
 117 MB，`data_export/keyframes/` 在 .gitignore 里：
 
@@ -381,8 +443,8 @@ gsutil rsync -r /opt/fanisl/backups gs://<bucket>/fanisl-backups
 
 1. `docker ps` 里 `fanisl-pg` 是 `Up`，且 `ss -lntp | grep 5432` 只绑 127.0.0.1
 2. 三个库都在：`psql -h 127.0.0.1 -U fanisl -l | grep fanisl`
-3. 12 张表行数与本机一致（§2.4）
-4. `timescaledb_information.jobs` 里没有 retention（§2.5）
+3. 12 张表行数与本机一致（§2.5）
+4. `timescaledb_information.jobs` 里没有 retention（§2.6）
 5. 冒烟自检打印 `pools ok True True True`（§3.2）
 6. `systemctl is-active fanisl-collector` = active，且 `journalctl` 里能看到
    `prices.refresh` 的输出
