@@ -14,8 +14,12 @@
 
 约定：代码 `/opt/fanisl`，运行用户 `fanisl`，Postgres 只监听 `127.0.0.1`。
 
-> **每个命令块都标了在哪台机器上跑**：`# 【本机 Mac】` 或 `# 【服务器】`。
-> 混着跑会遇到"表不存在""目录不存在"这类误导性报错——迁移命令天然是两头各一半。
+> **每个命令块的第一行都标了在哪台机器上跑**：`# ── 在【本机】上跑 ──` / `# ── 在【服务器】上跑 ──`。
+> 迁移命令天然是两头各一半，混着跑会得到"关系不存在""目录不存在"这类看起来像环境坏了、
+> 其实只是跑错机器的报错。
+>
+> **服务器上的 psql 一律要带 `-h 127.0.0.1`**：Postgres 跑在容器里，宿主机上没有 Unix socket，
+> 不带 `-h` 会报 `connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed`。
 
 ---
 
@@ -24,6 +28,7 @@
 机器上现有 docker 与 nginx，补齐其余：
 
 ```bash
+# ── 在【服务器】上跑 ──
 sudo apt update
 sudo apt install -y git curl python3 python3-venv python3-dev build-essential \
                     ffmpeg postgresql-client-17
@@ -33,6 +38,7 @@ sudo apt install -y git curl python3 python3-venv python3-dev build-essential \
 库同为 17，本机是 17.10）。若 trixie 源里没有 17，加 PGDG：
 
 ```bash
+# ── 在【服务器】上跑 ──
 sudo install -d /usr/share/postgresql-common/pgdg
 sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
      https://www.postgresql.org/media/keys/ACCC4CF8.asc
@@ -45,6 +51,7 @@ sudo apt update && sudo apt install -y postgresql-client-17
 时区设成 UTC，日志和调度都少一层换算：
 
 ```bash
+# ── 在【服务器】上跑 ──
 sudo timedatectl set-timezone UTC
 ```
 
@@ -53,6 +60,7 @@ sudo timedatectl set-timezone UTC
 ## 1. Postgres（Docker）
 
 ```bash
+# ── 在【服务器】上跑 ──
 sudo mkdir -p /srv/fanisl-pg
 sudo docker run -d --name fanisl-pg --restart unless-stopped \
   -e POSTGRES_USER=fanisl -e POSTGRES_PASSWORD='<强口令>' -e POSTGRES_DB=fanisl \
@@ -66,6 +74,7 @@ sudo docker run -d --name fanisl-pg --restart unless-stopped \
 建另外两个库：
 
 ```bash
+# ── 在【服务器】上跑 ──
 export PGPASSWORD='<强口令>'
 psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE DATABASE fanisl_trading OWNER fanisl;"
 psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE DATABASE fanisl_knowledge OWNER fanisl;"
@@ -82,7 +91,8 @@ psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE DATABASE fanisl_knowledge OWNER
 ### 2.1 本机导出
 
 ```bash
-# 【本机 Mac】三个库一起 dump，落 ~/fanisl-backups
+# ── 在【本机】上跑 ──
+# 三个库一起 dump，落 ~/fanisl-backups
 /Users/enin/fanisl/deploy/backup.sh
 ```
 
@@ -92,16 +102,17 @@ psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE DATABASE fanisl_knowledge OWNER
 `metric_samples.csv.gz`（约 33 MB，导出命令见 2.4）。
 
 ```bash
-# 【本机 Mac】传到服务器
+# ── 在【本机】上跑 ──
+# 传到服务器
 scp ~/fanisl-backups/fanisl_knowledge-*.dump \
     ~/fanisl-backups/fanisl_trading-*.dump  <server>:/tmp/
 ```
 
 ### 2.2 先对版本：TimescaleDB 跨版本不能整库还原
 
-**这一步不能跳。** 本机是 timescaledb **2.27.2**；`timescale/timescaledb:latest-pg17` 通常更新，
-而它的内部目录表结构改过（`_timescaledb_catalog.chunk` 去掉了 `schema_name`、`chunk_constraint`
-变成了视图）。用新版服务器 `pg_restore` 旧版 dump，会报：
+**这一步不能跳。** 实测：本机 timescaledb **2.27.2**，`timescale/timescaledb:latest-pg17` 起来是
+**2.29.2**。两版之间内部目录表结构改过（`_timescaledb_catalog.chunk` 去掉了 `schema_name`、
+`chunk_constraint` 变成了视图），用 2.29.2 `pg_restore` 2.27.2 的 dump 会报：
 
 ```
 ERROR: column "schema_name" of relation "chunk" does not exist
@@ -111,6 +122,7 @@ ERROR: cannot copy to view "chunk_constraint"
 先看服务器装的是哪个版本：
 
 ```bash
+# ── 在【服务器】上跑 ──
 psql -h 127.0.0.1 -U fanisl -tAc \
   "SELECT extversion FROM pg_extension WHERE extname='timescaledb'" postgres
 ```
@@ -122,7 +134,7 @@ psql -h 127.0.0.1 -U fanisl -tAc \
 `fanisl_knowledge` 不含任何扩展，直接还原，不受版本影响：
 
 ```bash
-# 【服务器】
+# ── 在【服务器】上跑 ──
 pg_restore -h 127.0.0.1 -U fanisl -d fanisl_knowledge --no-owner --no-privileges \
            /tmp/fanisl_knowledge-*.dump
 ```
@@ -138,6 +150,7 @@ pg_restore: warning: errors ignored on restore: 3
 **这 3 条可以忽略**——它们全落在空的 TimescaleDB 目录表上，没有业务数据。核对一下即可：
 
 ```bash
+# ── 在【服务器】上跑 ──
 psql -h 127.0.0.1 -U fanisl -tAc "SELECT count(*) FROM accounts" fanisl_trading   # 应为 5
 ```
 
@@ -153,7 +166,8 @@ psql -h 127.0.0.1 -U fanisl -tAc "SELECT count(*) FROM accounts" fanisl_trading 
 **第一步在本机跑**，读的是 hypertable 本体而不是各个 chunk，所以产物不含任何版本相关结构：
 
 ```bash
-# 【本机 Mac】——服务器上没有 metric_samples，在服务器跑这条必然报 relation does not exist
+# ── 在【本机】上跑 ──
+# 注意：服务器上还没有 metric_samples，在服务器跑这条必然报 relation does not exist
 psql -q -c "\copy (SELECT scope,symbol,metric,ts,value FROM metric_samples ORDER BY ts) \
   TO PROGRAM 'gzip > $HOME/fanisl-backups/metric_samples.csv.gz' CSV" fanisl
 
@@ -163,21 +177,31 @@ scp ~/fanisl-backups/metric_samples.csv.gz  <server>:/tmp/
 产物约 33 MB（已于 2026-08-18 导好，行数核对 3590607 一致）。其余步骤在服务器：
 
 ```bash
-# 【服务器】1) 建空库 + 扩展
+# ── 在【服务器】上跑 ──
+# 1) 建空库 + 扩展
 psql -h 127.0.0.1 -U fanisl -d postgres -c "CREATE DATABASE fanisl OWNER fanisl;"
 psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
 
-# 【服务器】2) 让应用建表并转成 hypertable（marketstore 的 init 幂等，见 marketstore.py:90）
+# 2) 让应用建表并转成 hypertable（marketstore 的 init 幂等，见 marketstore.py:90）
 sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c "
 import analyzer.runtime as rt; print(\"schema ok\"); rt.pool.close(); rt.trading_pool.close(); rt.knowledge_pool.close()"'
 
-# 【服务器】3) 灌数据（TimescaleDB 会按 ts 自动分 chunk）
+# 3) 灌数据（TimescaleDB 会按 ts 自动分 chunk）
 gunzip -c /tmp/metric_samples.csv.gz | \
   psql -h 127.0.0.1 -U fanisl -d fanisl -c "\copy metric_samples FROM STDIN CSV"
 
-# 【服务器】4) 核对
+# 4) 核对
 psql -h 127.0.0.1 -U fanisl -tAc "SELECT count(*) FROM metric_samples" fanisl   # 应为 3590607
+psql -h 127.0.0.1 -U fanisl -tAc \
+  "SELECT num_chunks FROM timescaledb_information.hypertables WHERE hypertable_name='metric_samples'" fanisl
 ```
+
+第 3 步是逐行 COPY 进 hypertable，359 万行按 `ts` 重新分 chunk，**耗时数分钟**，期间没有进度输出。
+分出来的 chunk 数不会正好等于本机的 3945——chunk 区间由服务器侧的 `chunk_time_interval` 决定，
+数目不同不代表数据有问题，以行数为准。
+
+失败重来要先清空：`psql -h 127.0.0.1 -U fanisl -c "TRUNCATE metric_samples" fanisl`。
+主键是 `(scope, symbol, metric, ts)`，重复灌会撞唯一约束而不是静默翻倍。
 
 > **知识引擎不依赖这一步。** 它有自己的 `daily_bars`（在 `fanisl_knowledge` 里，已随 2.3 还原）。
 > `fanisl` 只是 collector 的 market/catalysts 两个 job 与研究/交易侧要用；想先跑通知识引擎，
@@ -188,7 +212,8 @@ psql -h 127.0.0.1 -U fanisl -tAc "SELECT count(*) FROM metric_samples" fanisl   
 不要只看 "restore 没报错"。本机已用这套比对验过一遍（12 张表全部一致）：
 
 ```bash
-# 【服务器】逐表数行，再与本机同一条命令的输出对照
+# ── 在【服务器】上跑 ──
+# 逐表数行，再与本机同一条命令的输出对照
 for t in contents extraction_runs knowledge_units claim_scores knowledge_nodes \
          node_attestations node_relations keyframes spot_checks daily_bars \
          eps_estimates creators; do
@@ -210,7 +235,7 @@ spot_checks 48、eps_estimates 26、creators 3、daily_bars 9996。
 研究平台要永久历史。2026-07 有过一次 365 天策略吃掉全部深回填的事故：
 
 ```bash
-# 【服务器】
+# ── 在【服务器】上跑 ──
 psql -h 127.0.0.1 -U fanisl -tAc \
   "SELECT job_id, proc_name, hypertable_name FROM timescaledb_information.jobs
    WHERE proc_name LIKE '%retention%'" fanisl
@@ -223,7 +248,7 @@ psql -h 127.0.0.1 -U fanisl -tAc \
 117 MB，`data_export/keyframes/` 在 .gitignore 里：
 
 ```bash
-# 【本机 Mac】
+# ── 在【本机】上跑 ──
 rsync -av --progress /Users/enin/fanisl/data_export/keyframes/ \
       <server>:/opt/fanisl/data_export/keyframes/
 ```
@@ -236,6 +261,7 @@ rsync -av --progress /Users/enin/fanisl/data_export/keyframes/ \
 ## 3. 后端
 
 ```bash
+# ── 在【服务器】上跑 ──
 sudo useradd -r -m -d /opt/fanisl -s /usr/sbin/nologin fanisl
 sudo -u fanisl git clone <repo> /opt/fanisl
 cd /opt/fanisl/backend
@@ -247,6 +273,7 @@ sudo -u fanisl .venv/bin/pip install .
 ### 3.1 .env
 
 ```bash
+# ── 在【服务器】上跑 ──
 sudo -u fanisl cp /opt/fanisl/deploy/.env.example /opt/fanisl/backend/.env
 sudo -u fanisl chmod 600 /opt/fanisl/backend/.env
 sudo -u fanisl nano /opt/fanisl/backend/.env
@@ -268,6 +295,7 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 dbname=fanisl_knowledge user=fanisl passwor
 ### 3.2 冒烟自检
 
 ```bash
+# ── 在【服务器】上跑 ──
 sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c "
 import analyzer.worker_collector, analyzer.runtime as rt
 print(\"pools ok\", bool(rt.pool), bool(rt.trading_pool), bool(rt.knowledge_pool))
@@ -277,6 +305,7 @@ rt.pool.close(); rt.trading_pool.close(); rt.knowledge_pool.close()"'
 ### 3.3 systemd
 
 ```bash
+# ── 在【服务器】上跑 ──
 sudo cp /opt/fanisl/deploy/fanisl-collector.service /etc/systemd/system/
 sudo cp /opt/fanisl/deploy/fanisl-api.service       /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -312,7 +341,8 @@ journalctl -u fanisl-collector -f
 （双写没有合并故事，一分叉就没救）。
 
 ```bash
-# 【本机 Mac】开隧道，之后本地命令都走它
+# ── 在【本机】上跑 ──
+# 开隧道，之后本地命令都走它
 ssh -N -L 5433:127.0.0.1:5432 fanisl@<server> &
 ```
 
@@ -325,7 +355,8 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fani
 之后本地命令原样可用：
 
 ```bash
-# 【本机 Mac】（经隧道打到服务器库）
+# ── 在【本机】上跑 ──
+# 经隧道打到服务器库
 python -m analyzer.knowledge.nodes export                 # 列未挂单元
 python -m analyzer.knowledge.import_units <file> --dry-run
 python -m analyzer.knowledge.nodes import <file>
@@ -346,6 +377,7 @@ python -m analyzer.knowledge.nodes seed-singletons --commit
 就没了），而 `llm.py` 走 **Gemini URL 直读**——视频由 Gemini 自己取，与服务器 IP 无关。
 
 ```bash
+# ── 在【服务器】上跑 ──
 sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python \
   -m analyzer.knowledge.backfill_transcripts @andyleegogo --since-days 7'
 ```
@@ -369,6 +401,7 @@ sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/pytho
 ## 6. API + 前端 + nginx
 
 ```bash
+# ── 在【服务器】上跑 ──
 cd /opt/fanisl/frontend
 sudo -u fanisl npm ci
 sudo -u fanisl bash -c 'VITE_API_BASE= npm run build'    # 产物 dist/
@@ -392,6 +425,7 @@ Node 20：`curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash - && sud
 ### 代码
 
 ```bash
+# ── 在【服务器】上跑 ──
 sudo -u fanisl git -C /opt/fanisl pull
 sudo -u fanisl /opt/fanisl/backend/.venv/bin/pip install -e /opt/fanisl/backend  # 依赖有变时
 sudo systemctl restart fanisl-collector fanisl-api
@@ -410,6 +444,7 @@ sudo systemctl restart fanisl-collector fanisl-api
 要等某个查询才炸。部署后可随时复核：
 
 ```bash
+# ── 在【服务器】上跑 ──
 # 新建临时库跑一遍 schema，再与生产库 diff 列与索引（命令见 git 历史 e3156ef 的做法）
 ```
 
@@ -425,6 +460,7 @@ sudo systemctl restart fanisl-collector fanisl-api
 服务器侧用同一个脚本：
 
 ```bash
+# ── 在【服务器】上跑 ──
 sudo -u fanisl crontab -e
 # 30 4 * * *  PGPASSWORD='<强口令>' FANISL_BACKUP_DIR=/opt/fanisl/backups \
 #             /opt/fanisl/deploy/backup.sh >> /opt/fanisl/backups/backup.log 2>&1
@@ -433,6 +469,7 @@ sudo -u fanisl crontab -e
 `backup.sh` 默认三个库各留最近 14 份。**再往机器外放一份**（GCS bucket 最省事）：
 
 ```bash
+# ── 在【服务器】上跑 ──
 gsutil rsync -r /opt/fanisl/backups gs://<bucket>/fanisl-backups
 ```
 
