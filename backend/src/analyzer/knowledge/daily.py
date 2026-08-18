@@ -18,13 +18,30 @@ from .store import KnowledgeStore
 
 log = logging.getLogger("analyzer.knowledge")
 
-SINCE = dt.date(2026, 5, 1)   # 语料最早发布日前的固定起点（幂等 upsert，不必滚动）
+SINCE_FLOOR = dt.date(2026, 5, 1)   # 语料为空时的兜底起点
+SINCE_LEAD_DAYS = 30                # 行情要比最早那期再往前留出的缓冲
 KEYFRAME_GAP_LIMIT = 20       # 每日最多补几条内容的帧（别让日维护变成长批处理）
+
+
+def price_since(pool) -> dt.date:
+    """行情起点跟着语料走：最早那期发布日再往前 30 天。
+
+    原先是硬编码 2026-05-01（定它时语料最早 05-18）。2026-08-18 往前回填 Andy 到
+    03-28，这个常量没跟着动 —— 回填内容的 claim 会整批落在行情覆盖之外：ref_price
+    回查不到、到期也评不了分，而且不报错，只是静静地少一批观测。跟着语料推就不会再
+    失配；upsert 幂等，起点前移只是多拉一段历史。
+    """
+    with pool.connection() as conn:
+        row = conn.execute("SELECT min(published_at)::date AS d FROM contents").fetchone()
+    earliest = (row or {}).get("d")
+    if earliest is None:
+        return SINCE_FLOOR
+    return min(earliest - dt.timedelta(days=SINCE_LEAD_DAYS), SINCE_FLOOR)
 
 
 def run_daily(pool) -> None:
     try:
-        prices.refresh(pool, since=SINCE)
+        prices.refresh(pool, since=price_since(pool))
     except Exception:
         log.exception("知识引擎日维护：行情刷新失败（继续评分）")
     try:
