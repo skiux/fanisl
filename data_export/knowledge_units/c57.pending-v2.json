@@ -259,7 +259,8 @@
         "direction": "down",
         "magnitude": {
           "low": 4500,
-          "high": 4550
+          "high": 4550,
+          "target": 4550
         },
         "horizon": {
           "type": "open_ended",

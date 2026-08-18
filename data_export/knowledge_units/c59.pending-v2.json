@@ -1,0 +1,449 @@
+{
+  "content_id": 59,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "一个是美元指数在九十八左右会止跌，然后向上会反弹修正，大概呢这一波我们可以期望到九十九左右，也就意味着现在美元指数的修正还没有结束",
+      "locator": "00:00",
+      "ref_price": 98.41,
+      "tags": [
+        "dxy",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "美元指数",
+        "asset_symbol": "DXY",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {
+          "target": 99
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-04-29",
+            "2026-05-22",
+            "2026-07-21"
+          ],
+          "success_def": "阶梯期内任一日最高价触及 99 或更高 = hit，未触及 = miss。作者判美元在 98 一带止跌后温和反弹到 99 附近。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以黄金呢在没有突破四千八百五、四千八百六，那同时美元指数温和反弹的情景之下呢，就出现一定的温和的向下的调整是非常的正常的。",
+      "locator": "00:20",
+      "ref_price": 4698.4,
+      "tags": [
+        "xauusd",
+        "dxy",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "黄金",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": "黄金未突破 4850-4860，且美元指数温和反弹",
+        "condition_observable": true,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-04-29",
+            "2026-05-22",
+            "2026-07-21"
+          ],
+          "success_def": "条件：该阶梯时点之前黄金未出现日收盘 ≥ 4850。条件成立时，该时点收盘 < 4698.40（发布前最近收盘）= hit，≥ = miss；若此前已收盘突破 4850 则该时点记 condition_not_met。作者另说黄金最低点可能没到来但不主动判断、跟着美元走，故只判方向不设目标位。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们在第一波看到三七零、三八零之后的市场延续逼空，我们把下一个逼空的目标位调整到四二三到四二五区域。那这个位置的话呢，昨天接近于到达。但是好像还差一点充分博弈的确认，所以不排除这两天还有惯性冲高。",
+      "locator": "01:25",
+      "ref_price": 420.7,
+      "tags": [
+        "soxx",
+        "semiconductor-cycle",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "半导体指数 SOXX",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {
+          "low": 423,
+          "high": 425,
+          "target": 423
+        },
+        "horizon": {
+          "type": "within_duration",
+          "duration_days": 7,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-04-29"
+          ],
+          "success_def": "2026-04-29 之前任一日最高价触及 423 或更高 = hit，未触及 = miss。原文'这两天还有惯性冲高'按 §3 映射表取 within_duration 7 天。423-425 是他调整后的逼空目标区，取下沿作门槛。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "还有呢就是这几天我们高度关注的这个位置啊，还有道琼斯的五万点。这个五万点呢，他不是轻易能够上的去的。",
+      "locator": "05:06",
+      "ref_price": 49149.38,
+      "tags": [
+        "dji",
+        "price-action",
+        "market-structure"
+      ],
+      "payload": {
+        "asset_text": "道琼斯工业指数",
+        "asset_symbol": "DJI",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {
+          "high": 50000
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-04-29",
+            "2026-05-22",
+            "2026-07-21"
+          ],
+          "success_def": "上沿判据：阶梯各时点收盘 ≤ 50000 = hit（压力位守住）；收盘站上 50000 = miss。作者说 5 万点是长期结构性关键位、突破需要很强的动能和博弈，属'守住上沿'而非看跌，用 range_hold 上沿（§2）。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果市场想要继续延续强势，必须要把两万六千五百五十点吧，那往上应该到两万六千五百八十点，要把这给站住，只有站住，市场呢才能够高位盘整啊，或者是什么再出现一波向上的放量的逼空，这个都是有可能的。但只要这个区域呢，他最终在最近的波动当中慢慢的弱化，也就是逐渐的失守，那失守两万六千五百点，那么市场呢确实是有这个技术性回补的一个需要。",
+      "locator": "14:23",
+      "ref_price": 26479.47,
+      "tags": [
+        "ndx",
+        "price-action",
+        "market-structure"
+      ],
+      "payload": {
+        "asset_text": "纳斯达克 100（26500-26600 分水岭）",
+        "asset_symbol": "NDX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "down",
+        "magnitude": {
+          "low": 26500,
+          "high": 26580
+        },
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": "失守 26500（未能站住 26550-26580）",
+        "condition_observable": true,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-04-29",
+            "2026-05-22",
+            "2026-07-21"
+          ],
+          "success_def": "条件：出现日收盘 < 26500（分水岭失守）。条件成立后，其后阶梯时点收盘 < 该失守日收盘 = hit（技术性回补兑现），≥ = miss；期内始终未收盘跌破 26500 = condition_not_met。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "这个货币政策呢降息是最容易兑现，也一定会发生的。所以降息的确定性反而更高了。对于今年的利率路径，宽松的路径来讲呢，是相对来说呢是一个利好。",
+      "locator": "08:02",
+      "ref_price": 3.75,
+      "tags": [
+        "fed-policy",
+        "macro-data"
+      ],
+      "payload": {
+        "asset_text": "联邦基金目标利率上界（FRED DFEDTARU，单位 %）",
+        "asset_symbol": "DFEDTARU",
+        "priceable": true,
+        "claim_class": "event_outcome",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {
+          "type": "by_date",
+          "deadline": "2026-12-31",
+          "duration_days": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "benchmark": null,
+          "eval_ladder": [
+            "2026-12-31"
+          ],
+          "success_def": "2026-12-31 当日读数 **严格小于** 3.750（发布日 2026-04-21 的目标利率上界）= hit；等于或高于 = miss。标的是阶梯函数（两次会议之间完全不动），按 §4 必须用严格不等号——否则'今年没降息'会被 sign 的默认语义（收盘 ≥ 参考价）判成 hit。需在 scoring_overrides.json 配 {\"mode\":\"close_at_eval\",\"op\":\"<\"}。原文'今年'按 §3 映射为 by_date 当年-12-31。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我觉得这一波走势呢，存在着结构性修正的必要。只不过他在个股的体现上会高度的分化，就是大盘可能不再逼空了，但是分化会比较剧烈，维持在高位或者出现一定的回调都很正常。",
+      "locator": "02:49",
+      "ref_price": 65.31,
+      "tags": [
+        "mags",
+        "mag7",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "大科技（七巨头，MAGS ETF）",
+        "asset_symbol": "MAGS",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "range",
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended",
+          "duration_days": null,
+          "deadline": null
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "首先呢，沃什搞的是降息加缩表的双轨制的货币政策。这个货币政策呢降息是最容易兑现，也一定会发生的。所以降息的确定性反而更高了。对于今年的利率路径，宽松的路径来讲呢，是相对来说呢是一个利好。所以它并不是鹰派啊。但是呢，从中长期来看呢，美联储的缩表也是势在必行的。短期呢它的操作难度很高。长期来看呢，又不得不做。",
+      "locator": "07:44",
+      "tags": [
+        "fed-policy",
+        "macro-data",
+        "bond-yields"
+      ],
+      "payload": {
+        "canonical_statement": "美联储候任主席沃什主张降息加缩表的双轨制：降息最容易兑现、确定性反而更高，所以对今年的宽松路径是利好而非鹰派；缩表则短期操作难度很高、长期又不得不做，是监管、货币与财政系统长期配合的过程，MBS 应会被优先处理，真正有动作可能要到明年。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是美联储长期的缩表意愿，对于很多配置型、长期的配置型资金会有相当的指引作用。也就是美元呢，再从原来的全球流动性奶妈的外省货币转为呢服务于美国优先的内省货币了。这样原来因为流动性泛滥所推升的一些非美国的核心资产的很多泡沫性的资产可能会出现一定的重估",
+      "locator": "09:30",
+      "tags": [
+        "fed-policy",
+        "macro-data",
+        "valuation"
+      ],
+      "payload": {
+        "canonical_statement": "美联储长期的缩表意愿会指引配置型长钱：美元从全球流动性的外向货币转为服务美国优先的内向货币，原先靠流动性泛滥推升的非美核心资产中，泡沫性的那部分可能因此被重估。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "第一个呢是制造业要回流对不对？那要脱虚向实，不能够再把所有的产业链都搞出去，这样的话呢，在未来的逆全球化和大国的博弈当中呢，处在了一个非常不利的一个被动的地位，说白了被卡脖子了嘛。所以制造业回流，这是必须要去做的一个事情。它是优先于所谓的经济和金融的一定要做的一件事情。第二个呢就是缩减贸易的逆差。这个呢同样也是服务于制造业，但是呢它需要一个更弱的美元汇率。",
+      "locator": "09:50",
+      "tags": [
+        "fed-policy",
+        "fiscal-policy",
+        "macro-data"
+      ],
+      "payload": {
+        "canonical_statement": "降息与缩表服务于三条国家战略：①制造业回流、脱虚向实，优先级高于经济与金融本身；②缩减贸易逆差，而这需要更弱的美元汇率；③在此之上仍要维持很强的美元地位与美元信用。故政策是既要弱汇率又要强美元信用的组合。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "首先呢是沃什坚持缩表，然后美联储要退场。然后这样财政部就会失去最大的买家。他要被迫的发行短债。因为美国真正的债务问题呢，不是要把过去的债务总量给还掉，而是要借新还旧，借短还长。现在短债的供给一定是会井喷的",
+      "locator": "10:24",
+      "tags": [
+        "fed-policy",
+        "bond-yields",
+        "stablecoin"
+      ],
+      "payload": {
+        "canonical_statement": "缩表的化债链条：沃什坚持缩表 → 美联储退场 → 财政部失去最大买家 → 被迫大量发行短债 → 短债供给井喷 → 需要新的蓄水池承接。美国真正的债务问题不是还掉总量，而是借新还旧、借短还长。推进稳定币应是国家战略的一部分——用短债作稳定币的底层资产，充当体制外的接盘方；购入 USDT/USDC 等同于为美国短债背书与化债。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "对于稳定币和相关资产的布局呢，应该是一个长期的、一个叙事。这个叙事里边呢，它的启动时机，其实高度依赖于政策的预期。那这个政策的预期什么时候给，很可能呢就是稳定币相关资产的一个启动的一个黄金的周期啊。",
+      "locator": "11:30",
+      "tags": [
+        "stablecoin",
+        "macro-data",
+        "positioning"
+      ],
+      "payload": {
+        "canonical_statement": "稳定币及相关资产是一条长期叙事，但启动时机高度依赖政策预期的给出时点——政策预期落地之时很可能就是这类资产启动的黄金周期。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "说来说去呢，我们还是强调这个箱体的重要性，这个箱体的上沿和下沿目前都没有被有效的上破或者是下破。所以后面的走势呢，我们应该做好市场可能会高波动的准备。",
+      "locator": "15:10",
+      "tags": [
+        "ndx",
+        "market-structure",
+        "price-action"
+      ],
+      "payload": {
+        "canonical_statement": "纳指 100 的箱体（下沿 23800 支撑、上沿 26500-26600 的 2009 年以来 ABC 浪深度压力位）上下沿都未被有效突破，因此后续应准备迎接高波动：这种高波动可能在一两周的级别上表现为单边，但最终价格要在整个箱体里充分协商。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为价格呢是向阻力最小的方向运行，当他遇到重要的结构位的时候呢，我们不判断方向的话，就是他会产生隐含的波动，就是他的波动率会放大，会进行多空的博弈。",
+      "locator": "01:50",
+      "tags": [
+        "price-action",
+        "market-structure"
+      ],
+      "payload": {
+        "canonical_statement": "价格向阻力最小的方向运行；遇到重要结构位时不必预判方向，可确定的是隐含波动会放大、多空开始博弈。反过来，在两个结构位之间的空档里价格几乎没有阻力，那段区间正是顺势加仓的窗口。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那么如果出现修正的行情，我们节奏怎么判断的话呢？我认为还是放到咱们最好的这个周期，也就是三十k上来。",
+      "locator": "05:03",
+      "tags": [
+        "ndx",
+        "dxy",
+        "price-action"
+      ],
+      "payload": {
+        "name": "三日 K 级别读美元与风险资产的同步节奏",
+        "summary": "把美元与指数放到三日 K 上对齐，用连续 K 线数判节奏",
+        "family": "trend",
+        "rules": [
+          "修正行情的节奏判断放在三日 K 级别（原文转录作『三十k』，据同段『我们放到三日级别』与『三天、三天、三天』补正为三日 K）",
+          "美元指数连跌三根三日 K（九个交易日），对应纳指连涨九个交易日，两者节奏一致",
+          "高位那根三日 K 收完后，看下一根三日 K：美元先涨的概率高，则美股有技术修复的需要",
+          "周内行情可据此看清，更短周期不作判断"
+        ],
+        "data_requirements": [
+          "三日 K 线",
+          "DXY 与指数对齐"
+        ],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "这个多头我会把他定义为偏短线的操作。那真正的中长线的配置型的资金呢，还是要关注大科技的走势。",
+      "locator": "02:20",
+      "tags": [
+        "soxx",
+        "mags",
+        "position-sizing"
+      ],
+      "payload": {
+        "name": "逼空尾部做短线、配置型资金留给大科技",
+        "summary": "板块联动的逼空仓定义为短线，中长线仓位配大科技",
+        "family": "positioning",
+        "rules": [
+          "半导体在突破 370-380 后到下一结构位之间的无阻力区，用于补偿此前建仓不足的多头",
+          "该类仓位明确定义为偏短线操作，因为它是板块联动（延伸到内存、新兴市场产业链）的高位快速多头",
+          "中长线配置型资金不追这段，而是关注大科技的走势",
+          "大科技的建仓不急，等结构性修正；修正期个股会因财报扰动而高度分化"
+        ],
+        "data_requirements": [
+          "板块 ETF 结构位",
+          "财报日历"
+        ],
+        "overlap_with_killed": [],
+        "testability": "C",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "我们不能因为前面的确定的踏空，就高位一定要把仓位我快速的追回来，这个不符合当前技术给你的形态。",
+      "locator": "13:40",
+      "tags": [
+        "risk-mgmt",
+        "position-sizing",
+        "psychology"
+      ],
+      "payload": {
+        "name": "踏空不构成追高的理由",
+        "summary": "已错过是既定事实，加仓仍以技术形态为准",
+        "family": "positioning",
+        "rules": [
+          "把此前的踏空当作既定事实，不因它而在高位快速追回仓位",
+          "加仓与否只看当前技术形态给出的判据，不看自己的踏空情绪",
+          "压力位之下不追高，改为缓慢完成加仓动作",
+          "对应的具体判据是道指 5 万点与纳指 26500-26600 两个长期结构位是否被突破"
+        ],
+        "data_requirements": [
+          "关键结构位标注",
+          "持仓记录"
+        ],
+        "overlap_with_killed": [],
+        "testability": "C",
+        "claimed_performance": null
+      }
+    }
+  ]
+}
