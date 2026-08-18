@@ -1,157 +1,388 @@
-# fanisl 部署指南（Debian 13）
+# fanisl 部署指南（GCE 新加坡 / Debian 13）
 
-目标：在服务器上长跑后端（API + 后台采集 + 自主交易调度）+ nginx 提供前端，让数据持续入库、
-评测数据自动积累。后端是单进程多线程（采集/交易调度是 app 启动起的线程），**只能单 worker**。
+目标：把持续运转的那半条流水线搬到服务器，让摄取、评分、节点重算不再受本机休眠、
+网络与限额影响；提取（L1）在拿到 Claude API 之前仍由本地会话完成，通过 SSH 隧道
+写同一个库。
 
-约定路径：代码放 `/opt/fanisl`，运行用户 `fanisl`。
+**形态决策**
+
+| 组件 | 方式 | 理由 |
+|---|---|---|
+| PostgreSQL 17 + TimescaleDB | **Docker** | Debian 13(trixie) 上 PG17 + timescale 的 apt 源要自己拼，官方镜像一步到位；数据落宿主卷，升级不动数据 |
+| 后端（api / collector） | **原生 venv + systemd** | 开发还在持续，`git pull` + 重启是秒级；尤其 **yt-dlp 需要频繁升级**（YouTube 一改就得跟），镜像重建是纯摩擦 |
+| 前端 | nginx 提供静态 | 已有构建产物 `frontend/dist` |
+
+约定：代码 `/opt/fanisl`，运行用户 `fanisl`，Postgres 只监听 `127.0.0.1`。
 
 ---
 
-## 1. 系统依赖
+## 0. 前置
 
-```
+机器上现有 docker 与 nginx，补齐其余：
+
+```bash
 sudo apt update
-sudo apt install -y python3 python3-venv python3-dev build-essential git curl nginx \
-                    postgresql postgresql-contrib
+sudo apt install -y git curl python3 python3-venv python3-dev build-essential \
+                    ffmpeg postgresql-client-17
 ```
 
-Node（构建前端，用 NodeSource 20.x）：
+`ffmpeg` 是提帧用的；`postgresql-client-17` 提供 `psql/pg_dump/pg_restore`（要与
+库同为 17，本机是 17.10）。若 trixie 源里没有 17，加 PGDG：
 
-```
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
-sudo apt install -y nodejs
-```
-
-## 2. PostgreSQL + TimescaleDB
-
-加 Timescale 源并安装（Debian 13 / PG 17）：
-
-```
-sudo sh -c 'echo "deb https://packagecloud.io/timescale/timescaledb/debian/ $(lsb_release -cs) main" > /etc/apt/sources.list.d/timescaledb.list'
-curl -fsSL https://packagecloud.io/timescale/timescaledb/gpgkey | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/timescaledb.gpg
-sudo apt update
-sudo apt install -y timescaledb-2-postgresql-17
-sudo timescaledb-tune --quiet --yes   # 写 shared_preload_libraries 等
-sudo systemctl restart postgresql
+```bash
+sudo install -d /usr/share/postgresql-common/pgdg
+sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+     https://www.postgresql.org/media/keys/ACCC4CF8.asc
+echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
+http://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
+  | sudo tee /etc/apt/sources.list.d/pgdg.list
+sudo apt update && sudo apt install -y postgresql-client-17
 ```
 
-> 注：apt 装的 timescaledb 会把扩展库放到正确位置，**不需要** macOS Homebrew 上那个
-> `timescaledb_move.sh` 手动拷库步骤。
+时区设成 UTC，日志和调度都少一层换算：
 
-建用户与两个库（行情库 + 交易库），并启用扩展：
-
-默认用本地 socket + peer 认证（OS 用户 fanisl ↔ 同名 DB 角色，免密），所以建角色不必设密码：
-
-```
-sudo -u postgres psql <<'SQL'
-CREATE ROLE fanisl LOGIN;
-CREATE DATABASE fanisl         OWNER fanisl;
-CREATE DATABASE fanisl_trading OWNER fanisl;
-SQL
-sudo -u postgres psql -d fanisl         -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
-sudo -u postgres psql -d fanisl_trading -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+```bash
+sudo timedatectl set-timezone UTC
 ```
 
-表结构由应用启动时自动建（marketstore / trading store 的 init）。
+---
 
-## 3. 应用用户与代码
+## 1. Postgres（Docker）
 
+```bash
+sudo mkdir -p /srv/fanisl-pg
+sudo docker run -d --name fanisl-pg --restart unless-stopped \
+  -e POSTGRES_USER=fanisl -e POSTGRES_PASSWORD='<强口令>' -e POSTGRES_DB=fanisl \
+  -v /srv/fanisl-pg:/var/lib/postgresql/data \
+  -p 127.0.0.1:5432:5432 \
+  timescale/timescaledb:latest-pg17
 ```
+
+`-p 127.0.0.1:5432:5432` 是关键：**不要**暴露到 0.0.0.0，本地会话通过 SSH 隧道进来。
+
+建另外两个库：
+
+```bash
+export PGPASSWORD='<强口令>'
+psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE DATABASE fanisl_trading OWNER fanisl;"
+psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE DATABASE fanisl_knowledge OWNER fanisl;"
+```
+
+> **三个库都必须存在。** `analyzer.runtime` 在 import 时就打开全部三个连接池
+> （`pool` / `trading_pool` / `knowledge_pool`），少一个 collector 起不来——哪怕你
+> 这一阶段只关心知识引擎。
+
+---
+
+## 2. 数据迁移
+
+### 2.1 本机导出
+
+```bash
+/Users/enin/fanisl/deploy/backup.sh          # 三个库一起，落 ~/fanisl-backups
+```
+
+体量参考：`fanisl_knowledge` 1.1 MB、`fanisl_trading` 488 KB、`fanisl` 45 MB（压缩后）。
+
+```bash
+scp ~/fanisl-backups/fanisl_knowledge-*.dump \
+    ~/fanisl-backups/fanisl_trading-*.dump \
+    ~/fanisl-backups/fanisl-*.dump  <server>:/tmp/
+```
+
+### 2.2 恢复：knowledge / trading（无 TimescaleDB，直接还原）
+
+```bash
+pg_restore -h 127.0.0.1 -U fanisl -d fanisl_knowledge --no-owner --no-privileges \
+           /tmp/fanisl_knowledge-*.dump
+pg_restore -h 127.0.0.1 -U fanisl -d fanisl_trading  --no-owner --no-privileges \
+           /tmp/fanisl_trading-*.dump
+```
+
+### 2.3 恢复：fanisl（**含 hypertable，必须走 pre/post_restore**）
+
+导出时那几条 `循环外键约束 continuous_agg` 告警就来自这里。直接 `pg_restore` 会失败或
+留下坏掉的 hypertable：
+
+```bash
+psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+psql -h 127.0.0.1 -U fanisl -d fanisl -c "SELECT timescaledb_pre_restore();"
+pg_restore -h 127.0.0.1 -U fanisl -d fanisl --no-owner --no-privileges /tmp/fanisl-*.dump
+psql -h 127.0.0.1 -U fanisl -d fanisl -c "SELECT timescaledb_post_restore();"
+```
+
+扩展版本要 ≥ 源库（本机 2.27.2）。
+
+### 2.4 验收：逐表比对行数
+
+不要只看 "restore 没报错"。本机已用这套比对验过一遍（12 张表全部一致）：
+
+```bash
+for t in contents extraction_runs knowledge_units claim_scores knowledge_nodes \
+         node_attestations node_relations keyframes spot_checks daily_bars \
+         eps_estimates creators; do
+  printf "%-20s %s\n" "$t" \
+    "$(psql -h 127.0.0.1 -U fanisl -tAc "SELECT count(*) FROM $t" fanisl_knowledge)"
+done
+```
+
+对照本机同一条命令的输出。参考值（2026-08-18）：contents 54、extraction_runs 51、
+knowledge_units 846、claim_scores 172、knowledge_nodes 469、node_attestations 540、
+node_relations 74、keyframes 722、spot_checks 48、eps_estimates 26、creators 3。
+
+### 2.5 retention 必须保持关闭
+
+研究平台要永久历史。2026-07 有过一次 365 天策略吃掉全部深回填的事故：
+
+```bash
+psql -h 127.0.0.1 -U fanisl -tAc \
+  "SELECT job_id, proc_name, hypertable_name FROM timescaledb_information.jobs
+   WHERE proc_name LIKE '%retention%'" fanisl
+```
+
+有输出就 `SELECT delete_job(<id>);` 删掉。`.env` 里对应开关保持 0。
+
+### 2.6 关键帧图片（不走 git）
+
+117 MB，`data_export/keyframes/` 在 .gitignore 里：
+
+```bash
+rsync -av --progress /Users/enin/fanisl/data_export/keyframes/ \
+      <server>:/opt/fanisl/data_export/keyframes/
+```
+
+`keyframes` 表存的是相对路径，目录位置变了要在 `.env` 里设 `KEYFRAME_ROOT`，
+否则读图 404、清理只删库不删文件。
+
+---
+
+## 3. 后端
+
+```bash
 sudo useradd -r -m -d /opt/fanisl -s /usr/sbin/nologin fanisl
-sudo -u fanisl git clone <repo> /opt/fanisl   # 或 rsync 上传
-```
-
-## 4. 后端：venv + 安装 + 配置
-
-```
+sudo -u fanisl git clone <repo> /opt/fanisl
 cd /opt/fanisl/backend
 sudo -u fanisl python3 -m venv .venv
 sudo -u fanisl .venv/bin/pip install --upgrade pip
-sudo -u fanisl .venv/bin/pip install .          # 依赖见 pyproject.toml
-sudo -u fanisl cp ../deploy/.env.example .env
-sudo -u fanisl nano .env                         # 填 ANTHROPIC_API_KEY / PG_CONNINFO / 各数据源 key
+sudo -u fanisl .venv/bin/pip install .
 ```
 
-> 若 pip 因公司网络的 SSL 拦截报证书错（本地开发机曾遇到），加
-> `--trusted-host pypi.org --trusted-host files.pythonhosted.org`。干净的 Debian 服务器一般不需要。
+### 3.1 .env
 
-冒烟自检（导入三个入口 + 通到 DB，应打印 ACCOUNT_ID）：
+```bash
+sudo -u fanisl cp /opt/fanisl/deploy/.env.example /opt/fanisl/backend/.env
+sudo -u fanisl chmod 600 /opt/fanisl/backend/.env
+sudo -u fanisl nano /opt/fanisl/backend/.env
+```
+
+**本机的 `.env` 里有真实凭据（Claude 中转端点与 key 等），走 scp/粘贴等带外方式传，
+不要进 git。** 三条连接串改成 TCP：
 
 ```
-sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c "import analyzer.main, analyzer.worker_collector, analyzer.worker_trader; import analyzer.runtime as rt; print(\"ok ACCOUNT_ID=\", rt.ACCOUNT_ID); rt.pool.close(); rt.trading_pool.close()"'
+PG_CONNINFO=host=127.0.0.1 dbname=fanisl user=fanisl password=<强口令>
+PG_TRADING_CONNINFO=host=127.0.0.1 dbname=fanisl_trading user=fanisl password=<强口令>
+PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 dbname=fanisl_knowledge user=fanisl password=<强口令>
 ```
 
-## 5. 前端：构建静态
+**Gemini 在 GCE 上优先走 ADC**：给实例绑一个有 Vertex AI User 角色的服务账号，
+`.env` 里只填 `GCP_PROJECT=<项目号>`、留空 `GEMINI_API_KEY`，就不用在服务器上放任何
+密钥。（这条通道本来就是为了绕开 AI Studio 项目被封生成权限而加的。）
+
+### 3.2 冒烟自检
+
+```bash
+sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c "
+import analyzer.worker_collector, analyzer.runtime as rt
+print(\"pools ok\", bool(rt.pool), bool(rt.trading_pool), bool(rt.knowledge_pool))
+rt.pool.close(); rt.trading_pool.close(); rt.knowledge_pool.close()"'
+```
+
+### 3.3 systemd
+
+```bash
+sudo cp /opt/fanisl/deploy/fanisl-collector.service /etc/systemd/system/
+sudo cp /opt/fanisl/deploy/fanisl-api.service       /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now fanisl-collector
+journalctl -u fanisl-collector -f
+```
+
+先只起 collector，观察几天再上 api。`fanisl-trader.service` 这一阶段不需要。
+
+> collector 是**单实例**（PG advisory lock），跑第二份会自行退出，不要配多份。
+
+### 3.4 关于 daily job 的触发时刻
+
+`Scheduler` 用墙钟 + 固定 interval，相位取决于**进程启动时间**，且每次重启会立刻
+补跑一次（幂等，不会重复评分）。美股收盘是 20:00 UTC，想让当天的收盘价当晚就入库，
+就在 20:30 UTC 之后启动一次 collector，之后相位就固定了。
+
+要严格定时就改用 timer：把 `KNOWLEDGE_DAILY_INTERVAL_S` 设成一个很大的值让内置 job
+形同停用，另配
 
 ```
+# /etc/systemd/system/fanisl-knowledge-daily.timer  → OnCalendar=*-*-* 21:00:00 UTC
+# 对应 .service 执行：PYTHONPATH=src .venv/bin/python -m analyzer.knowledge.daily
+```
+
+简单起见先用内置的，够用。
+
+---
+
+## 4. 本地会话接服务器库（拿到 Claude API 之前的主工作流）
+
+提取、归并、关系边、抽查仍在本地会话完成。**服务器库是唯一的真库，本地不要再留第二份**
+（双写没有合并故事，一分叉就没救）。
+
+```bash
+ssh -N -L 5433:127.0.0.1:5432 fanisl@<server> &
+```
+
+本地 `backend/.env` 把知识库指到隧道：
+
+```
+PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fanisl password=<强口令>
+```
+
+之后本地命令原样可用：
+
+```bash
+python -m analyzer.knowledge.nodes export                 # 列未挂单元
+python -m analyzer.knowledge.import_units <file> --dry-run
+python -m analyzer.knowledge.nodes import <file>
+python -m analyzer.knowledge.nodes seed-singletons        # 默认只预览
+python -m analyzer.knowledge.nodes seed-singletons --commit
+```
+
+`data_export/knowledge_units/*.json` 继续留在 repo 里——它们不是数据库的替代，是
+"人参与那一步"的凭据与重放日志（本机核对过：51 个文件 ↔ 51 个 run，一一对应）。
+
+本地测试仍打本地 `fanisl_test`，与服务器无关。
+
+---
+
+## 5. 转录搬上服务器
+
+这是收益最大的一步：L0 是最贵也最不可再生的资产（每期一次 Gemini 整片调用，视频删了
+就没了），而 `llm.py` 走 **Gemini URL 直读**——视频由 Gemini 自己取，与服务器 IP 无关。
+
+```bash
+sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python \
+  -m analyzer.knowledge.backfill_transcripts @andyleegogo --since-days 7'
+```
+
+跑通后按需挂 timer。
+
+**yt-dlp 那部分（频道清单/元数据/提帧）是另一回事**：它从服务器 IP 直连 YouTube，
+数据中心段比住宅 IP 更容易吃 bot 验证。预期：
+
+- 清单/元数据：多半可用，被拦时才需要 cookies；
+- **提帧：本机今天就已经被拦**（`Sign in to confirm you're not a bot`），别指望服务器更好，
+  先留在本地按需跑。
+
+`yt-dlp` 要能随时升级：`sudo -u fanisl /opt/fanisl/backend/.venv/bin/pip install -U yt-dlp`。
+
+> **cookies.txt 先不要传上去。** 里面是真实 Google 会话，等同凭据，而那条凭据至今
+> 未轮换。要用先轮换。
+
+---
+
+## 6. API + 前端 + nginx
+
+```bash
 cd /opt/fanisl/frontend
 sudo -u fanisl npm ci
-# 同源部署：API 走 nginx 同域代理，base 设空
-sudo -u fanisl bash -c 'VITE_API_BASE= npm run build'   # 产物在 dist/
-```
+sudo -u fanisl bash -c 'VITE_API_BASE= npm run build'    # 产物 dist/
+sudo systemctl enable --now fanisl-api
 
-## 6. systemd 服务（3 车道：api / collector / trader）
-
-服务已拆成三个独立进程，共用同一 PG 协调：**api**（请求服务，可多 worker）、**collector**
-（采集调度，准时不被 Claude 拖）、**trader**（自主交易，内部快盯市/慢 Claude 各一条线程）。
-collector/trader 各自有 PG advisory lock 防呆，**只能各跑一份**。
-
-```
-sudo cp /opt/fanisl/deploy/fanisl-api.service       /etc/systemd/system/
-sudo cp /opt/fanisl/deploy/fanisl-collector.service /etc/systemd/system/
-sudo cp /opt/fanisl/deploy/fanisl-trader.service    /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now fanisl-api fanisl-collector fanisl-trader
-sudo systemctl status fanisl-api fanisl-collector fanisl-trader
-journalctl -u fanisl-trader -f       # 看交易日志（采集看 fanisl-collector）
-```
-
-## 7. nginx 反向代理
-
-```
 sudo cp /opt/fanisl/deploy/nginx-fanisl.conf /etc/nginx/sites-available/fanisl
-sudo ln -s /etc/nginx/sites-available/fanisl /etc/nginx/sites-enabled/fanisl
+sudo ln -sf /etc/nginx/sites-available/fanisl /etc/nginx/sites-enabled/fanisl
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-改 `server_name` 为你的域名；HTTPS 用 `sudo apt install certbot python3-certbot-nginx && sudo certbot --nginx`。
+改 `server_name`；HTTPS：`sudo apt install -y certbot python3-certbot-nginx && sudo certbot --nginx`。
+GCE 防火墙放行 80/443，**不要**放行 5432。
 
-## 8. 验证
+Node 20：`curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash - && sudo apt install -y nodejs`
 
-- `curl -s localhost:8000/health` → `{"status":"ok",...}`
-- 浏览器开站点 → 各数据页有数据；交易页能「让 Claude 评估 / 自主扫描」。
-- `curl -s localhost:8000/collection/status` → 采集 runs 在更新（数据在入库）。
+---
 
-## 运行后会自动发生什么（无需干预）
+## 7. 持续更新
 
-- **collector**：每 15min 抓加密行情/衍生品/情绪/链上 → 时间序列入库；每天抓催化剂。持续「填满」。
-- **保留/压缩**：TimescaleDB 原生策略——30 天后原始样本按 retention 清、7 天后 chunk 列存压缩
-  （在 marketstore 初始化时设好，非定时任务）。
-- **trader**：快线程每 15s 盯市（止损/止盈/强平/限价撮合）；慢线程每 4h Claude 扫全标的找机会
-  （≤3 持仓、≤5% 在险）、并按 Claude 声明的唤醒条件触发时重评；平仓后自动复盘。两条线程互不阻塞。
+### 代码
 
-## 注意
+```bash
+sudo -u fanisl git -C /opt/fanisl pull
+sudo -u fanisl /opt/fanisl/backend/.venv/bin/pip install -e /opt/fanisl/backend  # 依赖有变时
+sudo systemctl restart fanisl-collector fanisl-api
+```
 
-- **api 现在可多 worker**（拆分后不再起后台调度）；**collector / trader 各只能一份**
-  （advisory lock 会拦住第二个，但也别在 systemd 里配多份）。
-- `.env` 含密钥，权限收紧（`chmod 600`），不要进 git。
-- TradFi（股票/商品/金属）分析依赖 Polygon/OANDA key；不填则这些标的分析为空，自主扫描会跳过。
-- 改了配置（上限/频率/key）：`systemctl restart fanisl-api fanisl-collector fanisl-trader`。
-- **迁移现有部署**：拉新代码后，先 `daemon-reload` 装好三个单元，再
-  `systemctl stop fanisl-api`（旧的单进程版）→ enable 新三件套。旧 API 一停，后台调度即随之停。
+### schema —— 唯一真正的坑
 
-## 交易评测升级（多账户 / 全仓，2026-06）
+建表全靠 31 处 `CREATE TABLE IF NOT EXISTS`，**对已存在的表是整块跳过的，新加的列不会
+自动生效**。本机已用"从零建库 vs 活库"逐列逐索引 diff 核对过，当前两侧完全一致、没有
+欠账；但纪律必须立住：
 
-代码升级后，交易评测从单账户改为**多账户对照实验**，每户 1000 USDT、全仓(cross)：
-- `main`（A·自然，保留拒绝权）、`forced`（B·强制交易）、`main_shadow`（影子，机械镜像 main、不被 Claude 管理）。
-- 账户在 `config.trading_accounts` 配置；启动时自动建好。`ensure_account` 只对**没交易过**的空账户采用新条款，
-  **绝不改动已在跑的账户**——所以老部署里已有交易的 `main` 会保留它原来的逐仓/余额，
-  新账户 `forced`/`main_shadow` 才是 cross/1000。想让 main 也走新条款：先清空它的交易（或换个账户名）。
-- trader 现在**对所有账户盯市**、对被管理账户（main/forced）各跑一遍 manage/scan——
-  **Claude 调用量随被管理账户数成倍增加**（2 个 ≈ 2×）。要省成本就减少 managed 账户或关掉 forced。
-- 接口都加了 `?account=<name>`（默认 main）；`/trading/accounts` 列全部账户；
-  `/trading/trades/{id}/cancel` 撤限价挂单。前端交易页顶部可切账户。
+> 以后每加一列，同时在该模块的 `_SCHEMA` 串里补一行
+> `ALTER TABLE <t> ADD COLUMN IF NOT EXISTS <col> <type>;`
 
-确定性裁决全部下沉引擎（仓位/同向/在险上限、事件邻近风险打折、TP 可达性、失效价执行、限价单 TTL、
-复评宽限/冷却/一次性）——相关阈值见 `config.py` 的 `trading_*`。
+目前只有 `extraction_runs.status` 有这行。漏了的表现是服务器静默跑在旧 schema 上，
+要等某个查询才炸。部署后可随时复核：
+
+```bash
+# 新建临时库跑一遍 schema，再与生产库 diff 列与索引（命令见 git 历史 e3156ef 的做法）
+```
+
+### 提取规范版本
+
+不需要停机。`extractor_version` + `extraction_runs.status`(active/superseded) 本来就是
+版本化重放机制，库里现在正是 49 个 v1 run 与 2 个 v2 run 并存。升 v3 不影响在跑的服务。
+
+---
+
+## 8. 备份
+
+服务器侧用同一个脚本：
+
+```bash
+sudo -u fanisl crontab -e
+# 30 4 * * *  PGPASSWORD='<强口令>' FANISL_BACKUP_DIR=/opt/fanisl/backups \
+#             /opt/fanisl/deploy/backup.sh >> /opt/fanisl/backups/backup.log 2>&1
+```
+
+`backup.sh` 默认三个库各留最近 14 份。**再往机器外放一份**（GCS bucket 最省事）：
+
+```bash
+gsutil rsync -r /opt/fanisl/backups gs://<bucket>/fanisl-backups
+```
+
+搬迁完成后本机那条 launchd（`com.fanisl.backup`）可以停掉：
+`launchctl bootout gui/$(id -u)/com.fanisl.backup`。
+
+---
+
+## 9. 新加坡这个位置带来的变化
+
+- **Binance**：本机长期 451 地域封锁，collector 的 `market` job 每 15 分钟失败一次。
+  SG 通常不在封锁名单，这个 job 可能自己就好了——起来后看 `journalctl` 确认。
+- **YouTube**：数据中心 IP 对 bot 验证更敏感，见第 5 节。
+- **yfinance / FRED**：无地域问题。
+
+---
+
+## 10. 验收清单
+
+按顺序确认，每条都有可执行的判据：
+
+1. `docker ps` 里 `fanisl-pg` 是 `Up`，且 `ss -lntp | grep 5432` 只绑 127.0.0.1
+2. 三个库都在：`psql -h 127.0.0.1 -U fanisl -l | grep fanisl`
+3. 12 张表行数与本机一致（§2.4）
+4. `timescaledb_information.jobs` 里没有 retention（§2.5）
+5. 冒烟自检打印 `pools ok True True True`（§3.2）
+6. `systemctl is-active fanisl-collector` = active，且 `journalctl` 里能看到
+   `prices.refresh` 的输出
+7. 手动跑一次 `python -m analyzer.knowledge.daily`，`claim_scores` 有新增或
+   打印"未到期"
+8. 本地隧道通：`python -m analyzer.knowledge.nodes export` 能列出服务器库的待挂单元
+9. `deploy/backup.sh` 在服务器上能跑出三个 dump，且 `pg_restore -l` 能列出内容
