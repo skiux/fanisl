@@ -182,9 +182,21 @@ scp ~/fanisl-backups/metric_samples.csv.gz  <server>:/tmp/
 psql -h 127.0.0.1 -U fanisl -d postgres -c "CREATE DATABASE fanisl OWNER fanisl;"
 psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
 
-# 2) 让应用建表并转成 hypertable（marketstore 的 init 幂等，见 marketstore.py:90）
-sudo -u fanisl bash -c 'cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c "
-import analyzer.runtime as rt; print(\"schema ok\"); rt.pool.close(); rt.trading_pool.close(); rt.knowledge_pool.close()"'
+# 2) 建表并转成 hypertable。等价于 marketstore 的 init（见 marketstore.py:16 与 :88，全幂等），
+#    这里直接写 SQL，免得本节被迫依赖 §3 的 venv 与 .env 先装好
+psql -h 127.0.0.1 -U fanisl -d fanisl <<'SQL'
+CREATE TABLE IF NOT EXISTS metric_samples (
+    scope   TEXT NOT NULL,
+    symbol  TEXT NOT NULL,
+    metric  TEXT NOT NULL,
+    ts      TIMESTAMPTZ NOT NULL,
+    value   DOUBLE PRECISION NOT NULL,
+    PRIMARY KEY (scope, symbol, metric, ts)
+);
+CREATE INDEX IF NOT EXISTS idx_samples_q ON metric_samples(symbol, metric, ts);
+SELECT create_hypertable('metric_samples', 'ts',
+       chunk_time_interval => interval '7 days', if_not_exists => TRUE);
+SQL
 
 # 3) 灌数据（TimescaleDB 会按 ts 自动分 chunk）
 gunzip -c /tmp/metric_samples.csv.gz | \
@@ -197,8 +209,8 @@ psql -h 127.0.0.1 -U fanisl -tAc \
 ```
 
 第 3 步是逐行 COPY 进 hypertable，359 万行按 `ts` 重新分 chunk，**耗时数分钟**，期间没有进度输出。
-分出来的 chunk 数不会正好等于本机的 3945——chunk 区间由服务器侧的 `chunk_time_interval` 决定，
-数目不同不代表数据有问题，以行数为准。
+`chunk_time_interval` 与本机一致取 7 天，所以 chunk 数应当接近 3945；差几个不必在意
+（取决于首末 chunk 的边界落点），**以行数为准**。
 
 失败重来要先清空：`psql -h 127.0.0.1 -U fanisl -c "TRUNCATE metric_samples" fanisl`。
 主键是 `(scope, symbol, metric, ts)`，重复灌会撞唯一约束而不是静默翻倍。
