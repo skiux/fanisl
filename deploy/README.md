@@ -730,9 +730,12 @@ sudo systemctl restart fanisl-collector fanisl-api
 
 ## 8. 备份
 
-服务器侧用同一个 `deploy/backup.sh`，但**别用 `sudo -u fanisl crontab -e`**：`fanisl` 的 shell 是
-`/usr/sbin/nologin`，cron 拿不到 shell 来执行命令，任务会静默不跑。这台机器本来就是 systemd，
-用 timer 更合适——顺带还能 `systemctl list-timers` 看到下次触发时间。
+服务器侧用同一个 `deploy/backup.sh`。它**直接读 `backend/.env` 里的 `PG_*_CONNINFO`**，
+不需要另配连接信息——那是应用唯一的连接配置来源，不会与之漂移。
+
+**别用 `sudo -u fanisl crontab -e`**：`fanisl` 的 shell 是 `/usr/sbin/nologin`，cron 拿不到
+shell 来执行命令，任务会静默不跑。这台机器本来就是 systemd，用 timer 更合适——顺带还能
+`systemctl list-timers` 看到下次触发时间。
 
 ```bash
 # ── 在【服务器】上跑 ──
@@ -746,7 +749,6 @@ Type=oneshot
 User=fanisl
 Group=fanisl
 Environment=FANISL_BACKUP_DIR=/opt/fanisl/backups
-EnvironmentFile=/opt/fanisl/backend/.env.backup
 ExecStart=/opt/fanisl/deploy/backup.sh
 UNIT
 
@@ -763,17 +765,17 @@ RandomizedDelaySec=300
 WantedBy=timers.target
 UNIT
 
-# PGPASSWORD 单独放，别塞进 unit 文件（systemctl cat 谁都看得见）
-printf 'PGPASSWORD=%s\nPGHOST=127.0.0.1\nPGUSER=fanisl\n' '<强口令>' \
-  > /opt/fanisl/backend/.env.backup
-chmod 660 /opt/fanisl/backend/.env.backup
-
 sudo systemctl daemon-reload
 sudo systemctl enable --now fanisl-backup.timer
 sudo systemctl start fanisl-backup.service     # 立刻跑一次验证
 journalctl -u fanisl-backup -n 20 --no-pager
 systemctl list-timers fanisl-backup            # 看下次触发时间
 ```
+
+> 若已按早前版本建过 `.env.backup`，可以删掉：`rm -f /opt/fanisl/backend/.env.backup`，
+> 并把 unit 里的 `EnvironmentFile=` 那行去掉。口令从 `.env` 走，不必存两份。
+> 报 `connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed` 就是
+> 连接信息没传到——现在改为读 `.env`，只要 `tools/check_db.py` 通过，备份就能连上。
 
 `Persistent=true` 让机器关机错过的那次在开机后补跑。`backup.sh` 默认三个库各留最近 14 份。**再往机器外放一份**（GCS bucket 最省事）：
 
