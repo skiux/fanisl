@@ -117,10 +117,19 @@ def check_llm_call():
 
 
 def check_binance():
+    """现货与合约两个域名分开测。
+
+    collector 的 market job 取衍生品走的是 **fapi**，只 ping 现货 api 会给假阳性——
+    2026-08-19 本机实测正是 api 200 而 fapi 报错，日志里的失败全来自 fapi。
+    """
     import httpx
-    r = httpx.get("https://api.binance.com/api/v3/ping", timeout=15.0)
-    r.raise_for_status()
-    return "api.binance.com 可达（此前本机长期 451 地域封锁）"
+    out = []
+    for name, u in (("api", "https://api.binance.com/api/v3/ping"),
+                    ("fapi", "https://fapi.binance.com/fapi/v1/ping")):
+        r = httpx.get(u, timeout=15.0)
+        r.raise_for_status()
+        out.append(f"{name} {r.status_code}")
+    return "、".join(out) + "（此前长期 451 地域封锁）"
 
 
 def check_keyframes():

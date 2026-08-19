@@ -367,6 +367,18 @@ id -nG | tr ' ' '\n' | grep -x fanisl && echo "组已生效"
 
 这样两个方向都通：服务以 `fanisl` 建的文件你能改，你建的文件服务能写。
 
+**还要给 git 开一条例外**，否则 `git -C /opt/fanisl pull` 会报
+`fatal: detected dubious ownership in repository at '/opt/fanisl'`——仓库属主是 `fanisl`
+而你以 `enin` 在跑，git 默认拒绝这种跨属主操作（防的是共享机器上被人塞恶意 hook）：
+
+```bash
+# ── 在【服务器】上跑 ──
+git config --global --add safe.directory /opt/fanisl
+git -C /opt/fanisl pull    # 验证
+```
+
+这是本节 ACL 方案的直接后果，一次性设置。
+
 **为什么不干脆全用你自己的账号跑？** 因为摄取链会用 ffmpeg 和 yt-dlp 解析来路不明的视频，
 那是有 CVE 历史的解析器。独立账号挡不住数据库（口令就在 `.env` 里），但挡得住 `~/.ssh`、
 gcloud 凭据和 sudo。代价用上面的 ACL 消掉了，就没必要省这一层。
@@ -516,11 +528,32 @@ journalctl -u fanisl-collector -f
 提取、归并、关系边、抽查仍在本地会话完成。**服务器库是唯一的真库，本地不要再留第二份**
 （双写没有合并故事，一分叉就没救）。
 
+GCE 上不要用裸 `ssh`，用 `gcloud compute ssh`——它管密钥、也支持 IAP。**登录用户是你自己
+（`enin`），不是 `fanisl`**：后者的 shell 是 `/usr/sbin/nologin`，根本无法登录。
+
 ```bash
 # ── 在【本机】上跑 ──
-# 开隧道，之后本地命令都走它
-ssh -N -L 5433:127.0.0.1:5432 fanisl@<server> &
+# 开隧道（前台占一个终端；加 -f 可转后台）
+gcloud compute ssh murgto --zone=asia-southeast1-b -- -N -L 5433:127.0.0.1:5432
 ```
+
+首次连报 `Permission denied (publickey)` 说明本机公钥不在项目 metadata 里。先确认是不是
+OS Login 模式，再按对应方式加：
+
+```bash
+# ── 在【本机】上跑 ──
+# 空 = 未启用 OS Login，走 metadata 密钥
+gcloud compute project-info describe \
+  --format="value(commonInstanceMetadata.items.filter(\"key:enable-oslogin\").extract(value))"
+
+# OS Login 模式：
+gcloud compute os-login ssh-keys add --key-file=$HOME/.ssh/google_compute_engine.pub
+# metadata 模式：让 gcloud 自己补（会提示写入 metadata，同意即可）
+gcloud compute ssh murgto --zone=asia-southeast1-b --command=whoami
+```
+
+> **别用 `gcloud compute instances add-metadata ... --metadata ssh-keys=...` 手工覆盖**：
+> 那会**替换**整份 ssh-keys 而不是追加，把现有的其他密钥挤掉，可能直接锁死自己。
 
 本地 `backend/.env` 把知识库指到隧道：
 
@@ -559,7 +592,25 @@ cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python tools/check_sources.py
 
 覆盖 yfinance 日线、FRED 政策利率、yfinance 盈利预期、YouTube 频道清单与元数据、
 Gemini 通道选择与取 token；另外单列两项不计入结论的——提帧（当前预期失败，见 §5）
-与 Binance（交易侧，与知识引擎无关）。主线全通才继续。
+与 Binance（交易侧，与知识引擎无关；现货 api 与合约 fapi 分开测，collector 取衍生品走的是
+后者，只测现货会给假阳性）。主线全通才继续。
+
+跑起来之后再看**摄取健康度**——各源最新到哪、近 24h 进了多少、有没有停摆：
+
+```bash
+# ── 在【服务器】上跑 ──
+cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python tools/check_ingest.py
+```
+
+它读 collection_runs / metric_samples / daily_bars / eps_estimates / claim_scores / contents
+六处，一屏看完。判读要点：
+
+- `market` job 近 24h 的失败数：偶发正常（Binance 抖动），持续全失败要查 fapi 可达性；
+- `daily_bars` 最新交易日应当是最近一个已收盘的美股交易日——**盘中不会更新是对的**
+  （未收盘那根按设计丢弃，见 §2 的时区闸门）；
+- `eps_estimates` 每天应当多一个快照，这个序列**断一天少一天、无法回填**；
+- `claim_scores` 近 24h 有没有新增：这是验证层是否真的在自动运转的唯一硬指标。
+  2026-08 排查出过"挂了调度却从没跑过"，界面上看不出异常，只有这个数字会说话。
 
 > **`--llm` 报 403 多半是实例 scope**：token 签得出（元数据服务器照发），但 scope 不含
 > `cloud-platform` 时调 Vertex 必被拒。体检脚本会先于实调把这条挑出来并给出修复命令。
