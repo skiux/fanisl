@@ -1,0 +1,176 @@
+@import "tailwindcss";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─────────────────────────────────────────────────────────────
+   调色：冷中性近黑做底 + 单一暖黄铜强调色。
+   强调色刻意避开绿/红——在资产界面里那两个颜色已经被盈亏占用，
+   再拿其中之一做品牌色会让"选中"和"亏损"在余光里撞车。
+   暖色同时和知识引擎那边的象牙纸面构成family关系：纸 vs 仪器。
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --bg: #fbfbfa;
+  --surface: #ffffff;
+  --surface-2: #f4f4f3;
+  --line: rgb(0 0 0 / 0.09);
+  --line-strong: rgb(0 0 0 / 0.16);
+  --fg: #17171a;
+  --fg-2: #55555e;
+  --fg-3: #6f6f78;   /* 4.73:1 on --bg */
+  --gain: #1f8a5c;
+  --loss: #b8453f;
+  --accent: #9a6f24;
+  --accent-soft: rgb(154 111 36 / 0.12);
+  --shadow-diffuse: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px -12px rgb(0 0 0 / 0.10);
+  /* 配置条的色阶：单向色相漂移（黄铜→卡其→鼠尾草→板岩→灰），
+     全程低饱和。不用彩虹色——那是数据可视化里最快显廉价的做法。 */
+  --seg-1: #a97c2c;
+  --seg-2: #857542;
+  --seg-3: #566454;
+  --seg-4: #45636b;
+  --seg-5: #445d7c;
+  --seg-6: #55555f;
+  --seg-dust: #d0d0d5;
+}
+
+.dark {
+  --bg: #0a0a0b;
+  --surface: #121214;
+  --surface-2: #1a1a1e;
+  --line: rgb(255 255 255 / 0.08);
+  --line-strong: rgb(255 255 255 / 0.16);
+  --fg: #f2f2f4;
+  --fg-2: #9e9ea8;
+  --fg-3: #82828d;   /* 5.21:1 on --bg */
+  --gain: #4fb286;
+  --loss: #d0655f;
+  --accent: #d3a15c;
+  --accent-soft: rgb(211 161 92 / 0.14);
+  --shadow-diffuse: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.55);
+  --seg-1: #d9a860;
+  --seg-2: #b39a6c;
+  --seg-3: #8a9281;
+  --seg-4: #6d8a91;
+  --seg-5: #627995;
+  --seg-6: #6c6c79;
+  --seg-dust: #35353c;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-fg-3: var(--fg-3);
+  --color-gain: var(--gain);
+  --color-loss: var(--loss);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, monospace;
+
+  /* 仪表盘不用大圆角。SaaS 营销页那套 2.5rem 在密集数据界面里会显得松垮 */
+  --radius-panel: 12px;
+  --radius-control: 8px;
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* 金额必须等宽等距，否则每次刷新数字会左右跳 */
+  .tnum {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum", "zero";
+  }
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--fg);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+}
+
+@layer utilities {
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+  }
+  .hairline {
+    border-color: var(--line);
+  }
+  /* 数据陈旧时整块数字面失色——把"过期"做成可感知的材质变化，
+     而不是角落里一行小字。见 StalenessVeil 的用法。 */
+  .veiled {
+    filter: saturate(0.32) opacity(0.62);
+    transition: filter 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@layer utilities {
+  /* 入场用 CSS 级联而不是 JS 动画库：只动 transform/opacity，不触发重排，
+     也不会为了一个展开动效背上一整个动画运行时。 */
+  @keyframes rise {
+    from { opacity: 0; transform: translate3d(0, 10px, 0); }
+    to   { opacity: 1; transform: none; }
+  }
+  .rise {
+    animation: rise 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--i, 0) * 70ms);
+  }
+  /* 折叠区用 grid-template-rows 0fr→1fr，无需测量高度 */
+  .collapsible {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .collapsible[data-open="true"] { grid-template-rows: 1fr; }
+  .collapsible > * { overflow: hidden; }
+
+  /* 骨架屏用与真实内容等尺寸的块 + 掠过的高光，不用转圈 spinner */
+  @keyframes shimmer {
+    100% { transform: translateX(100%); }
+  }
+  .skel {
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-2);
+    border-radius: 5px;
+  }
+  .skel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--line-strong), transparent);
+    animation: shimmer 1.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

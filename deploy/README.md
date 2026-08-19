@@ -708,6 +708,12 @@ yt-dlp 只是用它看频道列表，不需要任何权限。浏览器装 Get co
 cd /opt/fanisl/frontend
 npm ci
 VITE_API_BASE= npm run build    # 产物 dist/
+
+# 控制台（资产台）是第二个独立前端，产物挂在 /console/ 前缀下
+cd /opt/fanisl/console
+npm ci
+npm run build                   # 产物 dist/，vite 已配 base: '/console/'
+
 sudo systemctl enable --now fanisl-api
 
 sudo cp /opt/fanisl/deploy/nginx-fanisl.conf /etc/nginx/sites-available/fanisl

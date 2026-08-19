@@ -1,0 +1,100 @@
+/** 金融数字的格式化。精度规则写在一处，避免各组件各拍脑袋。 */
+
+const usd = new Intl.NumberFormat('en-US', {
+  style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2,
+})
+const usdCompact = new Intl.NumberFormat('en-US', {
+  style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1,
+})
+
+export function money(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—'
+  return usd.format(value)
+}
+
+export function moneyCompact(value: number) {
+  return Math.abs(value) >= 10_000 ? usdCompact.format(value) : usd.format(value)
+}
+
+/** 带显式正负号：盈亏必须一眼看出方向，不能靠颜色单独承担 */
+export function signedMoney(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—'
+  const sign = value > 0 ? '+' : value < 0 ? '−' : ''
+  return `${sign}${usd.format(Math.abs(value))}`
+}
+
+export function signedPercent(value: number | null | undefined, digits = 2) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—'
+  const sign = value > 0 ? '+' : value < 0 ? '−' : ''
+  return `${sign}${(Math.abs(value) * 100).toFixed(digits)}%`
+}
+
+export function percent(value: number | null | undefined, digits = 1) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—'
+  return `${(value * 100).toFixed(digits)}%`
+}
+
+/**
+ * 币种数量：量级跨 10 个数量级（0.00071 PAXG 到 812,400 SHIB），
+ * 固定小数位在两头都难看，按量级切精度。
+ */
+export function amount(value: number) {
+  if (!Number.isFinite(value)) return '—'
+  const abs = Math.abs(value)
+  if (abs === 0) return '0'
+  if (abs >= 10_000) return value.toLocaleString('en-US', { maximumFractionDigits: 0 })
+  if (abs >= 1) return value.toLocaleString('en-US', { maximumFractionDigits: 4 })
+  if (abs >= 0.0001) return value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '')
+  return value.toFixed(8).replace(/0+$/, '').replace(/\.$/, '')
+}
+
+export function price(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return '—'
+  if (value >= 1000) return usd.format(value)
+  if (value >= 1) return `$${value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}`
+  return `$${value.toPrecision(3)}`
+}
+
+/** 低于这个值算灰尘，默认折起来——真账户里灰尘条数会淹没主仓位 */
+export const DUST_THRESHOLD_USD = 25
+
+export function isDust(valueUsd: number | null) {
+  return valueUsd === null || valueUsd < DUST_THRESHOLD_USD
+}
+
+export type Freshness = 'live' | 'aging' | 'stale' | 'unknown'
+
+export function freshnessOf(asOf: string | null): { level: Freshness; ageMs: number | null } {
+  if (!asOf) return { level: 'unknown', ageMs: null }
+  const ageMs = Date.now() - new Date(asOf).getTime()
+  if (!Number.isFinite(ageMs)) return { level: 'unknown', ageMs: null }
+  if (ageMs < 3 * 60_000) return { level: 'live', ageMs }
+  if (ageMs < 20 * 60_000) return { level: 'aging', ageMs }
+  return { level: 'stale', ageMs }
+}
+
+export function relativeTime(asOf: string | null) {
+  if (!asOf) return '从未取到'
+  const ageMs = Date.now() - new Date(asOf).getTime()
+  if (!Number.isFinite(ageMs)) return '时间未知'
+  const minutes = Math.round(ageMs / 60_000)
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes} 分钟前`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours} 小时前`
+  return `${Math.round(hours / 24)} 天前`
+}
+
+export function clockTime(asOf: string | null) {
+  if (!asOf) return '—'
+  const date = new Date(asOf)
+  const zone = 'Asia/Shanghai'
+  const dayOf = (value: Date) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: zone }).format(value)
+  // 当天的只给时分：一分钟前的数据再标上日期是噪音
+  const sameDay = dayOf(date) === dayOf(new Date())
+  return new Intl.DateTimeFormat('zh-CN', {
+    ...(sameDay ? {} : { month: '2-digit', day: '2-digit' }),
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: zone,
+  }).format(date)
+}
