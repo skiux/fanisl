@@ -1,6 +1,7 @@
 """知识引擎每日维护：行情 → 盈利预期修正 → 到期评分 → 节点状态重算 → 补齐缺帧（幂等，挂 collector）。
 
-等价于手动跑 prices / estimates / scorers / nodes recompute / backfill_keyframes 五条 CLI；
+等价于手动跑 backfill_transcripts×3 / prices / estimates / scorers / nodes recompute /
+backfill_keyframes 六条 CLI；
 任何一步失败不影响后续（best-effort，scheduler 的 job 约定）。
 也可单独跑：python -m analyzer.knowledge.daily
 """
@@ -12,7 +13,7 @@ import logging
 
 from ..config import get_settings
 from ..db import make_pool
-from . import backfill_keyframes, estimates, prices, scorers
+from . import backfill_keyframes, backfill_transcripts, estimates, prices, scorers
 from .nodes import NodeStore
 from .store import KnowledgeStore
 
@@ -21,6 +22,14 @@ log = logging.getLogger("analyzer.knowledge")
 SINCE_FLOOR = dt.date(2026, 5, 1)   # 语料为空时的兜底起点
 SINCE_LEAD_DAYS = 30                # 行情要比最早那期再往前留出的缓冲
 KEYFRAME_GAP_LIMIT = 20       # 每日最多补几条内容的帧（别让日维护变成长批处理）
+
+# 摄取新内容：每天扫一次三个信源的近 3 天。窗口取 3 天而不是 1 天是为了容错——
+# 某天 collector 没跑或转录失败，次日还能补上，不至于差一天就永久漏掉一期。
+# 幂等由 contents.dedup_hash 保证，重复扫到的不会二次入库。
+# max_new 是护栏：正常一天 0-2 期，真出现五期以上说明窗口或频道有异常，宁可停下来让人看。
+INGEST_HANDLES = ["@andyleegogo", "@MeiTouJun", "@yttalkjun"]
+INGEST_SINCE_DAYS = 3
+INGEST_MAX_NEW = 5
 
 
 def price_since(pool) -> dt.date:
@@ -40,6 +49,16 @@ def price_since(pool) -> dt.date:
 
 
 def run_daily(pool) -> None:
+    # 摄取放最前：当天新入库的内容当天就能进后续环节（提帧、周报计数）。
+    # L1 提取仍是手动的（会话按 extraction-guide 产 JSON），这里只保证 L0 不丢——
+    # 视频删了就永远没了，而 L0 是整条链的地基。
+    for handle in INGEST_HANDLES:
+        try:
+            backfill_transcripts.run(handle, since_days=INGEST_SINCE_DAYS,
+                                     max_new=INGEST_MAX_NEW)
+        except Exception:
+            log.exception("知识引擎日维护：%s 摄取失败（继续下一个信源）", handle)
+
     try:
         prices.refresh(pool, since=price_since(pool))
     except Exception:

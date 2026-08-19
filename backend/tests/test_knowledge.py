@@ -752,3 +752,57 @@ def test_vertex_rejects_service_account_file(monkeypatch, tmp_path):
         "type": "service_account", "private_key": "x", "client_email": "a@b"})
     with pytest.raises(RuntimeError, match="authorized_user"):
         c._access_token()
+
+
+def test_daily_ingests_all_three_sources_before_scoring(monkeypatch):
+    """日维护要先摄取再评分：当天新入库的内容当天就能进后续环节。
+
+    2026-08-19 之前 daily 完全不碰摄取，三个频道的新内容全靠手动跑
+    backfill_transcripts——漏跑就是永久缺口（视频删了 L0 就没了）。
+    """
+    import analyzer.knowledge.daily as dailymod
+
+    order, ingested = [], []
+    monkeypatch.setattr(dailymod.backfill_transcripts, "run",
+                        lambda h, **kw: (ingested.append((h, kw)), order.append("ingest")))
+    monkeypatch.setattr(dailymod.prices, "refresh", lambda *a, **k: order.append("prices"))
+    monkeypatch.setattr(dailymod.estimates, "refresh", lambda *a, **k: (order.append("estimates"), {"stored": 0, "tried": 0})[1])
+    monkeypatch.setattr(dailymod.scorers, "run", lambda **k: order.append("scorers"))
+    monkeypatch.setattr(dailymod, "price_since", lambda pool: __import__("datetime").date(2026, 5, 1))
+    monkeypatch.setattr(dailymod, "NodeStore", lambda pool: type("N", (), {"recompute": lambda s: {}})())
+    monkeypatch.setattr(dailymod, "KnowledgeStore", lambda pool: object())
+    monkeypatch.setattr(dailymod.backfill_keyframes, "fill_gaps", lambda *a, **k: 0)
+
+    dailymod.run_daily(object())
+
+    assert [h for h, _ in ingested] == ["@andyleegogo", "@MeiTouJun", "@yttalkjun"], \
+        "三个信源都要扫，漏一个就是那个频道永久断更"
+    assert all(kw["since_days"] == 3 for _, kw in ingested), "窗口留 3 天容错，不能是 1 天"
+    assert all(kw["max_new"] == 5 for _, kw in ingested), "护栏：异常放量时停下来让人看"
+    assert order.index("ingest") < order.index("scorers"), "摄取必须排在评分之前"
+
+
+def test_daily_continues_when_one_source_fails(monkeypatch):
+    """单个信源摄取失败不能拖垮整轮日维护。"""
+    import analyzer.knowledge.daily as dailymod
+
+    seen = []
+
+    def _run(handle, **kw):
+        seen.append(handle)
+        if handle == "@MeiTouJun":
+            raise RuntimeError("配额用尽")
+
+    monkeypatch.setattr(dailymod.backfill_transcripts, "run", _run)
+    monkeypatch.setattr(dailymod.prices, "refresh", lambda *a, **k: seen.append("prices"))
+    monkeypatch.setattr(dailymod.estimates, "refresh", lambda *a, **k: {"stored": 0, "tried": 0})
+    monkeypatch.setattr(dailymod.scorers, "run", lambda **k: seen.append("scorers"))
+    monkeypatch.setattr(dailymod, "price_since", lambda pool: __import__("datetime").date(2026, 5, 1))
+    monkeypatch.setattr(dailymod, "NodeStore", lambda pool: type("N", (), {"recompute": lambda s: {}})())
+    monkeypatch.setattr(dailymod, "KnowledgeStore", lambda pool: object())
+    monkeypatch.setattr(dailymod.backfill_keyframes, "fill_gaps", lambda *a, **k: 0)
+
+    dailymod.run_daily(object())
+
+    assert "@yttalkjun" in seen, "一个信源失败后，后面的信源仍要继续"
+    assert "scorers" in seen, "摄取失败不影响评分等后续环节"
