@@ -47,7 +47,7 @@ export function NetWorthCell({ totals, attribution, transfers, veiled }: {
         )}
       </div>
 
-      <dl className="mt-auto space-y-2 border-t border-line pt-3">
+      <dl className="mt-5 space-y-2 border-t border-line pt-3">
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-xs text-fg-3">30 天真实盈亏</dt>
           <dd>

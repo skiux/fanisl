@@ -104,6 +104,8 @@ export type EarnPosition = {
   /** 最新年化，locked 为固定年化 */
   apr: number | null
   cumulative_rewards: number | null
+  /** 累计收益的 USD 计价；前端没有价格表，换算由后端做 */
+  cumulative_rewards_usd: number | null
   /** locked 才有 */
   redeem_date: string | null
   can_redeem: boolean

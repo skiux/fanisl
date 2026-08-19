@@ -9,6 +9,7 @@ import { EquityCurve } from './EquityCurve'
 import { NetWorthCell } from './NetWorthCell'
 import { RiskGauges } from './RiskPanel'
 import { SourceStrip } from './SourceStrip'
+import { EarnSummary } from './EarnSummary'
 import { WalletSpread } from './WalletSpread'
 import { WorkArea } from './WorkArea'
 import { EmptyState, ErrorState, PortfolioSkeleton, StaleBanner, UnauthorizedState } from './states'
@@ -106,7 +107,12 @@ function Body({ phase, onRetry, refreshing }: {
         定高工作台：概览常驻（上排 + 右栏），明细收进工作区标签页。
         xl 以下退回单列纵向滚动——窄屏本来就该滚。
       */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-12 xl:grid-rows-[14rem_minmax(0,1fr)]">
+      {/*
+        两列结构：左列上净值+曲线、下工作区（多余高度全归它，图表和表格用得上）；
+        右列跨两行，收进风险/钱包/理财/来源四块——单靠钱包一块撑不满一整列，
+        把行距拉开去填只会更难看。
+      */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-12 xl:grid-rows-[minmax(13rem,auto)_minmax(0,1fr)]">
         <section className="cell border-b border-line xl:col-span-3 xl:border-r">
           <NetWorthCell
             attribution={snapshot.attribution}
@@ -116,35 +122,31 @@ function Body({ phase, onRetry, refreshing }: {
           />
         </section>
 
-        <section className="cell border-b border-line xl:col-span-5 xl:border-r">
+        <section className="cell border-b border-line xl:col-span-6 xl:border-r">
           <Eyebrow>30 天净值 · 日快照</Eyebrow>
-          <div className="mt-2 flex-1">
+          <div className="mt-2 flex min-h-0 flex-1 flex-col">
             <EquityCurve points={snapshot.equity_curve} veiled={veiled} />
           </div>
         </section>
 
-        <section className="cell border-b border-line xl:col-span-4">
-          <Eyebrow>风险 · Exposure</Eyebrow>
-          <div className={veiled ? 'veiled flex flex-1 flex-col' : 'flex flex-1 flex-col'}>
-            <RiskGauges
-              concentration={concentration}
-              exposureRatio={snapshot.totals?.gross_exposure_ratio ?? null}
-              futures={snapshot.futures}
-              margin={snapshot.margin}
-              unavailable={futuresMissing}
-            />
-          </div>
-        </section>
-
-        <section className="cell border-b border-line xl:col-span-8 xl:border-b-0 xl:border-r">
-          <WorkArea futuresMissing={futuresMissing} snapshot={snapshot} veiled={veiled} />
-        </section>
-
-        {/* 右栏一格到底：钱包列表撑开，来源状态钉底。
-            拆成两格会在健康状态下留出一大片死区——那一格只有一行字。 */}
-        <section className="cell xl:col-span-4">
-          <div className="scroll-y flex-1">
-            <WalletSpread veiled={veiled} wallets={snapshot.wallets} />
+        <section className="cell order-2 border-b border-line xl:order-none xl:col-span-3 xl:row-span-2 xl:border-b-0">
+          <div className="scroll-y flex min-h-0 flex-1 flex-col gap-5">
+            <div>
+              <Eyebrow>风险 · Exposure</Eyebrow>
+              <div className={veiled ? 'veiled' : undefined}>
+                <RiskGauges
+                  concentration={concentration}
+                  exposureRatio={snapshot.totals?.gross_exposure_ratio ?? null}
+                  futures={snapshot.futures}
+                  margin={snapshot.margin}
+                  unavailable={futuresMissing}
+                />
+              </div>
+            </div>
+            <div className="border-t border-line pt-4">
+              <WalletSpread veiled={veiled} wallets={snapshot.wallets} />
+            </div>
+            <EarnSummary earn={snapshot.earn} veiled={veiled} />
           </div>
           <div className="mt-3 border-t border-line pt-3">
             <SourceStrip
@@ -154,6 +156,10 @@ function Body({ phase, onRetry, refreshing }: {
               sources={snapshot.sources}
             />
           </div>
+        </section>
+
+        <section className="cell order-1 border-b border-line xl:order-none xl:col-span-9 xl:border-b-0 xl:border-r xl:border-line">
+          <WorkArea futuresMissing={futuresMissing} snapshot={snapshot} veiled={veiled} />
         </section>
       </div>
     </main>

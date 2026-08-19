@@ -35,21 +35,17 @@ function buildSteps(a: AttributionData): Step[] {
   return steps
 }
 
-const TRACK = 176
-
 function StepColumn({ step, floor, span }: { step: Step; floor: number; span: number }) {
   const top = Math.max(step.from, step.to)
   const bottom = Math.min(step.from, step.to)
   const anchor = step.kind === 'anchor'
-  const heightPct = anchor
-    ? ((step.to - floor) / span) * 100
-    : (Math.abs(step.to - step.from) / span) * 100
-  const bottomPct = anchor ? 0 : ((bottom - floor) / span) * 100
+  const levelPct = ((step.to - floor) / span) * 100
+  const heightPct = Math.abs(step.to - step.from) / span * 100
+  const bottomPct = ((bottom - floor) / span) * 100
 
   // 充提是中性事件，不是盈亏——绝不能染成绿色，否则"充钱进来"会被读成"赚了"
   const tone =
-    anchor ? 'bg-fg-3/28'
-    : step.kind === 'transfer' ? 'bg-accent/70'
+    step.kind === 'transfer' ? 'bg-accent/70'
     : step.value >= 0 ? 'bg-gain/75' : 'bg-loss/75'
 
   return (
@@ -63,17 +59,28 @@ function StepColumn({ step, floor, span }: { step: Step; floor: number; span: nu
         {anchor ? moneyCompact(step.value) : signedMoney(step.value)}
       </span>
 
-      <div className="relative w-full" style={{ height: TRACK }}>
-        <div
-          className="absolute inset-x-[18%] rounded-[3px] transition-[height,bottom] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
-          style={{
-            bottom: `${bottomPct}%`,
-            height: `${Math.max(heightPct, 1.2)}%`,
-          }}
-        >
-          <div className={cn('size-full rounded-[3px]', tone)} />
-        </div>
-        {/* 顶端连线，把各段串成一条可读的账 */}
+      <div className="relative w-full flex-1">
+        {anchor ? (
+          /*
+            锚柱画成"水位"而不是"数量"：轴是缩放的，期初 74.2K 与当前 80.1K 只差 8%，
+            按到轴底的距离画会得到 3.5 倍的柱高差，直接误导。
+            所以只留极淡的底色 + 一条实心水位线，读者读的是那条线的高度。
+          */
+          <div
+            className="absolute inset-x-[14%] bottom-0 border-x border-b border-line bg-fg-3/[0.06]"
+            style={{ height: `${Math.max(levelPct, 2)}%` }}
+          >
+            <div className="absolute inset-x-0 top-0 h-[2px] bg-fg-3/70" />
+          </div>
+        ) : (
+          <div
+            className={cn(
+              'absolute inset-x-[18%] rounded-[3px] transition-[height,bottom] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
+              tone,
+            )}
+            style={{ bottom: `${bottomPct}%`, height: `${Math.max(heightPct, 1.2)}%` }}
+          />
+        )}
         {!anchor && (
           <div
             className="absolute inset-x-0 border-t border-dashed border-line-strong"
@@ -117,7 +124,7 @@ export function AttributionPanel({ data, veiled, embedded = false }: {
   const span = high + pad * 0.4 - floor
 
   return (
-    <section className={cn(veiled && 'veiled')}>
+    <section className={cn('flex min-h-full flex-col', veiled && 'veiled')}>
       {embedded ? (
         <div className="mb-5 flex items-center gap-1.5 text-xs text-fg-3">
           <Info size={13} />
@@ -155,7 +162,7 @@ export function AttributionPanel({ data, veiled, embedded = false }: {
         </p>
       </div>
 
-      <div className="flex items-stretch gap-1 sm:gap-3">
+      <div className="flex min-h-[170px] flex-1 items-stretch gap-1 sm:gap-3">
         {steps.map((step) => (
           <StepColumn floor={floor} key={step.key} span={span} step={step} />
         ))}

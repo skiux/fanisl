@@ -29,7 +29,7 @@ export function EquityCurve({ points, veiled }: { points: EquityPoint[]; veiled:
 
   if (!shape) {
     return (
-      <div className="flex h-[132px] items-center justify-center rounded-[var(--radius-panel)] border border-dashed border-line">
+      <div className="flex min-h-[120px] flex-1 items-center justify-center rounded-[var(--radius-panel)] border border-dashed border-line">
         <p className="text-xs text-fg-3">没有日快照，画不出曲线</p>
       </div>
     )
@@ -41,7 +41,7 @@ export function EquityCurve({ points, veiled }: { points: EquityPoint[]; veiled:
   const rising = last.equity_usd >= first.equity_usd
 
   return (
-    <div className={cn('relative', veiled && 'veiled')}>
+    <div className={cn('relative flex min-h-0 flex-1 flex-col', veiled && 'veiled')}>
       <div className="mb-2 flex items-baseline justify-between">
         <span className="text-xs text-fg-3">
           {active ? active.date : `${first.date} — ${last.date}`}
@@ -52,7 +52,7 @@ export function EquityCurve({ points, veiled }: { points: EquityPoint[]; veiled:
       </div>
 
       <svg
-        className="h-[132px] w-full"
+        className="min-h-[110px] w-full flex-1"
         onMouseLeave={() => setHover(null)}
         onMouseMove={(event) => {
           const box = event.currentTarget.getBoundingClientRect()

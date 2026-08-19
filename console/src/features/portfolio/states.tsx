@@ -15,7 +15,7 @@ export function PortfolioSkeleton() {
       aria-label="正在读取账户"
       className="mx-auto flex max-w-[1800px] flex-col xl:h-[calc(100dvh-3.5rem)] xl:overflow-hidden"
     >
-      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-12 xl:grid-rows-[14rem_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-12 xl:grid-rows-[minmax(13rem,auto)_minmax(0,1fr)]">
         <section className="cell border-b border-line xl:col-span-3 xl:border-r">
           <Skel className="h-3 w-28" />
           <Skel className="mt-4 h-9 w-44" />

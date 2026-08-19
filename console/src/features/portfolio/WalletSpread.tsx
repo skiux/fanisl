@@ -25,7 +25,7 @@ export function WalletSpread({ wallets, veiled }: { wallets: WalletBucket[]; vei
           const missing = bucket.value_usd === null
           const share = missing || total <= 0 ? 0 : bucket.value_usd! / total
           return (
-            <li className="flex items-center gap-3 border-b border-line py-[7px] last:border-b-0" key={bucket.kind}>
+            <li className="flex items-center gap-3 border-b border-line py-2 last:border-b-0" key={bucket.kind}>
               <span className="w-[72px] shrink-0 text-xs text-fg-2">
                 {WALLET_LABEL[bucket.kind] ?? bucket.kind}
               </span>

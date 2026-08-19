@@ -106,16 +106,19 @@ export const earn: EarnPosition[] = [
   {
     product_id: 'USDT001', asset: 'USDT', amount: 6500, value_usd: 6500 * 1.0002,
     kind: 'flexible', apr: 0.0482, cumulative_rewards: 128.44,
+    cumulative_rewards_usd: 128.44 * 1.0002,
     redeem_date: null, can_redeem: true,
   },
   {
     product_id: 'ETH001', asset: 'ETH', amount: 1.2, value_usd: 1.2 * 3142.68,
     kind: 'flexible', apr: 0.0194, cumulative_rewards: 0.0071,
+    cumulative_rewards_usd: 0.0071 * 3142.68,
     redeem_date: null, can_redeem: true,
   },
   {
     product_id: 'SOL90D', asset: 'SOL', amount: 25, value_usd: 25 * 187.44,
     kind: 'locked', apr: 0.085, cumulative_rewards: 0.4128,
+    cumulative_rewards_usd: 0.4128 * 187.44,
     redeem_date: '2026-09-14', can_redeem: false,
   },
 ]

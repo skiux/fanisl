@@ -136,7 +136,7 @@ export function RiskGauges({ futures, margin, exposureRatio, concentration, unav
 }) {
   if (unavailable) {
     return (
-      <div className="flex flex-1 flex-col justify-center">
+      <div className="mt-3.5 flex flex-col">
         <p className="text-sm text-fg-2">合约数据本次没有取到</p>
         <p className="mt-1.5 text-xs leading-relaxed text-fg-3">
           保证金率与强平距离都算不出来，这一节不猜。
@@ -145,7 +145,7 @@ export function RiskGauges({ futures, margin, exposureRatio, concentration, unav
     )
   }
   return (
-    <div className="mt-3 flex flex-1 flex-col justify-center gap-4">
+    <div className="mt-3.5 flex flex-col gap-4">
       {futures?.margin_ratio != null && (
         <Gauge
           fill={futures.margin_ratio}
