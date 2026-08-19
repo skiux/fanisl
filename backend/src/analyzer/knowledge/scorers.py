@@ -23,9 +23,11 @@ from ..db import make_pool
 from .prices import SYMBOL_MAP, FRED_SERIES, PriceStore
 
 SCORER_VERSION = "v1"
-# close_at_eval 的比较符。四个方向都要有：阶梯函数标的（如 DFEDTARU）用严格号才不会
-# 把"没变"读成"发生了"，而"维持在低位"这类判断要的是 <=，用 < 等于要求再创新低。
-_CMP = {">": operator.gt, ">=": operator.ge, "<": operator.lt, "<=": operator.le}
+# close_at_eval 的比较符。阶梯函数标的（如 DFEDTARU）用严格号才不会把"没变"读成
+# "发生了"，而"维持在低位"这类判断要的是 <=，用 < 等于要求再创新低。
+# "==" 只对阶梯/离散序列有意义（如"今年不加不降"），连续价格序列上恒为假，勿用。
+_CMP = {">": operator.gt, ">=": operator.ge, "<": operator.lt, "<=": operator.le,
+        "==": operator.eq}
 OVERRIDES = json.loads(
     (pathlib.Path(__file__).parent / "scoring_overrides.json").read_text())
 

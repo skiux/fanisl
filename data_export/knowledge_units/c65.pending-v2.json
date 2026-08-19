@@ -1,0 +1,304 @@
+{
+  "content_id": 65,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "那这个过程当中呢，咱们看到这个护城河的ETF是在两日级别1、2、3、4、5、6、7、8，八连阳。那现在八连阳呢，结束。然后上一根K线呢，昨天的这个下跌呢，已经反包了之前的多头。那这就意味着回调呢，已经开始。当然了，这个回调的幅度不会很大。",
+      "locator": "00:06",
+      "ref_price": 111.91,
+      "tags": ["moat", "price-action", "rotation"],
+      "payload": {
+        "asset_text": "护城河 ETF（MOAT，质量因子代表）", "asset_symbol": "MOAT",
+        "priceable": true,
+        "claim_class": "directional", "direction": "down",
+        "magnitude": {"pct": 2},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign", "benchmark": null,
+          "eval_ladder": ["2026-08-25", "2026-09-17", "2026-11-16"],
+          "success_def": "阶梯各时点收盘 < 111.91（发布前最近收盘 08-17）= hit。作者判两日级别八连阳结束、前一根已反包多头，回调开始但幅度不大——另处说『距离当前位置还有 2% 左右的下跌空间』，回到两日隧道。2% 记入 magnitude 作幅度参考，不作 hit 门槛。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "更好的走势呢，其实是应该往下地去确认一下，以三十日隧道为例啊，或者说我们左边所确认的这个7640左右的位置，再或者呢，是2026年的6月1号的这个高点。那这些位置对应的价格呢，基本就是7600点左右到7600点。我们就是说，7600点到7660点这个区域呢，它踩一踩30隧道啊，或者再深一点周隧道都可以。",
+      "locator": "01:27",
+      "ref_price": 7745.06,
+      "tags": ["spx", "price-action", "ema-tunnel"],
+      "payload": {
+        "asset_text": "标普 500（7600-7660 为 30 日隧道与前高共振区）",
+        "asset_symbol": "SPX", "priceable": true,
+        "claim_class": "price_target", "direction": "down",
+        "magnitude": {"target": 7660, "low": 7600, "high": 7660},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch", "benchmark": null,
+          "eval_ladder": ["2026-08-25", "2026-09-17", "2026-11-16"],
+          "success_def": "阶梯期内任一日最低价触及 7660 或更低 = hit，未触及 = miss。取区间上沿 7660 作触及门槛（作者说的是『回踩到这个区域』，触及上沿即进入该区域）。他把这轮回踩定性为『确认更好的上涨结构』的必要一步，不是看空。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "如果我们看在未来的这么一到两个交易日吧，我们看到费城观察的七日要更标准一点，我们给它再降一个级别的周降一天，降完一天之后呢，这个收盘呢，应该是在8月24号，cell因此在8月24号之前如果价格呢，还是在6940和7000点的这个位置反复地争夺上不去，那后面的话，其实也不排除它低位震荡。",
+      "locator": "08:40",
+      "ref_price": 6977.94,
+      "tags": ["kospi", "price-action", "market-structure"],
+      "payload": {
+        "asset_text": "韩国综合指数（6940-7000 为隧道牛熊分水岭与结构压力的重叠压制区）",
+        "asset_symbol": "KOSPI", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 6940, "high": 7000},
+        "horizon": {"type": "by_date", "deadline": "2026-08-24", "duration_days": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "A",
+        "scoring_spec": {
+          "method": "range_hold", "benchmark": null,
+          "eval_ladder": ["2026-08-24"],
+          "success_def": "上沿判据：2026-08-24 当日或此前最近交易日收盘 ≤ 7000 = hit（压制区未被有效突破，符合他『上不去、不排除低位震荡』的判断）；收盘站上 7000 = miss。参考价取发布前最近可得收盘 2026-08-14 的 6977.94——08-17 韩国休市无 K 线。日期由原文自带（8 月 24 日），故判 A 级。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么现在价格回到哪了呢？回到了年线位置附近。也就是月线级别的隧道，对应着就是99.66。你看都是比较吉利的数字和韩指一样。这个位置呢，是最近获得支撑并且有反馈的关键位，价格其实从7月31号开始就已经跌不动了。OK。美元指数在基本面上呢，也很好判断，他难以大幅上行，也难以大幅下行，这样在年线位置附近呢，就有可能会有温和的技术反弹。",
+      "locator": "10:37",
+      "ref_price": 99.64,
+      "tags": ["dxy", "ema-tunnel", "price-action"],
+      "payload": {
+        "asset_text": "美元指数（99.66 为年线／月线级别隧道位）", "asset_symbol": "DXY",
+        "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign", "benchmark": null,
+          "eval_ladder": ["2026-08-25", "2026-09-17", "2026-11-16"],
+          "success_def": "阶梯各时点收盘 ≥ 99.64（发布前最近收盘 08-17）= hit。作者判在年线位置附近有温和技术反弹，且明说『难以大幅上行也难以大幅下行』，故只判方向不设目标位。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "首先是黄金，黄金在短线上的话呢，可能还有一点势能向多头去延续。但他不会走的太远了，因为目前黄金的滞涨逻辑并没有出现",
+      "locator": "11:22",
+      "ref_price": 4417.8,
+      "tags": ["xauusd", "inflation", "price-action"],
+      "payload": {
+        "asset_text": "黄金", "asset_symbol": "XAUUSD", "priceable": true,
+        "claim_class": "directional", "direction": "up",
+        "magnitude": null,
+        "horizon": {"type": "within_duration", "duration_days": 7, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "hedged", "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign", "benchmark": null,
+          "eval_ladder": ["2026-08-25"],
+          "success_def": "2026-08-25 当日或此前最近交易日收盘 ≥ 4417.80（发布前最近收盘 08-17）= hit。原文『短线』按 §3 映射表取 7 天。作者判还有一点多头势能但走不远，理由是滞涨逻辑未出现、这波反弹属技术修正加流动性边际改善，故只判方向不设目标位。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "比如说circle的话，在昨天的低开当中呢，其实给到了这个71左右的一个开仓的机会，今天我们要看一看市场能不能继续稳扎稳打，但是不建议继续追高，因为我们看到的台阶呢，其实就是70，围绕着70和日隧道去试错是OK的。但是高于这个位置仍然非常的不建议。",
+      "locator": "11:37",
+      "ref_price": 74.59,
+      "tags": ["crcl", "stablecoin", "ema-tunnel"],
+      "payload": {
+        "asset_text": "Circle（70 为台阶位，与日隧道共同构成试错区）",
+        "asset_symbol": "CRCL", "priceable": true,
+        "claim_class": "price_target", "direction": "range",
+        "magnitude": {"low": 70},
+        "horizon": {"type": "open_ended", "duration_days": null, "deadline": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold", "benchmark": null,
+          "eval_ladder": ["2026-08-25", "2026-09-17", "2026-11-16"],
+          "success_def": "下沿判据：阶梯各时点收盘 ≥ 70 = hit；盘中跌破但该时点收盘收回 = partial；收盘跌破 70 = miss。作者把 70 定为台阶位、围绕它与日隧道试错，并明确不建议在更高位置追。原文无期限词，阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "because我们最开始提醒的时候它是在20、21左右，现在到了30。今年的话呢，要一个翻倍的行情应该不是一个非常困难的事情。",
+      "locator": "11:34",
+      "ref_price": 30.38,
+      "tags": ["fcg", "power-demand", "oil-supply"],
+      "payload": {
+        "asset_text": "天然气板块 ETF（FCG）", "asset_symbol": "FCG", "priceable": true,
+        "claim_class": "price_target", "direction": "up",
+        "magnitude": {"target": 40},
+        "horizon": {"type": "by_date", "deadline": "2026-12-31", "duration_days": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch", "benchmark": null,
+          "eval_ladder": ["2026-12-31"],
+          "success_def": "2026-12-31 之前任一日最高价触及 40 或更高 = hit，未触及 = miss。『翻倍』的基准取他自己给的起点 20-21（『最开始提醒的时候它是在 20、21 左右』），翻倍即 40-42，取下沿 40 作门槛——不是从当前 30.38 再翻倍。原文『今年』按 §3 映射为 by_date 当年-12-31。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后整个科技板块的话呢，我们保持一个横盘震荡的这么一个判断。那可能要延续到九月份。在九月份之后呢，再看市场是不是有继续冲高的一个动能。",
+      "locator": "10:12",
+      "ref_price": 29995.38,
+      "tags": ["ndx", "price-action", "market-structure"],
+      "payload": {
+        "asset_text": "科技板块（我方用纳斯达克 100 作代理）", "asset_symbol": "NDX",
+        "priceable": true,
+        "claim_class": "directional", "direction": "range",
+        "magnitude": null,
+        "horizon": {"type": "by_date", "deadline": "2026-09-30", "duration_days": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们更倾向于认为今年是不加不降，对不对？但是万一如果出现预防式加息，也并不是一个很意外的情况。",
+      "locator": "05:30",
+      "ref_price": 3.75,
+      "tags": ["fed-policy", "macro-data"],
+      "payload": {
+        "asset_text": "联邦基金目标利率上界（FRED DFEDTARU，单位 %）",
+        "asset_symbol": "DFEDTARU", "priceable": true,
+        "claim_class": "event_outcome", "direction": "flat",
+        "magnitude": null,
+        "horizon": {"type": "by_date", "deadline": "2026-12-31", "duration_days": null},
+        "condition_text": null, "condition_observable": false,
+        "stance_strength": "explicit", "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold", "benchmark": null,
+          "eval_ladder": ["2026-12-31"],
+          "success_def": "2026-12-31 当日读数恰好等于 3.750（发布日水平）= hit（『今年不加不降』成立）；高于或低于 = miss。标的是阶梯函数，此处判的是『不动』，故用 range_hold 的上下沿同为 3.750 表达，需在 scoring_overrides.json 配 {\"mode\":\"close_at_eval\",\"op\":\"==\",\"level\":3.75}。作者同时说预防式加息『不意外』，属对反向情形的容许而非改变主张方向（§2 stance_strength 记立场承诺度，此处仍为 explicit）。"
+        }
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "这是美股常见的一个价格行为的套路啊，就是在关键位置的时候它刚刚抵达的时候它并不马上反馈一个量能和波动，它不是马上就换手，而是会在那横着，横一段时间大家都觉得好像要涨了，因为他一直在高位走的比较有韧性。那回头呢，会低位去确认一下。吓你一下，最后呢，还会从低位V起来。",
+      "locator": "01:27",
+      "tags": ["spx", "price-action", "psychology"],
+      "payload": {
+        "canonical_statement": "美股在关键位置的常见价格行为套路：价格刚抵达关键位时不会立刻放量换手，而是先在高位横盘——横久了大家因为它有韧性而觉得要涨；随后回头到低位去确认一次、把人吓一跳，最后才从低位 V 起来。因此高位缩量盘整不等于要突破，往下确认一次反而让后面的上涨更健康。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "然后通胀的话呢，现在明显它已经不是美联储要参考的主要矛盾了。现在的主要矛盾实际上是AI提升了真实利率。那真实利率长期的话呢，让现在的美债的长期收益率维持在高位下不来。",
+      "locator": "05:00",
+      "tags": ["fed-policy", "bond-yields", "ai-capex", "inflation"],
+      "payload": {
+        "canonical_statement": "美联储的主要矛盾已经从通胀切换到 AI 推高的真实利率：真实利率长期偏高使美债长端收益率维持高位下不来。要让它下来只有两条路——通胀数据确认为线性改善，或者做一次类似 1997 年的预防式加息（只为长期与市场对话、把高位资产往下打一打，最后仍会回到降息趋势）。两条路径都可推敲，作者更倾向今年不加不降。",
+        "category": "macro_framework"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "动量退潮，但不会反转。就是它还是有中长期配置的价值。我们之前一直强调的半导体的七日K。那在这个级别上你去持有它没有任何问题。那再小级别就不回判断了。",
+      "locator": "02:16",
+      "tags": ["soxx", "semiconductor-cycle", "rotation"],
+      "payload": {
+        "canonical_statement": "动量因子（半导体、内存、AI 硬件）当前是退潮而非反转：在七日 K 这个级别上持有没有问题、中长期配置价值仍在，但不要在短线上期望它像之前那样不回头地上涨。动量因子的回归需要机构共识、要满足多种开仓条件，从近期机构报告与宏观策略风格看还需更多观察。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "费城就一直没有丢掉牛市结构，它是不得一样的。",
+      "locator": "09:30",
+      "tags": ["sox", "kospi", "market-structure"],
+      "payload": {
+        "canonical_statement": "费半与韩指的关键差别在于牛市结构是否丢过：韩指在动量杀跌中形成了主要的回调 B 浪、至今尚未收复牛市结构，需要靠 6940-7000 的压制区来判断；而费半从头到尾没有丢掉牛市结构，因此相对强势的趋势表达完好，逢低进没问题，只是拆不出明确的结构压力位、同样不建议追高。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "他们更多的呢，是在自己的这个中长期的隧道支撑下缓慢上行的资产，这类资产的话呢，很好的错过了当前的这种波动节奏",
+      "locator": "11:38",
+      "tags": ["dba", "fcg", "xli", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "农业（DBA）、天然气（FCG）、工业（XLI）这类资产跳出了半导体与大盘的短周期节奏，在自己的中长期隧道支撑下缓慢上行，因而天然地错开了当前的波动节奏，可作分散对冲。天然气的中枢上移有三条支撑：美国出口、AI 需求、地缘影响；农业的结构性牛市则不因宽松还是预防式加息而改变，跟踪重点是厄尔尼诺强度这类天气变量而非日线。",
+        "category": "market_structure"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "如果你有持仓组合，持仓的话其实你会发现其实你持仓的很多资产如果在一周内这种尺度之下，都是受到同样的消息和数据的影响，出现比较明显出现非常强的相关性、同涨同跌，或者是你涨我跌。只要是它的同步性太强，节奏太一致。那么其实你的长口呢，就应该去重新考虑一下，因为可能你配的资产它都是在一个节奏和频率之下进行的。反倒你应该去再找一些比你当前持仓频率要快一点，或者是慢一点的资产",
+      "locator": "11:38",
+      "tags": ["risk-mgmt", "position-sizing", "positioning"],
+      "payload": {
+        "name": "用节奏频率而非行业做分散自检",
+        "summary": "组合内同涨同跌说明配的是同一频率的资产，应补更快或更慢的",
+        "family": "positioning",
+        "rules": [
+          "以一周为尺度观察组合内各持仓：若普遍受同样的消息与数据驱动、同涨同跌或此消彼长，说明同步性过强",
+          "同步性过强即判定为『配的都是同一个节奏和频率之下的资产』，分散是名义上的",
+          "补救不是再加同类，而是去找比当前持仓频率更快或更慢的资产",
+          "候选须满足『处在自己的牛市与顺周期窗口里』，满足则可逢低配置",
+          "本轮的慢频率例子：农业、天然气、工业——它们在自己的中长期隧道支撑下缓慢上行，错开大盘节奏"
+        ],
+        "data_requirements": ["组合持仓周收益", "两两相关性", "各标的所处周期位置"],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "我们看到费城观察的七日要更标准一点，我们给它再降一个级别的周降一天，降完一天之后呢，这个收盘呢，应该是在8月24号",
+      "locator": "08:40",
+      "tags": ["kospi", "sox", "price-action", "execution"],
+      "payload": {
+        "name": "降一档级别对齐收线日",
+        "summary": "把观察周期降一天，让收线日落在可判定的具体日期上",
+        "family": "trend",
+        "rules": [
+          "以七日 K 作标准观察级别（费半在这个级别上最标准）",
+          "需要在近一两个交易日内给出判定时，把周期降一档（七日降为六日）",
+          "降档后收线日会落到一个确定日期上（本例 8 月 24 日），判定因此有明确截止时点",
+          "在该收线日之前若价格仍在压制区反复争夺上不去，即按低位震荡对待"
+        ],
+        "data_requirements": ["可变周期 K 线", "压制区标注"],
+        "overlap_with_killed": [],
+        "testability": "A",
+        "claimed_performance": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那与其这样我们就还不如去做一做，来回的一仓去套一套这个波幅空间的利润。",
+      "locator": "07:00",
+      "tags": ["msft", "amzn", "position-sizing", "execution"],
+      "payload": {
+        "name": "缺乏全面进攻条件时用一仓套波幅",
+        "summary": "不具备进攻条件就留底仓做高抛低吸，不做全仓方向",
+        "family": "positioning",
+        "rules": [
+          "先判断市场是否具备全面进攻条件——本轮的否定依据是上周缩量",
+          "不具备时不做全仓方向，改为拿一部分仓位来回套波幅空间的利润",
+          "长期仓位（微软、亚马逊这类质量因子驱动的个股）对短期波动不敏感就不必特别操作——不能去规避所有波动",
+          "高抛的时机取缩量的高位，低吸的位置取三日或周线级别隧道附近——那里仍有中长期支撑",
+          "质量因子这一轮回调若把大盘带下来，反而给出更好的二次加仓或重新开仓位置"
+        ],
+        "data_requirements": ["成交量", "三日/周线隧道", "持仓分层"],
+        "overlap_with_killed": [],
+        "testability": "C",
+        "claimed_performance": null
+      }
+    }
+  ]
+}

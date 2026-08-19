@@ -40,7 +40,9 @@ SYMBOL_MAP: dict[str, tuple[str, float, str]] = {
         # 2026-08 新信源投资TALK君带入（c30-39：公用事业防守配置、英特尔增发、软件/支付/存储）
         "VST", "CEG", "NEE", "INTC", "AVGO", "AMD", "APP", "COIN", "V", "MA", "PYPL", "SHOP",
         "UBER", "DIS", "NET", "TSM", "ASML", "GOOGL", "ORCL", "HOOD", "BE", "NOK", "FIG",
-        "CBRS", "NBIS", "TLT", "KBWB", "UNH", "NFLX", "GE", "ISRG"]},
+        "CBRS", "NBIS", "TLT", "KBWB", "UNH", "NFLX", "GE", "ISRG",
+        # 2026-08-19 c65 带入：Andy 长期跟踪的分散对冲品种（农业、天然气）
+        "DBA", "FCG"]},
     "VIX": ("^VIX", 1.0, "CBOE 波动率指数"),
     "GSCI": ("^SPGSCI", 1.0, "标普高盛商品指数（能源权重约 40%）"),
 }
