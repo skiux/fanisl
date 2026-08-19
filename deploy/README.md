@@ -555,6 +555,36 @@ gcloud compute ssh murgto --zone=asia-southeast1-b --command=whoami
 > **别用 `gcloud compute instances add-metadata ... --metadata ssh-keys=...` 手工覆盖**：
 > 那会**替换**整份 ssh-keys 而不是追加，把现有的其他密钥挤掉，可能直接锁死自己。
 
+**排查顺序**（2026-08-19 实测走过一遍）。先在本机确认密钥确实注册了：
+
+```bash
+# ── 在【本机】上跑 ──
+ssh-keygen -lf ~/.ssh/google_compute_engine.pub          # 本机公钥指纹
+gcloud compute project-info describe \
+  --format="value(commonInstanceMetadata.items.filter(\"key:ssh-keys\").extract(value))"
+gcloud compute instances describe <实例> --zone=<区> \
+  --format="value(metadata.items[].key)"                 # 有无 block-project-ssh-keys / ssh-keys
+```
+
+指纹能对上、且实例级没有 `block-project-ssh-keys`，却仍 `Permission denied (publickey)`，
+说明**服务器没把 metadata 的公钥同步到 authorized_keys**。转到服务器侧查：
+
+```bash
+# ── 在【服务器】上跑 ──（从任何能进去的途径，如浏览器 SSH）
+sudo systemctl status google-guest-agent --no-pager | head -5
+grep -c . ~/.ssh/authorized_keys 2>/dev/null || echo "authorized_keys 不存在"
+sudo journalctl -u google-guest-agent -n 20 --no-pager
+```
+
+guest agent 没跑就 `sudo systemctl enable --now google-guest-agent`；它是负责把项目
+metadata 里的 ssh-keys 落到各用户 `authorized_keys` 的组件，缺了它 metadata 配得再对也没用。
+
+> **隧道不是今天的阻塞项。** `tools/check_ingest.py` 与 `tools/check_sources.py` 都在服务器上跑，
+> 不需要隧道。隧道只在会话侧要对服务器库做提取/归并时才需要。
+
+> `-N` 会一直占着终端不返回，**那是隧道活着的正常表现**，不是卡住。判别方法：另开一个终端跑
+> `psql -h 127.0.0.1 -p 5433 -U fanisl -tAc "select 1" fanisl_knowledge`，通了就说明隧道是好的。
+
 本地 `backend/.env` 把知识库指到隧道：
 
 ```
