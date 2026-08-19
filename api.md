@@ -52,6 +52,11 @@ SSE 流式（POST body 同上；用 fetch+ReadableStream 读，EventSource 不�
 `{id, title, created_at, updated_at, messages: [{role:"user"|"assistant", content:str}]}`
 （messages 已折叠为纯文本气泡，工具往返已剔除；content 是 markdown）。
 
+### GET /conversations/{id}/messages
+完整历史（**含工具往返**），与上一条的区别：`/conversations/{id}` 已把消息折叠成纯文本
+气泡供前端直接渲染，本端点返回 `storage.get_history` 的原始记录。前端一般用上一条，
+排查 agent 行为时才用本条。conversation 不存在 → 404。
+
 ### PATCH /conversations/{id}
 Body `{"title": str}` → `{"ok":true}`。改名。
 
