@@ -87,13 +87,17 @@ function StepColumn({ step, floor, span }: { step: Step; floor: number; span: nu
   )
 }
 
-export function AttributionPanel({ data, veiled }: { data: AttributionData | null; veiled: boolean }) {
+export function AttributionPanel({ data, veiled, embedded = false }: {
+  data: AttributionData | null
+  veiled: boolean
+  embedded?: boolean
+}) {
   const steps = useMemo(() => (data ? buildSteps(data) : []), [data])
 
   if (!data) {
     return (
-      <section>
-        <SectionHead label="归因 · Attribution" title="这段时间的钱从哪来" />
+      <section className={cn(embedded && 'flex min-h-full flex-col justify-center')}>
+        {!embedded && <SectionHead label="归因 · Attribution" title="这段时间的钱从哪来" />}
         <div className="rounded-[var(--radius-panel)] border border-dashed border-line px-5 py-10 text-center">
           <p className="text-sm text-fg-2">这一节暂时算不出来</p>
           <p className="mx-auto mt-2 max-w-[420px] text-xs leading-relaxed text-fg-3">
@@ -114,16 +118,23 @@ export function AttributionPanel({ data, veiled }: { data: AttributionData | nul
 
   return (
     <section className={cn(veiled && 'veiled')}>
-      <SectionHead
-        aside={
-          <span className="flex items-center gap-1.5 text-xs text-fg-3">
-            <Info size={13} />
-            窗口固定 30 天：日快照接口只能查最近一个月
-          </span>
-        }
-        label="归因 · Attribution"
-        title="这段时间的钱从哪来"
-      />
+      {embedded ? (
+        <div className="mb-5 flex items-center gap-1.5 text-xs text-fg-3">
+          <Info size={13} />
+          窗口固定 30 天：日快照接口只能查最近一个月
+        </div>
+      ) : (
+        <SectionHead
+          aside={
+            <span className="flex items-center gap-1.5 text-xs text-fg-3">
+              <Info size={13} />
+              窗口固定 30 天：日快照接口只能查最近一个月
+            </span>
+          }
+          label="归因 · Attribution"
+          title="这段时间的钱从哪来"
+        />
+      )}
 
       <div className="mb-7 flex flex-wrap items-end gap-x-10 gap-y-4 border-b border-line pb-6">
         <div>

@@ -28,8 +28,8 @@ export function SourceStrip({ sources, asOf, onRefresh, refreshing }: {
   const bad = degraded.length > 0
 
   return (
-    <div className="rounded-[var(--radius-panel)] border border-line">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <StatusDot level={bad ? 'error' : level} />
         <span className="text-xs text-fg-2">
           {bad
@@ -66,11 +66,11 @@ export function SourceStrip({ sources, asOf, onRefresh, refreshing }: {
       </div>
 
       {bad && (
-        <div className="collapsible" data-open={open}>
-          <div>
+        <div className="collapsible mt-2 min-h-0" data-open={open}>
+          <div className="scroll-y">
             <ul className="divide-y divide-line border-t border-line">
               {degraded.map((source) => (
-                <li className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5" key={source.key}>
+                <li className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2.5" key={source.key}>
                   <span className="text-xs text-fg-2">{SOURCE_LABEL[source.key] ?? source.key}</span>
                   <span className="text-xs text-loss">{STATUS_TEXT[source.status]}</span>
                   <span className="tnum ml-auto text-micro text-fg-3">

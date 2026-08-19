@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Lightning } from '@phosphor-icons/react'
-import { Delta, Eyebrow, SectionHead } from '../../components/Primitives'
+import { Delta, Eyebrow } from '../../components/Primitives'
 import { cn } from '../../lib/cn'
 import { money, percent, price, signedMoney, signedPercent } from '../../lib/format'
 import type { FuturesAccount, FuturesPosition, MarginAccount } from '../../api/types'
@@ -127,73 +127,83 @@ function PositionRow({ position }: { position: FuturesPosition }) {
   )
 }
 
-export function RiskPanel({
-  futures, margin, exposureRatio, veiled, unavailable,
-}: {
+export function RiskGauges({ futures, margin, exposureRatio, concentration, unavailable }: {
   futures: FuturesAccount | null
   margin: MarginAccount | null
   exposureRatio: number | null
-  veiled: boolean
+  concentration: { asset: string; share: number } | null
   unavailable: boolean
 }) {
+  if (unavailable) {
+    return (
+      <div className="flex flex-1 flex-col justify-center">
+        <p className="text-sm text-fg-2">合约数据本次没有取到</p>
+        <p className="mt-1.5 text-xs leading-relaxed text-fg-3">
+          保证金率与强平距离都算不出来，这一节不猜。
+        </p>
+      </div>
+    )
+  }
   return (
-    <section className={cn(veiled && 'veiled')}>
-      <SectionHead label="风险 · Exposure" title="有没有危险" />
-
-      {unavailable ? (
-        <div className="rounded-[var(--radius-panel)] border border-dashed border-line px-4 py-9 text-center">
-          <p className="text-sm text-fg-2">合约数据本次没有取到</p>
-          <p className="mt-2 text-xs leading-relaxed text-fg-3">
-            保证金率与强平距离都算不出来，这一节不猜。
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="space-y-5 rounded-[var(--radius-panel)] bg-surface-2 px-4 py-4">
-            {futures?.margin_ratio !== undefined && futures?.margin_ratio !== null && (
-              <Gauge
-                fill={futures.margin_ratio}
-                hint={marginTone(futures.margin_ratio).label}
-                label="合约保证金率"
-                marker={0.8}
-                tone={marginTone(futures.margin_ratio).text}
-                value={percent(futures.margin_ratio, 2)}
-              />
-            )}
-            {margin?.margin_level != null && (
-              <Gauge
-                fill={Math.max(0, Math.min(1, (3 - margin.margin_level) / 2))}
-                hint={marginLevelTone(margin.margin_level).label}
-                label="杠杆账户风险率"
-                marker={(3 - 1.3) / 2}
-                tone={marginLevelTone(margin.margin_level).text}
-                value={margin.margin_level.toFixed(2)}
-              />
-            )}
-            {exposureRatio !== null && (
-              <div className="flex items-baseline justify-between gap-3 border-t border-line pt-4">
-                <Eyebrow>名义敞口 / 净值</Eyebrow>
-                <span className="tnum text-sm text-fg-2">
-                  {exposureRatio.toFixed(2)}×
-                  <span className="text-fg-3"> · 真实杠杆</span>
-                </span>
-              </div>
-            )}
-          </div>
-
-          {futures && futures.positions.length > 0 ? (
-            <ul className="mt-5 divide-y divide-line">
-              {futures.positions.map((position) => (
-                <PositionRow key={`${position.symbol}-${position.position_side}`} position={position} />
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-5 rounded-[var(--radius-panel)] border border-dashed border-line px-4 py-8 text-center text-sm text-fg-2">
-              当前没有合约持仓
-            </p>
-          )}
-        </>
+    <div className="mt-3 flex flex-1 flex-col justify-center gap-4">
+      {futures?.margin_ratio != null && (
+        <Gauge
+          fill={futures.margin_ratio}
+          hint={marginTone(futures.margin_ratio).label}
+          label="合约保证金率"
+          marker={0.8}
+          tone={marginTone(futures.margin_ratio).text}
+          value={percent(futures.margin_ratio, 2)}
+        />
       )}
-    </section>
+      {margin?.margin_level != null && (
+        <Gauge
+          fill={Math.max(0, Math.min(1, (3 - margin.margin_level) / 2))}
+          hint={marginLevelTone(margin.margin_level).label}
+          label="杠杆账户风险率"
+          marker={(3 - 1.3) / 2}
+          tone={marginLevelTone(margin.margin_level).text}
+          value={margin.margin_level.toFixed(2)}
+        />
+      )}
+      <div className="space-y-2 border-t border-line pt-3.5">
+        {exposureRatio !== null && (
+          <div className="flex items-baseline justify-between gap-3">
+            <Eyebrow>名义敞口 / 净值</Eyebrow>
+            <span className="tnum text-sm text-fg-2">
+              {exposureRatio.toFixed(2)}×<span className="text-fg-3"> · 真实杠杆</span>
+            </span>
+          </div>
+        )}
+        {concentration && (
+          <div className="flex items-baseline justify-between gap-3">
+            <Eyebrow>最大单一持仓</Eyebrow>
+            <span className="tnum text-sm text-fg-2">
+              {percent(concentration.share, 1)}
+              <span className="text-fg-3"> · {concentration.asset}</span>
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function PositionsList({ futures, unavailable }: {
+  futures: FuturesAccount | null
+  unavailable: boolean
+}) {
+  if (unavailable) {
+    return <p className="py-10 text-center text-sm text-fg-3">合约数据本次没有取到。</p>
+  }
+  if (!futures || futures.positions.length === 0) {
+    return <p className="py-10 text-center text-sm text-fg-3">当前没有合约持仓。</p>
+  }
+  return (
+    <ul className="divide-y divide-line">
+      {futures.positions.map((position) => (
+        <PositionRow key={`${position.symbol}-${position.position_side}`} position={position} />
+      ))}
+    </ul>
   )
 }

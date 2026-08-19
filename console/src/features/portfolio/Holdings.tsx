@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { CaretDown } from '@phosphor-icons/react'
-import { SectionHead } from '../../components/Primitives'
 import { cn } from '../../lib/cn'
 import { amount, DUST_THRESHOLD_USD, money, percent, price } from '../../lib/format'
 import type { EarnPosition, SpotAsset } from '../../api/types'
@@ -58,7 +57,7 @@ function SpotRow({ item, share }: { item: SpotAsset; share: number }) {
   )
 }
 
-function SpotTable({ spot }: { spot: SpotAsset[] }) {
+export function SpotTable({ spot }: { spot: SpotAsset[] }) {
   const [dustOpen, setDustOpen] = useState(false)
   const { major, dust, dustValue, total } = useMemo(() => {
     const sorted = [...spot].sort((a, b) => (b.value_usd ?? -1) - (a.value_usd ?? -1))
@@ -113,7 +112,7 @@ function SpotTable({ spot }: { spot: SpotAsset[] }) {
   )
 }
 
-function EarnTable({ earn }: { earn: EarnPosition[] }) {
+export function EarnTable({ earn }: { earn: EarnPosition[] }) {
   if (earn.length === 0) {
     return <p className="py-10 text-center text-sm text-fg-3">没有理财持仓。</p>
   }
@@ -144,52 +143,5 @@ function EarnTable({ earn }: { earn: EarnPosition[] }) {
         </li>
       ))}
     </ul>
-  )
-}
-
-type Tab = 'spot' | 'earn'
-
-export function Holdings({ spot, earn, veiled }: {
-  spot: SpotAsset[]
-  earn: EarnPosition[]
-  veiled: boolean
-}) {
-  const [tab, setTab] = useState<Tab>('spot')
-  const spotValue = spot.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-  const earnValue = earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-
-  const tabs: Array<[Tab, string, number]> = [
-    ['spot', '现货', spotValue],
-    ['earn', '理财', earnValue],
-  ]
-
-  return (
-    <section className={cn(veiled && 'veiled')}>
-      <SectionHead
-        aside={
-          <div className="flex items-center gap-1" role="tablist">
-            {tabs.map(([key, label, value]) => (
-              <button
-                aria-selected={tab === key}
-                className={cn(
-                  'flex items-baseline gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs transition-colors duration-200',
-                  tab === key ? 'bg-surface-2 text-fg' : 'text-fg-3 hover:text-fg-2',
-                )}
-                key={key}
-                onClick={() => setTab(key)}
-                role="tab"
-                type="button"
-              >
-                {label}
-                <span className="tnum text-micro text-fg-3">{money(value)}</span>
-              </button>
-            ))}
-          </div>
-        }
-        label="明细 · Holdings"
-        title="持仓"
-      />
-      {tab === 'spot' ? <SpotTable spot={spot} /> : <EarnTable earn={earn} />}
-    </section>
   )
 }

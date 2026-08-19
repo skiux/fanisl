@@ -7,74 +7,71 @@ function Skel({ className, style }: { className: string; style?: CSSProperties }
   return <div className={`skel ${className}`} style={style} />
 }
 
-/** 骨架按真实布局的尺寸排布，加载完成时不会发生跳版 */
+/** 骨架与工作台同构：同一套栅格、同样的分隔线，加载完成不会跳版 */
 export function PortfolioSkeleton() {
   return (
-    <div aria-busy="true" aria-label="正在读取账户" className="space-y-12">
-      <section className="grid gap-10 lg:grid-cols-[1.55fr_1fr] lg:gap-14">
-        <div>
+    <main
+      aria-busy="true"
+      aria-label="正在读取账户"
+      className="mx-auto flex max-w-[1800px] flex-col xl:h-[calc(100dvh-3.5rem)] xl:overflow-hidden"
+    >
+      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-12 xl:grid-rows-[14rem_minmax(0,1fr)]">
+        <section className="cell border-b border-line xl:col-span-3 xl:border-r">
+          <Skel className="h-3 w-28" />
+          <Skel className="mt-4 h-9 w-44" />
+          <Skel className="mt-4 h-3.5 w-36" />
+          <div className="mt-auto space-y-2.5 border-t border-line pt-3">
+            <Skel className="h-3.5 w-full" />
+            <Skel className="h-3.5 w-2/3" />
+          </div>
+        </section>
+
+        <section className="cell border-b border-line xl:col-span-5 xl:border-r">
           <Skel className="h-3 w-32" />
-          <Skel className="mt-5 h-[56px] w-[min(100%,340px)]" />
-          <Skel className="mt-6 h-4 w-56" />
-          <div className="mt-8 grid grid-cols-3 gap-px overflow-hidden rounded-[var(--radius-panel)] bg-line">
-            {[0, 1, 2].map((index) => (
-              <div className="bg-bg px-4 py-3.5" key={index}>
-                <Skel className="h-3 w-14" />
-                <Skel className="mt-2.5 h-4 w-20" />
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="lg:border-l lg:border-line lg:pl-10">
-          <Skel className="h-3 w-20" />
+          <Skel className="mt-3 h-[132px] w-full" />
+        </section>
+
+        <section className="cell border-b border-line xl:col-span-4">
+          <Skel className="h-3 w-24" />
           <div className="mt-4 space-y-4">
-            {[0, 1].map((index) => <Skel className="h-4 w-full" key={index} />)}
+            {[0, 1].map((index) => (
+              <div key={index}>
+                <Skel className="h-3 w-full" />
+                <Skel className="mt-2 h-1.5 w-full" />
+              </div>
+            ))}
+            <Skel className="h-3.5 w-2/3" />
           </div>
-          <Skel className="mt-7 h-4 w-2/3" />
-        </div>
-      </section>
+        </section>
 
-      <section>
-        <Skel className="h-3 w-24" />
-        <div className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
-          {[0, 1, 2, 3, 4, 5].map((index) => <Skel className="h-4 w-full" key={index} />)}
-        </div>
-      </section>
-
-      <section>
-        <Skel className="h-3 w-28" />
-        <Skel className="mt-4 h-7 w-48" />
-        <div className="mt-7 flex items-end gap-3">
-          {[54, 82, 96, 61, 40, 47, 100].map((height, index) => (
-            <div className="flex-1" key={index}>
-              <Skel className="w-full" style={{ height }} />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="grid gap-12 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div>
-          <Skel className="h-3 w-24" />
-          <div className="mt-6 space-y-6">
-            {[0, 1, 2, 3, 4, 5].map((index) => (
-              <div className="flex items-center gap-3" key={index}>
-                <Skel className="size-7 shrink-0 rounded-[6px]" />
-                <Skel className="h-3.5 w-24" />
-                <Skel className="ml-auto h-3.5 w-20" />
+        <section className="cell border-b border-line xl:col-span-8 xl:border-b-0 xl:border-r">
+          <div className="flex gap-5 border-b border-line pb-2.5">
+            {[36, 44, 44, 60].map((width, index) => (
+              <Skel className="h-3.5" key={index} style={{ width }} />
+            ))}
+          </div>
+          <Skel className="mt-5 h-3 w-52" />
+          <Skel className="mt-4 h-7 w-40" />
+          <div className="mt-8 flex items-end gap-3">
+            {[54, 82, 96, 61, 40, 47, 100].map((height, index) => (
+              <div className="flex-1" key={index}>
+                <Skel className="w-full" style={{ height }} />
               </div>
             ))}
           </div>
-        </div>
-        <div>
+        </section>
+
+        <section className="cell xl:col-span-4">
           <Skel className="h-3 w-24" />
-          <Skel className="mt-6 h-20 w-full rounded-[var(--radius-panel)]" />
-          <div className="mt-6 space-y-5">
-            {[0, 1].map((index) => <Skel className="h-12 w-full" key={index} />)}
+          <div className="mt-3 flex-1 space-y-3">
+            {[0, 1, 2, 3, 4, 5].map((index) => <Skel className="h-3.5 w-full" key={index} />)}
           </div>
-        </div>
-      </section>
-    </div>
+          <div className="mt-3 border-t border-line pt-3">
+            <Skel className="h-3.5 w-2/3" />
+          </div>
+        </section>
+      </div>
+    </main>
   )
 }
 

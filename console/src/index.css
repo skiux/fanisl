@@ -122,6 +122,19 @@
   }
 }
 
+@layer components {
+  /* 工作台单元：定高栅格里的一格。面板之间只有 1px 线，不用卡片和阴影——
+     PC 上信息密度靠分割线组织，浮起来的卡片只会浪费纵向空间。
+     放在 components 层，Tailwind 的 utilities 才能覆盖它的 min-height。 */
+  .cell {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    padding: 1rem 1.25rem;
+  }
+}
+
 @layer utilities {
   .panel {
     background: var(--surface);
@@ -137,6 +150,27 @@
     filter: saturate(0.32) opacity(0.62);
     transition: filter 420ms cubic-bezier(0.16, 1, 0.3, 1);
   }
+
+  /* 列表在面板内部滚，不推动整页高度 */
+  .scroll-y {
+    overflow-y: auto;
+    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+    overscroll-behavior: contain;
+  }
+  .scroll-y::-webkit-scrollbar { width: 8px; }
+  .scroll-y::-webkit-scrollbar-track { background: transparent; }
+  .scroll-y::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 99px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .scroll-y::-webkit-scrollbar-thumb:hover { background-color: var(--fg-3); background-clip: content-box; }
+
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
 }
 
 @layer utilities {
