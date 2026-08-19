@@ -13,7 +13,7 @@ export const StatusDot = memo(function StatusDot({
     level === 'live' ? 'bg-gain'
     : level === 'aging' ? 'bg-accent'
     : level === 'error' ? 'bg-loss'
-    : 'bg-fg-3'
+    : 'bg-ink-3'
   return (
     <span className={cn('relative inline-flex size-[7px] shrink-0', className)}>
       {level === 'live' && (
@@ -26,7 +26,7 @@ export const StatusDot = memo(function StatusDot({
 
 export function Eyebrow({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className={cn('text-micro font-medium uppercase tracking-[0.15em] text-fg-3', className)}>
+    <span className={cn('text-micro font-medium uppercase tracking-[0.15em] text-ink-3', className)}>
       {children}
     </span>
   )
@@ -39,7 +39,7 @@ export function SectionHead({
     <div className="mb-5 flex items-end justify-between gap-4">
       <div className="flex flex-col gap-1.5">
         <Eyebrow>{label}</Eyebrow>
-        <h2 className="text-lg font-medium tracking-tight text-fg">{title}</h2>
+        <h2 className="text-lg font-medium tracking-tight text-ink">{title}</h2>
       </div>
       {aside}
     </div>
@@ -51,13 +51,13 @@ export function Delta({
   value, children, className,
 }: { value: number | null; children: ReactNode; className?: string }) {
   const tone =
-    value === null ? 'text-fg-3'
+    value === null ? 'text-ink-3'
     : value > 0 ? 'text-gain'
     : value < 0 ? 'text-loss'
-    : 'text-fg-2'
+    : 'text-ink-2'
   return <span className={cn('tnum', tone, className)}>{children}</span>
 }
 
 export function Divider() {
-  return <div className="h-px w-full bg-line" />
+  return <div className="h-px w-full bg-rule" />
 }

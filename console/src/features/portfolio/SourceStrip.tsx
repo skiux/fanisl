@@ -31,12 +31,12 @@ export function SourceStrip({ sources, asOf, onRefresh, refreshing }: {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <StatusDot level={bad ? 'error' : level} />
-        <span className="text-xs text-fg-2">
+        <span className="text-xs text-ink-2">
           {bad
             ? `${degraded.length} / ${sources.length} 个来源异常`
             : `${sources.length} 个来源正常`}
         </span>
-        <span className="tnum text-xs text-fg-3">
+        <span className="tnum text-xs text-ink-3">
           {relativeTime(asOf)}
           {asOf && ` · ${clockTime(asOf)}`}
         </span>
@@ -45,7 +45,7 @@ export function SourceStrip({ sources, asOf, onRefresh, refreshing }: {
           {bad && (
             <button
               aria-expanded={open}
-              className="flex items-center gap-1.5 rounded-[var(--radius-control)] px-2 py-1 text-xs text-fg-3 transition-colors hover:bg-surface-2 hover:text-fg"
+              className="flex items-center gap-1.5 rounded-[var(--radius-control)] px-2 py-1 text-xs text-ink-3 transition-colors hover:bg-sheet-2 hover:text-ink"
               onClick={() => setOpen((value) => !value)}
               type="button"
             >
@@ -54,7 +54,7 @@ export function SourceStrip({ sources, asOf, onRefresh, refreshing }: {
             </button>
           )}
           <button
-            className="flex items-center gap-1.5 rounded-[var(--radius-control)] px-2 py-1 text-xs text-fg-3 transition-colors hover:bg-surface-2 hover:text-fg active:translate-y-px disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-[var(--radius-control)] px-2 py-1 text-xs text-ink-3 transition-colors hover:bg-sheet-2 hover:text-ink active:translate-y-px disabled:opacity-40"
             disabled={refreshing}
             onClick={onRefresh}
             type="button"
@@ -68,16 +68,16 @@ export function SourceStrip({ sources, asOf, onRefresh, refreshing }: {
       {bad && (
         <div className="collapsible mt-2 min-h-0" data-open={open}>
           <div className="scroll-y">
-            <ul className="divide-y divide-line border-t border-line">
+            <ul className="divide-y divide-rule border-t border-rule">
               {degraded.map((source) => (
                 <li className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2.5" key={source.key}>
-                  <span className="text-xs text-fg-2">{SOURCE_LABEL[source.key] ?? source.key}</span>
+                  <span className="text-xs text-ink-2">{SOURCE_LABEL[source.key] ?? source.key}</span>
                   <span className="text-xs text-loss">{STATUS_TEXT[source.status]}</span>
-                  <span className="tnum ml-auto text-micro text-fg-3">
+                  <span className="tnum ml-auto text-micro text-ink-3">
                     {source.as_of ? `上次成功 ${clockTime(source.as_of)}` : '从未成功'}
                   </span>
                   {source.detail && (
-                    <p className="w-full text-micro leading-relaxed text-fg-3">{source.detail}</p>
+                    <p className="w-full text-micro leading-relaxed text-ink-3">{source.detail}</p>
                   )}
                 </li>
               ))}

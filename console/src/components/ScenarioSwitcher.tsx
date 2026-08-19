@@ -9,16 +9,16 @@ export function ScenarioSwitcher({
   value, onChange,
 }: { value: Scenario; onChange: (next: Scenario) => void }) {
   return (
-    <label className="flex items-center gap-1.5 rounded-[var(--radius-control)] border border-dashed border-line px-2 py-1 text-fg-3 transition-colors hover:border-line-strong">
+    <label className="flex items-center gap-1.5 rounded-[var(--radius-control)] border border-dashed border-rule px-2 py-1 text-ink-3 transition-colors hover:border-rule-strong">
       <Flask size={13} />
       <span className="sr-only">示例数据场景</span>
       <select
-        className="cursor-pointer appearance-none bg-transparent pr-1 text-[12px] text-fg-2 outline-none"
+        className="cursor-pointer appearance-none bg-transparent pr-1 text-[12px] text-ink-2 outline-none"
         onChange={(event) => onChange(event.target.value as Scenario)}
         value={value}
       >
         {Object.entries(SCENARIOS).map(([key, label]) => (
-          <option className="bg-surface text-fg" key={key} value={key}>{label}</option>
+          <option className="bg-sheet text-ink" key={key} value={key}>{label}</option>
         ))}
       </select>
     </label>

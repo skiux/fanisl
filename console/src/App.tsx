@@ -1,5 +1,5 @@
-import { PortfolioPage } from './features/portfolio/PortfolioPage'
+import { StatementPage } from './features/portfolio/StatementPage'
 
 export default function App() {
-  return <PortfolioPage />
+  return <StatementPage />
 }

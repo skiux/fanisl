@@ -1,95 +1,80 @@
 @import "tailwindcss";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/newsreader";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ─────────────────────────────────────────────────────────────
-   调色：冷中性近黑做底 + 单一暖黄铜强调色。
-   强调色刻意避开绿/红——在资产界面里那两个颜色已经被盈亏占用，
-   再拿其中之一做品牌色会让"选中"和"亏损"在余光里撞车。
-   暖色同时和知识引擎那边的象牙纸面构成family关系：纸 vs 仪器。
+   这一页是一份报表，不是一块仪表盘。
+   内容本来就是报表结构：期初 → 各项变动 → 期末是对账表，持仓是明细表，
+   风险是附注。报表天然有层级（报头/正文/附注是不同物种），
+   也天然允许留白——页面有页边距，空白是版式的一部分而不是漏洞。
+
+   浅色为主设计目标（纸），深色是同一份报表在暗处的读法。
    ───────────────────────────────────────────────────────────── */
 :root {
-  --bg: #fbfbfa;
-  --surface: #ffffff;
-  --surface-2: #f4f4f3;
-  --line: rgb(0 0 0 / 0.09);
-  --line-strong: rgb(0 0 0 / 0.16);
-  --fg: #17171a;
-  --fg-2: #55555e;
-  --fg-3: #6f6f78;   /* 4.73:1 on --bg */
-  --gain: #1f8a5c;
-  --loss: #b8453f;
-  --accent: #9a6f24;
-  --accent-soft: rgb(154 111 36 / 0.12);
-  --shadow-diffuse: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px -12px rgb(0 0 0 / 0.10);
-  /* 配置条的色阶：单向色相漂移（黄铜→卡其→鼠尾草→板岩→灰），
-     全程低饱和。不用彩虹色——那是数据可视化里最快显廉价的做法。 */
-  --seg-1: #a97c2c;
-  --seg-2: #857542;
-  --seg-3: #566454;
-  --seg-4: #45636b;
-  --seg-5: #445d7c;
-  --seg-6: #55555f;
-  --seg-dust: #d0d0d5;
+  --desk: #eceae5;          /* 桌面：纸张之外的底 */
+  --sheet: #fcfcfa;         /* 纸 */
+  --sheet-2: #f4f3ee;       /* 纸上的浅色分区 */
+  --ink: #1c1c18;
+  --ink-2: #55554c;
+  --ink-3: #8a8a7f;
+  --rule: #e3e1d9;
+  --rule-strong: #c3c1b5;
+  --rule-heavy: #1c1c18;    /* 报头下那条重线 */
+  --gain: #2b6a49;
+  --loss: #a23a2f;
+  --accent: #8a6a1f;
+  --accent-soft: rgb(138 106 31 / 0.14);
+  --sheet-shadow: 0 1px 1px rgb(28 28 24 / 0.04), 0 12px 34px -18px rgb(28 28 24 / 0.22);
 }
 
 .dark {
-  --bg: #0a0a0b;
-  --surface: #121214;
-  --surface-2: #1a1a1e;
-  --line: rgb(255 255 255 / 0.08);
-  --line-strong: rgb(255 255 255 / 0.16);
-  --fg: #f2f2f4;
-  --fg-2: #9e9ea8;
-  --fg-3: #82828d;   /* 5.21:1 on --bg */
-  --gain: #4fb286;
-  --loss: #d0655f;
-  --accent: #d3a15c;
-  --accent-soft: rgb(211 161 92 / 0.14);
-  --shadow-diffuse: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.55);
-  --seg-1: #d9a860;
-  --seg-2: #b39a6c;
-  --seg-3: #8a9281;
-  --seg-4: #6d8a91;
-  --seg-5: #627995;
-  --seg-6: #6c6c79;
-  --seg-dust: #35353c;
+  --desk: #0c0c0b;
+  --sheet: #161614;
+  --sheet-2: #1e1e1b;
+  --ink: #eeeee7;
+  --ink-2: #a4a49a;
+  --ink-3: #7c7c72;
+  --rule: rgb(255 255 255 / 0.09);
+  --rule-strong: rgb(255 255 255 / 0.2);
+  --rule-heavy: #eeeee7;
+  --gain: #63b389;
+  --loss: #d4756a;
+  --accent: #c9a45c;
+  --accent-soft: rgb(201 164 92 / 0.16);
+  --sheet-shadow: 0 1px 1px rgb(0 0 0 / 0.4), 0 18px 44px -20px rgb(0 0 0 / 0.7);
 }
 
 @theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-line: var(--line);
-  --color-line-strong: var(--line-strong);
-  --color-fg: var(--fg);
-  --color-fg-2: var(--fg-2);
-  --color-fg-3: var(--fg-3);
+  --color-desk: var(--desk);
+  --color-sheet: var(--sheet);
+  --color-sheet-2: var(--sheet-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
   --color-gain: var(--gain);
   --color-loss: var(--loss);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
 
+  /* 三种字体各有明确职责：标题用报纸衬线，标签用无衬线，数字一律等宽。
+     一套字体走天下是最省事也最没有表情的做法。 */
+  --font-display: "Newsreader Variable", ui-serif, Georgia, serif;
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, monospace;
 
-  /* 字号音阶：原来 60px 直接掉到 13px，中间断层，所以"大的太大小的太小"。
-     现在提高下限、压低上限，相邻档位比值 1.15–1.30 连续，
-     层级主要靠字重和颜色拉开，不靠尺寸跳跃。 */
-  --text-micro: 0.6875rem;  /* 11   眉标 */
-  --text-xs: 0.78125rem;    /* 12.5 次要元信息 */
-  --text-sm: 0.875rem;      /* 14   表格正文 */
-  --text-base: 0.9375rem;   /* 15   强调正文 */
-  --text-lg: 1.0625rem;     /* 17   小节标题 */
-  --text-xl: 1.3125rem;     /* 21   次级指标 */
-  --text-2xl: 1.6875rem;    /* 27   三级大数 */
-  --text-hero: 2.5rem;      /* 40   净值 */
-
-  /* 仪表盘不用大圆角。SaaS 营销页那套 2.5rem 在密集数据界面里会显得松垮 */
-  --radius-panel: 12px;
-  --radius-control: 8px;
+  --text-micro: 0.6875rem;
+  --text-xs: 0.78125rem;
+  --text-sm: 0.875rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.3125rem;
+  --text-2xl: 1.6875rem;
+  --text-hero: 2.75rem;
 }
 
 @layer base {
@@ -98,118 +83,113 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    background: var(--bg);
-    color: var(--fg);
+    background: var(--desk);
+    color: var(--ink);
     font-family: var(--font-sans);
     font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
-  /* 金额必须等宽等距，否则每次刷新数字会左右跳 */
   .tnum {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum", "zero";
   }
-  ::selection {
-    background: var(--accent-soft);
-    color: var(--fg);
-  }
+  ::selection { background: var(--accent-soft); color: var(--ink); }
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 1.5px solid var(--accent);
     outline-offset: 2px;
-    border-radius: 3px;
+    border-radius: 2px;
   }
 }
 
 @layer components {
-  /* 工作台单元：定高栅格里的一格。面板之间只有 1px 线，不用卡片和阴影——
-     PC 上信息密度靠分割线组织，浮起来的卡片只会浪费纵向空间。
-     放在 components 层，Tailwind 的 utilities 才能覆盖它的 min-height。 */
-  .cell {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    min-width: 0;
-    padding: 1rem 1.25rem;
+  /* 纸。有边、有极轻的投影，桌面填满其余空间——超宽屏下版心不会被拉散。 */
+  .sheet {
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    box-shadow: var(--sheet-shadow);
+  }
+  /* 报头下那条重线：整份报表唯一一条实心黑线，层级由它定调 */
+  .rule-heavy {
+    border-bottom: 1.5px solid var(--rule-heavy);
+  }
+  .section-title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 1.0625rem;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .section-index {
+    font-family: var(--font-display);
+    font-size: 0.8125rem;
+    font-style: italic;
+    color: var(--ink-3);
+  }
+  .label {
+    font-size: var(--text-micro);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
   }
 }
 
 @layer utilities {
-  .panel {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-panel);
-  }
-  .hairline {
-    border-color: var(--line);
-  }
-  /* 数据陈旧时整块数字面失色——把"过期"做成可感知的材质变化，
-     而不是角落里一行小字。见 StalenessVeil 的用法。 */
-  .veiled {
-    filter: saturate(0.32) opacity(0.62);
-    transition: filter 420ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  /* 列表在面板内部滚，不推动整页高度 */
   .scroll-y {
     overflow-y: auto;
     min-height: 0;
     scrollbar-width: thin;
-    scrollbar-color: var(--line-strong) transparent;
+    scrollbar-color: var(--rule-strong) transparent;
     overscroll-behavior: contain;
   }
-  .scroll-y::-webkit-scrollbar { width: 8px; }
+  .scroll-y::-webkit-scrollbar { width: 7px; }
   .scroll-y::-webkit-scrollbar-track { background: transparent; }
   .scroll-y::-webkit-scrollbar-thumb {
-    background: var(--line-strong);
+    background: var(--rule-strong);
     border-radius: 99px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
-  .scroll-y::-webkit-scrollbar-thumb:hover { background-color: var(--fg-3); background-clip: content-box; }
-
   .scrollbar-none { scrollbar-width: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
-}
 
-@layer utilities {
-  /* 入场用 CSS 级联而不是 JS 动画库：只动 transform/opacity，不触发重排，
-     也不会为了一个展开动效背上一整个动画运行时。 */
   @keyframes rise {
-    from { opacity: 0; transform: translate3d(0, 10px, 0); }
+    from { opacity: 0; transform: translate3d(0, 8px, 0); }
     to   { opacity: 1; transform: none; }
   }
   .rise {
-    animation: rise 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
-    animation-delay: calc(var(--i, 0) * 70ms);
+    animation: rise 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
   }
-  /* 折叠区用 grid-template-rows 0fr→1fr，无需测量高度 */
   .collapsible {
     display: grid;
     grid-template-rows: 0fr;
-    transition: grid-template-rows 420ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition: grid-template-rows 400ms cubic-bezier(0.16, 1, 0.3, 1);
   }
   .collapsible[data-open="true"] { grid-template-rows: 1fr; }
   .collapsible > * { overflow: hidden; }
 
-  /* 骨架屏用与真实内容等尺寸的块 + 掠过的高光，不用转圈 spinner */
-  @keyframes shimmer {
-    100% { transform: translateX(100%); }
-  }
+  @keyframes shimmer { 100% { transform: translateX(100%); } }
   .skel {
     position: relative;
     overflow: hidden;
-    background: var(--surface-2);
-    border-radius: 5px;
+    background: var(--sheet-2);
+    border-radius: 3px;
   }
   .skel::after {
     content: "";
     position: absolute;
     inset: 0;
     transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, var(--line-strong), transparent);
+    background: linear-gradient(90deg, transparent, var(--rule), transparent);
     animation: shimmer 1.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* 数据过期：整份数字面失色，把"这不是当前值"做成可感知的材质 */
+  .veiled {
+    filter: saturate(0.2) opacity(0.55);
+    transition: filter 420ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 }
 

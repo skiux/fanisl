@@ -29,8 +29,8 @@ export function EquityCurve({ points, veiled }: { points: EquityPoint[]; veiled:
 
   if (!shape) {
     return (
-      <div className="flex min-h-[120px] flex-1 items-center justify-center rounded-[var(--radius-panel)] border border-dashed border-line">
-        <p className="text-xs text-fg-3">没有日快照，画不出曲线</p>
+      <div className="flex min-h-[120px] flex-1 items-center justify-center rounded-[var(--radius-panel)] border border-dashed border-rule">
+        <p className="text-xs text-ink-3">没有日快照，画不出曲线</p>
       </div>
     )
   }
@@ -43,10 +43,10 @@ export function EquityCurve({ points, veiled }: { points: EquityPoint[]; veiled:
   return (
     <div className={cn('relative flex min-h-0 flex-1 flex-col', veiled && 'veiled')}>
       <div className="mb-2 flex items-baseline justify-between">
-        <span className="text-xs text-fg-3">
+        <span className="text-xs text-ink-3">
           {active ? active.date : `${first.date} — ${last.date}`}
         </span>
-        <span className="tnum text-xs text-fg-2">
+        <span className="tnum text-xs text-ink-2">
           {active ? money(active.equity_usd) : `${points.length} 天`}
         </span>
       </div>
@@ -81,12 +81,12 @@ export function EquityCurve({ points, veiled }: { points: EquityPoint[]; veiled:
         {hover !== null && (
           <g>
             <line
-              stroke="var(--line-strong)" strokeWidth="1" vectorEffect="non-scaling-stroke"
+              stroke="var(--rule-strong)" strokeWidth="1" vectorEffect="non-scaling-stroke"
               x1={shape.x(hover)} x2={shape.x(hover)} y1={0} y2={H}
             />
             <circle
               cx={shape.x(hover)} cy={shape.y(points[hover]!.equity_usd)} r="3.5"
-              fill="var(--bg)" stroke={rising ? 'var(--gain)' : 'var(--loss)'}
+              fill="var(--sheet)" stroke={rising ? 'var(--gain)' : 'var(--loss)'}
               strokeWidth="1.6" vectorEffect="non-scaling-stroke"
             />
           </g>

@@ -29,15 +29,15 @@ function Gauge({ label, value, hint, tone, fill, marker }: {
     <div>
       <div className="flex items-baseline justify-between gap-3">
         <Eyebrow>{label}</Eyebrow>
-        <span className={cn('tnum text-sm', tone)}>{value} <span className="text-fg-3">· {hint}</span></span>
+        <span className={cn('tnum text-sm', tone)}>{value} <span className="text-ink-3">· {hint}</span></span>
       </div>
-      <div className="relative mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-line">
+      <div className="relative mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-rule">
         <div
           className={cn('h-full rounded-full transition-[width] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]', tone.replace('text-', 'bg-'))}
           style={{ width: `${Math.min(100, Math.max(0, fill * 100)).toFixed(1)}%` }}
         />
         {marker !== undefined && (
-          <span className="absolute inset-y-0 w-px bg-fg-3/60" style={{ left: `${marker * 100}%` }} />
+          <span className="absolute inset-y-0 w-px bg-ink-3/60" style={{ left: `${marker * 100}%` }} />
         )}
       </div>
     </div>
@@ -48,13 +48,13 @@ function AdlPips({ quantile }: { quantile: number | null }) {
   if (quantile === null) return null
   return (
     <span className="flex items-center gap-1" title={`自动减仓排队分位 ${quantile}/4`}>
-      <Lightning className={quantile >= 3 ? 'text-loss' : 'text-fg-3'} size={10} weight="fill" />
+      <Lightning className={quantile >= 3 ? 'text-loss' : 'text-ink-3'} size={10} weight="fill" />
       <span className="flex gap-[2px]">
         {[0, 1, 2, 3, 4].map((step) => (
           <i
             className={cn(
               'h-[7px] w-[3px] rounded-[1px]',
-              step < quantile ? (quantile >= 3 ? 'bg-loss' : 'bg-fg-3') : 'bg-line-strong',
+              step < quantile ? (quantile >= 3 ? 'bg-loss' : 'bg-ink-3') : 'bg-rule-strong',
             )}
             key={step}
           />
@@ -78,15 +78,15 @@ function PositionRow({ position }: { position: FuturesPosition }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="truncate text-sm text-fg">{position.symbol}</span>
+            <span className="truncate text-sm text-ink">{position.symbol}</span>
             {/* 方向用中性色 + 箭头：绿/红在这个界面里只表示盈亏 */}
-            <span className="flex items-center gap-1 rounded-[4px] bg-surface-2 px-1.5 py-px font-mono text-[9.5px] font-medium uppercase tracking-wider text-fg-2">
+            <span className="flex items-center gap-1 rounded-[4px] bg-sheet-2 px-1.5 py-px font-mono text-[9.5px] font-medium uppercase tracking-wider text-ink-2">
               {long ? <ArrowUp size={9} weight="bold" /> : <ArrowDown size={9} weight="bold" />}
               {long ? 'Long' : 'Short'}
             </span>
             <AdlPips quantile={position.adl_quantile} />
           </div>
-          <div className="tnum mt-1 text-xs text-fg-3">
+          <div className="tnum mt-1 text-xs text-ink-3">
             {position.leverage}× · {position.isolated ? '逐仓' : '全仓'} · {money(position.notional_usd)}
           </div>
         </div>
@@ -94,7 +94,7 @@ function PositionRow({ position }: { position: FuturesPosition }) {
           <Delta className="text-sm" value={position.unrealized_pnl_usd}>
             {signedMoney(position.unrealized_pnl_usd)}
           </Delta>
-          <div className="tnum text-xs text-fg-3">{signedPercent(pnlPct)}</div>
+          <div className="tnum text-xs text-ink-3">{signedPercent(pnlPct)}</div>
         </div>
       </div>
 
@@ -105,22 +105,22 @@ function PositionRow({ position }: { position: FuturesPosition }) {
           ['强平', price(position.liquidation_price)],
         ] as const).map(([label, value]) => (
           <div className="min-w-0 whitespace-nowrap" key={label}>
-            <dt className="text-fg-3">{label}</dt>
-            <dd className="truncate text-fg-2">{value}</dd>
+            <dt className="text-ink-3">{label}</dt>
+            <dd className="truncate text-ink-2">{value}</dd>
           </div>
         ))}
       </dl>
 
       {distance !== null && (
         <div className="mt-2.5 flex items-center gap-2.5">
-          <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-line">
+          <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-rule">
             <span
               className={cn('block h-full rounded-full transition-[width] duration-700',
-                risk > 0.6 ? 'bg-loss' : risk > 0.3 ? 'bg-accent' : 'bg-fg-3')}
+                risk > 0.6 ? 'bg-loss' : risk > 0.3 ? 'bg-accent' : 'bg-ink-3')}
               style={{ width: `${(risk * 100).toFixed(1)}%` }}
             />
           </span>
-          <span className="tnum shrink-0 text-xs text-fg-3">距强平 {percent(distance, 1)}</span>
+          <span className="tnum shrink-0 text-xs text-ink-3">距强平 {percent(distance, 1)}</span>
         </div>
       )}
     </li>
@@ -137,8 +137,8 @@ export function RiskGauges({ futures, margin, exposureRatio, concentration, unav
   if (unavailable) {
     return (
       <div className="mt-3.5 flex flex-col">
-        <p className="text-sm text-fg-2">合约数据本次没有取到</p>
-        <p className="mt-1.5 text-xs leading-relaxed text-fg-3">
+        <p className="text-sm text-ink-2">合约数据本次没有取到</p>
+        <p className="mt-1.5 text-xs leading-relaxed text-ink-3">
           保证金率与强平距离都算不出来，这一节不猜。
         </p>
       </div>
@@ -166,21 +166,21 @@ export function RiskGauges({ futures, margin, exposureRatio, concentration, unav
           value={margin.margin_level.toFixed(2)}
         />
       )}
-      <div className="space-y-2 border-t border-line pt-3.5">
+      <div className="space-y-2 border-t border-rule pt-3.5">
         {exposureRatio !== null && (
           <div className="flex items-baseline justify-between gap-3">
             <Eyebrow>名义敞口 / 净值</Eyebrow>
-            <span className="tnum text-sm text-fg-2">
-              {exposureRatio.toFixed(2)}×<span className="text-fg-3"> · 真实杠杆</span>
+            <span className="tnum text-sm text-ink-2">
+              {exposureRatio.toFixed(2)}×<span className="text-ink-3"> · 真实杠杆</span>
             </span>
           </div>
         )}
         {concentration && (
           <div className="flex items-baseline justify-between gap-3">
             <Eyebrow>最大单一持仓</Eyebrow>
-            <span className="tnum text-sm text-fg-2">
+            <span className="tnum text-sm text-ink-2">
               {percent(concentration.share, 1)}
-              <span className="text-fg-3"> · {concentration.asset}</span>
+              <span className="text-ink-3"> · {concentration.asset}</span>
             </span>
           </div>
         )}
@@ -194,13 +194,13 @@ export function PositionsList({ futures, unavailable }: {
   unavailable: boolean
 }) {
   if (unavailable) {
-    return <p className="py-10 text-center text-sm text-fg-3">合约数据本次没有取到。</p>
+    return <p className="py-10 text-center text-sm text-ink-3">合约数据本次没有取到。</p>
   }
   if (!futures || futures.positions.length === 0) {
-    return <p className="py-10 text-center text-sm text-fg-3">当前没有合约持仓。</p>
+    return <p className="py-10 text-center text-sm text-ink-3">当前没有合约持仓。</p>
   }
   return (
-    <ul className="divide-y divide-line">
+    <ul className="divide-y divide-rule">
       {futures.positions.map((position) => (
         <PositionRow key={`${position.symbol}-${position.position_side}`} position={position} />
       ))}

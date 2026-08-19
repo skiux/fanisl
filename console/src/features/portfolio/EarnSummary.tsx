@@ -18,22 +18,22 @@ export function EarnSummary({ earn, veiled }: { earn: EarnPosition[]; veiled: bo
     .sort((a, b) => (a.redeem_date ?? '').localeCompare(b.redeem_date ?? ''))[0]
 
   return (
-    <section className={cn('border-t border-line pt-3', veiled && 'veiled')}>
+    <section className={cn('border-t border-rule pt-3', veiled && 'veiled')}>
       <Eyebrow>理财</Eyebrow>
       <dl className="mt-2 space-y-1.5">
         <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-xs text-fg-3">加权年化</dt>
+          <dt className="text-xs text-ink-3">加权年化</dt>
           <dd className="tnum text-xs text-gain">{weightedApr === null ? '—' : percent(weightedApr, 2)}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-xs text-fg-3">累计收益</dt>
-          <dd className="tnum text-xs text-fg-2">{money(rewards)}</dd>
+          <dt className="text-xs text-ink-3">累计收益</dt>
+          <dd className="tnum text-xs text-ink-2">{money(rewards)}</dd>
         </div>
         {nextRedeem && (
           <div className="flex items-baseline justify-between gap-2">
-            <dt className="text-xs text-fg-3">最近到期</dt>
-            <dd className="tnum text-xs text-fg-2">
-              {nextRedeem.redeem_date}<span className="text-fg-3"> · {nextRedeem.asset}</span>
+            <dt className="text-xs text-ink-3">最近到期</dt>
+            <dd className="tnum text-xs text-ink-2">
+              {nextRedeem.redeem_date}<span className="text-ink-3"> · {nextRedeem.asset}</span>
             </dd>
           </div>
         )}

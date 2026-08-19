@@ -8,7 +8,7 @@ const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 sm:grid-cols
 
 function Ticker({ asset }: { asset: string }) {
   return (
-    <span className="grid size-7 shrink-0 place-items-center rounded-[6px] bg-surface-2 font-mono text-[10px] font-medium tracking-tight text-fg-2">
+    <span className="grid size-7 shrink-0 place-items-center rounded-[6px] bg-sheet-2 font-mono text-[10px] font-medium tracking-tight text-ink-2">
       {asset.slice(0, 3)}
     </span>
   )
@@ -26,30 +26,30 @@ function lockNote(item: SpotAsset) {
 function SpotRow({ item, share }: { item: SpotAsset; share: number }) {
   const note = lockNote(item)
   return (
-    <li className={cn(ROW, 'py-3 transition-colors duration-200 hover:bg-surface-2/45')}>
+    <li className={cn(ROW, 'py-3 transition-colors duration-200 hover:bg-sheet-2/45')}>
       <div className="flex min-w-0 items-center gap-2.5">
         <Ticker asset={item.asset} />
         <div className="min-w-0">
-          <div className="truncate text-sm text-fg">{item.asset}</div>
-          {note && <div className="tnum truncate text-micro text-fg-3">{note}</div>}
+          <div className="truncate text-sm text-ink">{item.asset}</div>
+          {note && <div className="tnum truncate text-micro text-ink-3">{note}</div>}
         </div>
       </div>
-      <div className="tnum hidden text-sm text-fg-2 sm:block">{amount(item.total)}</div>
-      <div className="tnum hidden text-sm text-fg-3 sm:block">{price(item.price_usd)}</div>
+      <div className="tnum hidden text-sm text-ink-2 sm:block">{amount(item.total)}</div>
+      <div className="tnum hidden text-sm text-ink-3 sm:block">{price(item.price_usd)}</div>
       <div className="text-right sm:text-left">
         {item.value_usd === null
-          ? <span className="text-xs text-fg-3">无报价</span>
-          : <span className="tnum text-sm text-fg">{money(item.value_usd)}</span>}
-        <div className="tnum text-micro text-fg-3 sm:hidden">{amount(item.total)}</div>
+          ? <span className="text-xs text-ink-3">无报价</span>
+          : <span className="tnum text-sm text-ink">{money(item.value_usd)}</span>}
+        <div className="tnum text-micro text-ink-3 sm:hidden">{amount(item.total)}</div>
       </div>
       <div className="hidden items-center gap-2 sm:flex">
-        <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-line">
+        <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-rule">
           <span
-            className="block h-full rounded-full bg-fg-3 transition-[width] duration-500"
+            className="block h-full rounded-full bg-ink-3 transition-[width] duration-500"
             style={{ width: `${Math.min(100, share * 100).toFixed(2)}%` }}
           />
         </span>
-        <span className="tnum w-[34px] shrink-0 text-right text-micro text-fg-3">
+        <span className="tnum w-[34px] shrink-0 text-right text-micro text-ink-3">
           {share >= 0.005 ? percent(share, 0) : '<1%'}
         </span>
       </div>
@@ -72,36 +72,36 @@ export function SpotTable({ spot }: { spot: SpotAsset[] }) {
   const share = (item: SpotAsset) => (total > 0 ? (item.value_usd ?? 0) / total : 0)
 
   if (spot.length === 0) {
-    return <p className="py-10 text-center text-sm text-fg-3">现货账户里没有余额。</p>
+    return <p className="py-10 text-center text-sm text-ink-3">现货账户里没有余额。</p>
   }
 
   return (
     <>
-      <div className={cn(ROW, 'border-b border-line pb-2 text-micro text-fg-3')}>
+      <div className={cn(ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
         <span>资产</span>
         <span className="hidden sm:block">数量</span>
         <span className="hidden sm:block">价格</span>
         <span className="text-right sm:text-left">价值</span>
         <span className="hidden text-right sm:block">占比</span>
       </div>
-      <ul className="divide-y divide-line">
+      <ul className="divide-y divide-rule">
         {major.map((item) => <SpotRow item={item} key={item.asset} share={share(item)} />)}
       </ul>
       {dust.length > 0 && (
-        <div className="border-t border-line">
+        <div className="border-t border-rule">
           <button
             aria-expanded={dustOpen}
-            className="flex w-full items-center gap-2.5 py-3 text-left transition-colors duration-200 hover:text-fg"
+            className="flex w-full items-center gap-2.5 py-3 text-left transition-colors duration-200 hover:text-ink"
             onClick={() => setDustOpen((open) => !open)}
             type="button"
           >
-            <CaretDown className={cn('shrink-0 text-fg-3 transition-transform duration-300', dustOpen && 'rotate-180')} size={13} />
-            <span className="text-xs text-fg-2">{dust.length} 项灰尘余额</span>
-            <span className="tnum ml-auto text-xs text-fg-3">{money(dustValue)}</span>
+            <CaretDown className={cn('shrink-0 text-ink-3 transition-transform duration-300', dustOpen && 'rotate-180')} size={13} />
+            <span className="text-xs text-ink-2">{dust.length} 项灰尘余额</span>
+            <span className="tnum ml-auto text-xs text-ink-3">{money(dustValue)}</span>
           </button>
           <div className="collapsible" data-open={dustOpen}>
             <div>
-              <ul className="divide-y divide-line border-t border-line">
+              <ul className="divide-y divide-rule border-t border-rule">
                 {dust.map((item) => <SpotRow item={item} key={item.asset} share={share(item)} />)}
               </ul>
             </div>
@@ -114,28 +114,28 @@ export function SpotTable({ spot }: { spot: SpotAsset[] }) {
 
 export function EarnTable({ earn }: { earn: EarnPosition[] }) {
   if (earn.length === 0) {
-    return <p className="py-10 text-center text-sm text-fg-3">没有理财持仓。</p>
+    return <p className="py-10 text-center text-sm text-ink-3">没有理财持仓。</p>
   }
   return (
-    <ul className="divide-y divide-line">
+    <ul className="divide-y divide-rule">
       {earn.map((item) => (
         <li className="flex items-center gap-3 py-3.5" key={item.product_id}>
           <Ticker asset={item.asset} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-fg">{item.asset}</span>
-              <span className="rounded-[4px] bg-surface-2 px-1.5 py-px text-micro text-fg-2">
+              <span className="text-sm text-ink">{item.asset}</span>
+              <span className="rounded-[4px] bg-sheet-2 px-1.5 py-px text-micro text-ink-2">
                 {item.kind === 'flexible' ? '活期' : '定期'}
               </span>
             </div>
-            <div className="tnum mt-0.5 text-micro text-fg-3">
+            <div className="tnum mt-0.5 text-micro text-ink-3">
               {amount(item.amount)}
               {item.redeem_date && ` · ${item.redeem_date} 到期`}
               {!item.can_redeem && item.kind === 'locked' && ' · 锁定中'}
             </div>
           </div>
           <div className="shrink-0 text-right">
-            <div className="tnum text-sm text-fg">{money(item.value_usd)}</div>
+            <div className="tnum text-sm text-ink">{money(item.value_usd)}</div>
             <div className="tnum text-micro text-gain">
               {item.apr === null ? '—' : `${percent(item.apr, 2)} 年化`}
             </div>

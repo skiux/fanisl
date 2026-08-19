@@ -17,7 +17,7 @@ export function WalletSpread({ wallets, veiled }: { wallets: WalletBucket[]; vei
     <section className={cn(veiled && 'veiled')}>
       <div className="flex items-baseline justify-between">
         <Eyebrow>钱包分布</Eyebrow>
-        <span className="text-xs text-fg-3">{ranked.length} 个已启用</span>
+        <span className="text-xs text-ink-3">{ranked.length} 个已启用</span>
       </div>
 
       <ul className="mt-2.5 grid gap-x-8 gap-y-px sm:grid-cols-2 xl:grid-cols-1">
@@ -25,13 +25,13 @@ export function WalletSpread({ wallets, veiled }: { wallets: WalletBucket[]; vei
           const missing = bucket.value_usd === null
           const share = missing || total <= 0 ? 0 : bucket.value_usd! / total
           return (
-            <li className="flex items-center gap-3 border-b border-line py-2 last:border-b-0" key={bucket.kind}>
-              <span className="w-[72px] shrink-0 text-xs text-fg-2">
+            <li className="flex items-center gap-3 border-b border-rule py-2 last:border-b-0" key={bucket.kind}>
+              <span className="w-[72px] shrink-0 text-xs text-ink-2">
                 {WALLET_LABEL[bucket.kind] ?? bucket.kind}
               </span>
-              <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-line">
+              <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-rule">
                 <span
-                  className="block h-full rounded-full bg-fg-3 transition-[width] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                  className="block h-full rounded-full bg-ink-3 transition-[width] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
                   style={{ width: `${(share * 100).toFixed(2)}%` }}
                 />
               </span>
@@ -39,10 +39,10 @@ export function WalletSpread({ wallets, veiled }: { wallets: WalletBucket[]; vei
                 <span className="w-[92px] shrink-0 text-right text-xs text-loss">取不到</span>
               ) : (
                 <>
-                  <span className="tnum w-[86px] shrink-0 text-right text-xs text-fg">
+                  <span className="tnum w-[86px] shrink-0 text-right text-xs text-ink">
                     {money(bucket.value_usd)}
                   </span>
-                  <span className="tnum w-[38px] shrink-0 text-right text-xs text-fg-3">
+                  <span className="tnum w-[38px] shrink-0 text-right text-xs text-ink-3">
                     {percent(share, 0)}
                   </span>
                 </>
