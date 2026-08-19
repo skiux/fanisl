@@ -19,7 +19,7 @@
   --sheet-2: #f4f3ee;       /* 纸上的浅色分区 */
   --ink: #1c1c18;
   --ink-2: #55554c;
-  --ink-3: #8a8a7f;
+  --ink-3: #6b6b62;   /* 5.16:1 on --sheet, 4.77:1 on --sheet-2 */
   --rule: #e3e1d9;
   --rule-strong: #c3c1b5;
   --rule-heavy: #1c1c18;    /* 报头下那条重线 */
@@ -36,7 +36,7 @@
   --sheet-2: #1e1e1b;
   --ink: #eeeee7;
   --ink-2: #a4a49a;
-  --ink-3: #7c7c72;
+  --ink-3: #8b8b80;   /* 5.35:1 on --sheet, 4.86:1 on --sheet-2 */
   --rule: rgb(255 255 255 / 0.09);
   --rule-strong: rgb(255 255 255 / 0.2);
   --rule-heavy: #eeeee7;

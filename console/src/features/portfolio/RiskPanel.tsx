@@ -47,8 +47,13 @@ function Gauge({ label, value, hint, tone, fill, marker }: {
 function AdlPips({ quantile }: { quantile: number | null }) {
   if (quantile === null) return null
   return (
-    <span className="flex items-center gap-1" title={`自动减仓排队分位 ${quantile}/4`}>
-      <Lightning className={quantile >= 3 ? 'text-loss' : 'text-ink-3'} size={10} weight="fill" />
+    <span
+      aria-label={`自动减仓排队分位 ${quantile} / 4`}
+      className="flex items-center gap-1"
+      role="img"
+      title={`自动减仓排队分位 ${quantile}/4`}
+    >
+      <Lightning aria-hidden="true" className={quantile >= 3 ? 'text-loss' : 'text-ink-3'} size={10} weight="fill" />
       <span className="flex gap-[2px]">
         {[0, 1, 2, 3, 4].map((step) => (
           <i
@@ -81,7 +86,7 @@ function PositionRow({ position }: { position: FuturesPosition }) {
             <span className="truncate text-sm text-ink">{position.symbol}</span>
             {/* 方向用中性色 + 箭头：绿/红在这个界面里只表示盈亏 */}
             <span className="flex items-center gap-1 rounded-[4px] bg-sheet-2 px-1.5 py-px font-mono text-[9.5px] font-medium uppercase tracking-wider text-ink-2">
-              {long ? <ArrowUp size={9} weight="bold" /> : <ArrowDown size={9} weight="bold" />}
+              {long ? <ArrowUp aria-hidden="true" size={9} weight="bold" /> : <ArrowDown aria-hidden="true" size={9} weight="bold" />}
               {long ? 'Long' : 'Short'}
             </span>
             <AdlPips quantile={position.adl_quantile} />

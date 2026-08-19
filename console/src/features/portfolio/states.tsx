@@ -15,7 +15,7 @@ function Row({ height, children }: { height: number; children: ReactNode }) {
 export function StatementSkeleton() {
   return (
     <div aria-busy="true" aria-label="正在读取账户">
-      <section className="grid gap-7 border-b border-rule px-5 py-6 sm:px-9 sm:py-7 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-14">
+      <section className="grid gap-7 border-b border-rule px-5 py-6 sm:px-9 sm:py-7 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] xl:gap-14">
         <div>
           <Skel className="h-3 w-32" />
           <Skel className="mt-4 h-11 w-56" />
@@ -24,8 +24,8 @@ export function StatementSkeleton() {
         <Skel className="h-[152px] w-full" />
       </section>
 
-      <div className="grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-        <div className="space-y-7 border-b border-rule px-5 py-6 sm:px-9 sm:py-7 lg:space-y-9 lg:border-b-0 lg:border-r">
+      <div className="grid xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        <div className="space-y-7 border-b border-rule px-5 py-6 sm:px-9 sm:py-7 xl:space-y-9 xl:border-b-0 xl:border-r">
           <div>
             <div className="mb-4 flex items-baseline justify-between border-b border-rule pb-2.5">
               <Skel className="h-4 w-28" />
@@ -57,7 +57,7 @@ export function StatementSkeleton() {
           </div>
         </div>
 
-        <div className="space-y-7 px-5 py-6 sm:px-9 sm:py-7 lg:space-y-9">
+        <div className="space-y-7 px-5 py-6 sm:px-9 sm:py-7 xl:space-y-9">
           <div>
             <div className="mb-4 border-b border-rule pb-2.5"><Skel className="h-4 w-24" /></div>
             {[0, 1, 2, 3, 4, 5].map((index) => (
@@ -125,7 +125,7 @@ function RetryButton({ onRetry, label = '重新取数' }: { onRetry: () => void;
       onClick={onRetry}
       type="button"
     >
-      <ArrowClockwise size={13} />{label}
+      <ArrowClockwise aria-hidden="true" size={13} />{label}
     </button>
   )
 }
@@ -135,7 +135,7 @@ export function EmptyState() {
     <Frame
       action={<a className="text-[12.5px] text-accent underline-offset-4 hover:underline" href="https://www.binance.com" rel="noreferrer" target="_blank">前往 Binance</a>}
       body="连接正常，但现货和合约账户里都没有余额。等有持仓后这里会自动出现。"
-      icon={<Wallet size={19} />}
+      icon={<Wallet aria-hidden="true" size={19} />}
       title="账户里还没有资产"
     />
   )
@@ -156,7 +156,7 @@ export function UnauthorizedState({ sources, onRetry }: { sources: SourceState[]
           </ul>
         </>
       }
-      icon={<Key size={19} />}
+      icon={<Key aria-hidden="true" size={19} />}
       title="凭据没有通过校验"
     />
   )
@@ -172,7 +172,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
           <p className="mt-3 text-ink-3">这里不会用上一次的数字顶替；取不到就是取不到。</p>
         </>
       }
-      icon={<PlugsConnected size={19} />}
+      icon={<PlugsConnected aria-hidden="true" size={19} />}
       title="读不到账户数据"
     />
   )

@@ -50,7 +50,7 @@ export function SourceStrip({ sources, asOf, onRefresh, refreshing }: {
               type="button"
             >
               明细
-              <CaretDown className={cn('transition-transform duration-300', open && 'rotate-180')} size={12} />
+              <CaretDown aria-hidden="true" className={cn('transition-transform duration-300', open && 'rotate-180')} size={12} />
             </button>
           )}
           <button
@@ -59,7 +59,7 @@ export function SourceStrip({ sources, asOf, onRefresh, refreshing }: {
             onClick={onRefresh}
             type="button"
           >
-            <ArrowsClockwise className={cn(refreshing && 'animate-spin')} size={12} />
+            <ArrowsClockwise aria-hidden="true" className={cn(refreshing && 'animate-spin')} size={12} />
             重新取数
           </button>
         </div>

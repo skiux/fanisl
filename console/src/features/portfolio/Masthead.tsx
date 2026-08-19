@@ -27,7 +27,7 @@ function ThemeToggle() {
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       type="button"
     >
-      {theme === 'dark' ? <MoonStars size={15} /> : <Sun size={15} />}
+      {theme === 'dark' ? <MoonStars aria-hidden="true" size={15} /> : <Sun aria-hidden="true" size={15} />}
     </button>
   )
 }
@@ -106,7 +106,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls }: {
             onClick={onRefresh}
             type="button"
           >
-            <ArrowsClockwise className={cn(refreshing && 'animate-spin')} size={12} />
+            <ArrowsClockwise aria-hidden="true" className={cn(refreshing && 'animate-spin')} size={12} />
             重新取数
           </button>
         </div>

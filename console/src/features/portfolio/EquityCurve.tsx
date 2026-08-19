@@ -52,7 +52,9 @@ export function EquityCurve({ points, veiled }: { points: EquityPoint[]; veiled:
       </div>
 
       <svg
+        aria-label={`净值曲线：${first.date} ${money(first.equity_usd)} 至 ${last.date} ${money(last.equity_usd)}，${rising ? '上行' : '下行'}`}
         className="min-h-[110px] w-full flex-1"
+        role="img"
         onMouseLeave={() => setHover(null)}
         onMouseMove={(event) => {
           const box = event.currentTarget.getBoundingClientRect()

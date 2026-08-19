@@ -10,7 +10,7 @@ export function ScenarioSwitcher({
 }: { value: Scenario; onChange: (next: Scenario) => void }) {
   return (
     <label className="flex items-center gap-1.5 rounded-[var(--radius-control)] border border-dashed border-rule px-2 py-1 text-ink-3 transition-colors hover:border-rule-strong">
-      <Flask size={13} />
+      <Flask aria-hidden="true" size={13} />
       <span className="sr-only">示例数据场景</span>
       <select
         className="cursor-pointer appearance-none bg-transparent pr-1 text-[12px] text-ink-2 outline-none"

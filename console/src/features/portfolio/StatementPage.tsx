@@ -3,10 +3,9 @@ import { fetchPortfolio, readScenario, writeScenario, type Scenario } from '../.
 import { PortfolioError, type PortfolioSnapshot, type SourceKey } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
 import { cn } from '../../lib/cn'
-import { clockTime, freshnessOf, money, signedMoney, signedPercent } from '../../lib/format'
-import { EarnSummary } from './EarnSummary'
+import { clockTime, freshnessOf, money, percent, signedMoney, signedPercent } from '../../lib/format'
 import { EquityCurve } from './EquityCurve'
-import { SpotTable, EarnTable } from './Holdings'
+import { EarnTable, SpotTable } from './Holdings'
 import { Masthead } from './Masthead'
 import { Reconciliation } from './Reconciliation'
 import { PositionsList, RiskGauges } from './RiskPanel'
@@ -40,57 +39,6 @@ function splitMoney(value: number) {
   const text = money(value)
   const cut = text.lastIndexOf('.')
   return cut === -1 ? [text, ''] : [text.slice(0, cut), text.slice(cut)]
-}
-
-type HoldingTab = 'spot' | 'earn' | 'positions'
-
-function Schedules({ snapshot, futuresMissing }: {
-  snapshot: PortfolioSnapshot
-  futuresMissing: boolean
-}) {
-  const [tab, setTab] = useState<HoldingTab>('spot')
-  const spotValue = snapshot.spot.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-  const earnValue = snapshot.earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-
-  const tabs: Array<[HoldingTab, string, string]> = [
-    ['spot', '现货', money(spotValue)],
-    ['earn', '理财', money(earnValue)],
-    ['positions', '合约', futuresMissing ? '不可用' : `${snapshot.futures?.positions.length ?? 0} 笔`],
-  ]
-
-  return (
-    <section>
-      <SectionHeading
-        aside={
-          <div className="scrollbar-none flex items-baseline gap-4 overflow-x-auto" role="tablist">
-            {tabs.map(([key, label, note]) => (
-              <button
-                aria-selected={tab === key}
-                className={cn(
-                  'flex shrink-0 items-baseline gap-1.5 whitespace-nowrap text-xs transition-colors duration-200',
-                  tab === key ? 'text-ink' : 'text-ink-3 hover:text-ink-2',
-                )}
-                key={key}
-                onClick={() => setTab(key)}
-                role="tab"
-                type="button"
-              >
-                <span className={cn(tab === key && 'border-b border-accent pb-px')}>{label}</span>
-                <span className="tnum hidden text-micro text-ink-3 sm:inline">{note}</span>
-              </button>
-            ))}
-          </div>
-        }
-        index="二"
-        title="持仓明细"
-      />
-      {tab === 'spot' && <SpotTable spot={snapshot.spot} />}
-      {tab === 'earn' && <EarnTable earn={snapshot.earn} />}
-      {tab === 'positions' && (
-        <PositionsList futures={snapshot.futures} unavailable={futuresMissing} />
-      )}
-    </section>
-  )
 }
 
 export function StatementPage() {
@@ -178,6 +126,14 @@ function Body({ phase, onRetry, refreshing }: {
 
   const totals = snapshot.totals
   const [whole, cents] = totals ? splitMoney(totals.equity_usd) : ['—', '']
+  const spotValue = snapshot.spot.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
+  const earnValue = snapshot.earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
+  const earnRewards = snapshot.earn.reduce((sum, item) => sum + (item.cumulative_rewards_usd ?? 0), 0)
+  const earnPriced = snapshot.earn.filter((item) => item.value_usd !== null && item.apr !== null)
+  const earnBase = earnPriced.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
+  const earnApr = earnBase > 0
+    ? earnPriced.reduce((sum, item) => sum + (item.value_usd ?? 0) * (item.apr ?? 0), 0) / earnBase
+    : null
 
   return (
     <>
@@ -189,7 +145,7 @@ function Body({ phase, onRetry, refreshing }: {
 
       {/* 摘要：整份报表的结论行。左边是数，右边是这一个月的形状。 */}
       <section
-        className="rise grid gap-7 border-b border-rule px-5 py-6 sm:px-9 sm:py-7 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-14"
+        className="rise grid gap-7 border-b border-rule px-5 py-6 sm:px-9 sm:py-7 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] xl:gap-14"
         style={{ '--i': 0 } as React.CSSProperties}
       >
         <div className={cn(veiled && 'veiled')}>
@@ -225,10 +181,14 @@ function Body({ phase, onRetry, refreshing }: {
         </div>
       </section>
 
-      {/* 正文两栏，中间一条竖线——像报纸的栏线，不是卡片的边框 */}
-      <div className="grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+      {/*
+        正文两栏，中间一条栏线——报纸的栏线，不是卡片的边框。
+        明细按附表平铺，不用标签页：文件的长度不该因为你点了什么而变化，
+        标签页是 app 的做法，塞进文件概念里就会出现切换时的跳动。
+      */}
+      <div className="grid xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div
-          className="rise space-y-7 border-b border-rule px-5 py-6 sm:px-9 sm:py-7 lg:space-y-9 lg:border-b-0 lg:border-r"
+          className="rise space-y-7 border-b border-rule px-5 py-6 sm:px-9 sm:py-7 xl:space-y-9 xl:border-b-0 xl:border-r"
           style={{ '--i': 1 } as React.CSSProperties}
         >
           <section>
@@ -240,23 +200,59 @@ function Body({ phase, onRetry, refreshing }: {
             <Reconciliation data={snapshot.attribution} veiled={veiled} />
           </section>
 
-          <Schedules futuresMissing={futuresMissing} snapshot={snapshot} />
+          <section className={cn(veiled && 'veiled')}>
+            <SectionHeading
+              aside={<span className="tnum text-xs text-ink-2">{money(spotValue)}</span>}
+              index="二"
+              title="现货持仓"
+            />
+            <SpotTable spot={snapshot.spot} />
+          </section>
+
+          <section className={cn(veiled && 'veiled')}>
+            <SectionHeading
+              aside={
+                <span className="text-xs text-ink-3">
+                  {earnApr === null ? money(earnValue) : (
+                    <>加权年化 <span className="tnum text-gain">{percent(earnApr, 2)}</span> · 累计 <span className="tnum text-ink-2">{money(earnRewards)}</span></>
+                  )}
+                </span>
+              }
+              index="三"
+              title="理财持仓"
+            />
+            <EarnTable earn={snapshot.earn} />
+          </section>
         </div>
 
         <div
-          className="rise space-y-7 px-5 py-6 sm:px-9 sm:py-7 lg:space-y-9"
+          className="rise space-y-7 px-5 py-6 sm:px-9 sm:py-7 xl:space-y-9"
           style={{ '--i': 2 } as React.CSSProperties}
         >
           <section>
-            <SectionHeading index="三" title="资产分布" />
+            <SectionHeading
+              aside={<span className="tnum text-xs text-ink-2">{money(equity)}</span>}
+              index="四"
+              title="资产分布"
+            />
             <WalletSpread veiled={veiled} wallets={snapshot.wallets} />
-            <div className="mt-5">
-              <EarnSummary earn={snapshot.earn} veiled={veiled} />
-            </div>
+          </section>
+
+          <section className={cn(veiled && 'veiled')}>
+            <SectionHeading
+              aside={
+                <span className="text-xs text-ink-3">
+                  {futuresMissing ? '不可用' : `${snapshot.futures?.positions.length ?? 0} 笔`}
+                </span>
+              }
+              index="五"
+              title="合约仓位"
+            />
+            <PositionsList futures={snapshot.futures} unavailable={futuresMissing} />
           </section>
 
           <section>
-            <SectionHeading index="四" title="风险" />
+            <SectionHeading index="六" title="风险" />
             <div className={veiled ? 'veiled' : undefined}>
               <RiskGauges
                 concentration={concentration}

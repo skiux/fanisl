@@ -31,7 +31,7 @@ function SpotRow({ item, share }: { item: SpotAsset; share: number }) {
         <Ticker asset={item.asset} />
         <div className="min-w-0">
           <div className="truncate text-sm text-ink">{item.asset}</div>
-          {note && <div className="tnum truncate text-micro text-ink-3">{note}</div>}
+          {note && <div className="tnum truncate text-micro text-ink-3" title={note}>{note}</div>}
         </div>
       </div>
       <div className="tnum hidden text-sm text-ink-2 sm:block">{amount(item.total)}</div>
@@ -95,7 +95,7 @@ export function SpotTable({ spot }: { spot: SpotAsset[] }) {
             onClick={() => setDustOpen((open) => !open)}
             type="button"
           >
-            <CaretDown className={cn('shrink-0 text-ink-3 transition-transform duration-300', dustOpen && 'rotate-180')} size={13} />
+            <CaretDown aria-hidden="true" className={cn('shrink-0 text-ink-3 transition-transform duration-300', dustOpen && 'rotate-180')} size={13} />
             <span className="text-xs text-ink-2">{dust.length} 项灰尘余额</span>
             <span className="tnum ml-auto text-xs text-ink-3">{money(dustValue)}</span>
           </button>
