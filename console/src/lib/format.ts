@@ -98,3 +98,28 @@ export function clockTime(asOf: string | null) {
     hour: '2-digit', minute: '2-digit', hour12: false, timeZone: zone,
   }).format(date)
 }
+
+export const WALLET_LABEL: Record<string, string> = {
+  spot: '现货',
+  usdm_futures: 'U 本位合约',
+  coinm_futures: '币本位合约',
+  cross_margin: '全仓杠杆',
+  isolated_margin: '逐仓杠杆',
+  funding: '资金账户',
+  earn: '理财',
+}
+
+export const SOURCE_LABEL: Record<string, string> = {
+  wallets: '钱包分布',
+  spot: '现货账户',
+  futures: '合约账户',
+  brackets: '保证金档位',
+  earn: '理财持仓',
+  margin: '杠杆账户',
+  income: '收支流水',
+  transfers: '充提记录',
+  snapshots: '日快照',
+}
+
+/** 归因瀑布里每一项的语义色：中性项不该染成盈亏色 */
+export type FlowKind = 'transfer' | 'gain' | 'cost' | 'anchor'

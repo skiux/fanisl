@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchPortfolio, readScenario, writeScenario, type Scenario } from '../../api/client'
-import { PortfolioError, type PortfolioSnapshot } from '../../api/types'
+import { PortfolioError, type PortfolioSnapshot, type SourceKey } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
 import { Shell } from '../../components/Shell'
 import { clockTime, freshnessOf } from '../../lib/format'
-import { AllocationBar } from './AllocationBar'
-import { HoldingsList } from './HoldingsList'
+import { AttributionPanel } from './Attribution'
+import { Holdings } from './Holdings'
 import { NetWorthBand } from './NetWorthBand'
-import { PositionsPanel } from './PositionsPanel'
+import { RiskPanel } from './RiskPanel'
+import { SourceStrip } from './SourceStrip'
+import { WalletSpread } from './WalletSpread'
 import { EmptyState, ErrorState, PortfolioSkeleton, StaleBanner, UnauthorizedState } from './states'
 
 type Phase =
@@ -30,20 +32,17 @@ export function PortfolioPage() {
       .then((snapshot) => setPhase({ kind: 'ready', snapshot }))
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
-        const message = error instanceof PortfolioError
-          ? error.message
-          : '读取账户时发生未预期的错误'
-        setPhase({ kind: 'failed', message })
+        setPhase({
+          kind: 'failed',
+          message: error instanceof PortfolioError ? error.message : '读取账户时发生未预期的错误',
+        })
       })
-      .finally(() => {
-        if (!controller.signal.aborted) setRefreshing(false)
-      })
+      .finally(() => { if (!controller.signal.aborted) setRefreshing(false) })
 
     return () => controller.abort()
   }, [scenario, reloadKey])
 
   const retry = useCallback(() => setReloadKey((key) => key + 1), [])
-
   const changeScenario = useCallback((next: Scenario) => {
     writeScenario(next)
     setScenario(next)
@@ -53,7 +52,7 @@ export function PortfolioPage() {
 
   return (
     <Shell current="assets" trailing={<ScenarioSwitcher onChange={changeScenario} value={scenario} />}>
-      <main className="mx-auto max-w-[1320px] px-5 pb-24 pt-10 sm:px-8 sm:pt-14">
+      <main className="mx-auto max-w-[1320px] px-5 pb-24 pt-8 sm:px-8 sm:pt-10">
         <Body onRetry={retry} phase={phase} refreshing={refreshing} />
       </main>
     </Shell>
@@ -69,39 +68,57 @@ function Body({ phase, onRetry, refreshing }: {
   if (phase.kind === 'failed') return <ErrorState message={phase.message} onRetry={onRetry} />
 
   const { snapshot } = phase
-  const allUnauthorized = snapshot.venues.length > 0
-    && snapshot.venues.every((venue) => venue.status === 'unauthorized')
-  if (allUnauthorized) return <UnauthorizedState onRetry={onRetry} venues={snapshot.venues} />
+  const allUnauthorized = snapshot.sources.length > 0
+    && snapshot.sources.every((source) => source.status === 'unauthorized')
+  if (allUnauthorized) return <UnauthorizedState onRetry={onRetry} sources={snapshot.sources} />
 
-  const hasAnything = snapshot.balances.length > 0 || snapshot.positions.length > 0
+  const hasAnything = snapshot.wallets.length > 0 || snapshot.spot.length > 0
   if (!hasAnything) return <EmptyState />
 
   const { level } = freshnessOf(snapshot.as_of)
   const veiled = level === 'stale' || level === 'unknown'
-  const futuresVenue = snapshot.venues.find((venue) => venue.venue === 'futures')
-  // 只有"取不到且手上也没有可显示的数据"才算不可用。
-  // 全部来源断线但缓存里有仓位时，仍然显示缓存——过期由蒙层和横幅表达。
-  const futuresMissing = futuresVenue !== undefined
-    && futuresVenue.status !== 'ok'
-    && snapshot.positions.length === 0
-    && snapshot.futures_risk === null
+  const down = (key: SourceKey) =>
+    snapshot.sources.find((source) => source.key === key)?.status !== 'ok'
+  // 合约取不到且手上也没有可显示的仓位，才算这一节不可用；
+  // 全部断线但缓存里有数据时照常显示，过期由蒙层和横幅表达。
+  const futuresMissing = down('futures') && snapshot.futures === null
 
   return (
     <div className="space-y-10 sm:space-y-12">
+      <SourceStrip
+        asOf={snapshot.as_of}
+        onRefresh={onRetry}
+        refreshing={refreshing}
+        sources={snapshot.sources}
+      />
+
       {veiled && <StaleBanner asOfText={clockTime(snapshot.as_of)} />}
 
-      <NetWorthBand onRefresh={onRetry} refreshing={refreshing} snapshot={snapshot} />
+      <NetWorthBand
+        attribution={snapshot.attribution}
+        curve={snapshot.equity_curve}
+        totals={snapshot.totals}
+        transfers={snapshot.transfers}
+        veiled={veiled}
+      />
 
       <div className="h-px w-full bg-line" />
 
-      <AllocationBar balances={snapshot.balances} veiled={veiled} />
+      <WalletSpread veiled={veiled} wallets={snapshot.wallets} />
 
-      <div className="grid gap-12 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-14">
-        <HoldingsList balances={snapshot.balances} veiled={veiled} />
+      <div className="h-px w-full bg-line" />
+
+      <AttributionPanel data={snapshot.attribution} veiled={veiled} />
+
+      <div className="h-px w-full bg-line" />
+
+      <div className="grid gap-12 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-14">
+        <Holdings earn={snapshot.earn} spot={snapshot.spot} veiled={veiled} />
         <div className="xl:border-l xl:border-line xl:pl-14">
-          <PositionsPanel
-            positions={snapshot.positions}
-            risk={snapshot.futures_risk}
+          <RiskPanel
+            exposureRatio={snapshot.totals?.gross_exposure_ratio ?? null}
+            futures={snapshot.futures}
+            margin={snapshot.margin}
             unavailable={futuresMissing}
             veiled={veiled}
           />

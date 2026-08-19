@@ -26,7 +26,7 @@ export const StatusDot = memo(function StatusDot({
 
 export function Eyebrow({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className={cn('text-[10px] font-medium uppercase tracking-[0.16em] text-fg-3', className)}>
+    <span className={cn('text-micro font-medium uppercase tracking-[0.15em] text-fg-3', className)}>
       {children}
     </span>
   )
@@ -39,7 +39,7 @@ export function SectionHead({
     <div className="mb-5 flex items-end justify-between gap-4">
       <div className="flex flex-col gap-1.5">
         <Eyebrow>{label}</Eyebrow>
-        <h2 className="text-[15px] font-medium tracking-tight text-fg">{title}</h2>
+        <h2 className="text-lg font-medium tracking-tight text-fg">{title}</h2>
       </div>
       {aside}
     </div>

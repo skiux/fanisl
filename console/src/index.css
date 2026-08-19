@@ -75,6 +75,18 @@
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, monospace;
 
+  /* 字号音阶：原来 60px 直接掉到 13px，中间断层，所以"大的太大小的太小"。
+     现在提高下限、压低上限，相邻档位比值 1.15–1.30 连续，
+     层级主要靠字重和颜色拉开，不靠尺寸跳跃。 */
+  --text-micro: 0.6875rem;  /* 11   眉标 */
+  --text-xs: 0.78125rem;    /* 12.5 次要元信息 */
+  --text-sm: 0.875rem;      /* 14   表格正文 */
+  --text-base: 0.9375rem;   /* 15   强调正文 */
+  --text-lg: 1.0625rem;     /* 17   小节标题 */
+  --text-xl: 1.3125rem;     /* 21   次级指标 */
+  --text-2xl: 1.6875rem;    /* 27   三级大数 */
+  --text-hero: 2.5rem;      /* 40   净值 */
+
   /* 仪表盘不用大圆角。SaaS 营销页那套 2.5rem 在密集数据界面里会显得松垮 */
   --radius-panel: 12px;
   --radius-control: 8px;

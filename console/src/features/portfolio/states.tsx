@@ -1,10 +1,10 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { ArrowClockwise, Key, PlugsConnected, Wallet } from '@phosphor-icons/react'
 import { Eyebrow } from '../../components/Primitives'
-import type { VenueState } from '../../api/types'
+import type { SourceState } from '../../api/types'
 
-function Skel({ className }: { className: string }) {
-  return <div className={`skel ${className}`} />
+function Skel({ className, style }: { className: string; style?: CSSProperties }) {
+  return <div className={`skel ${className}`} style={style} />
 }
 
 /** 骨架按真实布局的尺寸排布，加载完成时不会发生跳版 */
@@ -35,10 +35,21 @@ export function PortfolioSkeleton() {
       </section>
 
       <section>
+        <Skel className="h-3 w-24" />
+        <div className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((index) => <Skel className="h-4 w-full" key={index} />)}
+        </div>
+      </section>
+
+      <section>
         <Skel className="h-3 w-28" />
-        <Skel className="mt-3 h-2.5 w-full" />
-        <div className="mt-4 flex gap-6">
-          {[0, 1, 2, 3, 4].map((index) => <Skel className="h-3 w-16" key={index} />)}
+        <Skel className="mt-4 h-7 w-48" />
+        <div className="mt-7 flex items-end gap-3">
+          {[54, 82, 96, 61, 40, 47, 100].map((height, index) => (
+            <div className="flex-1" key={index}>
+              <Skel className="w-full" style={{ height }} />
+            </div>
+          ))}
         </div>
       </section>
 
@@ -108,8 +119,8 @@ export function EmptyState() {
   )
 }
 
-export function UnauthorizedState({ venues, onRetry }: { venues: VenueState[]; onRetry: () => void }) {
-  const detail = venues.find((v) => v.detail)?.detail
+export function UnauthorizedState({ sources, onRetry }: { sources: SourceState[]; onRetry: () => void }) {
+  const detail = sources.find((s) => s.detail)?.detail
   return (
     <Frame
       action={<RetryButton onRetry={onRetry} />}
