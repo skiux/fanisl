@@ -1,9 +1,17 @@
 # fanisl backend
 
-对话式加密货币盘面分析助手的后端。Claude 通过工具循环按需取真实行情、算指标、
-打包成语义快照后做盘面解读；**只做给人看的辅助，不下买卖结论、不编数字**。
+**项目主线是知识引擎**：持续学习、持续验证、持续沉淀投资知识，核心资产是知识库本身
+（定位与分期见 [`../doc/knowledge-engine-design.md`](../doc/knowledge-engine-design.md)，
+模块地图见 [`src/analyzer/knowledge/README.md`](src/analyzer/knowledge/README.md)）。
 
-设计文档见 [`../doc/2026-06-05-backend-design.md`](../doc/2026-06-05-backend-design.md)。
+本 README 讲的是**承载它的后端**，另外两条线也跑在同一进程族里：
+- **行情采集**（本文下半部分）——多资产时间序列，为知识引擎的验证层提供时点价格；
+- **交易评测台**（`trading/`）与**量化研究**（`research/`）——见
+  [`../doc/trading-eval-repositioning.md`](../doc/trading-eval-repositioning.md) 与
+  [`../doc/research/research-log.md`](../doc/research/research-log.md)。
+
+> 历史定位（对话式加密盘面助手）已归档，见 `../doc/archive/`。项目经历过四次测量对象
+> 转移：Claude → 用户 → 创作者 → 知识本身。读老文档时注意它们停在哪一次。
 
 ## 运行
 
@@ -14,8 +22,8 @@
 uv sync                      # 用 uv
 # 或：python -m venv .venv && .venv/bin/pip install -e . pytest httpx
 
-# 2. 配置 key
-cp .env.example .env         # 填入 ANTHROPIC_API_KEY
+# 2. 配置 key（模板在 deploy/.env.example，字段最全）
+cp ../deploy/.env.example .env
 
 # 3. 起服务
 uv run uvicorn analyzer.main:app --reload --app-dir src
@@ -49,23 +57,33 @@ src/analyzer/
 ├── config.py        # key / 默认值 / 指标阈值 / watchlist / 采集间隔
 ├── prompts.py       # 系统提示词：角色与边界
 ├── models.py        # pydantic 快照契约
-├── storage.py       # SQLite 对话/消息
-├── marketstore.py   # SQLite 时间序列(metric_samples)/催化剂/采集日志
+├── storage.py       # PostgreSQL 对话/消息
+├── marketstore.py   # PostgreSQL+TimescaleDB 时间序列(metric_samples hypertable)/催化剂/采集日志
+├── db.py            # 连接池（psycopg_pool）
+├── runtime.py       # 进程级单例：三个库的池 + agent/交易服务（import 时即建池）
 ├── flatten.py       # 模型 → 入库行（纯函数）
 ├── collector.py     # 采一轮 watchlist：复用工具函数 → flatten → 写库
 ├── scheduler.py     # 进程内后台线程调度（无新依赖、无 shell 脚本）
 ├── tools/           # get_market_snapshot / get_catalysts 编排 + 注册分发
 ├── data/            # 可插拔数据源 + 衍生品/情绪/链上/催化剂 provider
 ├── indicators/      # 纯函数算指标（pandas/numpy）
-└── snapshot/        # 数字 → 语义标签
+├── snapshot/        # 数字 → 语义标签
+├── knowledge/       # **知识引擎**（L0→L1→L2→K5→K6，独立库 fanisl_knowledge）
+├── trading/         # 交易评测台（独立库 fanisl_trading）
+├── research/        # 量化研究 harness（H1-H22 的 prereg 与执行）
+├── worker_collector.py / worker_trader.py   # 两个后台进程入口（各自 PG advisory lock 单实例）
+└── ../tools/        # 运维脚本：check_db / check_sources / check_ingest / screen_node_canonicals
 ```
+
+三个进程：`main.py`(API，可多 worker) / `worker_collector.py`(采集+知识引擎日维护、周报)
+/ `worker_trader.py`(交易)。后两个各自单实例，靠 PG advisory lock 防呆。
 
 加新能力（信号 / 回测 / 新闻）= 在 `tools/registry.py` 注册一个新工具，agent 不用动。
 
 ## 数据采集与持久化（时间序列）
 
 后台调度器定时把 watchlist 全维度数据采成时间序列，供前端可视化。设计见
-[`../doc/2026-06-07-persistence-design.md`](../doc/2026-06-07-persistence-design.md)。
+[`../doc/archive/2026-06-07-persistence-design.md`](../doc/archive/2026-06-07-persistence-design.md)（已归档）。
 - 写：`scheduler` 定时 → `collector` 复用 `get_market_snapshot`/`get_catalysts` 取数 →
   `flatten` 摊平 → `marketstore` 入库（market 每 15min、catalysts 每天；`COLLECTOR_ENABLED=false` 可关）。
 - 读（前端）：`GET /watchlist`（最新概览）、`GET /metrics?symbol=&names=&since=`（时间序列，

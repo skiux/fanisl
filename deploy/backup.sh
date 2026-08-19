@@ -6,6 +6,12 @@
 # 而 Docker 部署下宿主机根本没有 socket，表现是 pg_dump 报 .s.PGSQL.5432 不存在。
 set -euo pipefail
 
+# launchd / systemd 都不继承交互 shell 的 PATH（实测 launchctl getenv PATH 为空），
+# 而 pg_dump 在 Homebrew 下是 /opt/homebrew/bin。不补这一行，任务会以 127
+# "command not found" 静默失败——2026-08-18 起本机备份就是这么断的，日志不看就发现不了。
+PATH="/opt/homebrew/bin:/usr/local/bin:/usr/pgsql-17/bin:$PATH"
+command -v pg_dump >/dev/null || { echo "找不到 pg_dump；把它所在目录加进上面的 PATH" >&2; exit 127; }
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${FANISL_ENV_FILE:-$HERE/../backend/.env}"
 DEST="${FANISL_BACKUP_DIR:-$HOME/fanisl-backups}"

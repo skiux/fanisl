@@ -1,7 +1,19 @@
 # 开发机（macOS）常驻服务
 
 服务器侧用 systemd（见 `deploy/*.service` 与 `deploy/README.md`）。开发机是 macOS，
-对应物是 launchd。目前只有 collector 需要常驻。
+对应物是 launchd。
+
+> **2026-08-18 上线后，本机这两个任务的角色都变了，别照旧开着：**
+>
+> - **collector 应当停掉**。服务器已接管知识引擎的日维护与周报；而本机 `.env` 的
+>   `PG_KNOWLEDGE_CONNINFO` 现在指向 SSH 隧道，本机 collector 一跑就变成**第二个写服务器库
+>   的进程**（隧道通时重复写、隧道断时刷错误日志）。它的 PG advisory lock 取在 `fanisl` 库上，
+>   拦不住这种跨机重复。停：`launchctl bootout gui/$(id -u)/com.fanisl.collector`
+> - **backup 备的已经是服务器库**，不再是本机副本——同样因为连接串指向隧道。想留本机
+>   历史副本，得显式指库：`FANISL_ENV_FILE=/dev/null deploy/backup.sh`（脚本读不到 .env
+>   时回退到本地 socket 的 `dbname=xxx`）。
+>
+> 服务器侧的备份走 systemd timer，见 `deploy/README.md` §8。
 
 ## 为什么必须常驻
 

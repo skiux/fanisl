@@ -1,16 +1,29 @@
 # fanisl 项目结构（详解）
 
-更新于 2026-07-11。fanisl = 多资产时点数据平台 + Claude 盘面分析 + **交易评测台（实盘镜像/setup 评 edge）**
-+ **量化研究 harness（已收官，按需复用，见 [research-capstone.md](research/research-capstone.md)）**。
+更新于 2026-08-19。fanisl = **知识引擎（当前主线）** + 多资产时点数据平台
++ 交易评测台（实盘镜像/setup 评 edge）+ 量化研究 harness（已收官，按需复用，
+见 [research-capstone.md](research/research-capstone.md)）。
 核心理念：**先把数据做对**。后端 FastAPI（3 进程）+ React/TS 前端 + PostgreSQL/TimescaleDB。
+
+**三个库，不要混**：`fanisl_knowledge`（知识引擎，13 表，无 TimescaleDB）·
+`fanisl`（行情时序，metric_samples hypertable）· `fanisl_trading`（评测台）。
+`analyzer.runtime` 在 import 时就打开全部三个池，少一个进程起不来。
 
 ```
 fanisl/
-├── backend/      Python 后端（FastAPI + 数据管道 + 交易评测台）
+├── backend/      Python 后端（FastAPI + 数据管道 + 知识引擎 + 交易评测台）
+│   ├── src/analyzer/knowledge/   知识引擎（含 extraction-guide / merge-guide 两份冻结规范）
+│   └── tools/                    运维脚本：check_db / check_sources / check_ingest
 ├── frontend/     React + TS + Vite 前端
-├── deploy/       systemd 单元 + nginx + .env 模板 + 部署指南
+├── deploy/       部署指南 + systemd 单元 + nginx + .env 模板 + backup.sh
+├── data_export/  提取产物（knowledge_units 的 JSON 是"人参与那一步"的凭据与重放日志）
+│                 + keyframes（gitignore）+ 周报
 └── doc/          设计/数据文档
 ```
+
+**运行形态（2026-08-18 起）**：服务器（GCE 新加坡）跑无人值守的那半条——collector 的
+知识引擎日维护/周报、转录、API；服务器库是唯一真库。提取/归并/关系边/抽查仍在会话侧，
+经 SSH 隧道写服务器库。详见 [deploy/README.md](../deploy/README.md)。
 
 ---
 

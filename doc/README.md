@@ -1,12 +1,12 @@
 # doc/ 索引
 
 **前端重写文档四件套在仓库根目录**（2026-07-18 起）：`PRODUCT.md`（产品定义/IA/旅程）·
-`domain-model.md`（知识引擎领域模型+枚举中文标签 SSOT）· `design-system.md`（视觉/组件/文案）·
+`domain-model.md`（知识引擎领域模型+枚举中文标签 SSOT）·
 `api.md`（50 端点传输契约+真实样例附录）。
 
 ```
 doc/
-├── knowledge-engine-design.md   知识引擎（当前主线）：定位/分层/决定/K0-K6 进度
+├── knowledge-engine-design.md   知识引擎（当前主线）：定位/分层/决定/K0-K7 进度 + 当前状态 + 下一阶段候选
 ├── project-structure.md         代码结构详解
 ├── trading-eval-repositioning.md 评测台现役形态（setup 评 edge/闸门/实盘镜像）
 ├── data/      数据文档：data-gaps(源与缺口) · data-inventory · database · trader-data · data-sync · data-upgrades

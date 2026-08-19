@@ -43,8 +43,9 @@
    官方 key 到位后重跑对照即得校准集。
 3. **三个注册表**保持可拓展：抓取器按平台注册、评分器按 ScoringSpec.method 注册、
    LLM 按 backend 注册。
-4. **独立库 `fanisl_knowledge`**：七张表（creators/creator_handles/contents/extraction_runs/
-   knowledge_units/claim_scores/spot_checks），只向外读 pit/stats/marketstore/instruments。
+4. **独立库 `fanisl_knowledge`**：13 张表（K0 七张 + K4 的 daily_bars/eps_estimates +
+   K5 的 knowledge_nodes/node_attestations + K6 的 node_relations + keyframes），
+   只向外读 pit/stats/marketstore/instruments。schema 分散在各模块内嵌，靠幂等 ALTER 演进。
 5. **质量回路**：每周随机 20 条人工抽查提取忠实度（spot_checks）；发布时刻记"平台声称 +
    我方抓取"双时间，差距过大降级。
 
@@ -54,15 +55,40 @@
 |---|---|---|---|
 | K0 | 库/表/models/store/登记 CLI/测试 | — | ✅ 2026-07-13 |
 | K1 | 抓取（YouTube 清单+元数据；字幕实测两频道全无 → 改判） | — | ✅ |
-| K2 | Gemini URL 直读转录+视觉笔记（双频道实测可靠）；批量回填器落地，近 60 天 18 条 / 15.7 万字入库；**提帧 2026-08-14 解封并接回主链**（墙回退，视觉笔记不再是唯一画面记录，见下文"视频摄取决定"第 3 条） | 积累 | ✅ 2026-07-15 |
+| K2 | Gemini URL 直读转录+视觉笔记（双频道实测可靠）；批量回填器落地，近 60 天 18 条 / 15.7 万字入库；提帧 2026-08-14 一度解封并接回主链，**2026-08-19 复测墙又起（SABR）**——见下文"视频摄取决定"第 3 条 | 积累 | ✅ 2026-07-15 |
 | K3 | **提取+沉淀**：提取规范冻结（四类知识平权、期限映射、标签体系，见 `knowledge/extraction-guide.md`）→ import 管线（quote∈原文机械校验）→ 试提取 2 条人审通过 → **18 条全提取 ✅ 2026-07-16**：247 单元（claim 135 = 3A/65B/35C/32D，method 23，concept 89），标签 52 个，claim 带屏价 ref 78/135；语料教训回写规范（屏价须与正文互证、stance=承诺度非语气词） | 积累、检索 | ✅ |
 | K4 | **验证**：daily_bars 价格层（39 符号 yfinance/FRED，与语料屏价互验）+ scoring_overrides（103 条 success_def 机械化编译，质量核心）+ 评分器×5（含条件解析/守护条件/组合腿）+ scoreboard API + 前端联赛表与单元评分徽标；**首轮 60 时点评分 ✅ 2026-07-17**：Andy 命中率 42%（sign 类 10/25，p=0.212 不显著）、美投君 5 条 1 hit；日常=prices+scorers 两条幂等 CLI 按天跑 | 可验证 | ✅ |
 | K5 | **归并与检索**：knowledge_nodes/node_attestations 两表 + 归并规范冻结（`knowledge/merge-guide.md`：判据/提及关系 restates·refines·supersedes·contradicts/生命周期规则 v1）+ 首次归并 ✅ 2026-07-17：**105 节点**（9 个多提及：K型经济跨源、软件收费 supersedes 演进、8200 重申等；94 单例种子；数字地租 vs 周期涨法对立标注留 K6）+ 每日维护挂 collector 调度（daily.py）+ nodes API×2（前端接线留前端会话） | 复用、学习 | ✅ |
 | K6 | **发现 v0 ✅ 2026-07-17**：节点关系边（`node_relations`，判据 merge-guide §6，人工判：首批 1 条跨源对立"数字地租 vs 周期涨法"+5 条高置信互补）+ 共识视图（nodes API cross_source 过滤）+ harness 候选清单（testability=A 方法节点×4：EMA 隧道/股金比/AUDJPY 锚/大摩油价系数，立 H 仍走 prereg 人工纪律）+ 周报生成器（markdown 落盘+API 现算，collector 每周自动）+ 抽查队列启用（spotcheck sample/record/stats）；API：/knowledge/relations、/harness-candidates、/weekly、/spot-checks | 发现 | ✅ |
+| K7 | **上线**：GCE 新加坡 / Debian 13，Postgres 用 timescale 镜像跑容器、后端原生 venv+systemd；服务器库成为唯一真库，本机三库降为只读副本；提取/归并仍在会话侧、经 SSH 隧道写服务器库。配套体检脚本×3（check_db/check_sources/check_ingest）+ 备份（systemd timer，三库 pg_dump 各留 14 份，连接串复用 .env）。部署与排障见 `deploy/README.md` | — | ✅ 2026-08-18 |
 
-后续轴线（跑通后按需启动）：历史回填（往前 6-12 个月，为验证提供成熟 claim 密度）、
-信源扩张（2 → 5-8 个，刻意配风格：宏观/技术/个股基本面/加密——单一风格 claim 相关性高，
-合成观点无增量；按联赛表淘汰补新）、向量检索、图谱按需升、假设生成与评测台对接。
+## 当前状态（2026-08-19 实测，服务器库）
+
+| 项 | 数 |
+|---|---|
+| L0 内容 | **65 期 / 62.3 万字**（Andy 30 期 2026-03-28~08-18、投资TALK君 23 期、美投君 12 期） |
+| L1 单元 | **1029**（生效版本；含 pending-v1 与 pending-v2 两版并存的重放行不计） |
+| L2 判定 | **296 个时点 / 覆盖 200 条 claim** |
+| K5 节点 | **563**（其中 53 个非单例，即被多次提及或已验证/被反驳） |
+| K6 关系边 | **82**（含 9 条跨源对立） |
+| 关键帧 | 722（回填的 10 期一帧没有——SABR 墙当前立着） |
+| 抽查 | **48 / 1029 = 4.7%** ⚠️ 远低于规范 §10 要求的每批 20% |
+
+## 下一阶段的候选（按"该先做什么"排序，不是全都要做）
+
+1. **结清抽查欠账**（唯一有硬约束的一项）。extraction-guide §10 写死"一批提取完成即抽满
+   20%，没抽完不开下一批"，而现在是 4.7%。v1 的教训正是欠账把规范问题拖成语料问题——
+   §11 那七条里六条是一次 24 条抽查翻出来的。**这是开新一批摄取前的闸门。**
+2. **历史回填继续**：Andy 已往前补到 2026-03-28（10 期），美投君与投资TALK君还停在 5 月/7 月。
+   回填的直接收益已经验证：那 10 期入库即产出 116 条判定（阶梯日全在过去），并把 Andy 的
+   sign 类样本从 29 个时点抬到 40 个。
+3. **信源扩张**（2 → 5-8 个，刻意配风格）。现在三个都偏技术面/宏观论题，claim 相关性高；
+   缺个股基本面与加密两类。按联赛表淘汰补新。
+4. **提帧墙的下一级**：SABR 之下直链能解析但取不到任意时刻的范围（PO Token 无解）。
+   梯队见 `knowledge/README.md` 的"提帧的墙"。回填那 10 期目前零帧。
+5. **规范 v3 的候选**（已攒下，不急）：D 级 claim 可否带 asset_symbol；作者未给区间的
+   range 判断可否评 B；引用估值倍数必须记 EPS 基准与财年（c53 的 18% 歧义）。
+6. 更远：向量检索、图谱按需升、假设生成与评测台对接。
 
 起步信源（2026-07-13 登记）：Andy Lee 财经（youtube @andyleegogo）、美投君（@MeiTouJun）。
 语料实读结论（2026-07-16，18 条）：Andy Lee = 价位条件型，每期 8-12 个可评判断 + 真 Method
@@ -82,9 +108,11 @@
 2. 提取层需要细看某段时，用 video_metadata 的 start/end offset 做 **clip 二次细读**（只看那
    几十秒），全程不下载视频。
 3. 图像层：ffmpeg 对 yt-dlp 解析出的直链做输入级 seek 抓单帧（不下载全片）。
-   **状态改判（2026-08-14，已可用）**：2026-07-16 曾判"全客户端矩阵×cookies 被 PO Token
-   墙拦死、只剩 Playwright 出路"，复测发现墙已回退——`android_vr` 客户端带不带 cookies 都
-   放行，单帧 1080p 约 4s / 230KB。据此把提帧接回主链：视觉笔记的每个时间戳配一张帧
+   **状态三次变动，别把结论钉死**：2026-07-16 判"被 PO Token 墙拦死"→ 2026-08-14 复测墙
+   回退、`android_vr` 带不带 cookies 都放行（单帧 1080p 约 4s / 230KB）→ **2026-08-19 墙又起，
+   这次是 SABR**：直链**解析得到**但按任意时刻取范围时 403，PO Token 解决不了。
+   踩过的坑：只调 `stream_url` 会给假阳性（解析成功 ≠ 抓得到帧），体检脚本那一项已改成
+   真抓一帧才算通。曾接回主链的做法保留：视觉笔记的每个时间戳配一张帧
    （`keyframes` 表 + `backfill_keyframes` CLI，摄取时同步抓），存量 52 期 1048 帧回填。
    帧的用途不是配图，是让"画面上写的是 63/61/63"这类读数可核——K6 抽查此前只能核转录、
    核不了画面。风险仍在：墙是会来回动的（7 月拦死、8 月放开），所以①摄取当时就抓，别等

@@ -3,7 +3,7 @@
 持续学习、持续验证、持续沉淀投资知识的引擎（定位与分期见 `doc/knowledge-engine-design.md`）。
 本 README 是模块地图：文件职责、数据流、常用命令。规范类文档同放本目录：
 
-- `extraction-guide.md` — L1 提取规范 v1（冻结；判断规则 + 期限映射 + 标签受控词表）
+- `extraction-guide.md` — L1 提取规范 **v2**（冻结；判断规则 + 期限映射 + 标签受控词表；v1→v2 改动见其 §11）
 - `merge-guide.md` — K5 归并规范 v1（节点判据 + 提及关系 + 生命周期状态规则 + 执行流程）
 
 ## 数据流
@@ -27,7 +27,7 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | 文件 | 职责 |
 |---|---|
 | `models.py` | L1 单元 pydantic 模型（**schema SSOT**）：KnowledgeUnit 信封 + Claim/Method/Concept 载荷 + ScoringSpec，入库前强校验 |
-| `store.py` | 持久化（独立库 `fanisl_knowledge`，8 表 schema 内嵌）：L0 追加式、(content_id, extractor_version) 唯一、版本化重放 |
+| `store.py` | 持久化（独立库 `fanisl_knowledge`，13 表，schema 分散在各模块内嵌）：L0 追加式、(content_id, extractor_version) 唯一、版本化重放 |
 | `register.py` | 信源登记 CLI：`python -m analyzer.knowledge.register <名称> <平台> <handle>` |
 | `sources/youtube.py` | yt-dlp 封装：频道清单、元数据（+字幕白捡；三个已登记频道实测都取不到可用字幕轨）、cookies 注入 |
 | `llm.py` | GeminiClient：URL 直读转录（transcript + 带时间戳视觉笔记）、clip 二次细读（start/end offset）、`render_l0_text` L0 排版约定 |
@@ -35,14 +35,18 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `backfill_transcripts.py` | 批量转录回填 CLI（幂等、限速、429/5xx 退避）：`python -m analyzer.knowledge.backfill_transcripts <handle> --since-days 60` |
 | `backfill_creator.py` | 单信源历史内容登记辅助 |
 | `import_units.py` | L1 单元导入 CLI（PendingBackend 的入库端）：JSON → pydantic 校验 + quote∈原文校验 → record_extraction；`--dry-run` 只验不写 |
-| `prices.py` | K4 价格层：daily_bars 表 + SYMBOL_MAP（73 符号，yfinance/FRED；期货代理现货者已注明）：`python -m analyzer.knowledge.prices`（幂等 upsert） |
+| `prices.py` | K4 价格层：daily_bars 表 + SYMBOL_MAP（85 符号 + 2 个 FRED 序列；期货代理现货者已注明）：`python -m analyzer.knowledge.prices`（幂等 upsert） |
 | `scorers.py` | K4 评分器：按冻结 ScoringSpec 到期机械评分（sign/target_touch/target_close/range_hold/relative_return + 条件解析），`python -m analyzer.knowledge.scorers [--dry-run]`（幂等）；口径细节见模块 docstring |
-| `scoring_overrides.json` | success_def 的机械化编译（pending-v1 存量 103 条专用）：条件结构化/判界修正/组合定义，语义仲裁=success_def；新提取应走规范 v2 结构化字段 |
+| `scoring_overrides.json` | success_def 的机械化编译（70 条）：条件结构化/判界修正/组合定义，语义仲裁=success_def。主体是 pending-v1 存量；**对 v2 也适用的例外**是阶梯函数标的的比较符（extraction-guide §4）——ScoringSpec 没有承载比较符的字段，`>`/`>=`/`<`/`<=`/`==` 只能在此登记 |
 | `nodes.py` | K5 归并层：knowledge_nodes/node_attestations 两表 + 生命周期重算 + CLI（export/import/seed-singletons/recompute/retire），判据见 merge-guide.md |
-| `daily.py` | 每日维护封装（行情→评分→节点状态→补齐缺帧，best-effort）：`python -m analyzer.knowledge.daily`；已挂 collector 调度（knowledge_daily_interval_s，默认 86400s） |
+| `estimates.py` | 盈利预期修正：eps_estimates 表 + yfinance eps_trend（0q/+1q/0y/+1y × current/7d/30d/60d/90d）；`estimates --screen` 出横截面。**每日快照不可回填**——yfinance 只给当天，断一天少一天 |
+| `league.py` | 联赛表的显著性口径：零假设取**各标的自身的无条件漂移**而非 50%，用泊松二项精确尾概率（各时点成功概率不等）；返回 excluded_hits/excluded_misses 以暴露排除偏差 |
+| `browser.py` | 知识库浏览的分页读模型（前端用） |
+| `overview.py` | 知识引擎总览计数（前端入口页用） |
+| `daily.py` | 每日维护封装（行情→盈利预期→评分→节点状态→补齐缺帧，best-effort）：`python -m analyzer.knowledge.daily`；已挂 collector 调度（knowledge_daily_interval_s，默认 86400s） |
 | `discovery.py` | K6 发现层：harness 候选（testability=A 的 method 节点，`discovery harness`）+ 周报生成（`discovery weekly [--days 7]`，落 data_export/reports/，collector 每周自动跑） |
 | `spotcheck.py` | K6 抽查队列（spot_checks 启用）：`spotcheck sample [n]` 随机抽未查单元 / `spotcheck record <unit_id> <verdict> [note]` / `spotcheck stats` |
-| `keyframes.py` | 提帧（ffmpeg 对直链输入级 seek，不下载全片）：`keyframes <video_id> <MM:SS…> [--height 1080]`。客户端梯队 android_vr→tv→ios→web_safari→web，逐个试到解析出流，用了哪个记进 `source`。**2026-08-14 复测已可用**（详见下方"提帧的墙"） |
+| `keyframes.py` | 提帧（ffmpeg 对直链输入级 seek，不下载全片）：`keyframes <video_id> <MM:SS…> [--height 1080]`。客户端梯队 android_vr→tv→ios→web_safari→web，逐个试到解析出流，用了哪个记进 `source`。墙会来回动，当前状态见下方"提帧的墙" |
 | `backfill_keyframes.py` | 视觉笔记时间戳 → 关键帧回填/记账（幂等）：`backfill_keyframes [--handle @x] [--content-id N] [--height 1080] [--dry-run]`；`grab_for_content()` 同时挂在摄取链上（transcribe_video / backfill_transcripts 内 best-effort 调用，失败不影响 L0） |
 
 ## 日常运转（K4 起；K5 起自动化）
@@ -66,8 +70,36 @@ K6 起的发现与运营（周报 collector 每周自动跑，其余按需）：
 - 周报：`discovery weekly`（或 API /knowledge/weekly 现算）；
 - 抽查：每周 `spotcheck sample` 抽 10 条人工核忠实度，`spotcheck record` 录结论；
 - harness 候选：`discovery harness`（testability=A 的方法节点），立 H 仍走 doc/prereg 人工纪律。
-评分 outcome：hit / miss / partial / condition_not_met / condition_unverifiable / unpriceable；
-显著性口径：仅 sign 类给 50% 随机基线的单侧二项 p，其余类型 v1 无基线（联赛表已注明）。
+评分 outcome：hit / miss / partial / condition_not_met / condition_unverifiable / unpriceable。
+**显著性口径（2026-08 改过，别沿用旧说法）**：零假设不是 50%，而是**各标的自身在该时段的
+无条件漂移**——语料里判断压倒性偏 up，而样本期本身是上行的，拿 50% 当基线等于把市场的
+beta 记成信源的技能。各时点成功概率不等，故用泊松二项精确尾概率而非普通二项（见 `league.py`）。
+仅 sign 类有基线，其余类型仍无（联赛表已注明）。
+
+## 运维脚本（部署后新增）
+
+| 脚本 | 用途 |
+|---|---|
+| `backend/tools/check_db.py` | 逐条验三个库的连接串，口令打码。runtime 同时开三个池，直接起会看不出是哪个库连不上 |
+| `backend/tools/check_sources.py` | 外部数据源体检：yfinance / FRED / 盈利预期 / YouTube 清单与元数据 / Gemini 通道（`--llm` 真调一次）。提帧与 Binance 单列、不计入结论 |
+| `backend/tools/check_ingest.py` | 摄取健康度：各源最新到哪、近 N 天进了多少、评分是否在自动新增 |
+| `deploy/backup.sh` | 三库 pg_dump，连接串复用 `backend/.env` 的 `PG_*_CONNINFO`（不另立配置），各留最近 14 份 |
+
+## 部署形态（2026-08-18 起）
+
+服务器（GCE 新加坡）跑无人值守那半条：collector 的 knowledge daily/weekly、转录、API。
+**服务器库是唯一真库**，本机那三个库降级为只读历史副本。
+
+提取/归并/关系边/抽查仍在会话侧完成，通过 SSH 隧道直连服务器库：
+
+```
+gcloud compute ssh <实例> --zone=<区> -- -N -L 5433:127.0.0.1:5432 \
+  -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes
+```
+
+本机 `.env` 的 `PG_KNOWLEDGE_CONNINFO` 指到 `host=127.0.0.1 port=5433`，其余命令原样可用。
+`data_export/knowledge_units/*.json` 继续留在 repo——它们不是数据库的替代，是"人参与那一步"
+的凭据与重放日志。完整部署与排障见 `deploy/README.md`。
 
 ## 提帧的墙（会来回动，别把结论钉死）
 

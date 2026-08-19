@@ -1,8 +1,8 @@
 # PRODUCT — fanisl 是什么
 
 > 前端设计的第一份文档。读完本文你应该知道：这是什么产品、给谁用、什么重要、
-> 页面怎么组织、绝对不要做成什么样。接口契约见 `api.md`，领域概念见 `domain-model.md`，
-> 视觉与组件见 `design-system.md`。
+> 页面怎么组织、绝对不要做成什么样。接口契约见 `api.md`，领域概念见 `domain-model.md`。
+> （视觉与组件规范 `design-system.md` 已于 2026-08-14 随前端重建删除，现以 `frontend/` 的实现为准。）
 
 ## 1. 一句话
 
