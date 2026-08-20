@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { CaretDown } from '@phosphor-icons/react'
 import { cn } from '../../lib/cn'
-import { amount, DUST_THRESHOLD_USD, money, percent } from '../../lib/format'
+import { amount, DUST_THRESHOLD_USD, money, percent, price } from '../../lib/format'
 import type { EarnPosition, SpotAsset } from '../../api/types'
 
-const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-5 gap-y-1 sm:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_minmax(0,1.2fr)_120px]'
+const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_112px]'
 
 function Ticker({ asset }: { asset: string }) {
   return (
@@ -34,7 +34,8 @@ function SpotRow({ item, share }: { item: SpotAsset; share: number }) {
           {note && <div className="tnum truncate text-micro text-ink-3" title={note}>{note}</div>}
         </div>
       </div>
-      <div className="tnum hidden text-sm text-ink-3 sm:block">{amount(item.total)}</div>
+      <div className="tnum hidden text-sm text-ink-2 sm:block">{amount(item.total)}</div>
+      <div className="tnum hidden text-sm text-ink-3 sm:block">{price(item.price_usd)}</div>
       <div className="text-right sm:text-left">
         {item.value_usd === null
           ? <span className="text-xs text-ink-3">无报价</span>
@@ -79,10 +80,11 @@ export function SpotTable({ spot }: { spot: SpotAsset[] }) {
       <div className={cn(ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
         <span>资产</span>
         <span className="hidden sm:block">数量</span>
+        <span className="hidden sm:block">价格</span>
         <span className="text-right sm:text-left">价值</span>
         <span className="hidden text-right sm:block">占比</span>
       </div>
-      <ul className="pt-1">
+      <ul className="divide-y divide-rule">
         {major.map((item) => <SpotRow item={item} key={item.asset} share={share(item)} />)}
       </ul>
       {dust.length > 0 && (
@@ -99,7 +101,7 @@ export function SpotTable({ spot }: { spot: SpotAsset[] }) {
           </button>
           <div className="collapsible" data-open={dustOpen}>
             <div>
-              <ul className="border-t border-rule pt-1">
+              <ul className="divide-y divide-rule border-t border-rule">
                 {dust.map((item) => <SpotRow item={item} key={item.asset} share={share(item)} />)}
               </ul>
             </div>
@@ -115,9 +117,9 @@ export function EarnTable({ earn }: { earn: EarnPosition[] }) {
     return <p className="py-10 text-center text-sm text-ink-3">没有理财持仓。</p>
   }
   return (
-    <ul className="pt-1">
+    <ul className="divide-y divide-rule">
       {earn.map((item) => (
-        <li className="flex items-center gap-3 py-2.5" key={item.product_id}>
+        <li className="flex items-center gap-3 py-3.5" key={item.product_id}>
           <Ticker asset={item.asset} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
