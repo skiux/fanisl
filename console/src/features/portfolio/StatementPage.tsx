@@ -73,7 +73,7 @@ export function StatementPage() {
         桌面把整张纸钉在视口高度内，明细区自己滚：切换分节时页面高度不变，
         不会出现上一版那种"点一下整页跳一截"的问题，也不需要深滚。
       */}
-      <div className="sheet mx-auto flex max-w-[1320px] flex-col lg:h-[calc(100dvh-3rem)]">
+      <div className="sheet mx-auto flex max-w-[1120px] flex-col lg:h-[calc(100dvh-3rem)]">
         <Masthead
           asOf={snapshot?.as_of ?? null}
           controls={<ScenarioSwitcher onChange={changeScenario} value={scenario} />}

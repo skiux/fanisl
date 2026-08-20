@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '../../lib/cn'
 import { money } from '../../lib/format'
 import type { EquityPoint } from '../../api/types'
@@ -19,6 +19,20 @@ const PAD = { top: 14, right: 62, bottom: 20, left: 4 }
 export function EquityCurve({ points, veiled }: { points: EquityPoint[]; veiled: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const [hover, setHover] = useState<number | null>(null)
+  // transform 的百分比是相对元素自身尺寸的，不是父容器——1px 宽的准星按 50%
+  // 平移只会动 0.5px。所以这里实测容器尺寸，用像素定位。
+  const [box, setBox] = useState({ w: 0, h: 0 })
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host) return
+    const observer = new ResizeObserver(([entry]) => {
+      const rect = entry?.contentRect
+      if (rect) setBox({ w: rect.width, h: rect.height })
+    })
+    observer.observe(host)
+    return () => observer.disconnect()
+  }, [])
 
   const model = useMemo(() => {
     if (points.length < 2) return null
@@ -106,28 +120,26 @@ export function EquityCurve({ points, veiled }: { points: EquityPoint[]; veiled:
           </svg>
 
           {/* 十字准星：HTML 元素，1px 实线不受 viewBox 拉伸影响；
-              走 transform 过渡，在数据点之间是滑过去而不是跳过去 */}
+              走 transform（像素）过渡，在数据点之间是滑过去而不是跳过去 */}
           <div
             aria-hidden="true"
             className={cn(
-              'pointer-events-none absolute inset-y-0 w-px bg-rule-strong transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]',
+              'pointer-events-none absolute inset-y-0 left-0 w-px bg-rule-strong transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]',
               hover === null ? 'opacity-0' : 'opacity-100',
             )}
-            style={{ left: 0, transform: `translateX(${hover === null ? 0 : model.xPct(hover)}%)` }}
+            style={{ transform: `translate3d(${hover === null ? 0 : (model.xPct(hover) / 100) * box.w}px,0,0)` }}
           />
           <div
             aria-hidden="true"
             className={cn(
-              'pointer-events-none absolute size-[7px] rounded-full border-[1.5px] bg-sheet transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]',
+              'pointer-events-none absolute left-0 top-0 size-[7px] rounded-full border-[1.5px] bg-sheet transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]',
               hover === null ? 'opacity-0' : 'opacity-100',
             )}
             style={{
               borderColor: stroke,
-              left: 0,
-              top: 0,
               transform: hover === null
-                ? 'translate(-50%,-50%)'
-                : `translate(calc(${model.xPct(hover)}% - 3.5px), calc(${model.yPct(points[hover]!.equity_usd)}% - 3.5px))`,
+                ? 'translate3d(-3.5px,-3.5px,0)'
+                : `translate3d(${(model.xPct(hover) / 100) * box.w - 3.5}px, ${(model.yPct(points[hover]!.equity_usd) / 100) * box.h - 3.5}px, 0)`,
             }}
           />
         </div>
