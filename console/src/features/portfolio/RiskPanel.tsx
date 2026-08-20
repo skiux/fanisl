@@ -17,19 +17,22 @@ function marginLevelTone(level: number) {
   return { text: 'text-loss', label: '接近强平' }
 }
 
-function Gauge({ label, value, hint, tone, fill, marker }: {
+function Gauge({ label, hint, tone, fill, marker, value }: {
   label: string
-  value: string
   hint: string
   tone: string
   fill: number
   marker?: number
+  /** 头条已经给出的数字这里不再复述；头条没有的必须传，否则等于把信息删掉 */
+  value?: string
 }) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
         <Eyebrow>{label}</Eyebrow>
-        <span className={cn('tnum text-sm', tone)}>{value} <span className="text-ink-3">· {hint}</span></span>
+        <span className={cn('text-xs', tone)}>
+          {value && <span className="tnum mr-1.5">{value}</span>}{hint}
+        </span>
       </div>
       <div className="relative mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-rule">
         <div
@@ -158,7 +161,6 @@ export function RiskGauges({ futures, margin, exposureRatio, concentration, unav
           label="合约保证金率"
           marker={0.8}
           tone={marginTone(futures.margin_ratio).text}
-          value={percent(futures.margin_ratio, 2)}
         />
       )}
       {margin?.margin_level != null && (
@@ -166,9 +168,9 @@ export function RiskGauges({ futures, margin, exposureRatio, concentration, unav
           fill={Math.max(0, Math.min(1, (3 - margin.margin_level) / 2))}
           hint={marginLevelTone(margin.margin_level).label}
           label="杠杆账户风险率"
+          value={margin.margin_level.toFixed(2)}
           marker={(3 - 1.3) / 2}
           tone={marginLevelTone(margin.margin_level).text}
-          value={margin.margin_level.toFixed(2)}
         />
       )}
       <div className="space-y-2 border-t border-rule pt-3.5">
@@ -205,7 +207,7 @@ export function PositionsList({ futures, unavailable }: {
     return <p className="py-10 text-center text-sm text-ink-3">当前没有合约持仓。</p>
   }
   return (
-    <ul className="divide-y divide-rule">
+    <ul className="space-y-1 pt-1">
       {futures.positions.map((position) => (
         <PositionRow key={`${position.symbol}-${position.position_side}`} position={position} />
       ))}

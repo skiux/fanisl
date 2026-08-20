@@ -1,5 +1,5 @@
 import { cn } from '../../lib/cn'
-import { money, signedMoney, signedPercent } from '../../lib/format'
+import { money, signedMoney } from '../../lib/format'
 import type { Attribution } from '../../api/types'
 
 type Line = {
@@ -94,21 +94,7 @@ export function Reconciliation({ data, veiled }: { data: Attribution | null; vei
         </tbody>
       </table>
 
-      <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <div className="flex items-baseline gap-3">
-          <span className="label">真实盈亏 · 已剔除充提</span>
-        </div>
-        <div className="flex items-baseline gap-3">
-          <span className={cn('tnum text-xl font-medium', data.true_pnl >= 0 ? 'text-gain' : 'text-loss')}>
-            {signedMoney(data.true_pnl)}
-          </span>
-          <span className={cn('tnum text-sm', (data.true_return ?? 0) >= 0 ? 'text-gain' : 'text-loss')}>
-            {signedPercent(data.true_return)}
-          </span>
-        </div>
-      </div>
-
-      <p className="mt-2.5 max-w-[52ch] text-xs leading-relaxed text-ink-3">
+      <p className="mt-4 max-w-[52ch] text-xs leading-relaxed text-ink-3">
         净值变化 {signedMoney(data.closing_equity - data.opening_equity)} 里有{' '}
         <span className="tnum text-ink-2">{signedMoney(data.net_transfer)}</span>{' '}
         是自己转进转出的，不计入盈亏。

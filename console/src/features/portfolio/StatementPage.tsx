@@ -19,18 +19,33 @@ type Phase =
   | { kind: 'failed'; message: string }
 
 /** 章节标题：序号用衬线斜体，标题用衬线正体，右侧留给该节的口径或合计 */
-function SectionHeading({ index, title, aside }: {
+/**
+ * 章节标题 + 头条数字。
+ * 每节先给出它自己的答案（27px），下面的行退成 12.5px 的支撑材料——
+ * 眼睛先落在六个大数上，再决定读不读明细。密度不变，但有了阅读路径。
+ */
+function SectionHeading({ index, title, figure, tone, aside }: {
   index: string
   title: string
+  figure?: string
+  tone?: 'gain' | 'loss' | 'accent'
   aside?: ReactNode
 }) {
   return (
-    <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1.5 border-b border-rule pb-2.5">
-      <h2 className="flex items-baseline gap-2.5">
-        <span className="section-index">{index}</span>
-        <span className="section-title">{title}</span>
-      </h2>
-      {aside}
+    <div className="mb-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1.5">
+        <h2 className="flex items-baseline gap-2.5">
+          <span className="section-index">{index}</span>
+          <span className="section-title">{title}</span>
+        </h2>
+        {aside}
+      </div>
+      {figure && (
+        <div className={cn('tnum mt-2 text-2xl font-medium tracking-[-0.02em]',
+          tone === 'gain' ? 'text-gain' : tone === 'loss' ? 'text-loss' : tone === 'accent' ? 'text-accent' : 'text-ink')}>
+          {figure}
+        </div>
+      )}
     </div>
   )
 }
@@ -194,15 +209,18 @@ function Body({ phase, onRetry, refreshing }: {
           <section>
             <SectionHeading
               aside={<span className="text-xs text-ink-3">30 天 · 受日快照接口所限</span>}
+              figure={snapshot.attribution ? `${signedMoney(snapshot.attribution.true_pnl)}　${signedPercent(snapshot.attribution.true_return)}` : undefined}
               index="一"
               title="本期变动"
+              tone={(snapshot.attribution?.true_pnl ?? 0) >= 0 ? 'gain' : 'loss'}
             />
             <Reconciliation data={snapshot.attribution} veiled={veiled} />
           </section>
 
           <section className={cn(veiled && 'veiled')}>
             <SectionHeading
-              aside={<span className="tnum text-xs text-ink-2">{money(spotValue)}</span>}
+              aside={<span className="text-xs text-ink-3">{snapshot.spot.length} 项</span>}
+              figure={money(spotValue)}
               index="二"
               title="现货持仓"
             />
@@ -213,11 +231,12 @@ function Body({ phase, onRetry, refreshing }: {
             <SectionHeading
               aside={
                 <span className="text-xs text-ink-3">
-                  {earnApr === null ? money(earnValue) : (
+                  {earnApr === null ? `${snapshot.earn.length} 项` : (
                     <>加权年化 <span className="tnum text-gain">{percent(earnApr, 2)}</span> · 累计 <span className="tnum text-ink-2">{money(earnRewards)}</span></>
                   )}
                 </span>
               }
+              figure={money(earnValue)}
               index="三"
               title="理财持仓"
             />
@@ -231,7 +250,8 @@ function Body({ phase, onRetry, refreshing }: {
         >
           <section>
             <SectionHeading
-              aside={<span className="tnum text-xs text-ink-2">{money(equity)}</span>}
+              aside={<span className="text-xs text-ink-3">{snapshot.wallets.filter((w) => w.activate).length} 个钱包</span>}
+              figure={money(equity)}
               index="四"
               title="资产分布"
             />
@@ -245,14 +265,21 @@ function Body({ phase, onRetry, refreshing }: {
                   {futuresMissing ? '不可用' : `${snapshot.futures?.positions.length ?? 0} 笔`}
                 </span>
               }
+              figure={futuresMissing ? undefined : signedMoney(snapshot.futures?.total_unrealized_pnl ?? 0)}
               index="五"
               title="合约仓位"
+              tone={(snapshot.futures?.total_unrealized_pnl ?? 0) >= 0 ? 'gain' : 'loss'}
             />
             <PositionsList futures={snapshot.futures} unavailable={futuresMissing} />
           </section>
 
           <section>
-            <SectionHeading index="六" title="风险" />
+            <SectionHeading
+              aside={<span className="text-xs text-ink-3">合约保证金率</span>}
+              figure={snapshot.futures?.margin_ratio == null ? undefined : percent(snapshot.futures.margin_ratio, 1)}
+              index="六"
+              title="风险"
+            />
             <div className={veiled ? 'veiled' : undefined}>
               <RiskGauges
                 concentration={concentration}

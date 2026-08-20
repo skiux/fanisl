@@ -1,6 +1,6 @@
 import { Eyebrow } from '../../components/Primitives'
 import { cn } from '../../lib/cn'
-import { money, percent, WALLET_LABEL } from '../../lib/format'
+import { money, WALLET_LABEL } from '../../lib/format'
 import type { WalletBucket } from '../../api/types'
 
 /**
@@ -25,7 +25,7 @@ export function WalletSpread({ wallets, veiled }: { wallets: WalletBucket[]; vei
           const missing = bucket.value_usd === null
           const share = missing || total <= 0 ? 0 : bucket.value_usd! / total
           return (
-            <li className="flex items-center gap-3 border-b border-rule py-2 last:border-b-0" key={bucket.kind}>
+            <li className="flex items-center gap-3 py-[7px]" key={bucket.kind}>
               <span className="w-[72px] shrink-0 text-xs text-ink-2">
                 {WALLET_LABEL[bucket.kind] ?? bucket.kind}
               </span>
@@ -42,9 +42,7 @@ export function WalletSpread({ wallets, veiled }: { wallets: WalletBucket[]; vei
                   <span className="tnum w-[86px] shrink-0 text-right text-xs text-ink">
                     {money(bucket.value_usd)}
                   </span>
-                  <span className="tnum w-[34px] shrink-0 text-right text-xs text-ink-3">
-                    {percent(share, 0)}
-                  </span>
+
                 </>
               )}
             </li>
