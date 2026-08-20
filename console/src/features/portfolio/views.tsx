@@ -3,6 +3,7 @@ import { cn } from '../../lib/cn'
 import { money, percent, signedMoney, signedPercent } from '../../lib/format'
 import type { PortfolioSnapshot } from '../../api/types'
 import { EquityCurve } from './EquityCurve'
+import { Module } from './Module'
 import { EarnTable, SpotTable } from './Holdings'
 import { Reconciliation } from './Reconciliation'
 import { PositionsList, RiskGauges } from './RiskPanel'
@@ -40,49 +41,112 @@ function Figure({ label, value, tone, note }: {
   )
 }
 
-export function OverviewView({ snapshot, veiled, futuresMissing, concentration }: {
+export function OverviewView({ snapshot, veiled, futuresMissing, concentration, onOpen }: {
   snapshot: PortfolioSnapshot
   veiled: boolean
   futuresMissing: boolean
   concentration: { asset: string; share: number } | null
+  onOpen: (key: 'changes' | 'spot' | 'earn' | 'perp' | 'risk') => void
 }) {
   const a = snapshot.attribution
   const totals = snapshot.totals
+  const f = snapshot.futures
+  const spotValue = snapshot.spot.reduce((sum, i) => sum + (i.value_usd ?? 0), 0)
+  const earnValue = snapshot.earn.reduce((sum, i) => sum + (i.value_usd ?? 0), 0)
+  const earnRewards = snapshot.earn.reduce((sum, i) => sum + (i.cumulative_rewards_usd ?? 0), 0)
+
   return (
-    <div className={cn(veiled && 'veiled')}>
-      <ViewHead
-        aside={<span className="tnum text-xs text-ink-3">30 天 · 日快照</span>}
-        note="净值走势、本期结论与资产结构"
-        title="总览"
-      />
+    /* 12 栏栅格：图表占 7 栏（天生要宽），仪表占 5 栏（天生窄），并排拼满。
+       不同天然宽度的模块互相填空，没有被拉长的行，也没有右侧的空白带。 */
+    <div className={cn('grid grid-cols-1 gap-x-12 gap-y-9 lg:grid-cols-12', veiled && 'veiled')}>
+      <Module note="30 天 · 日快照" span="lg:col-span-7" title="净值走势">
+        <div className="flex h-[clamp(150px,20vh,210px)] flex-col">
+          <EquityCurve points={snapshot.equity_curve} veiled={false} />
+        </div>
+        {a && (
+          <p className="mt-5 font-display text-lg leading-[1.5] text-ink">
+            净值增加 <span className="tnum">{signedMoney(a.closing_equity - a.opening_equity)}</span>，
+            其中 <span className="tnum text-accent">{signedMoney(a.net_transfer)}</span> 是转入的；
+            实际赚了 <span className={cn('tnum', a.true_pnl >= 0 ? 'text-gain' : 'text-loss')}>{signedMoney(a.true_pnl)}</span>。
+          </p>
+        )}
+      </Module>
 
-      <div className="flex h-[clamp(170px,26vh,240px)] flex-col">
-        <EquityCurve points={snapshot.equity_curve} veiled={false} />
-      </div>
+      <Module
+        figure={f?.margin_ratio == null ? '—' : percent(f.margin_ratio, 1)}
+        onOpen={() => onOpen('risk')}
+        span="lg:col-span-5"
+        title="风险"
+        tone={f?.margin_ratio == null ? 'muted' : undefined}
+      >
+        <RiskGauges
+          concentration={concentration}
+          exposureRatio={totals?.gross_exposure_ratio ?? null}
+          futures={f}
+          margin={snapshot.margin}
+          unavailable={futuresMissing}
+        />
+      </Module>
 
-      {a && (
-        <p className="mt-7 max-w-[44ch] font-display text-xl leading-[1.55] text-ink">
-          净值增加 <span className="tnum">{signedMoney(a.closing_equity - a.opening_equity)}</span>，
-          其中 <span className="tnum text-accent">{signedMoney(a.net_transfer)}</span> 是转入的；
-          实际赚了{' '}
-          <span className={cn('tnum', a.true_pnl >= 0 ? 'text-gain' : 'text-loss')}>{signedMoney(a.true_pnl)}</span>。
-        </p>
-      )}
+      <Module
+        figure={a ? signedMoney(a.true_pnl) : '—'}
+        note="30 天"
+        onOpen={() => onOpen('changes')}
+        span="lg:col-span-7"
+        title="本期变动"
+        tone={a ? (a.true_pnl >= 0 ? 'gain' : 'loss') : 'muted'}
+      >
+        <Reconciliation data={a} veiled={false} />
+      </Module>
 
-      <div className="mt-8 grid gap-8 border-t border-rule pt-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:gap-12">
+      <Module figure={money(totals?.equity_usd ?? 0)} span="lg:col-span-5" title="资产分布">
         <WalletSpread veiled={false} wallets={snapshot.wallets} />
-        <dl className="grid grid-cols-2 gap-x-8 gap-y-5 lg:border-l lg:border-rule lg:pl-12">
-          {snapshot.futures?.margin_ratio != null && (
-            <Figure label="合约保证金率" note={snapshot.futures.margin_ratio < 0.5 ? '安全' : '偏紧'} value={percent(snapshot.futures.margin_ratio, 1)} />
+      </Module>
+
+      <Module
+        figure={money(spotValue)}
+        note={`前 5 项 / 共 ${snapshot.spot.length}`}
+        onOpen={() => onOpen('spot')}
+        span="lg:col-span-7"
+        title="现货持仓"
+      >
+        <SpotTable limit={5} spot={snapshot.spot} />
+      </Module>
+
+      <div className="flex flex-col gap-9 lg:col-span-5">
+        <Module
+          figure={money(earnValue)}
+          note={`${snapshot.earn.length} 项`}
+          onOpen={() => onOpen('earn')}
+          span=""
+          title="理财"
+        >
+          <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
+            <Figure label="累计收益" value={money(earnRewards)} />
+            <Figure
+              label="占净值"
+              value={percent(totals ? earnValue / totals.equity_usd : null, 1)}
+            />
+          </dl>
+        </Module>
+
+        <Module
+          figure={futuresMissing ? '—' : signedMoney(f?.total_unrealized_pnl ?? 0)}
+          note={futuresMissing ? '不可用' : `${f?.positions.length ?? 0} 笔`}
+          onOpen={() => onOpen('perp')}
+          span=""
+          title="合约"
+          tone={futuresMissing ? 'muted' : (f?.total_unrealized_pnl ?? 0) >= 0 ? 'gain' : 'loss'}
+        >
+          {futuresMissing || !f ? (
+            <p className="text-sm text-ink-3">合约数据本次没有取到。</p>
+          ) : (
+            <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
+              <Figure label="保证金余额" value={money(f.total_margin_balance)} />
+              <Figure label="可用余额" value={money(f.available_balance)} />
+            </dl>
           )}
-          {totals?.gross_exposure_ratio != null && (
-            <Figure label="真实杠杆" note="名义敞口 / 净值" value={`${totals.gross_exposure_ratio.toFixed(2)}×`} />
-          )}
-          {concentration && (
-            <Figure label="最大单一持仓" note={concentration.asset} value={percent(concentration.share, 1)} />
-          )}
-          {futuresMissing && <Figure label="合约" value="取不到" />}
-        </dl>
+        </Module>
       </div>
     </div>
   )

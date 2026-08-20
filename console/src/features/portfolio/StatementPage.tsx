@@ -73,7 +73,7 @@ export function StatementPage() {
         桌面把整张纸钉在视口高度内，明细区自己滚：切换分节时页面高度不变，
         不会出现上一版那种"点一下整页跳一截"的问题，也不需要深滚。
       */}
-      <div className="sheet mx-auto flex max-w-[1120px] flex-col lg:h-[calc(100dvh-3rem)]">
+      <div className="sheet mx-auto flex max-w-[1420px] flex-col lg:h-[calc(100dvh-3rem)]">
         <Masthead
           asOf={snapshot?.as_of ?? null}
           controls={<ScenarioSwitcher onChange={changeScenario} value={scenario} />}
@@ -153,7 +153,7 @@ function Body({ phase, view, onSelectView, onRetry }: {
       {/* 明细区拿回整幅宽度；区域内部滚动，切换分节时页面高度不变 */}
       <div className="scroll-y min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8" key={view}>
         <div className="rise">
-          {view === 'overview' && <OverviewView {...shared} />}
+          {view === 'overview' && <OverviewView {...shared} onOpen={onSelectView} />}
           {view === 'changes' && <ChangesView snapshot={snapshot} veiled={veiled} />}
           {view === 'spot' && <SpotView snapshot={snapshot} veiled={veiled} />}
           {view === 'earn' && <EarnView snapshot={snapshot} veiled={veiled} />}

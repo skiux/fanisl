@@ -57,18 +57,18 @@ function SpotRow({ item, share }: { item: SpotAsset; share: number }) {
   )
 }
 
-export function SpotTable({ spot }: { spot: SpotAsset[] }) {
+export function SpotTable({ spot, limit }: { spot: SpotAsset[]; limit?: number }) {
   const [dustOpen, setDustOpen] = useState(false)
   const { major, dust, dustValue, total } = useMemo(() => {
     const sorted = [...spot].sort((a, b) => (b.value_usd ?? -1) - (a.value_usd ?? -1))
     const isDusty = (item: SpotAsset) => (item.value_usd ?? 0) < DUST_THRESHOLD_USD
     return {
-      major: sorted.filter((item) => !isDusty(item)),
+      major: sorted.filter((item) => !isDusty(item)).slice(0, limit ?? Infinity),
       dust: sorted.filter(isDusty),
       dustValue: sorted.filter(isDusty).reduce((sum, item) => sum + (item.value_usd ?? 0), 0),
       total: sorted.reduce((sum, item) => sum + (item.value_usd ?? 0), 0),
     }
-  }, [spot])
+  }, [spot, limit])
   const share = (item: SpotAsset) => (total > 0 ? (item.value_usd ?? 0) / total : 0)
 
   if (spot.length === 0) {
@@ -87,7 +87,7 @@ export function SpotTable({ spot }: { spot: SpotAsset[] }) {
       <ul className="divide-y divide-rule">
         {major.map((item) => <SpotRow item={item} key={item.asset} share={share(item)} />)}
       </ul>
-      {dust.length > 0 && (
+      {limit === undefined && dust.length > 0 && (
         <div className="border-t border-rule">
           <button
             aria-expanded={dustOpen}
