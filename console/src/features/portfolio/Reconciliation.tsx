@@ -107,12 +107,6 @@ export function Reconciliation({ data, veiled }: { data: Attribution | null; vei
           </span>
         </div>
       </div>
-
-      <p className="mt-2.5 max-w-[52ch] text-xs leading-relaxed text-ink-3">
-        净值变化 {signedMoney(data.closing_equity - data.opening_equity)} 里有{' '}
-        <span className="tnum text-ink-2">{signedMoney(data.net_transfer)}</span>{' '}
-        是自己转进转出的，不计入盈亏。
-      </p>
     </div>
   )
 }

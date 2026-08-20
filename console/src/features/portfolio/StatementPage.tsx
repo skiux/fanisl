@@ -155,9 +155,11 @@ function Body({ phase, view, onSelectView, onRetry }: {
         <div className="rise">
           {view === 'overview' && <OverviewView {...shared} onOpen={onSelectView} />}
           {view === 'changes' && <ChangesView snapshot={snapshot} veiled={veiled} />}
-                              {view === 'holdings' && <HoldingsView snapshot={snapshot} veiled={veiled} />}
-      {view === 'perp' && <PerpRiskView {...shared} />}
-                  </div>
+          {view === 'holdings' && <HoldingsView snapshot={snapshot} veiled={veiled} />}
+          {view === 'perp' && (
+            <PerpRiskView futuresMissing={futuresMissing} snapshot={snapshot} veiled={veiled} />
+          )}
+        </div>
       </div>
 
       <footer className="border-t border-rule bg-sheet-2/60 px-5 py-2.5 sm:px-10">
