@@ -3,6 +3,7 @@ import { ArrowsClockwise, MoonStars, Sun } from '@phosphor-icons/react'
 import { StatusDot } from '../../components/Primitives'
 import { cn } from '../../lib/cn'
 import { clockTime, freshnessOf } from '../../lib/format'
+import { hrefOf, PAGES, type PageKey } from '../../lib/router'
 import type { SourceState } from '../../api/types'
 
 const THEME_KEY = 'fanisl.console.theme'
@@ -32,22 +33,18 @@ function ThemeToggle() {
   )
 }
 
-const NAV = [
-  { key: 'assets', label: '资产', enabled: true },
-  { key: 'orders', label: '委托', enabled: false },
-  { key: 'ledger', label: '流水', enabled: false },
-] as const
-
 /**
  * 报头。走的是文件的规矩：先一行页眉（出处与导航），再是报表标题与出具时刻，
  * 底下压一条整份报表唯一的实心重线——层级由它定调，下面所有分隔线都比它轻。
  */
-export function Masthead({ sources, asOf, onRefresh, refreshing, controls }: {
+export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page, title }: {
   sources: SourceState[]
   asOf: string | null
   onRefresh: () => void
   refreshing: boolean
   controls?: ReactNode
+  page: PageKey
+  title: string
 }) {
   const degraded = sources.filter((source) => source.status !== 'ok')
   const { level } = freshnessOf(asOf)
@@ -65,16 +62,29 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls }: {
         </span>
 
         <nav aria-label="控制台导航" className="flex items-center gap-4">
-          {NAV.map((item) => (
-            <span
-              aria-current={item.enabled ? 'page' : undefined}
-              className={cn('text-xs', item.enabled ? 'text-ink' : 'cursor-default text-ink-3/50')}
-              key={item.key}
-              title={item.enabled ? undefined : '尚未实现'}
-            >
-              {item.label}
-            </span>
-          ))}
+          {PAGES.map((item) => {
+            const current = item.key === page
+            if (!item.enabled) {
+              return (
+                <span className="cursor-default text-xs text-ink-3/50" key={item.key} title="尚未实现">
+                  {item.label}
+                </span>
+              )
+            }
+            return (
+              <a
+                aria-current={current ? 'page' : undefined}
+                className={cn(
+                  'text-xs transition-colors duration-200',
+                  current ? 'text-ink' : 'text-ink-3 hover:text-ink-2',
+                )}
+                href={hrefOf(item.key)}
+                key={item.key}
+              >
+                {item.label}
+              </a>
+            )
+          })}
         </nav>
 
         <div className="ml-auto flex items-center gap-3">
@@ -86,7 +96,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls }: {
 
       <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2">
         <h1 className="font-display text-xl font-medium tracking-[-0.015em] text-ink">
-          资产报表
+          {title}
         </h1>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">

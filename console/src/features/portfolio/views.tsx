@@ -1,78 +1,14 @@
-import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 import { money, percent, signedMoney, SOURCE_LABEL } from '../../lib/format'
 import type { MarginAccount, PortfolioSnapshot } from '../../api/types'
+import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
 import { DailyChange } from './DailyChange'
 import { EquityCurve } from './EquityCurve'
-import { Module } from './Module'
 import { EarnTable, SpotTable } from './Holdings'
 import { Reconciliation } from './Reconciliation'
 import { PositionsList, RiskGauges } from './RiskPanel'
 import { SourceHealth } from './SourceHealth'
 import { WalletSpread } from './WalletSpread'
-
-function Figure({ label, value, tone, note }: {
-  label: string
-  value: string
-  tone?: 'gain' | 'loss'
-  note?: string
-}) {
-  return (
-    <div>
-      <dt className="text-xs text-ink-3">{label}</dt>
-      <dd className="mt-1.5 flex items-baseline gap-2">
-        <span className={cn('tnum text-lg', tone === 'gain' ? 'text-gain' : tone === 'loss' ? 'text-loss' : 'text-ink')}>
-          {value}
-        </span>
-        {note && <span className="text-xs text-ink-3">{note}</span>}
-      </dd>
-    </div>
-  )
-}
-
-/**
- * 两段占比条。数字在下面逐项列，条只回答一句"大头在哪边"——
- * 不给它配第三第四种颜色，多段色阶在这个尺寸上分不出来。
- */
-function SplitBar({ left, right, leftLabel, rightLabel, tone }: {
-  left: number
-  right: number
-  leftLabel: string
-  rightLabel: string
-  tone?: 'pnl'
-}) {
-  const total = left + right
-  if (!(total > 0)) return null
-  return (
-    <div className="mb-4">
-      <span aria-hidden="true" className="flex h-[6px] gap-px overflow-hidden rounded-full">
-        <span
-          className={cn('block transition-[width] duration-500', tone === 'pnl' ? 'bg-gain/70' : 'bg-ink-3')}
-          style={{ width: `${((left / total) * 100).toFixed(1)}%` }}
-        />
-        <span className={cn('block flex-1', tone === 'pnl' ? 'bg-loss/70' : 'bg-rule-strong')} />
-      </span>
-      <div className="mt-2 flex justify-between text-micro text-ink-3">
-        <span>{leftLabel} {percent(left / total, 0)}</span>
-        <span>{rightLabel} {percent(right / total, 0)}</span>
-      </div>
-    </div>
-  )
-}
-
-/**
- * 四个视图共用的 12 栏栅格。每个视图两行、四个模块：
- * 一个天生宽的主模块占 7–8 栏，右侧一栏纵向叠两个窄模块把高度补齐，
- * 剩下一个横向铺满的模块收尾。行内不留空档，行与行之间也不留。
- */
-function ViewGrid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-1 gap-x-12 gap-y-9 lg:grid-cols-12">{children}</div>
-}
-
-/** 右侧窄栏：两个模块纵向叠起来，去凑左边那个高模块的高度 */
-function Stack({ span, children }: { span: string; children: ReactNode }) {
-  return <div className={cn('flex flex-col gap-9', span)}>{children}</div>
-}
 
 /**
  * 总览。这一节只放别处没有的东西：

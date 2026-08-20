@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { cn } from '../../lib/cn'
 
-export type ViewKey = 'overview' | 'changes' | 'holdings' | 'perp'
-
-export type TabItem = {
-  key: ViewKey
+export type TabItem<K extends string = string> = {
+  key: K
   label: string
   /** 该节不可用时标出来，不必点进去才发现 */
   muted?: boolean
@@ -15,10 +13,10 @@ export type TabItem = {
  * 指示条走 transform 而不是逐个元素的下边框，切换时是一条线在移动，
  * 而不是两个边框一闪一灭。这是"精致"真正落在的地方。
  */
-export function SectionTabs({ items, current, onSelect }: {
-  items: TabItem[]
-  current: ViewKey
-  onSelect: (key: ViewKey) => void
+export function SectionTabs<K extends string>({ items, current, onSelect }: {
+  items: TabItem<K>[]
+  current: K
+  onSelect: (key: K) => void
 }) {
   const listRef = useRef<HTMLDivElement>(null)
   const [marker, setMarker] = useState<{ left: number; width: number } | null>(null)

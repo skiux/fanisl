@@ -119,7 +119,46 @@ export const SOURCE_LABEL: Record<string, string> = {
   income: '收支流水',
   transfers: '充提记录',
   snapshots: '日快照',
+  spot_open: '现货挂单',
+  futures_open: '合约挂单',
+  margin_open: '杠杆挂单',
+  order_lists: 'OCO 组',
+  algo_open: '策略单',
+  order_history: '历史委托',
+  trade_history: '成交记录',
 }
 
 /** 归因瀑布里每一项的语义色：中性项不该染成盈亏色 */
 export type FlowKind = 'transfer' | 'gain' | 'cost' | 'anchor'
+
+export const VENUE_LABEL: Record<string, string> = {
+  spot: '现货',
+  usdm: 'U 本位',
+  margin: '杠杆',
+}
+
+/** origType 的中文。市价类与限价类要能一眼分开，触发类还要看出是止盈还是止损 */
+export const ORDER_KIND_LABEL: Record<string, string> = {
+  limit: '限价',
+  market: '市价',
+  limit_maker: '只挂单',
+  stop: '止损限价',
+  stop_market: '止损市价',
+  take_profit: '止盈限价',
+  take_profit_market: '止盈市价',
+  trailing_stop_market: '追踪止损',
+}
+
+export const ORDER_STATUS_LABEL: Record<string, string> = {
+  new: '挂单中',
+  partially_filled: '部分成交',
+  filled: '已成交',
+  canceled: '已撤销',
+  expired: '已过期',
+  rejected: '已拒绝',
+}
+
+/** 触发类订单 */
+export const CONDITIONAL_KINDS = new Set([
+  'stop', 'stop_market', 'take_profit', 'take_profit_market', 'trailing_stop_market',
+])

@@ -18,6 +18,9 @@
 export type SourceKey =
   | 'wallets' | 'spot' | 'futures' | 'brackets'
   | 'earn' | 'margin' | 'income' | 'transfers' | 'snapshots'
+  // 委托页
+  | 'spot_open' | 'futures_open' | 'margin_open' | 'order_lists' | 'algo_open'
+  | 'order_history' | 'trade_history'
 
 export type SourceStatus = 'ok' | 'unreachable' | 'unauthorized' | 'rate_limited' | 'unsupported'
 
@@ -195,4 +198,128 @@ export class PortfolioError extends Error {
     this.name = 'PortfolioError'
     this.kind = kind
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * 委托。接口对照（2026-08 复核官方文档）：
+ *   spot_open      GET /api/v3/openOrders        symbol 可省 → 全账户；weight 6 / 省略时 80
+ *   order_lists    GET /api/v3/openOrderList     全部未完结的 OCO/OTO 组；weight 6
+ *   futures_open   GET /fapi/v1/openOrders       symbol 可省 → 全账户；weight 1 / 省略时 40
+ *   margin_open    GET /sapi/v1/margin/openOrders 全仓可省 symbol
+ *   algo_open      GET /sapi/v1/algo/futures/openOrders  TWAP/VP 策略单
+ *   order_history  GET /api/v3/allOrders   symbol 必填，区间 ≤ 24 小时
+ *                  GET /fapi/v1/allOrders  symbol 必填，区间 < 7 天，回溯 90 天
+ *   trade_history  GET /api/v3/myTrades    symbol 必填，区间 ≤ 24 小时
+ *                  GET /fapi/v1/userTrades symbol 必填，区间 < 7 天，回溯 90 天
+ *
+ * 这一页的结构由上面这条分界线决定：**当前挂单能一次拿全账户，历史只能按
+ * 交易对逐个问**。所以「挂单」是完整的，「历史」必须先选交易对，并且把窗口
+ * 上限写在界面上，而不是假装能给出一条无限流水。
+ * ------------------------------------------------------------------ */
+
+export type OrderVenue = 'spot' | 'usdm' | 'margin'
+
+export type OrderSide = 'buy' | 'sell'
+
+/** origType，不是 type——条件单触发后 type 会变成 MARKET，origType 才是下单时的意图 */
+export type OrderKind =
+  | 'limit' | 'market' | 'limit_maker'
+  | 'stop' | 'stop_market'
+  | 'take_profit' | 'take_profit_market'
+  | 'trailing_stop_market'
+
+export type OrderStatus =
+  | 'new' | 'partially_filled' | 'filled'
+  | 'canceled' | 'expired' | 'rejected'
+
+export type Order = {
+  /** `${venue}:${orderId}`，跨账户拼一张表时才唯一 */
+  id: string
+  venue: OrderVenue
+  symbol: string
+  side: OrderSide
+  kind: OrderKind
+  status: OrderStatus
+  /** 市价单没有委托价 */
+  price: number | null
+  /** 条件单的触发价 */
+  stop_price: number | null
+  /** workingType：按标记价还是最新成交价触发。现货没有这个概念 */
+  trigger_by: 'mark' | 'last' | null
+  /** 追踪止损的回调率 */
+  callback_rate: number | null
+  activate_price: number | null
+  orig_qty: number
+  executed_qty: number
+  /** 委托名义价值（USD）。取不到报价时为 null，不用 0 顶替 */
+  notional_usd: number | null
+  time_in_force: 'GTC' | 'IOC' | 'FOK' | 'GTX' | 'GTD' | null
+  good_till_date: string | null
+  reduce_only: boolean
+  close_position: boolean
+  position_side: PositionSide | null
+  /** OCO/OTO 组 id；不属于任何组为 null */
+  order_list_id: string | null
+  /** 现价（现货用最新价，合约按 workingType 用标记价），用来算距触发/距成交多远 */
+  reference_price: number | null
+  created_at: string
+  updated_at: string
+}
+
+/** OCO / OTO：一组里成交一条，另一条自动撤销。拆开看会以为挂了两倍的量 */
+export type OrderList = {
+  id: string
+  venue: OrderVenue
+  symbol: string
+  contingency: 'OCO' | 'OTO' | 'OTOCO'
+  status: 'executing' | 'all_done' | 'reject'
+  /** 组内成员的 Order.id */
+  order_ids: string[]
+  created_at: string
+}
+
+export type Fill = {
+  id: string
+  order_id: string
+  venue: OrderVenue
+  symbol: string
+  side: OrderSide
+  price: number
+  qty: number
+  quote_qty: number
+  commission: number
+  commission_asset: string
+  /** 挂单成交（返佣/低费率）还是吃单成交 */
+  is_maker: boolean
+  /** 仅合约有；现货成交不结算盈亏 */
+  realized_pnl: number | null
+  time: string
+}
+
+/** 历史只能按交易对查，所以查询条件本身是数据的一部分，要能显示出来 */
+export type HistoryQuery = {
+  symbol: string
+  venue: OrderVenue
+  /** 本次实际查询的区间 */
+  from: string
+  to: string
+  /** 该 venue 单次允许的最大区间（小时），界面上要写明 */
+  max_window_hours: number
+  /** 该 venue 最多能回溯多少天；现货没有明确上限时为 null */
+  lookback_days: number | null
+}
+
+export type OrdersSnapshot = {
+  as_of: string | null
+  sources: SourceState[]
+  open: Order[]
+  order_lists: OrderList[]
+  /**
+   * 可查历史的交易对。allOrders 必须传 symbol，后端只能从"有挂单 + 有持仓 +
+   * 现货余额能配出的交易对"推一份候选，做不到真正的全量。
+   */
+  history_symbols: string[]
+  query: HistoryQuery | null
+  history: Order[]
+  fills: Fill[]
 }

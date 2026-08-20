@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { ArrowClockwise, Key, PlugsConnected, Wallet } from '@phosphor-icons/react'
+import { ArrowClockwise, Key, ListChecks, PlugsConnected, Wallet } from '@phosphor-icons/react'
 import { Eyebrow } from '../../components/Primitives'
 import type { SourceState } from '../../api/types'
 
@@ -137,6 +137,16 @@ export function EmptyState() {
       body="连接正常，但现货和合约账户里都没有余额。等有持仓后这里会自动出现。"
       icon={<Wallet aria-hidden="true" size={19} />}
       title="账户里还没有资产"
+    />
+  )
+}
+
+export function NoOrdersState() {
+  return (
+    <Frame
+      body="现货、合约与杠杆账户里都没有未成交的委托。新挂的单会出现在这里。"
+      icon={<ListChecks aria-hidden="true" size={19} />}
+      title="当前没有挂单"
     />
   )
 }

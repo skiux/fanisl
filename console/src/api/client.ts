@@ -1,6 +1,8 @@
 import * as fx from './fixtures'
+import * as ofx from './orders-fixtures'
 import {
   PortfolioError,
+  type OrdersSnapshot,
   type PortfolioSnapshot, type SourceKey, type SourceState, type SourceStatus,
 } from './types'
 
@@ -157,4 +159,94 @@ export async function fetchPortfolio(
     throw new PortfolioError('network', '连不上 fanisl 后端（127.0.0.1:8000）')
   }
   return scenarioSnapshot(scenario)
+}
+
+/* --------------------------- 委托 --------------------------- */
+
+/** 451 打在 fapi 上会带走合约挂单，以及按合约交易对查的历史与成交 */
+const FAPI_ORDER_SOURCES: SourceKey[] = ['futures_open', 'algo_open', 'order_history', 'trade_history']
+
+function emptyOrders(asOf: string | null, status: SourceStatus, detail: string | null): OrdersSnapshot {
+  return {
+    as_of: asOf,
+    sources: ofx.ORDER_SOURCE_KEYS.map((key) => ({ key, status, as_of: asOf, detail })),
+    open: [], order_lists: [], history_symbols: [], query: null, history: [], fills: [],
+  }
+}
+
+function scenarioOrders(scenario: Scenario): OrdersSnapshot {
+  switch (scenario) {
+    case 'stale':
+      return ofx.buildOrdersSnapshot(minutesAgo(214))
+
+    case 'fapi_blocked': {
+      const base = ofx.buildOrdersSnapshot(minutesAgo(1))
+      return {
+        ...base,
+        sources: base.sources.map((source) => (
+          FAPI_ORDER_SOURCES.includes(source.key)
+            ? {
+              ...source, status: 'unreachable' as const,
+              detail: 'HTTP 451 — fapi.binance.com 拒绝当前出口地区',
+              as_of: minutesAgo(96).toISOString(),
+            }
+            : source
+        )),
+        open: base.open.filter((order) => order.venue !== 'usdm'),
+        // 可查的交易对是从现货余额和挂单推出来的，这部分还在；
+        // 但这次选中的是合约交易对，allOrders 打在 fapi 上，查不动。
+        query: null, history: [], fills: [],
+      }
+    }
+
+    case 'all_blocked':
+      return emptyOrders(minutesAgo(842).toISOString(), 'unreachable',
+        'HTTP 451 — Binance 拒绝当前出口地区')
+
+    case 'unauthorized':
+      return emptyOrders(null, 'unauthorized', 'API key 无读取权限，或调用 IP 不在白名单内')
+
+    case 'no_history': {
+      const base = ofx.buildOrdersSnapshot(minutesAgo(1))
+      return {
+        ...base,
+        sources: base.sources.map((source) => (
+          source.key === 'order_history' || source.key === 'trade_history'
+            ? { ...source, status: 'unreachable' as const, as_of: null, detail: '历史接口暂时取不到' }
+            : source
+        )),
+        query: null, history: [], fills: [],
+      }
+    }
+
+    case 'empty': {
+      const base = ofx.buildOrdersSnapshot(minutesAgo(1))
+      return { ...base, open: [], order_lists: [], history: [], fills: [] }
+    }
+
+    default:
+      return ofx.buildOrdersSnapshot(minutesAgo(1))
+  }
+}
+
+export async function fetchOrders(
+  scenario: Scenario,
+  symbol: string,
+  signal?: AbortSignal,
+): Promise<OrdersSnapshot> {
+  if (scenario === 'loading') {
+    return new Promise((_resolve, reject) => {
+      signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+    })
+  }
+  await new Promise((resolve) => setTimeout(resolve, 380))
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+  if (scenario === 'down') {
+    throw new PortfolioError('network', '连不上 fanisl 后端（127.0.0.1:8000）')
+  }
+  const snapshot = scenarioOrders(scenario)
+  if (!snapshot.query || snapshot.query.symbol === symbol) return snapshot
+  // 换交易对就是换一次 allOrders/myTrades 调用。示例数据只带了一个交易对的那一段，
+  // 其他交易对如实返回空区间，而不是把这一段的记录改个名字套上去。
+  return { ...snapshot, query: { ...snapshot.query, symbol }, history: [], fills: [] }
 }

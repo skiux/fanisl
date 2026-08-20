@@ -1,25 +1,19 @@
+import { PRICE } from './prices'
+import { spotLockedByAsset } from './orders-fixtures'
 import type {
   Attribution, EarnPosition, EquityPoint, FuturesAccount, FuturesPosition,
   IncomeBreakdown, MarginAccount, PortfolioSnapshot, SourceState, SpotAsset,
   Transfers, WalletBucket,
 } from './types'
 
-/** 价格表：现货估值与合约标记价共用，避免两处各写一份对不上 */
-const PRICE: Record<string, number | null> = {
-  USDT: 1.0002, BTC: 94180.22, ETH: 3142.68, SOL: 187.44, BNB: 682.15,
-  LINK: 21.77, ARB: 0.7431, SHIB: 0.00001842, XRP: 2.5813, DOGE: 0.3394,
-  ADA: 0.6502, AVAX: 34.92, LTC: 103.47, ATOM: 4.4612, DOT: 3.8871,
-  FIL: 3.5104, NEAR: 4.6238, ALGO: 0.2261, VET: 0.02784, TRX: 0.2617,
-  LUNC: 0.00000091, BETH: null, PAXG: null,
-}
-
-type RawSpot = { asset: string; free: number; locked?: number; freeze?: number; withdrawing?: number }
+/** locked（挂单占用）不在这里写死，由委托 fixture 反推，两页的数对得上 */
+type RawSpot = { asset: string; free: number; freeze?: number; withdrawing?: number }
 
 const RAW_SPOT: RawSpot[] = [
-  { asset: 'USDT', free: 8240.16, locked: 1150, withdrawing: 500 },
+  { asset: 'USDT', free: 8240.16, withdrawing: 500 },
   { asset: 'BTC', free: 0.18426 },
   { asset: 'SOL', free: 41.73 },
-  { asset: 'ETH', free: 1.6087, locked: 0.8 },
+  { asset: 'ETH', free: 1.6087 },
   { asset: 'BNB', free: 4.212 },
   { asset: 'LINK', free: 128.4 },
   { asset: 'ARB', free: 906.2, freeze: 120 },
@@ -34,7 +28,7 @@ const RAW_SPOT: RawSpot[] = [
 ]
 
 export const spot: SpotAsset[] = RAW_SPOT.map((row) => {
-  const locked = row.locked ?? 0
+  const locked = spotLockedByAsset[row.asset] ?? 0
   const freeze = row.freeze ?? 0
   const withdrawing = row.withdrawing ?? 0
   const total = row.free + locked + freeze + withdrawing

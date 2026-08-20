@@ -3,8 +3,9 @@ import { fetchPortfolio, readScenario, writeScenario, type Scenario } from '../.
 import { PortfolioError, type PortfolioSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
 import { clockTime, freshnessOf } from '../../lib/format'
+import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { Masthead } from './Masthead'
-import { SectionTabs, type TabItem, type ViewKey } from './SectionTabs'
+import { SectionTabs, type TabItem } from './SectionTabs'
 import { SummaryStrip } from './SummaryStrip'
 import { EmptyState, ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from './states'
 import { ChangesView, HoldingsView, OverviewView, PerpRiskView } from './views'
@@ -14,11 +15,13 @@ type Phase =
   | { kind: 'ready'; snapshot: PortfolioSnapshot }
   | { kind: 'failed'; message: string }
 
+export type ViewKey = 'overview' | 'changes' | 'holdings' | 'perp'
+
 const VIEW_KEYS: ViewKey[] = ['overview', 'changes', 'holdings', 'perp']
 
 function readView(): ViewKey {
-  const raw = window.location.hash.replace(/^#\/?/, '')
-  return (VIEW_KEYS as string[]).includes(raw) ? (raw as ViewKey) : 'overview'
+  const { section } = readRoute()
+  return (VIEW_KEYS as string[]).includes(section ?? '') ? (section as ViewKey) : 'overview'
 }
 
 export function StatementPage() {
@@ -28,11 +31,7 @@ export function StatementPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [view, setView] = useState<ViewKey>(readView)
 
-  useEffect(() => {
-    const sync = () => setView(readView())
-    window.addEventListener('hashchange', sync)
-    return () => window.removeEventListener('hashchange', sync)
-  }, [])
+  useEffect(() => onRouteChange(() => setView(readView())), [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -62,7 +61,7 @@ export function StatementPage() {
   }, [])
   const selectView = useCallback((next: ViewKey) => {
     setView(next)
-    window.history.replaceState(null, '', `#/${next}`)
+    replaceSection('assets', next)
   }, [])
 
   const snapshot = phase.kind === 'ready' ? phase.snapshot : null
@@ -78,8 +77,10 @@ export function StatementPage() {
           asOf={snapshot?.as_of ?? null}
           controls={<ScenarioSwitcher onChange={changeScenario} value={scenario} />}
           onRefresh={retry}
+          page="assets"
           refreshing={refreshing}
           sources={snapshot?.sources ?? []}
+          title="资产报表"
         />
         <Body
           onRetry={retry}
@@ -92,7 +93,7 @@ export function StatementPage() {
   )
 }
 
-function buildTabs(snapshot: PortfolioSnapshot, futuresMissing: boolean): TabItem[] {
+function buildTabs(snapshot: PortfolioSnapshot, futuresMissing: boolean): TabItem<ViewKey>[] {
   return [
     // 短标签：导航要能一行放下，完整名称留在各视图的抬头里
     // 四个分节。原先六个里，理财只有 3 项、风险只有 2 个读数，各自填不满一个视图
