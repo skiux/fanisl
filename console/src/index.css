@@ -28,9 +28,6 @@
   --accent: #8a6a1f;
   --accent-soft: rgb(138 106 31 / 0.14);
   --sheet-shadow: 0 1px 1px rgb(28 28 24 / 0.04), 0 12px 34px -18px rgb(28 28 24 / 0.22);
-  /* 结构条的色阶：单向色相漂移（赭石→橄榄→鼠尾草→石板→灰），全程低饱和 */
-  --seg-1: #8a6a1f; --seg-2: #6f7248; --seg-3: #4e6b58;
-  --seg-4: #44646f; --seg-5: #5a5a63; --seg-6: #83837a; --seg-rest: #cbcac2;
 }
 
 .dark {
@@ -48,8 +45,6 @@
   --accent: #c9a45c;
   --accent-soft: rgb(201 164 92 / 0.16);
   --sheet-shadow: 0 1px 1px rgb(0 0 0 / 0.4), 0 18px 44px -20px rgb(0 0 0 / 0.7);
-  --seg-1: #c9a45c; --seg-2: #a3a06a; --seg-3: #7f9c84;
-  --seg-4: #6f909c; --seg-5: #85858f; --seg-6: #9a9a90; --seg-rest: #3b3b36;
 }
 
 @theme inline {

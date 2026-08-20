@@ -7,65 +7,95 @@ function Skel({ className, style }: { className: string; style?: CSSProperties }
   return <div className={`skel ${className}`} style={style} />
 }
 
-/** 骨架与正文同构：同一组分块与尺寸，加载完成不跳版 */
+/** 骨架与正文同构：同一套栏线与分节，行高按真实行排，加载完成不跳版 */
+function Row({ height, children }: { height: number; children: ReactNode }) {
+  return <div className="flex items-center" style={{ height }}>{children}</div>
+}
+
 export function StatementSkeleton() {
   return (
     <div aria-busy="true" aria-label="正在读取账户">
-      <section className="px-6 pb-7 pt-8 sm:px-12 sm:pb-9 sm:pt-11">
-        <Skel className="h-3 w-14" />
-        <Skel className="mt-4 h-12 w-64" />
-        <Skel className="mt-5 h-5 w-52" />
-        <Skel className="mt-8 h-[180px] w-full sm:mt-10 sm:h-[216px]" />
-      </section>
-
-      <section className="border-t border-rule px-6 py-7 sm:px-12 sm:py-9">
-        <Skel className="h-3 w-20" />
-        <Skel className="mt-5 h-6 w-full max-w-[42ch]" />
-        <Skel className="mt-3 h-6 w-full max-w-[30ch]" />
-        <div className="mt-8 flex flex-wrap gap-x-14 gap-y-4">
-          {[0, 1, 2, 3, 4].map((index) => (
-            <div key={index}>
-              <Skel className="h-3 w-12" />
-              <Skel className="mt-2 h-4 w-20" />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="grid gap-9 border-t border-rule px-6 py-7 sm:px-12 sm:py-9 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-14">
+      <section className="grid gap-7 border-b border-rule px-5 py-6 sm:px-9 sm:py-7 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] xl:gap-14">
         <div>
-          <Skel className="h-3 w-20" />
-          <Skel className="mt-3 h-3 w-full" />
-          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
-            {[0, 1, 2, 3, 4, 5].map((index) => <Skel className="h-3 w-24" key={index} />)}
+          <Skel className="h-3 w-32" />
+          <Skel className="mt-4 h-11 w-56" />
+          <Skel className="mt-4 h-4 w-44" />
+        </div>
+        <Skel className="h-[152px] w-full" />
+      </section>
+
+      <div className="grid xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        <div className="space-y-7 border-b border-rule px-5 py-6 sm:px-9 sm:py-7 xl:space-y-9 xl:border-b-0 xl:border-r">
+          <div>
+            <div className="mb-4 flex items-baseline justify-between border-b border-rule pb-2.5">
+              <Skel className="h-4 w-28" />
+              <Skel className="h-3 w-36" />
+            </div>
+            {[0, 1, 2, 3, 4, 5, 6].map((index) => (
+              <Row height={44} key={index}>
+                <Skel className="h-3.5 w-24" />
+                <Skel className="ml-auto h-3.5 w-28" />
+              </Row>
+            ))}
+            <Row height={52}><Skel className="ml-auto h-6 w-40" /></Row>
+          </div>
+
+          <div>
+            <div className="mb-4 flex items-baseline justify-between border-b border-rule pb-2.5">
+              <Skel className="h-4 w-24" />
+              <Skel className="h-3 w-40" />
+            </div>
+            <Row height={30}><Skel className="h-3 w-full" /></Row>
+            {[0, 1, 2, 3, 4, 5, 6].map((index) => (
+              <Row height={44} key={index}>
+                <Skel className="size-7 shrink-0 rounded-[6px]" />
+                <Skel className="ml-3 h-3.5 w-20" />
+                <Skel className="ml-auto h-3.5 w-24" />
+              </Row>
+            ))}
+            <Row height={44}><Skel className="h-3.5 w-32" /><Skel className="ml-auto h-3.5 w-16" /></Row>
           </div>
         </div>
-        <div className="lg:border-l lg:border-rule lg:pl-14">
-          <Skel className="h-3 w-12" />
-          <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-5">
-            {[0, 1, 2, 3].map((index) => (
-              <div key={index}>
-                <Skel className="h-3 w-20" />
-                <Skel className="mt-2 h-5 w-16" />
+
+        <div className="space-y-7 px-5 py-6 sm:px-9 sm:py-7 xl:space-y-9">
+          <div>
+            <div className="mb-4 border-b border-rule pb-2.5"><Skel className="h-4 w-24" /></div>
+            {[0, 1, 2, 3, 4, 5].map((index) => (
+              <Row height={37} key={index}>
+                <Skel className="h-3 w-16" />
+                <Skel className="ml-3 h-[3px] flex-1" />
+                <Skel className="ml-3 h-3 w-20" />
+              </Row>
+            ))}
+            <div className="mt-5 border-t border-rule pt-4">
+              {[0, 1, 2].map((index) => (
+                <Row height={26} key={index}>
+                  <Skel className="h-3 w-16" />
+                  <Skel className="ml-auto h-3 w-24" />
+                </Row>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-4 border-b border-rule pb-2.5"><Skel className="h-4 w-20" /></div>
+            {[0, 1].map((index) => (
+              <div className="mb-5" key={index}>
+                <Skel className="h-3 w-full" />
+                <Skel className="mt-2.5 h-1.5 w-full" />
               </div>
             ))}
+            <div className="border-t border-rule pt-3.5">
+              {[0, 1].map((index) => (
+                <Row height={28} key={index}>
+                  <Skel className="h-3 w-24" />
+                  <Skel className="ml-auto h-3 w-28" />
+                </Row>
+              ))}
+            </div>
           </div>
         </div>
-      </section>
-
-      <section className="border-t border-rule px-6 py-6 sm:px-12 sm:py-7">
-        <Skel className="h-3 w-10" />
-        <div className="mt-1">
-          {[0, 1, 2].map((index) => (
-            <div className="flex items-center gap-4 border-b border-rule py-4 last:border-b-0" key={index}>
-              <Skel className="size-3 shrink-0" />
-              <Skel className="h-4 w-24" />
-              <Skel className="h-3 w-10" />
-              <Skel className="ml-auto h-4 w-24" />
-            </div>
-          ))}
-        </div>
-      </section>
+      </div>
     </div>
   )
 }

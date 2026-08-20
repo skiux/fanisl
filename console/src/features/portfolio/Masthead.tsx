@@ -68,7 +68,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls }: {
           {NAV.map((item) => (
             <span
               aria-current={item.enabled ? 'page' : undefined}
-              className={cn('text-xs', item.enabled ? 'text-ink' : 'cursor-default text-ink-3/70')}
+              className={cn('text-xs', item.enabled ? 'text-ink' : 'cursor-default text-ink-3/50')}
               key={item.key}
               title={item.enabled ? undefined : '尚未实现'}
             >
