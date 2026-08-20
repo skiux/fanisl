@@ -7,14 +7,14 @@ import { Masthead } from './Masthead'
 import { SectionTabs, type TabItem, type ViewKey } from './SectionTabs'
 import { SummaryStrip } from './SummaryStrip'
 import { EmptyState, ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from './states'
-import { ChangesView, EarnView, OverviewView, PerpView, RiskView, SpotView } from './views'
+import { ChangesView, HoldingsView, OverviewView, PerpRiskView } from './views'
 
 type Phase =
   | { kind: 'loading' }
   | { kind: 'ready'; snapshot: PortfolioSnapshot }
   | { kind: 'failed'; message: string }
 
-const VIEW_KEYS: ViewKey[] = ['overview', 'changes', 'spot', 'earn', 'perp', 'risk']
+const VIEW_KEYS: ViewKey[] = ['overview', 'changes', 'holdings', 'perp']
 
 function readView(): ViewKey {
   const raw = window.location.hash.replace(/^#\/?/, '')
@@ -95,12 +95,12 @@ export function StatementPage() {
 function buildTabs(snapshot: PortfolioSnapshot, futuresMissing: boolean): TabItem[] {
   return [
     // 短标签：导航要能一行放下，完整名称留在各视图的抬头里
+    // 四个分节。原先六个里，理财只有 3 项、风险只有 2 个读数，各自填不满一个视图
+    // （实测填充率 26% / 36%）——那是分节分错了，不是内容不够。合并进相邻的视图。
     { key: 'overview', label: '总览' },
     { key: 'changes', label: '本期变动', muted: snapshot.attribution === null },
-    { key: 'spot', label: '现货' },
-    { key: 'earn', label: '理财', muted: snapshot.earn.length === 0 },
-    { key: 'perp', label: '合约', muted: futuresMissing },
-    { key: 'risk', label: '风险', muted: futuresMissing && snapshot.margin === null },
+    { key: 'holdings', label: '持仓' },
+    { key: 'perp', label: '合约与风险', muted: futuresMissing },
   ]
 }
 
@@ -155,11 +155,9 @@ function Body({ phase, view, onSelectView, onRetry }: {
         <div className="rise">
           {view === 'overview' && <OverviewView {...shared} onOpen={onSelectView} />}
           {view === 'changes' && <ChangesView snapshot={snapshot} veiled={veiled} />}
-          {view === 'spot' && <SpotView snapshot={snapshot} veiled={veiled} />}
-          {view === 'earn' && <EarnView snapshot={snapshot} veiled={veiled} />}
-          {view === 'perp' && <PerpView futuresMissing={futuresMissing} snapshot={snapshot} veiled={veiled} />}
-          {view === 'risk' && <RiskView {...shared} />}
-        </div>
+                              {view === 'holdings' && <HoldingsView snapshot={snapshot} veiled={veiled} />}
+      {view === 'perp' && <PerpRiskView {...shared} />}
+                  </div>
       </div>
 
       <footer className="border-t border-rule bg-sheet-2/60 px-5 py-2.5 sm:px-10">

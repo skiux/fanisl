@@ -24,10 +24,10 @@ function BarCell({ value, scale, kind }: { value: number; scale: number; kind: L
     : positive ? 'bg-gain/70' : 'bg-loss/70'
 
   return (
-    <span aria-hidden="true" className="relative block h-[9px] w-full">
+    <span aria-hidden="true" className="relative block h-[11px] w-full">
       <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-rule-strong" />
       <span
-        className={cn('absolute top-1/2 h-[7px] -translate-y-1/2 rounded-[1px] transition-[width] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]', tone)}
+        className={cn('absolute top-1/2 h-[9px] -translate-y-1/2 rounded-[1px] transition-[width] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]', tone)}
         style={positive
           ? { left: '50%', width: `${Math.max(ratio * 50, 1.4).toFixed(2)}%` }
           : { right: '50%', width: `${Math.max(ratio * 50, 1.4).toFixed(2)}%` }}
@@ -64,7 +64,7 @@ export function Reconciliation({ data, veiled }: { data: Attribution | null; vei
         <tbody>
           <tr className="border-b border-rule">
             <th className="py-2.5 text-left text-sm font-normal text-ink-2" scope="row">期初净值</th>
-            <td className="w-[34%] px-4" />
+            <td className="w-[176px] px-4" />
             <td className="tnum py-2.5 text-right text-sm text-ink">{money(data.opening_equity)}</td>
           </tr>
 
@@ -73,7 +73,7 @@ export function Reconciliation({ data, veiled }: { data: Attribution | null; vei
               <th className="py-2.5 pl-4 text-left text-sm font-normal text-ink-2" scope="row">
                 {line.label}
               </th>
-              <td className="px-4 align-middle">
+              <td className="w-[176px] px-4 align-middle">
                 <BarCell kind={line.kind} scale={scale} value={line.value} />
               </td>
               <td className={cn(
@@ -88,7 +88,7 @@ export function Reconciliation({ data, veiled }: { data: Attribution | null; vei
 
           <tr className="rule-heavy">
             <th className="py-2.5 text-left text-sm font-medium text-ink" scope="row">期末净值</th>
-            <td className="px-4" />
+            <td className="w-[176px] px-4" />
             <td className="tnum py-2.5 text-right text-base text-ink">{money(data.closing_equity)}</td>
           </tr>
         </tbody>

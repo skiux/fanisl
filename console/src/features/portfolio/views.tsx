@@ -33,7 +33,7 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
   veiled: boolean
   futuresMissing: boolean
   concentration: { asset: string; share: number } | null
-  onOpen: (key: 'changes' | 'spot' | 'earn' | 'perp' | 'risk') => void
+  onOpen: (key: 'changes' | 'holdings' | 'perp') => void
 }) {
   const a = snapshot.attribution
   const totals = snapshot.totals
@@ -61,7 +61,7 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
 
       <Module
         figure={f?.margin_ratio == null ? '—' : percent(f.margin_ratio, 1)}
-        onOpen={() => onOpen('risk')}
+        onOpen={() => onOpen('perp')}
         span="lg:col-span-5"
         title="风险"
         tone={f?.margin_ratio == null ? 'muted' : undefined}
@@ -93,7 +93,7 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
       <Module
         figure={money(spotValue)}
         note={`前 5 项 / 共 ${snapshot.spot.length}`}
-        onOpen={() => onOpen('spot')}
+        onOpen={() => onOpen('holdings')}
         span="lg:col-span-7"
         title="现货持仓"
       >
@@ -104,7 +104,7 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
         <Module
           figure={money(earnValue)}
           note={`${snapshot.earn.length} 项`}
-          onOpen={() => onOpen('earn')}
+          onOpen={() => onOpen('holdings')}
           span=""
           title="理财"
         >
@@ -147,6 +147,11 @@ function ViewGrid({ children }: { children: ReactNode }) {
 export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; veiled: boolean }) {
   const t = snapshot.transfers
   const a = snapshot.attribution
+  const income = snapshot.income
+  const incomeScale = income
+    ? Math.max(...[income.realized_pnl, income.funding_fee, income.commission,
+      income.referral_kickback, income.insurance_clear].map(Math.abs), 1)
+    : 0
   return (
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
@@ -183,12 +188,52 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
             </dl>
           ) : <p className="text-sm text-ink-3">充提记录取不到。</p>}
         </Module>
+
+        <Module
+          figure={income ? signedMoney(income.realized_pnl + income.funding_fee + income.commission + income.insurance_clear + income.referral_kickback) : '—'}
+          note="按 incomeType 拆分"
+          span="lg:col-span-12"
+          title="收支构成"
+        >
+          {income ? (
+            <ul className="grid gap-x-12 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
+              {([
+                ['已实现盈亏', income.realized_pnl],
+                ['资金费', income.funding_fee],
+                ['手续费', income.commission],
+                ['返佣', income.referral_kickback],
+                ['保险清算', income.insurance_clear],
+              ] as const).filter(([, v]) => v !== 0).map(([label, value]) => {
+                const ratio = incomeScale > 0 ? Math.min(1, Math.abs(value) / incomeScale) : 0
+                return (
+                  <li className="flex items-center gap-3 border-b border-rule py-2.5" key={label}>
+                    <span className="w-[72px] shrink-0 text-xs text-ink-2">{label}</span>
+                    <span aria-hidden="true" className="relative block h-[9px] w-[96px] shrink-0">
+                      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-rule-strong" />
+                      <span
+                        className={cn('absolute top-1/2 h-[7px] -translate-y-1/2 rounded-[1px]',
+                          value >= 0 ? 'bg-gain/70' : 'bg-loss/70')}
+                        style={value >= 0
+                          ? { left: '50%', width: `${Math.max(ratio * 50, 1.6).toFixed(2)}%` }
+                          : { right: '50%', width: `${Math.max(ratio * 50, 1.6).toFixed(2)}%` }}
+                      />
+                    </span>
+                    <span className={cn('tnum ml-auto whitespace-nowrap text-sm',
+                      value >= 0 ? 'text-gain' : 'text-loss')}>
+                      {signedMoney(value)}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : <p className="text-sm text-ink-3">收支流水取不到（fapi 不可达时这一节没有数据）。</p>}
+        </Module>
       </ViewGrid>
     </div>
   )
 }
 
-export function SpotView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; veiled: boolean }) {
+export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; veiled: boolean }) {
   const value = snapshot.spot.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
   const locked = snapshot.spot.reduce((sum, i) => sum + (i.price_usd ?? 0) * (i.locked + i.freeze + i.withdrawing), 0)
   const dust = snapshot.spot.filter((i) => (i.value_usd ?? 0) < 25)
@@ -208,12 +253,13 @@ export function SpotView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; ve
             <Figure label="无报价" note="不计入合计" value={`${unpriced} 项`} />
           </dl>
         </Module>
+        <EarnBlocks snapshot={snapshot} />
       </ViewGrid>
     </div>
   )
 }
 
-export function EarnView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; veiled: boolean }) {
+function EarnBlocks({ snapshot }: { snapshot: PortfolioSnapshot }) {
   const value = snapshot.earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
   const rewards = snapshot.earn.reduce((sum, item) => sum + (item.cumulative_rewards_usd ?? 0), 0)
   const priced = snapshot.earn.filter((item) => item.value_usd !== null && item.apr !== null)
@@ -223,8 +269,7 @@ export function EarnView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; ve
     : null
   const locked = snapshot.earn.filter((i) => i.kind === 'locked')
   return (
-    <div className={cn(veiled && 'veiled')}>
-      <ViewGrid>
+    <>
         <Module figure={money(value)} note={`${snapshot.earn.length} 项`} span="lg:col-span-7" title="理财持仓">
           <EarnTable earn={snapshot.earn} />
         </Module>
@@ -236,15 +281,15 @@ export function EarnView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; ve
             <Figure label="定期" note={`${locked.length} 项`} value={money(locked.reduce((s, i) => s + (i.value_usd ?? 0), 0))} />
           </dl>
         </Module>
-      </ViewGrid>
-    </div>
+    </>
   )
 }
 
-export function PerpView({ snapshot, veiled, futuresMissing }: {
+export function PerpRiskView({ snapshot, veiled, futuresMissing, concentration }: {
   snapshot: PortfolioSnapshot
   veiled: boolean
   futuresMissing: boolean
+  concentration: { asset: string; share: number } | null
 }) {
   const f = snapshot.futures
   return (
@@ -274,21 +319,20 @@ export function PerpView({ snapshot, veiled, futuresMissing }: {
             </dl>
           ) : <p className="text-sm text-ink-3">合约数据本次没有取到。</p>}
         </Module>
+        <RiskBlocks concentration={concentration} futuresMissing={futuresMissing} snapshot={snapshot} />
       </ViewGrid>
     </div>
   )
 }
 
-export function RiskView({ snapshot, veiled, futuresMissing, concentration }: {
+function RiskBlocks({ snapshot, futuresMissing, concentration }: {
   snapshot: PortfolioSnapshot
-  veiled: boolean
   futuresMissing: boolean
   concentration: { asset: string; share: number } | null
 }) {
   const m = snapshot.margin
   return (
-    <div className={cn(veiled && 'veiled')}>
-      <ViewGrid>
+    <>
         <Module
           figure={snapshot.futures?.margin_ratio == null ? '—' : percent(snapshot.futures.margin_ratio, 1)}
           note="取不到的一律留空，不猜"
@@ -319,7 +363,6 @@ export function RiskView({ snapshot, veiled, futuresMissing, concentration }: {
             </dl>
           ) : <p className="text-sm text-ink-3">杠杆账户数据取不到。</p>}
         </Module>
-      </ViewGrid>
-    </div>
+    </>
   )
 }

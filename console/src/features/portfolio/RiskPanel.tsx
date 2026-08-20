@@ -205,7 +205,7 @@ export function PositionsList({ futures, unavailable }: {
     return <p className="py-10 text-center text-sm text-ink-3">当前没有合约持仓。</p>
   }
   return (
-    <ul className="grid gap-x-12 xl:grid-cols-2">
+    <ul>
       {futures.positions.map((position) => (
         <PositionRow key={`${position.symbol}-${position.position_side}`} position={position} />
       ))}

@@ -29,7 +29,7 @@ export function WalletSpread({ wallets, veiled }: { wallets: WalletBucket[]; vei
               <span className="w-[72px] shrink-0 text-xs text-ink-2">
                 {WALLET_LABEL[bucket.kind] ?? bucket.kind}
               </span>
-              <span className="h-[3px] min-w-[24px] flex-1 overflow-hidden rounded-full bg-rule">
+              <span className="h-[3px] w-[84px] shrink-0 overflow-hidden rounded-full bg-rule">
                 <span
                   className="block h-full rounded-full bg-ink-3 transition-[width] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
                   style={{ width: `${(share * 100).toFixed(2)}%` }}
@@ -39,7 +39,7 @@ export function WalletSpread({ wallets, veiled }: { wallets: WalletBucket[]; vei
                 <span className="shrink-0 whitespace-nowrap text-right text-xs text-loss">取不到</span>
               ) : (
                 <>
-                  <span className="tnum w-[86px] shrink-0 text-right text-xs text-ink">
+                  <span className="tnum ml-auto shrink-0 whitespace-nowrap text-right text-xs text-ink">
                     {money(bucket.value_usd)}
                   </span>
                   <span className="tnum w-[34px] shrink-0 text-right text-xs text-ink-3">

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { cn } from '../../lib/cn'
 
-export type ViewKey = 'overview' | 'changes' | 'spot' | 'earn' | 'perp' | 'risk'
+export type ViewKey = 'overview' | 'changes' | 'holdings' | 'perp'
 
 export type TabItem = {
   key: ViewKey
