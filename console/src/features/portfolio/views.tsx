@@ -69,7 +69,7 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration }
         </p>
       )}
 
-      <div className="mt-8 grid gap-8 border-t border-rule pt-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:gap-12">
+      <div className="measure-lg mt-8 grid gap-8 border-t border-rule pt-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:gap-12">
         <WalletSpread veiled={false} wallets={snapshot.wallets} />
         <dl className="grid grid-cols-2 gap-x-8 gap-y-5 lg:border-l lg:border-rule lg:pl-12">
           {snapshot.futures?.margin_ratio != null && (
@@ -97,9 +97,9 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
         note="期初到期末的逐项对账；充提是中性事件，不计入盈亏"
         title="本期变动"
       />
-      <Reconciliation data={snapshot.attribution} veiled={false} />
+      <div className="measure-lg"><Reconciliation data={snapshot.attribution} veiled={false} /></div>
       {t && (
-        <dl className="mt-8 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-rule pt-6 sm:grid-cols-4">
+        <dl className="measure-lg mt-8 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-rule pt-6 sm:grid-cols-4">
           <Figure label="充值" note={`${t.deposit_count} 笔`} value={money(t.deposits_usd)} />
           <Figure label="提现" note={`${t.withdrawal_count} 笔`} value={money(t.withdrawals_usd)} />
           <Figure label="净充提" value={signedMoney(t.net_usd)} />
@@ -126,7 +126,7 @@ export function SpotView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; ve
         note={`${snapshot.spot.length} 个币种 · 锁定原因分列，灰尘余额折在末尾`}
         title="现货持仓"
       />
-      <SpotTable spot={snapshot.spot} />
+      <div className="measure-lg"><SpotTable spot={snapshot.spot} /></div>
     </div>
   )
 }
@@ -147,7 +147,7 @@ export function EarnView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; ve
         title="理财持仓"
       />
       <EarnTable earn={snapshot.earn} />
-      <dl className="mt-8 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-rule pt-6 sm:grid-cols-3">
+      <dl className="measure-lg mt-8 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-rule pt-6 sm:grid-cols-3">
         <Figure label="加权年化" tone="gain" value={apr === null ? '—' : percent(apr, 2)} />
         <Figure label="累计收益" value={money(rewards)} />
         <Figure label="占净值" value={percent(snapshot.totals ? value / snapshot.totals.equity_usd : null, 1)} />
@@ -171,7 +171,7 @@ export function PerpView({ snapshot, veiled, futuresMissing }: {
       />
       <PositionsList futures={f} unavailable={futuresMissing} />
       {f && (
-        <dl className="mt-8 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-rule pt-6 sm:grid-cols-4">
+        <dl className="measure-lg mt-8 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-rule pt-6 sm:grid-cols-4">
           <Figure label="保证金余额" value={money(f.total_margin_balance)} />
           <Figure label="维持保证金" value={money(f.total_maint_margin)} />
           <Figure label="可用余额" value={money(f.available_balance)} />
@@ -195,15 +195,17 @@ export function RiskView({ snapshot, veiled, futuresMissing, concentration }: {
         note="保证金率、真实杠杆与集中度；取不到的一律留空，不猜"
         title="风险"
       />
-      <RiskGauges
-        concentration={concentration}
-        exposureRatio={snapshot.totals?.gross_exposure_ratio ?? null}
-        futures={snapshot.futures}
-        margin={m}
-        unavailable={futuresMissing}
-      />
+      <div className="measure-lg">
+        <RiskGauges
+          concentration={concentration}
+          exposureRatio={snapshot.totals?.gross_exposure_ratio ?? null}
+          futures={snapshot.futures}
+          margin={m}
+          unavailable={futuresMissing}
+        />
+      </div>
       {m && (
-        <dl className="mt-8 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-rule pt-6 sm:grid-cols-3">
+        <dl className="measure-lg mt-8 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-rule pt-6 sm:grid-cols-3">
           <Figure label="杠杆账户总资产" value={money(m.total_asset_usd)} />
           <Figure label="杠杆账户负债" value={money(m.total_liability_usd)} />
           <Figure label="杠杆账户净值" value={money(m.total_net_asset_usd)} />

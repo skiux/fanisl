@@ -151,6 +151,20 @@
     border: 2px solid transparent;
     background-clip: content-box;
   }
+  /* 行长上限。标签在最左、数值在最右的行，一旦拉满整幅宽度，
+     中间会空出上千像素，眼睛要跨越那段距离才能把两端连起来。
+     宽度省下来之后改排两列——纵向也随之变短。 */
+  /* 曲线入场：按路径长度逐段描出来，不是整条淡入 */
+  @keyframes draw-line { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+  .equity-line {
+    --len: 2600;
+    stroke-dasharray: var(--len);
+    animation: draw-line 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .measure { max-width: 34rem; }      /* 544px：标签+数值的行 */
+  .measure-lg { max-width: 52rem; }   /* 832px：真正有多列的表 */
+
   .scrollbar-none { scrollbar-width: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
 

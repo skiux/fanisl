@@ -6,7 +6,6 @@ import { clockTime, freshnessOf } from '../../lib/format'
 import { Masthead } from './Masthead'
 import { SectionTabs, type TabItem, type ViewKey } from './SectionTabs'
 import { SummaryStrip } from './SummaryStrip'
-import { SourceStrip } from './SourceStrip'
 import { EmptyState, ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from './states'
 import { ChangesView, EarnView, OverviewView, PerpView, RiskView, SpotView } from './views'
 
@@ -86,7 +85,6 @@ export function StatementPage() {
           onRetry={retry}
           onSelectView={selectView}
           phase={phase}
-          refreshing={refreshing}
           view={view}
         />
       </div>
@@ -106,12 +104,11 @@ function buildTabs(snapshot: PortfolioSnapshot, futuresMissing: boolean): TabIte
   ]
 }
 
-function Body({ phase, view, onSelectView, onRetry, refreshing }: {
+function Body({ phase, view, onSelectView, onRetry }: {
   phase: Phase
   view: ViewKey
   onSelectView: (key: ViewKey) => void
   onRetry: () => void
-  refreshing: boolean
 }) {
   if (phase.kind === 'loading') return <StatementSkeleton />
   if (phase.kind === 'failed') {
@@ -165,18 +162,10 @@ function Body({ phase, view, onSelectView, onRetry, refreshing }: {
         </div>
       </div>
 
-      <footer className="flex flex-wrap items-center justify-between gap-x-10 gap-y-2 border-t border-rule bg-sheet-2/60 px-5 py-2.5 sm:px-10">
+      <footer className="border-t border-rule bg-sheet-2/60 px-5 py-2.5 sm:px-10">
         <p className="text-xs text-ink-3">
           真实盈亏已剔除充提 · 取不到的项目留空，不以 0 代替 · 30 天窗口受日快照接口所限
         </p>
-        <div className="min-w-[220px]">
-          <SourceStrip
-            asOf={snapshot.as_of}
-            onRefresh={onRetry}
-            refreshing={refreshing}
-            sources={snapshot.sources}
-          />
-        </div>
       </footer>
     </>
   )

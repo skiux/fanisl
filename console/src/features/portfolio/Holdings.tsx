@@ -117,9 +117,9 @@ export function EarnTable({ earn }: { earn: EarnPosition[] }) {
     return <p className="py-10 text-center text-sm text-ink-3">没有理财持仓。</p>
   }
   return (
-    <ul className="divide-y divide-rule">
+    <ul className="grid gap-x-10 sm:grid-cols-2 xl:grid-cols-3">
       {earn.map((item) => (
-        <li className="flex items-center gap-3 py-3.5" key={item.product_id}>
+        <li className="flex items-center gap-3 border-b border-rule py-3.5" key={item.product_id}>
           <Ticker asset={item.asset} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
