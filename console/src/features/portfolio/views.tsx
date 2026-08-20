@@ -49,26 +49,14 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration }
   const a = snapshot.attribution
   const totals = snapshot.totals
   return (
-    <div className={cn('flex min-h-full flex-col', veiled && 'veiled')}>
+    <div className={cn(veiled && 'veiled')}>
       <ViewHead
-        aside={
-          totals?.change_24h_usd == null ? undefined : (
-            <span className="flex items-baseline gap-3">
-              <span className={cn('tnum text-base', totals.change_24h_usd >= 0 ? 'text-gain' : 'text-loss')}>
-                {signedMoney(totals.change_24h_usd)}
-              </span>
-              <span className={cn('tnum text-sm', (totals.change_24h_pct ?? 0) >= 0 ? 'text-gain' : 'text-loss')}>
-                {signedPercent(totals.change_24h_pct)}
-              </span>
-              <span className="text-xs text-ink-3">今日</span>
-            </span>
-          )
-        }
-        note="净值走势、本期结论与资产结构，一屏看完"
+        aside={<span className="tnum text-xs text-ink-3">30 天 · 日快照</span>}
+        note="净值走势、本期结论与资产结构"
         title="总览"
       />
 
-      <div className="flex min-h-[190px] flex-1 flex-col">
+      <div className="flex h-[clamp(170px,26vh,240px)] flex-col">
         <EquityCurve points={snapshot.equity_curve} veiled={false} />
       </div>
 

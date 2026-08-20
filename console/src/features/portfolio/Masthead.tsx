@@ -53,7 +53,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls }: {
   const { level } = freshnessOf(asOf)
 
   return (
-    <header className="rule-heavy px-5 pb-4 pt-5 sm:px-9 sm:pb-5 sm:pt-7">
+    <header className="rule-heavy px-5 pb-3.5 pt-4 sm:px-10 sm:pb-4 sm:pt-5">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         <span className="flex items-center gap-2">
           <svg aria-hidden="true" className="text-ink" height="15" viewBox="0 0 20 20" width="15">
@@ -84,12 +84,12 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls }: {
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
-        <h1 className="font-display text-2xl font-medium tracking-[-0.015em] text-ink">
+      <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2">
+        <h1 className="font-display text-xl font-medium tracking-[-0.015em] text-ink">
           资产报表
         </h1>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pb-1">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
           <span className="tnum text-xs text-ink-2">截至 {clockTime(asOf)}</span>
           <span className="flex items-center gap-1.5">
             <StatusDot level={sources.length === 0 ? 'unknown' : degraded.length > 0 ? 'error' : level} />

@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchPortfolio, readScenario, writeScenario, type Scenario } from '../../api/client'
 import { PortfolioError, type PortfolioSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
-import { clockTime, freshnessOf, money, percent, signedMoney } from '../../lib/format'
+import { clockTime, freshnessOf } from '../../lib/format'
 import { Masthead } from './Masthead'
-import { NavRail, type NavItem, type ViewKey } from './NavRail'
+import { SectionTabs, type TabItem, type ViewKey } from './SectionTabs'
+import { SummaryStrip } from './SummaryStrip'
 import { SourceStrip } from './SourceStrip'
 import { EmptyState, ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from './states'
 import { ChangesView, EarnView, OverviewView, PerpView, RiskView, SpotView } from './views'
@@ -68,12 +69,12 @@ export function StatementPage() {
   const snapshot = phase.kind === 'ready' ? phase.snapshot : null
 
   return (
-    <div className="min-h-[100dvh] bg-desk px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+    <div className="min-h-[100dvh] bg-desk px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-6">
       {/*
         桌面把整张纸钉在视口高度内，明细区自己滚：切换分节时页面高度不变，
         不会出现上一版那种"点一下整页跳一截"的问题，也不需要深滚。
       */}
-      <div className="sheet mx-auto flex max-w-[1320px] flex-col lg:h-[calc(100dvh-4rem)]">
+      <div className="sheet mx-auto flex max-w-[1320px] flex-col lg:h-[calc(100dvh-3rem)]">
         <Masthead
           asOf={snapshot?.as_of ?? null}
           controls={<ScenarioSwitcher onChange={changeScenario} value={scenario} />}
@@ -93,38 +94,15 @@ export function StatementPage() {
   )
 }
 
-function buildNav(snapshot: PortfolioSnapshot, futuresMissing: boolean): NavItem[] {
-  const a = snapshot.attribution
-  const spot = snapshot.spot.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-  const earn = snapshot.earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-  const upnl = snapshot.futures?.total_unrealized_pnl ?? null
-  const ratio = snapshot.futures?.margin_ratio ?? null
+function buildTabs(snapshot: PortfolioSnapshot, futuresMissing: boolean): TabItem[] {
   return [
-    {
-      key: 'overview', index: '一', label: '总览',
-      figure: snapshot.totals ? money(snapshot.totals.equity_usd) : null,
-      note: '净值',
-    },
-    {
-      key: 'changes', index: '二', label: '本期变动',
-      figure: a ? signedMoney(a.true_pnl) : null,
-      tone: a ? (a.true_pnl >= 0 ? 'gain' : 'loss') : 'muted',
-      note: a ? '30 天真实盈亏' : '不可用',
-    },
-    { key: 'spot', index: '三', label: '现货持仓', figure: money(spot), note: `${snapshot.spot.length} 个币种` },
-    { key: 'earn', index: '四', label: '理财持仓', figure: money(earn), note: `${snapshot.earn.length} 个产品` },
-    {
-      key: 'perp', index: '五', label: '合约仓位',
-      figure: futuresMissing || upnl === null ? '—' : signedMoney(upnl),
-      tone: futuresMissing || upnl === null ? 'muted' : upnl >= 0 ? 'gain' : 'loss',
-      note: futuresMissing ? '取不到' : `${snapshot.futures?.positions.length ?? 0} 笔未实现`,
-    },
-    {
-      key: 'risk', index: '六', label: '风险',
-      figure: ratio === null ? '—' : percent(ratio, 1),
-      tone: ratio === null ? 'muted' : undefined,
-      note: ratio === null ? '取不到' : '合约保证金率',
-    },
+    // 短标签：导航要能一行放下，完整名称留在各视图的抬头里
+    { key: 'overview', label: '总览' },
+    { key: 'changes', label: '本期变动', muted: snapshot.attribution === null },
+    { key: 'spot', label: '现货' },
+    { key: 'earn', label: '理财', muted: snapshot.earn.length === 0 },
+    { key: 'perp', label: '合约', muted: futuresMissing },
+    { key: 'risk', label: '风险', muted: futuresMissing && snapshot.margin === null },
   ]
 }
 
@@ -171,20 +149,13 @@ function Body({ phase, view, onSelectView, onRetry, refreshing }: {
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,224px)_minmax(0,1fr)]">
-        <div className="flex min-h-0 flex-col border-b border-rule lg:border-b-0 lg:border-r">
-          <NavRail current={view} items={buildNav(snapshot, futuresMissing)} onSelect={onSelectView} />
-          <div className="mt-auto hidden border-t border-rule px-4 py-3 lg:block">
-            <SourceStrip
-              asOf={snapshot.as_of}
-              onRefresh={onRetry}
-              refreshing={refreshing}
-              sources={snapshot.sources}
-            />
-          </div>
-        </div>
+      <SummaryStrip futuresMissing={futuresMissing} snapshot={snapshot} veiled={veiled} />
 
-        <div className="scroll-y px-5 py-6 sm:px-10 sm:py-8">
+      <SectionTabs current={view} items={buildTabs(snapshot, futuresMissing)} onSelect={onSelectView} />
+
+      {/* 明细区拿回整幅宽度；区域内部滚动，切换分节时页面高度不变 */}
+      <div className="scroll-y min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8" key={view}>
+        <div className="rise">
           {view === 'overview' && <OverviewView {...shared} />}
           {view === 'changes' && <ChangesView snapshot={snapshot} veiled={veiled} />}
           {view === 'spot' && <SpotView snapshot={snapshot} veiled={veiled} />}
@@ -194,11 +165,18 @@ function Body({ phase, view, onSelectView, onRetry, refreshing }: {
         </div>
       </div>
 
-      <footer className="border-t border-rule bg-sheet-2/60 px-5 py-3.5 sm:px-10">
-        <p className="max-w-[74ch] text-xs leading-relaxed text-ink-3">
-          净值为各钱包合计，含合约未实现盈亏。30 天窗口取自日快照接口，该接口只能查最近一个月。
-          真实盈亏已剔除充提；取不到的项目一律留空，不以 0 代替。
+      <footer className="flex flex-wrap items-center justify-between gap-x-10 gap-y-2 border-t border-rule bg-sheet-2/60 px-5 py-2.5 sm:px-10">
+        <p className="text-xs text-ink-3">
+          真实盈亏已剔除充提 · 取不到的项目留空，不以 0 代替 · 30 天窗口受日快照接口所限
         </p>
+        <div className="min-w-[220px]">
+          <SourceStrip
+            asOf={snapshot.as_of}
+            onRefresh={onRetry}
+            refreshing={refreshing}
+            sources={snapshot.sources}
+          />
+        </div>
       </footer>
     </>
   )
