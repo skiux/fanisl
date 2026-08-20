@@ -7,7 +7,7 @@ export type PageKey = 'assets' | 'orders' | 'ledger'
 export const PAGES: { key: PageKey; label: string; enabled: boolean }[] = [
   { key: 'assets', label: '资产', enabled: true },
   { key: 'orders', label: '委托', enabled: true },
-  { key: 'ledger', label: '流水', enabled: false },
+  { key: 'ledger', label: '流水', enabled: true },
 ]
 
 export function titleOf(page: PageKey) {

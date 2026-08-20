@@ -1,7 +1,9 @@
 import * as fx from './fixtures'
+import * as lfx from './ledger-fixtures'
 import * as ofx from './orders-fixtures'
 import {
   PortfolioError,
+  type LedgerSnapshot,
   type OrdersSnapshot,
   type PortfolioSnapshot, type SourceKey, type SourceState, type SourceStatus,
 } from './types'
@@ -249,4 +251,108 @@ export async function fetchOrders(
   // 换交易对就是换一次 allOrders/myTrades 调用。示例数据只带了一个交易对的那一段，
   // 其他交易对如实返回空区间，而不是把这一段的记录改个名字套上去。
   return { ...snapshot, query: { ...snapshot.query, symbol }, history: [], fills: [] }
+}
+
+/* --------------------------- 流水 --------------------------- */
+
+/** 合约收支走 fapi，451 一来这四类损益整组消失，其余来源不受影响 */
+const FAPI_LEDGER_KINDS = new Set(['realized_pnl', 'funding_fee', 'commission', 'referral_kickback'])
+
+/** 单次区间被卡在 30 天的三个来源 */
+const CAPPED_LEDGER_SOURCES: SourceKey[] = ['earn_rewards', 'margin_interest', 'convert']
+
+function degradeLedger(
+  snapshot: LedgerSnapshot,
+  keys: SourceKey[],
+  detail: string,
+  asOf: string | null,
+): LedgerSnapshot {
+  const down = new Set(keys)
+  return {
+    ...snapshot,
+    sources: snapshot.sources.map((source) => (
+      down.has(source.key)
+        ? { ...source, status: 'unreachable' as const, detail, as_of: asOf }
+        : source
+    )),
+    entries: snapshot.entries.filter((entry) => !down.has(entry.source)),
+  }
+}
+
+function scenarioLedger(scenario: Scenario, days: number): LedgerSnapshot {
+  switch (scenario) {
+    case 'stale':
+      return lfx.buildLedgerSnapshot(minutesAgo(214), days)
+
+    case 'fapi_blocked': {
+      const base = lfx.buildLedgerSnapshot(minutesAgo(1), days)
+      return {
+        ...base,
+        sources: base.sources.map((source) => (
+          source.key === 'income'
+            ? {
+              ...source, status: 'unreachable' as const,
+              detail: 'HTTP 451 — fapi.binance.com 拒绝当前出口地区',
+              as_of: minutesAgo(96).toISOString(),
+            }
+            : source
+        )),
+        entries: base.entries.filter((entry) => !FAPI_LEDGER_KINDS.has(entry.kind)),
+      }
+    }
+
+    case 'no_history':
+      return degradeLedger(
+        lfx.buildLedgerSnapshot(minutesAgo(1), days),
+        CAPPED_LEDGER_SOURCES,
+        '这一组接口暂时取不到',
+        null,
+      )
+
+    case 'all_blocked': {
+      const cached = lfx.buildLedgerSnapshot(minutesAgo(842), days)
+      return degradeLedger(cached, lfx.LEDGER_SOURCE_KEYS,
+        'HTTP 451 — Binance 拒绝当前出口地区', minutesAgo(842).toISOString())
+    }
+
+    case 'unauthorized': {
+      const base = lfx.buildLedgerSnapshot(minutesAgo(1), days)
+      return {
+        ...base,
+        as_of: null,
+        sources: base.sources.map((source) => ({
+          ...source, status: 'unauthorized' as const, as_of: null,
+          detail: 'API key 无读取权限，或调用 IP 不在白名单内',
+        })),
+        entries: [],
+      }
+    }
+
+    case 'empty': {
+      const base = lfx.buildLedgerSnapshot(minutesAgo(1), days)
+      return { ...base, entries: [] }
+    }
+
+    default:
+      return lfx.buildLedgerSnapshot(minutesAgo(1), days)
+  }
+}
+
+export async function fetchLedger(
+  scenario: Scenario,
+  days: number,
+  signal?: AbortSignal,
+): Promise<LedgerSnapshot> {
+  if (scenario === 'loading') {
+    return new Promise((_resolve, reject) => {
+      signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+    })
+  }
+  // 八个来源顺序拉一遍，真后端不会比这快
+  await new Promise((resolve) => setTimeout(resolve, 520))
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+  if (scenario === 'down') {
+    throw new PortfolioError('network', '连不上 fanisl 后端（127.0.0.1:8000）')
+  }
+  return scenarioLedger(scenario, days)
 }

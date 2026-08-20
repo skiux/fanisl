@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { onRouteChange, readRoute, titleOf } from './lib/router'
+import { LedgerPage } from './features/ledger/LedgerPage'
 import { OrdersPage } from './features/orders/OrdersPage'
 import { StatementPage } from './features/portfolio/StatementPage'
 
@@ -11,5 +12,6 @@ export default function App() {
 
   // 换页要整块重建：两页各自持有自己的取数与分节状态，复用同一棵树只会串味
   if (page === 'orders') return <OrdersPage key="orders" />
+  if (page === 'ledger') return <LedgerPage key="ledger" />
   return <StatementPage key="assets" />
 }

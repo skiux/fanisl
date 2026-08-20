@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { ArrowClockwise, Key, ListChecks, PlugsConnected, Wallet } from '@phosphor-icons/react'
+import { ArrowClockwise, Key, ListChecks, PlugsConnected, Receipt, Wallet } from '@phosphor-icons/react'
 import { Eyebrow } from '../../components/Primitives'
 import type { SourceState } from '../../api/types'
 
@@ -14,7 +14,8 @@ function Row({ height, children }: { height: number; children: ReactNode }) {
 
 export function StatementSkeleton() {
   return (
-    <div aria-busy="true" aria-label="正在读取账户">
+    // 骨架也钉在纸的高度里：不然加载时整页先长出一截，取完数又缩回去
+    <div aria-busy="true" aria-label="正在读取账户" className="min-h-0 flex-1 overflow-hidden">
       <section className="grid gap-7 border-b border-rule px-5 py-6 sm:px-9 sm:py-7 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] xl:gap-14">
         <div>
           <Skel className="h-3 w-32" />
@@ -147,6 +148,16 @@ export function NoOrdersState() {
       body="现货、合约与杠杆账户里都没有未成交的委托。新挂的单会出现在这里。"
       icon={<ListChecks aria-hidden="true" size={19} />}
       title="当前没有挂单"
+    />
+  )
+}
+
+export function EmptyLedgerState({ days }: { days: number }) {
+  return (
+    <Frame
+      body={`最近 ${days} 天里，八个来源都没有返回任何记录：没有充提、没有派息、也没有合约收支。换一个更长的区间可以看更早的。`}
+      icon={<Receipt aria-hidden="true" size={19} />}
+      title="这段区间里没有流水"
     />
   )
 }

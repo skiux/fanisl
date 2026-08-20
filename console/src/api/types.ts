@@ -21,6 +21,9 @@ export type SourceKey =
   // 委托页
   | 'spot_open' | 'futures_open' | 'margin_open' | 'order_lists' | 'algo_open'
   | 'order_history' | 'trade_history'
+  // 流水页
+  | 'deposits' | 'withdrawals' | 'wallet_transfers' | 'earn_rewards'
+  | 'margin_interest' | 'convert' | 'dust'
 
 export type SourceStatus = 'ok' | 'unreachable' | 'unauthorized' | 'rate_limited' | 'unsupported'
 
@@ -322,4 +325,106 @@ export type OrdersSnapshot = {
   query: HistoryQuery | null
   history: Order[]
   fills: Fill[]
+}
+
+/* ------------------------------------------------------------------ *
+ * 流水。这一页最要紧的事实：**Binance 没有统一的流水接口**。
+ * 下面这条时间线是八个端点各拉一段合并出来的，每条记录都得带着自己的出处。
+ * 接口对照（2026-08 复核官方文档）：
+ *
+ *   deposits          GET /sapi/v1/capital/deposit/hisrec          w1      区间 ≤ 90 天
+ *   withdrawals       GET /sapi/v1/capital/withdraw/history        w18000  区间 ≤ 90 天，10 次/秒
+ *   income            GET /fapi/v1/income                          w30     只存 3 个月，默认只给 7 天
+ *   wallet_transfers  GET /sapi/v1/asset/transfer                  w1      回溯 6 个月，**type 必填**
+ *   earn_rewards      GET /sapi/v1/simple-earn/flexible/history/…  w150    区间 ≤ 30 天
+ *   margin_interest   GET /sapi/v1/margin/interestHistory          w1      区间 ≤ 30 天，回溯 90 天
+ *   convert           GET /sapi/v1/convert/tradeFlow               w3000   区间 ≤ 30 天，起止必填
+ *   dust              GET /sapi/v1/asset/dribblet                  w1      —
+ *
+ * 由此得到两条决定页面形状的结论：
+ *   ① 整条时间线真正可信的窗口 = 各来源上限的交集 = 30 天（被理财派息 / 杠杆利息 /
+ *      闪兑卡住），不是想翻多久就翻多久；
+ *   ② 钱包划转必须按 type 逐个问（约 40 种），一次"全量刷新"是几十次调用，
+ *      提现那一个的 weight 还是 18000。刷新在这一页不是免费的，界面要说出来。
+ * ------------------------------------------------------------------ */
+
+export type LedgerKind =
+  // 外部进出：改变本金，但不是盈亏
+  | 'deposit' | 'withdraw'
+  // 内部搬运：净值不变
+  | 'transfer'
+  // 真正的损益
+  | 'realized_pnl' | 'funding_fee' | 'commission' | 'referral_kickback' | 'insurance_clear'
+  | 'earn_reward' | 'margin_interest'
+  // 币种之间换手：净值基本不变，但两边资产都动
+  | 'convert' | 'dust'
+
+/**
+ * 三类的经济含义完全不同，筛选按它分而不是按接口分：
+ *   external  钱真正进出账户，改变本金但不是盈亏
+ *   income    不动本金的损益
+ *   internal  净值不变，只是换了个钱包或换了个币种
+ */
+export type LedgerGroup = 'external' | 'income' | 'internal'
+
+export type LedgerEntry = {
+  id: string
+  kind: LedgerKind
+  group: LedgerGroup
+  /** 这条记录是哪个接口给的。合并出来的流水，出处必须跟着走 */
+  source: SourceKey
+  time: string
+  asset: string
+  /** 合约收支才有：同一时刻三个永续一起结算资金费，不写 symbol 就分不清哪条是哪条 */
+  symbol: string | null
+  /**
+   * 正 = 入账，负 = 出账（对该资产而言）。
+   * 划转是个例外：它是一条"从哪搬到哪"的记录而不是两条腿，amount 记搬动的量，
+   * 净值不因它改变——所以任何净额都不能把它算进去。
+   */
+  amount: number
+  value_usd: number | null
+  wallet: WalletKind | null
+  /** 划转的对手方钱包 */
+  counterparty: WalletKind | null
+  /** 闪兑与小额兑换：换出去的那一边 */
+  from_asset: string | null
+  from_amount: number | null
+  from_value_usd: number | null
+  network: string | null
+  tx_id: string | null
+  status: 'confirmed' | 'pending' | 'failed'
+}
+
+/** 每个来源自己的窗口限制。这是页面内容的一部分，不是脚注 */
+export type LedgerSourceWindow = {
+  key: SourceKey
+  endpoint: string
+  weight: number
+  /** 单次调用允许的最大区间（天）；接口没限制为 null */
+  max_window_days: number | null
+  /** 最多回溯多少天；接口未声明为 null */
+  lookback_days: number | null
+  /** 需要枚举参数才能取全时，写清楚枚举的是什么 */
+  fanout: string | null
+  /** covering 整个窗口需要调几次。划转要按 type 枚举，一次就是几十下 */
+  calls: number
+}
+
+export type LedgerWindow = {
+  from: string
+  to: string
+  days: number
+  /** 单次可查的上限，等于各来源上限里最小的那个 */
+  max_days: number
+  /** 卡住上限的是哪一个来源 */
+  limited_by: SourceKey
+}
+
+export type LedgerSnapshot = {
+  as_of: string | null
+  sources: SourceState[]
+  windows: LedgerSourceWindow[]
+  window: LedgerWindow
+  entries: LedgerEntry[]
 }

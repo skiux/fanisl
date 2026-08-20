@@ -66,7 +66,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
             const current = item.key === page
             if (!item.enabled) {
               return (
-                <span className="cursor-default text-xs text-ink-3/50" key={item.key} title="尚未实现">
+                <span className="cursor-default whitespace-nowrap text-xs text-ink-3/50" key={item.key} title="尚未实现">
                   {item.label}
                 </span>
               )
@@ -75,7 +75,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
               <a
                 aria-current={current ? 'page' : undefined}
                 className={cn(
-                  'text-xs transition-colors duration-200',
+                  'whitespace-nowrap text-xs transition-colors duration-200',
                   current ? 'text-ink' : 'text-ink-3 hover:text-ink-2',
                 )}
                 href={hrefOf(item.key)}
@@ -89,7 +89,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
 
         <div className="ml-auto flex items-center gap-3">
           {controls}
-          <a className="text-xs text-ink-3 transition-colors hover:text-ink-2" href="/">知识库</a>
+          <a className="whitespace-nowrap text-xs text-ink-3 transition-colors hover:text-ink-2" href="/">知识库</a>
           <ThemeToggle />
         </div>
       </div>

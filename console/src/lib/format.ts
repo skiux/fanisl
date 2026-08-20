@@ -126,6 +126,34 @@ export const SOURCE_LABEL: Record<string, string> = {
   algo_open: '策略单',
   order_history: '历史委托',
   trade_history: '成交记录',
+  deposits: '充值记录',
+  withdrawals: '提现记录',
+  wallet_transfers: '钱包划转',
+  earn_rewards: '理财派息',
+  margin_interest: '杠杆利息',
+  convert: '闪兑记录',
+  dust: '小额兑换',
+}
+
+export const LEDGER_KIND_LABEL: Record<string, string> = {
+  deposit: '充值',
+  withdraw: '提现',
+  transfer: '钱包划转',
+  realized_pnl: '已实现盈亏',
+  funding_fee: '资金费',
+  commission: '手续费',
+  referral_kickback: '返佣',
+  insurance_clear: '保险清算',
+  earn_reward: '理财派息',
+  margin_interest: '杠杆利息',
+  convert: '闪兑',
+  dust: '小额兑换',
+}
+
+export const LEDGER_GROUP_LABEL: Record<string, string> = {
+  external: '进出',
+  income: '收支',
+  internal: '内部',
 }
 
 /** 归因瀑布里每一项的语义色：中性项不该染成盈亏色 */
