@@ -393,8 +393,20 @@ gcloud 凭据和 sudo。代价用上面的 ACL 消掉了，就没必要省这一
 cd /opt/fanisl/backend
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
-.venv/bin/pip install .
+.venv/bin/pip install -e .        # -e 是关键，见下
 ```
+
+> **必须是 `-e`（可编辑安装）。** 不带 `-e` 会把代码拷进 `site-packages`，之后 `git pull`
+> 更新的是 `src/`，而服务跑的仍是安装当天那份快照——**`git pull` + `restart` 变成空操作，
+> 且毫无迹象**。2026-08-21 排查发现服务器自部署起一直跑着旧代码，期间的多次修复一个都没生效，
+> 是从 traceback 里的 `.../site-packages/analyzer/...` 路径才看出来的。
+>
+> systemd unit 里另配了 `Environment=PYTHONPATH=/opt/fanisl/backend/src` 作冗余：两处任一
+> 被改回去，另一处仍兜得住。改完随时可验（应当打印 `src/` 下的路径，不是 site-packages）：
+>
+> ```bash
+> cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c "import analyzer, analyzer.knowledge.daily as d; print(analyzer.__file__); print(d.__file__)"
+> ```
 
 ### 3.2 .env
 
@@ -736,8 +748,13 @@ Node 20：`curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash - && sud
 ```bash
 # ── 在【服务器】上跑 ──
 git -C /opt/fanisl pull
-/opt/fanisl/backend/.venv/bin/pip install -e /opt/fanisl/backend   # 依赖有变时
 sudo systemctl restart fanisl-collector fanisl-api
+# 依赖有变（pyproject 改过）时才需要重装：
+# /opt/fanisl/backend/.venv/bin/pip install -e /opt/fanisl/backend
+
+# 确认跑的确实是新代码——路径必须落在 src/ 下
+cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c \
+  "import analyzer; print(analyzer.__file__)"
 ```
 
 ### schema —— 唯一真正的坑
@@ -841,6 +858,8 @@ gsutil rsync -r /opt/fanisl/backups gs://<bucket>/fanisl-backups
 1. `docker ps` 里 `fanisl-pg` 是 `Up`，且 `ss -lntp | grep 5432` 只绑 127.0.0.1
 2. 三个库都在：`psql -h 127.0.0.1 -U fanisl -l | grep fanisl`
 2b. `SHOW max_locks_per_transaction` = 512，`SHOW jit` = off（§1.1 调过参）
+2c. `import analyzer; print(analyzer.__file__)` 落在 `/opt/fanisl/backend/src/` 下，
+   **不是** `site-packages`（§3.1；否则 git pull 全是空操作）
 3. 12 张表行数与本机一致（§2.5）
 4. `timescaledb_information.jobs` 里没有 `policy_retention`（§2.6；job 1/3 是系统内建，保留）
 5. 冒烟自检打印 `pools ok True True True`（§3.2）

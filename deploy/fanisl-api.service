@@ -8,6 +8,11 @@ Type=simple
 User=fanisl
 Group=fanisl
 WorkingDirectory=/opt/fanisl/backend
+# 让 git 树成为运行中的代码。少了这行，服务会解析到 pip install 拷进 site-packages 的
+# 那份快照，于是 git pull + restart 变成空操作，而且毫无迹象——2026-08-21 排查发现
+# 服务器自部署起一直跑着安装当天的旧代码。装成可编辑（pip install -e .）也能达到同样
+# 效果，两者同时做是有意的冗余：任一处被改回去，另一处仍然兜得住。
+Environment=PYTHONPATH=/opt/fanisl/backend/src
 # .env 在 WorkingDirectory 下，pydantic-settings 自动读取
 # 服务拆分后 API 不再起采集/交易调度（那些在 fanisl-collector / fanisl-trader）。
 # 因此这里可以安全地用多 worker 扩并发（如 --workers 2/4）；后台单实例的约束在 worker 单元里。
