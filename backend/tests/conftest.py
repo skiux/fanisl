@@ -6,6 +6,23 @@
 
 import os
 
+# **测试永不读 .env 里的真实连接串。** analyzer.runtime 在模块级就开三个池，而
+# test_keyframe_api 这类只想要一个纯函数的用例会因为 import analyzer.main 把它带进来。
+# 2026-08-19 撞过：本机 .env 的知识库指向服务器隧道，隧道一断，整个测试会话在**收集阶段**
+# 就 PoolTimeout 失败，报错还落在一个声明"不碰真库"的文件上。
+#
+# 注意不能用环境变量覆盖：config.settings_customise_sources 有意把 dotenv 排在 env 之前
+# （防止 shell 里残留的 ANTHROPIC_* 劫持项目配置），所以 .env 会压过 os.environ。
+# 它留的测试入口是 init_settings——直接构造 Settings(...) 传参，那一路优先级最高。
+# 这段必须在任何 analyzer 子模块被导入之前执行：runtime 里的 `from .config import
+# get_settings` 是在它自己被导入那一刻绑定的，晚于此处。
+import analyzer.config as _cfg  # noqa: E402
+
+_TEST_DB = os.environ.get("FANISL_TEST_CONNINFO", "dbname=fanisl_test")
+_test_settings = _cfg.Settings(pg_conninfo=_TEST_DB, pg_trading_conninfo=_TEST_DB,
+                               pg_knowledge_conninfo=_TEST_DB)
+_cfg.get_settings = lambda: _test_settings
+
 import psycopg
 import pytest
 

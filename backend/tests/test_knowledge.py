@@ -769,6 +769,7 @@ def test_daily_ingests_all_three_sources_before_scoring(monkeypatch):
     monkeypatch.setattr(dailymod.estimates, "refresh", lambda *a, **k: (order.append("estimates"), {"stored": 0, "tried": 0})[1])
     monkeypatch.setattr(dailymod.scorers, "run", lambda **k: order.append("scorers"))
     monkeypatch.setattr(dailymod, "price_since", lambda pool: __import__("datetime").date(2026, 5, 1))
+    monkeypatch.setattr(dailymod, "ingest_since_days", lambda pool, h, **k: 4)
     monkeypatch.setattr(dailymod, "NodeStore", lambda pool: type("N", (), {"recompute": lambda s: {}})())
     monkeypatch.setattr(dailymod, "KnowledgeStore", lambda pool: object())
     monkeypatch.setattr(dailymod.backfill_keyframes, "fill_gaps", lambda *a, **k: 0)
@@ -777,7 +778,7 @@ def test_daily_ingests_all_three_sources_before_scoring(monkeypatch):
 
     assert [h for h, _ in ingested] == ["@andyleegogo", "@MeiTouJun", "@yttalkjun"], \
         "三个信源都要扫，漏一个就是那个频道永久断更"
-    assert all(kw["since_days"] == 3 for _, kw in ingested), "窗口留 3 天容错，不能是 1 天"
+    assert all(kw["since_days"] >= 2 for _, kw in ingested), "窗口按缺口算，且不低于下限 2 天"
     assert all(kw["max_new"] == 5 for _, kw in ingested), "护栏：异常放量时停下来让人看"
     assert order.index("ingest") < order.index("scorers"), "摄取必须排在评分之前"
 
@@ -798,6 +799,7 @@ def test_daily_continues_when_one_source_fails(monkeypatch):
     monkeypatch.setattr(dailymod.estimates, "refresh", lambda *a, **k: {"stored": 0, "tried": 0})
     monkeypatch.setattr(dailymod.scorers, "run", lambda **k: seen.append("scorers"))
     monkeypatch.setattr(dailymod, "price_since", lambda pool: __import__("datetime").date(2026, 5, 1))
+    monkeypatch.setattr(dailymod, "ingest_since_days", lambda pool, h, **k: 4)
     monkeypatch.setattr(dailymod, "NodeStore", lambda pool: type("N", (), {"recompute": lambda s: {}})())
     monkeypatch.setattr(dailymod, "KnowledgeStore", lambda pool: object())
     monkeypatch.setattr(dailymod.backfill_keyframes, "fill_gaps", lambda *a, **k: 0)
@@ -806,3 +808,32 @@ def test_daily_continues_when_one_source_fails(monkeypatch):
 
     assert "@yttalkjun" in seen, "一个信源失败后，后面的信源仍要继续"
     assert "scorers" in seen, "摄取失败不影响评分等后续环节"
+
+
+def test_ingest_window_covers_the_whole_gap(kstore):
+    """窗口按缺口算：停机多久就回看多久，不会静默漏掉中间的内容。
+
+    固定窗口（"近 N 天"）的失效模式是无声的——collector 停机超过 N 天，中间那几期
+    在频道清单里仍在、库里却永远不会有，事后也没有任何迹象。
+    """
+    import datetime as _dt
+
+    import analyzer.knowledge.daily as dailymod
+
+    cid = kstore.ensure_creator("窗口信源")
+    kstore.ensure_handle(cid, "youtube", "@gaptest")
+    kstore.upsert_content(cid, platform="youtube", url="https://y/gap1", content_type="video",
+                          title="最新一期", published_at=_dt.datetime(2026, 8, 1, tzinfo=_dt.timezone.utc),
+                          raw="判断")
+    now = _dt.datetime(2026, 8, 20, tzinfo=_dt.timezone.utc)
+
+    days = dailymod.ingest_since_days(kstore.pool, "@gaptest", now=now)
+    assert days >= 19, f"8/1 到 8/20 的缺口是 19 天，窗口必须覆盖全部，实得 {days}"
+
+    # 刚更新过也不会缩到 0——下限保证时区差不会造成漏抓
+    kstore.upsert_content(cid, platform="youtube", url="https://y/gap2", content_type="video",
+                          title="今天这期", published_at=now, raw="今天的判断")
+    assert dailymod.ingest_since_days(kstore.pool, "@gaptest", now=now) == dailymod.INGEST_MIN_DAYS
+
+    # 库里没有该信源的内容时给一个有限的起步窗口，而不是 0 或无穷
+    assert dailymod.ingest_since_days(kstore.pool, "@never-seen", now=now) == 30

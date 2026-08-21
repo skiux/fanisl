@@ -23,13 +23,27 @@ SINCE_FLOOR = dt.date(2026, 5, 1)   # 语料为空时的兜底起点
 SINCE_LEAD_DAYS = 30                # 行情要比最早那期再往前留出的缓冲
 KEYFRAME_GAP_LIMIT = 20       # 每日最多补几条内容的帧（别让日维护变成长批处理）
 
-# 摄取新内容：每天扫一次三个信源的近 3 天。窗口取 3 天而不是 1 天是为了容错——
-# 某天 collector 没跑或转录失败，次日还能补上，不至于差一天就永久漏掉一期。
-# 幂等由 contents.dedup_hash 保证，重复扫到的不会二次入库。
-# max_new 是护栏：正常一天 0-2 期，真出现五期以上说明窗口或频道有异常，宁可停下来让人看。
+# 摄取新内容：窗口按**缺口**算，不用固定天数。
+# 固定窗口（比如"近 3 天"）有个静默失效的模式：collector 停机或转录连续失败超过窗口长度，
+# 中间那几期就永久漏掉了，而且事后没有任何迹象——频道清单里它们仍在，库里却永远不会有。
+# 改成"从该信源最新一期的发布日算到现在"，停多久就补多久，自愈。
 INGEST_HANDLES = ["@andyleegogo", "@MeiTouJun", "@yttalkjun"]
-INGEST_SINCE_DAYS = 3
-INGEST_MAX_NEW = 5
+INGEST_MIN_DAYS = 2      # 下限：至少回看两天，容忍发布时间与抓取时间的时区差
+INGEST_MAX_NEW = 5       # 每信源每轮上限。缺口很大时分几天追平，而不是一轮拉满
+
+
+def ingest_since_days(pool, handle: str, *, now: dt.datetime | None = None) -> int:
+    """该信源"最新一期距今多少天"，即需要回看的窗口。库里没有该信源的内容时回看 30 天。"""
+    now = now or dt.datetime.now(dt.timezone.utc)
+    with pool.connection() as conn:
+        row = conn.execute(
+            """SELECT max(c.published_at) AS last FROM contents c
+               JOIN creator_handles h ON h.creator_id = c.creator_id
+               WHERE h.handle = %s""", (handle,)).fetchone()
+    last = row and row["last"]
+    if last is None:
+        return 30
+    return max(INGEST_MIN_DAYS, (now - last).days + 1)
 
 
 def price_since(pool) -> dt.date:
@@ -54,8 +68,9 @@ def run_daily(pool) -> None:
     # 视频删了就永远没了，而 L0 是整条链的地基。
     for handle in INGEST_HANDLES:
         try:
-            backfill_transcripts.run(handle, since_days=INGEST_SINCE_DAYS,
-                                     max_new=INGEST_MAX_NEW)
+            days = ingest_since_days(pool, handle)
+            log.info("知识引擎日维护：%s 回看 %d 天", handle, days)
+            backfill_transcripts.run(handle, since_days=days, max_new=INGEST_MAX_NEW)
         except Exception:
             log.exception("知识引擎日维护：%s 摄取失败（继续下一个信源）", handle)
 
