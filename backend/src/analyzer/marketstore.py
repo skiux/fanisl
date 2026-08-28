@@ -7,10 +7,16 @@
 
 from __future__ import annotations
 
+import logging
+
+import psycopg
+
 import json
 from dataclasses import dataclass
 
 from psycopg_pool import ConnectionPool
+
+log = logging.getLogger("analyzer.marketstore")
 
 GLOBAL = "GLOBAL"  # scope=global 的 symbol 占位
 
@@ -84,7 +90,19 @@ class MarketStore:
     def init_db(self) -> None:
         with self.pool.connection() as conn:
             conn.execute(_SCHEMA)
-            self._ensure_timescale(conn)
+        # **必须另开一个事务**：扩展缺失时 create_hypertable 报错会中止当前事务，
+        # 与建表放在一起的话，捕获异常也救不回来——_SCHEMA 建的表会被一并回滚，
+        # 后续报的是 relation "collection_runs" does not exist，与真正的原因隔了一层。
+        try:
+            with self.pool.connection() as conn:
+                self._ensure_timescale(conn)
+        except psycopg.errors.UndefinedFunction:
+                # 扩展没装：metric_samples 退化成普通表，读写照常，只是没有分块与压缩。
+                # 不能让它硬崩——runtime 在模块级就构造 MarketStore，崩了会连带
+                # 整个 app（以及只想用一个纯函数的测试）都起不来。
+                # 服务器上扩展是装了的，这条分支只影响开发机与全新环境。
+                log.warning("metric_samples 未启用 timescaledb（扩展不可用），"
+                            "按普通表运行：无分块、无压缩、无 retention 策略")
 
     def _ensure_timescale(self, conn) -> None:
         """把 metric_samples 变 hypertable + 配压缩 + 注册 retention 策略（全幂等）。"""

@@ -61,19 +61,32 @@ def _tfview(price: float, rsi: float) -> TimeframeView:
     )
 
 
+# timescaledb 只有 metric_samples 那张 hypertable 需要，37 个测试文件里仅 4 个碰得到。
+# 开发机上装它要加 tap、搬扩展库、改 shared_preload_libraries——为 4 个文件不值当。
+# 缺了就跳过那 4 个，其余照跑。
+HAS_TIMESCALE = False
+
+
 def _bootstrap_conninfo() -> str:
-    """确保测试库 + timescaledb 扩展存在，返回 conninfo。"""
+    """确保测试库存在（timescaledb 有则启用，无则降级），返回 conninfo。"""
+    global HAS_TIMESCALE
     if "FANISL_TEST_CONNINFO" in os.environ:
-        return os.environ["FANISL_TEST_CONNINFO"]
-    with psycopg.connect("dbname=postgres", autocommit=True) as c:
-        exists = c.execute(
-            "SELECT 1 FROM pg_database WHERE datname='fanisl_test'"
-        ).fetchone()
-        if not exists:
-            c.execute("CREATE DATABASE fanisl_test")
-    with psycopg.connect("dbname=fanisl_test", autocommit=True) as c:
-        c.execute("CREATE EXTENSION IF NOT EXISTS timescaledb")
-    return "dbname=fanisl_test"
+        conninfo = os.environ["FANISL_TEST_CONNINFO"]
+    else:
+        with psycopg.connect("dbname=postgres", autocommit=True) as c:
+            exists = c.execute(
+                "SELECT 1 FROM pg_database WHERE datname='fanisl_test'"
+            ).fetchone()
+            if not exists:
+                c.execute("CREATE DATABASE fanisl_test")
+        conninfo = "dbname=fanisl_test"
+    with psycopg.connect(conninfo, autocommit=True) as c:
+        try:
+            c.execute("CREATE EXTENSION IF NOT EXISTS timescaledb")
+            HAS_TIMESCALE = True
+        except psycopg.errors.Error:
+            HAS_TIMESCALE = False
+    return conninfo
 
 
 @pytest.fixture(scope="session")
@@ -85,7 +98,14 @@ def pool():
 
 @pytest.fixture
 def store(pool):
-    """隔离的 MarketStore：建表后清空时间序列/催化剂/日志。"""
+    """隔离的 MarketStore：建表后清空时间序列/催化剂/日志。
+
+    需要 timescaledb（metric_samples 是 hypertable）。装了才跑，没装就跳过——
+    别让一个只影响 4 个文件的可选依赖挡住整个测试会话。
+    """
+    if not HAS_TIMESCALE:
+        pytest.skip("本机无 timescaledb 扩展；metric_samples 需要它。"
+                    "装法：brew tap timescale/tap && brew install timescaledb")
     st = MarketStore(pool)
     with pool.connection() as conn:
         conn.execute(
