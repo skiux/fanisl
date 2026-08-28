@@ -1,0 +1,360 @@
+{
+  "content_id": 101,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "所以我的期待是，短中期长期国债的收益率会往下降。",
+      "locator": null,
+      "ref_price": 5.17,
+      "tags": [
+        "us30y",
+        "bond-yields",
+        "fiscal-policy"
+      ],
+      "payload": {
+        "asset_text": "长期国债收益率（作者全期以财政部回购 10-30 年期长债为背景，取 30 年期为代表）",
+        "asset_symbol": "US30Y",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {
+          "type": "within_duration",
+          "duration_days": 21
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": [
+            "2026-09-16"
+          ],
+          "success_def": "2026-09-16（或此前最近交易日）US30Y 收盘 < 5.17（2026-08-25 收盘，发布时间 08-26 12:00 UTC 即美东开盘前）= hit。原文期限词『短中期』按 §3 映射表取 within_duration 21。作者在同一段里同时给出长期向上的相反判断（见本期另一条），两条是他明确区分的两个期限，不是同句两套读法。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那从长期这一个角度去看看的话，我仍然坚持长期的国债收益率应该是向上的。",
+      "locator": null,
+      "ref_price": 5.17,
+      "tags": [
+        "us30y",
+        "bond-yields",
+        "fiscal-policy"
+      ],
+      "payload": {
+        "asset_text": "长期国债收益率（同上，取 30 年期为代表）",
+        "asset_symbol": "US30Y",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {
+          "type": "within_duration",
+          "duration_days": 365
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": [
+            "2027-08-26"
+          ],
+          "success_def": "2027-08-26（或此前最近交易日）US30Y 收盘 > 5.17（2026-08-25 收盘）= hit。原文期限词『长期』按 §3 映射表取 within_duration 365。与本期短中期向下的那条是作者自己区分的两个期限。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以把这些全部综合在一起，我们知道美股市场里面做多是一个长期趋势。",
+      "locator": "04:32",
+      "ref_price": 7677.28,
+      "tags": [
+        "spx",
+        "market-structure",
+        "fiscal-policy"
+      ],
+      "payload": {
+        "asset_text": "美股市场（作者未指明指数，我方以标普 500 为代理）",
+        "asset_symbol": "SPX",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {
+          "type": "within_duration",
+          "duration_days": 365
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": [
+            "2027-08-26"
+          ],
+          "success_def": "2027-08-26（或此前最近交易日）收盘 > 7677.28（2026-08-25 收盘）= hit。作者未指明指数，标普 500 系我方指定代理，故为 C 而非 B；原文期限词『长期』按 §3 映射表取 within_duration 365。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "所以在这种情况下，如果你未来三年，EPS 增速在 12% 到 15% 左右的话，可能匹配的最多就是 20x 以内这个估值，已经最高了。",
+      "locator": "10:40",
+      "tags": [
+        "intu",
+        "software",
+        "valuation"
+      ],
+      "payload": {
+        "asset_text": "Intuit 未来三年 bottom line EPS 增速（作者判 12%-15%；这是基本面预测，不是价格序列，我方行情库无对应序列）",
+        "asset_symbol": "INTU",
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": null,
+        "magnitude": {
+          "pct_low": 12,
+          "pct_high": 15
+        },
+        "horizon": {
+          "type": "within_duration",
+          "duration_days": 365
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那所以美国现在已经是一个高度政治的一个市场。而无论是左派还是右派执政，已经不允许进入正常的经济周期了，我们不会有衰退，或者尽量去避免衰退。一旦有任何衰退这些信号，马上就降息或者进行 QE。",
+      "locator": "04:32",
+      "tags": [
+        "fiscal-policy",
+        "fed-policy",
+        "market-structure",
+        "spx"
+      ],
+      "payload": {
+        "canonical_statement": "美国已是高度政治化的市场：无论左派还是右派执政都不允许进入正常的经济周期，一旦出现衰退信号就立即降息或 QE。叠加政府拥有近乎无限的印钱/借钱能力并能自行调整利率，在不断融资的前提下它必然尽量压低自己的融资成本（这也是特朗普要求降息的动机）。作者据此反驳德鲁肯米勒『收益率是美国仅存的财政纪律约束机制、应接受 5.5% 的账单而不干预』的批评——财政纪律是正确的废话，而德鲁肯米勒本人既享受美股红利也捐政治献金、清楚政治的分量。由此得出美股做多是长期趋势，理由两点：美国市场集聚了最好的公司；在美元信用出现裂缝之前，政府、财政部与美联储会尽一切力量救市。",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "以美元信用未出现裂缝为前提"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我这边看的是 Forward P/E，那从 21 年到现在，英伟达的估值其实，最近这段直到周二的收盘看，18.9 倍，19 倍都不到。18.9x 或者是 18.9 倍。18.9 倍什么概念？过去五年多以来，几乎是在一个最低点。",
+      "locator": "05:49",
+      "tags": [
+        "nvda",
+        "valuation",
+        "ai-capex"
+      ],
+      "payload": {
+        "canonical_statement": "截至 2026-08-25 收盘，英伟达 forward PE 为 18.9 倍，是 2021 年以来五年多的几乎最低点。配套读数：市场预计 FY27 Q2 EPS 增速 100%、FY27 全年 89%、FY28 45%、FY29 24%；静态 PE 30.3 倍，PEG 明显小于 1；按 FY29 盈利算 forward PE 只有 13 倍。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "EPS 增速为市场一致预期，非作者自估"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "但是这个趋势是不会改变，就是有能力的这些大云厂商，或者这些自研或者这些模型厂商，都，都在做自研芯片。因为未来就是一个 inference 的一个时代，而这些大厂或者或者这些前沿模型，他们不希望把这 75%，70%、75% 的这个 margin，这个利润给英伟达去赚。",
+      "locator": null,
+      "tags": [
+        "nvda",
+        "semiconductor-cycle",
+        "ai-capex",
+        "compute-pricing"
+      ],
+      "payload": {
+        "canonical_statement": "推理（inference）时代到来后，有能力的大云厂商与前沿模型厂商做自研芯片是不可逆的趋势，动机是不愿把 70%-75% 的毛利让给英伟达。谷歌 TPU 已经开始外卖、亚马逊 Trainium 也将外卖，会对 GPU 市场造成冲击。作者认为这不动摇英伟达的基本面。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以英伟达去培养他下面的客户，下一代的客户。下一代的客户是谁？星云 Neocloud。这就是为什么他会为去为这些新，新云他们未来购买的这些 GPU 的一个剩余价，这个尾部风险去进行一个担保。目的就是为了去降低这些星云的一个融资成本。使这些星云的融资成本可以和这些大厂的融资成本是一样的，然后他们通过借钱可以去扩宽，可以去购买更多的 GPU。",
+      "locator": null,
+      "tags": [
+        "nvda",
+        "neocloud",
+        "gpu-depreciation",
+        "datacenter-financing"
+      ],
+      "payload": {
+        "canonical_statement": "英伟达为 Neocloud 未来采购的 GPU 提供剩余价值（尾部风险）担保，不应只读作英伟达承担了额外风险、因而压低估值；其目的是把这些新云的融资成本降到与大厂同一水平，使它们能借钱扩张、买更多 GPU——即在大厂转向自研芯片时培养下一代客户。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "从过去几年这个观察，我觉得我们可以得出一个结论是，对于未来的这个需求，或者整个芯片的一个走势和走向，老黄在整个行业里面起码领先了他那个竞争者一年到两年。",
+      "locator": null,
+      "tags": [
+        "nvda",
+        "semiconductor-cycle",
+        "moat"
+      ],
+      "payload": {
+        "canonical_statement": "根据过去几年的观察，黄仁勋对未来需求与整个芯片走向的判断，在行业里至少领先竞争者一到两年。作者以此作为不担心英伟达基本面的主要依据（与管理层愿景一并）。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我跟大家强调过很多次，PCE 我们不需要去太过于关注。为什么？因为 PCE 它是一个结果，它是 CPI 数据和 PPI 数据的一个结果。市场会对于 CPI 数据和 PPI 数据做出一个反应。那如果 PPI 数据不好，市场会，上涨或者下跌。CPI 也是一样。但是市场很少会对于 PCE 做出反应。",
+      "locator": "17:49",
+      "tags": [
+        "macro-data",
+        "inflation",
+        "market-structure"
+      ],
+      "payload": {
+        "canonical_statement": "PCE 不值得过度关注：它是 CPI 与 PPI 计算出来的结果，市场已经在 CPI 与 PPI 发布时反应过了，很少再对 PCE 反应。若要读，也不能只看四舍五入后的 0.2%——0.16% 算好，0.24% 只是可以接受但不好，因为 0.24% 年化后超过 3%。",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "告诉你的这个答案是在，因为它是调整之后的每股收益，那在之后，2027 财年开始，调整之后的一个每股收益，将会包括 SBC。这其实是一个更好的一個会计调整。如果说我们把 SBC 的这个影响加回去的话，其实整个 26 财年 27 财年，他们 EPS 这个体量是比市场预期要高的。",
+      "locator": "09:39",
+      "tags": [
+        "intu",
+        "software",
+        "valuation"
+      ],
+      "payload": {
+        "canonical_statement": "Intuit FY27 指引的 EPS 大幅 miss（22.88-23.12 美元 vs 市场预期 27.27 美元）来自会计口径变化：自 FY27 起 adjusted EPS 将包含 SBC——这本身是更好的会计调整。把 SBC 影响加回去后，FY26 与 FY27 的 EPS 体量其实高于市场预期。同期营收指引 232.8-235.1 亿 vs 预期 238.2 亿，miss 幅度小得多。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "最后一点，损失低端的用户非常的严重，这这一块有一点点和 Adobe 类似。我不是说这两，这两家公司的业务其实是天差地别。但是从低端用户这一块的损失，Adobe 也是看到了低端用户这一块的损失。",
+      "locator": "13:17",
+      "tags": [
+        "intu",
+        "software",
+        "ai-agent",
+        "consumer"
+      ],
+      "payload": {
+        "canonical_statement": "AI 对 Intuit 的冲击落在低端用户而不是运营效率上：TurboTax DIY 与 QuickBooks 的低端用户对软件本身依赖性不强、AI 替代性大，流失严重（与 Adobe 看到的低端用户流失同型，尽管两家业务天差地别）。同时 GBS 业务的长期营收增速指引从 15%-20% 下调到 10%-15%，作者认为单这一项就足以杀掉一到二倍估值，盘后跌 10% 非常合理。另一面是运营效率仍在：因 FY26 裁员，FY27、FY28 的 margin 会持续扩张；税务+金融+中端市场三块占总营收 30%、同比增速 34%。管理层的应对是推出免费版本先把顶端流量拿回来，再靠其他产品变现。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "所以对于我们股市参与者来说，我们唯一且只需要知道的是，不用和，就不需要和财政部去对着干，我们只需要知道如果市场和财政部去对着干的话，那你可以去选择对利率比较敏感的一些标的。那如果利率下跌的话，这些标地会出现上涨。可以去布局这些标的。",
+      "locator": "03:43",
+      "tags": [
+        "bond-yields",
+        "fiscal-policy",
+        "execution",
+        "rotation"
+      ],
+      "payload": {
+        "name": "不与财政部对抗，改配利率敏感标的",
+        "summary": "财政部明确表态要压低长债收益率时站在财政部一边，通过买利率敏感标的表达，而不是直接去做多债券",
+        "family": "event",
+        "rules": [
+          "当财政部明确表态要压低长端收益率（如贝森特宣布扩大回购）时，在市场与财政部之间选择站财政部一边",
+          "不要因为回购当天收益率下跌、第二天就反弹，就得出『市场不听贝森特』的结论——短期之内市场没有办法对抗财政部",
+          "表达方式不是直接做多长债 ETF（作者认为多做 TLT 没有太大必要、噪音居多），而是选对利率比较敏感的标的：利率下跌时这些标的会上涨",
+          "参照先例：2022 年 11 月耶伦针对长债的 Pivot 是同类事件",
+          "识别动机以判断持续性：作者猜测本次干预与中期选举有关——YTD 收益率上升幅度很大、影响 affordability，因此有压低长债的政治需要"
+        ],
+        "claimed_performance": null,
+        "data_requirements": [
+          "财政部回购/发债结构公告",
+          "标的对利率的敏感度（久期或历史 beta）"
+        ],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "但同时你去看看它一个营收，232.8 亿至 235.1 亿，市场预期是 238.2 亿，其实营收这一块并没有非常大的这个 miss。虽然比市场预期低了那么一点点，但并没有低非常的多。而如果营收没有低非常的多，EPS 体量却低了非常的多，你就知道这背后 EPS 的体量可能是有些问题的。",
+      "locator": "09:39",
+      "tags": [
+        "execution",
+        "valuation",
+        "software",
+        "intu"
+      ],
+      "payload": {
+        "name": "营收与 EPS 的 miss 幅度不匹配时先查口径",
+        "summary": "指引里营收只小幅 miss 而 EPS 大幅 miss，先假定是会计口径变化而不是基本面塌陷，去财报会议里找答案",
+        "family": "event",
+        "rules": [
+          "把指引里营收的 miss 幅度与 EPS 的 miss 幅度并排比（此例营收 232.8-235.1 亿 vs 预期 238.2 亿，仅小幅低；EPS 22.88-23.12 vs 预期 27.27，大幅低）",
+          "两者幅度明显不匹配时，先怀疑 EPS 的口径有问题，而不是先下基本面结论",
+          "去财报电话会议里找口径变化的说明（此例：FY27 起 adjusted EPS 开始包含 SBC）",
+          "把口径影响还原回去再与市场预期比（还原后 FY26、FY27 的 EPS 体量其实高于预期）",
+          "反向提醒：口径变化本身可能是更好的会计处理，不构成负面"
+        ],
+        "claimed_performance": null,
+        "data_requirements": [
+          "公司指引与市场一致预期（营收、EPS）",
+          "财报电话会议纪要"
+        ],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "就正常的一个传统公司，像比如像，必需品消费，非必需品消费里面的一些公司，比如说像，沃尔玛不能算，沃尔玛估值非常的高。比如说像，可口可乐啊，百事可乐之类的一格公司，基本上都是在 20 倍到 25x。但是这类公司，不能和可口可乐和百事去做这个对比，那这类公司，可能未来有一些风险，我们叫 Terminal Value 的最重的一个终值，可能会受到一定的一个影响。",
+      "locator": "10:40",
+      "tags": [
+        "valuation",
+        "software",
+        "intu"
+      ],
+      "payload": {
+        "name": "用三年 EPS 增速映射合理 PE，再按终值风险打折",
+        "summary": "先由未来三年 EPS 增速定 PE 上限，再对终值有风险的行业下调，最后用 PEG 复核",
+        "family": "other",
+        "rules": [
+          "先估未来三年的 bottom line EPS 增速（此例 12%-15%，由营收增速约 10% 加上运营效率推出）",
+          "12%-15% 的 EPS 增速对应的 PE 上限最多 20 倍——参照可口可乐、百事这类传统消费公司常年 20-25 倍（沃尔玛不能用作参照，估值太高）",
+          "但终值（Terminal Value）有风险的行业不能与传统消费直接类比，要在上限之下再打折",
+          "叠加当下市场对该板块的情绪（软件板块情绪很低），得出可接受区间（此例 15-18 倍都算合理，正常情况下 18-20 倍才合理）",
+          "用 PEG 复核：此例盘后下跌前静态 PE 15 倍、增速 12-15%，PEG 约 1.0-1.3，估值并不算低"
+        ],
+        "claimed_performance": null,
+        "data_requirements": [
+          "未来三年 EPS 与营收增速预测",
+          "同类公司 PE 区间",
+          "板块情绪"
+        ],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    }
+  ]
+}
