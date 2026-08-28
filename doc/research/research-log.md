@@ -260,7 +260,7 @@
   fraction，去掉 Coinalyze close×3 近似）+ klines 1d（26.1 万行）；**universe = 起点 ≤2021-12
   的 147 符号含退市名（LUNA/SRM/BAKE…以真实存续期参与）**——幸存者偏差第一次真正修掉，
   PIT 成员资格由数据存在性天然给出。`research/backfill_um_bulk.py`（8 线程、404=正常语义）。
-  顺带解锁的数据层级见 `doc/data-gaps.md` 新节（aggTrades/CVD、bookDepth、5min OI/LSR 2020-09+）。
+  顺带解锁的数据层级见 `doc/data/data-gaps.md` 新节（aggTrades/CVD、bookDepth、5min OI/LSR 2020-09+）。
 - **结果**：
 
   | 段 | 有效周 | 周均净 | CI下限 | 随机分腿上限 | 周>0 | 周均成本 |

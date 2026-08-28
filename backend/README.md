@@ -58,7 +58,9 @@ src/analyzer/
 ├── prompts.py       # 系统提示词：角色与边界
 ├── models.py        # pydantic 快照契约
 ├── storage.py       # PostgreSQL 对话/消息
-├── marketstore.py   # PostgreSQL+TimescaleDB 时间序列(metric_samples hypertable)/催化剂/采集日志
+├── marketstore.py   # PostgreSQL 时间序列/催化剂/采集日志。metric_samples 用 TimescaleDB
+│                    #   hypertable，但**扩展缺失时自动退化成普通表**（无分块/压缩/retention，
+│                    #   读写照常，只打一条 warning）——开发机因此不必装 timescaledb
 ├── db.py            # 连接池（psycopg_pool）
 ├── runtime.py       # 进程级单例：三个库的池 + agent/交易服务（import 时即建池）
 ├── flatten.py       # 模型 → 入库行（纯函数）
@@ -105,23 +107,23 @@ src/analyzer/
   - **期权情绪**（`DeribitSource`，**无需 key**）：PCR / max pain / DVOL·ATM IV / IV skew / OI 行权价堆积。
   - **爆仓数据**（`CoinalyzeSource`，免费 key，聚合多所）：填 `COINALYZE_API_KEY` 才启用。
   - 这两类由 `factory.build_crypto_sentiment` 组装成 `CryptoSentiment`，在快照工具里 best-effort 调用。
-- 爆仓**热力图**（磁吸位预测）= Coinglass 付费独家，见 `../doc/data-gaps.md`，订阅后再接。
+- 爆仓**热力图**（磁吸位预测）= Coinglass 付费独家，见 `../doc/data/data-gaps.md`，订阅后再接。
 
 **情绪与注意力（Part 3）+ 链上（Part 4）**：也进 `get_market_snapshot`（仅加密）的 `sentiment` / `onchain` 块，
 都挂在 `CryptoSentiment` bundle 上（`build_crypto_sentiment` 组装），best-effort：
 - `sentiment`：恐惧贪婪指数（Alternative.me，无 key）✅；社交热度（LunarCrush，**API 已转付费**，暂缺）。
 - `onchain`：稳定币供应 + 公链 TVL（DefiLlama，无 key）✅、BTC 网络使用度（Blockchain.info，无 key）✅。
-- 高价值链上（交易所流向/MVRV/SOPR/巨鲸标签）多为付费，见 `../doc/data-upgrades.md`。
+- 高价值链上（交易所流向/MVRV/SOPR/巨鲸标签）多为付费，见 `../doc/data/data-upgrades.md`。
 
 **事件与催化剂（Part 2，`get_catalysts` 工具）**：与价格正交、需推理的维度。独立于行情快照。
 - `data/catalysts.py` — provider 抽象（解锁/宏观/事件/新闻/ETF 流）+ `Catalysts` 集合。
 - `data/defillama_source.py` — 代币解锁（DefiLlama 数据集 CDN，**无需 key**）✅ 已接。
 - 宏观(FRED)/事件(CoinMarketCal)/新闻(CoinDesk Data) 需免费 key，待接；ETF 流无免费源（待订阅）。
-- `factory.build_catalysts` 组装 → `get_catalysts(symbol?)`。免费现状→付费升级见 `../doc/data-upgrades.md`。
+- `factory.build_catalysts` 组装 → `get_catalysts(symbol?)`。免费现状→付费升级见 `../doc/data/data-upgrades.md`。
 
 **新增/更换数据源 3 步**（其余代码不用动）：
 1. 写 `data/xxx_source.py`，继承 `MarketDataSource`，实现 `fetch_ohlcv`（合约源再实现衍生品三项）。
 2. 在 `data/factory.py` 的 `sources` 字典里加一项 `"xxx": XxxSource(...)`。
 3. 在 `data/instruments.py` 用 `_reg([...别名], Instrument(..., provider="xxx", ...))` 登记标的。
 
-当前：加密=OKX(CCXT)、美股/指数/ETF/原油=Polygon、金属=OANDA。缺口见 `../doc/data-gaps.md`。
+当前：加密=OKX(CCXT)、美股/指数/ETF/原油=Polygon、金属=OANDA。缺口见 `../doc/data/data-gaps.md`。

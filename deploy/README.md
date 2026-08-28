@@ -9,6 +9,15 @@
 | 组件 | 方式 | 理由 |
 |---|---|---|
 | PostgreSQL 17 + TimescaleDB | **Docker** | Debian 13(trixie) 上 PG17 + timescale 的 apt 源要自己拼，官方镜像一步到位；数据落宿主卷，升级不动数据 |
+
+> **TimescaleDB 在服务器上装着，但代码里是可选依赖**（2026-08-28）。`metric_samples` 建
+> hypertable 失败时自动退化成普通表——无分块、无压缩、无 retention，读写照常，只打一条
+> warning。所以开发机不必装 timescaledb（homebrew-core 里也没有，要 `brew tap timescale/tap`），
+> 全套测试 288 通过、只 skip 掉 4 个用例需要的 hypertable。
+>
+> 实现上有个坑值得记：`create_hypertable` 必须**另开一个事务**。和建表放在同一个事务里的话，
+> 扩展缺失时它报错会中止整个事务，捕获异常也救不回来——`_SCHEMA` 建的表被一并回滚，
+> 后续报的是 `relation "collection_runs" does not exist`，与真正的原因隔了一层。
 | 后端（api / collector） | **原生 venv + systemd** | 开发还在持续，`git pull` + 重启是秒级；尤其 **yt-dlp 需要频繁升级**（YouTube 一改就得跟），镜像重建是纯摩擦 |
 | 前端 | nginx 提供静态 | 已有构建产物 `frontend/dist` |
 
@@ -888,6 +897,20 @@ systemctl list-timers fanisl-backup            # 看下次触发时间
 > 并把 unit 里的 `EnvironmentFile=` 那行去掉。口令从 `.env` 走，不必存两份。
 > 报 `connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed` 就是
 > 连接信息没传到——现在改为读 `.env`，只要 `tools/check_db.py` 通过，备份就能连上。
+
+### 本机快照（服务器之外的第二份）
+
+服务器上的备份挡不住"连服务器都进不去"。`deploy/pull-snapshot.sh` 把三个库的 dump 与
+全部关键帧一次拉回本机，**按需手动跑，不做定时**——开发机会休眠，定时不可靠。
+
+```bash
+# ── 在【本机】上跑 ── 需要 SSH 隧道之外的直连（脚本自己起 ssh）
+~/fanisl/deploy/pull-snapshot.sh
+```
+
+`KEYFRAME_ROOT` 从服务器 `.env` 读、不写死（服务器上 `data/keyframes` 与
+`data_export/keyframes` 两个目录都在，写死会拉错）；帧用 tar 走 ssh 管道传，
+**服务器没装 rsync 也能跑**。2026-08-28 实测：三库 dump + 702 帧 / 117MB。
 
 `Persistent=true` 让机器关机错过的那次在开机后补跑。`backup.sh` 默认三个库各留最近 14 份。**再往机器外放一份**（GCS bucket 最省事）：
 

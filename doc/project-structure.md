@@ -6,7 +6,8 @@
 核心理念：**先把数据做对**。后端 FastAPI（3 进程）+ React/TS 前端 + PostgreSQL/TimescaleDB。
 
 **三个库，不要混**：`fanisl_knowledge`（知识引擎，13 表，无 TimescaleDB）·
-`fanisl`（行情时序，metric_samples hypertable）· `fanisl_trading`（评测台）。
+`fanisl`（行情时序，metric_samples hypertable；**timescaledb 是可选依赖**，扩展缺失时
+退化成普通表，开发机不装也能跑，只有 4 个用例会 skip）· `fanisl_trading`（评测台）。
 `analyzer.runtime` 在 import 时就打开全部三个池，少一个进程起不来。
 
 ```
@@ -15,9 +16,11 @@ fanisl/
 │   ├── src/analyzer/knowledge/   知识引擎（含 extraction-guide / merge-guide 两份冻结规范）
 │   └── tools/                    运维脚本：check_db / check_sources / check_ingest
 ├── frontend/     React + TS + Vite 前端
-├── deploy/       部署指南 + systemd 单元 + nginx + .env 模板 + backup.sh
+├── deploy/       部署指南 + systemd 单元 + nginx + .env 模板
+│                 + backup.sh（服务器备份）+ auto-update.sh（自动更新）
+│                 + pull-snapshot.sh（拉本机快照）
 ├── data_export/  提取产物（knowledge_units 的 JSON 是"人参与那一步"的凭据与重放日志）
-│                 + keyframes（gitignore）+ 周报
+│                 + keyframes（gitignore）+ reports（周报，同为生成物，2026-08-28 起 gitignore）
 └── doc/          设计/数据文档
 ```
 

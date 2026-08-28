@@ -78,7 +78,7 @@ TradFi 侧盘中靠 OANDA（H1 2008+ 已验证入库、M1 事件窗已用于 H22
 - **FOMC/利率决议日期**：FRED 前瞻模式下 FOMC 被填成每日噪声，已排除 → 缺口（要 Trading Economics 等付费日历，或硬编 Fed 公布的年度日程）。CPI/就业/GDP/PCE/PPI/零售（主要市场驱动项）已覆盖。
 - **币圈事件**（上所/主网/升级/黑客的前瞻日程）：无干净免费 API（CoinMarketCal 付费 / Coindar 需注册）。
 
-完整付费升级路线见 `doc/data-upgrades.md`。
+完整付费升级路线见 `doc/data/data-upgrades.md`。
 
 ## 情绪与注意力（Part 3，进行中）
 

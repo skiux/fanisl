@@ -1,4 +1,8 @@
-"""知识引擎每日维护：行情 → 盈利预期修正 → 到期评分 → 节点状态重算 → 补齐缺帧（幂等，挂 collector）。
+"""知识引擎每日维护：**自动摄取** → 行情 → 盈利预期修正 → 到期评分 → 节点状态重算 →
+补齐缺帧（幂等，挂 collector）。
+
+摄取窗口按缺口算而不是固定天数：每个信源回看"最新一期距今多少天"（`ingest_since_days`），
+库里没有该信源时回看 30 天。固定窗口在断更或断网之后会漏掉中间那几期。
 
 等价于手动跑 backfill_transcripts×3 / prices / estimates / scorers / nodes recompute /
 backfill_keyframes 六条 CLI；
