@@ -12,6 +12,9 @@ cookies.txt
 *.sqlite3
 # 提帧产物（二进制、可重生成）
 data_export/keyframes/
+# 周报是生成物（collector 每周落盘、API 现算现返），与 keyframes 同类。
+# 追踪它会让服务器每次生成都把工作区弄脏，进而挡住自动更新的 git pull。
+data_export/reports/
 
 # --- Python ---
 __pycache__/

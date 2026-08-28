@@ -1,0 +1,10 @@
+[Unit]
+Description=每 5 分钟查一次 origin/main 有无新提交
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target

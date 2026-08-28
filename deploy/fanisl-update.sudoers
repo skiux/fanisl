@@ -1,0 +1,3 @@
+# 装到 /etc/sudoers.d/fanisl-update（属主 root，权限 0440）。
+# 只允许 fanisl 重启这两个单元——不给整个 systemctl，也不给别的服务。
+fanisl ALL=(root) NOPASSWD: /usr/bin/systemctl restart fanisl-api fanisl-collector

@@ -1,0 +1,14 @@
+[Unit]
+Description=fanisl 自动更新（拉取 origin/main，按需重建与重启）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=fanisl
+Group=fanisl
+WorkingDirectory=/opt/fanisl
+ExecStart=/opt/fanisl/deploy/auto-update.sh
+# npm 需要 HOME 才能写缓存；不给的话 npm ci 会往 / 里写然后失败
+Environment=HOME=/opt/fanisl
+TimeoutStartSec=900

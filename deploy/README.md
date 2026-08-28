@@ -728,6 +728,7 @@ npm run build                   # 产物 dist/，vite 已配 base: '/console/'
 
 sudo systemctl enable --now fanisl-api
 
+# 首次部署才这样整份拷贝；跑过 certbot 之后**不要**再覆盖，见下方警告
 sudo cp /opt/fanisl/deploy/nginx-fanisl.conf /etc/nginx/sites-available/fanisl
 sudo ln -sf /etc/nginx/sites-available/fanisl /etc/nginx/sites-enabled/fanisl
 sudo rm -f /etc/nginx/sites-enabled/default
@@ -735,15 +736,73 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 
 改 `server_name`；HTTPS：`sudo apt install -y certbot python3-certbot-nginx && sudo certbot --nginx`。
+
+> **跑过 certbot 之后，本仓库的 `nginx-fanisl.conf` 就不再是生效配置的超集了。**
+> certbot 会往生效配置里写 `listen 443 ssl` 与证书路径，这些不在仓库版本里；而仓库版本
+> 里后加的段（例如 `/console/`）又不在生效配置里。**此时再 `cp` 覆盖会直接打掉 HTTPS。**
+> 2026-08-28 就是这么发现 `/console/` 一直 404 的——生效配置里压根没有那一段。
+> 正确做法是只把缺的 `location` 段插进生效配置，`sudo nginx -t` 通过后 reload：
+>
+> ```bash
+> sudo diff /etc/nginx/sites-enabled/fanisl /opt/fanisl/deploy/nginx-fanisl.conf
+> ```
 GCE 防火墙放行 80/443，**不要**放行 5432。
 
-Node 20：`curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash - && sudo apt install -y nodejs`
+Node：Debian 13 自带的 `nodejs` 就是 20.19.2，正好满足两个前端 `engines` 的
+`>=20.19.0`，**不用加 nodesource 第三方源**：`sudo apt install -y nodejs npm`。
+实测服务器 Node 20.19.2 与本机 Node 24 构建出的产物哈希完全一致。
 
 ---
 
 ## 7. 持续更新
 
-### 代码
+### 自动更新（已上线，2026-08-28）
+
+`fanisl-update.timer` 每 5 分钟查一次 `origin/main`，有新提交就拉取、按需重建、验证后重启。
+仓库是公开的，拉取免密，服务器上不需要任何 GitHub 凭据。
+
+```bash
+# ── 在【服务器】上跑 ── 一次性安装
+sudo install -m 644 /opt/fanisl/deploy/fanisl-update.service /etc/systemd/system/
+sudo install -m 644 /opt/fanisl/deploy/fanisl-update.timer   /etc/systemd/system/
+sudo install -m 440 -o root -g root \
+     /opt/fanisl/deploy/fanisl-update.sudoers /etc/sudoers.d/fanisl-update
+sudo visudo -cf /etc/sudoers.d/fanisl-update     # 必须 parsed OK
+sudo systemctl daemon-reload && sudo systemctl enable --now fanisl-update.timer
+```
+
+服务以 `fanisl` 身份跑（git 与 npm 产出的文件属主才对），重启权限来自
+`/etc/sudoers.d/fanisl-update` 那一条窄规则——只允许重启 `fanisl-api` 与
+`fanisl-collector`，其余一律要密码（实测 `systemctl restart nginx` 被拒）。
+
+脚本的取舍，都是踩出来的：
+
+| 行为 | 为什么 |
+|---|---|
+| 只在 `backend/` 变了才重启 | `Scheduler` 的 `run_immediately=True` 让**每次重启都立刻跑一遍全部 job**，含知识引擎日维护与周报。无脑重启 = 每次推送都摄取一轮、烧 Gemini 配额 |
+| 只在某个前端变了才重建它 | `npm ci` + build 约 40 秒，没必要 |
+| 只在 `package-lock.json` 变了才 `npm ci` | 否则每次都清空重装 node_modules |
+| import 自检在 `backend/` 目录下跑 | `runtime` 模块级就建连接池，而 `.env` 相对 `backend/` 解析。在别处 import 会拿默认连接串、`PoolTimeout` 超时 30 秒，报出来像"新代码坏了" |
+| 后端先验证再重启，失败即回滚 | 坏提交会在无人值守时把 API 打掉，而 GCP 控制台已经进不去、只剩 SSH 一条路 |
+| 前端构建前备份 `dist` | vite 默认 `emptyOutDir`，构建失败会把站点停在半份产物上 |
+| 工作区脏就跳过并报出来 | 不静默丢弃改动。生成物已按下面那条规则移出版本控制，正常不会脏 |
+| `flock` 单实例 | 构建慢，5 分钟的定时器可能在上一轮没跑完时又触发 |
+
+看日志与手动跑一次：
+
+```bash
+# ── 在【服务器】上跑 ──
+sudo journalctl -u fanisl-update.service -n 30 --output=cat
+systemctl list-timers fanisl-update.timer --no-pager
+sudo -u fanisl HOME=/opt/fanisl /opt/fanisl/deploy/auto-update.sh   # 手动触发
+```
+
+> **生成物不入库。** `data_export/reports/` 已随 `data_export/keyframes/` 一起进
+> `.gitignore`。collector 每周往那里落盘，若它被 git 追踪，服务器生成一次就把工作区
+> 弄脏，自动更新只能跳过；更糟的是本机提交同名周报后，服务器 pull 会因"未追踪文件将被
+> 覆盖"直接卡死。周报是现算现返的（API 不读盘），删了不丢信息。
+
+### 手动更新（回退路径）
 
 ```bash
 # ── 在【服务器】上跑 ──
