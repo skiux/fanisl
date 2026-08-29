@@ -11,6 +11,7 @@ import hashlib
 from psycopg.types.json import Json
 from psycopg_pool import ConnectionPool
 
+from .. import assets
 from .models import KnowledgeUnit
 
 _SCHEMA = """
@@ -486,7 +487,9 @@ class KnowledgeStore:
         if tag:
             cond.append("%s = ANY(u.tags)"); params.append(tag)
         if symbol:
-            cond.append("u.payload->>'asset_symbol'=%s"); params.append(symbol)
+            syms, tags = assets.symbol_variants(symbol)
+            cond.append("(u.payload->>'asset_symbol' = ANY(%s) OR u.tags && %s::text[])")
+            params.extend([syms, tags])
         if q:
             cond.append("(u.quote ILIKE %s OR u.payload::text ILIKE %s)")
             params.extend([f"%{q}%", f"%{q}%"])

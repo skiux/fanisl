@@ -23,10 +23,15 @@ _test_settings = _cfg.Settings(pg_conninfo=_TEST_DB, pg_trading_conninfo=_TEST_D
                                pg_knowledge_conninfo=_TEST_DB)
 _cfg.get_settings = lambda: _test_settings
 
+from datetime import datetime, timezone
+
 import psycopg
 import pytest
 
 from analyzer.db import make_pool
+from analyzer.knowledge.models import KnowledgeUnit
+from analyzer.knowledge.nodes import NodeStore
+from analyzer.knowledge.store import KnowledgeStore
 from analyzer.marketstore import MarketStore
 from analyzer.storage import Storage
 from analyzer.trading.store import TradingStore
@@ -155,3 +160,102 @@ def make_snapshot():
         )
 
     return _make
+
+
+# --- 知识引擎的固定语料（标的相关的读模型与接口共用）--------------------------
+#
+#   内容1 / 信源甲：claim(NVDA，含未到期阶梯) · concept(仅 nvda 标签) · method(nvda+soxx)
+#                   · claim(asset_symbol 写成别名 "XAU/USD")
+#   内容2 / 信源乙：claim(NVDA，判错) · claim(NVDA，条件未触发) · concept(nvda) · concept(soxx)
+#
+# 覆盖三件容易错的事：①只认 asset_symbol 会漏掉 method/concept；②别名拼法要归一；
+# ③条件类判定不进命中率分母。
+
+PAST_LADDER = "2026-06-30"        # 已判定的阶梯日
+FUTURE_LADDER = "2099-06-30"      # 未到期的阶梯日（钉在远期，测试不会随时间腐化）
+FUTURE_LADDER_2 = "2099-12-31"    # 同一条 claim 的第二个未到期时点——用来区分"条数"与"时点数"
+
+
+def _claim(symbol: str, tags: list[str], ladder: list[str], quote: str) -> KnowledgeUnit:
+    return KnowledgeUnit(
+        kind="claim", quote=quote, tags=tags,
+        payload={
+            "asset_text": f"{symbol} 的测试判断", "asset_symbol": symbol, "priceable": True,
+            "claim_class": "directional", "direction": "up",
+            "horizon": {"type": "by_date", "deadline": ladder[-1]},
+            "stance_strength": "explicit", "verifiability": "B",
+            "scoring_spec": {"method": "sign", "eval_ladder": ladder,
+                             "success_def": "到期收盘高于发布参考价即命中"},
+        })
+
+
+def _concept(tags: list[str], quote: str) -> KnowledgeUnit:
+    return KnowledgeUnit(kind="concept", quote=quote, tags=tags,
+                         payload={"canonical_statement": quote, "category": "market_structure"})
+
+
+def _method(tags: list[str], quote: str) -> KnowledgeUnit:
+    return KnowledgeUnit(kind="method", quote=quote, tags=tags,
+                         payload={"name": "测试方法", "summary": quote, "family": "trend",
+                                  "rules": ["站上 20 日线买入"], "testability": "A"})
+
+
+@pytest.fixture
+def knowledge_corpus(pool):
+    store = KnowledgeStore(pool)
+    nodes = NodeStore(pool)
+    with pool.connection() as conn:
+        conn.execute(
+            "TRUNCATE creators, creator_handles, contents, extraction_runs, knowledge_units, "
+            "claim_scores, spot_checks, keyframes, knowledge_nodes, node_attestations, "
+            "node_relations RESTART IDENTITY CASCADE")
+
+    a = store.ensure_creator("测试信源甲")
+    b = store.ensure_creator("测试信源乙")
+    c1, _ = store.upsert_content(a, platform="manual", url="https://example.test/asset-1",
+                                 content_type="article", title="内容一",
+                                 published_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+                                 raw="标的测试语料一")
+    c2, _ = store.upsert_content(b, platform="manual", url="https://example.test/asset-2",
+                                 content_type="article", title="内容二",
+                                 published_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
+                                 raw="标的测试语料二")
+
+    u1, u2, u3, u4 = store.record_extraction(c1, extractor_version="asset-v1", model="test", units=[
+        _claim("NVDA", ["nvda", "ai-capex"], [PAST_LADDER, FUTURE_LADDER, FUTURE_LADDER_2],
+               "英伟达还有空间"),
+        _concept(["nvda"], "算力需求的存量与增量要分开看"),
+        _method(["nvda", "soxx"], "半导体板块用周线隧道定方向"),
+        _claim("XAU/USD", ["xauusd"], [PAST_LADDER], "黄金短期偏强"),
+    ])
+    u5, u6, u7, u8 = store.record_extraction(c2, extractor_version="asset-v1", model="test", units=[
+        _claim("NVDA", ["nvda"], [PAST_LADDER], "英伟达要回调"),
+        _claim("NVDA", ["nvda"], ["2026-06-15"], "若跌破 150 则继续看空"),
+        _concept(["nvda"], "算力定价终局是按结果收费"),
+        _concept(["soxx"], "半导体的周期性并未消失"),
+    ])
+
+    ts = datetime(2026, 6, 30, tzinfo=timezone.utc)
+    store.record_score(u1, eval_ts=ts, horizon_label=PAST_LADDER, outcome="hit",
+                       realized={"ref": 100.0, "eval_close": 110.0}, scorer_version="test-v1")
+    store.record_score(u4, eval_ts=ts, horizon_label=PAST_LADDER, outcome="miss",
+                       realized={"ref": 4000.0, "eval_close": 3900.0}, scorer_version="test-v1")
+    store.record_score(u5, eval_ts=ts, horizon_label=PAST_LADDER, outcome="miss",
+                       realized={"ref": 100.0, "eval_close": 110.0}, scorer_version="test-v1")
+    store.record_score(u6, eval_ts=datetime(2026, 6, 15, tzinfo=timezone.utc),
+                       horizon_label="2026-06-15", outcome="condition_not_met",
+                       realized={}, scorer_version="test-v1")
+
+    n_nvda = nodes.import_nodes({"merger_version": "test-merge", "nodes": [{
+        "kind": "concept", "title": "算力定价", "canonical": "算力定价终局是按结果收费",
+        "tags": ["nvda"], "notes": "演进：存量增量 → 按结果收费",
+        "units": [{"id": u2, "relation": "restates"},
+                  {"id": u7, "relation": "supersedes", "note": "作者改口"}]}]})[0]
+    n_soxx = nodes.import_nodes({"merger_version": "test-merge", "nodes": [{
+        "kind": "concept", "title": "半导体周期", "canonical": "半导体的周期性并未消失",
+        "tags": ["soxx"], "units": [{"id": u8, "relation": "restates"}]}]})[0]
+    nodes.import_relations({"merger_version": "test-merge", "relations": [
+        {"a": n_nvda, "b": n_soxx, "relation": "conflicts", "note": "定价范式 vs 周期回归"}]})
+
+    return {"creator_a": a, "creator_b": b, "units": (u1, u2, u3, u4, u5, u6, u7, u8),
+            "nodes": (n_nvda, n_soxx)}

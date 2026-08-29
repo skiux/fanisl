@@ -7,6 +7,7 @@ test.beforeEach(async ({ page }) => {
 
 const routes = [
   ['#/', 'FANISL · 个人投资知识引擎'],
+  ['#/asset', '标的 · FANISL'],
   ['#/knowledge', '知识库 · FANISL'],
   ['#/verification', '验证中心 · FANISL'],
   ['#/discovery', '发现 · FANISL'],
@@ -103,4 +104,42 @@ test('discovery delta is modal and restores focus', async ({ page }) => {
   await dialog.press('Escape')
   await expect(dialog).toHaveCount(0)
   await expect(trigger).toBeFocused()
+})
+
+test('asset desk leads with what has not settled yet', async ({ page }) => {
+  await page.goto('/#/asset')
+  await expect(page.getByRole('heading', { name: '标的' })).toBeVisible()
+
+  // 没有到期样本的标的写"未验证"，不写 0%——这是 domain-model §5 的统计纪律。
+  await expect(page.getByText('未验证')).toBeVisible()
+  await expect(page.getByText('0%')).toHaveCount(0)
+
+  await page.getByText('半导体 ETF', { exact: true }).click()
+  await expect(page).toHaveURL(/#\/asset\?id=SOXX/)
+
+  // 未到期判断是这一页的主角：判据原文必须完整可见，不许截断。
+  await expect(page.getByText('中期收益为正')).toBeVisible()
+  await expect(page.getByText('n = 27')).toBeVisible()
+
+  // 覆盖条如实说明缺什么。
+  await expect(page.getByText(/公司资料源落地/)).toBeVisible()
+
+  // 价格证据图把已发生的裁决与还没到期的阶梯日放在同一条时间轴上。
+  await expect(page.getByRole('img', { name: /价格证据图/ })).toBeVisible()
+  await expect(page.getByText(/待到期 1 个时点/)).toBeVisible()
+})
+
+test('asset dossier keeps the drill-down chain into the evidence', async ({ page }) => {
+  await page.goto('/#/asset?id=SOXX')
+  // 节点卡片的 canonical 与这条判断同文，所以按分区取——顺带验证分区的可访问名。
+  await page.locator('section[aria-label="未到期判断"]').getByRole('link').first().click()
+  await expect(page).toHaveURL(/#\/knowledge\?unit=1&view=evidence/)
+  await expect(page.getByText('当前页面没有正确载入')).toHaveCount(0)
+})
+
+test('unknown asset fails into a recoverable state, not a blank page', async ({ page }) => {
+  await page.goto('/#/asset?id=NOSUCH')
+  await expect(page.getByText(/读不到 NOSUCH 的档案/)).toBeVisible()
+  await page.getByRole('button', { name: '回到标的列表' }).click()
+  await expect(page).toHaveURL(/#\/asset$/)
 })

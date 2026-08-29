@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
+from . import assets as assets_registry
 from . import metrics as metrics_registry
 from .agent import final_text
 from .marketstore import GLOBAL
@@ -550,6 +551,103 @@ def knowledge_prices(symbol: str, since: str, until: str | None = None) -> dict:
     elif symbol in FRED_SERIES:
         note = FRED_SERIES[symbol]
     return {"symbol": symbol, "note": note, "bars": rows}
+
+
+# --- 标的工作台（按资产标的组织的决策视图）---------------------------------
+#
+# **路由前缀是单数 `/asset`，不是 `/assets`——这不是笔误。** Vite 把前端构建产物放在
+# `/assets/index-*.js`，nginx 的 API 正则一旦加上 `assets`，整个前端的 JS/CSS 都会被
+# 代理到 uvicorn，页面直接白屏。前缀与前端路由 `#/asset/{id}` 也正好一致。
+
+
+def _bar_coverage() -> dict[str, dict]:
+    """daily_bars 每个符号的覆盖：`{symbol: {n, first, last}}`。一次查询，不按标的逐个问。"""
+    from .knowledge.prices import PriceStore
+
+    return {r["symbol"]: r for r in PriceStore(knowledge_store.pool).coverage()}
+
+
+def _news_coverage() -> dict[str, dict]:
+    """catalyst_items 里 news 的覆盖，按 metric_samples 的 symbol 口径（如 `BTC/USDT`）。
+
+    现状：只有采集 watchlist 的 5 个加密对有新闻，其余标的一条没有——**如实返回空**，
+    页面据此说明"为什么这块是空的"，不要用别的东西凑数。
+    """
+    return {r["symbol"]: r for r in market_store.catalyst_coverage() if r["kind"] == "news"}
+
+
+def _attach_coverage(row: dict, bars: dict, news: dict) -> dict:
+    a = assets_registry.lookup(row["asset"])
+    row["bars"] = bars.get(row["asset"])
+    row["news"] = news.get(a.metric_symbol) if a and a.metric_symbol else None
+    return row
+
+
+@app.get("/asset")
+def assets_index(include_empty: bool = False) -> dict:
+    """标的宇宙：每个标的的知识沉淀、战绩、未到期判断数与数据覆盖。
+
+    默认只给**库里真有知识单元**的标的；`include_empty=true` 把登记表里还没有单元的
+    （QQQ/SPY/MSTR 等可交易但没人讲过的）也带上，用于确认某个符号是否已登记。
+    """
+    from .knowledge import asset_view
+
+    rows = asset_view.asset_universe(knowledge_pool)
+    bars, news = _bar_coverage(), _news_coverage()
+    for r in rows:
+        _attach_coverage(r, bars, news)
+    if include_empty:
+        seen = {r["asset"] for r in rows}
+        for a in assets_registry.all_assets():
+            if a.id in seen:
+                continue
+            rows.append(_attach_coverage({
+                "asset": a.id, "display": a.display, "asset_class": a.asset_class,
+                "class_label": assets_registry.CLASS_LABELS.get(a.asset_class),
+                "registered": True, "has_bars": bool(a.yf or a.fred),
+                "has_metrics": bool(a.metric_symbol),
+                "units": 0, "claims": 0, "methods": 0, "concepts": 0, "creators": 0,
+                "first_seen": None, "last_seen": None, "scored": 0, "hits": 0,
+                "partials": 0, "misses": 0, "unresolved": 0, "open_claims": 0,
+                "hit_rate": None,
+            }, bars, news))
+    return {"total": len(rows), "classes": assets_registry.CLASS_LABELS, "assets": rows}
+
+
+@app.get("/asset/{asset_id}")
+def asset_detail(asset_id: str) -> dict:
+    """标的档案：身份 + 数据覆盖 + 战绩（总体与按信源）+ 未到期判断 + 已判定记录
+    + 相关节点 + 分歧与改口 + 相关标的。
+
+    未登记且库里也没有单元的符号 → 404；登记了但还没有单元的 → 200 空档案
+    （"我们知道它是什么，只是还没人讲过它"与"查无此物"是两回事）。
+    """
+    from .knowledge import asset_view
+
+    canonical = assets_registry.resolve_id(asset_id) or asset_id.strip().upper()
+    dossier = asset_view.asset_dossier(knowledge_pool, canonical)
+    a = assets_registry.lookup(canonical)
+    if dossier is None and a is None:
+        raise HTTPException(status_code=404, detail=f"未知标的 {asset_id}")
+    if dossier is None:
+        dossier = {
+            "asset": canonical,
+            "identity": {"id": canonical, "display": a.display, "asset_class": a.asset_class,
+                         "class_label": assets_registry.CLASS_LABELS.get(a.asset_class),
+                         "tag": a.tag, "aliases": list(a.aliases), "related": list(a.related),
+                         "note": a.note, "registered": True},
+            "coverage": {"bars": bool(a.yf or a.fred), "bars_note": a.yf_note,
+                         "metrics": a.metric_symbol, "instrument": a.instrument},
+            "summary": None, "by_creator": [], "open_claims": [], "settled_claims": [],
+            "nodes": [], "disagreements": {"relations": [], "evolution": []},
+            "related_assets": [],
+        }
+    bars = _bar_coverage().get(canonical)
+    dossier["coverage"]["bars_window"] = bars
+    news = _news_coverage()
+    metric_symbol = dossier["coverage"].get("metrics")
+    dossier["coverage"]["news"] = news.get(metric_symbol) if metric_symbol else None
+    return dossier
 
 
 # --- 研究档案（doc/ 内白名单文档的只读陈列）-------------------------------

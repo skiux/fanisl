@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-export type PrimaryRoute = 'knowledge' | 'verification' | 'discovery' | 'evaluation' | 'chat' | 'archive'
+export type PrimaryRoute = 'asset' | 'knowledge' | 'verification' | 'discovery' | 'evaluation' | 'chat' | 'archive'
 
 type AppHeaderProps = {
   current?: PrimaryRoute
@@ -8,7 +8,9 @@ type AppHeaderProps = {
   onSearch: () => void
 }
 
+// 标的排在最前：日常使用的姿态是"我在看某个标的"，知识库是它背后的证据层（PRODUCT.md §5）。
 const primaryItems = [
+  { key: 'asset', label: '标的', href: '#/asset', enabled: true },
   { key: 'knowledge', label: '知识库', href: '#/knowledge', enabled: true },
   { key: 'verification', label: '验证', href: '#/verification', enabled: true },
   { key: 'discovery', label: '发现', href: '#/discovery', enabled: true },

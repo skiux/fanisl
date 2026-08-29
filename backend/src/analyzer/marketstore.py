@@ -262,6 +262,17 @@ class MarketStore:
             )
         return len(items)
 
+    def catalyst_coverage(self) -> list[dict]:
+        """按 (kind, symbol) 的条目数与最近抓取时刻——标的页的"数据覆盖"用。
+
+        不走 get_catalysts：那个会把全部 payload 一起拉回来，只为数个数不值当。
+        """
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "SELECT kind, symbol, count(*) AS n, max(fetched_at) AS fetched_at "
+                "FROM catalyst_items GROUP BY kind, symbol ORDER BY kind, symbol"
+            ).fetchall()
+
     def get_catalysts(self, symbol: str | None = None) -> list[dict]:
         with self.pool.connection() as conn:
             if symbol:

@@ -65,6 +65,65 @@ const weekly = {
   },
 }
 
+
+// 标的工作台：一个有战绩与未到期判断的标的，一个还没有到期样本的标的。
+const assetRow = {
+  asset: 'SOXX', display: '半导体 ETF', asset_class: 'etf', class_label: 'ETF',
+  registered: true, has_bars: true, has_metrics: false,
+  units: 53, claims: 36, methods: 10, concepts: 7, creators: 3,
+  first_seen: '2026-05-01T00:00:00Z', last_seen: '2026-08-14T00:00:00Z',
+  scored: 27, hits: 14, partials: 3, misses: 10, unresolved: 2,
+  open_claims: 2, hit_rate: 0.574,
+  bars: { symbol: 'SOXX', n: 185, first: '2025-12-01', last: '2026-08-26' },
+  news: null,
+}
+
+const assetIndex = {
+  total: 2,
+  classes: { etf: 'ETF', stock: '个股' },
+  assets: [
+    assetRow,
+    {
+      ...assetRow, asset: 'PLTR', display: 'Palantir', asset_class: 'stock', class_label: '个股',
+      units: 17, claims: 4, methods: 2, concepts: 11, creators: 2,
+      scored: 0, hits: 0, partials: 0, misses: 0, unresolved: 0, open_claims: 1, hit_rate: null,
+      bars: null, has_bars: false,
+    },
+  ],
+}
+
+const upcomingHorizon = new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10)
+
+const assetDossier = {
+  asset: 'SOXX',
+  identity: {
+    id: 'SOXX', display: '半导体 ETF', asset_class: 'etf', class_label: 'ETF',
+    tag: 'soxx', aliases: [], related: ['SMH'], note: '', registered: true,
+  },
+  coverage: {
+    bars: true, bars_note: '', bars_window: { symbol: 'SOXX', n: 185, first: '2025-12-01', last: '2026-08-26' },
+    metrics: null, instrument: null, news: null,
+  },
+  summary: assetRow,
+  by_creator: [{
+    creator_id: 1, creator: creator.name, units: 30, claims: 20,
+    last_seen: '2026-08-14T00:00:00Z', scored: 18, hits: 10, partials: 2, misses: 6, hit_rate: 0.611,
+  }],
+  open_claims: [{
+    unit_id: 1, horizon_label: upcomingHorizon, quote: '半导体长期需求仍由算力投资驱动。',
+    payload: {
+      direction: 'up', verifiability: 'A', stance_strength: 'explicit',
+      scoring_spec: { method: 'sign', eval_ladder: [upcomingHorizon], success_def: '中期收益为正' },
+    },
+    published_at: '2026-08-01T00:00:00Z', ref_price_at_publish: 250, tags: ['semiconductor'],
+    creator: creator.name, content_id: 1, content_title: '半导体研究样本',
+  }],
+  settled_claims: [],
+  nodes: [node],
+  disagreements: { relations: [], evolution: [] },
+  related_assets: [{ asset: 'PLTR', display: 'Palantir', asset_class: 'stock', co_mentions: 3 }],
+}
+
 function responseFor(url: URL): unknown {
   const path = url.pathname
   if (path === '/knowledge/overview') return { contents: 49, units: 798, nodes: 448, creators: 3, corroborated: 9, claims: 295, methods: 102, concepts: 401 }
@@ -99,12 +158,28 @@ function responseFor(url: URL): unknown {
   if (path === '/knowledge/weekly') return weekly
   if (path === '/knowledge/spot-checks') return { total: 1, checked: 0, faithful: 0, unfaithful: 0, unclear: 0, recent: [] }
   if (path === '/research/docs') return []
+  if (path === '/knowledge/prices') {
+    // 一段能画出来的日线：判定与到期日都落在窗口里，价格证据图才真的被渲染过。
+    const bars = Array.from({ length: 40 }, (_, index) => {
+      const day = new Date(Date.UTC(2026, 6, 1) + index * 86400000).toISOString().slice(0, 10)
+      const close = 240 + Math.round(Math.sin(index / 4) * 12)
+      return { ts: day, open: close - 1, high: close + 3, low: close - 3, close }
+    })
+    return { symbol: url.searchParams.get('symbol') ?? 'SOXX', note: '日线收盘口径', bars }
+  }
+  if (path === '/asset') return assetIndex
+  if (path.startsWith('/asset/')) {
+    const id = decodeURIComponent(path.slice('/asset/'.length))
+    return id === 'SOXX' ? assetDossier : null
+  }
   return null
 }
 
 async function fulfill(route: Route) {
   const url = new URL(route.request().url())
-  if (!url.pathname.startsWith('/knowledge/') && !url.pathname.startsWith('/research/')) {
+  // `/assets/*` 是 Vite 的构建产物，绝不能被当成 API——所以是精确匹配，不是前缀匹配。
+  const isAsset = url.pathname === '/asset' || url.pathname.startsWith('/asset/')
+  if (!isAsset && !url.pathname.startsWith('/knowledge/') && !url.pathname.startsWith('/research/')) {
     await route.fallback()
     return
   }
@@ -121,5 +196,5 @@ async function fulfill(route: Route) {
 }
 
 export async function mockApi(page: Page) {
-  await page.route(/\/knowledge\/|\/research\//, fulfill)
+  await page.route(/\/knowledge\/|\/research\/|\/asset(\/|$)/, fulfill)
 }

@@ -1,7 +1,7 @@
 # fanisl 后端 API 文档
 
-> 面向前端（完全重写）的完整接口契约。以运行中后端实测采样为准（2026-07-18 首版 50 个端点；2026-08-28 复核实际 60 个，
-> 新增的 10 个均已在下文覆盖，只是这句计数当时没跟上）。
+> 面向前端（完全重写）的完整接口契约。以运行中后端实测采样为准（2026-07-18 首版 50 个端点；2026-08-28 复核实际 60 个；
+> 2026-08-29 标的工作台 +2 = **62 个**）。
 > 服务：FastAPI，默认 `http://127.0.0.1:8000`（前端用 `VITE_API_BASE` 覆盖）。
 >
 > 配套文档：`PRODUCT.md`（产品定义/信息架构/用户旅程）· `domain-model.md`（知识引擎
@@ -285,8 +285,13 @@ bytes, source, created_at}]`。`note` 是该时刻视觉笔记的原文，`path`
 跨内容单元浏览 + 全文检索（q 匹配 quote 与 payload）。返回结构同上另加
 `creator`(名), `content_title`。上限 500。
 
+**`symbol` 是"按标的取全部单元"，不只是 claim**（2026-08-29 修正）：同时匹配
+`payload.asset_symbol` 与资产标签，并按登记表解析别名——`XAU/USD`、`xauusd`、`GOLD`
+三种写法结果相同。改之前只匹配 `asset_symbol`，NVDA 的 24 条认知、SOXX 的 12 条方法
+一条都取不到。未登记的符号按原样精确匹配，照常可用。
+
 #### GET /knowledge/units-page?kind=&creator=&tag=&symbol=&q=&scored=false&limit=100&offset=0
-单元浏览的分页契约：`{items:[...], total, offset, limit, has_more,
+单元浏览的分页契约（`symbol` 语义同上）：`{items:[...], total, offset, limit, has_more,
 counts:{claim, method, concept}, creator_counts:{creator_id:count}}`。排序固定为
 `published_at DESC NULLS LAST, id DESC`；
 total 与 counts 是当前服务端筛选的完整结果，不是当前页长度。默认排除 `superseded` 旧稿。
@@ -394,7 +399,80 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
 
 ---
 
-## 6. 研究档案
+## 6. 标的工作台
+
+> **前缀是单数 `/asset`，不是 `/assets`。** Vite 把前端构建产物放在 `/assets/index-*.js`，
+> API 一旦占用 `/assets`，nginx 会把前端的 JS/CSS 一起代理到后端、页面直接白屏。
+> 前端路由是 `#/asset` 与 `#/asset?id={id}`（详情走 query，与知识库/验证中心一致）。
+
+标的的规范 id 用 claim 的 `asset_symbol` 口径（`XAUUSD` 而非 `XAU/USD`），不含斜杠、URL 安全。
+后端认别名（`XAU/USD` / `xauusd` / `GOLD` 都落到 `XAUUSD`），**返回的一律是规范 id**。
+登记表是 `backend/src/analyzer/assets.py`（身份）；`data/instruments.py` 管的是行情路由，两张表别混。
+
+统计口径与 `domain-model.md` §5 一致：`hit_rate = (hits + 0.5×partials) / scored`，
+`scored` 只含 hit/partial/miss；`condition_not_met` 等归 `unresolved`，**不进分母**。
+无样本时 `hit_rate` 为 `null`（不是 0）。**前端展示百分比必须带 n。**
+
+### GET /asset?include_empty=false
+标的宇宙。`{total, classes:{asset_class: 中文标签}, assets:[…]}`，每行：
+
+| 字段 | 含义 |
+|---|---|
+| `asset` / `display` / `asset_class` / `class_label` | 规范 id / 中文名(可为 null) / 类别 / 类别中文 |
+| `registered` | 是否在登记表里（false = 语料里出现了但没登记，是待补的缺口） |
+| `units` / `claims` / `methods` / `concepts` | 该标的的知识沉淀（**三类都算**，不只是 claim） |
+| `creators` / `first_seen` / `last_seen` | 几位信源讲过 / 首末提及时间 |
+| `scored` / `hits` / `partials` / `misses` / `unresolved` / `hit_rate` | 战绩 |
+| `open_claims` | **未到期判断的条数**（冻结阶梯里还没写评分行、且日期在今天或以后，按 claim 去重） |
+| `has_bars` / `has_metrics` | 登记表声明的能力：有无日线源 / 有无全维度指标采集 |
+| `bars` | daily_bars 实际覆盖 `{symbol, n, first, last}`，没有则 `null` |
+| `news` | catalyst_items 里该标的的新闻 `{kind, symbol, n, fetched_at}`，没有则 `null` |
+
+默认只返回**库里真有知识单元**的标的（当前 71 个）。`include_empty=true` 把登记表里
+还没有单元的（QQQ/SPY/MSTR 等可交易但没人讲过的）也带上，计数全 0、`hit_rate` 为 `null`。
+
+排序：`units DESC, asset`。无分页（登记表规模 <200）。
+
+### GET /asset/{id}
+标的档案，页面首屏的全部聚合。未登记且库里也没单元 → 404；**登记了但还没有单元 → 200
+且 `summary: null`**（"我们知道它是什么，只是还没人讲过它"≠"查无此物"，前端要分开渲染）。
+
+```
+{
+  "asset": "XAUUSD",
+  "identity": {id, display, asset_class, class_label, tag, aliases[], related[], note, registered},
+  "coverage": {bars(bool), bars_note, bars_window:{symbol,n,first,last}|null,
+               metrics: "BTC/USDT"|null, instrument: "XAU/USD"|null, news:{...}|null},
+  "summary":  {…同 /asset 的一行…} | null,
+  "by_creator": [{creator_id, creator, units, claims, last_seen, scored, hits, partials, misses, hit_rate}],
+  "open_claims":   [{unit_id, horizon_label, quote, payload, published_at, ref_price_at_publish,
+                     tags, creator, content_id, content_title}],
+  "settled_claims":[{score_id, unit_id, horizon_label, outcome, realized, eval_ts, quote, payload,
+                     published_at, ref_price_at_publish, creator, content_id, content_title}],
+  "nodes": [{id, kind, title, canonical, status, tags, notes, updated_at, n_attest, n_creators}],
+  "disagreements": {
+    "relations": [{id, relation, note, a_node, b_node, a_title, a_canonical, a_status, b_*}],
+    "evolution": [{node_id, relation, note, node_title, unit_id, quote, published_at,
+                   creator, content_id, content_title}]
+  },
+  "related_assets": [{asset, display, asset_class, co_mentions}]
+}
+```
+
+要点：
+- `open_claims` 是**时点**列表（按到期日升序），`summary.open_claims` 是**条数**——
+  一条判断可以有多个阶梯日，两个数不相等是对的（XAUUSD 实测 23 条 / 32 个时点）。
+  `payload.scoring_spec.success_def` 是判据原文，**前端不得截断**；
+- `settled_claims` 按判定时点倒序，同一时点按落库次序倒序；
+- `disagreements.evolution` 只取 `supersedes`(作者改口) 与 `contradicts`(被反驳) 两种提及——
+  这是"信源在这个标的上改过什么口"的载体；
+- `related_assets` 来自同一条单元里的共现，不是人工维护的关联表；主题标签（ai-capex 等）
+  不会出现在这里，只有登记表里的标的才算；
+- 价格证据图仍走 `GET /knowledge/prices?symbol=&since=&until=`，本节不重复提供。
+
+---
+
+## 7. 研究档案
 
 ### GET /research/docs
 `[{name, title}]` 白名单文档索引（capstone / research-log / eval-repositioning / knowledge-engine）。
@@ -418,6 +496,9 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
 | GET /knowledge/relations | 仅 6 条边（conflicts 1） | 页面为增长设计，但当下逐条完整呈现 |
 | GET /knowledge/nodes | 多数节点无评分聚合（hit/miss=0） | 无评分时不显示 0%，显示"未验证" |
 | GET /knowledge/weekly | 现算，1-2s | 骨架；markdown 直接渲染 |
+| GET /asset | 长尾标的普遍 `units<10`、`scored=0`、`hit_rate:null` | 不显示 0%，显示"未验证"；n<10 视觉降权 |
+| GET /asset/{id} | 除 5 个加密对外 `coverage.news` 恒为 `null`；美股只有日线、`coverage.metrics` 为 `null` | 覆盖条如实标注"这项没有数据"，不要拿别的凑 |
+| GET /asset/{id} | `display` 可能为 `null`（个股正式名称待公司资料源接入） | 回落显示 id，不要显示"未知" |
 | 各 claim 的 scores | 85 个时点未到期 → 空数组常见 | 空=「评分待到期（最近时点 YYYY-MM-DD）」 |
 | POST /chat*、/trading/open、scan、detect | 同步调 Claude，10s~2min；可能 502 | 等待态 + 明确的失败重试 |
 | Postgres 未启动时任意端点 | 500 | 全局错误页："后端数据库未就绪" |

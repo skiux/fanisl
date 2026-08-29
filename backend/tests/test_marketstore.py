@@ -81,3 +81,20 @@ def test_log_run_prunes_to_runs_keep(pool):
     with pool.connection() as conn:
         n = conn.execute("SELECT count(*) AS c FROM collection_runs").fetchone()["c"]
     assert n == 3  # 只保留最近 3 条
+
+
+def test_catalyst_coverage_counts_by_kind_and_symbol(pool):
+    """标的页的"数据覆盖"靠它——不装 timescaledb 也要能跑（catalyst_items 不是 hypertable）。"""
+    st = MarketStore(pool)
+    with pool.connection() as conn:
+        conn.execute("TRUNCATE catalyst_items RESTART IDENTITY")
+    st.replace_catalysts("news", "BTC/USDT", [
+        {"title": "一条新闻", "event_date": "2026-08-01", "payload": {"url": "u1"}},
+        {"title": "另一条", "event_date": "2026-08-02", "payload": {"url": "u2"}},
+    ])
+    st.replace_catalysts("macro", "GLOBAL", [{"title": "FOMC", "event_date": "2026-09-17"}])
+
+    cov = {(r["kind"], r["symbol"]): r for r in st.catalyst_coverage()}
+    assert cov[("news", "BTC/USDT")]["n"] == 2
+    assert cov[("macro", "GLOBAL")]["n"] == 1
+    assert cov[("news", "BTC/USDT")]["fetched_at"] is not None

@@ -43,9 +43,13 @@ FANISL_LIVE_TEST=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5192 \
 src/
 ├── App.tsx                  首页空间叙事与真实知识搜索
 ├── Root.tsx                 hash 路由、按路由拆包与故障边界
-├── features/                知识、验证、发现、档案工作区
+├── features/                标的、知识、验证、发现、档案工作区
 └── shared/                  API 契约、导航与交互基础设施
 e2e/                         Playwright 流程测试与视觉基线
 ```
+
+标的工作台的后端前缀是**单数 `/asset`**：Vite 把构建产物放在 `/assets/index-*.js`，
+`/assets` 被当成 API 前缀会让前端 JS/CSS 被代理走、页面白屏。`vite.config.ts` 的 preview
+代理因此用正则键 `^/asset(/|$)` 而不是字符串前缀键。
 
 后端契约参考 [`../api.md`](../api.md)，实现以 [`../backend/src/analyzer/main.py`](../backend/src/analyzer/main.py) 为准。测试使用确定性接口夹具，不替代联调环境对真实 PostgreSQL 数据和同源代理的终验。

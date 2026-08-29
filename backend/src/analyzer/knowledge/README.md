@@ -104,7 +104,20 @@ ssh -i ~/.ssh/google_compute_engine -N -L 5433:127.0.0.1:5432 enin@<服务器IP>
 > 加新密钥。已在 `authorized_keys` 里直接加了一把备用密钥（原来那把是单点）。
 > 这条路一旦也断，就只剩本机快照（`deploy/pull-snapshot.sh`）能恢复。
 
-本机 `.env` 的 `PG_KNOWLEDGE_CONNINFO` 指到 `host=127.0.0.1 port=5433`，其余命令原样可用。
+本机 `.env` 里**三条 `PG_*_CONNINFO` 都要指到 `host=127.0.0.1 port=5433`**（服务器上三个库都在，
+隧道一条就够）：
+
+```
+PG_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl user=fanisl password=<口令>
+PG_TRADING_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_trading user=fanisl password=<口令>
+PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fanisl password=<口令>
+```
+
+> **只配 knowledge 一条是不够的**（2026-08-29 在新开发机上踩到）。知识引擎的 CLI 确实照常
+> 能用——它们只碰这一个库；但 **`runtime` 在 import 时就打开全部三个池**，另两条走默认值去连
+> 本机 Unix socket，而新机器上根本没有 `fanisl` / `fanisl_trading` 这两个库，于是 API 起不来、
+> 前端全空。表现具有迷惑性：CLI 一切正常，只有前端没数据。
+> 先用 `backend/tools/check_db.py` 逐条验，它会指出是哪个库连不上。
 `data_export/knowledge_units/*.json` 继续留在 repo——它们不是数据库的替代，是"人参与那一步"
 的凭据与重放日志。完整部署与排障见 `deploy/README.md`。
 

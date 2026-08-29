@@ -105,6 +105,29 @@ restates（重申）/ refines（细化限定）/ **supersedes（修正取代—�
 
 跨源**共识**没有边：它的载体是节点本身的跨源提及（`n_creators≥2`）。
 
+### asset（标的，身份层）
+
+2026-08-29 补入。**它不是知识引擎产出的对象，而是把散在各处的符号拼法收敛成一个实体**：
+同一个资产在库里有五种拼法——claim 的 `asset_symbol`(`XAUUSD`)、行情路由的
+canonical(`XAU/USD`)、日线表的 symbol、指标表的 symbol(`BTC/USDT`)、单元标签(`xauusd`)。
+登记表在 `backend/src/analyzer/assets.py`（97 个标的），字段：规范 id、中文名、类别、
+别名、各命名空间的符号、易混标的。
+
+- **规范 id 用 `asset_symbol` 口径**：它是最大的命名空间，且不含斜杠——URL 安全。
+- **一条单元可以属于多个标的**：claim 走 `asset_symbol`，method/concept 走资产标签，
+  一条单元有多个资产标签就属于多个标的。这是对的，不去重成"主标的"。
+- **不合并两个各自已有数据的符号**：`GOOG` 与 `GOOGL` 在日线表里是两条不同的序列，
+  就是两个标的，只互相指路。`soxx / sox / smh / semi` 同理（提取规范 §7 已写死）。
+- **`display` 可能为 null**：个股的正式名称等公司资料源接入后回填，在 SSOT 里写猜的
+  名字比留空更坏。前端回落显示 id。
+
+**asset_class**：index=指数 · etf=ETF · stock=个股 · metal=贵金属 · commodity=商品 ·
+crypto=加密 · rate=利率 · fx=汇率 · preipo=未上市。
+
+**未到期判断（open claim）**：冻结阶梯 `eval_ladder` 里还没有评分行、且日期在今天或以后
+的那些时点。它不是一张表，是反查出来的——评分行只代表已发生的判定，"没有评分行"不等于
+"没有工作"。这是标的页最有决策价值的一块（产品里此前无处回答"什么还没兑现"）。
+
 ## 3. 三个真实案例（拿它们做设计与开发的样板数据）
 
 1. **字面重申归并**：节点「标普500 2026年底 8200 点」——美投君 6/8 与 7/5 两次
@@ -152,6 +175,7 @@ closed=已平 · cancelled=已撤
 
 ## 6. 术语速查
 
+标的=asset（资产标的，身份层登记表）｜未到期判断=open claim（阶梯已冻结、尚未判定的时点）｜
 信源=creator（创作者）｜内容=content（一期视频）｜单元=unit（一条证据）｜
 节点=node（一条可复用知识）｜提及=attestation｜关系边=relation｜
 判据/口径=success_def｜阶梯=eval_ladder（评分时点表）｜参考价=ref_price_at_publish｜

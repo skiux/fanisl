@@ -20,3 +20,11 @@ test('verification masthead visual baseline', async ({ page }) => {
     caret: 'hide',
   })
 })
+
+test('asset desk masthead visual baseline', async ({ page }) => {
+  await page.goto('/#/asset')
+  await expect(page.locator('.asset-masthead')).toHaveScreenshot('asset-masthead.png', {
+    animations: 'disabled',
+    caret: 'hide',
+  })
+})

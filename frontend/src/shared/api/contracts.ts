@@ -1,3 +1,4 @@
+import type { AssetDossierData, AssetIndex } from '../../features/asset/types'
 import type { KnowledgeNodePage, KnowledgeOverview, KnowledgeUnitPage } from '../../features/knowledge/types'
 import type { VerificationPageData, VerificationSummary } from '../../features/verification/types'
 
@@ -50,4 +51,24 @@ export function isVerificationPage(value: unknown): value is VerificationPageDat
   const items = value.items
   return Array.isArray(items)
     && items.every((item: unknown) => record(item) && finiteNumber(item.unit_id) && typeof item.quote === 'string')
+}
+
+export function isAssetIndex(value: unknown): value is AssetIndex {
+  if (!record(value) || !record(value.classes) || !Array.isArray(value.assets)) return false
+  return finiteNumber(value.total)
+    && value.assets.every((item: unknown) => record(item)
+      && typeof item.asset === 'string'
+      && finiteNumber(item.units)
+      && finiteNumber(item.open_claims))
+}
+
+export function isAssetDossier(value: unknown): value is AssetDossierData {
+  if (!record(value) || typeof value.asset !== 'string') return false
+  if (!record(value.identity) || !record(value.coverage) || !record(value.disagreements)) return false
+  // summary 允许为 null：登记了但库里还没有单元的标的走这一支。
+  if (value.summary !== null && !record(value.summary)) return false
+  return ['by_creator', 'open_claims', 'settled_claims', 'nodes', 'related_assets']
+    .every((key) => Array.isArray(value[key]))
+    && Array.isArray((value.disagreements as Record<string, unknown>).relations)
+    && Array.isArray((value.disagreements as Record<string, unknown>).evolution)
 }

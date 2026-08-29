@@ -14,6 +14,7 @@
 fanisl/
 ├── backend/      Python 后端（FastAPI + 数据管道 + 知识引擎 + 交易评测台）
 │   ├── src/analyzer/knowledge/   知识引擎（含 extraction-guide / merge-guide 两份冻结规范）
+│   │                              + asset_view.py（按标的聚合的读模型，标的工作台的数据脊柱）
 │   └── tools/                    运维脚本：check_db / check_sources / check_ingest
 ├── frontend/     React + TS + Vite 前端
 ├── deploy/       部署指南 + systemd 单元 + nginx + .env 模板
@@ -71,6 +72,9 @@ fanisl/
 - `analytics.py` — 时间序列摘要（时长加权的均值/分位/轨迹）。
 - `flatten.py` — MarketSnapshot → 入库行（**模型→metric 名的唯一映射**，逐周期用登记表）。
 - `metrics.py` — **metric 名 + 元信息的 SSOT**（登记表）。`catalog()` 给前端，`metric_vocab()` 给工具。
+- `assets.py` — **标的身份的 SSOT**（登记表，97 个）：中文名/类别/别名/各命名空间的符号。
+  与 `data/instruments.py` 的分工：本表管"是什么"，那张表管"去哪取数"。
+  `knowledge/prices.py` 的 SYMBOL_MAP 从这里派生——**改这里就是改每天的日线采集范围**。
 - `validate.py` — 入库前取值校验（挡 NaN/越界）。
 
 ### 存储
@@ -129,7 +133,13 @@ React + TS + Vite + Tailwind；Geist 字体、Phosphor 图标、zinc+emerald 调
     / `ManualPanel`(实盘录入表单) / `TradeDetail`(单笔详情：走势+决策依据+管理+事件+结果+复盘)。
 
 后端给前端的取数端点：`/metrics/catalog`(全量目录) · `/metrics/available?symbol`(覆盖) ·
-`/metrics?symbol&names`(序列) · `/watchlist` · `/price` · `/catalysts/stored` · `/trading/*` · `/chat[/stream]`。
+`/metrics?symbol&names`(序列) · `/watchlist` · `/price` · `/catalysts/stored` · `/trading/*` · `/chat[/stream]`
+· `/asset`(标的宇宙) · `/asset/{id}`(标的档案)。
+
+**`/asset` 是单数，不是 `/assets`**：Vite 的构建产物在 `/assets/index-*.js`，API 占用
+`/assets` 会让 nginx 把前端 JS/CSS 代理到后端、页面白屏。三处守着这条：
+`deploy/check_nginx_routes.py`、`frontend/vite.config.ts` 的 preview 代理（用正则键，不是前缀键）、
+`frontend/e2e/api-fixture.ts` 的路由拦截（精确匹配 `/asset` 与 `/asset/`）。
 
 ---
 

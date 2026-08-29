@@ -6,6 +6,7 @@ from typing import Any
 
 from psycopg_pool import ConnectionPool
 
+from .. import assets
 from .store import ACTIVE_RUN
 
 
@@ -41,8 +42,9 @@ def browse_units_page(
         conditions.append("%s = ANY(u.tags)")
         params.append(tag)
     if symbol:
-        conditions.append("u.payload->>'asset_symbol'=%s")
-        params.append(symbol)
+        syms, tags = assets.symbol_variants(symbol)
+        conditions.append("(u.payload->>'asset_symbol' = ANY(%s) OR u.tags && %s::text[])")
+        params.extend([syms, tags])
     if q:
         conditions.append("(u.quote ILIKE %s OR u.payload::text ILIKE %s)")
         params.extend([f"%{q}%", f"%{q}%"])
