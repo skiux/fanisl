@@ -1,0 +1,261 @@
+{
+  "content_id": 75,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "那接下去10年期美国国债的一个真实收益率有没有继续下跌的这个空间？如果继续下跌的话，那黄金这个价格理论上还有继续上涨的这个空间在。对吧？那我的个人的看法是有这个空间在。",
+      "locator": "10:08",
+      "ref_price": 4363.6,
+      "tags": [
+        "xauusd",
+        "us10y",
+        "bond-yields",
+        "fiscal-policy"
+      ],
+      "payload": {
+        "asset_text": "现货黄金 XAUUSD（作者判 10 年期美债真实收益率仍有下行空间，故黄金仍有上行空间）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended"
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": [
+            "2026-08-21",
+            "2026-09-13",
+            "2026-11-12"
+          ],
+          "success_def": "阶梯各时点收盘 > 4363.6（2026-08-13 收盘，发布时间 08-14 12:00 UTC 即美东开盘前；正文『现在4350，4370左右』与该收盘一致）= hit。作者以问句提出真实收益率能否续跌，随即自答『我的个人的看法是有这个空间在』——该条件是他自己主张的，故不作为前置条件处理，直接评黄金方向。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "简单来说，就现在市场预期 PCE 数据会停在0.22，基本上最终的这个结果也就是在0.22。前后的这个误差不会超过0.01%。",
+      "locator": "00:08",
+      "tags": [
+        "macro-data",
+        "inflation"
+      ],
+      "payload": {
+        "asset_text": "2026 年 7 月核心 PCE 环比增速（作者判落在 0.22%，误差不超过 0.01%；我方行情库无 PCE 序列）",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": null,
+        "magnitude": {
+          "pct": 0.22,
+          "tolerance_pct": 0.01
+        },
+        "horizon": {
+          "type": "by_date",
+          "deadline": "2026-08-31"
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我希望看到特斯拉有机会去300以下...\n就可以加仓了，耐心点",
+      "locator": "15:30",
+      "ref_price": 339.96,
+      "tags": [
+        "tsla",
+        "position-sizing",
+        "execution"
+      ],
+      "payload": {
+        "asset_text": "特斯拉（作者的加仓门槛 300 美元以下——这是他自己的买点，不是他预测会跌到那里）",
+        "asset_symbol": "TSLA",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {
+          "target": 300
+        },
+        "horizon": {
+          "type": "open_ended"
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就是整个如果我们要去看美股的一个估值，估值一定是最高的一个逻辑层面。然后接下去我们可以从个别标的去看，个别标的这个估值。再往下清看，可能是一些宏观的数据啊，或者市场的一个参与度啊，可能会给我们一些参考的。就操作上可能会，或者仓位上的一个调整可能会有一些参，参考的这个意义。再下去的话就是一些技术指标。那所以每一层、每一层的逻辑我们一定要分清楚。当两层不同的逻辑之间出现不同信号的时候，我们要知道哪一个逻辑到底是一个主观的一个判断标准。",
+      "locator": null,
+      "tags": [
+        "valuation",
+        "market-structure",
+        "risk-mgmt",
+        "igv"
+      ],
+      "payload": {
+        "canonical_statement": "判断依据分层，冲突时按层级定夺：① 估值（先整体、再个别标的）是最高层；② 宏观数据与市场参与度次之，只对操作与仓位调整有参考意义；③ 技术指标最低。两层给出不同信号时，以高层为准。作者的实例：硬件下跌时市场恐慌，有人问指数下跌后软件会不会跟跌——软件板块现金流好、没有资本开支、估值又在低位，从基本面这一层看没有任何理由减仓，与当时哪些标的在跌无关；后续软件的反弹远好于硬件。同理，个别标的估值仍在低位时，即使参与度到了很高的位置也不需要减这些标的。",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那这时候当我们看到一个相关性在极端的时候，那比如说非常接近于正相关，非常接近于1，或者负相关非常接近于-1的时候，我们知道接下去有可能会出现什么。这一个相关性会出现一个反转。",
+      "locator": "06:55",
+      "tags": [
+        "igv",
+        "soxx",
+        "market-structure",
+        "positioning"
+      ],
+      "payload": {
+        "canonical_statement": "滚动相关性走到极值（接近 +1 或 -1）时，接下来大概率反转。作者的实例：IGV 与 SOXX 的 5 日滚动相关性在 2026 年 6 月中旬一度达到 100% 正相关——两者齐涨齐跌通常意味着这段走势由整体市场或宏观因素主导；此后相关性反转为负相关，表现为芯片反弹摸新高而软件继续下跌。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那之所以会出现这种情况，就是我最近这段时间一直影响市场的一个主线。条高盛的一个一篮子股票。那这一篮子股票或者背后交易这个逻辑就是，某一的时间段，这一个交易的逻辑线会成为市场里面交易的一个主流的一个逻辑线。比如说，做空硬件。就当硬件下跌的时候，软件就得上涨。当软件下跌的时候，硬件就得上涨。",
+      "locator": "05:13",
+      "tags": [
+        "igv",
+        "soxx",
+        "market-structure",
+        "software"
+      ],
+      "payload": {
+        "canonical_statement": "软件与硬件之间的跷跷板走势由一条主流交易逻辑线（作者指高盛的一篮子股票）驱动，而不是各自的基本面：某个时段内做空硬件做多软件成为市场的主流交易，于是硬件跌软件就涨、软件跌硬件就涨。识别标志是不合理的联动——Workday 有可能被收购的消息让它盘中一度涨 20% 多，同时把整个软件板块全部带起来，单家公司的并购传闻不可能有这种基本面含义。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": "限于该篮子交易仍是市场主流逻辑线的时段"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我发现一个问题，就是当白色这条线黄金这个价格，黄金这个走势在40点的时候，得到了一个非常强的一个支持。同时我们发现蓝色这条线美国国债的一个真实收益率一路在上涨。也就是我们在整个7月份，6月底到7月份这段时间看到的是，美债收入，美债的一个真实收益率一路在上涨。理论上来说，对于黄金来说，应该是一个利空，但是价格却告诉我们跌不下去了。",
+      "locator": "10:08",
+      "tags": [
+        "xauusd",
+        "us10y",
+        "price-action",
+        "market-structure"
+      ],
+      "payload": {
+        "canonical_statement": "价格对已知利空不再反应，本身就是需求强劲的证据。黄金与 10 年期美债真实收益率是明确的负相关（真实收益率上行对黄金是利空），而 2026 年 6 月底至 7 月真实收益率一路上涨、黄金却在关键位得到很强支撑跌不下去——这个背离是作者当时开始加仓黄金的第一个依据。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那当时我说过，市场已经定价了将近今年两次的一个加息幅度。已经不可能再鹰了，除非我们认为今年会加息三次，或者今年会加息两次以上，或者加息三次。那我们认为这一个鹰派还有空间在。但是，如果我，因为我个人认为最多就加息两次，不可能加了超过两次，不可能，就没有这个空间在。那如果说，他选择进行加息，反而对于长债这一块的真实收益率是一个利好。",
+      "locator": null,
+      "tags": [
+        "fed-policy",
+        "us10y",
+        "bond-yields",
+        "xauusd"
+      ],
+      "payload": {
+        "canonical_statement": "当市场已经把某个方向充分定价，该方向进一步兑现反而是反向利好（作者称之为 peak hawkishness）。实例：2026 年市场已定价接近两次加息，而作者判断最多就是两次、再鹰没有空间；因此即便美联储真的加息，对长债真实收益率反而是利好（会下行）。据此他在议息会议之前加仓黄金——很多人不理解『你觉得要加息为什么还加仓黄金』，答案就在这里。事后那次会议非常鸽派，最鹰派的时间点其实停在 6 月那次。",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "回过头你会发现，每一次公布 PCE 数据的时候，市场根本就不会有任何的波动和反应。为什么？是因为该有的这个反应全部在公布 CPI 数据和 PPI 数据的时候，已经做出反应了。因为 PCE 数据是 PPI 数据和 CPI 数据出来之后的一个计算结果。PCE 数据它并不是一个预期。",
+      "locator": "00:08",
+      "tags": [
+        "macro-data",
+        "inflation",
+        "market-structure"
+      ],
+      "payload": {
+        "canonical_statement": "PCE 公布时市场几乎没有反应，因为该有的反应在 CPI 与 PPI 公布时已经做完了——PCE 是这两者出来之后的计算结果，不是一个预期。因此不必对每一组宏观数据都投入同样的关注，要分清哪些数据对市场真有影响。2026 年 7 月的读数：核心 PCE 环比 0.22%（上月 0.13%），年化约 2.7%，未达美联储 2% 目标；要达标环比需在 0.18% 左右。",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "比如说，当我们选择在加仓的时候，如果我自己现在手里所持有的一些个股，比如说硬件比较多的话，哎，我正好看到一个软件板块里面的标的估值非常的便宜，然后我又愿意去加仓，那这时候你可以去等一个什么。可以去等一个哎，这两者之间的一个相关性在一个非常正相关的时候，你可以选择进行加仓这一个软件板块。",
+      "locator": "06:55",
+      "tags": [
+        "igv",
+        "soxx",
+        "positioning",
+        "risk-mgmt",
+        "position-sizing"
+      ],
+      "payload": {
+        "name": "用滚动相关性的极值择时加仓，让新仓与存量仓对冲",
+        "summary": "想加的板块与现有持仓板块的滚动相关性走到极端正相关时下手，等相关性反转后两者自然形成对冲",
+        "family": "positioning",
+        "rules": [
+          "前提：已经从基本面/估值判定想加的标的值得加（相关性只用来择时，不构成加仓理由）",
+          "看现有持仓所在板块与目标板块的滚动相关性（作者用 IGV 与 SOXX 举例）",
+          "等相关性走到极端正相关（接近 1）时加目标板块——极值之后大概率反转为负相关，新仓与存量仓因此互相对冲",
+          "窗口按持有周期选：做交易看日线上的滚动 5 日或 10 日；做投资可拉到滚动 20 日、30 日",
+          "配置层面的对应原则是『软硬双修』——软件与硬件都要有，因为两者多数时间负相关，硬件下跌时软件对组合形成支撑（2026 年 7 月硬件下跌而软件强势即为一例）"
+        ],
+        "claimed_performance": null,
+        "data_requirements": [
+          "两个板块 ETF 的日线",
+          "滚动相关性（5/10/20/30 日）"
+        ],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "超买的话，我把它定义为：如果参与度在70%以上，就进入一个超买的区间。那什么时候是一个警戒的位置？当20日均线和50日均线都去到80%、75%至80%之间，甚至于到80%以上的话，就绝对是一个警戒的一个区间了。",
+      "locator": "02:52",
+      "tags": [
+        "market-breadth",
+        "risk-mgmt",
+        "position-sizing",
+        "spx"
+      ],
+      "payload": {
+        "name": "市场参与度的超买阈值（70% / 75-80% 警戒）",
+        "summary": "把成分股在均线之上的比例读成分档区间：70% 以上为超买，20 日与 50 日两条同时到 75-80% 以上为警戒",
+        "family": "trend",
+        "rules": [
+          "指标：各指数成分股在 20 日 / 50 日均线之上的比例（Percentage of Members Above Moving Average）",
+          "参与度 70% 以上 = 进入超买区间",
+          "20 日与 50 日两条**同时**到 75%-80% 甚至 80% 以上 = 警戒区间",
+          "中性区间的动作是继续持有、等待参与度走到超买位置再考虑是否小心",
+          "本期读数：纳指 58/51/49（中性偏乐观）、罗素 2000 62/63/65、标普 500 69/68/73（接近超买）",
+          "该指标属于『宏观/参与度』这一层，低于估值层——个别标的估值仍在低位时，参与度超买不构成减这些标的的理由"
+        ],
+        "claimed_performance": null,
+        "data_requirements": [
+          "各指数成分股在 20/50/100/200 日均线之上的比例"
+        ],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    }
+  ]
+}

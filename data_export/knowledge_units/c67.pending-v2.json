@@ -1,0 +1,363 @@
+{
+  "content_id": 67,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "然后第二个的话呢，我们对美股大盘的一个看法呢，是认为会有一个小幅的回调。回调的位置的话呢，我们也会参考到标普的7600点左右。",
+      "locator": "01:40",
+      "ref_price": 7641.16,
+      "tags": ["spx", "price-action", "rotation"],
+      "payload": {
+        "asset_text": "标普 500（小幅回调，参考位 7600 点左右）",
+        "asset_symbol": "SPX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "down",
+        "magnitude": {"target": 7600},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "target_touch",
+          "eval_ladder": ["2026-08-28", "2026-09-20", "2026-11-19"],
+          "success_def": "期限内任一日最低价触及 7600 = hit，不触及 = miss。ref_price 取 2026-08-20 收盘 7641.16（发布时间 08-21 12:00 UTC 即美东开盘前；视觉笔记 01:40 屏价 7,641.16 与之完全一致）。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那同时呢，我们再参考一下费城半导体在517、520左右这个位置，它是一个七日级别的关键的支撑位。我们说这个位置呢，没有丢掉就不用太悲观。",
+      "locator": "01:42",
+      "ref_price": 522.35,
+      "tags": ["soxx", "semiconductor-cycle", "ema-tunnel", "price-action"],
+      "payload": {
+        "asset_text": "费城半导体 ETF SOXX（517-520 是七日级别关键支撑，不丢就不用太悲观）",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {"low": 517, "high": 520},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-28", "2026-09-20", "2026-11-19"],
+          "success_def": "期限内日收盘不破下沿 517 = hit；盘中破 517 但收盘收回 = partial；日收盘跌破 517 = miss。ref_price 用 2026-08-20 日收盘 522.35——视觉笔记的 545.44 是三日/七日 K 的读数、不是日收盘，同一条笔记里标注的关键支撑 517.20/522.35 与正文一致。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我们要非常地留意一下最近的几个交易日，尤其是下周初，包括今天的周五的收盘，53000能不能收回去。如果不能，那我们要小心道指这里边阶段性走弱的一种可能。不是一定，而是可能。",
+      "locator": "19:20",
+      "ref_price": 52759.21,
+      "tags": ["dji", "price-action", "macro-data", "rotation"],
+      "payload": {
+        "asset_text": "道琼斯工业平均指数（53,000 收不回则阶段性走弱；关键区域 53,000-53,600，月线级别过不去 53,000 是见顶信号，但作者明确该顶部信号尚未确立）",
+        "asset_symbol": "DJI",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "open_ended"},
+        "condition_text": "发布后一两个交易日内收盘仍未收复 53,000 点",
+        "condition_observable": true,
+        "stance_strength": "hedged",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-08-28", "2026-09-20", "2026-11-19"],
+          "success_def": "条件：2026-08-21 与 08-24 两个交易日的收盘均 < 53000。条件成立后，阶梯各时点收盘 < 52759.21（2026-08-20 收盘）= hit；条件不成立（期间任一日收盘收复 53000）则整条不评——作者对这一侧给的是相反判断（『说明市场对于增长问题无忧，接下来道指有可能继续往上走』）。作者自陈是『可能，不是一定』，故 stance 记 hedged。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "黄金高位整理只要不跌破日隧道，不跌破4460、4470的这个台阶，那么后市呢，是有可能继续上行的。",
+      "locator": "15:11",
+      "ref_price": 4516.3,
+      "tags": ["xauusd", "ema-tunnel", "price-action", "fiscal-policy"],
+      "payload": {
+        "asset_text": "现货黄金 XAUUSD（4460-4470 台阶与日隧道为高位整理的下沿，守住则后市继续上行）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {"low": 4460, "high": 4470},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-28", "2026-09-20", "2026-11-19"],
+          "success_def": "期限内日收盘不破下沿 4460 = hit；盘中破 4460 但收盘收回 = partial；日收盘跌破 4460 = miss。取 4460 而非 4470：作者并列给出『4460、4470 这个台阶』，按守住下沿评。他强调 4470 不是因为周三周四的回踩才有效，而是两个月前在更大级别框架里就给过的中继位（同一框架里的底部是 3950-3960）。ref_price 取 2026-08-20 收盘 4516.30（视觉笔记 15:11 屏价 4,510.74，一致）。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "不排除年底冲击前高啊。也就是2026年3月份5300点左右这个位置。",
+      "locator": "15:11",
+      "ref_price": 4516.3,
+      "tags": ["xauusd", "price-action", "fiscal-policy"],
+      "payload": {
+        "asset_text": "现货黄金 XAUUSD（年底冲击 2026 年 3 月前高 5300 点左右；作者用『不排除』表述，且前置于『站稳 4470 且有较好的多头吸筹进来』，后半段无法机械判定）",
+        "asset_symbol": "XAUUSD",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "up",
+        "magnitude": {"target": 5300},
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "condition_text": "站稳 4470 台阶，并且有比较好的多头吸筹进来",
+        "condition_observable": false,
+        "stance_strength": "speculative",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我认为现在纳指100的这个28000点啊，还是一个非常重要的支撑，这里边既然价格加了油上来，后市的话呢，还是不容易跌下去。它可能会高位震荡，然后呢去寻找新的启动的机会。",
+      "locator": "18:55",
+      "ref_price": 29213.16,
+      "tags": ["ndx", "price-action", "market-structure"],
+      "payload": {
+        "asset_text": "纳斯达克 100（28,000 为重要支撑，不容易跌下去，可能高位震荡）",
+        "asset_symbol": "NDX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {"low": 28000},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-28", "2026-09-20", "2026-11-19"],
+          "success_def": "期限内日收盘不破 28000 = hit；盘中破但收盘收回 = partial；日收盘跌破 28000 = miss。ref_price 取 2026-08-20 收盘 29213.16（视觉笔记 18:55 屏价一致）。作者只主张不容易跌下去、可能高位震荡，未主张上行，故按守住下沿评、不评方向。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那今天早上我们看到了几篇机构的研报，发现机构呢，基本也在调整对美元指数年内的一个预期，认为有可能走得比预期要弱一些。那这个是我们要关注的一个指标。",
+      "locator": "11:28",
+      "ref_price": 98.9,
+      "tags": ["dxy", "fiscal-policy", "bond-yields"],
+      "payload": {
+        "asset_text": "美元指数 DXY（作者上一期认为月线级别隧道附近获支撑，本期因财政部下场而下调，与机构同步转向年内偏弱；他同时说明这对其持仓与组合节奏影响不大、可放次要位置考虑）",
+        "asset_symbol": "DXY",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {"type": "by_date", "deadline": "2026-12-31"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "hedged",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": ["2026-12-31"],
+          "success_def": "2026-12-31（或此前最近交易日）收盘 < 98.90（2026-08-20 收盘，视觉笔记 11:28 屏价 98.345、02:41 屏价 98.721，同量级）= hit。原文期限词『年内』按 §3 映射表取 by_date 当年-12-31。『机构在调整预期』是转述，但作者明说自己的观点也随之调整、与机构同步，故记为他的判断；措辞是『有可能走得比预期要弱一些』，stance 记 hedged。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后闪迪的位置也还是相对可以。大概是在，1550、1560左右，这里也和刚刚我们说的LITE是一样的，它是一个中期隧道获得的支撑。可以简单的做一个试错。",
+      "locator": "14:25",
+      "ref_price": 1600.62,
+      "tags": ["sndk", "ema-tunnel", "memory-storage", "positioning"],
+      "payload": {
+        "asset_text": "闪迪 SNDK（1550-1560 为中期隧道支撑，可做试错建仓）",
+        "asset_symbol": "SNDK",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {"low": 1550, "high": 1560},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": ["2026-08-28", "2026-09-20", "2026-11-19"],
+          "success_def": "期限内日收盘不破下沿 1550 = hit；盘中破 1550 但收盘收回 = partial；日收盘跌破 1550 = miss。ref_price 取 2026-08-20 收盘 1600.62（视觉笔记 14:25 屏价 1,600.67，一致）。作者把该位定性为『中期隧道支撑』并据此试错建仓，故按守住下沿评。"
+        }
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "好，然后关于亚马逊的走势也是一样的。我觉得亚马逊大概呢在260之下仍然可以小幅稳健地做一些加仓。",
+      "locator": "14:51",
+      "ref_price": 260.11,
+      "tags": ["amzn", "positioning", "position-sizing"],
+      "payload": {
+        "asset_text": "亚马逊 AMZN（260 之下小幅稳健加仓——这是作者自己的加仓门槛，他未对价格给出方向或目标；前期在高位做过 T、出过一部分）",
+        "asset_symbol": "AMZN",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": {"target": 260},
+        "horizon": {"type": "open_ended"},
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那么结论呢，就是财政部的这一次回购，既不是QE，也不是YCC。如果是QE，就不是借短还长了。那它的总量其实是没有变化的。然后呢，也不是收益率的曲线控制，因为它没有锚定目标收益率，这个不符合政策的惯例。它只是一次流动性干预。",
+      "locator": "10:51",
+      "tags": ["us10y", "fiscal-policy", "bond-yields", "fed-policy"],
+      "payload": {
+        "canonical_statement": "财政部扩大长端回购既不是 QE 也不是 YCC，只是一次流动性干预。判据是第一性的：若是 QE 就不会借短还长、总量其实没有变化；若是 YCC 就该锚定目标收益率，而它没有，也不符合政策惯例。它体现的是中长期仍向扩表、宽松与支持 AI 科技革命的方向走、不会回头，但短期遇到了增长的阵痛、美联储的政策卡在这里不好动。市场的反馈印证了这个读法——这几天走强的是黄金与比特币这类流动性敏感资产，而整个市场表现其实很一般，说明这不是一次全面计价宽松的交易。",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那我们简单说，就是现在市场在中长期需要钱。但是呢，没有那么多买家，买不动了。它只能通过提升长端的收益率和CDS来吸引资金，这样一级市场发行的压力就进一步传导到二级市场，所以我们看到这个长周期的科技债的信用利差呀，还有这个CDS的利差，就随之走阔。",
+      "locator": "10:04",
+      "tags": ["us10y", "ai-capex", "datacenter-financing", "bond-yields"],
+      "payload": {
+        "canonical_statement": "把长端利率锁在高位的力量是 AI 资本开支，不是国债本身。链条：企业需要的是长期投融资、要持续输血，但中长期买家不够、买不动了，发行人只能靠更高的收益率与更宽的信用利差（CDS）吸引资金，一级市场的发行压力再传导到二级市场，于是长周期科技债的信用利差与 CDS 利差一起走阔。数据佐证：2025 到 2026 年企业债规模爆发、已逼近甚至超过付息国债，而付息国债规模同期小幅减少；TMT 板块发债规模与占比自 2025 年 10 月起大幅飙升。",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "结合着这三个：一个是基本面，一个是供给，一个是流动性，我们看到美债的基本面短期是无忧的。",
+      "locator": "05:22",
+      "tags": ["us10y", "bond-yields", "macro-data", "fiscal-policy"],
+      "payload": {
+        "canonical_statement": "判美债基本面短期无忧的三条依据：① 基本面——美国的通胀、就业与消费全线降温，本身就不支持利率上行；② 供给——存量债务虽破 40 万亿，但属被市场广泛预期的长期趋势、短期影响有限，8 月的波动是因为 8 月是 refunding 再融资月，而 9 月的预期已被下调，供给端没受冲击；③ 流动性——美联储总资产自 2025 年末至今增加 1200 亿美元、银行准备金增加 940 亿美元，7 月未加息且信号偏鸽，流动性预期在改善。",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": "限于『短期』；作者未对长期做同样判断"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我们认为美债的基本面无忧，不代表市场是无忧的，因为现在市场的矛盾还是非常明显的。其实就是AI呢，需要大量的供血，然后同时现在的这个政策和通胀呢，又和目前的AI资本开支所提升的这个长期的投融资需求，它没有办法去匹配。",
+      "locator": null,
+      "tags": ["us10y", "ai-capex", "fed-policy", "market-structure"],
+      "payload": {
+        "canonical_statement": "『美债基本面无忧』与『市场无忧』是两回事——结果看起来一样（市场出现波动），但背后的核心矛盾抓偏了交易就会出问题。当下真正的矛盾是：AI 需要大量供血，而现行政策与通胀无法匹配 AI 资本开支带来的长期投融资需求。这层矛盾的核心是美联储的信用问题：长期通胀锚不能松口，一松口美元就会一泻千里；所有动作因此都围绕『温和改善投融资环境，同时在长期宽松路径上保持坚定不动摇』。作者判断博弈最终左侧胜出、即 AI 胜出。",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为现在这个AI的这个热度的传导啊，它就像是，由AI的资本开支驱动的一块石头，然后扔到了一个平静的湖面上。第一圈是英伟达，然后是memory，然后是半导体，然后再往外扩散的这个涟漪，它到底会去到哪儿，它会不会跨行业，会不会ROI的验证，会不会跑到工业、医疗等等。",
+      "locator": null,
+      "tags": ["ai-capex", "semiconductor-cycle", "rotation", "market-structure"],
+      "payload": {
+        "canonical_statement": "AI 热度的板块传导像资本开支这块石头砸进平静湖面后扩散的涟漪：第一圈是英伟达，然后是 memory，然后是半导体，再往外扩散能到哪里、会不会跨行业、能不能通过 ROI 的验证、会不会走到工业与医疗，正是这轮行情要验证的过程。因此现在的板块与选股变得困难，但不是没有机会——大盘相对稳健，会有波动但不必过于悲观，只是要注重质量。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "因为道指的话呢，还是比较明显能够反映美国经济基本面的底层动能的。那么道指如果是下一个相较于纳指偏弱的状态，就说明现在的经济的基本面出现了放缓。",
+      "locator": "20:05",
+      "tags": ["dji", "ndx", "macro-data", "market-structure"],
+      "payload": {
+        "canonical_statement": "道指相对纳指的强弱是经济基本面的温度计：道指更能反映美国经济底层动能，若它相对纳指转弱，说明基本面在放缓。作者说通胀、就业与沃尔玛的零售数据已经给出不少端倪。增长放缓对股市是双刃剑——一方面提升宽松预期，但作者不认为市场会马上计价这个宽松预期，因此后面几个月选股比择时更重要。",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "就是你既然要再降息，必然要打破现在的均衡。而打破现在均衡呢，很明显是应该让市场往下走一走。往下走一走的话，我们要先看到增长出问题。因为AI的话呢，还是有大量的资本开支和财政在顶着，对不对？",
+      "locator": null,
+      "tags": ["dji", "fed-policy", "ai-capex", "market-structure"],
+      "payload": {
+        "canonical_statement": "要再降息就必须先打破当前的均衡，而打破均衡的方式是让市场先往下走一走——前提是先看到增长出问题，因为 AI 那一侧还有大量资本开支与财政顶着。作者称这接近标准情形。据此道指成为关键温度计：若道指在月线级别过不去 53,000 而回调到年线附近，这个过程很可能就是市场开始消化与计价降息的去泡沫过程；届时科技板块是一枝独秀还是跟着大盘走一段疲弱震荡，无法预知。",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "目前的这个窗口期呢，属于价格，我们以现在的标普来看，还有现在纳指来看，价格，当然还有现在的半导体，价格都不错，只是时间上不太好。我们说天时地利人和吧，现在只是有了一个，有了一个地利。也就是现在的价位还不错。但是天时和人和，也就是政策方面和周期上都显得有一点尴尬。",
+      "locator": null,
+      "tags": ["spx", "ndx", "soxx", "positioning", "risk-mgmt"],
+      "payload": {
+        "canonical_statement": "把入场条件拆成天时地利人和三项分开评估：地利是价位（当下标普、纳指、半导体的价位都不错），天时是政策，人和是周期。当下只占了地利一项，天时与人和都有点尴尬——遇到支撑、有安全价位是一回事，能不能收强、继续往上攻是另一回事。三项不齐时的应对不是空仓，而是在接下来的交易里注重选股。",
+        "category": "risk_mgmt",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那我们去看看最近的工业金属和贵金属，其实都还是在牛市当中啊。那只要这个AI的科技革命不停歇，那么我们对大宗商品，包括关键原材料的这个长期的看法，都认为呢会是走牛的。只不过现在市场呢，不再去炒作前面炒的比较狠的板块了，我们要看到这个涟漪在扩散的一些现象。",
+      "locator": "13:32",
+      "tags": ["price-action", "ema-tunnel", "positioning", "rotation"],
+      "payload": {
+        "name": "沿涟漪扩散方向、在隧道支撑处试错建仓",
+        "summary": "在被市场冷落但受 AI 长期需求支撑的方向上，只在周线/多日隧道给出的支撑位分批试错，不追已被炒过的板块",
+        "family": "trend",
+        "rules": [
+          "方向来自涟漪扩散的判断：不再追前面炒得比较狠的板块，去找涟漪还没扩散到的位置",
+          "只在技术位建仓——周线与三日级别隧道给出的支撑，且价格已突破前期震荡箱体上沿后回踩（巩固型走势）才加",
+          "本期的具体位：LITE 840-850（周线+三日隧道，基本面看好、有技术信号就逢低加、做长线；涨破 1000 有压力但到 1000 不走，会换成长期持仓）；RIO 约 96（选多元矿业而非纯铝敞口的美国铝业——加拿大关税调低使铝的走势不好判断，RIO 还有铜价敞口更稳健）；闪迪 1550-1560（中期隧道）",
+          "所有个股的成立前提统一挂在板块上：看半导体对 517-520 的支撑是否有效，支撑有效、板块不下破，这些试错就不会太难做",
+          "对高波动个股改用更小级别跟踪：Circle 站稳日隧道并持续加速后，只要四小时级别均线不破就沿速度持有——这类标的不拿到翻倍没有太多参与意义，故仓位本就不重",
+          "商品与关键原材料的长期看多前提是『AI 科技革命不停歇』，工业金属与贵金属当前仍在牛市中"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["周线/三日/四小时多级别隧道与均线", "板块 ETF 的关键支撑", "个股基本面判断"],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "前面太高的时候呢，在涨到这个560左右的时候，我们上一个视频也聊到了。我说也别太乐观，因为它还是可能会高波动是一个常态。所以高抛低吸做一做也没有什么问题。",
+      "locator": "01:42",
+      "tags": ["soxx", "semiconductor-cycle", "execution", "risk-mgmt"],
+      "payload": {
+        "name": "把高波动当常态：区间内高抛低吸而非追方向",
+        "summary": "当一个板块的上行空间被压缩、高波动成为常态时，用区间两端做高抛低吸，而不是在任一端做方向判断",
+        "family": "reversion",
+        "rules": [
+          "先确认形态：板块的上行空间被压缩、高波动是常态（此例半导体）",
+          "上沿别太乐观：涨到 560 左右时明确提示不要乐观",
+          "下沿别太悲观：517-520 的七日级别支撑没丢就不用太悲观",
+          "在这两端之间高抛低吸，不在任一端押方向",
+          "该判断与更高层的板块支撑绑定：一旦下沿失守，整套区间操作的前提就不成立"
+        ],
+        "claimed_performance": null,
+        "data_requirements": ["板块 ETF 的多级别 K 线与关键支撑压力位"],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    }
+  ]
+}
