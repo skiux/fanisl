@@ -284,6 +284,18 @@ class KnowledgeStore:
                 "SELECT * FROM keyframes WHERE content_id=%s ORDER BY ts_s", (content_id,),
             ).fetchall()
 
+    def known_tags(self) -> set[str]:
+        """生效版本里已经用过的全部标签——import 时的词表体检拿它当受控词表。
+
+        用库而不是在代码里再写一份主题词表：extraction-guide §7 本身就是那份表，
+        复制一遍必然漂移；而"这个词以前用过没有"恰好就是要问的问题。
+        """
+        with self.pool.connection() as conn:
+            rows = conn.execute(
+                f"SELECT DISTINCT unnest(u.tags) AS tag FROM knowledge_units u "
+                f"WHERE {ACTIVE_RUN}").fetchall()
+        return {r["tag"] for r in rows}
+
     def keyframe_seconds(self, content_id: int) -> set[int]:
         """已有帧的时间戳集合（回填幂等用）。"""
         with self.pool.connection() as conn:

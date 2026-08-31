@@ -173,6 +173,16 @@ _ASSETS: list[Asset] = [
     _s("CRWV", "CoreWeave"),
     _s("ORCL", "甲骨文"),
     _s("CRM", "Salesforce"),
+    _s("CRWD", "CrowdStrike"),
+    # 2026-08-31 语料带入：投资TALK君与美投君的消费与金融标的。
+    # 加日线源是有意的——作者在 NKE 上已开仓、MCD 建议持有并加仓，后续判断需要能机械评分，
+    # 没有价格序列的话这些 claim 只能一直压在 D。
+    _s("NKE", "耐克"),
+    _s("MCD", "麦当劳"),
+    _s("WMT", "沃尔玛"),
+    # 伯克希尔：id 不带点号（URL 安全），yf 用交易所写法 BRK-B。
+    Asset("BRKB", "stock", "伯克希尔 B 类", yf="BRK-B",
+          aliases=("BRK.B", "BRK-B", "BRK/B")),
     _s("NOW", "ServiceNow"),
     _s("SNOW", "Snowflake"),
     _s("DDOG", "Datadog"),

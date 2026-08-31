@@ -22,6 +22,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+from .. import assets
 from ..config import get_settings
 from ..db import make_pool
 from .models import KnowledgeUnit
@@ -57,6 +58,36 @@ def check_quotes(raw: str, units: list[KnowledgeUnit]) -> list[int]:
     """quote 必须逐字出自原文（空白归一后子串）。返回未命中的下标。"""
     hay = _squash(raw)
     return [i for i, u in enumerate(units) if _squash(u.quote) not in hay]
+
+
+def check_vocabulary(store: KnowledgeStore, units: list[KnowledgeUnit]) -> list[str]:
+    """词表体检：报出未登记的 asset_symbol 与本次新出现的标签。
+
+    **为什么必须在入库这一刻查**：标的工作台把单元归到标的只有两条路——claim 走
+    `payload.asset_symbol`（不限登记表），method/concept 走资产标签（必须在登记表内，
+    否则 `ai-capex` 这类主题词会被当成标的）。两条都不通的单元在标的页上彻底不可见。
+    2026-08-31 实测就有 18 条这样的单元（nke/mcd/brkb/wmt/crwd），全是 claim 的
+    asset_symbol 留空、标签又没登记，靠人工查才发现。
+
+    判据用"库里已用过的词"当词表，不在代码里复制一份主题受控词——新词要么是该登记的
+    标的，要么是 extraction-guide §7 要求回填进受控词表的新主题词，两种都值得在这里响一声。
+    只警告不拒绝：未登记的 asset_symbol 是有意要露出来的信号，不是错误。
+    """
+    warnings: list[str] = []
+    for i, u in enumerate(units):
+        sym = u.payload.get("asset_symbol") if u.kind == "claim" else None
+        if sym and assets.lookup(sym) is None:
+            warnings.append(f"units[{i}] asset_symbol={sym!r} 不在登记表——"
+                            f"要么补进 assets.py，要么改成已登记的符号")
+    known = store.known_tags()
+    for i, u in enumerate(units):
+        for tag in u.tags:
+            if tag in known or assets.lookup(tag) is not None:
+                continue
+            warnings.append(f"units[{i}] 标签 {tag!r} 是新词——"
+                            f"若是标的请补进 assets.py（否则该单元在标的页上不可见），"
+                            f"若是主题词请回填 extraction-guide §7 的受控词表")
+    return warnings
 
 
 def _cmd_runs(store: KnowledgeStore, content_id: int) -> None:
@@ -105,6 +136,9 @@ def main() -> None:
             for i in misses:
                 print(f"  units[{i}] quote 不在原文中：{units[i].quote[:50]}…")
             raise SystemExit("quote 校验失败，整文件拒绝")
+
+        for w in check_vocabulary(store, units):
+            print(f"  ⚠ {w}")
 
         kinds = Counter(u.kind for u in units)
         grades = Counter(u.payload["verifiability"] for u in units if u.kind == "claim")

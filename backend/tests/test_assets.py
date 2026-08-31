@@ -28,6 +28,7 @@ _EXPLICIT_YF = {
     "AUDJPY": ("AUDJPY=X", 1.0, ""),
     "US10Y": ("^TNX", 1.0, "收益率%（yfinance 直读口径，实测 2026-05 为 4.48）"),
     "US30Y": ("^TYX", 1.0, "收益率%（直读口径）"),
+    "BRKB": ("BRK-B", 1.0, ""),
     "BTCUSDT": ("BTC-USD", 1.0, "现货指数代理"),
     "VIX": ("^VIX", 1.0, "CBOE 波动率指数"),
     "GSCI": ("^SPGSCI", 1.0, "标普高盛商品指数（能源权重约 40%）"),
@@ -36,10 +37,11 @@ _EXPLICIT_YF = {
 # 与 id 同名的（yfinance ticker 就是符号本身）
 _SELF_YF = {
     "AAPL", "AAXJ", "AMD", "AMZN", "APP", "ASML", "AVGO", "BE", "CBRS", "CEG", "COIN",
-    "CRCL", "CRM", "CRWV", "DBA", "DDOG", "DIS", "DRAM", "FCG", "FIG", "GE", "GOOG",
+    "CRCL", "CRM", "CRWD", "CRWV", "DBA", "DDOG", "DIS", "DRAM", "FCG", "FIG", "GE", "GOOG",
     "GOOGL", "HOOD", "IGV", "INTC", "ISRG", "ITA", "KBWB", "MA", "MAGS", "META", "MOAT",
     "MRVL", "MSFT", "MU", "NBIS", "NEE", "NET", "NFLX", "NOK", "NOW", "NVDA", "OKTA",
     "ORCL", "PCOR", "PLTR", "PYPL", "QCOM", "RSP", "SEMI", "SHOP", "SMH", "SNDK", "SNOW",
+    "MCD", "NKE", "WMT",
     "SOXX", "SPCX", "TEAM", "TLT", "TSLA", "TSM", "TWLO", "UBER", "UFOX", "UNH", "V",
     "VST", "XLI", "XLU", "XLV",
 }

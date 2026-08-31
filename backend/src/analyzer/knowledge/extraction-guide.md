@@ -161,6 +161,23 @@ forward PE"才看得出来。否则事后无法与真实价位比对，省略式
 - priceable=true 的范围：美股/ETF/主要指数/金银油/主流加密/KOSPI——K4 将配日线源
   （yfinance/Stooq 级别）。冷门标的或"某板块"无代理时 priceable=false（→ 最高 D）。
 
+**`asset_symbol` 与 `priceable` 是两个正交的字段，别混**（2026-08-31 新增）：
+`asset_symbol` 回答"这是哪个标的"（身份），`priceable` 回答"能不能机械评分"（可评性）。
+**D 级 claim 同样要填 `asset_symbol`**，只要标的可识别；`models.py` 只在 A/B 级要求
+`priceable=true`，从没要求 D 级留空符号。
+
+踩过的坑：2026-08-30 那批把 Nike / 麦当劳 / 伯克希尔的 D 级 claim 的 `asset_symbol` 填成
+null，理由写的是"我方行情库无该序列"——那是 `priceable` 该表达的事。后果不在评分而在检索：
+标的工作台把单元归到标的只有两条路（claim 走 `asset_symbol`，method/concept 走资产标签），
+两条都不通的单元在标的页上**彻底不可见**，实测 18 条。
+
+配套纪律：**语料里出现的标的必须在 `analyzer/assets.py` 登记**，否则资产标签解析不到、
+同样不可见。`import_units` 的 `check_vocabulary` 现在会在入库时把未登记符号与新标签报出来
+（只警告不拒绝——未登记符号是有意要露出来的信号）。
+
+本条只改填写口径，**不改变任何分级、方向、期限与 ScoringSpec 语义，因此不升
+extractor_version**：重放出来的评分结果与原来逐条相同。
+
 ## 7. 标签（可检索性的入口）
 
 每单元 1-5 个，全小写：
