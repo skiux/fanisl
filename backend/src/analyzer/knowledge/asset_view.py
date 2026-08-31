@@ -14,7 +14,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Callable
 
 from psycopg_pool import ConnectionPool
 
@@ -25,13 +26,23 @@ from .store import ACTIVE_RUN
 # 否则登记漏了就永远发现不了；别名拼法先经 amap 归一，"XAU/USD" 与 "XAUUSD" 算同一个）；
 # method/concept 用资产标签（**必须限定在登记表内**，否则 ai-capex 这类主题标签会被当成标的）。
 # UNION 去重：两路都命中的算一条。
-_KEYS_CTE = f"""
+def keys_cte(*, scoped: bool) -> str:
+    """单元 → 标的的展开。
+
+    `scoped=True` 时把标的谓词**推进 CTE 里**，只展开这个标的的单元。
+    单标的档案要跑 5 个这样的查询，不推进去就是 5 次全表展开（1147 条单元 × unnest 标签），
+    经隧道实测 `/asset/{id}` 因此要 5.8 秒。推进去之后只碰几十行。
+    """
+    scope = ("""
+      AND (u.payload->>'asset_symbol' = ANY(%(syms)s) OR u.tags && %(scope_tags)s::text[])
+    """ if scoped else "")
+    return f"""
 WITH amap AS (
     SELECT * FROM unnest(%(alias_raw)s::text[], %(alias_canon)s::text[]) AS t(raw, canon)
 ), live AS (
     SELECT u.id, u.kind, u.creator_id, u.published_at, u.payload, u.tags
     FROM knowledge_units u
-    WHERE {ACTIVE_RUN}
+    WHERE {ACTIVE_RUN}{scope}
 ), keys AS (
     SELECT l.id, l.kind, l.creator_id, l.published_at,
            COALESCE((SELECT canon FROM amap WHERE amap.raw = upper(l.payload->>'asset_symbol')),
@@ -42,6 +53,10 @@ WITH amap AS (
     FROM live l, unnest(l.tags) AS t WHERE upper(t) = ANY(%(asset_keys)s)
 )
 """
+
+
+_KEYS_CTE = keys_cte(scoped=False)
+_KEYS_SCOPED = keys_cte(scoped=True)
 
 
 def _base_params() -> dict:
@@ -151,13 +166,15 @@ def asset_universe(pool: ConnectionPool) -> list[dict[str, Any]]:
 def _one_asset_params(asset_id: str) -> dict:
     """单标的查询的参数：归一后的 id（keys CTE 已把别名折叠到它上面）。"""
     canonical = assets.resolve_id(asset_id) or (asset_id or "").strip().upper()
-    return {**_base_params(), "asset": canonical, "tags": [canonical]}
+    syms, tags = assets.symbol_variants(canonical)
+    return {**_base_params(), "asset": canonical, "tags": [canonical],
+            "syms": syms, "scope_tags": tags}
 
 
 def asset_summary(pool: ConnectionPool, asset_id: str) -> dict[str, Any] | None:
     """单个标的的计数与战绩（口径与 asset_universe 完全一致）。无任何单元返回 None。"""
     sql = f"""
-    {_KEYS_CTE}{_SCORES_CTE}{_OPEN_CTE}
+    {_KEYS_SCOPED}{_SCORES_CTE}{_OPEN_CTE}
     SELECT k.asset, {_COUNTS}, {_SCORE_COUNTS}
     FROM keys k
     LEFT JOIN sc s ON s.asset = k.asset
@@ -173,7 +190,7 @@ def asset_summary(pool: ConnectionPool, asset_id: str) -> dict[str, Any] | None:
 def by_creator(pool: ConnectionPool, asset_id: str) -> list[dict[str, Any]]:
     """"谁在这个标的上说得准"——按信源拆开的计数与战绩。"""
     sql = f"""
-    {_KEYS_CTE}
+    {_KEYS_SCOPED}
     , sc AS (
         SELECT k.creator_id,
           count(*) FILTER (WHERE sr.outcome IN ('hit','partial','miss')) AS scored,
@@ -210,7 +227,7 @@ def open_claims(pool: ConnectionPool, asset_id: str, limit: int = 60) -> list[di
     这是标的页最有决策价值的一块，所以判据 `success_def` 原样带出，前端不许截断。
     """
     sql = f"""
-    {_KEYS_CTE}
+    {_KEYS_SCOPED}
     SELECT u.id AS unit_id, ladder.label AS horizon_label, u.quote, u.payload,
            u.published_at, u.ref_price_at_publish, u.tags,
            cr.name AS creator, c.id AS content_id, c.title AS content_title
@@ -235,7 +252,7 @@ def open_claims(pool: ConnectionPool, asset_id: str, limit: int = 60) -> list[di
 def settled_claims(pool: ConnectionPool, asset_id: str, limit: int = 60) -> list[dict[str, Any]]:
     """已判定记录：市场对这个标的的裁决流，按判定时点倒序。"""
     sql = f"""
-    {_KEYS_CTE}
+    {_KEYS_SCOPED}
     SELECT s.id AS score_id, s.unit_id, s.horizon_label, s.outcome, s.realized, s.eval_ts,
            u.quote, u.payload, u.published_at, u.ref_price_at_publish,
            cr.name AS creator, c.id AS content_id, c.title AS content_title
@@ -314,6 +331,8 @@ def related_assets(pool: ConnectionPool, asset_id: str, limit: int = 12) -> list
 
     "半导体这条线上还有谁"——比人工维护一张关联表可靠，因为它就是语料自己说的。
     """
+    # 这里**不能**用 scoped：要的是"这个标的的单元上还挂了哪些别的标的"，
+    # 展开必须是全量的，只是外层限定起点。
     sql = f"""
     {_KEYS_CTE}
     SELECT other.asset, count(*) AS co_mentions
@@ -331,10 +350,37 @@ def related_assets(pool: ConnectionPool, asset_id: str, limit: int = 12) -> list
     return rows
 
 
+def gather(pool: ConnectionPool, jobs: dict[str, Callable[[], Any]]) -> dict[str, Any]:
+    """并发跑一组互不依赖的只读查询。
+
+    **瓶颈是往返次数，不是 SQL。** 本机经 SSH 隧道连服务器库时单程约 300ms，档案页十几条
+    查询串起来就是 5 秒多，而每条查询本身只要几毫秒（实测 `coverage_for` 只返回一行也要
+    279ms）。池子 max_size=10，并发两波就跑完。服务器上库在本地（往返 ~1ms），并发也不会更慢。
+
+    每个 job 自己 `with pool.connection()` 取连接，线程之间不共享连接。
+    """
+    if not jobs:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as workers:
+        futures = {key: workers.submit(fn) for key, fn in jobs.items()}
+        return {key: future.result() for key, future in futures.items()}
+
+
 def asset_dossier(pool: ConnectionPool, asset_id: str) -> dict[str, Any] | None:
     """标的档案：页面首屏需要的全部聚合。库里一条单元都没有的标的返回 None。"""
     canonical = assets.resolve_id(asset_id) or asset_id.strip().upper()
-    summary = asset_summary(pool, canonical)
+    # summary 也一起并发跑：它只是用来判"有没有单元"，为它单开一个往返不值当
+    # （多跑的那几条在没有单元时结果都是空，代价可忽略）。
+    parts = gather(pool, {
+        "summary": lambda: asset_summary(pool, canonical),
+        "by_creator": lambda: by_creator(pool, canonical),
+        "open_claims": lambda: open_claims(pool, canonical),
+        "settled_claims": lambda: settled_claims(pool, canonical),
+        "nodes": lambda: nodes_for_asset(pool, canonical),
+        "disagreements": lambda: disagreements(pool, canonical),
+        "related_assets": lambda: related_assets(pool, canonical),
+    })
+    summary = parts.pop("summary")
     if summary is None:
         return None
     a = assets.lookup(canonical)
@@ -358,10 +404,5 @@ def asset_dossier(pool: ConnectionPool, asset_id: str) -> dict[str, Any] | None:
             "instrument": (a.instrument if a else None),
         },
         "summary": summary,
-        "by_creator": by_creator(pool, canonical),
-        "open_claims": open_claims(pool, canonical),
-        "settled_claims": settled_claims(pool, canonical),
-        "nodes": nodes_for_asset(pool, canonical),
-        "disagreements": disagreements(pool, canonical),
-        "related_assets": related_assets(pool, canonical),
+        **parts,
     }

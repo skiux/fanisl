@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import pathlib
 import time
 
@@ -17,6 +18,8 @@ import httpx
 
 _BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 _VERTEX_BASE = "https://aiplatform.googleapis.com/v1/projects/{project}/locations/global/publishers/google/models"
+log = logging.getLogger("analyzer.knowledge.llm")
+
 _ADC_PATH = pathlib.Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
 _METADATA_TOKEN_URL = ("http://metadata.google.internal/computeMetadata/v1/"
                        "instance/service-accounts/default/token")
@@ -204,13 +207,41 @@ class VertexGeminiClient(GeminiClient):
 
 
 def make_client(settings, *, model: str | None = None) -> GeminiClient:
-    """按配置选通道：填了 gcp_project 走 Vertex（ADC），否则走 AI Studio key。"""
+    """按配置选通道。`GEMINI_CHANNEL=auto|vertex|aistudio`，默认 auto。
+
+    auto 的语义是"**优先 Vertex，换不到 token 就回落到 AI Studio key**"——
+    同一份 .env 要同时服务两台机器：服务器上 Vertex 用 GCE 元数据服务器拿 token（零凭据落盘），
+    本机要 `gcloud auth application-default login`，用户暂时做不了。不回落的话本机恒 400。
+
+    回落**响一声**（warning），不静默换通道：Vertex 该通而不通是要知道的事。
+    显式写 vertex 或 aistudio 就不回落，坏了就报错。
+    """
     m = model or settings.gemini_model
-    if settings.gcp_project:
+    channel = getattr(settings, "gemini_channel", "auto")
+
+    def _aistudio() -> GeminiClient:
+        if not settings.gemini_api_key:
+            raise SystemExit("需要 GEMINI_API_KEY（或把 GEMINI_CHANNEL 设为 vertex）")
+        return GeminiClient(settings.gemini_api_key, model=m)
+
+    if channel == "aistudio":
+        return _aistudio()
+    if channel == "vertex":
         return VertexGeminiClient(settings.gcp_project, model=m)
-    if not settings.gemini_api_key:
-        raise SystemExit("既没有 gcp_project 也没有 gemini_api_key")
-    return GeminiClient(settings.gemini_api_key, model=m)
+    if not settings.gcp_project:
+        return _aistudio()
+
+    vertex = VertexGeminiClient(settings.gcp_project, model=m)
+    try:
+        vertex._access_token()   # 只验鉴权，不发生成请求
+        return vertex
+    except Exception as exc:  # noqa: BLE001 — 拿不到 token 就换通道，原因打出来
+        if not settings.gemini_api_key:
+            raise
+        log.warning("Vertex 取 token 失败（%s: %.120s），回落到 AI Studio key。"
+                    "服务器上应当走 Vertex——那边看到这条 warning 说明元数据服务器有问题。",
+                    type(exc).__name__, exc)
+        return _aistudio()
 
 
 def render_l0_text(tr: dict) -> str:

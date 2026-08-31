@@ -567,38 +567,103 @@ def _bar_coverage() -> dict[str, dict]:
     return {r["symbol"]: r for r in PriceStore(knowledge_store.pool).coverage()}
 
 
-def _news_coverage() -> dict[str, dict]:
-    """catalyst_items 里 news 的覆盖，按 metric_samples 的 symbol 口径（如 `BTC/USDT`）。
+_REFERENCE_STORE = None
 
-    现状：只有采集 watchlist 的 5 个加密对有新闻，其余标的一条没有——**如实返回空**，
-    页面据此说明"为什么这块是空的"，不要用别的东西凑数。
+
+def _reference_store():
+    """进程内单例。`ReferenceStore.__init__` 会跑一遍建表 DDL——每次请求重建三次，
+    经隧道连服务器库时就是三个白白的往返。"""
+    global _REFERENCE_STORE
+    if _REFERENCE_STORE is None:
+        from .knowledge.reference import ReferenceStore
+
+        _REFERENCE_STORE = ReferenceStore(knowledge_store.pool)
+    return _REFERENCE_STORE
+
+
+def _news_coverage() -> tuple[dict[str, dict], dict[str, dict]]:
+    """两路新闻覆盖：`news_items`（按标的，追加式时间线）+ `catalyst_items`（加密对的最新快照）。
+
+    两张表的语义不同，不能混成一个数：前者可回溯，后者先删后插只留最新一轮。
+    加密标的目前只有后者，所以这里两路都返回，由调用方按标的取。
     """
-    return {r["symbol"]: r for r in market_store.catalyst_coverage() if r["kind"] == "news"}
+    by_asset = _reference_store().news_coverage()
+    by_symbol = {r["symbol"]: r for r in market_store.catalyst_coverage() if r["kind"] == "news"}
+    return by_asset, by_symbol
 
 
-def _attach_coverage(row: dict, bars: dict, news: dict) -> dict:
+def _news_for(asset_id: str, limit: int = 40) -> list[dict]:
+    """某标的的动态：优先 news_items；加密标的回落到 catalyst_items 的最新一轮快照。"""
+    rows = _reference_store().news(asset_id, limit=limit)
+    if rows:
+        return rows
+    a = assets_registry.lookup(asset_id)
+    if a is None or not a.metric_symbol:
+        return []
+    out = []
+    for item in market_store.get_catalysts(a.metric_symbol):
+        if item["kind"] != "news":
+            continue
+        payload = item.get("payload") or {}
+        out.append({
+            "id": None, "published_at": payload.get("published_at") or item.get("event_date"),
+            "title": item.get("title") or "", "summary": payload.get("summary"),
+            "url": payload.get("url"), "source": payload.get("source"),
+            "provider": payload.get("provider") or "catalyst", "image_url": payload.get("image_url"),
+        })
+    return out[:limit]
+
+
+def _attach_coverage(row: dict, bars: dict, news: dict, news_by_symbol: dict,
+                     profiles: dict) -> dict:
     a = assets_registry.lookup(row["asset"])
     row["bars"] = bars.get(row["asset"])
-    row["news"] = news.get(a.metric_symbol) if a and a.metric_symbol else None
+    row["news"] = news.get(row["asset"]) or (
+        news_by_symbol.get(a.metric_symbol) if a and a.metric_symbol else None)
+    row["profile_at"] = profiles.get(row["asset"])
     return row
+
+
+def _traded_assets() -> set[str]:
+    """评测台交易过的标的（按登记表的规范 id）。
+
+    交易库存的是下单时的写法，同一个标的有三种记法，所以按 `exec_candidates` 反查。
+    """
+    symbols = set(trading_store.traded_symbols())
+    if not symbols:
+        return set()
+    return {a.id for a in assets_registry.all_assets()
+            if symbols & set(assets_registry.exec_candidates(a.id))}
 
 
 @app.get("/asset")
 def assets_index(include_empty: bool = False) -> dict:
     """标的宇宙：每个标的的知识沉淀、战绩、未到期判断数与数据覆盖。
 
-    默认只给**库里真有知识单元**的标的；`include_empty=true` 把登记表里还没有单元的
-    （QQQ/SPY/MSTR 等可交易但没人讲过的）也带上，用于确认某个符号是否已登记。
+    默认给**库里真有知识单元、或评测台交易过**的标的——BZ 就是后者（0 条单元、3 笔交易），
+    只按知识单元筛会让它在工作台里无处可达。`include_empty=true` 再把登记表其余部分带上，
+    用于确认某个符号是否已登记。
     """
     from .knowledge import asset_view
 
-    rows = asset_view.asset_universe(knowledge_pool)
-    bars, news = _bar_coverage(), _news_coverage()
+    # 五份互不依赖的全表读取，并发跑（见 asset_view.gather）
+    fetched = asset_view.gather(knowledge_pool, {
+        "rows": lambda: asset_view.asset_universe(knowledge_pool),
+        "bars": _bar_coverage,
+        "news": _news_coverage,
+        "profiles": lambda: _reference_store().profile_coverage(),
+        "traded": _traded_assets,
+    })
+    rows = fetched["rows"]
+    bars, profiles, traded = fetched["bars"], fetched["profiles"], fetched["traded"]
+    news, news_by_symbol = fetched["news"]
     for r in rows:
-        _attach_coverage(r, bars, news)
-    if include_empty:
-        seen = {r["asset"] for r in rows}
-        for a in assets_registry.all_assets():
+        _attach_coverage(r, bars, news, news_by_symbol, profiles)
+    seen = {r["asset"] for r in rows}
+    extra = assets_registry.all_assets() if include_empty else [
+        a for a in assets_registry.all_assets() if a.id in traded]
+    if extra:
+        for a in extra:
             if a.id in seen:
                 continue
             rows.append(_attach_coverage({
@@ -610,7 +675,7 @@ def assets_index(include_empty: bool = False) -> dict:
                 "first_seen": None, "last_seen": None, "scored": 0, "hits": 0,
                 "partials": 0, "misses": 0, "unresolved": 0, "open_claims": 0,
                 "hit_rate": None,
-            }, bars, news))
+            }, bars, news, news_by_symbol, profiles))
     return {"total": len(rows), "classes": assets_registry.CLASS_LABELS, "assets": rows}
 
 
@@ -623,10 +688,26 @@ def asset_detail(asset_id: str) -> dict:
     （"我们知道它是什么，只是还没人讲过它"与"查无此物"是两回事）。
     """
     from .knowledge import asset_view
+    from .knowledge.prices import PriceStore
 
     canonical = assets_registry.resolve_id(asset_id) or asset_id.strip().upper()
-    dossier = asset_view.asset_dossier(knowledge_pool, canonical)
     a = assets_registry.lookup(canonical)
+    store = _reference_store()
+    price = PriceStore(knowledge_store.pool)
+    # 档案本体与这几块参考数据互不依赖，一起并发跑（见 asset_view.gather 的说明）。
+    # **按标的单查，不做全表聚合**：经隧道实测三个全表聚合占了整个请求的一半
+    # （日线覆盖 1.3s + 新闻覆盖 0.6s + 资料覆盖 0.3s），全表那几份是列表页才需要的。
+    fetched = asset_view.gather(knowledge_pool, {
+        "dossier": lambda: asset_view.asset_dossier(knowledge_pool, canonical),
+        "bars_window": lambda: price.coverage_for(canonical),
+        "news_coverage": lambda: store.news_coverage_for(canonical),
+        "profile": lambda: store.profile(canonical),
+        "news": lambda: _news_for(canonical),
+        "events": lambda: store.events(canonical),
+        "trades": lambda: trading_store.list_trades_for_symbols(
+            assets_registry.exec_candidates(canonical)),
+    })
+    dossier = fetched["dossier"]
     if dossier is None and a is None:
         raise HTTPException(status_code=404, detail=f"未知标的 {asset_id}")
     if dossier is None:
@@ -642,11 +723,19 @@ def asset_detail(asset_id: str) -> dict:
             "nodes": [], "disagreements": {"relations": [], "evolution": []},
             "related_assets": [],
         }
-    bars = _bar_coverage().get(canonical)
-    dossier["coverage"]["bars_window"] = bars
-    news = _news_coverage()
+    dossier["coverage"]["bars_window"] = fetched["bars_window"]
     metric_symbol = dossier["coverage"].get("metrics")
-    dossier["coverage"]["news"] = news.get(metric_symbol) if metric_symbol else None
+    dossier["coverage"]["news"] = fetched["news_coverage"] or (
+        _news_coverage()[1].get(metric_symbol) if metric_symbol else None)
+    dossier["profile"] = fetched["profile"]
+    dossier["news"] = fetched["news"]
+    dossier["events"] = fetched["events"]
+    dossier["trades"] = fetched["trades"]
+    # 有没有"公司"/"财报"这回事本身要说清楚：指数/金属/利率没有，ETF 不报财报——
+    # 都不是"我们没接"。前端据此隐藏对应分节，而不是渲染空面板。
+    has_ticker = bool(a and a.asset_class in ("stock", "etf") and (not a.yf or a.yf == a.id))
+    dossier["coverage"]["has_company"] = has_ticker
+    dossier["coverage"]["has_earnings"] = bool(has_ticker and a.asset_class == "stock")
     return dossier
 
 

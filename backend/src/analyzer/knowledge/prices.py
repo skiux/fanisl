@@ -75,6 +75,14 @@ class PriceStore:
                 "WHERE symbol=%s AND ts>=%s AND ts<=%s ORDER BY ts", (symbol, start, end),
             ).fetchall()
 
+    def coverage_for(self, symbol: str) -> dict | None:
+        """单个符号的覆盖。标的档案只要自己那一行，别为它扫全表——
+        16k 行的 group by 经隧道实测 1.3 秒，占了整个档案请求的四分之一。"""
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "SELECT symbol, count(*) AS n, min(ts) AS first, max(ts) AS last "
+                "FROM daily_bars WHERE symbol=%s GROUP BY symbol", (symbol,)).fetchone()
+
     def coverage(self) -> list[dict]:
         with self.pool.connection() as conn:
             return conn.execute(

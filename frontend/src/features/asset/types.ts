@@ -11,10 +11,15 @@ export type BarCoverage = {
 }
 
 export type NewsCoverage = {
-  kind: string
-  symbol: string
+  /** news_items 走 asset + latest；catalyst_items 那一路走 kind/symbol + fetched_at。 */
+  kind?: string
+  symbol?: string
+  asset?: string
   n: number
-  fetched_at: string
+  latest?: string
+  fetched_at?: string
+  /** 被降噪层判为噪音、已从列表里拿掉的条数。 */
+  noise?: number
 }
 
 /** 一个标的的计数与战绩。hit_rate 为 null = 没有样本，**不是 0**。 */
@@ -46,6 +51,7 @@ export type AssetSummary = {
 export type AssetRow = AssetSummary & {
   bars: BarCoverage | null
   news: NewsCoverage | null
+  profile_at: string | null
 }
 
 export type AssetIndex = {
@@ -66,6 +72,96 @@ export type AssetIdentity = {
   registered: boolean
 }
 
+export type AssetProfileMetrics = {
+  pe_ttm?: number
+  ps_ttm?: number
+  pb?: number
+  eps_ttm?: number
+  gross_margin?: number
+  operating_margin?: number
+  net_margin?: number
+  revenue_growth_yoy?: number
+  eps_growth_yoy?: number
+  roe?: number
+  beta?: number
+  high_52w?: number
+  low_52w?: number
+  dividend_yield?: number
+}
+
+/** 公司资料。字段可能缺——两个源合并而来，`sources` 记着每个字段是谁给的。 */
+export type AssetProfile = {
+  asset: string
+  name: string | null
+  description: string | null
+  industry: string | null
+  exchange: string | null
+  country: string | null
+  currency: string | null
+  cik: string | null
+  homepage: string | null
+  logo: string | null
+  listed_on: string | null
+  employees: number | null
+  market_cap: number | null
+  shares_out: number | null
+  metrics: AssetProfileMetrics | null
+  sources: Record<string, string> | null
+  fetched_at: string
+}
+
+export type NewsItem = {
+  id: number | null
+  published_at: string
+  title: string
+  summary: string | null
+  url: string | null
+  source: string | null
+  provider: string
+  image_url: string | null
+  /** core=关于这个标的的实质消息 · context=相关但间接 · null=还没判 */
+  relevance?: 'core' | 'context' | 'noise' | null
+  /** 一句中文：这条讲了什么变化。降噪层给的，规则判的没有。 */
+  note?: string | null
+}
+
+/** 财报等日历事件。与新闻不同，这张表是 upsert 的——日期会挪、预期会被修正。 */
+export type AssetEvent = {
+  asset: string
+  kind: string
+  event_date: string
+  session: string | null
+  source: string
+  payload: {
+    quarter?: number | null
+    fiscal_year?: number | null
+    eps_estimate?: number | null
+    eps_actual?: number | null
+    revenue_estimate?: number | null
+    revenue_actual?: number | null
+  } | null
+}
+
+export type AssetTrade = {
+  id: number
+  account: string
+  symbol: string
+  side: string
+  status: string
+  setup_key: string | null
+  leverage: number
+  qty: number
+  avg_entry: number | null
+  opened_at: string | null
+  closed_at: string | null
+  created_at: string
+  outcome: string | null
+  pnl_abs: number | null
+  pnl_pct: number | null
+  realized_r: number | null
+  exit_reason: string | null
+}
+
 export type AssetCoverage = {
   bars: boolean
   bars_note: string
@@ -73,6 +169,10 @@ export type AssetCoverage = {
   metrics: string | null
   instrument: string | null
   news: NewsCoverage | null
+  /** 这个标的有没有"公司"这回事——指数/金属/利率没有，不是我们没接。 */
+  has_company?: boolean
+  /** 会不会报财报——ETF 与指数都不会，空是事实。 */
+  has_earnings?: boolean
 }
 
 export type AssetCreatorRecord = {
@@ -185,6 +285,10 @@ export type AssetDossierData = {
     evolution: AssetEvolution[]
   }
   related_assets: RelatedAsset[]
+  profile: AssetProfile | null
+  news: NewsItem[]
+  events: AssetEvent[]
+  trades: AssetTrade[]
 }
 
 export type PriceBar = {

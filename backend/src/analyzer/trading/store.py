@@ -426,6 +426,29 @@ class TradingStore:
                 (account_id,),
             ).fetchall()
 
+    def traded_symbols(self) -> list[str]:
+        """交易库里出现过的全部符号（去重）——标的页据此把"只交易过、没人讲过"的标的也列出来。"""
+        with self.pool.connection() as conn:
+            return [r["symbol"] for r in conn.execute(
+                "SELECT DISTINCT symbol FROM trades ORDER BY symbol").fetchall()]
+
+    def list_trades_for_symbols(self, symbols: list[str]) -> list[dict]:
+        """按符号跨账户查交易——标的页问的是"这个标的交易过没有"，不分账户。
+
+        符号候选由 `assets.exec_candidates` 给（同一个标的历史上有三种记法）。
+        """
+        if not symbols:
+            return []
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "SELECT t.*, a.name AS account, r.pnl_abs, r.pnl_pct, r.realized_r, r.outcome, "
+                "r.exit_reason, r.holding_s "
+                "FROM trades t JOIN accounts a ON a.id = t.account_id "
+                "LEFT JOIN trade_results r ON r.trade_id = t.id "
+                "WHERE t.symbol = ANY(%s) ORDER BY t.id DESC",
+                (symbols,),
+            ).fetchall()
+
     def list_open_trades(self, account_id: int | None = None) -> list[dict]:
         with self.pool.connection() as conn:
             if account_id is None:

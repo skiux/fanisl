@@ -114,6 +114,12 @@ class Settings(BaseSettings):
     # （2026-08-12：新模型拒绝 thinkingBudget=0 → 400；且免费档每日仅 20 次请求 → 429）。
     # 换模型是有意决定，应改这里并记录，而不是被 Google 静默改掉。
     gemini_model: str = "gemini-3.5-flash"
+    # Gemini 走哪条通道：auto|vertex|aistudio。
+    # auto = 有 gcp_project 就试 Vertex，**换不到 token 时回落到 AI Studio key**。
+    # 这条回落是本机与服务器的差别逼出来的（2026-08-31）：服务器上 Vertex 用元数据服务器
+    # 拿 token，本机要 `gcloud auth application-default login` 而用户暂时做不了，
+    # 于是同一份配置在本机恒 400。回落是**响一声的**（打 warning），不会静默换通道。
+    gemini_channel: str = "auto"
     # 填了就走 Agent Platform（Vertex）通道、鉴权用 ADC，不再用 gemini_api_key。
     # 2026-08-13 起的第二条通道：AI Studio 那个项目被 Google 整体封禁生成权限
     # （generateContent 恒 403 PERMISSION_DENIED，而 ListModels/countTokens 正常）。
@@ -155,6 +161,21 @@ class Settings(BaseSettings):
     collect_catalysts_interval_s: int = 86400  # 解锁/宏观/新闻：每天
     knowledge_daily_interval_s: int = 86400  # 知识引擎日维护（行情→评分→节点状态）
     knowledge_weekly_interval_s: int = 604800  # 知识引擎周报（增量/评分/关系边/运营）
+    # 标的参考数据（公司资料 + 按标的新闻）。新闻天更、资料周更——资料变得慢，而 Polygon
+    # 免费档 5 次/分，刷一轮 73 个标的要十几分钟，所以它单独占一条调度车道（见 worker_collector）。
+    asset_news_interval_s: int = 86400
+    asset_profile_interval_s: int = 604800
+    asset_news_days: int = 3      # 每轮回看几天（追加式去重，窗口小一点也不会漏）
+    # 财报日历天更：日期会挪、预期会被修正，且 53 个个股一轮只要 53 次 Finnhub 调用。
+    asset_earnings_interval_s: int = 86400
+    # 动态降噪：规则先跑，剩下的交给一个**便宜**的模型判相关性并出一句中文。
+    # backend=gemini|claude。默认 gemini flash——与 L0 triage 同一个门卫，最便宜；
+    # 通道由 gemini_channel 决定（服务器 Vertex / 本机回落 AI Studio）。
+    # Claude 那条留着当备胎：中转的 haiku 实测也能判，切过去只改这两个字段。
+    news_triage_backend: str = "gemini"
+    news_triage_model: str = "claude-haiku-4-5-20251001"   # backend=claude 时用
+    news_triage_interval_s: int = 86400
+    news_triage_pace_s: float = 1.0   # 批次之间的间隔，避开免费档的每分钟请求数上限
 
     # 保留 / 压缩：交给 TimescaleDB 原生策略（hypertable + 压缩）
     # retention 默认关闭(0)：研究平台需要**永久**历史——365 天策略曾把 2006+ COT / 2010+ 股价等

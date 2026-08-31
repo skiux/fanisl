@@ -32,10 +32,24 @@ describe('API runtime contracts', () => {
     const dossier = {
       asset: 'QQQ', identity: {}, coverage: {}, summary: null,
       by_creator: [], open_claims: [], settled_claims: [], nodes: [], related_assets: [],
+      news: [], events: [], trades: [],
       disagreements: { relations: [], evolution: [] },
     }
     expect(isAssetDossier(dossier)).toBe(true)
     expect(isAssetDossier({ ...dossier, disagreements: {} })).toBe(false)
     expect(isAssetDossier({ ...dossier, asset: 42 })).toBe(false)
+  })
+
+  it('rejects a dossier from an older backend instead of letting it crash the render', () => {
+    // 真实场景：改完后端没重启 uvicorn，/asset/{id} 还是旧形状（没有 news/events/trades）。
+    // 放进去会在渲染期抛 TypeError，整页变成"当前页面没有正确载入"。
+    const stale = {
+      asset: 'NVDA', identity: {}, coverage: {}, summary: {},
+      by_creator: [], open_claims: [], settled_claims: [], nodes: [], related_assets: [],
+      disagreements: { relations: [], evolution: [] },
+    }
+    expect(isAssetDossier(stale)).toBe(false)
+    expect(isAssetDossier({ ...stale, news: [], events: [] })).toBe(false)   // 还差 trades
+    expect(isAssetDossier({ ...stale, news: [], events: [], trades: [] })).toBe(true)
   })
 })

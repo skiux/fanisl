@@ -67,7 +67,10 @@ export function isAssetDossier(value: unknown): value is AssetDossierData {
   if (!record(value.identity) || !record(value.coverage) || !record(value.disagreements)) return false
   // summary 允许为 null：登记了但库里还没有单元的标的走这一支。
   if (value.summary !== null && !record(value.summary)) return false
-  return ['by_creator', 'open_claims', 'settled_claims', 'nodes', 'related_assets']
+  // 这几个数组**必须全在**。少一个说明后端比前端旧（典型场景：改完代码没重启 uvicorn），
+  // 那就在这里挡住、走可恢复的失败态；放进去只会在渲染时炸成"当前页面没有正确载入"。
+  return ['by_creator', 'open_claims', 'settled_claims', 'nodes', 'related_assets',
+          'news', 'events', 'trades']
     .every((key) => Array.isArray(value[key]))
     && Array.isArray((value.disagreements as Record<string, unknown>).relations)
     && Array.isArray((value.disagreements as Record<string, unknown>).evolution)

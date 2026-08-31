@@ -21,9 +21,10 @@ test('verification masthead visual baseline', async ({ page }) => {
   })
 })
 
-test('asset desk masthead visual baseline', async ({ page }) => {
+test('asset desk visual baseline', async ({ page }) => {
   await page.goto('/#/asset')
-  await expect(page.locator('.asset-masthead')).toHaveScreenshot('asset-masthead.png', {
+  await expect(page.getByText('接下来要交卷')).toBeVisible()
+  await expect(page.locator('.asset-desk')).toHaveScreenshot('asset-desk.png', {
     animations: 'disabled',
     caret: 'hide',
   })

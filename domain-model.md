@@ -124,6 +124,13 @@ canonical(`XAU/USD`)、日线表的 symbol、指标表的 symbol(`BTC/USDT`)、�
 **asset_class**：index=指数 · etf=ETF · stock=个股 · metal=贵金属 · commodity=商品 ·
 crypto=加密 · rate=利率 · fx=汇率 · preipo=未上市。
 
+**参考数据**（2026-08-30 起）：个股与 ETF 另有公司资料（`asset_profiles`，Polygon+Finnhub
+合并，逐字段记来源）与按标的的新闻时间线（`news_items`，**追加式、可回溯**，与行情库那张
+"最新快照"语义的 `catalyst_items` 不是一回事）。指数/贵金属/商品/利率**没有"公司"这回事**——
+两块为空是事实而非缺口，页面必须这样说。
+个股另有财报日历（`asset_events`，**upsert 语义**——日期会挪、预期会被修正，要的是最新一版；
+与追加式的 `news_items` 正相反）。ETF 与指数不报财报，同理为空是事实。
+
 **未到期判断（open claim）**：冻结阶梯 `eval_ladder` 里还没有评分行、且日期在今天或以后
 的那些时点。它不是一张表，是反查出来的——评分行只代表已发生的判定，"没有评分行"不等于
 "没有工作"。这是标的页最有决策价值的一块（产品里此前无处回答"什么还没兑现"）。

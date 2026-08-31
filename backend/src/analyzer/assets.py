@@ -275,6 +275,34 @@ def by_class(asset_class: str) -> list[Asset]:
     return [a for a in _ASSETS if a.asset_class == asset_class]
 
 
+def exec_candidates(symbol: str) -> list[str]:
+    """这个标的的交易记录**可能**被记成哪些符号。
+
+    交易库的 `trades.symbol` 存的是下单时传进去的写法，历史上有三种：加密对
+    （`SOL/USDT`）、instruments 的 canonical（`BZ`）、以及执行源上的永续符号
+    （`NVDA/USDT:USDT`）。查"这个标的有没有交易过"时三种都要试，所以在这里一次给全。
+
+    这是**查询用的宽匹配**，不是身份声明——别拿它当规范符号用。
+    """
+    from .data import instruments   # 局部 import：身份表不该在模块级依赖路由表
+
+    a = lookup(symbol)
+    if a is None:
+        raw = (symbol or "").strip().upper()
+        return [raw] if raw else []
+    out = [a.id]
+    if a.metric_symbol:
+        out.append(a.metric_symbol)
+    if a.instrument:
+        out.append(a.instrument)
+        inst = instruments.lookup(a.instrument)
+        if inst is not None:
+            out.append(inst.provider_symbol)
+            if inst.exec_symbol:
+                out.append(inst.exec_symbol)
+    return list(dict.fromkeys(out))
+
+
 def yf_symbol_map() -> dict[str, tuple[str, float, str]]:
     """daily_bars 的采集口径：`{asset_symbol: (yfinance ticker, 倍率, 口径备注)}`。
 

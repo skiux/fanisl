@@ -128,3 +128,38 @@ CRYPTOCOMPARE_API_KEY=... # 新闻（已验，已启用）
 LUNARCRUSH_API_KEY=...    # 社交热度（免费 key 全端点 402，需 Individual+ 订阅）
 COINMARKETCAL_API_KEY=... # 币圈事件（用户注册不了；且 API 本身已付费）
 ```
+
+## 标的参考数据（公司资料 + 按标的新闻，2026-08-30 实测定型）
+
+标的工作台要的"公司基本信息"与"重要动态"，四个候选源实测结论：
+
+| 源 | 端点 | 结论 |
+|---|---|---|
+| **Polygon** | `/v3/reference/tickers/{t}` | ✅ **主源**：名称、业务描述、SIC 行业、市值（绝对美元）、雇员数、上市日、主交易所，**还带 CIK**（EDGAR 的入口顺带解决）。免费档 **5 次/分**，刷一轮 73 个标的要十几分钟 → 单独占一条调度车道 |
+| **Finnhub** | `/stock/profile2` | ✅ 补 Polygon 没有的：logo、IPO 日、国家、流通股本。**市值与股本单位是百万**，与 Polygon 的绝对值不同，换算在 `company_source.py` 里做完 |
+| **Finnhub** | `/stock/metric?metric=all` | ✅ 133 个字段，只挑 14 个口径清楚的（PE/PS/PB/EPS、三个利润率、营收与 EPS 同比、ROE、beta、52 周高低、股息率）。全量存 JSONB 会把口径不明的字段混进来 |
+| **Finnhub** | `/company-news?symbol=` | ✅ **新闻主源**：NVDA 近 10 天 246 条。字段 headline/summary/source/url/image/datetime |
+| **Finnhub** | `/calendar/earnings?symbol=` | ✅ **财报日历**：给下次财报日 + 时段(bmo/amc) + 财季 + **EPS 与营收预期**，已公布的还带实际值（NVDA 2026-08-26 实际 2.22 vs 预期 2.14）。**ETF 返回 0 条**，只对个股问 |
+| EDGAR | `submissions/CIK*.json` | ✅ 可用但**不用于这一页**：它给的是备案日（历史事实、PIT 干净），研究回填用；标的页要的是"下次财报"，那是前瞻信息，备案日给不了。两者并存 |
+| Benzinga | `/api/v2/news?tickers=NVDA` | ❌ 免费档返回 **0 条**（频道流可用、按 ticker 查不可用），不用 |
+| NewsAPI | `/v2/everything?q=gold price` | ❌ **相关性太差**：首条返回一则加密清算新闻。指数/金属想靠关键词兜底不成立——**不如如实留空**，别再试一遍 |
+
+**覆盖边界**：公司资料与按标的新闻只对**个股与 ETF**（`assets.py` 里 asset_class ∈ {stock, etf}
+且 yfinance ticker 与 id 同名的 73 个）。指数、贵金属、商品、利率、汇率没有"公司"这回事，
+两个源都不收录——页面把这句话写在"数据覆盖"里，不是留白。
+
+环境变量：`POLYGON_API_KEY`、`FINNHUB_API_KEY`（后者此前只用于加密新闻频道，现在同时供资料与按标的新闻）。
+
+## 动态降噪用的 LLM 通道（2026-08-31 实测，三条全断）
+
+`news_triage` 的第二层要一个便宜模型判相关性并出中文摘要。三条通道当天全不可用：
+
+| 通道 | 表现 |
+|---|---|
+| Gemini / Vertex（`GCP_PROJECT` 已配） | `oauth2.googleapis.com/token` **400** —— ADC 失效，需 `gcloud auth application-default login` |
+| Gemini / AI Studio（`GEMINI_API_KEY` 已配） | `generateContent` **400**（key 形如 `AQ.Ab8…`，不是常规 AI Studio key） |
+| Claude 中转（`ANTHROPIC_BASE_URL`） | **401「该令牌额度已用尽，RemainQuota = -264」**；额度耗尽前实测可用，含 `claude-haiku-4-5` |
+
+**代码不依赖某一条**：`news_triage_backend=claude|gemini` 切换，提示词与 schema 通用；
+默认 claude-haiku（判这种题够用且最便宜）。三条都断时规则层照常工作，未判的条目留 NULL、
+页面照常显示——**降噪不可用不会让页面变空**。

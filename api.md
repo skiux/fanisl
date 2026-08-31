@@ -403,7 +403,11 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
 
 > **前缀是单数 `/asset`，不是 `/assets`。** Vite 把前端构建产物放在 `/assets/index-*.js`，
 > API 一旦占用 `/assets`，nginx 会把前端的 JS/CSS 一起代理到后端、页面直接白屏。
-> 前端路由是 `#/asset` 与 `#/asset?id={id}`（详情走 query，与知识库/验证中心一致）。
+> 前端路由是 `#/asset`、`#/asset?id={id}` 与 `#/asset?id={id}&view={分节}`
+> （详情与分节都走 query，与知识库/验证中心一致；分节取值
+> open/record/news/profile/tension/knowledge/trades/coverage——**不摆永远空的标签**：
+> 没有"公司"的标的不给 news/profile，评测台没开过仓的不给 trades，库里没有知识单元的
+> 不给 open/record/tension/knowledge）。
 
 标的的规范 id 用 claim 的 `asset_symbol` 口径（`XAUUSD` 而非 `XAU/USD`），不含斜杠、URL 安全。
 后端认别名（`XAU/USD` / `xauusd` / `GOLD` 都落到 `XAUUSD`），**返回的一律是规范 id**。
@@ -426,10 +430,12 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
 | `open_claims` | **未到期判断的条数**（冻结阶梯里还没写评分行、且日期在今天或以后，按 claim 去重） |
 | `has_bars` / `has_metrics` | 登记表声明的能力：有无日线源 / 有无全维度指标采集 |
 | `bars` | daily_bars 实际覆盖 `{symbol, n, first, last}`，没有则 `null` |
-| `news` | catalyst_items 里该标的的新闻 `{kind, symbol, n, fetched_at}`，没有则 `null` |
+| `news` | 新闻覆盖：`news_items` 走 `{asset, n, latest}`；加密标的回落到 catalyst_items 的 `{kind, symbol, n, fetched_at}`。没有则 `null` |
+| `profile_at` | 公司资料的抓取时刻，没抓过则 `null` |
 
-默认只返回**库里真有知识单元**的标的（当前 71 个）。`include_empty=true` 把登记表里
-还没有单元的（QQQ/SPY/MSTR 等可交易但没人讲过的）也带上，计数全 0、`hit_rate` 为 `null`。
+默认返回**库里真有知识单元、或评测台交易过**的标的（当前 75 个）。后一条是必要的：
+BZ 实测 0 条知识单元、3 笔交易，只按知识单元筛它在工作台里无处可达。
+`include_empty=true` 再把登记表其余部分带上，计数全 0、`hit_rate` 为 `null`。
 
 排序：`units DESC, asset`。无分页（登记表规模 <200）。
 
@@ -442,7 +448,8 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
   "asset": "XAUUSD",
   "identity": {id, display, asset_class, class_label, tag, aliases[], related[], note, registered},
   "coverage": {bars(bool), bars_note, bars_window:{symbol,n,first,last}|null,
-               metrics: "BTC/USDT"|null, instrument: "XAU/USD"|null, news:{...}|null},
+               metrics: "BTC/USDT"|null, instrument: "XAU/USD"|null, news:{...}|null,
+               has_company(bool), has_earnings(bool)},
   "summary":  {…同 /asset 的一行…} | null,
   "by_creator": [{creator_id, creator, units, claims, last_seen, scored, hits, partials, misses, hit_rate}],
   "open_claims":   [{unit_id, horizon_label, quote, payload, published_at, ref_price_at_publish,
@@ -455,7 +462,21 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
     "evolution": [{node_id, relation, note, node_title, unit_id, quote, published_at,
                    creator, content_id, content_title}]
   },
-  "related_assets": [{asset, display, asset_class, co_mentions}]
+  "related_assets": [{asset, display, asset_class, co_mentions}],
+  "profile": {asset, name, description, industry, exchange, country, currency, cik, homepage,
+              logo, listed_on, employees, market_cap, shares_out,
+              metrics:{pe_ttm, ps_ttm, pb, eps_ttm, gross_margin, operating_margin, net_margin,
+                       revenue_growth_yoy, eps_growth_yoy, roe, beta, high_52w, low_52w,
+                       dividend_yield},
+              sources:{字段: "polygon"|"finnhub"}, fetched_at} | null,
+  "news":   [{id, published_at, title, summary, url, source, provider, image_url,
+              relevance: "core"|"context"|null, note: "一句中文"|null}],
+  "events": [{asset, kind:"earnings", event_date, session:"bmo|amc|dmh"|null, source,
+              payload:{quarter, fiscal_year, eps_estimate, eps_actual,
+                       revenue_estimate, revenue_actual}}],
+  "trades": [{id, account, symbol, side, status, setup_key, leverage, qty, avg_entry,
+              opened_at, closed_at, created_at, outcome, pnl_abs, pnl_pct, realized_r,
+              exit_reason}]
 }
 ```
 
@@ -468,6 +489,22 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
   这是"信源在这个标的上改过什么口"的载体；
 - `related_assets` 来自同一条单元里的共现，不是人工维护的关联表；主题标签（ai-capex 等）
   不会出现在这里，只有登记表里的标的才算；
+- `profile` 与 `news` **只对个股与 ETF**（73 个）。`coverage.has_company=false` 的标的
+  （指数/贵金属/商品/利率/汇率）两块恒为 `null`/`[]`——**这是"没有公司这回事"，不是"我们没接"**，
+  前端据此隐藏这两节而不是渲染空面板。口径与实测结论见 `doc/data/data-gaps.md`；
+- `news` 来自 `news_items`（**追加式、可回溯**，按 `(asset, url)` 去重，从不删旧条）；
+  加密标的没有 ticker 新闻，回落到 `catalyst_items` 的最新一轮快照（语义不同，`id` 为 `null`）；
+- **默认不返回 `relevance='noise'` 的条目**（盘面流水、异动榜单、讲的是别家公司），
+  被藏起来的条数在 `coverage.news.noise` 里，页面据此注明"另有 N 条已隐藏"。
+  `relevance=null` 表示还没判——降噪是异步跑的，**没跑到之前照常返回**，不会让页面变空。
+  `note` 是降噪层给的一句中文（规则判的没有，LLM 判的才有）；口径见 `knowledge/news_triage.py`；
+- `profile.sources` 逐字段记来源，某个字段看着不对时能直接查是谁给的；
+- `events` 是**财报日历**（`asset_events`，按日期升序，含已公布的实际 EPS）。这张表是
+  **upsert** 不是追加——日期会挪、预期会被修正，要的是最新一版；`news_items` 反过来是追加式，
+  因为那边要的是"当时报道了什么"。`coverage.has_earnings=false` 的标的（ETF 与指数都不报财报）
+  恒为 `[]`；
+- `trades` 是评测台在这个标的上开过的仓，**跨账户**。交易库存的是下单时的写法
+  （`SOL/USDT` / `BZ` / `NVDA/USDT:USDT` 三种都有过），后端按 `assets.exec_candidates` 宽匹配；
 - 价格证据图仍走 `GET /knowledge/prices?symbol=&since=&until=`，本节不重复提供。
 
 ---
@@ -497,8 +534,12 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
 | GET /knowledge/nodes | 多数节点无评分聚合（hit/miss=0） | 无评分时不显示 0%，显示"未验证" |
 | GET /knowledge/weekly | 现算，1-2s | 骨架；markdown 直接渲染 |
 | GET /asset | 长尾标的普遍 `units<10`、`scored=0`、`hit_rate:null` | 不显示 0%，显示"未验证"；n<10 视觉降权 |
-| GET /asset/{id} | 除 5 个加密对外 `coverage.news` 恒为 `null`；美股只有日线、`coverage.metrics` 为 `null` | 覆盖条如实标注"这项没有数据"，不要拿别的凑 |
-| GET /asset/{id} | `display` 可能为 `null`（个股正式名称待公司资料源接入） | 回落显示 id，不要显示"未知" |
+| GET /asset/{id} | 指数/金属/利率的 `profile` 恒 `null`、`news` 恒 `[]`（`has_company=false`） | 隐藏这两节；覆盖条写明"没有公司这回事"，不是"未接入" |
+| GET /asset/{id} | 美股只有日线，`coverage.metrics` 为 `null`（高频指标只覆盖 5 个加密对） | 覆盖条如实标注，不要拿别的凑 |
+| GET /asset/{id} | `display` 可能为 `null`（登记表只对确知的标的填中文名） | 回落显示 id，不要显示"未知" |
+| GET /asset/{id} | ETF 与指数的 `events` 恒 `[]`（`has_earnings=false`） | 不渲染财报块 |
+| GET /asset/{id} | 多数标的 `trades` 为 `[]`（进场路径只覆盖少数符号） | 隐藏交易节，不留空面板 |
+| GET /asset/{id} | **后端比前端旧**（典型：改完代码没重启 uvicorn，响应里没有 news/events/trades） | `isAssetDossier` 在契约层挡下 → 走"读不到档案 + 重试"的可恢复失败态。**放进去会在渲染期抛 TypeError，整页变成"当前页面没有正确载入"**（2026-08-30 实测踩过） |
 | 各 claim 的 scores | 85 个时点未到期 → 空数组常见 | 空=「评分待到期（最近时点 YYYY-MM-DD）」 |
 | POST /chat*、/trading/open、scan、detect | 同步调 Claude，10s~2min；可能 502 | 等待态 + 明确的失败重试 |
 | Postgres 未启动时任意端点 | 500 | 全局错误页："后端数据库未就绪" |

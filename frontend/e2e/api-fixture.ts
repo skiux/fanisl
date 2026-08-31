@@ -76,6 +76,7 @@ const assetRow = {
   open_claims: 2, hit_rate: 0.574,
   bars: { symbol: 'SOXX', n: 185, first: '2025-12-01', last: '2026-08-26' },
   news: null,
+  profile_at: null,
 }
 
 const assetIndex = {
@@ -102,7 +103,9 @@ const assetDossier = {
   },
   coverage: {
     bars: true, bars_note: '', bars_window: { symbol: 'SOXX', n: 185, first: '2025-12-01', last: '2026-08-26' },
-    metrics: null, instrument: null, news: null,
+    metrics: null, instrument: null,
+    news: { asset: 'SOXX', n: 4, latest: '2026-08-29T02:00:00Z', noise: 3 },
+    has_company: true, has_earnings: true,
   },
   summary: assetRow,
   by_creator: [{
@@ -122,6 +125,33 @@ const assetDossier = {
   nodes: [node],
   disagreements: { relations: [], evolution: [] },
   related_assets: [{ asset: 'PLTR', display: 'Palantir', asset_class: 'stock', co_mentions: 3 }],
+  profile: {
+    asset: 'SOXX', name: 'iShares Semiconductor ETF', description: '半导体板块 ETF。',
+    industry: 'ETF', exchange: 'ARCX', country: 'US', currency: 'USD', cik: null,
+    homepage: 'https://example.test/soxx', logo: null, listed_on: '2001-07-10',
+    employees: null, market_cap: 1.4e10, shares_out: null,
+    metrics: { pe_ttm: 31.2, ps_ttm: 7.8, gross_margin: 52.1 },
+    sources: { name: 'polygon', metrics: 'finnhub' },
+    fetched_at: '2026-08-30T00:00:00Z',
+  },
+  news: [{
+    id: 11, published_at: '2026-08-29T02:00:00Z', title: '半导体板块单周资金流转正',
+    summary: 'Flows turn positive.', url: 'https://example.test/news/soxx-1',
+    source: 'TestWire', provider: 'finnhub', image_url: null,
+    relevance: 'core', note: '板块资金面出现回补迹象。',
+  }],
+  events: [{
+    asset: 'SOXX', kind: 'earnings', event_date: upcomingHorizon, session: 'amc',
+    source: 'finnhub',
+    payload: { quarter: 3, fiscal_year: 2027, eps_estimate: 1.23, eps_actual: null },
+  }],
+  trades: [{
+    id: 3, account: 'setups', symbol: 'SOXX/USDT:USDT', side: 'long', status: 'closed',
+    setup_key: 'ema_tunnel', leverage: 2, qty: 5, avg_entry: 240,
+    opened_at: '2026-08-01T00:00:00Z', closed_at: '2026-08-09T00:00:00Z',
+    created_at: '2026-08-01T00:00:00Z', outcome: 'win', pnl_abs: 61.2, pnl_pct: 5.1,
+    realized_r: 1.4, exit_reason: '止盈',
+  }],
 }
 
 function responseFor(url: URL): unknown {
@@ -151,7 +181,23 @@ function responseFor(url: URL): unknown {
   if (path === '/knowledge/nodes-page') return { items: [node], total: 1, offset: 0, limit: 200, has_more: false }
   if (path === '/knowledge/nodes/1') return { ...node, attestations: [{ relation: 'restates', note: null, unit_id: 1, kind: 'claim', quote: unit.quote, locator: unit.locator, published_at: unit.published_at, tags: unit.tags, payload: unit.payload, creator: creator.name, content_id: 1, content_title: content.title, scores: [] }], relations: [] }
   if (path === '/knowledge/nodes') return []
-  if (path === '/knowledge/verification-summary') return { overview: { due: 0, completed: 0, unavailable: 0, review: 0 }, nearest_due: [] }
+  if (path === '/knowledge/verification-summary') {
+    return {
+      overview: { due: 1, completed: 1, unavailable: 0, review: 0 },
+      nearest_due: [{
+        unit_id: 1, quote: unit.quote, payload: unit.payload,
+        published_at: unit.published_at, ref_price_at_publish: unit.ref_price_at_publish,
+        creator: creator.name, content_title: content.title, horizon_label: upcomingHorizon,
+      }],
+    }
+  }
+  if (path === '/knowledge/recent-scores') {
+    return [{
+      id: 5, unit_id: 1, quote: '半导体这一段已经走完', payload: { asset_symbol: 'SOXX' },
+      creator: creator.name, outcome: 'hit', horizon_label: '2026-08-18',
+      eval_ts: '2026-08-18T00:00:00Z', scored_at: '2026-08-18T00:00:00Z',
+    }]
+  }
   if (path === '/knowledge/verification-page') return { items: [], total: 0, offset: 0, limit: 200, has_more: false }
   if (path === '/knowledge/relations') return []
   if (path === '/knowledge/harness-candidates') return []

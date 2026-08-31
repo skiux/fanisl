@@ -15,6 +15,8 @@ fanisl/
 ├── backend/      Python 后端（FastAPI + 数据管道 + 知识引擎 + 交易评测台）
 │   ├── src/analyzer/knowledge/   知识引擎（含 extraction-guide / merge-guide 两份冻结规范）
 │   │                              + asset_view.py（按标的聚合的读模型，标的工作台的数据脊柱）
+│   │                              + reference.py（asset_profiles / news_items / asset_events 三表 + 刷新 CLI）
+│   │                              + news_triage.py（动态降噪：确定性规则 + LLM 判相关，只筛不判）
 │   └── tools/                    运维脚本：check_db / check_sources / check_ingest
 ├── frontend/     React + TS + Vite 前端
 ├── deploy/       部署指南 + systemd 单元 + nginx + .env 模板
@@ -35,7 +37,10 @@ fanisl/
 
 ### 进程入口（3 车道，见 deploy/README）
 - `main.py` — FastAPI app，**只服务请求**（不起后台调度），可多 worker。所有 HTTP 路由。
-- `worker_collector.py` — 采集进程（market 15min / catalysts 每天）。单实例。
+- `worker_collector.py` — 采集进程。**两条调度车道**（Scheduler 是单线程顺序执行的，
+  刷公司资料受 Polygon 限速要跑十几分钟，与行情同车道会把 15 分钟一轮的采集顶掉）：
+  ①market 15min / catalysts 每天 / 知识日维护 / 周报；
+  ②标的新闻天更 + 财报日历天更 + 动态降噪天更 + 公司资料周更。单实例。
 - `worker_trader.py` — 交易进程：快线程盯市(15s) + 慢线程（setup 探测→闸门 1h；scan 已默认关）。单实例。
 - `worker_base.py` — worker 公共设施：PG advisory lock 单实例守卫 + 信号驱动运行。
 - `backfill.py` — 一次性历史回填（`python -m analyzer.backfill`）。
@@ -53,7 +58,10 @@ fanisl/
 - `polygon_source.py`(美股/指数/ETF/原油) · `oanda_source.py`(金属) — TradFi 分析源。
 - `deribit_source.py`(期权) · `coinalyze_source.py`(爆仓) · `alternativeme_source.py`(恐惧贪婪)。
 - `defillama_source.py`(解锁/稳定币/TVL) · `blockchaininfo_source.py`(BTC 网络) · `fred_source.py`(宏观)。
-- 新闻：`cryptocompare_/newsapi_/finnhub_/benzinga_source.py` + `news_aggregate.py`(聚合去重)。
+- 新闻：`cryptocompare_/newsapi_/finnhub_/benzinga_source.py` + `news_aggregate.py`(聚合去重，最新快照语义)。
+- 标的参考数据：`company_source.py`(Polygon 参考数据 + Finnhub 画像/指标，合并并逐字段记来源)
+  · `asset_news_source.py`(Finnhub 按 ticker 的新闻，**只对个股与 ETF**)
+  · `earnings_source.py`(Finnhub 财报日历，**只对个股**；EDGAR 那条留给研究回填，两者不冲突)。
 - `lunarcrush_source.py`(社交，付费墙未启用)。
 - 多资产/研究源：`cftc_source.py`(COT) · `edgar_source.py`(财报事件/XBRL EPS) · `yahoo_source.py`(股价)
   · `eia_source.py`(周度石油库存) · OANDA 的 `fetch_ohlcv_history/fetch_window`(H1/M1 深回填)。
@@ -134,7 +142,7 @@ React + TS + Vite + Tailwind；Geist 字体、Phosphor 图标、zinc+emerald 调
 
 后端给前端的取数端点：`/metrics/catalog`(全量目录) · `/metrics/available?symbol`(覆盖) ·
 `/metrics?symbol&names`(序列) · `/watchlist` · `/price` · `/catalysts/stored` · `/trading/*` · `/chat[/stream]`
-· `/asset`(标的宇宙) · `/asset/{id}`(标的档案)。
+· `/asset`(标的宇宙) · `/asset/{id}`(标的档案，含公司资料与按标的新闻)。
 
 **`/asset` 是单数，不是 `/assets`**：Vite 的构建产物在 `/assets/index-*.js`，API 占用
 `/assets` 会让 nginx 把前端 JS/CSS 代理到后端、页面白屏。三处守着这条：

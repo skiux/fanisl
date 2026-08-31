@@ -108,25 +108,86 @@ test('discovery delta is modal and restores focus', async ({ page }) => {
 
 test('asset desk leads with what has not settled yet', async ({ page }) => {
   await page.goto('/#/asset')
-  await expect(page.getByRole('heading', { name: '标的' })).toBeVisible()
 
-  // 没有到期样本的标的写"未验证"，不写 0%——这是 domain-model §5 的统计纪律。
-  await expect(page.getByText('未验证')).toBeVisible()
+  // 未选标的时，主区是跨标的的到期日程与最近裁决；标的栏常驻在左。
+  await expect(page.getByRole('heading', { name: '先看还有什么没兑现' })).toBeVisible()
+  await expect(page.getByText('接下来要交卷')).toBeVisible()
+  // 到期项给结构化一行 + 判据，不给口语原句
+  await expect(page.getByText('看涨 ↑')).toBeVisible()
+  const rail = page.getByRole('complementary', { name: '标的列表' })
+  await expect(rail.getByText('未验证')).toBeVisible()
   await expect(page.getByText('0%')).toHaveCount(0)
 
-  await page.getByText('半导体 ETF', { exact: true }).click()
+  await rail.getByRole('button', { name: /半导体 ETF/ }).click()
   await expect(page).toHaveURL(/#\/asset\?id=SOXX/)
 
-  // 未到期判断是这一页的主角：判据原文必须完整可见，不许截断。
-  await expect(page.getByText('中期收益为正')).toBeVisible()
-  await expect(page.getByText('n = 27')).toBeVisible()
+  // 宽屏：换标的不用返回，标的栏还在且选中项高亮。窄屏放不下三分区，退回一次看一件事。
+  const wide = (page.viewportSize()?.width ?? 0) >= 980
+  if (wide) {
+    await expect(rail.getByRole('button', { name: /半导体 ETF/ })).toHaveAttribute('aria-current', 'true')
+  } else {
+    await expect(rail).toBeHidden()
+    await expect(page.getByRole('button', { name: '工作台首页' })).toBeVisible()
+  }
 
-  // 覆盖条如实说明缺什么。
-  await expect(page.getByText(/公司资料源落地/)).toBeVisible()
-
-  // 价格证据图把已发生的裁决与还没到期的阶梯日放在同一条时间轴上。
+  // 价格图常驻在上，证据面板停在下；默认落在"未到期"。
   await expect(page.getByRole('img', { name: /价格证据图/ })).toBeVisible()
   await expect(page.getByText(/待到期 1 个时点/)).toBeVisible()
+  await expect(page.getByText('中期收益为正')).toBeVisible()
+
+  // 分节切换只换面板，图与报头不动；状态进 hash。
+  await page.getByRole('button', { name: '战绩 57%' }).click()
+  await expect(page).toHaveURL(/view=record/)
+  await expect(page.getByText('中期收益为正')).toHaveCount(0)
+  await expect(page.getByText('n = 27')).toBeVisible()
+  await expect(page.getByRole('img', { name: /价格证据图/ })).toBeVisible()
+
+  await page.getByRole('button', { name: '覆盖' }).click()
+  await expect(page.getByText(/polygon · finnhub · 抓取于/)).toBeVisible()
+})
+
+test('company profile and news are their own sections, with the caliber written down', async ({ page }) => {
+  await page.goto('/#/asset?id=SOXX&view=profile')
+  await expect(page.getByText('iShares Semiconductor ETF')).toBeVisible()
+  await expect(page.getByText('31.20')).toBeVisible()                 // 市盈率 TTM
+  await expect(page.getByText(/口径：polygon · finnhub/)).toBeVisible()
+
+  // 财报日历挂在资料一节里，不另开标签
+  await expect(page.getByText('财报日历')).toBeVisible()
+  await expect(page.getByText(/市场预期 EPS 1.23/)).toBeVisible()
+
+  await page.getByRole('button', { name: '动态 1' }).click()
+  await expect(page).toHaveURL(/view=news/)
+  const link = page.getByRole('link', { name: /半导体板块单周资金流转正/ })
+  await expect(link).toHaveAttribute('href', 'https://example.test/news/soxx-1')
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  // 降噪层给的中文摘要顶掉英文 summary，并说明藏了多少
+  await expect(page.getByText('板块资金面出现回补迹象。')).toBeVisible()
+  await expect(page.getByText(/另有 3 条被判为噪音/)).toBeVisible()
+})
+
+test('trades show up only where the desk actually traded', async ({ page }) => {
+  await page.goto('/#/asset?id=SOXX&view=trades')
+  await expect(page.getByText('ema_tunnel')).toBeVisible()
+  await expect(page.getByText(/盈 \+5.1% · 1.40R/)).toBeVisible()
+
+  // 财报刻度与到期刻度画在同一条轴上——两者都在图例里点名
+  await expect(page.getByText(/财报 1 次/)).toBeVisible()
+})
+
+test('the chart and panel split is draggable and remembered', async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 980, '窄屏是自然文档流，没有可拖的分隔')
+  await page.goto('/#/asset?id=SOXX')
+  const splitter = page.getByRole('separator', { name: '调整图与明细的比例' })
+  const before = Number(await splitter.getAttribute('aria-valuenow'))
+  await splitter.focus()
+  await splitter.press('ArrowDown')
+  const after = Number(await splitter.getAttribute('aria-valuenow'))
+  expect(after).toBeGreaterThan(before)
+
+  await page.reload()
+  await expect(page.getByRole('separator', { name: '调整图与明细的比例' }))
+    .toHaveAttribute('aria-valuenow', String(after))
 })
 
 test('asset dossier keeps the drill-down chain into the evidence', async ({ page }) => {
@@ -140,6 +201,6 @@ test('asset dossier keeps the drill-down chain into the evidence', async ({ page
 test('unknown asset fails into a recoverable state, not a blank page', async ({ page }) => {
   await page.goto('/#/asset?id=NOSUCH')
   await expect(page.getByText(/读不到 NOSUCH 的档案/)).toBeVisible()
-  await page.getByRole('button', { name: '回到标的列表' }).click()
+  await page.getByRole('button', { name: '回到工作台首页' }).click()
   await expect(page).toHaveURL(/#\/asset$/)
 })
