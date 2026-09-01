@@ -32,6 +32,11 @@ uv run uvicorn analyzer.main:app --reload --app-dir src
 
 打开 http://127.0.0.1:8000/docs 看接口。
 
+> **本机开发把门关掉**：`.env` 里设 `AUTH_ENABLED=false` 与 `AUTH_COOKIE_SECURE=false`，
+> 开发体验与加这道门之前完全一致（`/docs` 直接可用、curl 不用带 cookie）。
+> 服务启动第一行会打印 `[fanisl] auth=ON/OFF`，不确定时看那里。
+> 登录流程本身由 `tests/test_auth.py` 在 auth=ON 下覆盖，本机关掉不影响它被验证。
+
 ## 接口
 
 **全站需要登录**（2026-09-02 起）。会话走 cookie，未登录一律 401；免登录的只有

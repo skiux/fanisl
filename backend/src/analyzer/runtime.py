@@ -33,6 +33,14 @@ print(
     flush=True,
 )
 
+# 鉴权状态也一并打出来。开发时最容易发生的困惑是"我明明改了 .env 怎么还要登录"
+# 或者反过来"这台机器上怎么不用登录"——让它在启动第一行就说清楚，省掉一轮排查。
+print(
+    f"[fanisl] auth={'ON' if settings.auth_enabled else 'OFF（全站免登录！仅限本机开发）'}"
+    f" | cookie_secure={settings.auth_cookie_secure}",
+    flush=True,
+)
+
 # --- 行情库（行情时间序列 + 对话）---
 pool = make_pool(settings.pg_conninfo)
 storage = Storage(pool)

@@ -21,6 +21,13 @@ REQUIRED_PREFIXES = {
     "research",
     # 单数：/assets 是 Vite 的静态产物目录，绝不能进 API 代理正则（会白屏）
     "asset",
+    # 登录与用户管理（2026-09-02）
+    "auth",
+    "admin",
+    # 资产台三组接口
+    "portfolio",
+    "orders",
+    "ledger",
 }
 
 
