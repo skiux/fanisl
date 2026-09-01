@@ -25,7 +25,23 @@ function resolveApiUrl(path: string): string {
   return `${API_BASE_URL}${normalizedPath}`
 }
 
-async function readError(response: Response): Promise<string> {
+/**
+ * 非 JSON 的错误响应 → 说人话。
+ *
+ * 最可能发生的部署失误是 **nginx 少配一个路径前缀**：请求落到 SPA 的静态兜底，
+ * 于是 POST 得到 405、GET 得到一份 index.html。原样显示上游的 `Not Allowed`
+ * 指不到任何地方——2026-09-02 就是这么让人以为自己记错了口令。
+ */
+function proxyHint(path: string, status: number): string {
+  if (status === 405 || status === 404) {
+    return `${path} 没有被代理到后端（HTTP ${status}）——`
+      + 'nginx 的 API 路径正则里少了这个前缀，请求落到了前端的静态兜底。'
+  }
+  if (status >= 500) return `后端没有响应（HTTP ${status}）`
+  return `请求失败（HTTP ${status}）`
+}
+
+async function readError(response: Response, path: string): Promise<string> {
   if (response.headers.get('content-type')?.includes('application/json')) {
     try {
       const payload = (await response.json()) as ApiErrorPayload
@@ -35,9 +51,11 @@ async function readError(response: Response): Promise<string> {
     } catch {
       // Fall through to the HTTP status when a proxy returns malformed JSON.
     }
+    return response.statusText || `Request failed with status ${response.status}`
   }
 
-  return response.statusText || `Request failed with status ${response.status}`
+  // 后端所有错误都回 JSON。回的是 HTML，说明这一发根本没到后端。
+  return proxyHint(path, response.status)
 }
 
 /**
@@ -91,7 +109,7 @@ export async function apiFetch(
     if (response.status === 401 && !path.startsWith('/auth/')) {
       onUnauthenticated?.()
     }
-    throw new ApiError(response.status, await readError(response))
+    throw new ApiError(response.status, await readError(response, path))
   }
 
   return response

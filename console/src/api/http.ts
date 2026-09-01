@@ -30,14 +30,32 @@ export function setUnauthenticatedHandler(handler: () => void) {
   onUnauthenticated = handler
 }
 
-async function readDetail(response: Response): Promise<string> {
+/**
+ * 非 JSON 的错误响应 → 说人话。
+ *
+ * 最可能发生的部署失误是 **nginx 少配一个路径前缀**：请求落到 SPA 的静态兜底，
+ * 于是 POST 得到 405、GET 得到一份 index.html。原样显示上游的 `Not Allowed`
+ * 指不到任何地方——2026-09-02 就是这么让人以为自己记错了口令。
+ */
+function proxyHint(path: string, status: number): string {
+  if (status === 405 || status === 404) {
+    return `${path} 没有被代理到后端（HTTP ${status}）——`
+      + 'nginx 的 API 路径正则里少了这个前缀，请求落到了前端的静态兜底。'
+  }
+  if (status >= 500) return `后端没有响应（HTTP ${status}）`
+  return `请求失败（HTTP ${status}）`
+}
+
+async function readDetail(response: Response, path: string): Promise<string> {
   if (response.headers.get('content-type')?.includes('application/json')) {
     try {
       const body = await response.json() as { detail?: string }
       if (body.detail) return body.detail
-    } catch { /* 落到状态码 */ }
+    } catch { /* 落到下面的推断 */ }
+    return response.statusText || `请求失败（HTTP ${response.status}）`
   }
-  return response.statusText || `请求失败（HTTP ${response.status}）`
+  // 后端所有错误都回 JSON。回的是 HTML，说明这一发根本没到后端。
+  return proxyHint(path, response.status)
 }
 
 export async function apiJson<T>(path: string, init?: RequestInit & { timeoutMs?: number }): Promise<T> {
@@ -69,7 +87,7 @@ export async function apiJson<T>(path: string, init?: RequestInit & { timeoutMs?
 
   if (!response.ok) {
     if (response.status === 401 && !path.startsWith('/auth/')) onUnauthenticated?.()
-    throw new ApiError(response.status, await readDetail(response))
+    throw new ApiError(response.status, await readDetail(response, path))
   }
 
   const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''

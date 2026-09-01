@@ -28,7 +28,35 @@ describe('apiJson', () => {
     })
   })
 
-  it('非 JSON 响应直说是 nginx 的事', async () => {
+  it('nginx 没代理时的 405 要指到 nginx，不是原样丢一句 Not Allowed', async () => {
+    // 线上真踩过：POST /auth/login 落到 SPA 静态兜底 → nginx 回 405 "Not Allowed"，
+    // 原样显示让人以为自己记错了口令，而真正的原因在 nginx 的路径正则里
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
+      '<html><head><title>405 Not Allowed</title></head></html>',
+      { status: 405, statusText: 'Not Allowed', headers: { 'content-type': 'text/html' } })))
+    await expect(apiJson('/auth/login', { method: 'POST' })).rejects.toMatchObject({
+      status: 405,
+      message: expect.stringContaining('nginx'),
+    })
+  })
+
+  it('后端 5xx 与"没被代理"要能分开', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>502</html>', {
+      status: 502, headers: { 'content-type': 'text/html' } })))
+    await expect(apiJson('/portfolio')).rejects.toMatchObject({
+      message: expect.stringContaining('后端没有响应'),
+    })
+  })
+
+  it('后端回的 JSON 错误照常原样透出，不被上面那条覆盖', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      json({ detail: '用户名或口令不正确' }, 401)))
+    await expect(apiJson('/auth/login', { method: 'POST' })).rejects.toMatchObject({
+      message: '用户名或口令不正确',
+    })
+  })
+
+  it('200 但非 JSON（GET 落到 index.html）也要直说', async () => {
     // nginx 少配一个路径前缀时，API 请求会落到 SPA 兜底、返回 index.html。
     // 直接 JSON.parse 只会报一句语法错，指不到真正的原因。
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<!doctype html>', {
