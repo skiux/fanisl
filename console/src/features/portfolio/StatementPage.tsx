@@ -38,7 +38,7 @@ export function StatementPage() {
     if (reloadKey === 0) setPhase({ kind: 'loading' })
     else setRefreshing(true)
 
-    fetchPortfolio(scenario, controller.signal)
+    fetchPortfolio(scenario, controller.signal, { force: reloadKey > 0 })
       .then((snapshot) => setPhase({ kind: 'ready', snapshot }))
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
@@ -117,12 +117,18 @@ function Body({ phase, view, onSelectView, onRetry }: {
   }
 
   const { snapshot } = phase
-  const allUnauthorized = snapshot.sources.length > 0
-    && snapshot.sources.every((source) => source.status === 'unauthorized')
-  if (allUnauthorized) {
+  // 「一条数据都没有」与「为什么没有」是两件事，分开判。
+  //
+  // 原来写的是"每个来源都 unauthorized"，而 prices 是公开端点、没有 key 也照常返回，
+  // 于是这个条件再也不成立——没配 key 被误报成"账户里还没有资产"，
+  // 屏幕上还留着一句"前往 Binance"，方向完全指反了。
+  const hasNothing = snapshot.wallets.length === 0 && snapshot.spot.length === 0
+    && snapshot.futures === null && snapshot.earn.length === 0
+  const credentialProblem = snapshot.sources.some((s) => s.status === 'unauthorized')
+  if (hasNothing && credentialProblem) {
     return <div className="px-6 sm:px-10"><UnauthorizedState onRetry={onRetry} sources={snapshot.sources} /></div>
   }
-  if (snapshot.wallets.length === 0 && snapshot.spot.length === 0) {
+  if (hasNothing) {
     return <div className="px-6 sm:px-10"><EmptyState /></div>
   }
 

@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { ArrowsClockwise, MoonStars, Sun } from '@phosphor-icons/react'
+import { getSession, logout, subscribe } from '../../api/session'
 import { StatusDot } from '../../components/Primitives'
 import { cn } from '../../lib/cn'
 import { clockTime, freshnessOf } from '../../lib/format'
@@ -30,6 +31,32 @@ function ThemeToggle() {
     >
       {theme === 'dark' ? <MoonStars aria-hidden="true" size={15} /> : <Sun aria-hidden="true" size={15} />}
     </button>
+  )
+}
+
+/** 当前用户 + 退出。管理入口只对管理员出现——成员看到一个点进去就 403 的链接毫无意义。 */
+function SessionChip() {
+  const session = useSyncExternalStore(subscribe, getSession)
+  if (session.status !== 'authenticated') return null
+  const { user } = session
+  return (
+    <span className="flex items-center gap-2.5 whitespace-nowrap text-xs text-ink-3">
+      <span className="text-ink-2">{user.display_name || user.username}</span>
+      {user.role === 'admin' && (
+        <a className="transition-colors hover:text-ink" href="#/admin">用户</a>
+      )}
+      <button
+        className="transition-colors hover:text-ink"
+        onClick={() => {
+          // 退出请求失败时服务端会话仍然活着。不假装已退出——刷新一次，
+          // 让 /auth/me 说真话。
+          logout().catch(() => window.location.reload())
+        }}
+        type="button"
+      >
+        退出
+      </button>
+    </span>
   )
 }
 
@@ -90,6 +117,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
         <div className="ml-auto flex items-center gap-3">
           {controls}
           <a className="whitespace-nowrap text-xs text-ink-3 transition-colors hover:text-ink-2" href="/">知识库</a>
+          <SessionChip />
           <ThemeToggle />
         </div>
       </div>
@@ -100,16 +128,24 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
         </h1>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          <span className="tnum text-xs text-ink-2">截至 {clockTime(asOf)}</span>
-          <span className="flex items-center gap-1.5">
-            <StatusDot level={sources.length === 0 ? 'unknown' : degraded.length > 0 ? 'error' : level} />
-            <span className={cn('text-xs', degraded.length > 0 ? 'text-loss' : 'text-ink-3')}>
-              {degraded.length > 0
-                ? `${degraded.length} / ${sources.length} 个来源异常`
-                : `${sources.length} 个来源正常`}
-            </span>
-          </span>
-          <span className="text-xs text-ink-3">计价 USD</span>
+          {/*
+            用户管理这类页面没有数据来源，整条取数状态就不该出现——
+            `sources=[]` 时原来会显示"截至 —· 0 个来源正常"，读着像故障。
+          */}
+          {sources.length > 0 && (
+            <>
+              <span className="tnum text-xs text-ink-2">截至 {clockTime(asOf)}</span>
+              <span className="flex items-center gap-1.5">
+                <StatusDot level={degraded.length > 0 ? 'error' : level} />
+                <span className={cn('text-xs', degraded.length > 0 ? 'text-loss' : 'text-ink-3')}>
+                  {degraded.length > 0
+                    ? `${degraded.length} / ${sources.length} 个来源异常`
+                    : `${sources.length} 个来源正常`}
+                </span>
+              </span>
+              <span className="text-xs text-ink-3">计价 USD</span>
+            </>
+          )}
           <button
             className="flex items-center gap-1.5 text-xs text-ink-3 transition-colors duration-200 hover:text-ink disabled:opacity-40"
             disabled={refreshing}

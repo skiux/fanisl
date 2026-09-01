@@ -1,4 +1,5 @@
 import * as fx from './fixtures'
+import { apiJson, ApiError } from './http'
 import * as lfx from './ledger-fixtures'
 import * as ofx from './orders-fixtures'
 import {
@@ -9,10 +10,18 @@ import {
 } from './types'
 
 /**
- * Mock 客户端。场景按"哪一组来源挂了"划分，而不是笼统的成功/失败——
- * 451 打在 fapi 上会同时带走合约与收支流水，但现货、理财、快照仍然拿得到。
+ * 数据来源。`live` 走真后端，其余是 mock 场景。
+ *
+ * mock 层没有随后端上线一起删掉，是因为它是**评审降级态的唯一实用手段**：
+ * 451、限流、Key 失效这些状态没法靠等来复现，而它们恰恰是这三页设计上最花心思
+ * 的部分。场景按"哪一组来源挂了"划分，而不是笼统的成功/失败——451 打在 fapi 上
+ * 会同时带走合约与收支流水，但现货、理财、快照仍然拿得到。
+ *
+ * **只在开发构建里可选**（见 ScenarioSwitcher）：线上留着这个开关，
+ * 迟早有人把它停在"数据陈旧"上，然后以为自己的账户真的陈旧了。
  */
 export const SCENARIOS = {
+  live: '实时',
   ok: '正常',
   stale: '数据陈旧',
   fapi_blocked: '合约域名 451',
@@ -26,17 +35,36 @@ export const SCENARIOS = {
 
 export type Scenario = keyof typeof SCENARIOS
 
+/** mock 场景只在开发构建里可选；生产构建一律走真后端。 */
+export const MOCKS_AVAILABLE = import.meta.env.DEV
+
 const STORE_KEY = 'fanisl.console.scenario'
 
 export function readScenario(): Scenario {
+  if (!MOCKS_AVAILABLE) return 'live'
   const fromUrl = new URLSearchParams(window.location.search).get('scenario')
   const stored = window.localStorage.getItem(STORE_KEY)
-  const value = fromUrl ?? stored ?? 'ok'
-  return value in SCENARIOS ? (value as Scenario) : 'ok'
+  const value = fromUrl ?? stored ?? 'live'
+  return value in SCENARIOS ? (value as Scenario) : 'live'
 }
 
 export function writeScenario(scenario: Scenario) {
   window.localStorage.setItem(STORE_KEY, scenario)
+}
+
+/** 真接口的网络/服务错误统一成 PortfolioError，上层的错误屏不用认两种类型。 */
+async function live<T>(path: string, signal?: AbortSignal): Promise<T> {
+  try {
+    return await apiJson<T>(path, { signal })
+  } catch (error) {
+    if (error instanceof ApiError) {
+      // 401 交给会话闸门处理，不要在这里变成"读不到账户数据"那一屏
+      if (error.status === 401) throw error
+      throw new PortfolioError(error.status >= 500 ? 'server' : 'network', error.message)
+    }
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    throw new PortfolioError('network', '连不上 fanisl 后端')
+  }
 }
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
@@ -149,7 +177,11 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
 export async function fetchPortfolio(
   scenario: Scenario,
   signal?: AbortSignal,
+  options?: { force?: boolean },
 ): Promise<PortfolioSnapshot> {
+  if (scenario === 'live') {
+    return live<PortfolioSnapshot>(`/portfolio?force=${options?.force ? 'true' : 'false'}`, signal)
+  }
   if (scenario === 'loading') {
     return new Promise((_resolve, reject) => {
       signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
@@ -235,7 +267,13 @@ export async function fetchOrders(
   scenario: Scenario,
   symbol: string,
   signal?: AbortSignal,
+  options?: { force?: boolean },
 ): Promise<OrdersSnapshot> {
+  if (scenario === 'live') {
+    const query = new URLSearchParams({ force: options?.force ? 'true' : 'false' })
+    if (symbol) query.set('symbol', symbol)
+    return live<OrdersSnapshot>(`/orders?${query}`, signal)
+  }
   if (scenario === 'loading') {
     return new Promise((_resolve, reject) => {
       signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
@@ -343,7 +381,12 @@ export async function fetchLedger(
   scenario: Scenario,
   days: number,
   signal?: AbortSignal,
+  options?: { force?: boolean },
 ): Promise<LedgerSnapshot> {
+  if (scenario === 'live') {
+    return live<LedgerSnapshot>(
+      `/ledger?days=${days}&force=${options?.force ? 'true' : 'false'}`, signal)
+  }
   if (scenario === 'loading') {
     return new Promise((_resolve, reject) => {
       signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })

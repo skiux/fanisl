@@ -1,13 +1,19 @@
 import { Flask } from '@phosphor-icons/react'
-import { SCENARIOS, type Scenario } from '../api/client'
+import { MOCKS_AVAILABLE, SCENARIOS, type Scenario } from '../api/client'
 
 /**
- * 后端还没写，界面靠这个切各种状态。失败态和成功态要能被同等地看见、
- * 同等地评审——否则失败态一定是最后才补、补得最潦草的那部分。
+ * 数据来源切换器：`实时` 走真后端，其余是 mock 场景。
+ *
+ * 后端上线后没有删掉 mock 层，是因为它是**评审降级态的唯一实用手段**：
+ * 451、限流、Key 失效这些状态没法靠等来复现，而它们恰恰是这三页设计上最花心思的部分。
+ * 只在开发构建里可见。
  */
 export function ScenarioSwitcher({
   value, onChange,
 }: { value: Scenario; onChange: (next: Scenario) => void }) {
+  // 生产构建里不出现。留着这个开关，迟早有人把它停在"数据陈旧"上，
+  // 然后以为自己的账户真的陈旧了。
+  if (!MOCKS_AVAILABLE) return null
   return (
     <label className="flex items-center gap-1.5 rounded-[var(--radius-control)] border border-dashed border-rule px-2 py-1 text-ink-3 transition-colors hover:border-rule-strong">
       <Flask aria-hidden="true" size={13} />

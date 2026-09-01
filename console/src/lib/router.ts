@@ -2,7 +2,7 @@
  * 两级 hash 路由：`#/{页}/{分节}`。没有引入路由库——一共三页、每页几节，
  * 一个解析函数加一个 hashchange 监听就够了，装 react-router 反而是净负担。
  */
-export type PageKey = 'assets' | 'orders' | 'ledger'
+export type PageKey = 'assets' | 'orders' | 'ledger' | 'admin'
 
 export const PAGES: { key: PageKey; label: string; enabled: boolean }[] = [
   { key: 'assets', label: '资产', enabled: true },
@@ -10,12 +10,18 @@ export const PAGES: { key: PageKey; label: string; enabled: boolean }[] = [
   { key: 'ledger', label: '流水', enabled: true },
 ]
 
+const EXTRA_TITLES: Partial<Record<PageKey, string>> = { admin: '用户' }
+
 export function titleOf(page: PageKey) {
-  const label = PAGES.find((item) => item.key === page)?.label ?? '资产'
+  const label = EXTRA_TITLES[page]
+    ?? PAGES.find((item) => item.key === page)?.label
+    ?? '资产'
   return `${label} · FANISL CONSOLE`
 }
 
-const PAGE_KEYS = PAGES.map((page) => page.key)
+// 用户管理不在主导航里：它只对管理员可见，由报头单独放一个入口（见 Masthead）。
+// 放进 PAGES 的话，成员登录后会看到一个点进去就 403 的标签。
+const PAGE_KEYS: PageKey[] = [...PAGES.map((page) => page.key), 'admin']
 
 /** 旧地址 `#/overview` 这类直接落在资产页的分节上，不要让收藏的链接失效 */
 const LEGACY_ASSET_SECTIONS = ['overview', 'changes', 'holdings', 'perp']

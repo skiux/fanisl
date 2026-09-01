@@ -40,7 +40,7 @@ export function OrdersPage() {
     if (reloadKey === 0) setPhase({ kind: 'loading' })
     else setRefreshing(true)
 
-    fetchOrders(scenario, symbol, controller.signal)
+    fetchOrders(scenario, symbol, controller.signal, { force: reloadKey > 0 })
       .then((snapshot) => setPhase({ kind: 'ready', snapshot }))
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
@@ -116,8 +116,9 @@ function Body({ phase, view, symbol, onSelectView, onSelectSymbol, onRetry }: {
   }
 
   const { snapshot } = phase
-  const allUnauthorized = snapshot.sources.length > 0
-    && snapshot.sources.every((source) => source.status === 'unauthorized')
+  // 与资产页同一条规则：没有任何数据 + 存在凭据问题 → 是 key 的事，不是"没有挂单"
+  const allUnauthorized = snapshot.open.length === 0 && snapshot.history.length === 0
+    && snapshot.sources.some((source) => source.status === 'unauthorized')
   if (allUnauthorized) {
     return <div className="px-6 sm:px-10"><UnauthorizedState onRetry={onRetry} sources={snapshot.sources} /></div>
   }

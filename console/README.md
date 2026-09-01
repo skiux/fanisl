@@ -5,9 +5,10 @@
 
 ## 当前状态
 
-**后端还没写。** 数据全部来自 `src/api/` 下的 mock 层，右上角可切换场景。
+后端已接（`GET /portfolio` · `/orders` · `/ledger`，见
+`backend/src/analyzer/binance/README.md`）。全站需要登录，未登录只渲染登录页。
 
-`src/api/types.ts` 是前后端目前唯一的契约锚点，字段按 Binance 实际接口对齐：
+`src/api/types.ts` 仍是前后端的契约锚点，字段按 Binance 实际接口对齐：
 
 | 契约字段 | 数据来源 |
 |---|---|
@@ -21,15 +22,48 @@
 | `transfers` | `GET /sapi/v1/capital/{deposit/hisrec,withdraw/history}` |
 | `equity_curve` | `GET /sapi/v1/accountSnapshot`（最多 30 天日快照） |
 
-后端 `/portfolio/*` 落地后：用 `openapi-typescript` 从 `/openapi.json` 生成类型
-替换本文件，再把 `src/api/client.ts` 换成 fetch 包装。上层组件只认
-`PortfolioSnapshot`，不用改。
+**mock 层没有删掉**，它是评审降级态的唯一实用手段——451、限流、Key 失效这些状态
+没法靠等来复现，而它们恰恰是这三页设计上最花心思的部分。数据来源默认 `实时`，
+mock 场景**只在开发构建里可选**（生产留着这个开关，迟早有人把它停在"数据陈旧"上，
+然后以为自己的账户真的陈旧了）。
+
+## 登录
+
+```
+App → AuthGate → 三个页面
+```
+
+没登录就只渲染登录页，资产台一行都不挂载——与后端那道中间件同一个方向，**默认关**。
+做成"渲染应用再各处判断"的话，三个页面各自处理未登录，漏一个就是一屏报错。
+
+| 文件 | 职责 |
+|---|---|
+| `api/http.ts` | fetch 包装：`credentials: 'include'` · 非 JSON 视为错误 · 401 分流 |
+| `api/session.ts` | 会话 store + 登录/退出/改口令 + 管理员接口 |
+| `features/auth/AuthGate.tsx` | 闸门 |
+| `features/auth/LoginPage.tsx` | 登录页 |
+| `features/auth/AdminPage.tsx` | 用户管理（`#/admin`，仅管理员，前后端都拦） |
+
+几处不是随手定的：
+
+- **`credentials: 'include'`**：线上同源浏览器默认带 cookie，本机开发跨端口
+  （5175→8000）默认的 `same-origin` 会把它丢掉——症状是"登录成功了但每个请求还是 401"。
+- **非 JSON 响应直说是 nginx 的事**：少配一个路径前缀时，API 请求会落到 SPA 兜底返回
+  index.html，直接 `JSON.parse` 只会报一句语法错，指不到真正的原因。
+- **全局 401 排除 `/auth/*`**：口令输错也是 401，那是表单内的错误；不排除的话输错一次
+  就触发全局登出，登录页把自己重置一遍。
+- **管理页不复制后端的判定规则**（最后一个在岗管理员不能停用/降级/删除、不能删自己）。
+  前端复制一遍必然与后端漂移，而漂移方向通常是前端更松。这里只把 409 的原话显示出来。
+- **「没有数据」与「为什么没有」分开判**。原来写的是"每个来源都 unauthorized"，
+  而 `prices` 是公开端点、没有 key 也照常返回，于是这个条件再也不成立——
+  没配 key 会被误报成"账户里还没有资产"，屏幕上还留着一句"前往 Binance"，方向指反了。
 
 ## 命令
 
 ```bash
 npm install
 npm run dev          # http://127.0.0.1:5175/console/
+npm test             # vitest：http 层与会话 13 条
 npm run typecheck
 npm run build
 ```

@@ -38,7 +38,7 @@ export function LedgerPage() {
     if (reloadKey === 0) setPhase({ kind: 'loading' })
     else setRefreshing(true)
 
-    fetchLedger(scenario, days, controller.signal)
+    fetchLedger(scenario, days, controller.signal, { force: reloadKey > 0 })
       .then((snapshot) => setPhase({ kind: 'ready', snapshot }))
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
@@ -114,8 +114,9 @@ function Body({ phase, filter, onSelectFilter, onRetry }: {
   }
 
   const { snapshot } = phase
-  const allUnauthorized = snapshot.sources.length > 0
-    && snapshot.sources.every((source) => source.status === 'unauthorized')
+  // 与资产页同一条规则：没有任何记录 + 存在凭据问题 → 是 key 的事，不是"这段时间没流水"
+  const allUnauthorized = snapshot.entries.length === 0
+    && snapshot.sources.some((source) => source.status === 'unauthorized')
   if (allUnauthorized) {
     return <div className="px-6 sm:px-10"><UnauthorizedState onRetry={onRetry} sources={snapshot.sources} /></div>
   }
