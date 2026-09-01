@@ -19,8 +19,14 @@ import os
 import analyzer.config as _cfg  # noqa: E402
 
 _TEST_DB = os.environ.get("FANISL_TEST_CONNINFO", "dbname=fanisl_test")
+# **鉴权在测试里一律钉成开着。** 本机 .env 为了开发方便会写 AUTH_ENABLED=false，
+# 而 Settings 只有连接串被覆盖、其余仍从 .env 读——于是本机那一行会把
+# test_auth.py 里那些"未登录必须 401"的断言**静默变成假通过**（2026-09-02 实测踩到：
+# 全量跑时 5 条安全断言一起失败，单独跑却是绿的）。安全断言不能由开发者的本地配置决定。
+# 应急关闭那条路径由 test_auth.py 自己构造 enabled=False 的中间件来覆盖。
 _test_settings = _cfg.Settings(pg_conninfo=_TEST_DB, pg_trading_conninfo=_TEST_DB,
-                               pg_knowledge_conninfo=_TEST_DB)
+                               pg_knowledge_conninfo=_TEST_DB,
+                               auth_enabled=True, auth_cookie_secure=True)
 _cfg.get_settings = lambda: _test_settings
 
 from datetime import datetime, timezone

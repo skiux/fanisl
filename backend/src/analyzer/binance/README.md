@@ -3,8 +3,28 @@
 给 `console/`（资产台）供数的三组接口：`/portfolio`、`/orders`、`/ledger`。
 形状由 `console/src/api/types.ts` 定义，那份契约**按 Binance 原始字段写**，不是想当然的余额模型。
 
-全员共用同一个 Binance 账户，凭据在服务器 `.env`（`BINANCE_API_KEY` / `BINANCE_API_SECRET`），
-权限只开 Enable Reading。
+全员共用同一个 Binance 账户，凭据在服务器 `.env`，权限只开 Enable Reading。
+
+## Key 类型
+
+Binance 支持三种，官方把 **HMAC 标为 deprecated**、推荐 **Ed25519**。三种都支持，
+按配置自动判型（`signing.py`），换类型只改 `.env`。启动时打印 `[fanisl] binance key 类型=…`。
+
+| 类型 | 配置 | 签名 |
+|---|---|---|
+| Ed25519（推荐） | `BINANCE_PRIVATE_KEY_PATH` | PureEdDSA → base64 |
+| RSA | 同上 | PKCS#1 v1.5 + SHA-256 → base64 |
+| HMAC（deprecated） | `BINANCE_API_SECRET` | HMAC-SHA256 → hex |
+
+非对称的好处对这个场景是实的：**私钥不出服务器**，Binance 只存公钥，所以交易所侧
+即使出事也伪造不了你的请求。对只读 key 而言泄露的后果本来就有限，但成本也只是多跑一条
+`openssl genpkey`。
+
+两处写错就恒 401：
+- **编码不同**：HMAC 出 hex，非对称出 base64。
+- **base64 必须再 percent-encode**：签名里有 `+` `/` `=`，`+` 不编码会被服务端解成空格。
+  代码里**无条件编码**（hex 编不编都一样）——少一个分支，也不会出现"只在某种 key 类型下
+  才复现"的 bug。
 
 ```
 client.py    HMAC 签名 + 错误分类 + 对时          ← 不含任何写入方法
@@ -109,7 +129,7 @@ IP 权重上限 **6000/分钟**。而：
 
 ## 测试
 
-`tests/test_binance_{portfolio,orders,ledger}.py`，56 条，全部用 `httpx.MockTransport`
+`tests/test_binance_{signing,portfolio,orders,ledger}.py`，69 条，全部用 `httpx.MockTransport`
 喂**真实形状**的响应，不联网。样本在 `tests/binance_mock.py` 三组共用——各写一份必然漂移：
 改了一处样本，另一处还在验旧形状，而两边都是绿的。
 

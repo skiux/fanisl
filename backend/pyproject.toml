@@ -22,12 +22,18 @@ dependencies = [
     # knowledge/llm.py 与 prices.py 是模块级 import（Gemini 走 REST 不用 SDK，FRED 取 CSV）。
     # 此前只在 dev 组里，靠 anthropic 的传递依赖凑巧装上——显式声明，别把可用性寄托在别人的依赖表上。
     "httpx>=0.27",
+    # Binance 的 Ed25519/RSA key 要用它签名。此前只是 ccxt 的传递依赖凑巧装上——
+    # 与下面 httpx 那条同一个教训：显式声明，别把可用性寄托在别人的依赖表上。
+    "cryptography>=42",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.3",
     "httpx>=0.27",
+    # Binance 的 Ed25519/RSA key 要用它签名。此前只是 ccxt 的传递依赖凑巧装上——
+    # 与下面 httpx 那条同一个教训：显式声明，别把可用性寄托在别人的依赖表上。
+    "cryptography>=42",
 ]
 
 [build-system]

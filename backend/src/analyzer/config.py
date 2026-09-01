@@ -257,7 +257,12 @@ class Settings(BaseSettings):
     # --- Binance 只读凭据（全员共用同一个账户，见 auth/README.md）----------
     # 权限只开 Enable Reading，提现与交易一律关闭；有 IP 白名单就把服务器出口 IP 填进去。
     binance_api_key: str = ""
+    # HMAC（对称）用这个。官方已把 HMAC 标为 deprecated，存量 key 仍可用。
     binance_api_secret: str = ""
+    # Ed25519 / RSA（非对称）用这两个：私钥留在服务器上，Binance 那边只存公钥。
+    # 官方推荐 Ed25519。两样都配时以私钥为准。
+    binance_private_key_path: str = ""
+    binance_private_key_passphrase: str = ""
     binance_recv_window_ms: int = 5000
     binance_timeout_s: float = 20.0
 

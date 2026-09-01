@@ -17,13 +17,13 @@ leverageBracket 的维持保证金档位、日快照、理财持仓、小额兑�
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import time
 import urllib.parse
 from typing import Any, Literal
 
 import httpx
+
+from .signing import Signer, build_signer
 
 SPOT_BASE = "https://api.binance.com"
 FAPI_BASE = "https://fapi.binance.com"
@@ -44,7 +44,10 @@ class BinanceError(Exception):
 
 class CredentialsMissing(BinanceError):
     def __init__(self) -> None:
-        super().__init__("unauthorized", "未配置 BINANCE_API_KEY / BINANCE_API_SECRET")
+        super().__init__(
+            "unauthorized",
+            "未配置 Binance 凭据：需要 BINANCE_API_KEY，"
+            "外加 BINANCE_API_SECRET（HMAC）或 BINANCE_PRIVATE_KEY_PATH（Ed25519/RSA）")
 
 
 # 这些 code 明确是"凭据不对/权限不够"，与网络问题分开——前端据此提示去检查 key 而不是等网络
@@ -68,11 +71,16 @@ class BinanceClient:
     这个进程持有的 key 只该有 Enable Reading，代码里也不留写入路径。
     """
 
-    def __init__(self, api_key: str, api_secret: str, *,
+    def __init__(self, api_key: str, api_secret: str = "", *,
+                 private_key_path: str = "", private_key_passphrase: str = "",
                  recv_window_ms: int = 5000, timeout_s: float = 20.0,
+                 signer: Signer | None = None,
                  client: httpx.Client | None = None) -> None:
         self.api_key = api_key
-        self.api_secret = api_secret.encode("utf-8")
+        # 三种 key 类型的差异全收在 signer 里；调用方只管配，代码不用分支
+        self.signer = signer or build_signer(
+            api_secret=api_secret, private_key_path=private_key_path,
+            passphrase=private_key_passphrase)
         self.recv_window_ms = recv_window_ms
         # 注入 httpx.Client 是为了测试能用 MockTransport，不必联网也不必打桩私有方法
         self._http = client or httpx.Client(timeout=timeout_s)
@@ -90,9 +98,15 @@ class BinanceClient:
     # --- 签名 -------------------------------------------------------------
 
     def _sign(self, params: dict[str, Any]) -> str:
+        """签好名的完整 query string。
+
+        签名**无条件 percent-encode**：非对称签名是 base64，里面会有 `+` `/` `=`，
+        直接拼进 query 的话 `+` 会被服务端解成空格、签名当场对不上。hex 编不编都一样，
+        所以不分支——少一个分支，也不会出现"只在某种 key 类型下才复现"的 bug。
+        """
         query = urllib.parse.urlencode(params, doseq=True)
-        sig = hmac.new(self.api_secret, query.encode("utf-8"), hashlib.sha256).hexdigest()
-        return f"{query}&signature={sig}"
+        sig = self.signer.sign(query)
+        return f"{query}&signature={urllib.parse.quote(sig, safe='')}"
 
     def _server_time_offset(self, base: str) -> int:
         """本地时钟 → 服务器时钟的毫秒偏移。按域名各算一份并缓存。"""
@@ -111,7 +125,7 @@ class BinanceClient:
 
     def signed_get(self, base: str, path: str, params: dict[str, Any] | None = None,
                    *, _retry_on_time: bool = True) -> Any:
-        if not self.api_key or not self.api_secret:
+        if not self.api_key or self.signer is None:
             raise CredentialsMissing()
 
         payload = {k: v for k, v in (params or {}).items() if v is not None}
@@ -311,7 +325,7 @@ class BinanceClient:
     # --- 内部 -------------------------------------------------------------
 
     def _signed_post(self, base: str, path: str, params: dict[str, Any] | None = None) -> Any:
-        if not self.api_key or not self.api_secret:
+        if not self.api_key or self.signer is None:
             raise CredentialsMissing()
         payload = {k: v for k, v in (params or {}).items() if v is not None}
         payload["timestamp"] = int(time.time() * 1000) + self._server_time_offset(base)

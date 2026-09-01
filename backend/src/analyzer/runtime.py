@@ -53,9 +53,15 @@ user_store = UserStore(pool)
 # unauthorized，前端显示"凭据没有通过校验"那一屏。启动阶段不该因为没配 key 就崩。
 binance_client = BinanceClient(
     settings.binance_api_key, settings.binance_api_secret,
+    private_key_path=settings.binance_private_key_path,
+    private_key_passphrase=settings.binance_private_key_passphrase,
     recv_window_ms=settings.binance_recv_window_ms,
     timeout_s=settings.binance_timeout_s,
 )
+if settings.binance_api_key:
+    print(f"[fanisl] binance key 类型="
+          f"{binance_client.signer.kind if binance_client.signer else '(缺私钥/secret)'}",
+          flush=True)
 binance_cache = SourceCache(pool)
 
 market_store = MarketStore(
