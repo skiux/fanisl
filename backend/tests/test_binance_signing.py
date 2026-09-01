@@ -181,3 +181,65 @@ def test_encrypted_key_without_passphrase_says_what_to_configure(tmp_path):
     with pytest.raises(KeyLoadError, match="BINANCE_PRIVATE_KEY_PASSPHRASE"):
         build_signer(private_key_path=pem)
     assert build_signer(private_key_path=pem, passphrase="pw").kind == "Ed25519"
+
+
+# --- 配置出错不许把进程带崩 -------------------------------------------------
+#
+# runtime 在模块 import 时就建 BinanceClient，所以构造函数里的任何异常都会让**整个 API
+# 起不来**。2026-09-02 线上 502 就是这么来的：私钥用自己的账号建、chmod 600，
+# 而服务以 fanisl 身份跑，读不了 → PermissionError → import 失败 → 全站 502。
+# 配置错误必须降级成"这个来源 unauthorized"，而不是"服务起不来"。
+
+@pytest.mark.parametrize("kwargs", [
+    {"private_key_path": "/definitely/not/here.pem"},
+    {"private_key_path": "/tmp"},                       # 是目录不是文件
+    {"private_key_path": "", "api_secret": ""},         # 什么都没配
+])
+def test_bad_key_config_never_raises_at_construction(kwargs):
+    client = BinanceClient("k", **kwargs)               # 不抛就是通过
+    assert client.signer is None
+    assert client.credential_status
+
+
+def test_unreadable_key_degrades_and_says_how_to_fix(tmp_path):
+    import os
+
+    pem = tmp_path / "locked.pem"
+    pem.write_bytes(b"whatever")
+    os.chmod(pem, 0o000)
+    try:
+        client = BinanceClient("k", private_key_path=str(pem))
+        assert client.signer is None
+        # 只说 Permission denied 没用，要说出该改属主还是改权限
+        assert "chown" in client.credential_status
+    finally:
+        os.chmod(pem, 0o600)
+
+
+def test_bad_key_config_surfaces_as_unauthorized_at_call_time(tmp_path):
+    """降级的落点是"这个来源 unauthorized"，且原因要能传到界面上。"""
+    client = BinanceClient("k", private_key_path=str(tmp_path / "missing.pem"))
+    with pytest.raises(CredentialsMissing) as e:
+        client.signed_get("https://api.binance.com", "/api/v3/account")
+    assert e.value.kind == "unauthorized"
+    assert "不存在" in str(e.value)
+
+
+def test_broken_key_config_still_lets_portfolio_render(tmp_path, pool):
+    """整条链路：配错私钥时，资产接口照常返回，私有来源记 unauthorized。"""
+    from analyzer.binance.cache import SourceCache
+    from analyzer.binance.portfolio import build_portfolio
+    from binance_mock import NOW, make_transport
+
+    with pool.connection() as conn:
+        conn.execute("TRUNCATE binance_cache")
+    client = BinanceClient("k", private_key_path=str(tmp_path / "missing.pem"),
+                           client=httpx.Client(transport=make_transport()))
+    try:
+        snap = build_portfolio(client, SourceCache(pool), force=True, now=NOW)
+    finally:
+        client.close()
+    states = {s["key"]: s for s in snap["sources"]}
+    assert states["prices"]["status"] == "ok"          # 公开端点照常
+    assert states["spot"]["status"] == "unauthorized"
+    assert "不存在" in states["spot"]["detail"]

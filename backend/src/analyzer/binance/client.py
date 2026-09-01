@@ -43,11 +43,12 @@ class BinanceError(Exception):
 
 
 class CredentialsMissing(BinanceError):
-    def __init__(self) -> None:
+    def __init__(self, detail: str | None = None) -> None:
         super().__init__(
             "unauthorized",
-            "未配置 Binance 凭据：需要 BINANCE_API_KEY，"
-            "外加 BINANCE_API_SECRET（HMAC）或 BINANCE_PRIVATE_KEY_PATH（Ed25519/RSA）")
+            detail or ("未配置 Binance 凭据：需要 BINANCE_API_KEY，"
+                       "外加 BINANCE_API_SECRET（HMAC）或 "
+                       "BINANCE_PRIVATE_KEY_PATH（Ed25519/RSA）"))
 
 
 # 这些 code 明确是"凭据不对/权限不够"，与网络问题分开——前端据此提示去检查 key 而不是等网络
@@ -77,10 +78,17 @@ class BinanceClient:
                  signer: Signer | None = None,
                  client: httpx.Client | None = None) -> None:
         self.api_key = api_key
-        # 三种 key 类型的差异全收在 signer 里；调用方只管配，代码不用分支
-        self.signer = signer or build_signer(
-            api_secret=api_secret, private_key_path=private_key_path,
-            passphrase=private_key_passphrase)
+        # 三种 key 类型的差异全收在 signer 里；调用方只管配，代码不用分支。
+        #
+        # **惰性构造，且永不致命**。runtime 在模块 import 时就建这个客户端，
+        # 而私钥可能不存在、可能读不了（服务以 fanisl 身份跑，用自己账号建的
+        # chmod 600 文件它读不了）。第一版在 __init__ 里直接加载，于是一个配错的
+        # 路径就把整个 API 进程带崩——2026-09-02 线上 502 就是这么来的。
+        # 配置错误应当降级成"这个来源 unauthorized"，而不是"服务起不来"。
+        self._signer = signer
+        self._signer_loaded = signer is not None
+        self._signer_error: str | None = None
+        self._signer_config = (api_secret, private_key_path, private_key_passphrase)
         self.recv_window_ms = recv_window_ms
         # 注入 httpx.Client 是为了测试能用 MockTransport，不必联网也不必打桩私有方法
         self._http = client or httpx.Client(timeout=timeout_s)
@@ -90,6 +98,26 @@ class BinanceClient:
         self._offset_ms: dict[str, int] = {}
         # 最近一次响应里的权重用量，给 /portfolio 之类的接口回报"这次花了多少"
         self.last_weight: dict[str, int] = {}
+
+    @property
+    def signer(self) -> Signer | None:
+        if not self._signer_loaded:
+            self._signer_loaded = True
+            secret, key_path, passphrase = self._signer_config
+            try:
+                self._signer = build_signer(api_secret=secret, private_key_path=key_path,
+                                            passphrase=passphrase)
+            except Exception as e:  # noqa: BLE001 — 任何加载失败都只降级，不上抛
+                self._signer = None
+                self._signer_error = str(e)
+        return self._signer
+
+    @property
+    def credential_status(self) -> str:
+        """给启动横幅用：一眼看出凭据是好的、没配、还是配错了。"""
+        if self.signer is not None:
+            return self.signer.kind
+        return f"配置有误：{self._signer_error}" if self._signer_error else "(未配置)"
 
     def close(self) -> None:
         if self._owns_http:
@@ -126,7 +154,7 @@ class BinanceClient:
     def signed_get(self, base: str, path: str, params: dict[str, Any] | None = None,
                    *, _retry_on_time: bool = True) -> Any:
         if not self.api_key or self.signer is None:
-            raise CredentialsMissing()
+            raise CredentialsMissing(self._signer_error)
 
         payload = {k: v for k, v in (params or {}).items() if v is not None}
         payload["timestamp"] = int(time.time() * 1000) + self._server_time_offset(base)
@@ -326,7 +354,7 @@ class BinanceClient:
 
     def _signed_post(self, base: str, path: str, params: dict[str, Any] | None = None) -> Any:
         if not self.api_key or self.signer is None:
-            raise CredentialsMissing()
+            raise CredentialsMissing(self._signer_error)
         payload = {k: v for k, v in (params or {}).items() if v is not None}
         payload["timestamp"] = int(time.time() * 1000) + self._server_time_offset(base)
         payload["recvWindow"] = self.recv_window_ms

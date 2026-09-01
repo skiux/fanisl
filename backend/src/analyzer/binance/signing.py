@@ -80,10 +80,16 @@ def load_private_key(path: str, passphrase: str = ""):  # noqa: ANN201
     if not pem.is_file():
         raise KeyLoadError(f"私钥文件不存在: {pem}")
     try:
+        data = pem.read_bytes()
+    except OSError as e:
+        # 最常见的一种：私钥是用自己的账号建的（chmod 600），而服务以 fanisl 身份跑，
+        # 它读不了。报错要直接说出该怎么办，不然只看到一句 Permission denied。
+        raise KeyLoadError(
+            f"私钥读不了: {e}。服务以 fanisl 身份运行，确认属主与权限："
+            f"sudo chown fanisl:fanisl {pem} && sudo chmod 600 {pem}") from e
+    try:
         return load_pem_private_key(
-            pem.read_bytes(),
-            password=passphrase.encode("utf-8") if passphrase else None,
-        )
+            data, password=passphrase.encode("utf-8") if passphrase else None)
     except (ValueError, TypeError) as e:
         hint = "（这个私钥带口令，要配 BINANCE_PRIVATE_KEY_PASSPHRASE）" if not passphrase else ""
         raise KeyLoadError(f"私钥读取失败: {e}{hint}") from e

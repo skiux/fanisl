@@ -58,10 +58,10 @@ binance_client = BinanceClient(
     recv_window_ms=settings.binance_recv_window_ms,
     timeout_s=settings.binance_timeout_s,
 )
-if settings.binance_api_key:
-    print(f"[fanisl] binance key 类型="
-          f"{binance_client.signer.kind if binance_client.signer else '(缺私钥/secret)'}",
-          flush=True)
+# 凭据状态也在启动第一屏说清楚。配错了不会让服务起不来（那是设计），
+# 但必须在日志里看得见，否则表现出来只是"资产页所有来源都 unauthorized"，
+# 排查方向会跑偏到 key 权限上去。
+print(f"[fanisl] binance key={binance_client.credential_status}", flush=True)
 binance_cache = SourceCache(pool)
 
 market_store = MarketStore(
