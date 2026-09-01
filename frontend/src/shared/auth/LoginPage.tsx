@@ -42,10 +42,16 @@ function LoginPage() {
   return (
     <main className="auth-screen">
       <form className="auth-card" onSubmit={submit}>
-        <div className="auth-brand"><i aria-hidden="true" /><strong>FANISL</strong></div>
-        <h1>登录</h1>
-        <p>个人投资知识引擎。账号由管理员开设。</p>
+        {/* 用的是顶栏那个真标记（角线 + 斜杠 + 圆点），不是随手一个圆点 */}
+        <span className="brand"><i aria-hidden="true" /><strong>FANISL</strong></span>
 
+        <p className="auth-eyebrow">ACCESS</p>
+        <h1>个人投资知识引擎</h1>
+        <p className="auth-lede">
+          持续学习、持续验证、持续沉淀。账号由管理员开设。
+        </p>
+
+        <div className="auth-form">
         {error && <p className="auth-error" role="alert">{error}</p>}
 
         <div className="auth-field">
@@ -79,10 +85,11 @@ function LoginPage() {
         </div>
 
         <button className="auth-submit" disabled={busy || !username || !password} type="submit">
-          {busy ? '正在登录…' : '登录'}
+          {busy ? '正在登录…' : '进入'}
         </button>
 
         <p className="auth-note">口令忘了找管理员重置。</p>
+        </div>
       </form>
     </main>
   )

@@ -1,131 +1,154 @@
-/* 登录页。沿用全站的纸面语言（--paper / --ink / --sage），不另起一套视觉。 */
+/* 登录页 = **知识引擎的扉页**，不是一个通用的登录卡片。
+   沿用全站的三样身份：纸面与纸纹、等宽大写的眉标、中文衬线标题。
+   第一版是个居中的白盒子加两个输入框，功能没错，但它跟后面的页面看不出是同一个东西。 */
 
 .auth-screen {
-  min-height: 100dvh;
+  position: relative;
   display: grid;
+  min-height: 100dvh;
   place-items: center;
-  padding: 24px;
+  padding: 32px 24px;
   background: var(--paper-deep);
+  isolation: isolate;
+}
+
+/* 纸纹。全站研究底图用的同一张网点，登录页也铺一层——
+   它是这个应用"纸上工作"这件事最直接的触感。 */
+.auth-screen::after {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  opacity: .1;
+  background-image: repeating-radial-gradient(circle, rgba(50, 47, 38, .34) 0, rgba(50, 47, 38, .34) .25px, transparent .45px, transparent 3.4px);
+  background-size: 5px 5px;
+  mix-blend-mode: multiply;
+  content: "";
+  pointer-events: none;
 }
 
 .auth-card {
-  width: min(100%, 380px);
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 40px 36px 32px;
-  box-shadow: 0 1px 2px rgba(37, 45, 38, .04), 0 12px 32px -20px rgba(37, 45, 38, .3);
+  position: relative;
+  z-index: 1;
+  width: min(100%, 392px);
 }
 
-.auth-brand {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 28px;
-}
+.auth-card .brand { margin-bottom: 44px; }
 
-.auth-brand i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--sage);
-}
-
-.auth-brand strong {
-  font-size: var(--text-ui);
-  font-weight: 600;
-  letter-spacing: .14em;
-  color: var(--ink);
-}
-
-.auth-card h1 {
-  margin: 0 0 6px;
-  font-size: var(--text-section-title);
-  font-weight: 500;
-  letter-spacing: -.01em;
-  color: var(--ink);
-}
-
-.auth-card > p {
-  margin: 0 0 26px;
-  font-size: var(--text-caption);
-  line-height: 1.55;
+/* 眉标：与知识库那几屏同一套（等宽、大写、.18em、650） */
+.auth-eyebrow {
+  margin: 0;
   color: var(--muted);
+  font: 650 var(--text-meta) ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .18em;
 }
 
-.auth-field { margin-bottom: 16px; }
+/* 标题用中文衬线——这是全站页面标题的写法，不是随手挑的字体 */
+.auth-card h1 {
+  margin: 18px 0 0;
+  color: var(--ink);
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: clamp(30px, 3.4vw, 40px);
+  font-weight: 520;
+  letter-spacing: -.055em;
+  line-height: 1.02;
+}
+
+.auth-lede {
+  max-width: 34ch;
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: var(--text-body);
+  line-height: 1.8;
+}
+
+.auth-form {
+  margin-top: 38px;
+  padding-top: 30px;
+  border-top: 1px solid var(--line);
+}
+
+.auth-field + .auth-field { margin-top: 22px; }
 
 .auth-field label {
   display: block;
-  margin-bottom: 6px;
-  font-size: var(--text-caption);
   color: var(--muted);
+  font: 650 var(--text-caption) ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
 }
 
+/* 输入框走行线，不是描边盒子：全站的分隔都是发丝线，
+   这里冒出一圈圆角边框就是另一套语言了。 */
 .auth-field input {
   width: 100%;
-  box-sizing: border-box;
-  padding: 9px 11px;
-  font: inherit;
-  font-size: var(--text-body);
+  margin-top: 9px;
+  padding: 0 0 7px;
   color: var(--ink);
-  background: #fbfaf5;
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  transition: border-color .18s ease;
+  font: inherit;
+  font-size: var(--text-reading);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(37, 45, 38, .26);
+  border-radius: 0;
+  transition: border-color .2s ease;
 }
+
+.auth-field input:hover { border-bottom-color: rgba(37, 45, 38, .45); }
 
 .auth-field input:focus {
+  border-bottom-color: var(--sage);
   outline: none;
-  border-color: var(--sage);
 }
 
-.auth-field input:disabled { opacity: .55; }
+.auth-field input:disabled { opacity: .5; }
 
-/* 报错用文字承担，不只靠边框变红——色觉障碍下边框颜色是读不出来的 */
+/* 报错靠文字承担，不只靠颜色——色觉障碍下边框变红是读不出来的 */
 .auth-error {
-  margin: 0 0 16px;
-  padding: 9px 11px;
-  font-size: var(--text-caption);
-  line-height: 1.5;
+  margin: 0 0 26px;
+  padding: 10px 0 10px 12px;
   color: #7a3f30;
-  background: rgba(187, 129, 109, .12);
+  font-size: var(--text-caption);
+  line-height: 1.55;
   border-left: 2px solid var(--peach);
-  border-radius: 2px;
 }
 
 .auth-submit {
   width: 100%;
-  padding: 10px;
+  margin-top: 32px;
+  padding: 12px;
+  color: var(--paper);
   font: inherit;
   font-size: var(--text-ui);
-  color: var(--paper);
+  letter-spacing: .04em;
   background: var(--ink);
   border: none;
-  border-radius: 3px;
+  border-radius: 2px;
   cursor: pointer;
-  transition: opacity .18s ease;
+  transition: opacity .2s ease, transform .12s ease;
 }
 
-.auth-submit:hover:not(:disabled) { opacity: .86; }
-.auth-submit:disabled { opacity: .45; cursor: default; }
+.auth-submit:hover:not(:disabled) { opacity: .87; }
+.auth-submit:active:not(:disabled) { transform: translateY(1px); }
+.auth-submit:disabled { opacity: .28; cursor: default; }
 
 .auth-note {
-  margin: 20px 0 0;
-  font-size: var(--text-caption);
-  line-height: 1.6;
+  margin: 26px 0 0;
   color: var(--muted);
+  font-size: var(--text-caption);
+  line-height: 1.7;
 }
 
 /* 会话检查期间的过渡屏：不要一闪而过地先露出登录页再跳走 */
 .auth-checking {
-  min-height: 100dvh;
   display: grid;
+  min-height: 100dvh;
   place-items: center;
-  background: var(--paper-deep);
   color: var(--muted);
-  font-size: var(--text-caption);
-  letter-spacing: .08em;
+  font: 650 var(--text-caption) ui-monospace, SFMono-Regular, monospace;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  background: var(--paper-deep);
 }
 
 /* 顶栏里的用户位 */
@@ -133,25 +156,24 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: var(--nav-shortcut-size, .8125rem);
   color: var(--muted);
+  font-size: var(--nav-shortcut-size, .8125rem);
+  white-space: nowrap;
 }
 
-.nav-user b {
-  font-weight: 500;
-  color: var(--ink);
-}
+.nav-user b { color: var(--ink); font-weight: 500; }
 
+.nav-user a,
 .nav-user button {
   padding: 0;
-  font: inherit;
   color: var(--muted);
+  font: inherit;
   background: none;
   border: none;
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  text-decoration-color: var(--line);
+  text-decoration: none;
+  transition: color .18s ease;
 }
 
+.nav-user a:hover,
 .nav-user button:hover { color: var(--ink); }

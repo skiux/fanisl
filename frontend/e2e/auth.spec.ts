@@ -5,7 +5,7 @@ test('未登录时只渲染登录页，应用本体一行都不挂载', async ({
   await mockAuth(page, null)
   await page.goto('/#/knowledge')
 
-  await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '个人投资知识引擎' })).toBeVisible()
   // 闸门是默认关的：不是"渲染应用再各处判断"，那样漏一个页面就是一屏报错
   await expect(page.locator('.spatial-nav')).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: '用户名' })).toBeFocused()
@@ -20,7 +20,7 @@ test('口令错误显示后端原话，不猜是用户名还是口令', async ({
 
   await page.getByRole('textbox', { name: '用户名' }).fill('alice')
   await page.getByLabel('口令').fill('wrong')
-  await page.getByRole('button', { name: '登录' }).click()
+  await page.getByRole('button', { name: '进入' }).click()
 
   await expect(page.getByRole('alert')).toHaveText('用户名或口令不正确')
   // 口令被清空，用户名保留——重试时不用两个都重新输
@@ -37,7 +37,7 @@ test('被限速时把后端那句话原样显示', async ({ page }) => {
 
   await page.getByRole('textbox', { name: '用户名' }).fill('alice')
   await page.getByLabel('口令').fill('x')
-  await page.getByRole('button', { name: '登录' }).click()
+  await page.getByRole('button', { name: '进入' }).click()
   await expect(page.getByRole('alert')).toContainText('15 分钟')
 })
 
@@ -56,11 +56,11 @@ test('登录成功后停在原来那一页，不被踢回首页', async ({ page 
   })
 
   await page.goto('/#/knowledge')
-  await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '个人投资知识引擎' })).toBeVisible()
 
   await page.getByRole('textbox', { name: '用户名' }).fill('alice')
   await page.getByLabel('口令').fill('correct-password')
-  await page.getByRole('button', { name: '登录' }).click()
+  await page.getByRole('button', { name: '进入' }).click()
 
   // 地址栏的 hash 从头到尾没动过，所以登录后落在知识库而不是首页
   await expect(page).toHaveURL(/#\/knowledge$/)
@@ -84,7 +84,7 @@ test('会话中途失效：任意接口 401 就整体切回登录页', async ({ 
   )
   await page.reload()
 
-  await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '个人投资知识引擎' })).toBeVisible()
 })
 
 test('顶栏显示当前用户并能退出', async ({ page }) => {
@@ -95,5 +95,5 @@ test('顶栏显示当前用户并能退出', async ({ page }) => {
   const chip = page.locator('.nav-user')
   await expect(chip).toContainText('测试用户')
   await chip.getByRole('button', { name: '退出' }).click()
-  await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '个人投资知识引擎' })).toBeVisible()
 })
