@@ -182,7 +182,7 @@ export function RiskGauges({ futures, margin, exposureRatio, concentration, unav
         )}
         {concentration && (
           <div className="flex items-baseline justify-between gap-3">
-            <Eyebrow>最大单一持仓</Eyebrow>
+            <Eyebrow>最大单一敞口</Eyebrow>
             <span className="tnum text-sm text-ink-2">
               {percent(concentration.share, 1)}
               <span className="text-ink-3"> · {concentration.asset}</span>

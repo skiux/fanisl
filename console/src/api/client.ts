@@ -247,7 +247,8 @@ export async function fetchOrders(
     throw new PortfolioError('network', '连不上 fanisl 后端（127.0.0.1:8000）')
   }
   const snapshot = scenarioOrders(scenario)
-  if (!snapshot.query || snapshot.query.symbol === symbol) return snapshot
+  // 空 symbol = 还没选过，用后端自己挑的那个交易对
+  if (!symbol || !snapshot.query || snapshot.query.symbol === symbol) return snapshot
   // 换交易对就是换一次 allOrders/myTrades 调用。示例数据只带了一个交易对的那一段，
   // 其他交易对如实返回空区间，而不是把这一段的记录改个名字套上去。
   return { ...snapshot, query: { ...snapshot.query, symbol }, history: [], fills: [] }

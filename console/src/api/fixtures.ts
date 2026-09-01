@@ -1,5 +1,5 @@
 import { PRICE } from './prices'
-import { spotLockedByAsset } from './orders-fixtures'
+import { NVDA_ENTRY_PRICE, spotLockedByAsset } from './orders-fixtures'
 import type {
   Attribution, EarnPosition, EquityPoint, FuturesAccount, FuturesPosition,
   IncomeBreakdown, MarginAccount, PortfolioSnapshot, SourceState, SpotAsset,
@@ -9,22 +9,22 @@ import type {
 /** locked（挂单占用）不在这里写死，由委托 fixture 反推，两页的数对得上 */
 type RawSpot = { asset: string; free: number; freeze?: number; withdrawing?: number }
 
+/**
+ * 现货账户。标的都在 U 本位永续上，现货这边只承担两件事：
+ * USDT 作保证金与闲置资金，BNB 作手续费抵扣。剩下几笔是早年留下的小额，
+ * 留着是因为真实账户里也一定有这种东西——灰尘折叠与"无报价"两条路径需要它们。
+ */
 const RAW_SPOT: RawSpot[] = [
-  { asset: 'USDT', free: 8240.16, withdrawing: 500 },
-  { asset: 'BTC', free: 0.18426 },
-  { asset: 'SOL', free: 41.73 },
-  { asset: 'ETH', free: 1.6087 },
+  { asset: 'USDT', free: 12480.44, withdrawing: 500 },
   { asset: 'BNB', free: 4.212 },
-  { asset: 'LINK', free: 128.4 },
-  { asset: 'ARB', free: 906.2, freeze: 120 },
-  { asset: 'SHIB', free: 812400 }, { asset: 'XRP', free: 3.1408 },
-  { asset: 'DOGE', free: 21.86 }, { asset: 'ADA', free: 9.607 },
-  { asset: 'AVAX', free: 0.2841 }, { asset: 'LTC', free: 0.01423 },
-  { asset: 'ATOM', free: 0.3187 }, { asset: 'DOT', free: 0.4102 },
-  { asset: 'FIL', free: 0.2237 }, { asset: 'NEAR', free: 0.0916 },
-  { asset: 'ALGO', free: 2.7043 }, { asset: 'VET', free: 11.208 },
-  { asset: 'TRX', free: 1.9046 }, { asset: 'LUNC', free: 44210 },
-  { asset: 'BETH', free: 0.0044 }, { asset: 'PAXG', free: 0.00071 },
+  { asset: 'ETH', free: 0.0184 },
+  { asset: 'SOL', free: 0.1043 },
+  { asset: 'ARB', free: 26.4, freeze: 12 },
+  { asset: 'DOGE', free: 21.86 },
+  { asset: 'SHIB', free: 812400 },
+  { asset: 'LUNC', free: 44210 },
+  { asset: 'BETH', free: 0.0044 },
+  { asset: 'PAXG', free: 0.00071 },
 ]
 
 export const spot: SpotAsset[] = RAW_SPOT.map((row) => {
@@ -40,41 +40,71 @@ export const spot: SpotAsset[] = RAW_SPOT.map((row) => {
   }
 })
 
-type RawPosition = Omit<FuturesPosition, 'notional_usd' | 'unrealized_pnl_usd' | 'liq_distance' | 'mark_price'>
-  & { base: string }
+/**
+ * U 本位永续持仓。标的是美股与金属——backend instruments.py 里这些标的的
+ * exec_symbol 就是 Binance 永续（NVDA/USDT:USDT 等），分析走 Polygon/OANDA，
+ * 下单盯市统一在这里。
+ *
+ * 保证金不再手写：起始保证金 = 名义 / 杠杆，维持保证金 = 名义 × 维持保证金率，
+ * 两者都由档位推出来，改一个数不会让另外两个对不上。
+ */
+type RawPosition = {
+  base: string
+  symbol: string
+  position_amt: number
+  entry_price: number
+  liquidation_price: number | null
+  leverage: number
+  isolated: boolean
+  /** leverageBracket 给的维持保证金率 */
+  mmr: number
+  adl_quantile: number | null
+}
 
 const RAW_POSITIONS: RawPosition[] = [
   {
-    base: 'BTC', symbol: 'BTCUSDT', position_side: 'both', position_amt: 0.244,
-    entry_price: 91406.5, liquidation_price: 71284.16, leverage: 5, isolated: false,
-    initial_margin_usd: 4595.99, maint_margin_usd: 918.4, adl_quantile: 1,
+    // 开仓均价来自成交记录的加权平均，不在这里另写一遍
+    base: 'NVDA', symbol: 'NVDAUSDT', position_amt: 38, entry_price: NVDA_ENTRY_PRICE,
+    liquidation_price: 152.84, leverage: 3, isolated: false, mmr: 0.02, adl_quantile: 1,
   },
   {
-    base: 'ETH', symbol: 'ETHUSDT', position_side: 'both', position_amt: -2.85,
-    entry_price: 3081.44, liquidation_price: 3644.02, leverage: 3, isolated: true,
-    initial_margin_usd: 2985.55, maint_margin_usd: 447.83, adl_quantile: 3,
+    base: 'QQQ', symbol: 'QQQUSDT', position_amt: 14, entry_price: 604.13,
+    liquidation_price: 448.57, leverage: 3, isolated: false, mmr: 0.015, adl_quantile: 1,
   },
   {
-    base: 'SOL', symbol: 'SOLUSDT', position_side: 'both', position_amt: 18.4,
-    entry_price: 194.06, liquidation_price: 142.71, leverage: 4, isolated: false,
-    initial_margin_usd: 862.23, maint_margin_usd: 172.45, adl_quantile: 2,
+    base: 'XAU', symbol: 'XAUUSDT', position_amt: 1.8, entry_price: 4245.08,
+    liquidation_price: 3486.21, leverage: 5, isolated: false, mmr: 0.01, adl_quantile: 2,
+  },
+  {
+    // 空头：拿它对冲 AI/加密关联的 beta
+    base: 'MSTR', symbol: 'MSTRUSDT', position_amt: -9, entry_price: 368.24,
+    liquidation_price: 512.47, leverage: 2, isolated: true, mmr: 0.025, adl_quantile: 3,
   },
 ]
 
 export const positions: FuturesPosition[] = RAW_POSITIONS.map((row) => {
   const mark = PRICE[row.base] as number
-  const { base: _base, ...rest } = row
+  const notional = Math.abs(row.position_amt) * mark
   const liq = row.liquidation_price
   return {
-    ...rest,
+    symbol: row.symbol,
+    position_side: 'both' as const,
+    position_amt: row.position_amt,
+    notional_usd: notional,
+    entry_price: row.entry_price,
     mark_price: mark,
-    notional_usd: Math.abs(row.position_amt) * mark,
-    unrealized_pnl_usd: (mark - row.entry_price) * row.position_amt,
+    liquidation_price: liq,
     liq_distance: liq === null ? null : Math.abs(mark - liq) / mark,
+    leverage: row.leverage,
+    isolated: row.isolated,
+    unrealized_pnl_usd: (mark - row.entry_price) * row.position_amt,
+    initial_margin_usd: notional / row.leverage,
+    maint_margin_usd: notional * row.mmr,
+    adl_quantile: row.adl_quantile,
   }
 })
 
-const FUTURES_WALLET = 8426.13
+const FUTURES_WALLET = 9240.0
 
 export const futures: FuturesAccount = (() => {
   const upnl = positions.reduce((sum, p) => sum + p.unrealized_pnl_usd, 0)
@@ -96,36 +126,52 @@ export const futures: FuturesAccount = (() => {
   }
 })()
 
-export const earn: EarnPosition[] = [
-  {
-    product_id: 'USDT001', asset: 'USDT', amount: 6500, value_usd: 6500 * 1.0002,
-    kind: 'flexible', apr: 0.0482, cumulative_rewards: 128.44,
-    cumulative_rewards_usd: 128.44 * 1.0002,
-    redeem_date: null, can_redeem: true,
-  },
-  {
-    product_id: 'ETH001', asset: 'ETH', amount: 1.2, value_usd: 1.2 * 3142.68,
-    kind: 'flexible', apr: 0.0194, cumulative_rewards: 0.0071,
-    cumulative_rewards_usd: 0.0071 * 3142.68,
-    redeem_date: null, can_redeem: true,
-  },
-  {
-    product_id: 'SOL90D', asset: 'SOL', amount: 25, value_usd: 25 * 187.44,
-    kind: 'locked', apr: 0.085, cumulative_rewards: 0.4128,
-    cumulative_rewards_usd: 0.4128 * 187.44,
-    redeem_date: '2026-09-14', can_redeem: false,
-  },
-]
-
-export const margin: MarginAccount = {
-  margin_level: 1.8134,
-  total_asset_usd: 9412.55,
-  total_liability_usd: 5205.67,
-  total_net_asset_usd: 4206.88,
+/** 理财这边放的是闲置保证金，不是投资仓位——所以只有 USDT 与手续费用的 BNB */
+type RawEarn = {
+  id: string
+  asset: string
+  amount: number
+  kind: EarnPosition['kind']
+  apr: number
+  rewards: number
+  redeem?: string
 }
 
+const RAW_EARN: RawEarn[] = [
+  { id: 'USDT-FLEX', asset: 'USDT', amount: 8000, kind: 'flexible', apr: 0.0482, rewards: 164.21 },
+  { id: 'USDT-30D', asset: 'USDT', amount: 5000, kind: 'locked', apr: 0.065, rewards: 62.38, redeem: '2026-09-14' },
+  { id: 'BNB-FLEX', asset: 'BNB', amount: 1.5, kind: 'flexible', apr: 0.0035, rewards: 0.0092 },
+]
+
+export const earn: EarnPosition[] = RAW_EARN.map((row) => {
+  const price = PRICE[row.asset]
+  return {
+    product_id: row.id,
+    asset: row.asset,
+    amount: row.amount,
+    value_usd: price === null || price === undefined ? null : row.amount * price,
+    kind: row.kind,
+    apr: row.apr,
+    cumulative_rewards: row.rewards,
+    cumulative_rewards_usd: price === null || price === undefined ? null : row.rewards * price,
+    redeem_date: row.redeem ?? null,
+    can_redeem: row.kind === 'flexible',
+  }
+})
+
+export const margin: MarginAccount = (() => {
+  // marginLevel = 总资产 / 负债，不另写一个数
+  const asset = 9412.55
+  const liability = 5205.67
+  return {
+    margin_level: liability > 0 ? asset / liability : null,
+    total_asset_usd: asset,
+    total_liability_usd: liability,
+    total_net_asset_usd: asset - liability,
+  }
+})()
+
 const FUNDING_WALLET = 1842.3
-const COINM_WALLET = 1204.66
 
 export const wallets: WalletBucket[] = (() => {
   const spotValue = spot.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
@@ -139,7 +185,8 @@ export const wallets: WalletBucket[] = (() => {
     bucket('earn', earnValue),
     bucket('cross_margin', margin.total_net_asset_usd),
     bucket('funding', FUNDING_WALLET),
-    bucket('coinm_futures', COINM_WALLET),
+    // 币本位与逐仓杠杆没开：接口会返回它们，但 activate=false，不该混进分布里
+    { kind: 'coinm_futures', value_usd: 0, btc_valuation: 0, activate: false },
     { kind: 'isolated_margin', value_usd: 0, btc_valuation: 0, activate: false },
   ]
 })()
@@ -163,7 +210,18 @@ export const transfers: Transfers = {
   withdrawal_count: 1,
 }
 
-const OPENING_EQUITY = 74180.42
+/**
+ * 期初净值由"这段时间真赚了多少"倒推，而不是写死一个数——
+ * 写死的话，持仓一改净值就变，30 天收益率立刻变成荒谬的数字。
+ *
+ * 真实盈亏 = 已实现 + 返佣 + 资金费 + 手续费 + 未实现变动，
+ * 其中未实现变动就取当前持仓的浮盈浮亏（这批仓位都是窗口内开的）。
+ * 这样归因表的残差项恰好等于 futures.total_unrealized_pnl，瀑布天然闭合。
+ */
+const TRUE_PNL_30D = income.realized_pnl + income.referral_kickback
+  + income.funding_fee + income.commission + futures.total_unrealized_pnl
+
+const OPENING_EQUITY = equity - transfers.net_usd - TRUE_PNL_30D
 
 export function buildAttribution(windowDays: number): Attribution {
   const realized = income.realized_pnl + income.referral_kickback

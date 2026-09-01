@@ -55,6 +55,14 @@ export function price(value: number | null) {
   return `$${value.toPrecision(3)}`
 }
 
+/** 稳定币不是"集中持仓"：算最大单一敞口时要排除，否则 USDT 永远是第一名 */
+export const STABLE_ASSETS = new Set(['USDT', 'USDC', 'FDUSD', 'BUSD', 'TUSD', 'DAI'])
+
+/** USDT 计价的交易对拆回基础标的：NVDAUSDT → NVDA */
+export function baseOf(symbol: string) {
+  return symbol.endsWith('USDT') ? symbol.slice(0, -4) : symbol
+}
+
 /** 低于这个值算灰尘，默认折起来——真账户里灰尘条数会淹没主仓位 */
 export const DUST_THRESHOLD_USD = 25
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchPortfolio, readScenario, writeScenario, type Scenario } from '../../api/client'
 import { PortfolioError, type PortfolioSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
-import { clockTime, freshnessOf } from '../../lib/format'
+import { baseOf, clockTime, freshnessOf, STABLE_ASSETS } from '../../lib/format'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { Masthead } from './Masthead'
 import { SectionTabs, type TabItem } from './SectionTabs'
@@ -131,10 +131,19 @@ function Body({ phase, view, onSelectView, onRetry }: {
   const futuresDown = snapshot.sources.find((source) => source.key === 'futures')?.status !== 'ok'
   const futuresMissing = futuresDown && snapshot.futures === null
 
+  // 最大单一敞口要把永续的名义算进来：这个账户的仓位都在合约上，
+  // 现货只剩保证金用的稳定币，只看现货会把 USDT 报成"最集中的持仓"。
   const equity = snapshot.totals?.equity_usd ?? 0
-  const biggest = [...snapshot.spot].sort((a, b) => (b.value_usd ?? 0) - (a.value_usd ?? 0))[0]
-  const concentration = biggest && equity > 0 && biggest.value_usd !== null
-    ? { asset: biggest.asset, share: biggest.value_usd / equity }
+  const exposures = [
+    ...snapshot.spot
+      .filter((item) => !STABLE_ASSETS.has(item.asset) && item.value_usd !== null)
+      .map((item) => ({ asset: item.asset, value: item.value_usd as number })),
+    ...(snapshot.futures?.positions ?? [])
+      .map((position) => ({ asset: baseOf(position.symbol), value: position.notional_usd })),
+  ].sort((a, b) => b.value - a.value)
+  const biggest = exposures[0]
+  const concentration = biggest && equity > 0
+    ? { asset: biggest.asset, share: biggest.value / equity }
     : null
 
   const shared = { snapshot, veiled, futuresMissing, concentration }

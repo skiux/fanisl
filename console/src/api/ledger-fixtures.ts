@@ -136,25 +136,25 @@ function buildDrafts(end: number): Draft[] {
     })
   }
 
-  // 充值：合计锁死在 transfers.deposits_usd，第二笔用 BTC 吸收余数
-  const firstDeposit = 3000
-  const btcAmount = (transfers.deposits_usd - firstDeposit * (PRICE.USDT as number)) / (PRICE.BTC as number)
+  // 充值：合计锁死在 transfers.deposits_usd，第二笔用 BNB 吸收余数
+  const firstDeposit = 4000
+  const bnbDeposit = (transfers.deposits_usd - firstDeposit * (PRICE.USDT as number)) / (PRICE.BNB as number)
   drafts.push({
     kind: 'deposit', source: 'deposits', asset: 'USDT', amount: firstDeposit,
     at: start + 4.2 * MS_DAY, wallet: 'spot', network: 'TRX',
     txId: '9a41c0f2e7b84d1c9f3a55e0d7c81b6a',
   })
   drafts.push({
-    kind: 'deposit', source: 'deposits', asset: 'BTC', amount: btcAmount,
-    at: start + 18.6 * MS_DAY, wallet: 'spot', network: 'BTC',
+    kind: 'deposit', source: 'deposits', asset: 'BNB', amount: bnbDeposit,
+    at: start + 18.6 * MS_DAY, wallet: 'spot', network: 'BSC',
     txId: '3f7d29c4b1a06e58d2c9f4a71b83e05d',
   })
 
-  // 提现：一笔 ETH，合计锁死在 transfers.withdrawals_usd
+  // 提现：一笔 USDT，合计锁死在 transfers.withdrawals_usd
   drafts.push({
-    kind: 'withdraw', source: 'withdrawals', asset: 'ETH',
-    amount: -transfers.withdrawals_usd / (PRICE.ETH as number),
-    at: start + 23.1 * MS_DAY, wallet: 'spot', network: 'ETH',
+    kind: 'withdraw', source: 'withdrawals', asset: 'USDT',
+    amount: -transfers.withdrawals_usd / (PRICE.USDT as number),
+    at: start + 23.1 * MS_DAY, wallet: 'spot', network: 'TRX',
     txId: 'd05b8e73a2c41f96e8b207c5da39146f',
   })
 
@@ -175,18 +175,18 @@ function buildDrafts(end: number): Draft[] {
 
   // 闪兑与小额兑换：币种之间换手
   drafts.push({
-    kind: 'convert', source: 'convert', asset: 'SOL', amount: 8.4,
-    fromAsset: 'USDT', fromAmount: -8.4 * 187.44,
+    kind: 'convert', source: 'convert', asset: 'BNB', amount: 1.2,
+    fromAsset: 'USDT', fromAmount: -1.2 * (PRICE.BNB as number),
     at: start + 9.3 * MS_DAY, wallet: 'spot',
   })
   drafts.push({
-    kind: 'convert', source: 'convert', asset: 'USDT', amount: 640.2,
-    fromAsset: 'ARB', fromAmount: -640.2 / 0.7431,
+    kind: 'convert', source: 'convert', asset: 'USDT', amount: 182.6,
+    fromAsset: 'SOL', fromAmount: -182.6 / (PRICE.SOL as number),
     at: start + 21.5 * MS_DAY, wallet: 'spot',
   })
   drafts.push({
     kind: 'dust', source: 'dust', asset: 'BNB', amount: 0.0781,
-    fromAsset: '14 种小额资产', fromAmount: null,
+    fromAsset: '9 种小额资产', fromAmount: null,
     at: start + 27.4 * MS_DAY, wallet: 'spot',
   })
 

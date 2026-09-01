@@ -350,18 +350,20 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
               </>
             ) : <p className="text-sm text-ink-3">当前没有合约敞口。</p>}
           </Module>
-        </Stack>
 
-        <MarginAccountModule liability={liability} margin={m} span="lg:col-span-12" />
+          <MarginAccountModule dense liability={liability} margin={m} span="" />
+        </Stack>
       </ViewGrid>
     </div>
   )
 }
 
-function MarginAccountModule({ margin, liability, span }: {
+function MarginAccountModule({ margin, liability, span, dense }: {
   margin: MarginAccount | null
   liability: number | null
   span: string
+  /** 叠在窄栏里时只排两列——四列挤到 100px 宽，金额会被截 */
+  dense?: boolean
 }) {
   return (
     <Module
@@ -372,7 +374,7 @@ function MarginAccountModule({ margin, liability, span }: {
       tone={margin?.margin_level != null && margin.margin_level < 1.5 ? 'accent' : undefined}
     >
       {margin ? (
-        <dl className="grid grid-cols-2 gap-x-10 gap-y-5 sm:grid-cols-4">
+        <dl className={cn('grid grid-cols-2 gap-y-5', dense ? 'gap-x-8' : 'gap-x-10 sm:grid-cols-4')}>
           <Figure label="总资产" value={money(margin.total_asset_usd)} />
           <Figure label="负债" tone="loss" value={money(margin.total_liability_usd)} />
           <Figure label="净值" value={money(margin.total_net_asset_usd)} />

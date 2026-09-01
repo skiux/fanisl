@@ -30,7 +30,8 @@ export function OrdersPage() {
   const [reloadKey, setReloadKey] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [view, setView] = useState<ViewKey>(readView)
-  const [symbol, setSymbol] = useState('BTCUSDT')
+  // 空串 = 还没选过，用后端返回的那个交易对；写死一个符号会在标的换了之后查空
+  const [symbol, setSymbol] = useState('')
 
   useEffect(() => onRouteChange(() => setView(readView())), [])
 
@@ -143,7 +144,7 @@ function Body({ phase, view, symbol, onSelectView, onSelectSymbol, onRetry }: {
             <HistoryView
               onSelectSymbol={onSelectSymbol}
               snapshot={snapshot}
-              symbol={symbol}
+              symbol={symbol || snapshot.query?.symbol || snapshot.history_symbols[0] || ''}
               veiled={veiled}
             />
           )}
