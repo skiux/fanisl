@@ -22,6 +22,8 @@ from .agent import final_text
 from .marketstore import GLOBAL
 from contextlib import asynccontextmanager
 
+from .binance.ledger import build_ledger
+from .binance.orders import build_orders
 from .binance.portfolio import build_portfolio
 from .runtime import (
     ACCOUNT_ID,
@@ -121,6 +123,30 @@ def portfolio(force: bool = False) -> dict:
     而它本身是日频数据。
     """
     return build_portfolio(binance_client, binance_cache, force=force)
+
+
+@app.get("/orders")
+def orders(symbol: str | None = None, venue: str | None = None,
+           force: bool = False) -> dict:
+    """委托快照。形状见 console/src/api/types.ts 的 OrdersSnapshot。
+
+    结构由接口的一条硬边界决定：**当前挂单能一次拿全账户**（openOrders 的 symbol 可省），
+    **历史只能按交易对逐个问**（allOrders/myTrades 的 symbol 必填，现货单次 ≤ 24 小时、
+    合约 < 7 天）。所以 symbol 省略时取候选里的第一个，venue 按该符号在哪边有仓位/挂单推断。
+    """
+    return build_orders(binance_client, binance_cache, symbol=symbol, venue=venue,
+                        force=force)
+
+
+@app.get("/ledger")
+def ledger(days: int = 7, force: bool = False) -> dict:
+    """资金流水。形状见 console/src/api/types.ts 的 LedgerSnapshot。
+
+    Binance **没有统一的流水接口**，这条时间线是八个端点各拉一段合并出来的，
+    每条记录带着自己的出处。`days` 超过各来源上限的交集（30 天）会被截到上限——
+    卡住它的是理财派息 / 杠杆利息 / 闪兑三个端点，界面上的「取数窗口」会说明这件事。
+    """
+    return build_ledger(binance_client, binance_cache, days=days, force=force)
 
 
 @app.get("/health")

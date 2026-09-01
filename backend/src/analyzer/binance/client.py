@@ -219,6 +219,12 @@ class BinanceClient:
     def margin_open_orders(self) -> Any:
         return self.signed_get(SPOT_BASE, "/sapi/v1/margin/openOrders")
 
+    def algo_open_orders(self) -> Any:
+        """策略单（TWAP/VP）。多数账户是空的，但空与"没查"是两回事——
+        不查就等于悄悄漏掉一类挂单。
+        """
+        return self.signed_get(SPOT_BASE, "/sapi/v1/algo/futures/openOrders")
+
     def spot_all_orders(self, symbol: str, *, start_ms: int, end_ms: int,
                         limit: int = 500) -> Any:
         return self.signed_get(SPOT_BASE, "/api/v3/allOrders",

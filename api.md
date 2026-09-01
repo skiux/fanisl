@@ -74,6 +74,51 @@ Body `{"username": str, "password": str}` → `{"user": {...}}`，并在响应�
 
 ---
 
+## 1.8 资产台（Binance 只读）
+
+三组接口给 `console/` 供数。**形状的权威定义是 `console/src/api/types.ts`**，
+后端按它组装；实现与全部取舍见 `backend/src/analyzer/binance/README.md`。
+
+全员共用同一个 Binance 账户（凭据在服务器 `.env`，只开 Enable Reading）。
+
+**共同约定**：
+- 每个响应都带 `sources: SourceState[]`，**按来源逐个报状态**。451 常常只打在 fapi 上，
+  现货那半边照常——前端据此分块降级，不要整页判死。
+- `status` 五种：`ok | unreachable | unauthorized | rate_limited | unsupported`。
+  `unauthorized` 是"去查 key 权限与 IP 白名单"，`unreachable` 是"等网络"，处置不同。
+- 取数失败但有旧数据时，**返回旧数据 + 真实失败原因 + 旧时刻**（不是当前时刻）。
+- **取不到一律 `null`，绝不用 `0` 顶替**——`0` 是一个有效余额。
+- `as_of` 取**最旧的那个成功来源**：整页的可信时刻由最落后的那块决定。
+
+### GET /portfolio
+Query：`force`（默认 false，界面上的"重新取数"）。
+返回 `PortfolioSnapshot`：`totals` / `wallets` / `spot` / `futures` / `earn` / `margin` /
+`income` / `transfers` / `equity_curve` / `attribution`。
+
+`force` **不穿透日快照与杠杆档位**：前者单次权重 2400（一分钟预算才 6000），
+连点几下就能把预算打空，而它本身是日频数据。
+
+### GET /orders
+Query：`symbol`、`venue`（`spot|usdm|margin`）、`force`。
+
+**当前挂单能一次拿全账户**，`open` 是完整的。**历史必须按交易对查**——`symbol` 省略时取
+`history_symbols` 的第一个，`venue` 按该符号在哪边有仓位/挂单推断。`query` 里带着本次
+实际的区间与该 venue 的接口上限（现货单次 ≤ 24 小时、合约 < 7 天、回溯 90 天）。
+
+`history_symbols` 是从「有挂单 + 有持仓 + 现货余额能配出的交易对」推的候选——
+Binance 没有"我交易过哪些对"的接口，做不到真正的全量。
+
+### GET /ledger
+Query：`days`（默认 7）、`force`。
+
+Binance **没有统一的流水接口**，`entries` 是八个端点合并的时间线，每条带 `source`。
+`days` 超过 30 会被截到 30——那是各来源上限的**交集**，卡在理财派息/杠杆利息/闪兑。
+`windows` 原样返回每个端点的路径、权重、单次上限、回溯天数与调用次数，
+界面上的"取数窗口"与"取数成本"就是它（一次全量 21345 权重、20 次调用，
+而 IP 限额是 6000/分钟）。
+
+---
+
 ## 2. 对话（盘面分析助手）
 
 ### POST /chat ⏳
