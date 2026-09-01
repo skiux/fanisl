@@ -10,7 +10,13 @@
 
 ## 0. 全局约定
 
-- **无认证**（本机单用户）。CORS 全放开。
+- **全站需要登录**（2026-09-02 起）。会话走 cookie `fanisl_session`
+  （`HttpOnly` + `Secure` + `SameSite=Lax`），同源请求浏览器自动带上，前端不用管。
+  未登录一律 `401 {"detail": "未登录或会话已过期"}`——**前端见到 401 就跳登录页**。
+  免登录的只有三条：`GET /health`、`POST /auth/login`、`POST /auth/logout`。
+  详见 `backend/src/analyzer/auth/README.md`。
+- **CORS**：线上两个前端与 API 同源，用不到 CORS。本机跨端口开发时要带 cookie，
+  浏览器不允许 `Access-Control-Allow-Origin: *`，所以来源要逐个列进 `CORS_ORIGINS`。
 - **错误**：非 2xx 返回 `{"detail": "人类可读的中文原因"}`。常见：400 参数问题、404 不存在、
   409 状态冲突（如撤已成交的单）、502 Claude API 错误（同步调 Claude 的端点）。
 - **时间**：一律 ISO 8601 带时区（如 `2026-07-12T20:00:00+08:00`）；日线日期为 `YYYY-MM-DD`。
@@ -25,6 +31,46 @@
 
 ### GET /health
 `{"status":"ok","model":"<claude model>","exchange":"binance"}` — 存活探针。
+
+---
+
+## 1.5 登录与用户
+
+完整说明见 `backend/src/analyzer/auth/README.md`，这里只列传输层。
+
+### POST /auth/login
+Body `{"username": str, "password": str}` → `{"user": {...}}`，并在响应里种
+`Set-Cookie: fanisl_session=...`。用户名大小写不敏感。
+
+失败一律 `401 {"detail":"用户名或口令不正确"}`——用户名不存在与口令错误**返回同一个
+文案、耗时也一致**，不要指望从中区分。触发限速时是 `429`（同一用户名 15 分钟内失败
+5 次，或同一 IP 20 次；一次成功登录即清零）。
+
+### POST /auth/logout
+销毁会话并清 cookie。幂等：没有会话时也返回 `{"ok": true}`。
+
+### GET /auth/me
+`{"user": {id, username, role, display_name, is_active, created_at, updated_at, last_login_at}}`。
+`role` 是 `"admin" | "member"`。**前端启动时先打这一条**：200 就进主界面，401 就跳登录页。
+
+### POST /auth/password
+`{"current_password": str, "new_password": str}`。当前口令不对 → 401；新口令太短 → 400。
+成功后**别处的会话全部作废，调用方自己续上新会话**（响应会重新种 cookie）。
+
+### GET /auth/sessions · DELETE /auth/sessions
+列出 / 撤销自己的全部会话。DELETE 连当前这条一起撤，之后需要重新登录。
+
+### 管理员接口（`role=admin`，否则 403）
+
+| 方法 | 路径 | Body | 说明 |
+|---|---|---|---|
+| GET | `/admin/users` | — | 用户列表 |
+| POST | `/admin/users` | `{username, password, role?, display_name?}` | 201；用户名重复 409；用户名只允许字母数字下划线连字符，口令 <10 位 400 |
+| PATCH | `/admin/users/{id}` | `{role?, is_active?, display_name?}` | 改角色或停用会踢掉该用户全部会话 |
+| POST | `/admin/users/{id}/password` | `{new_password}` | 重置，该用户全部会话作废 |
+| DELETE | `/admin/users/{id}` | — | 删除 |
+
+409 的四种情况：停用或降级最后一个管理员、删除最后一个管理员、停用自己、删除自己。
 
 ---
 

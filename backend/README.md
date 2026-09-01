@@ -34,6 +34,11 @@ uv run uvicorn analyzer.main:app --reload --app-dir src
 
 ## 接口
 
+**全站需要登录**（2026-09-02 起）。会话走 cookie，未登录一律 401；免登录的只有
+`/health`、`/auth/login`、`/auth/logout`。设计与运维见
+[`src/analyzer/auth/README.md`](src/analyzer/auth/README.md)。
+
+- `POST /auth/login` — `{"username": ..., "password": ...}` → 种 cookie
 - `POST /chat` — `{"message": "BTC 现在怎么看？", "conversation_id": null}` →
   `{"conversation_id": 1, "reply": "..."}`。带上返回的 `conversation_id` 即可多轮对话。
 - `GET /conversations` — 对话列表
@@ -57,6 +62,7 @@ src/analyzer/
 ├── config.py        # key / 默认值 / 指标阈值 / watchlist / 采集间隔
 ├── prompts.py       # 系统提示词：角色与边界
 ├── models.py        # pydantic 快照契约
+├── auth/            # 登录与用户管理（中间件默认拒绝 + users/sessions 两张表）
 ├── storage.py       # PostgreSQL 对话/消息
 ├── marketstore.py   # PostgreSQL 时间序列/催化剂/采集日志。metric_samples 用 TimescaleDB
 │                    #   hypertable，但**扩展缺失时自动退化成普通表**（无分块/压缩/retention，

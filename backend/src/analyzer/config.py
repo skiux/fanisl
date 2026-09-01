@@ -233,6 +233,34 @@ class Settings(BaseSettings):
     trading_max_same_direction: int = 2         # 同方向持仓上限（相关性集中度约束，避免名义分散实为一注）
     trading_scan_timeframes: list[str] = ["1d", "4h"]  # triage 摘要用的精简周期
 
+    # --- 登录与会话 -------------------------------------------------------
+    # 默认**开**：失手推上去时降级成"全站 401"（可用性故障，重启就好），
+    # 而不是降级成"全站敞开"（安全故障，且没人会发现）。应急关闭用 AUTH_ENABLED=false。
+    auth_enabled: bool = True
+    auth_cookie_name: str = "fanisl_session"
+    # 线上是 HTTPS（https://fanisl.skiuo.com）。本机 http 调试时置 false，否则浏览器不回传 cookie。
+    auth_cookie_secure: bool = True
+    auth_session_days: int = 30   # 会话绝对上限
+    auth_idle_days: int = 14      # 闲置多久算过期
+    # 登录限速：窗口内、且在最近一次成功之后的失败次数
+    auth_login_window_min: int = 15
+    auth_max_fail_user: int = 5   # 同一用户名
+    auth_max_fail_ip: int = 20    # 同一 IP（宽一些：家里几个人共用出口 IP 很常见）
+    auth_min_password_len: int = 10
+    # 跨源开发时要带 cookie，浏览器就不允许 `Access-Control-Allow-Origin: *`——
+    # 必须逐个列出来源并 allow_credentials。线上两个前端都与 API 同源，这份清单只对本机开发有意义。
+    cors_origins: list[str] = [
+        "http://127.0.0.1:5173", "http://localhost:5173",   # frontend（知识引擎）
+        "http://127.0.0.1:5175", "http://localhost:5175",   # console（资产台）
+    ]
+
+    # --- Binance 只读凭据（全员共用同一个账户，见 auth/README.md）----------
+    # 权限只开 Enable Reading，提现与交易一律关闭；有 IP 白名单就把服务器出口 IP 填进去。
+    binance_api_key: str = ""
+    binance_api_secret: str = ""
+    binance_recv_window_ms: int = 5000
+    binance_timeout_s: float = 20.0
+
     thresholds: IndicatorThresholds = Field(default_factory=IndicatorThresholds)
 
 

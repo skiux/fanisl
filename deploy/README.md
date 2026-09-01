@@ -763,6 +763,74 @@ Node：Debian 13 自带的 `nodejs` 就是 20.19.2，正好满足两个前端 `e
 
 ---
 
+## 6.5 登录（2026-09-02 起全站需要）
+
+改动前，这台机器上的 62 条接口是**公网可直接访问、零鉴权**的——包括同步调 Claude、
+会真金白银烧额度的 `POST /chat`。现在全部关在门内，只剩 `/health`（自动更新脚本靠它
+判活）、`/auth/login`、`/auth/logout` 三条免登录。
+
+实现与设计取舍见 [`backend/src/analyzer/auth/README.md`](../backend/src/analyzer/auth/README.md)。
+
+### 上线顺序（重要）
+
+`fanisl-update.timer` 每 5 分钟拉一次 `origin/main`，**推送即上线**。而后端一旦开始要求
+登录，两个前端就必须已经会处理 401、会跳登录页——否则站点当场变成一片报错。
+
+所以这三样要在**同一次推送**里到位：后端鉴权、`frontend/` 的登录页、`console/` 的登录页。
+推完之后再建第一个管理员：
+
+```bash
+# ── 在【服务器】上跑 ──
+cd /opt/fanisl/backend
+.venv/bin/python -m analyzer.auth.bootstrap alice     # 口令交互输入，不走命令行参数
+```
+
+系统里没有用户时，**没有任何 HTTP 路径能建出管理员**——`/admin/users` 自己就要求管理员
+身份。这是有意的：不留"首次访问自动成为管理员"的后门。其余成员由管理员在界面里建。
+
+### 出问题时
+
+```bash
+# ── 在【服务器】上跑 ── 临时把门拆掉（只在排障时用，用完记得改回来）
+sudo -u fanisl sed -i 's/^AUTH_ENABLED=.*/AUTH_ENABLED=false/' /opt/fanisl/backend/.env
+sudo systemctl restart fanisl-api
+```
+
+`AUTH_ENABLED` 默认是 `true`，这个方向是有意的：万一半成品被推上去，降级结果是
+**全站 401**（可用性故障，改回来就好），而不是**全站敞开**（安全故障，而且没人会发现）。
+
+### 忘了口令
+
+没有找回流程（三五个人的工具，邮件通道是纯负担）。管理员在 `/admin/users/{id}/password`
+重置；管理员自己的口令忘了，就在服务器上直接改：
+
+```bash
+# ── 在【服务器】上跑 ──
+cd /opt/fanisl/backend && .venv/bin/python - <<'EOF'
+from analyzer.runtime import user_store
+from analyzer.auth.passwords import hash_password
+import getpass
+u = user_store.get_by_username(input("用户名: "))
+user_store.set_password(u["id"], hash_password(getpass.getpass("新口令: ")))
+print("已重置，该用户全部会话已失效")
+EOF
+```
+
+### Binance 只读凭据
+
+全员共用同一个账户，凭据只放服务器 `.env`：
+
+```
+BINANCE_API_KEY=...
+BINANCE_API_SECRET=...
+```
+
+在 Binance 后台建 key 时**只勾 Enable Reading**，提现与交易保持关闭；若启用 IP 白名单，
+把服务器出口 IP 填进去。**不要把 key 贴进对话或提交进仓库**——`.gitignore` 挡着 `.env`，
+但贴到别处就挡不住了。
+
+---
+
 ## 7. 持续更新
 
 ### 自动更新（已上线，2026-08-28）

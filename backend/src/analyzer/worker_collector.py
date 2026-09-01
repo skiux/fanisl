@@ -29,6 +29,9 @@ def main() -> None:
          lambda: knowledge_daily(rt.knowledge_pool)),
         ("knowledge_weekly", rt.settings.knowledge_weekly_interval_s,
          lambda: knowledge_weekly(rt.knowledge_pool)),
+        # 会话与登录尝试的日常清理。登录端点公网可达，login_attempts 会一直长；
+        # 限速把增速卡住了（被拒的那些不落库），但没有上限终究是隐患。
+        ("auth_housekeeping", 86400, lambda: rt.user_store.housekeeping()),
     ])
     # 参考数据单独一条车道：Polygon 限速让"刷资料"要跑十几分钟，与 sched 同线程会把
     # 15 分钟一轮的行情采集顶掉（scheduler 是单线程顺序执行的）。

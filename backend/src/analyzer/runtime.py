@@ -10,6 +10,7 @@ import atexit
 import threading
 
 from .agent import Agent
+from .auth.store import UserStore
 from .config import get_settings
 from .data.factory import build_catalysts, build_crypto_sentiment, build_resolver
 from .db import make_pool
@@ -35,6 +36,8 @@ print(
 # --- 行情库（行情时间序列 + 对话）---
 pool = make_pool(settings.pg_conninfo)
 storage = Storage(pool)
+# 用户/会话与对话表同库同池：都是"这套工具自身的状态"，与行情、交易、知识三条业务线无关
+user_store = UserStore(pool)
 market_store = MarketStore(
     pool,
     retention_days=settings.retention_days,

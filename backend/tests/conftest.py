@@ -129,6 +129,17 @@ def conv_store(pool):
 
 
 @pytest.fixture
+def auth_store(pool):
+    """隔离的 UserStore：建表后清空用户/会话/登录尝试。"""
+    from analyzer.auth.store import UserStore
+
+    st = UserStore(pool)
+    with pool.connection() as conn:
+        conn.execute("TRUNCATE users, sessions, login_attempts RESTART IDENTITY CASCADE")
+    return st
+
+
+@pytest.fixture
 def trading_store(pool):
     """隔离的 TradingStore（复用 fanisl_test 库，交易表与行情表不冲突）。"""
     st = TradingStore(pool)

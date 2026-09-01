@@ -16,6 +16,8 @@ from pydantic import BaseModel
 
 from . import assets as assets_registry
 from . import metrics as metrics_registry
+from .auth import routes as auth_routes
+from .auth.session import AuthMiddleware
 from .agent import final_text
 from .marketstore import GLOBAL
 from contextlib import asynccontextmanager
@@ -31,6 +33,7 @@ from .runtime import (
     shutdown_pools,
     storage,
     trading_service,
+    user_store,
     knowledge_store,
     knowledge_pool,
     node_store,
@@ -52,10 +55,26 @@ async def _lifespan(_app: FastAPI):
 
 app = FastAPI(title="fanisl", version="0.1.0", lifespan=_lifespan)
 
-# 本地前端开发用：放开 CORS
+# 登录与用户管理
+app.include_router(auth_routes.build_router(user_store, settings))
+
+# --- 中间件 ---------------------------------------------------------------
+# Starlette 里**最后加的在最外层**。这里的顺序是有意的：CORS 必须包在鉴权外面，
+# 否则被鉴权拦下的 401 不带 CORS 头，浏览器只会报一句含糊的网络错误，
+# 前端看不到 401、也就不知道该跳登录页。
+app.add_middleware(
+    AuthMiddleware,
+    store=user_store,
+    cookie_name=settings.auth_cookie_name,
+    idle_days=settings.auth_idle_days,
+    enabled=settings.auth_enabled,
+)
+# 带 cookie 的跨源请求不允许 `allow_origins=["*"]`（浏览器硬性规定），
+# 所以列具体来源 + allow_credentials。线上同源，这份清单只在本机开发时起作用。
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
