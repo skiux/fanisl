@@ -247,3 +247,43 @@ def test_force_does_not_punch_through_expensive_sources(cache):
     assert "/sapi/v1/accountSnapshot" not in again
     assert "/fapi/v1/leverageBracket" not in again
     assert "/fapi/v2/account" in again      # 便宜的来源照常强刷
+
+
+def test_page_as_of_ignores_daily_cadence_sources(cache):
+    """页面时刻不该被日快照/杠杆档位的年龄拖垮。
+
+    那两样是**有意长缓存**的日频数据（accountSnapshot 单次权重 2400，三种类型就超
+    一分钟预算）。把它们算进页面时刻的话，整页会被标成"已过期"，界面上还挂一句
+    "下面全部数字来自 X 的快照，不是当前余额"——而余额其实是 60 秒内的，那句话是假的。
+    2026-09-02 线上就是这么显示成"快一个小时前的数据"的。
+    """
+    snap = build(cache)
+    states = {s["key"]: s for s in snap["sources"]}
+
+    # 把两个日频来源的缓存时刻改老，但**仍在各自 TTL 之内**（快照 6 小时、档位 24 小时），
+    # 否则它们会被重新取、时间戳又变新，这条测试就验不到东西了
+    with cache.pool.connection() as conn:
+        conn.execute("UPDATE binance_cache SET fetched_at = now() - interval '3 hours' "
+                     "WHERE source_key LIKE 'snapshots%' OR source_key = 'brackets'")
+    aged = build(cache, force=False)
+    aged_states = {s["key"]: s for s in aged["sources"]}
+
+    # 它们自己的年龄照常如实返回——没有藏起来，界面上「取数状态」一格一格显示
+    assert aged_states["snapshots"]["as_of"] < states["snapshots"]["as_of"]
+    # 但页面时刻跟着**会变的**那些走，不被它们拖老
+    assert aged["as_of"] == min(
+        s["as_of"] for s in aged["sources"]
+        if s["key"] in {"prices", "wallets", "spot", "futures", "earn",
+                        "margin", "income", "transfers"} and s["status"] == "ok")
+    assert aged["as_of"] > aged_states["snapshots"]["as_of"]
+
+
+def test_page_as_of_falls_back_when_no_live_source_succeeds(cache):
+    """会变的那些一个都没成功时，退回全部成功来源——至少说出这页上的东西有多旧。"""
+    snap = build(cache, fail={"/sapi": 451, "/fapi": 451, "/api/v3/ticker": 451})
+    live = [s for s in snap["sources"]
+            if s["key"] in {"prices", "wallets", "spot", "futures", "earn",
+                            "margin", "income", "transfers"} and s["status"] == "ok"]
+    assert live == []
+    # 日线（公开端点）仍然取到了，页面时刻退回到它
+    assert snap["as_of"] is not None

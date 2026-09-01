@@ -39,6 +39,10 @@ TTL = {
     "margin": 60,
     "income": 300,
     "transfers": 300,
+    # 提现历史单次权重 **18000**（账户维度，10 次/秒），是所有端点里最贵的一个。
+    # 30 天窗口的充提合计在 5 分钟里不会有意义地变化，单独放长到 15 分钟，
+    # 与流水页对齐。充值那半边权重只有 1，照旧 300 秒。
+    "withdrawals": 900,
     "snapshots": 21_600,
 }
 
@@ -66,7 +70,7 @@ def _jobs(client: BinanceClient, now: datetime) -> list[tuple[str, int, Callable
          lambda: client.futures_income(start_ms=start_ms, end_ms=end_ms)),
         ("transfers.deposits", TTL["transfers"],
          lambda: client.deposits(start_ms=start_ms, end_ms=end_ms)),
-        ("transfers.withdrawals", TTL["transfers"],
+        ("transfers.withdrawals", TTL["withdrawals"],
          lambda: client.withdrawals(start_ms=start_ms, end_ms=end_ms)),
         ("snapshots.spot", TTL["snapshots"], lambda: client.account_snapshot("SPOT")),
         ("snapshots.margin", TTL["snapshots"], lambda: client.account_snapshot("MARGIN")),
@@ -75,6 +79,18 @@ def _jobs(client: BinanceClient, now: datetime) -> list[tuple[str, int, Callable
          lambda: client.klines("BTCUSDT", "1d", WINDOW_DAYS + 2)),
     ]
 
+
+# 哪些来源是"会变的"。
+#
+# 页面顶上那个「截至 X」说的是**这些数字有多新**，而 brackets（杠杆档位，几乎不变）
+# 与 snapshots（日快照）是**日频数据，长缓存是有意的**（后者单次权重 2400，三种类型
+# 就超一分钟预算）。把它们算进页面时刻，整页会被拖成"已过期"，还挂上一句
+# "下面全部数字来自 X 的快照，不是当前余额"——而余额其实是 60 秒内的，那句话是假的。
+#
+# 它们各自的真实年龄没有被藏起来：每个来源自己的 as_of 照常返回，
+# 界面上的「取数状态」一格一格地显示。
+LIVE_CADENCE = frozenset({"prices", "wallets", "spot", "futures", "earn", "margin",
+                          "income", "transfers"})
 
 # 契约里的九个来源，各自由哪些子调用支撑。primary 决定状态，extra 只在失败时补一句说明。
 _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
@@ -469,9 +485,13 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
             if state["key"] == "snapshots" and state["status"] == "ok":
                 state["detail"] = curve_detail
 
-    # as_of 取**最旧的那个成功来源**：这一页的可信时刻由最落后的那块决定，
-    # 报最新的那个会让整页看起来比实际新鲜。
-    fresh = [r.as_of for r in results.values() if r.ok and r.as_of]
+    # 页面时刻 = **会变的那些来源里最旧的一个**。取最旧而不是最新，是因为报最新的
+    # 会让整页显得比实际新鲜；只算 live 那一组，是因为日频数据的年龄不该拖垮整页。
+    live_states = [s for s in states if s["key"] in LIVE_CADENCE and s["status"] == "ok"]
+    fresh = [datetime.fromisoformat(s["as_of"]) for s in live_states if s["as_of"]]
+    if not fresh:
+        # 会变的那些一个都没成功：退回全部成功来源，至少说出"这页上的东西有多旧"
+        fresh = [r.as_of for r in results.values() if r.ok and r.as_of]
     return {
         "as_of": min(fresh).isoformat() if fresh else None,
         "base_currency": "USD",
