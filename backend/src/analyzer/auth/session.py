@@ -24,6 +24,22 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .store import UserStore
 
+# 鉴权关闭时注入的占位用户。
+#
+# 只把中间件放行是不够的：`/auth/me` 仍然会 401（它读的是 request.state.user），
+# 于是两个前端都卡在登录页——而关掉鉴权的本意正是不需要登录。开关要么整套生效，
+# 要么别开。display_name 写明"鉴权已关闭"，好让它在顶栏上一眼就能看出不是真登录。
+DISABLED_USER = {
+    "id": 0,
+    "username": "(auth-disabled)",
+    "role": "admin",
+    "display_name": "鉴权已关闭",
+    "is_active": True,
+    "created_at": None,
+    "updated_at": None,
+    "last_login_at": None,
+}
+
 # 未登录也必须可达的路径。清单**只有三条**，加之前先想清楚为什么。
 #   /health       探针。auto-update.sh 重启后靠它判断服务活没活（deploy/auto-update.sh:60），
 #                 挡了它自动更新会把每次正常部署都判成失败并回滚。
@@ -71,7 +87,12 @@ class AuthMiddleware:
         self.enabled = enabled
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or not self.enabled:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        if not self.enabled:
+            scope.setdefault("state", {})["user"] = DISABLED_USER
             await self.app(scope, receive, send)
             return
 

@@ -514,3 +514,29 @@ def test_demoting_an_inactive_admin_is_allowed(client, auth_store, admin):
     login(client, "root", ADMIN_PW)
     r = client.patch(f"/admin/users/{old['id']}", json={"role": "member"})
     assert r.status_code == 200 and r.json()["role"] == "member"
+
+
+def test_auth_disabled_also_makes_me_work(auth_store):
+    """关掉鉴权要**整套**生效，不能只放行中间件。
+
+    只放行的话 `/auth/me` 仍然 401（它读 request.state.user），于是两个前端都卡在
+    登录页——而关掉鉴权的本意正是不需要登录。开关半生效比不开更难查。
+    """
+    api = FastAPI()
+    api.include_router(auth_routes.build_router(auth_store, settings))
+
+    @api.get("/protected")
+    def protected(request: Request):
+        return {"who": request.state.user["username"]}
+
+    api.add_middleware(AuthMiddleware, store=auth_store,
+                       cookie_name=settings.auth_cookie_name,
+                       idle_days=settings.auth_idle_days, enabled=False)
+    with TestClient(api, base_url="https://testserver") as c:
+        assert c.get("/protected").status_code == 200
+        me = c.get("/auth/me")
+        assert me.status_code == 200
+        user = me.json()["user"]
+        # 顶栏上要一眼看出这不是真登录
+        assert user["display_name"] == "鉴权已关闭"
+        assert user["role"] == "admin"      # 关了鉴权本来就什么都能做

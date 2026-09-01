@@ -251,6 +251,7 @@ class Settings(BaseSettings):
     # 必须逐个列出来源并 allow_credentials。线上两个前端都与 API 同源，这份清单只对本机开发有意义。
     cors_origins: list[str] = [
         "http://127.0.0.1:5173", "http://localhost:5173",   # frontend（知识引擎）
+        "http://127.0.0.1:5174", "http://localhost:5174",   # frontend-verify（见 .claude/launch.json）
         "http://127.0.0.1:5175", "http://localhost:5175",   # console（资产台）
     ]
 

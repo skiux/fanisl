@@ -40,6 +40,18 @@ async function readError(response: Response): Promise<string> {
   return response.statusText || `Request failed with status ${response.status}`
 }
 
+/**
+ * 除 `/auth/*` 之外的任何 401 都意味着会话没了，界面该整体切回登录页。
+ *
+ * `/auth/*` 要排除掉：登录时口令输错也是 401，那是表单内的错误提示，
+ * 不该触发一次"全局登出"。
+ */
+let onUnauthenticated: (() => void) | null = null
+
+export function setUnauthenticatedHandler(handler: () => void) {
+  onUnauthenticated = handler
+}
+
 export async function apiFetch(
   path: string,
   init?: ApiRequestInit,
@@ -59,7 +71,12 @@ export async function apiFetch(
 
   let response: Response
   try {
-    response = await fetch(resolveApiUrl(path), { ...requestInit, headers, signal: controller.signal })
+    // 会话 cookie 必须跟着走。同源时浏览器默认就带，但本机开发是跨端口的
+    // （页面 5173、API 8000），默认的 same-origin 会把 cookie 丢掉。写成 include
+    // 两种情形都对。
+    response = await fetch(resolveApiUrl(path), {
+      ...requestInit, headers, credentials: 'include', signal: controller.signal,
+    })
   } catch (error) {
     if (controller.signal.aborted && !init?.signal?.aborted) {
       throw new ApiError(408, '请求超时，请稍后重试')
@@ -71,6 +88,9 @@ export async function apiFetch(
   }
 
   if (!response.ok) {
+    if (response.status === 401 && !path.startsWith('/auth/')) {
+      onUnauthenticated?.()
+    }
     throw new ApiError(response.status, await readError(response))
   }
 

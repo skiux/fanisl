@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { getSession, logout, subscribe } from '../auth/session'
 
 export type PrimaryRoute = 'asset' | 'knowledge' | 'verification' | 'discovery' | 'evaluation' | 'chat' | 'archive'
 
@@ -71,6 +72,7 @@ function AppHeader({ current, onHomeClick, onSearch }: AppHeaderProps) {
         </div>
       </nav>
       <div className="nav-actions">
+        <SessionChip />
         <button aria-label="搜索知识" className="search-trigger" onClick={onSearch} type="button">
           <span>⌕</span><em>搜索知识</em><kbd>⌘K</kbd>
         </button>
@@ -85,6 +87,31 @@ function AppHeader({ current, onHomeClick, onSearch }: AppHeaderProps) {
         </button>
       </div>
     </header>
+  )
+}
+
+/** 顶栏里的用户位。登录态由会话 store 提供，不从 props 层层传下来。 */
+function SessionChip() {
+  const session = useSyncExternalStore(subscribe, getSession)
+  if (session.status !== 'authenticated') return null
+  const { user } = session
+  return (
+    <span className="nav-user">
+      <b>{user.display_name || user.username}</b>
+      {user.role === 'admin' && (
+        <a href="/console/#/admin" title="用户管理">管理</a>
+      )}
+      <button
+        onClick={() => {
+          // 退出请求失败时服务端会话仍然活着。不假装已退出——刷新一次，
+          // 让 /auth/me 说真话。
+          logout().catch(() => window.location.reload())
+        }}
+        type="button"
+      >
+        退出
+      </button>
+    </span>
   )
 }
 

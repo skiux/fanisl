@@ -1,0 +1,157 @@
+/* 登录页。沿用全站的纸面语言（--paper / --ink / --sage），不另起一套视觉。 */
+
+.auth-screen {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--paper-deep);
+}
+
+.auth-card {
+  width: min(100%, 380px);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 40px 36px 32px;
+  box-shadow: 0 1px 2px rgba(37, 45, 38, .04), 0 12px 32px -20px rgba(37, 45, 38, .3);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 28px;
+}
+
+.auth-brand i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sage);
+}
+
+.auth-brand strong {
+  font-size: var(--text-ui);
+  font-weight: 600;
+  letter-spacing: .14em;
+  color: var(--ink);
+}
+
+.auth-card h1 {
+  margin: 0 0 6px;
+  font-size: var(--text-section-title);
+  font-weight: 500;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+
+.auth-card > p {
+  margin: 0 0 26px;
+  font-size: var(--text-caption);
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.auth-field { margin-bottom: 16px; }
+
+.auth-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+
+.auth-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--ink);
+  background: #fbfaf5;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  transition: border-color .18s ease;
+}
+
+.auth-field input:focus {
+  outline: none;
+  border-color: var(--sage);
+}
+
+.auth-field input:disabled { opacity: .55; }
+
+/* 报错用文字承担，不只靠边框变红——色觉障碍下边框颜色是读不出来的 */
+.auth-error {
+  margin: 0 0 16px;
+  padding: 9px 11px;
+  font-size: var(--text-caption);
+  line-height: 1.5;
+  color: #7a3f30;
+  background: rgba(187, 129, 109, .12);
+  border-left: 2px solid var(--peach);
+  border-radius: 2px;
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 10px;
+  font: inherit;
+  font-size: var(--text-ui);
+  color: var(--paper);
+  background: var(--ink);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: opacity .18s ease;
+}
+
+.auth-submit:hover:not(:disabled) { opacity: .86; }
+.auth-submit:disabled { opacity: .45; cursor: default; }
+
+.auth-note {
+  margin: 20px 0 0;
+  font-size: var(--text-caption);
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* 会话检查期间的过渡屏：不要一闪而过地先露出登录页再跳走 */
+.auth-checking {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  background: var(--paper-deep);
+  color: var(--muted);
+  font-size: var(--text-caption);
+  letter-spacing: .08em;
+}
+
+/* 顶栏里的用户位 */
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--nav-shortcut-size, .8125rem);
+  color: var(--muted);
+}
+
+.nav-user b {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.nav-user button {
+  padding: 0;
+  font: inherit;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line);
+}
+
+.nav-user button:hover { color: var(--ink); }

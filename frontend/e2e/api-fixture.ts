@@ -241,6 +241,25 @@ async function fulfill(route: Route) {
   await route.fulfill({ json: payload, status: 200 })
 }
 
+// 加了会话闸门之后，任何页面挂载前都会先问一次 /auth/me。默认给一个已登录的用户，
+// 让原有的用例继续验它们本来要验的东西；登录流程本身由 auth.spec.ts 单独覆盖。
+const SESSION_USER = {
+  id: 1, username: 'tester', role: 'member', display_name: '测试用户',
+  is_active: true, created_at: '2026-08-01T00:00:00Z',
+  updated_at: '2026-08-01T00:00:00Z', last_login_at: null,
+}
+
+export async function mockAuth(page: Page, user: unknown = SESSION_USER) {
+  await page.route('**/auth/me', async (route) => {
+    if (user === null) {
+      await route.fulfill({ json: { detail: '未登录或会话已过期' }, status: 401 })
+      return
+    }
+    await route.fulfill({ json: { user }, status: 200 })
+  })
+}
+
 export async function mockApi(page: Page) {
+  await mockAuth(page)
   await page.route(/\/knowledge\/|\/research\/|\/asset(\/|$)/, fulfill)
 }
