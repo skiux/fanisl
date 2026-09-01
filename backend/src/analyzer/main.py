@@ -22,6 +22,7 @@ from .agent import final_text
 from .marketstore import GLOBAL
 from contextlib import asynccontextmanager
 
+from .binance.portfolio import build_portfolio
 from .runtime import (
     ACCOUNT_ID,
     ACCOUNT_IDS,
@@ -31,6 +32,8 @@ from .runtime import (
     resolver,
     settings,
     shutdown_pools,
+    binance_cache,
+    binance_client,
     storage,
     trading_service,
     user_store,
@@ -106,6 +109,18 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     conversation_id: int
     reply: str
+
+
+@app.get("/portfolio")
+def portfolio(force: bool = False) -> dict:
+    """资产快照。形状见 console/src/api/types.ts 的 PortfolioSnapshot。
+
+    十来个 Binance 端点拼一份，每个来源单独缓存、单独记状态——451 常常只打在 fapi 上，
+    现货那半边不该跟着一起坏。`force=true` 是界面上的"重新取数"，但**不穿透日快照
+    与杠杆档位**：前者单次权重 2400（一分钟预算才 6000），连点几下就能把预算打空，
+    而它本身是日频数据。
+    """
+    return build_portfolio(binance_client, binance_cache, force=force)
 
 
 @app.get("/health")

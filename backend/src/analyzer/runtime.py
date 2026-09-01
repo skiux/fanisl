@@ -11,6 +11,8 @@ import threading
 
 from .agent import Agent
 from .auth.store import UserStore
+from .binance.cache import SourceCache
+from .binance.client import BinanceClient
 from .config import get_settings
 from .data.factory import build_catalysts, build_crypto_sentiment, build_resolver
 from .db import make_pool
@@ -46,6 +48,16 @@ pool = make_pool(settings.pg_conninfo)
 storage = Storage(pool)
 # 用户/会话与对话表同库同池：都是"这套工具自身的状态"，与行情、交易、知识三条业务线无关
 user_store = UserStore(pool)
+# --- 资产台（Binance 只读，全员共用同一个账户）---
+# 凭据缺失不是错误路径：客户端照常构造，调用时抛 CredentialsMissing → 每个来源记成
+# unauthorized，前端显示"凭据没有通过校验"那一屏。启动阶段不该因为没配 key 就崩。
+binance_client = BinanceClient(
+    settings.binance_api_key, settings.binance_api_secret,
+    recv_window_ms=settings.binance_recv_window_ms,
+    timeout_s=settings.binance_timeout_s,
+)
+binance_cache = SourceCache(pool)
+
 market_store = MarketStore(
     pool,
     retention_days=settings.retention_days,
