@@ -771,6 +771,39 @@ Node：Debian 13 自带的 `nodejs` 就是 20.19.2，正好满足两个前端 `e
 
 实现与设计取舍见 [`backend/src/analyzer/auth/README.md`](../backend/src/analyzer/auth/README.md)。
 
+### 先补 nginx 的 API 前缀（否则登录会显示 405）
+
+**生效配置与仓库版本是分叉的**（certbot 改过之后就不再同步，见 §6 的警告）。
+2026-09-02 发现分叉方向是**生效版本落后**：线上少了 `asset`（标的工作台从部署当天起
+就返回 index.html 而不是 JSON，一直没人发现——GET 拿到 HTML 不像 POST 拿到 405 那样报错）
+以及 `auth/admin/portfolio/orders/ledger`。
+
+用这段改，它会校验"只改到一处"，改不到就报错退出而不是静默无事发生：
+
+```bash
+# ── 在【服务器】上跑 ──
+sudo python3 - <<'EOF'
+import re, pathlib
+LIVE = pathlib.Path('/etc/nginx/sites-enabled/fanisl')
+PREFIXES = ("health|chat|price|watchlist|metrics|catalysts|collection|conversations|"
+            "trading|knowledge|research|asset|auth|admin|portfolio|orders|ledger")
+src = LIVE.read_text()
+new, n = re.subn(r'(location ~ \^/\()[^)]+(\)\(/\|\$\))', rf'\g<1>{PREFIXES}\g<2>', src)
+if n != 1:
+    raise SystemExit(f'预期改 1 处，实际匹配 {n} 处——先手动看一眼配置')
+LIVE.with_suffix('.bak').write_text(src)
+LIVE.write_text(new)
+print('已更新，备份在', LIVE.with_suffix('.bak'))
+EOF
+
+# 校验生效配置（不是仓库那份！），通过再 reload
+sudo python3 /opt/fanisl/deploy/check_nginx_routes.py /etc/nginx/sites-enabled/fanisl
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+> **加了新的顶层路由前缀就要重跑这一步。** `check_nginx_routes.py` 默认只查仓库里那份，
+> 那会给出虚假的安心——它一直报"全部通过"，而线上少了六个前缀。**部署后带路径跑一次。**
+
 ### 上线顺序（重要）
 
 `fanisl-update.timer` 每 5 分钟拉一次 `origin/main`，**推送即上线**。而后端一旦开始要求
