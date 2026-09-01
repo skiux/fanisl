@@ -902,6 +902,34 @@ sudo -u fanisl HOME=/opt/fanisl /opt/fanisl/deploy/auto-update.sh   # 手动触�
 > 弄脏，自动更新只能跳过；更糟的是本机提交同名周报后，服务器 pull 会因"未追踪文件将被
 > 覆盖"直接卡死。周报是现算现返的（API 不读盘），删了不丢信息。
 
+### 想立刻更新，不等定时器
+
+**别自己 `git pull`。** 直接触发更新服务，它自己会拉：
+
+```bash
+# ── 在【服务器】上跑 ──
+sudo systemctl start fanisl-update.service
+sudo journalctl -u fanisl-update.service -n 20 --output=cat    # 看这一轮做了什么
+```
+
+走 systemd 而不是直接执行脚本，是为了拿到和定时器完全一样的环境（`User=fanisl`、
+`HOME=/opt/fanisl`），输出也统一进 journal。要看实时输出可以直接跑：
+`sudo -u fanisl HOME=/opt/fanisl /opt/fanisl/deploy/auto-update.sh`。
+
+> **先 `git pull` 会让这一步变成空跑。** 脚本的触发条件是 `HEAD != origin/main`；
+> 你手动拉完，两者已经相等，脚本立刻退出，**构建与重启一个都不会做**。表现是
+> 代码更新了、站点却没变——和没拉一样。要么全交给脚本，要么手动拉完把下面的步骤
+> 自己补齐，别拉一半。
+
+脚本按改动范围决定做什么，没变的部分不动：
+
+| 变了什么 | 它会做 |
+|---|---|
+| `backend/` | 验证 `import analyzer.main` → 重启 api 与 collector → 查 `/health`，任一步失败即回滚到上一个提交 |
+| `backend/pyproject.toml` | 上面之前先 `pip install -e` |
+| `frontend/` 或 `console/` | 备份 `dist` → 重建；构建失败把 `dist` 换回旧版 |
+| 对应的 `package-lock.json` | 重建之前先 `npm ci` |
+
 ### 手动更新（回退路径）
 
 ```bash
@@ -914,6 +942,13 @@ sudo systemctl restart fanisl-collector fanisl-api
 # 确认跑的确实是新代码——路径必须落在 src/ 下
 cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c \
   "import analyzer; print(analyzer.__file__)"
+curl -s -o /dev/null -w "health -> %{http_code}\n" http://127.0.0.1:8000/health
+
+# 前端改了才需要重建，各自只建自己那个。**必须用 fanisl 身份跑**，
+# 否则 node_modules 与 dist 会变成 enin 属主，之后自动更新再动它们就会失败。
+sudo -u fanisl HOME=/opt/fanisl env VITE_API_BASE= sh -c 'cd /opt/fanisl/frontend && npm run build'
+sudo -u fanisl HOME=/opt/fanisl sh -c 'cd /opt/fanisl/console && npm run build'
+# 依赖锁文件也变了才要在 build 之前加一句 npm ci
 ```
 
 ### schema —— 唯一真正的坑
