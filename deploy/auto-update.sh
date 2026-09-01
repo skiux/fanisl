@@ -35,7 +35,30 @@ NEW=$(git rev-parse "origin/$BRANCH")
 
 echo "新提交 ${OLD:0:7} -> ${NEW:0:7}"
 CHANGED=$(git diff --name-only "$OLD" "$NEW")
-git merge --ff-only "origin/$BRANCH" || { echo "非快进合并，需人工处理"; exit 1; }
+
+# 未追踪文件也会挡住 merge，而上面那道脏树检查用的是 --untracked-files=no、看不见它们。
+# 2026-08-28 引导时 auto-update.sh 是 scp 上来的，等它自己的提交推上来，merge 就一直报
+# "untracked working tree files would be overwritten"——自动更新被自己的引导产物挡了三天。
+# 内容与来件逐字节相同的，删掉即可（merge 会把同样的内容放回来）；不同的一律停下报出来。
+while IFS= read -r f; do
+    [ -e "$REPO/$f" ] || continue
+    git ls-files --error-unmatch "$f" >/dev/null 2>&1 && continue
+    if git show "origin/$BRANCH:$f" 2>/dev/null | cmp -s - "$REPO/$f"; then
+        echo "  清理同内容的未追踪文件：$f"
+        rm -f "$REPO/$f"
+    else
+        echo "未追踪文件与来件同路径但内容不同，需人工处理：$f"
+        exit 1
+    fi
+done <<<"$CHANGED"
+
+# 失败原因要如实报出来。此前无论什么原因都打 "非快进合并"，把上面那个未追踪冲突
+# 误导成了分叉问题，日志因此看了也白看。
+if ! merge_err=$(git merge --ff-only "origin/$BRANCH" 2>&1); then
+    echo "merge 失败，需人工处理："
+    echo "$merge_err" | sed 's/^/    /'
+    exit 1
+fi
 
 rollback() {
     echo "回滚到 ${OLD:0:7}"

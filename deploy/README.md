@@ -797,6 +797,29 @@ sudo systemctl daemon-reload && sudo systemctl enable --now fanisl-update.timer
 | 工作区脏就跳过并报出来 | 不静默丢弃改动。生成物已按下面那条规则移出版本控制，正常不会脏 |
 | `flock` 单实例 | 构建慢，5 分钟的定时器可能在上一轮没跑完时又触发 |
 
+**怎么查看拉取情况**（这是排查的第一站）：
+
+```bash
+# ── 在【服务器】上跑 ──
+sudo journalctl -u fanisl-update.service -n 30 --output=cat   # 每轮的实际输出
+systemctl list-timers fanisl-update.timer --no-pager           # 上次/下次触发
+git -C /opt/fanisl log --oneline -1                            # 服务器 HEAD
+git -C /opt/fanisl fetch -q origin main && \
+  git -C /opt/fanisl rev-list --count HEAD..origin/main        # 落后几个提交
+```
+
+> **`systemctl is-active` 显示 active 不代表更新在成功。** timer 是 active、每 5 分钟准时
+> 触发，但 service 每次都 `status=1/FAILURE` 也完全可能——2026-08-28 到 09-01 就是这样，
+> 站点停在 9 个提交之前而 timer 一切正常。**判断标准只有 journal 里那几行输出。**
+
+**踩过的坑：未追踪文件会挡住 merge，而脏树检查看不见它。**
+引导时 `auto-update.sh` 是 scp 上服务器的（当时本机推不了代码），于是它在服务器上是
+未追踪文件；等包含它自己的提交推上来，merge 就一直报
+`untracked working tree files would be overwritten` —— 自动更新被自己的引导产物挡了三天。
+更糟的是脚本当时对任何 merge 失败都打「非快进合并」，把这个未追踪冲突误导成了分叉问题，
+日志看了也白看。两处都已修：合并前逐条比对来件路径上的未追踪文件，逐字节相同的直接清掉、
+不同的停下并点名；merge 失败则如实转述 git 的报错。
+
 看日志与手动跑一次：
 
 ```bash
