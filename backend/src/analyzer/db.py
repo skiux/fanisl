@@ -19,3 +19,26 @@ def make_pool(conninfo: str, *, min_size: int = 1, max_size: int = 10) -> Connec
         kwargs={"row_factory": dict_row, "autocommit": False},
         open=True,
     )
+
+
+def describe_conninfo(conninfo: str) -> tuple[str, bool]:
+    """conninfo → (给人看的一行, 是不是本机开发库)。**口令不出现在返回值里。**
+
+    判定规则只看两件事：主机是不是本机、端口是不是默认的 5432。
+
+    - 生产服务器上是 `host=127.0.0.1 dbname=fanisl ...`，没有 port，走默认 5432 → 本机
+    - 开发机上是 `host=127.0.0.1 port=5433 ...`，那是通到生产的 SSH 隧道 → **不是本机**
+
+    两者的 host 都是 127.0.0.1，所以光看主机分不出来，必须连端口一起看。
+    """
+    fields = {}
+    for part in conninfo.split():
+        key, _, value = part.partition("=")
+        if value:
+            fields[key.strip()] = value.strip()
+    host = fields.get("host", "")
+    port = fields.get("port", "5432")
+    name = fields.get("dbname", "?")
+    where = f"{host}:{port}" if host else "本机 socket"
+    local = port == "5432" and host in ("", "127.0.0.1", "localhost", "::1", "/tmp")
+    return f"{name}@{where}", local

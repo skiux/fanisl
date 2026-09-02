@@ -37,6 +37,36 @@ uv run uvicorn analyzer.main:app --reload --app-dir src
 > 服务启动第一行会打印 `[fanisl] auth=ON/OFF`，不确定时看那里。
 > 登录流程本身由 `tests/test_auth.py` 在 auth=ON 下覆盖，本机关掉不影响它被验证。
 
+## 本地开发用隔离的库
+
+`.env` 里的 `PG_CONNINFO` 多半指着 `port=5433`——**那是通到生产的 SSH 隧道**。
+隧道本身是有意的（提取 / 归并那条流程靠它），但跑本地服务时连着它，等于拿生产库
+做开发：页面上显示的是生产缓存下来的真实数字，而任何写入直接落在生产上。
+2026-09-02 就因此在生产库里误建过一个账号。
+
+一次性建好三个本机库：
+
+```bash
+tools/dev_db.sh
+```
+
+之后用隔离配置启动（`.env.dev` 已在仓库里，没有机密）：
+
+```bash
+FANISL_ENV_FILE=.env.dev PYTHONPATH=src .venv/bin/uvicorn analyzer.main:app --port 8000
+```
+
+表结构不用管：各个 Store 构造时都 `CREATE TABLE IF NOT EXISTS`，空库自己会长出来。
+
+**为什么是换整份文件，不是 `PG_CONNINFO=... uvicorn`。** `settings_customise_sources`
+里 dotenv 的优先级**高于** shell 环境变量（为了不让残留的 `ANTHROPIC_*` 劫持配置，
+见 config.py 的注释）。所以在命令行前面覆盖单个变量会被 `.env` 静默盖掉——看着像
+生效了，实际连的还是生产。`FANISL_ENV_FILE` 换的是整份来源，不会有这个问题。
+
+启动第一屏会打印连的是哪个库；连着远端时还会多一行 ⚠。
+`python -m analyzer.auth.bootstrap` 在库指向远端时**默认拒绝执行**，要故意对生产
+建账号得加 `--remote`。
+
 ## 接口
 
 **全站需要登录**（2026-09-02 起）。会话走 cookie，未登录一律 401；免登录的只有

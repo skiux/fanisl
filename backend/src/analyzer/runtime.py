@@ -15,7 +15,7 @@ from .binance.cache import SourceCache
 from .binance.client import BinanceClient
 from .config import get_settings
 from .data.factory import build_catalysts, build_crypto_sentiment, build_resolver
-from .db import make_pool
+from .db import describe_conninfo, make_pool
 from .marketstore import MarketStore
 from .storage import Storage
 from .trading.engine import TradingEngine
@@ -42,6 +42,24 @@ print(
     f" | cookie_secure={settings.auth_cookie_secure}",
     flush=True,
 )
+
+# 连的是哪个库——横幅上原先唯独缺这一项，而它是后果最重的一项。
+#
+# 开发机上 `PG_CONNINFO` 常常指着 `port=5433`，那是通到生产的 SSH 隧道（隧道是有意的，
+# 提取/归并那条流程就靠它）。但**跑本地服务时连着它，等于拿生产库做开发**：
+# 页面上会显示生产缓存下来的真实数字，而任何写入都直接落在生产上。
+# 这件事从界面上完全看不出来，只能在启动第一屏说。
+_dbs = [("行情/对话/用户", settings.pg_conninfo),
+        ("交易", settings.pg_trading_conninfo),
+        ("知识", settings.pg_knowledge_conninfo)]
+_described = [(label, *describe_conninfo(conninfo)) for label, conninfo in _dbs]
+_remote = [label for label, _, local in _described if not local]
+print("[fanisl] 库 " + " | ".join(f"{label}={where}" for label, where, _ in _described),
+      flush=True)
+if _remote:
+    print(f"[fanisl] ⚠ {'、'.join(_remote)} 指向**远端**（多半是 5433 那条生产隧道）。"
+          f"本地开发请改用本机库，见 backend/README.md「本地开发用隔离的库」。",
+          flush=True)
 
 # --- 行情库（行情时间序列 + 对话）---
 pool = make_pool(settings.pg_conninfo)
