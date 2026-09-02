@@ -259,7 +259,7 @@ export async function mockAuth(page: Page, user: unknown = SESSION_USER) {
   })
 }
 
-export async function mockApi(page: Page) {
-  await mockAuth(page)
+export async function mockApi(page: Page, userOverrides?: Record<string, unknown>) {
+  await mockAuth(page, userOverrides ? { ...SESSION_USER, ...userOverrides } : SESSION_USER)
   await page.route(/\/knowledge\/|\/research\/|\/asset(\/|$)/, fulfill)
 }

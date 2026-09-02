@@ -1,7 +1,7 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
-import { getSession, logout, subscribe } from '../auth/session'
+import { useEffect, useState } from 'react'
+import AccountMenu from '../auth/AccountMenu'
 
-export type PrimaryRoute = 'asset' | 'knowledge' | 'verification' | 'discovery' | 'evaluation' | 'chat' | 'archive'
+export type PrimaryRoute = 'asset' | 'knowledge' | 'verification' | 'discovery' | 'evaluation' | 'chat' | 'archive' | 'console'
 
 type AppHeaderProps = {
   current?: PrimaryRoute
@@ -17,10 +17,13 @@ const primaryItems = [
   { key: 'discovery', label: '发现', href: '#/discovery', enabled: true },
 ] as const
 
+// 资产台是**另一个应用**，但对使用者而言它就是一件研究工具，放在这一组最自然——
+// 比在右侧控件堆里再挤一个链接好。它是整行里唯一一个离开本应用的入口。
 const toolItems = [
   { key: 'evaluation', label: '评测', href: '#/evaluation', enabled: false },
   { key: 'chat', label: '对话', href: '#/chat', enabled: false },
   { key: 'archive', label: '档案', href: '#/archive', enabled: true },
+  { key: 'console', label: '资产', href: '/console/', enabled: true },
 ] as const
 
 function AppHeader({ current, onHomeClick, onSearch }: AppHeaderProps) {
@@ -72,7 +75,7 @@ function AppHeader({ current, onHomeClick, onSearch }: AppHeaderProps) {
         </div>
       </nav>
       <div className="nav-actions">
-        <SessionChip />
+        <AccountMenu />
         <button aria-label="搜索知识" className="search-trigger" onClick={onSearch} type="button">
           <span>⌕</span><em>搜索知识</em><kbd>⌘K</kbd>
         </button>
@@ -90,29 +93,5 @@ function AppHeader({ current, onHomeClick, onSearch }: AppHeaderProps) {
   )
 }
 
-/** 顶栏里的用户位。登录态由会话 store 提供，不从 props 层层传下来。 */
-function SessionChip() {
-  const session = useSyncExternalStore(subscribe, getSession)
-  if (session.status !== 'authenticated') return null
-  const { user } = session
-  return (
-    <span className="nav-user">
-      <b>{user.display_name || user.username}</b>
-      {user.role === 'admin' && (
-        <a href="/console/#/admin" title="用户管理">管理</a>
-      )}
-      <button
-        onClick={() => {
-          // 退出请求失败时服务端会话仍然活着。不假装已退出——刷新一次，
-          // 让 /auth/me 说真话。
-          logout().catch(() => window.location.reload())
-        }}
-        type="button"
-      >
-        退出
-      </button>
-    </span>
-  )
-}
 
 export default AppHeader

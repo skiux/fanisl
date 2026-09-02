@@ -804,6 +804,31 @@ sudo nginx -t && sudo systemctl reload nginx
 > **加了新的顶层路由前缀就要重跑这一步。** `check_nginx_routes.py` 默认只查仓库里那份，
 > 那会给出虚假的安心——它一直报"全部通过"，而线上少了六个前缀。**部署后带路径跑一次。**
 
+### /console 必须带斜杠（生效配置里补一条重定向）
+
+```bash
+# ── 在【服务器】上跑 ── 与上面那段一起做
+sudo python3 - <<'EOF'
+import pathlib, re
+LIVE = pathlib.Path('/etc/nginx/sites-enabled/fanisl')
+src = LIVE.read_text()
+if 'location = /console' in src:
+    print('已有重定向，跳过')
+else:
+    marker = '    location /console/ {'
+    assert marker in src, '没找到 /console/ 段，先手动看一眼配置'
+    src = src.replace(marker,
+        '    location = /console {\n        return 301 /console/;\n    }\n\n' + marker)
+    LIVE.write_text(src)
+    print('已加 /console → /console/ 重定向')
+EOF
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+不加这条，输 `fanisl.skiuo.com/console`（不带斜杠）会落到 SPA 兜底、返回**知识引擎**的
+index.html——人以为自己在资产台，其实一直在另一个应用里，登录和退出都发生在那边。
+2026-09-02 实测踩到。
+
 ### 上线顺序（重要）
 
 `fanisl-update.timer` 每 5 分钟拉一次 `origin/main`，**推送即上线**。而后端一旦开始要求

@@ -1566,6 +1566,9 @@ button.library-status {
   display: flex;
   justify-self: end;
   align-items: center;
+  /* 原来没有 gap：只有搜索按钮时看不出问题，一旦多一个元素就会顶在一起、
+     把用户名裁掉。2026-09-02 加账号入口时踩到。 */
+  gap: 14px;
 }
 
 .search-trigger {

@@ -87,13 +87,63 @@ test('会话中途失效：任意接口 401 就整体切回登录页', async ({ 
   await expect(page.getByRole('heading', { name: '个人投资知识引擎' })).toBeVisible()
 })
 
-test('顶栏显示当前用户并能退出', async ({ page }) => {
+test('账号菜单：一个入口装下身份、账号、用户管理与退出', async ({ page }) => {
+  // 原来是往顶栏直接排三个文字元素，把 .nav-actions（没有 gap 的 flex）撑到裁字。
+  // 现在收成一个触发器 + 一个面板。
   await mockApi(page)
   await page.route('**/auth/logout', (route) => route.fulfill({ json: { ok: true }, status: 200 }))
   await page.goto('/#/knowledge')
 
-  const chip = page.locator('.nav-user')
-  await expect(chip).toContainText('测试用户')
-  await chip.getByRole('button', { name: '退出' }).click()
+  const trigger = page.getByRole('button', { name: /测试用户/ })
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  await trigger.click()
+
+  const menu = page.getByRole('menu')
+  await expect(menu).toContainText('测试用户')
+  await expect(menu.getByRole('menuitem', { name: '账号与口令' })).toBeVisible()
+  await menu.getByRole('menuitem', { name: '退出' }).click()
   await expect(page.getByRole('heading', { name: '个人投资知识引擎' })).toBeVisible()
+})
+
+test('账号菜单可用 Escape 关闭，焦点回到触发器', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/#/knowledge')
+
+  const trigger = page.getByRole('button', { name: /测试用户/ })
+  await trigger.click()
+  await expect(page.getByRole('menu')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('menu')).toHaveCount(0)
+  // 键盘用户不该在菜单关掉之后掉进虚空
+  await expect(trigger).toBeFocused()
+})
+
+test('顶栏有去资产台的入口，且不把用户名挤到裁字', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/#/knowledge')
+
+  // 窄屏下导航整组折在汉堡菜单里——不先展开，链接根本不可见。
+  // **先等顶栏渲染出来**：isVisible() 是即时检查，React 还没渲染时它返回 false，
+  // 于是汉堡没被点开、链接找不到，报错却指向链接那一行。
+  // （同样的坑在筛选栏那条测试上踩过一次，这里又踩了一次。）
+  await expect(page.locator('.spatial-nav')).toBeVisible()
+  const hamburger = page.locator('.menu-trigger')
+  if (await hamburger.isVisible()) await hamburger.click()
+  await expect(page.getByRole('link', { name: '资产' })).toHaveAttribute('href', '/console/')
+
+  // .nav-actions 原来没有 gap：多一个元素就会顶在一起，把用户名裁掉
+  const overflow = await page.locator('.spatial-nav').evaluate(
+    (node) => node.scrollWidth > node.clientWidth + 1)
+  expect(overflow).toBe(false)
+})
+
+test('显示名很长也不撑破顶栏', async ({ page }) => {
+  // 窄屏顶栏本来就是刚好排满的，这种问题只在"某个人名字比较长"时才出现
+  await mockApi(page, { display_name: '一个相当长的显示名字用来测试布局' })
+  await page.goto('/#/knowledge')
+
+  await expect(page.getByRole('button', { name: /相当长/ })).toBeVisible()
+  const overflow = await page.locator('.spatial-nav').evaluate(
+    (node) => node.scrollWidth > node.clientWidth + 1)
+  expect(overflow).toBe(false)
 })

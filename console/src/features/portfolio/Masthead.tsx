@@ -1,6 +1,6 @@
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { ArrowsClockwise, MoonStars, Sun } from '@phosphor-icons/react'
-import { getSession, logout, subscribe } from '../../api/session'
+import { AccountMenu } from '../../components/AccountMenu'
 import { StatusDot } from '../../components/Primitives'
 import { cn } from '../../lib/cn'
 import { clockTime, freshnessOf } from '../../lib/format'
@@ -34,34 +34,6 @@ function ThemeToggle() {
   )
 }
 
-/** 当前用户 + 退出。管理入口只对管理员出现——成员看到一个点进去就 403 的链接毫无意义。 */
-function SessionChip() {
-  const session = useSyncExternalStore(subscribe, getSession)
-  if (session.status !== 'authenticated') return null
-  const { user } = session
-  return (
-    <span className="flex items-center gap-2.5 whitespace-nowrap text-xs text-ink-3">
-      <a className="text-ink-2 transition-colors hover:text-ink" href="#/account"
-         title="账号与口令">
-        {user.display_name || user.username}
-      </a>
-      {user.role === 'admin' && (
-        <a className="transition-colors hover:text-ink" href="#/admin">用户</a>
-      )}
-      <button
-        className="transition-colors hover:text-ink"
-        onClick={() => {
-          // 退出请求失败时服务端会话仍然活着。不假装已退出——刷新一次，
-          // 让 /auth/me 说真话。
-          logout().catch(() => window.location.reload())
-        }}
-        type="button"
-      >
-        退出
-      </button>
-    </span>
-  )
-}
 
 /**
  * 报头。走的是文件的规矩：先一行页眉（出处与导航），再是报表标题与出具时刻，
@@ -115,12 +87,20 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
               </a>
             )
           })}
+          {/* 另一个应用的入口属于**导航**，不属于右侧那堆控件——
+              它去的是另一个地方，不是这一份报表的另一节。用一条竖线分开。 */}
+          <i aria-hidden="true" className="h-3 w-px bg-rule-strong" />
+          <a
+            className="whitespace-nowrap text-xs text-ink-3 transition-colors duration-200 hover:text-ink-2"
+            href="/"
+          >
+            知识库
+          </a>
         </nav>
 
         <div className="ml-auto flex items-center gap-3">
           {controls}
-          <a className="whitespace-nowrap text-xs text-ink-3 transition-colors hover:text-ink-2" href="/">知识库</a>
-          <SessionChip />
+          <AccountMenu />
           <ThemeToggle />
         </div>
       </div>

@@ -79,6 +79,12 @@ def main(argv: list[str] | None = None) -> int:
     if not re.search(r"location\s+/\s*\{[^}]*try_files\s+\$uri\s+\$uri/\s+/index\.html;", config, re.DOTALL):
         print("SPA fallback to /index.html not found", file=sys.stderr)
         return 1
+    # 不带斜杠的 /console 必须重定向，否则落到 SPA 兜底、进的是**知识引擎**
+    if not re.search(r"location\s+=\s+/console\s*\{[^}]*return\s+301\s+/console/;", config, re.DOTALL):
+        print("缺少 `location = /console { return 301 /console/; }`：\n"
+              "  不带斜杠的 /console 会落到 SPA 兜底、返回知识引擎的 index.html，"
+              "用户输这个地址进去的是另一个应用", file=sys.stderr)
+        return 1
     print(f"{path}: {len(REQUIRED_PREFIXES)} 个 API 前缀全部已代理")
     return 0
 

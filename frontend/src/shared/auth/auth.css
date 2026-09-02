@@ -151,29 +151,108 @@
   background: var(--paper-deep);
 }
 
-/* 顶栏里的用户位 */
-.nav-user {
+/* 顶栏里的账号入口。收成一个触发器 + 一个面板，沿用全站的纸面语言。 */
+.account-menu { position: relative; }
+
+.account-trigger {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: var(--nav-shortcut-size, .8125rem);
-  white-space: nowrap;
-}
-
-.nav-user b { color: var(--ink); font-weight: 500; }
-
-.nav-user a,
-.nav-user button {
+  gap: 6px;
   padding: 0;
   color: var(--muted);
   font: inherit;
+  font-size: var(--nav-shortcut-size, .8125rem);
+  white-space: nowrap;
   background: none;
   border: none;
   cursor: pointer;
-  text-decoration: none;
   transition: color .18s ease;
 }
 
-.nav-user a:hover,
-.nav-user button:hover { color: var(--ink); }
+.account-trigger:hover,
+.account-trigger[aria-expanded="true"] { color: var(--ink); }
+
+/* 名字要有上限。窄屏下顶栏本来就是刚好排满的，显示名多几个字就会把它撑破——
+   这种问题只在"某个人的名字比较长"时才出现，最容易漏测。 */
+.account-trigger span {
+  display: block;
+  max-width: 8em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 小三角：与全站一样用几何而不是图标字体 */
+.account-trigger i {
+  width: 0;
+  height: 0;
+  border-top: 3.5px solid currentColor;
+  border-right: 3.5px solid transparent;
+  border-left: 3.5px solid transparent;
+  transition: transform .2s ease;
+}
+
+.account-trigger[aria-expanded="true"] i { transform: rotate(180deg); }
+
+@media (max-width: 900px) {
+  .account-trigger span { max-width: 4.5em; }
+}
+
+.account-panel {
+  position: absolute;
+  z-index: 200;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 184px;
+  overflow: hidden;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(37, 45, 38, .05), 0 14px 34px -18px rgba(37, 45, 38, .35);
+}
+
+.account-identity {
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line);
+}
+
+.account-identity b {
+  display: block;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.account-identity span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: .75rem;
+}
+
+.account-panel a,
+.account-panel button {
+  display: block;
+  width: 100%;
+  padding: 9px 13px;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-caption);
+  text-align: left;
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+
+.account-panel a:hover,
+.account-panel button:hover {
+  color: var(--ink);
+  background: var(--paper-deep);
+}
+
+.account-panel button { border-top: 1px solid var(--line); }
