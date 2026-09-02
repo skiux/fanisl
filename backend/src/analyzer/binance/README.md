@@ -143,6 +143,97 @@ IP 权重上限 **6000/分钟**。而：
 而 Binance **没有"我交易过哪些对"的接口**，只能从「有挂单 + 有持仓 + 现货余额能配出的
 交易对」推一份候选。做不到真正的全量，这一点界面上也说明白。
 
+## 接口清单与限额
+
+三个 base 各有**各自独立**的权重池，互不相干：
+
+| base | 域名 | 权重上限 | 计量 |
+|---|---|---|---|
+| SPOT / SAPI | `api.binance.com` | **6000 / 分钟** | 按 IP（`X-MBX-USED-WEIGHT-1M`） |
+| USDⓈ-M | `fapi.binance.com` | **2400 / 分钟** | 按 IP（`X-MBX-USED-WEIGHT-1M`） |
+| 公开行情 | `api.binance.com` | 与 SPOT 同池 | 不签名，但照样计权重 |
+
+两个上限现取自 `GET /api/v3/exchangeInfo` 与 `GET /fapi/v1/exchangeInfo` 的
+`rateLimits`（2026-09-02 核）——这是权威来源，文档正文里反而没写死。
+
+少数 SAPI 端点是**按账户 UID** 而不是按 IP 限速（下表标出）。响应头每次都读进
+`client.last_weight`。超限返回 **429**；收到 429 后不退避会被自动封 IP（**418**），
+封禁时长按累犯递增，**2 分钟到 3 天**。
+
+下表的权重，带 † 的是官方文档逐条核过的，其余取自文档但未逐条复核——
+真正驱动行为的那批（流水页八个端点）都钉在 `ledger.py:WINDOWS` 里，有测试盯着。
+
+### 资产页 `/portfolio`
+
+| 来源 | 端点 | 权重 | 缓存 | 说明 |
+|---|---|---:|---:|---|
+| `prices` | `GET /api/v3/ticker/price` | 4 | 30s | 全市场报价，不签名 |
+| `wallets` | `GET /sapi/v1/asset/wallet/balance` | 60 | 60s | **BTC 计价**，要乘 BTCUSDT |
+| `spot` | `POST /sapi/v3/asset/getUserAsset` | 5 | 60s | POST 但是只读 |
+| `futures` | `GET /fapi/v2/account` | 5 † | 30s | 保证金与未实现盈亏 |
+| | `GET /fapi/v1/accountConfig` | 5 † | 30s | 双向持仓 / 联合保证金 |
+| | `GET /fapi/v2/positionRisk` | 5 | 30s | **标记价与强平价只有这里有** |
+| | `GET /fapi/v1/adlQuantile` | 5 | 30s | 自动减仓队列 |
+| `earn` | `GET /sapi/v1/simple-earn/flexible/position` | 150 | 300s | UID 限速 |
+| | `GET /sapi/v1/simple-earn/locked/position` | 150 | 300s | UID 限速 |
+| `margin` | `GET /sapi/v1/margin/account` | 10 | 60s | 全仓杠杆 |
+| `income` | `GET /fapi/v1/income` | 30 † | 300s | 已实现 / 资金费 / 手续费 |
+| `transfers` | `GET /sapi/v1/capital/deposit/hisrec` | 1 | 300s | 充值 |
+| | `GET /sapi/v1/capital/withdraw/history` | **18000** | 900s | UID 限速 10 次/秒，最贵的一个 |
+| `snapshots` | `GET /sapi/v1/accountSnapshot` ×3 | **2400** ×3 | 6h | SPOT / MARGIN / FUTURES，日频 |
+| | `GET /api/v3/klines` | 2 | 6h | BTC 日线，给快照换算 USD |
+
+一次完整取数：SPOT 池约 **21 000**（其中提现 18 000、快照 7 200 不在同一分钟内重取），
+FAPI 池约 **50**。所以 `withdrawals` 与 `snapshots.*` 列在 `NEVER_FORCE` 里——
+"重新取数"穿不透它们。
+
+### 委托页 `/orders`
+
+| 来源 | 端点 | 权重 | 缓存 | 窗口上限 |
+|---|---|---:|---:|---|
+| 现货挂单 | `GET /api/v3/openOrders` | 6 †（不带 symbol 时 **80** †） | 30s | — |
+| OCO | `GET /api/v3/openOrderList` | 6 † | 60s | — |
+| 合约挂单 | `GET /fapi/v1/openOrders` | **40**（不带 symbol） | 30s | — |
+| 杠杆挂单 | `GET /sapi/v1/margin/openOrders` | 10 | 30s | — |
+| 策略单 | `GET /sapi/v1/algo/futures/openOrders` | 1 | 300s | — |
+| 现货历史 | `GET /api/v3/allOrders` | 20 † / symbol | 300s | **24 小时** |
+| 合约历史 | `GET /fapi/v1/allOrders` | 5 † / symbol | 300s | **7 天**，只回溯 90 天 |
+| 成交 | `GET /api/v3/myTrades` · `/fapi/v1/userTrades` | 20 † / 5 † | 300s | 同上 |
+
+历史类端点**必须传 symbol**，所以是按标的扇出——持仓越多调用次数越多。
+
+### 流水页 `/ledger`
+
+| 来源 | 端点 | 权重 | 窗口上限 | 回溯 | 扇出 |
+|---|---|---:|---|---|---|
+| 充值 | `GET /sapi/v1/capital/deposit/hisrec` | 1 | 90 天 | 90 天 | — |
+| 提现 | `GET /sapi/v1/capital/withdraw/history` | **18000** | 90 天 | 90 天 | UID 10 次/秒 |
+| 合约损益 | `GET /fapi/v1/income` | 30 | 不限 | 90 天 | — |
+| 钱包划转 | `GET /sapi/v1/asset/transfer` | 1 | 不限 | 180 天 | **type 必填**，取 12 种常用 |
+| 理财派息 | `GET /sapi/v1/simple-earn/*/history/rewardsRecord` | 150 | **30 天** | — | 活期与定期各一次 |
+| 杠杆利息 | `GET /sapi/v1/margin/interestHistory` | 1 | 30 天 | 90 天 | — |
+| 闪兑 | `GET /sapi/v1/convert/tradeFlow` | **3000** | 30 天 | — | 起止时间都必填 |
+| 小额兑换 | `GET /sapi/v1/asset/dribblet` | 1 | 不限 | — | — |
+
+**流水页的窗口上限是 30 天**，由理财派息与闪兑这两个 30 天的端点决定——
+不是设计选的，是最紧的那个端点定的。界面上的 7 / 14 / 30 就是这么来的。
+
+### 几个容易踩的点
+
+- **`/sapi/v1/asset/wallet/balance` 返回的是 BTC**，不是 USD。不换算的话总净值差几万倍。
+- **`liquidationPrice` 在全仓且余额充足时返回 `"0"`**，不是 null，也不是缺字段。
+  当成 0 会算出"距强平 100%"，拿杠杆倒推会算出"距强平 1/杠杆"——两个都是错的，
+  正确做法是留空。
+- **`accountSnapshot` 只有 SPOT / MARGIN / FUTURES 三种**，没有理财、资金、币本位。
+  拿它当期初、拿全部钱包当期末，差额会被整个算成盈亏。
+- **`accountSnapshot` 只保留 30 天**，且只有账户有余额的那些天才有记录。曲线可能短于 30 天。
+- **提现的 `applyTime` 是字符串**（`"2026-08-25 10:30:00"`，UTC），充值的 `insertTime`
+  是毫秒整数。两边格式不一样。
+- **非对称 key（Ed25519 / RSA）的签名是 base64，必须再做 URL 百分号编码**；
+  HMAC 是 hex，不需要。混了会一直 `-1022 Signature for this request is not valid`。
+- **服务器时间偏移**：`recvWindow` 默认 5000ms，本机时钟偏一点就全线 `-1021`。
+  客户端会拉一次 `/api/v3/time` 或 `/fapi/v1/time` 校准后重试一次。
+
 ## 测试
 
 `tests/test_binance_{signing,portfolio,orders,ledger}.py`，全部用 `httpx.MockTransport`

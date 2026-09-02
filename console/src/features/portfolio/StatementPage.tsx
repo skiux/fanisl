@@ -180,7 +180,8 @@ function Body({ phase, view, onSelectView, onRetry }: {
 
       <footer className="border-t border-rule bg-sheet-2/60 px-5 py-2.5 sm:px-10">
         <p className="text-xs text-ink-3">
-          真实盈亏已剔除充提 · 取不到的项目留空，不以 0 代替 · 30 天窗口受日快照接口所限
+          真实盈亏已剔除充提，只算现货 / 全仓杠杆 / U 本位合约三个钱包（日快照的口径）·
+          取不到的项目留空，不以 0 代替 · 窗口最长 30 天，受日快照接口所限
         </p>
       </footer>
     </>

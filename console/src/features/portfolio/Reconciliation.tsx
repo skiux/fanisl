@@ -63,7 +63,9 @@ export function Reconciliation({ data, veiled }: { data: Attribution | null; vei
       <table className="w-full border-collapse">
         <tbody>
           <tr className="border-b border-rule">
-            <th className="py-2.5 text-left text-sm font-normal text-ink-2" scope="row">期初净值</th>
+            <th className="py-2.5 text-left text-sm font-normal text-ink-2" scope="row">
+              期初净值 <span className="tnum text-micro text-ink-3">{data.window_start}</span>
+            </th>
             <td className="w-[176px] px-4" />
             <td className="tnum py-2.5 text-right text-sm text-ink">{money(data.opening_equity)}</td>
           </tr>

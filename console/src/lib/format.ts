@@ -124,7 +124,6 @@ export const SOURCE_LABEL: Record<string, string> = {
   wallets: '钱包分布',
   spot: '现货账户',
   futures: '合约账户',
-  brackets: '保证金档位',
   earn: '理财持仓',
   margin: '杠杆账户',
   income: '收支流水',

@@ -19,7 +19,7 @@ export type SourceKey =
   // 行情是**公开端点**，不需要凭据。它单独成一个来源：没配 key 时它照常正常，
   // 而其余全部 unauthorized——界面据此能分清"网络/凭据问题"与"确实没有资产"。
   | 'prices'
-  | 'wallets' | 'spot' | 'futures' | 'brackets'
+  | 'wallets' | 'spot' | 'futures'
   | 'earn' | 'margin' | 'income' | 'transfers' | 'snapshots'
   // 委托页
   | 'spot_open' | 'futures_open' | 'margin_open' | 'order_lists' | 'algo_open'
@@ -165,7 +165,10 @@ export type EquityPoint = {
  * unrealized_delta 由残差反解，保证瀑布图永远闭合。
  */
 export type Attribution = {
+  /** 实际天数，不是固定 30——日快照只留 30 天，账户不满或缺日都会短一截 */
   window_days: number
+  /** 窗口第一天（曲线起点），YYYY-MM-DD */
+  window_start: string
   opening_equity: number
   closing_equity: number
   net_transfer: number

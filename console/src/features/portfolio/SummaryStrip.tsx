@@ -30,7 +30,9 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled }: {
       tone: totals?.change_24h_usd == null ? 'muted' : totals.change_24h_usd >= 0 ? 'gain' : 'loss',
     },
     {
-      label: '30 天真实盈亏',
+      // 天数照实说：日快照只保留 30 天，账户不满 30 天或中间缺日，窗口就短一截，
+      // 写死"30 天"会把一个 9 天的数字讲成一个月的成绩
+      label: a ? `${a.window_days} 天真实盈亏` : '真实盈亏',
       value: a ? signedMoney(a.true_pnl) : '—',
       note: a ? `${signedPercent(a.true_return)} · 已剔除充提` : '不可用',
       tone: a ? (a.true_pnl >= 0 ? 'gain' : 'loss') : 'muted',

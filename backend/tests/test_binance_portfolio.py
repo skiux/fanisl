@@ -43,7 +43,7 @@ def test_snapshot_shape_matches_contract(cache):
                          "equity_curve", "attribution"}
     assert snap["base_currency"] == "USD"
     assert {s["key"] for s in snap["sources"]} == {
-        "prices", "wallets", "spot", "futures", "brackets", "earn", "margin",
+        "prices", "wallets", "spot", "futures", "earn", "margin",
         "income", "transfers", "snapshots"}
     assert all(s["status"] == "ok" for s in snap["sources"])
 
@@ -87,11 +87,17 @@ def test_futures_positions_pull_mark_and_liq_from_position_risk(cache):
     assert nvda["position_amt"] == 38
 
 
-def test_liq_distance_falls_back_to_bracket_when_exchange_gives_none(cache):
+def test_no_liquidation_price_means_no_distance(cache):
+    """没有强平价就没有"距强平"，不拿杠杆倒推一个。
+
+    这里曾经用 1/杠杆 − 维持保证金率兜底。那是逐仓的公式，而交易所恰恰在**全仓且
+    余额充足**时才把 liquidationPrice 返回成 "0"——最安全的仓位会被算出最紧的数，
+    且这个数只是 1/杠杆，价格怎么动都不变。页面上于是出现"强平价 —，距强平 9.5%"。
+    """
     snap = build(cache)
     qqq = {p["symbol"]: p for p in snap["futures"]["positions"]}["QQQUSDT"]
     assert qqq["liquidation_price"] is None       # 交易所给的是 "0"
-    assert qqq["liq_distance"] == pytest.approx(1 / 3 - 0.02)
+    assert qqq["liq_distance"] is None
 
 
 def test_margin_ratio_and_margin_account_conversion(cache):
@@ -138,6 +144,59 @@ def test_attribution_identity_closes(cache):
     assert a["opening_equity"] + total == pytest.approx(a["closing_equity"])
     assert a["true_pnl"] == pytest.approx(a["closing_equity"] - a["opening_equity"]
                                           - a["net_transfer"])
+
+
+def test_change_24h_compares_like_for_like(cache):
+    """「今日」也是拿净值减昨天的快照，同样必须用快照口径的那三个钱包。
+
+    原先用的是全部钱包合计减昨日快照，于是理财与资金里的余额每天都被算进"今日变动"。
+    """
+    snap = build(cache)
+    kinds = {w["kind"]: w for w in snap["wallets"]}
+    three = sum(kinds[k]["value_usd"] for k in ("spot", "usdm_futures") if k in kinds)
+    yesterday = snap["equity_curve"][-2]["equity_usd"]
+    assert snap["totals"]["change_24h_usd"] == pytest.approx(three - yesterday)
+    # 用总净值算的话会多出理财与 Trading Bots，这里断言它确实不是那个数
+    assert snap["totals"]["change_24h_usd"] != pytest.approx(
+        snap["totals"]["equity_usd"] - yesterday)
+
+
+def test_attribution_closing_is_measured_on_the_same_wallets_as_the_snapshots(cache):
+    """期末只能算日快照覆盖的那三个钱包，否则理财余额会被当成利润。
+
+    恒等式里未实现变动是残差反解的，闭合**不构成**口径正确的证据——原先期末用的是
+    全部钱包合计（含理财、资金、币本位），期初来自只有三种类型的日快照，差额被残差
+    整个吸走，瀑布照样闭合，而"30 天真实盈亏"多出了一整笔理财本金。
+    """
+    snap = build(cache)
+    a = snap["attribution"]
+    kinds = {w["kind"]: w for w in snap["wallets"]}
+    three = sum(kinds[k]["value_usd"] for k in ("spot", "usdm_futures") if k in kinds)
+
+    assert a["closing_equity"] == pytest.approx(three)
+    # 理财与 Trading Bots 有余额，但不在快照口径里，不该出现在期末
+    assert kinds["earn"]["value_usd"] > 0 and kinds["trading_bots"]["value_usd"] > 0
+    assert a["closing_equity"] < snap["totals"]["equity_usd"]
+
+
+def test_attribution_window_is_the_real_curve_length_not_a_hardcoded_30(cache):
+    """accountSnapshot 只留最近 30 天，账户不满 30 天或中间缺日，曲线就短一截。"""
+    snap = build(cache)
+    a = snap["attribution"]
+    assert a["window_days"] == len(snap["equity_curve"]) == 2
+    assert a["window_start"] == snap["equity_curve"][0]["date"]
+
+
+def test_attribution_cuts_income_and_transfers_to_the_curve_window(cache):
+    """两边的窗口必须一致，否则窗口外的损益会被残差吸走，表面上照样闭合。
+
+    mock 里充值在 20 天前、提现在 8 天前，而曲线只有 2 天——两笔都在窗口之外，
+    它们早已包含在期初里，不该再从盈亏里扣一次。
+    """
+    snap = build(cache)
+    assert snap["attribution"]["net_transfer"] == pytest.approx(0.0)
+    # 页面上单列的「收支」是整个 30 天窗口，与归因表的窗口是两回事，不受影响
+    assert snap["transfers"]["net_usd"] == pytest.approx(1000.0)
 
 
 # --- 降级 -----------------------------------------------------------------

@@ -70,7 +70,7 @@ async function live<T>(path: string, signal?: AbortSignal): Promise<T> {
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
 
 /** fapi 上的三组：合约账户、维持保证金档位、收支流水。451 一起挂 */
-const FAPI_SOURCES: SourceKey[] = ['futures', 'brackets', 'income']
+const FAPI_SOURCES: SourceKey[] = ['futures', 'income']
 
 function degrade(
   snapshot: PortfolioSnapshot,
@@ -146,7 +146,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
       return {
         as_of: iso,
         base_currency: 'USD',
-        sources: (['wallets', 'spot', 'futures', 'brackets', 'earn', 'margin', 'income', 'transfers', 'snapshots'] as const)
+        sources: (['wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers', 'snapshots'] as const)
           .map((key) => ({
             key, status: 'unauthorized' as const, as_of: null,
             detail: 'API key 无读取权限，或调用 IP 不在白名单内',
@@ -161,7 +161,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
       return {
         as_of: iso,
         base_currency: 'USD',
-        sources: (['wallets', 'spot', 'futures', 'brackets', 'earn', 'margin', 'income', 'transfers', 'snapshots'] as const)
+        sources: (['wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers', 'snapshots'] as const)
           .map((key) => fx.okSource(key, iso)),
         totals: { equity_usd: 0, gross_exposure_ratio: null, change_24h_usd: null, change_24h_pct: null },
         wallets: [], spot: [], futures: null, earn: [], margin: null,

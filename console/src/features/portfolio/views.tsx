@@ -86,7 +86,9 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
   return (
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
-        <Module note="期初到期末逐项对账" span="lg:col-span-7" title="本期变动">
+        {/* 窗口写实际起止：日快照只留 30 天，账户不满 30 天或中间缺日就会短一截 */}
+        <Module note={a ? `${a.window_start} 起 ${a.window_days} 天 · 逐项对账` : '逐项对账'}
+                span="lg:col-span-7" title="本期变动">
           <Reconciliation data={a} veiled={false} />
         </Module>
 

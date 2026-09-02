@@ -211,29 +211,38 @@ export const transfers: Transfers = {
 }
 
 /**
- * 期初净值由"这段时间真赚了多少"倒推，而不是写死一个数——
- * 写死的话，持仓一改净值就变，30 天收益率立刻变成荒谬的数字。
+ * 归因表走后端同一套口径。两条要点：
  *
- * 真实盈亏 = 已实现 + 返佣 + 资金费 + 手续费 + 未实现变动，
- * 其中未实现变动就取当前持仓的浮盈浮亏（这批仓位都是窗口内开的）。
- * 这样归因表的残差项恰好等于 futures.total_unrealized_pnl，瀑布天然闭合。
+ * - **期末只算日快照覆盖的三个钱包**（现货 / 全仓杠杆 / U 本位合约）。理财、资金
+ *   这些钱包在总净值里，但 accountSnapshot 没有它们，混进来就等于把理财本金
+ *   算成这段时间的利润。
+ * - **期初是一个写下来的数，不是倒推的**。它对应 accountSnapshot 那天的余额，
+ *   属于接口给的原始值；倒推的话，归因表就成了自己证明自己，任何口径错误
+ *   都会被残差项吸走而看不出来——线上那个 bug 正是这么藏了很久。
  */
-const TRUE_PNL_30D = income.realized_pnl + income.referral_kickback
-  + income.funding_fee + income.commission + futures.total_unrealized_pnl
+const SNAPSHOT_WALLETS = ['spot', 'cross_margin', 'usdm_futures'] as const
 
-const OPENING_EQUITY = equity - transfers.net_usd - TRUE_PNL_30D
+const closingEquity = wallets
+  .filter((w) => (SNAPSHOT_WALLETS as readonly string[]).includes(w.kind))
+  .reduce((sum, w) => sum + (w.value_usd ?? 0), 0)
 
-export function buildAttribution(windowDays: number): Attribution {
+/** 窗口第一天的快照值。写死的是它，不是盈亏 */
+const OPENING_EQUITY = 22800
+
+const WINDOW_DAYS = 30
+
+export function buildAttribution(windowDays: number, windowStart: string): Attribution {
   const realized = income.realized_pnl + income.referral_kickback
-  // 未实现变动由残差反解，瀑布图因此永远闭合，不会出现"各项加起来对不上期末"
-  const unrealizedDelta = equity - OPENING_EQUITY - transfers.net_usd
-    - realized - income.funding_fee - income.commission
-  const truePnl = equity - OPENING_EQUITY - transfers.net_usd
+  const truePnl = closingEquity - OPENING_EQUITY - transfers.net_usd
+  // 未实现变动仍由残差反解——后端也是这么算的，因为历史浮盈没有接口可查。
+  // 但残差只有在期初期末同口径时才有意义，见上面的注释。
+  const unrealizedDelta = truePnl - realized - income.funding_fee - income.commission
   const averageCapital = OPENING_EQUITY + transfers.net_usd / 2
   return {
     window_days: windowDays,
+    window_start: windowStart,
     opening_equity: OPENING_EQUITY,
-    closing_equity: equity,
+    closing_equity: closingEquity,
     net_transfer: transfers.net_usd,
     realized_pnl: realized,
     unrealized_delta: unrealizedDelta,
@@ -244,15 +253,16 @@ export function buildAttribution(windowDays: number): Attribution {
   }
 }
 
-/** 30 天日快照。真实来源 /sapi/v1/accountSnapshot，不需要后端自建表 */
+/** 日快照。真实来源 /sapi/v1/accountSnapshot，最多 30 天 */
 export function buildEquityCurve(asOf: Date): EquityPoint[] {
   const points: EquityPoint[] = []
-  const span = equity - OPENING_EQUITY
-  for (let index = 0; index < 30; index += 1) {
+  const span = closingEquity - OPENING_EQUITY
+  for (let index = 0; index < WINDOW_DAYS; index += 1) {
     const day = new Date(asOf)
-    day.setDate(day.getDate() - (29 - index))
+    day.setDate(day.getDate() - (WINDOW_DAYS - 1 - index))
     const wobble = Math.sin(index * 0.9) * 780 + Math.sin(index * 0.31 + 1.4) * 1420
-    const value = OPENING_EQUITY + span * (index / 29) + (index === 29 ? 0 : wobble)
+    const progress = index / (WINDOW_DAYS - 1)
+    const value = OPENING_EQUITY + span * progress + (index === WINDOW_DAYS - 1 ? 0 : wobble)
     points.push({ date: day.toISOString().slice(0, 10), equity_usd: value })
   }
   return points
@@ -271,16 +281,17 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
     as_of: iso,
     base_currency: 'USD',
     sources: ([
-      'wallets', 'spot', 'futures', 'brackets', 'earn', 'margin', 'income', 'transfers', 'snapshots',
+      'wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers', 'snapshots',
     ] as const).map((key) => okSource(key, iso)),
     totals: {
       equity_usd: equity,
       gross_exposure_ratio: equity > 0 ? notional / equity : null,
-      change_24h_usd: yesterday === null ? null : equity - yesterday,
-      change_24h_pct: yesterday ? (equity - yesterday) / yesterday : null,
+      // 与曲线同口径：曲线是三个钱包的日快照，不能拿总净值去减
+      change_24h_usd: yesterday === null ? null : closingEquity - yesterday,
+      change_24h_pct: yesterday ? (closingEquity - yesterday) / yesterday : null,
     },
     wallets, spot, futures, earn, margin, income, transfers,
     equity_curve: curve,
-    attribution: buildAttribution(30),
+    attribution: buildAttribution(curve.length, curve[0].date),
   }
 }
