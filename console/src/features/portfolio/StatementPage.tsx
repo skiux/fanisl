@@ -9,6 +9,7 @@ import { SectionTabs, type TabItem } from './SectionTabs'
 import { SummaryStrip } from './SummaryStrip'
 import { EmptyState, ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from './states'
 import { ChangesView, HoldingsView, OverviewView, PerpRiskView } from './views'
+import { useIsAdmin } from '../../lib/role'
 
 type Phase =
   | { kind: 'loading' }
@@ -111,6 +112,7 @@ function Body({ phase, view, onSelectView, onRetry }: {
   onSelectView: (key: ViewKey) => void
   onRetry: () => void
 }) {
+  const isAdmin = useIsAdmin()
   if (phase.kind === 'loading') return <StatementSkeleton />
   if (phase.kind === 'failed') {
     return <div className="px-6 sm:px-10"><ErrorState message={phase.message} onRetry={onRetry} /></div>
@@ -178,12 +180,15 @@ function Body({ phase, view, onSelectView, onRetry }: {
         </div>
       </div>
 
+      {/* 口径说明是给维护的人看的，成员看了只是噪音 */}
+      {isAdmin && (
       <footer className="border-t border-rule bg-sheet-2/60 px-5 py-2.5 sm:px-10">
         <p className="text-xs text-ink-3">
           真实盈亏已剔除充提，只算现货 / 全仓杠杆 / U 本位合约三个钱包（日快照的口径）·
           取不到的项目留空，不以 0 代替 · 窗口最长 30 天，受日快照接口所限
         </p>
       </footer>
+      )}
     </>
   )
 }

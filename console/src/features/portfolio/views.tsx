@@ -9,6 +9,7 @@ import { Reconciliation } from './Reconciliation'
 import { PositionsList, RiskGauges } from './RiskPanel'
 import { SourceHealth } from './SourceHealth'
 import { WalletSpread } from './WalletSpread'
+import { useIsAdmin } from '../../lib/role'
 
 /**
  * 总览。这一节只放别处没有的东西：
@@ -22,6 +23,7 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
   concentration: { asset: string; share: number } | null
   onOpen: (key: 'changes' | 'holdings' | 'perp') => void
 }) {
+  const isAdmin = useIsAdmin()
   const a = snapshot.attribution
   const okCount = snapshot.sources.filter((source) => source.status === 'ok').length
 
@@ -60,15 +62,19 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
           />
         </Module>
 
-        <Module
-          figure={`${okCount} / ${snapshot.sources.length}`}
-          note="留空的是哪一项"
-          span="lg:col-span-7"
-          title="取数状态"
-          tone={okCount === snapshot.sources.length ? undefined : 'muted'}
-        >
-          <SourceHealth sources={snapshot.sources} />
-        </Module>
+        {/* 来源健康是运维信息，只给管理员。成员看到"8 / 9"只会以为出了故障，
+            而他既判断不了也处理不了。 */}
+        {isAdmin && (
+          <Module
+            figure={`${okCount} / ${snapshot.sources.length}`}
+            note="留空的是哪一项"
+            span="lg:col-span-7"
+            title="取数状态"
+            tone={okCount === snapshot.sources.length ? undefined : 'muted'}
+          >
+            <SourceHealth sources={snapshot.sources} />
+          </Module>
+        )}
       </ViewGrid>
     </div>
   )

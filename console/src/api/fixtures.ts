@@ -1,7 +1,7 @@
 import { PRICE } from './prices'
 import { NVDA_ENTRY_PRICE, spotLockedByAsset } from './orders-fixtures'
 import type {
-  Attribution, EarnPosition, EquityPoint, FuturesAccount, FuturesPosition,
+  Attribution, EarnPosition, EquityPoint, FuturesAccount, FuturesPosition, Pnl,
   IncomeBreakdown, MarginAccount, PortfolioSnapshot, SourceState, SpotAsset,
   Transfers, WalletBucket,
 } from './types'
@@ -272,6 +272,66 @@ export const okSource = (key: SourceState['key'], asOf: string): SourceState => 
   key, status: 'ok', as_of: asOf, detail: null,
 })
 
+/**
+ * 盈亏构成。和后端同一套口径：现货按成交重放的加权平均成本，合约取交易所给的
+ * 未实现与已实现。**没有残差项**——旧的归因表用"期末 − 期初 − 净充提"，
+ * 钱包间划转会被算成盈亏。
+ */
+function buildPnl(): Pnl {
+  const spotRows = spot
+    .filter((row) => row.value_usd !== null && row.total > 0)
+    .map((row) => {
+      const cash = STABLE_FIXTURE.includes(row.asset)
+      // 均价编在成本上，不编在盈亏上：盈亏由市值减成本算出来
+      const avg = cash ? 1 : (SPOT_AVG_COST[row.asset] ?? null)
+      const value = row.value_usd as number
+      return {
+        asset: row.asset, qty: row.total, avg_cost_usd: avg,
+        price_usd: row.price_usd, value_usd: value,
+        unrealized_usd: avg === null ? null : value - row.total * avg,
+        realized_usd: cash ? 0 : (SPOT_REALIZED[row.asset] ?? 0),
+        cost_known: avg !== null, is_cash: cash,
+      }
+    })
+  const spotUnreal = spotRows.reduce((sum, r) => sum + (r.unrealized_usd ?? 0), 0)
+  const spotReal = spotRows.reduce((sum, r) => sum + (r.realized_usd ?? 0), 0)
+  return {
+    unrealized: {
+      spot_usd: spotUnreal,
+      futures_usd: futures.total_unrealized_pnl,
+      total_usd: spotUnreal + futures.total_unrealized_pnl,
+      scope: '此刻的持仓',
+    },
+    realized: {
+      spot_usd: spotReal,
+      spot_scope: '全部成交历史',
+      futures_usd: income.realized_pnl,
+      futures_scope: '最近 30 天（接口只保留 90 天）',
+    },
+    carry: {
+      funding_usd: income.funding_fee,
+      commission_usd: income.commission,
+      referral_usd: income.referral_kickback,
+      scope: '最近 30 天',
+    },
+    spot_assets: spotRows,
+    coverage: '只覆盖当前还持有的币；已清仓的标的查不到交易对',
+    incomplete_assets: spotRows.filter((r) => !r.cost_known).map((r) => r.asset),
+    failed_symbols: [],
+  }
+}
+
+const STABLE_FIXTURE = ['USDT', 'USDC', 'BUSD', 'FDUSD']
+
+/** 现货持仓的加权平均成本。这是"接口重放出来的"，属于原始输入，写死合理 */
+const SPOT_AVG_COST: Record<string, number> = {
+  BNB: 612.4, ETH: 2980.5, SOL: 205.1, ARB: 1.04, DOGE: 0.288,
+  SHIB: 0.00002114, LUNC: 0.00000118,
+}
+
+/** 已清掉的那部分实现了多少 */
+const SPOT_REALIZED: Record<string, number> = { BNB: 184.2, ETH: -62.4, SOL: 41.8 }
+
 export function buildSnapshot(asOf: Date): PortfolioSnapshot {
   const iso = asOf.toISOString()
   const curve = buildEquityCurve(asOf)
@@ -292,6 +352,7 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
     },
     wallets, spot, futures, earn, margin, income, transfers,
     equity_curve: curve,
+    pnl: buildPnl(),
     attribution: buildAttribution(curve.length, curve[0].date),
   }
 }

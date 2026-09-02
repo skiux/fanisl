@@ -19,8 +19,16 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled }: {
   veiled: boolean
 }) {
   const totals = snapshot.totals
-  const a = snapshot.attribution
+  const pnl = snapshot.pnl
   const ratio = snapshot.futures?.margin_ratio ?? null
+
+  // 现货与合约各有各的取不到的可能：一边缺就只报另一边，别把 null 当 0 加进去
+  const sum = (...parts: (number | null | undefined)[]) => {
+    const known = parts.filter((p): p is number => p != null)
+    return known.length ? known.reduce((a, b) => a + b, 0) : null
+  }
+  const unreal = sum(pnl?.unrealized.spot_usd, pnl?.unrealized.futures_usd)
+  const real = sum(pnl?.realized.spot_usd, pnl?.realized.futures_usd)
 
   const cells: Cell[] = [
     {
@@ -30,12 +38,18 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled }: {
       tone: totals?.change_24h_usd == null ? 'muted' : totals.change_24h_usd >= 0 ? 'gain' : 'loss',
     },
     {
-      // 天数照实说：日快照只保留 30 天，账户不满 30 天或中间缺日，窗口就短一截，
-      // 写死"30 天"会把一个 9 天的数字讲成一个月的成绩
-      label: a ? `${a.window_days} 天真实盈亏` : '真实盈亏',
-      value: a ? signedMoney(a.true_pnl) : '—',
-      note: a ? `${signedPercent(a.true_return)} · 已剔除充提` : '不可用',
-      tone: a ? (a.true_pnl >= 0 ? 'gain' : 'loss') : 'muted',
+      // 未实现盈亏来自成交重放（现货）与 positionRisk（合约），不是"期末 − 期初"。
+      // 后者在 Binance 上算不准：日快照只有三个钱包，钱包间划转会被算成盈亏。
+      label: '未实现盈亏',
+      value: unreal == null ? '—' : signedMoney(unreal),
+      note: unreal == null ? '不可用' : '现货按成本 · 合约按标记价',
+      tone: unreal == null ? 'muted' : unreal >= 0 ? 'gain' : 'loss',
+    },
+    {
+      label: '已实现盈亏',
+      value: real == null ? '—' : signedMoney(real),
+      note: real == null ? '不可用' : '现货全历史 · 合约近 30 天',
+      tone: real == null ? 'muted' : real >= 0 ? 'gain' : 'loss',
     },
     {
       label: '合约保证金率',

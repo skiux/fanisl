@@ -82,6 +82,14 @@ FUT_ACCOUNT = {
     "totalMarginBalance": "8806.58", "totalInitialMargin": "8443.77",
     "totalMaintMargin": "448.17", "availableBalance": "362.81",
     "maxWithdrawAmount": "362.81", "multiAssetsMargin": False,
+    # 合约钱包里逐个币的余额。marginBalance 比 walletBalance 多出来的部分是浮盈，
+    # 不是多出来的币——成本基础必须用 walletBalance。
+    "assets": [
+        {"asset": "USDT", "walletBalance": "8426.13", "marginBalance": "8806.58",
+         "availableBalance": "362.81"},
+        {"asset": "PAXG", "walletBalance": "0", "marginBalance": "0",
+         "availableBalance": "0"},
+    ],
     "positions": [
         {"symbol": "NVDAUSDT", "positionSide": "BOTH", "positionAmt": "38",
          "notional": "8299.96", "entryPrice": "205.60", "leverage": "3",

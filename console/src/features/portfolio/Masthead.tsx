@@ -4,6 +4,7 @@ import { AccountMenu } from '../../components/AccountMenu'
 import { StatusDot } from '../../components/Primitives'
 import { cn } from '../../lib/cn'
 import { clockTime, freshnessOf } from '../../lib/format'
+import { useIsAdmin } from '../../lib/role'
 import { hrefOf, PAGES, type PageKey } from '../../lib/router'
 import type { SourceState } from '../../api/types'
 
@@ -54,6 +55,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
   page: PageKey
   title: string
 }) {
+  const isAdmin = useIsAdmin()
   const degraded = sources.filter((source) => source.status !== 'ok')
   const { level } = freshnessOf(asOf)
 
@@ -94,14 +96,21 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
             )
           })}
           {/* 另一个应用的入口属于**导航**，不属于右侧那堆控件——
-              它去的是另一个地方，不是这一份报表的另一节。用一条竖线分开。 */}
-          <i aria-hidden="true" className="h-3 w-px bg-rule-strong" />
-          <a
-            className="whitespace-nowrap text-xs text-ink-3 transition-colors duration-200 hover:text-ink-2"
-            href="/"
-          >
-            知识库
-          </a>
+              它去的是另一个地方，不是这一份报表的另一节。用一条竖线分开。
+
+              只给管理员：对成员来说资产台就是全部，给一个他用不上的入口
+              只会让"这是一个独立的东西"这件事变模糊。 */}
+          {isAdmin && (
+            <>
+              <i aria-hidden="true" className="h-3 w-px bg-rule-strong" />
+              <a
+                className="whitespace-nowrap text-xs text-ink-3 transition-colors duration-200 hover:text-ink-2"
+                href="/"
+              >
+                知识库
+              </a>
+            </>
+          )}
         </nav>
 
         {/* 这一组也要能折行：流水页比另外两页多一个区间选择器，375px 下正好顶出去，
@@ -123,7 +132,9 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
             用户管理这类页面没有数据来源，整条取数状态就不该出现——
             `sources=[]` 时原来会显示"截至 —· 0 个来源正常"，读着像故障。
           */}
-          {sources.length > 0 && (
+          {/* 取数状态是运维信息：来源健康、口径、页面时刻。成员要看的是自己的钱
+              怎么样，这些只是噪音，而且泄露的是系统内部构造。 */}
+          {isAdmin && sources.length > 0 && (
             <>
               <span className="tnum text-xs text-ink-2">截至 {clockTime(asOf)}</span>
               <span className="flex items-center gap-1.5">

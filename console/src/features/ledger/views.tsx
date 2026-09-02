@@ -5,6 +5,7 @@ import type {
   LedgerEntry, LedgerGroup, LedgerSnapshot, LedgerSourceWindow, SourceKey,
 } from '../../api/types'
 import { Timeline } from './Timeline'
+import { useIsAdmin } from '../../lib/role'
 
 export type LedgerFilter = 'all' | LedgerGroup
 
@@ -210,6 +211,9 @@ function WindowPanel({ windows, window: range, down, span }: {
   down: SourceKey[]
   span: string
 }) {
+  // 端点、权重、扇出——这是接口的构造，只对维护的人有意义。成员看到的应该是
+  // "这段时间的钱怎么进出的"，不是"这些数字是从哪几个接口拼的"。
+  if (!useIsAdmin()) return null
   return (
     <Module
       figure={`${range.max_days} 天`}

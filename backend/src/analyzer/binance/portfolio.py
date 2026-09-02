@@ -19,6 +19,7 @@ from typing import Any, Callable
 
 from .cache import SourceCache, SourceResult, fetch_all
 from .client import BinanceClient
+from .costbasis import USD_QUOTES, held_across_wallets, replay, summarize
 from .common import (
     WALLET_KIND, dec, dec0, guard, ms_to_iso, price_map, usd_price, usd_value,
 )
@@ -43,7 +44,38 @@ TTL = {
     # 与流水页对齐。充值那半边权重只有 1，照旧 300 秒。
     "withdrawals": 900,
     "snapshots": 21_600,
+    # 成交历史只增不改，重放一次就够。放长不是省权重（单次 20 很便宜），
+    # 是因为全量重放要翻页，页数随成交笔数增长。
+    "trades": 21_600,
 }
+
+
+def _trade_jobs(client: BinanceClient, symbols: list[str]
+                ) -> list[tuple[str, int, Any]]:
+    """现货成交，按交易对一个来源。
+
+    必须第二阶段取：`myTrades` 的 symbol 必填，而"交易过哪些对"要先看余额，
+    余额本身又是第一阶段的来源。Binance 没有"我交易过哪些对"的接口。
+    """
+    return [(f"trades.{sym}", TTL["trades"],
+             (lambda s=sym: client.spot_trades_since(s))) for sym in symbols]
+
+
+def _cost_symbols(held: dict[str, float], prices: dict[str, float]) -> list[str]:
+    """要回放成交的交易对。
+
+    持有的每个币配一个 USDT 对——这是能做到的最好近似。**已经卖光的币查不到**：
+    它不在余额里，就没有线索指向它的交易对，而它的已实现盈亏是真金白银。
+    这条限制在接口里如实说出来（`coverage`），不假装总数是全的。
+    """
+    out = []
+    for asset, qty in held.items():
+        if qty <= 0 or asset in USD_QUOTES:
+            continue
+        pair = f"{asset}USDT"
+        if pair in prices:
+            out.append(pair)
+    return sorted(out)
 
 
 def _window_ms(now: datetime) -> tuple[int, int]:
@@ -231,6 +263,17 @@ def _futures(account: Any, config: Any, risk: Any, adl: Any) -> dict | None:
         "max_withdraw": dec0(account.get("maxWithdrawAmount")),
         "margin_ratio": (maint / margin_balance) if margin_balance > 0 else None,
         "positions": positions,
+        # 合约钱包里逐个币的余额。把 BNB 划进来当保证金 / 抵手续费是常见做法，
+        # 只看现货余额的话这些币就凭空消失了——成本基础按"账户一共有多少"算，
+        # 不认钱包。
+        "assets": [
+            {"asset": a.get("asset", ""),
+             "wallet_balance": dec0(a.get("walletBalance")),
+             "margin_balance": dec0(a.get("marginBalance")),
+             "available": dec0(a.get("availableBalance"))}
+            for a in account.get("assets", [])
+            if dec0(a.get("walletBalance")) != 0 or dec0(a.get("marginBalance")) != 0
+        ],
     }
 
 
@@ -280,6 +323,14 @@ def _margin(payload: Any, btc_usd: float | None) -> dict | None:
         level = None
     return {
         "margin_level": level,
+        # 同上：杠杆账户里也可能躺着现货币种
+        "assets": [
+            {"asset": a.get("asset", ""),
+             "free": dec0(a.get("free")), "locked": dec0(a.get("locked")),
+             "borrowed": dec0(a.get("borrowed")), "net": dec0(a.get("netAsset"))}
+            for a in payload.get("userAssets", [])
+            if dec0(a.get("netAsset")) != 0
+        ],
         "total_asset_usd": to_usd("totalAssetOfBtc"),
         "total_liability_usd": to_usd("totalLiabilityOfBtc"),
         "total_net_asset_usd": to_usd("totalNetAssetOfBtc"),
@@ -296,17 +347,25 @@ _INCOME_FIELD = {
 }
 
 
-def _income(rows: Any, since_ms: int | None = None) -> dict | None:
-    """`since_ms` 用来把损益裁到与净值曲线同一个窗口。
+def _income(rows: Any, prices: dict[str, float] | None = None,
+            since_ms: int | None = None) -> dict | None:
+    """合约损益按类型汇总，**统一换算成 USD**。
 
-    取数时按固定 30 天拉，但曲线的实际长度取决于 accountSnapshot 有多少天
-    （账户不满 30 天、或中间缺日都会变短）。归因表两边的窗口必须一致，
-    否则多出来的那几天损益会被残差项吸走，表面上照样闭合。
+    `income` 字段的单位是那一行的 `asset`，不一定是 USDT：手续费常常用 BNB 抵扣
+    （`asset: "BNB", income: "-0.012"`），联合保证金下资金费也可能结在别的币上。
+    不看 asset 直接相加，等于把 0.012 个 BNB 当成 0.012 美元——手续费会凭空少掉
+    几十倍。换不出价的行单独计数，在界面上说出来，而不是当 0 吞掉。
+
+    `since_ms` 把损益裁到与净值曲线同一个窗口：取数按固定 30 天拉，而曲线的实际
+    长度取决于 accountSnapshot 有多少天。两边窗口不一致的话，多出来的那几天会被
+    残差项吸走，表面上照样闭合。
     """
     if not isinstance(rows, list):
         return None
+    prices = prices or {}
     out = {"realized_pnl": 0.0, "funding_fee": 0.0, "commission": 0.0,
            "insurance_clear": 0.0, "referral_kickback": 0.0, "other": 0.0}
+    unpriced = 0
     for row in rows:
         if since_ms is not None:
             try:
@@ -314,11 +373,19 @@ def _income(rows: Any, since_ms: int | None = None) -> dict | None:
                     continue
             except (TypeError, ValueError):
                 continue
-        field = _INCOME_FIELD.get(row.get("incomeType", ""), "other")
         # TRANSFER 是划转，不是损益，绝不能进这里——它会把真实盈亏算错
         if row.get("incomeType") in ("TRANSFER", "INTERNAL_TRANSFER"):
             continue
-        out[field] += dec0(row.get("income"))
+        field = _INCOME_FIELD.get(row.get("incomeType", ""), "other")
+        amount = dec0(row.get("income"))
+        if amount == 0:
+            continue
+        usd = usd_value(row.get("asset", ""), amount, prices)
+        if usd is None:
+            unpriced += 1
+            continue
+        out[field] += usd
+    out["unpriced_rows"] = unpriced
     return out
 
 
@@ -445,6 +512,65 @@ def _equity_curve(spot_snap: Any, margin_snap: Any, futures_snap: Any,
 _SNAPSHOT_WALLETS = frozenset({"spot", "cross_margin", "usdm_futures"})
 
 
+def _pnl(spot_cost: dict | None, futures: dict | None,
+         income: dict | None) -> dict | None:
+    """盈亏构成。**每一项都有出处，没有残差项。**
+
+    原先这里是"期末 − 期初 − 净充提"，剩下的靠残差反解未实现变动。那条路在
+    Binance 上走不通：日快照只有三个钱包，理财 / 资金 / 币本位没有历史快照，
+    "全部钱包的期初"取不到；而只覆盖三个钱包的话，**钱包之间的划转会被算成盈亏**。
+    残差又会把这类口径错误照单全收，瀑布照样闭合——错了很久没人看得出来。
+
+    成交法对划转免疫：划转不是成交。
+
+        未实现 = 现货（市值 − 加权平均成本）+ 合约 unRealizedProfit
+        已实现 = 现货卖出实现的 + 合约 REALIZED_PNL
+        其他   = 资金费 + 手续费 + 返佣
+
+    三块的窗口不一样，这是接口的硬限，不是选择：
+    - 现货成交 `myTrades` 用 fromId 翻页，**没有时间上限**，是全历史
+    - 合约 `income` **只保留 90 天**，`userTrades` 同样只有 90 天
+    - 合约未实现来自 positionRisk，是**此刻**的值，没有窗口概念
+
+    所以界面上必须分开写，不能加成一个数说"这段时间赚了多少"。
+    """
+    spot_unreal = (spot_cost or {}).get("unrealized_usd")
+    spot_real = (spot_cost or {}).get("realized_usd")
+    fut_unreal = (futures or {}).get("total_unrealized_pnl")
+    fut_real = (income or {}).get("realized_pnl")
+
+    def total(*parts):
+        known = [p for p in parts if p is not None]
+        return sum(known) if known else None
+
+    if spot_cost is None and futures is None and income is None:
+        return None
+    return {
+        "unrealized": {
+            "spot_usd": spot_unreal,
+            "futures_usd": fut_unreal,
+            "total_usd": total(spot_unreal, fut_unreal),
+            "scope": "此刻的持仓",
+        },
+        "realized": {
+            "spot_usd": spot_real,
+            "spot_scope": "全部成交历史",
+            "futures_usd": fut_real,
+            "futures_scope": f"最近 {WINDOW_DAYS} 天（接口只保留 90 天）",
+        },
+        "carry": {
+            "funding_usd": (income or {}).get("funding_fee"),
+            "commission_usd": (income or {}).get("commission"),
+            "referral_usd": (income or {}).get("referral_kickback"),
+            "scope": f"最近 {WINDOW_DAYS} 天",
+        },
+        "spot_assets": (spot_cost or {}).get("assets", []),
+        "coverage": (spot_cost or {}).get("coverage"),
+        "incomplete_assets": (spot_cost or {}).get("incomplete_assets", []),
+        "failed_symbols": (spot_cost or {}).get("failed_symbols", []),
+    }
+
+
 def _comparable_equity(wallets: list[dict]) -> float | None:
     """与日快照同口径的期末净值：只取快照覆盖的那三个钱包。"""
     values = [w["value_usd"] for w in wallets
@@ -540,13 +666,50 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
     earn = block("earn", lambda: _earn(payload("earn.flexible"),
                                        payload("earn.locked"), prices), fallback=[]) or []
     margin = block("margin", lambda: _margin(payload("margin"), btc_usd))
-    income = block("income", lambda: _income(payload("income")))
+    income = block("income", lambda: _income(payload("income"), prices))
     transfers = block("transfers", lambda: _transfers(
         payload("transfers.deposits"), payload("transfers.withdrawals"), prices))
     curve, curve_detail = block("snapshots", lambda: _equity_curve(
         payload("snapshots.spot"), payload("snapshots.margin"),
         payload("snapshots.futures"), payload("snapshots.btc")),
         fallback=([], None)) or ([], None)
+
+    # --- 第二阶段：现货成交 ------------------------------------------------
+    # `myTrades` 的 symbol 必填，而"交易过哪些对"要先看余额——余额本身是第一阶段
+    # 的来源，所以只能分两轮。第二轮很小且缓存 6 小时，多一次往返换一个不靠残差的
+    # 盈亏数，值得。
+    held = held_across_wallets(spot, futures, margin, earn)
+    cost_symbols = _cost_symbols(held, prices)
+    trade_results: dict[str, SourceResult] = {}
+    if cost_symbols:
+        trade_results = fetch_all(cache, _trade_jobs(client, cost_symbols),
+                                  force=False, never_force=NEVER_FORCE)
+        results.update(trade_results)
+
+    def cost_basis() -> dict | None:
+        trades = []
+        missing = []
+        for sym in cost_symbols:
+            res = trade_results.get(f"trades.{sym}")
+            if res is None or not res.ok:
+                missing.append(sym)
+                continue
+            for row in res.payload or []:
+                trades.append({**row, "symbol": sym})
+        if missing and len(missing) == len(cost_symbols):
+            return None
+        out = summarize(
+            replay(trades,
+                   deposits=payload("transfers.deposits") or [],
+                   rewards=[]),
+            {a: usd_price(a, prices) for a in held} | {"USDT": 1.0},
+            held=held)
+        out["symbols"] = cost_symbols
+        # 已经卖光的币查不到：它不在余额里，就没有线索指向它的交易对。
+        # 说出来，别让人以为已实现是全的。
+        out["coverage"] = "只覆盖当前还持有的币；已清仓的标的查不到交易对"
+        out["failed_symbols"] = missing
+        return out
 
     # 净值以钱包分布为准：它是 Binance 自己给的、跨全部钱包的合计，
     # 比把各块自己加起来更不容易漏（漏一个钱包就少一块钱）。
@@ -596,9 +759,11 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "income": income,
         "transfers": transfers,
         "equity_curve": curve,
+        "pnl": block("pnl", lambda: _pnl(block("cost_basis", cost_basis),
+                                         futures, income)),
         "attribution": block("attribution", lambda: _attribution(
             curve, wallets,
             _transfers(payload("transfers.deposits"), payload("transfers.withdrawals"),
                        prices, _window_start(curve)),
-            _income(payload("income"), _window_start(curve)))),
+            _income(payload("income"), prices, _window_start(curve)))),
     }

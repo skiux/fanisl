@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { ArrowClockwise, Key, ListChecks, Lock, PlugsConnected, Receipt, Wallet } from '@phosphor-icons/react'
 import { Eyebrow } from '../../components/Primitives'
+import { useIsAdmin } from '../../lib/role'
 import type { SourceState } from '../../api/types'
 
 function Skel({ className, style }: { className: string; style?: CSSProperties }) {
@@ -163,7 +164,20 @@ export function EmptyLedgerState({ days }: { days: number }) {
 }
 
 export function UnauthorizedState({ sources, onRetry }: { sources: SourceState[]; onRetry: () => void }) {
+  const isAdmin = useIsAdmin()
   const detail = sources.find((s) => s.detail)?.detail
+
+  // 排查清单是给能改 .env 的人看的。成员既做不了也不该知道后端怎么放 key——
+  // 对他来说这就是"数据暂时读不到，去找管理员"。
+  if (!isAdmin) {
+    return (
+      <Frame
+        body="连接交易所的凭据还没配好或已失效，这里暂时读不到数据。找管理员处理。"
+        icon={<Key aria-hidden="true" size={19} />}
+        title="暂时读不到账户数据"
+      />
+    )
+  }
   return (
     <Frame
       action={<RetryButton label="再试一次" onRetry={onRetry} />}

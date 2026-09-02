@@ -182,6 +182,51 @@ export type Attribution = {
   true_return: number | null
 }
 
+export type SpotCostRow = {
+  asset: string
+  qty: number
+  avg_cost_usd: number | null
+  price_usd: number | null
+  value_usd: number | null
+  unrealized_usd: number | null
+  realized_usd: number | null
+  cost_known: boolean
+  is_cash: boolean
+}
+
+/**
+ * 盈亏构成。**每一项都有出处，没有残差项**（旧的 Attribution 是"期末 − 期初 −
+ * 净充提"，剩下的靠残差反解，钱包间划转会被算成盈亏）。
+ *
+ * 三块的窗口不一样，是接口的硬限：现货成交没有时间上限，合约损益只保留 90 天，
+ * 合约未实现是此刻的值。所以不能加成一个数说"这段时间赚了多少"。
+ */
+export type Pnl = {
+  unrealized: {
+    spot_usd: number | null
+    futures_usd: number | null
+    total_usd: number | null
+    scope: string
+  }
+  realized: {
+    spot_usd: number | null
+    spot_scope: string
+    futures_usd: number | null
+    futures_scope: string
+  }
+  carry: {
+    funding_usd: number | null
+    commission_usd: number | null
+    referral_usd: number | null
+    scope: string
+  }
+  spot_assets: SpotCostRow[]
+  /** 覆盖范围的实话：已清仓的标的查不到交易对 */
+  coverage: string | null
+  incomplete_assets: string[]
+  failed_symbols: string[]
+}
+
 export type PortfolioTotals = {
   equity_usd: number
   /** 合约名义敞口 / 净值。衡量真实杠杆，比单笔的 leverage 有意义 */
@@ -203,6 +248,7 @@ export type PortfolioSnapshot = {
   income: IncomeBreakdown | null
   transfers: Transfers | null
   equity_curve: EquityPoint[]
+  pnl: Pnl | null
   attribution: Attribution | null
 }
 

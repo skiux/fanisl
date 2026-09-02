@@ -9,6 +9,7 @@ import { SectionTabs, type TabItem } from '../portfolio/SectionTabs'
 import { ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from '../portfolio/states'
 import { OrdersStrip } from './OrdersStrip'
 import { HistoryView, OpenView } from './views'
+import { useIsAdmin } from '../../lib/role'
 
 type ViewKey = 'open' | 'history'
 
@@ -110,6 +111,7 @@ function Body({ phase, view, symbol, onSelectView, onSelectSymbol, onRetry }: {
   onSelectSymbol: (next: string) => void
   onRetry: () => void
 }) {
+  const isAdmin = useIsAdmin()
   if (phase.kind === 'loading') return <StatementSkeleton />
   if (phase.kind === 'failed') {
     return <div className="px-6 sm:px-10"><ErrorState message={phase.message} onRetry={onRetry} /></div>
@@ -152,11 +154,14 @@ function Body({ phase, view, symbol, onSelectView, onSelectSymbol, onRetry }: {
         </div>
       </div>
 
+      {/* 口径说明是给维护的人看的，成员看了只是噪音 */}
+      {isAdmin && (
       <footer className="border-t border-rule bg-sheet-2/60 px-5 py-2.5 sm:px-10">
         <p className="text-xs text-ink-3">
           挂单可一次取全账户 · 历史与成交必须按交易对查，区间与回溯都有接口上限 · 取不到的项目留空
         </p>
       </footer>
+      )}
     </>
   )
 }

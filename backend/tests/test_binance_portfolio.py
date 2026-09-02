@@ -40,7 +40,7 @@ def test_snapshot_shape_matches_contract(cache):
     snap = build(cache)
     assert set(snap) == {"as_of", "base_currency", "sources", "totals", "wallets", "spot",
                          "futures", "earn", "margin", "income", "transfers",
-                         "equity_curve", "attribution"}
+                         "equity_curve", "pnl", "attribution"}
     assert snap["base_currency"] == "USD"
     assert {s["key"] for s in snap["sources"]} == {
         "prices", "wallets", "spot", "futures", "earn", "margin",
@@ -381,3 +381,93 @@ def test_malformed_response_degrades_one_block_not_the_whole_page(cache):
     assert states["spot"]["status"] == "ok" and snap["spot"]
     assert states["wallets"]["status"] == "ok" and snap["wallets"]
     assert snap["totals"] is not None
+
+
+# --- 盈亏构成（成交法） ----------------------------------------------------
+
+def test_pnl_has_no_residual_every_line_has_a_source(cache):
+    """原先未实现变动是残差反解的，任何口径错误都会被它吸走而看不出来。
+    现在每一项都有出处：现货来自成交重放，合约来自 positionRisk 与 income。"""
+    snap = build(cache)
+    pnl = snap["pnl"]
+    assert pnl["unrealized"]["futures_usd"] == pytest.approx(
+        snap["futures"]["total_unrealized_pnl"])
+    assert pnl["realized"]["futures_usd"] == pytest.approx(
+        snap["income"]["realized_pnl"])
+    # 三块的窗口不一样，接口的硬限，必须分开说
+    assert "全部成交历史" in pnl["realized"]["spot_scope"]
+    assert "90 天" in pnl["realized"]["futures_scope"]
+
+
+def test_pnl_is_immune_to_wallet_transfers(cache):
+    """这是换掉快照差额法的全部理由。把币从一个钱包挪到另一个，
+    成交没变、持有量没变，盈亏就一分都不该动。"""
+    before = build(cache)["pnl"]
+
+    # 把 2 个 BNB 从现货挪进合约钱包：总持有量不变，只是换了地方
+    from binance_mock import FUT_ACCOUNT, USER_ASSET
+    bnb = next(a for a in USER_ASSET if a["asset"] == "BNB")
+    moved = dict(bnb, free="2.212")
+    USER_ASSET[USER_ASSET.index(bnb)] = moved
+    FUT_ACCOUNT.setdefault("assets", []).append(
+        {"asset": "BNB", "walletBalance": "2.0", "marginBalance": "2.0",
+         "availableBalance": "2.0"})
+    try:
+        with cache.pool.connection() as conn:
+            conn.execute("TRUNCATE binance_cache")
+        after = build(cache)["pnl"]
+        assert after["unrealized"]["spot_usd"] == pytest.approx(
+            before["unrealized"]["spot_usd"])
+        assert after["realized"]["spot_usd"] == pytest.approx(
+            before["realized"]["spot_usd"])
+    finally:
+        USER_ASSET[USER_ASSET.index(moved)] = bnb
+        FUT_ACCOUNT["assets"] = [a for a in FUT_ACCOUNT["assets"]
+                                 if a["asset"] != "BNB"]
+
+
+def test_income_converts_by_asset_not_by_raw_amount(cache):
+    """手续费常常用 BNB 抵扣（asset: BNB, income: -0.012）。不看 asset 直接相加
+    等于把 0.012 个 BNB 当成 0.012 美元——手续费会凭空少掉几十倍。"""
+    from binance_mock import INCOME
+    extra = {"symbol": "BNBUSDT", "incomeType": "COMMISSION", "income": "-0.01",
+             "asset": "BNB", "time": int(NOW.timestamp() * 1000)}
+    base = build(cache)["income"]["commission"]
+    INCOME.append(extra)
+    try:
+        with cache.pool.connection() as conn:
+            conn.execute("TRUNCATE binance_cache")
+        after = build(cache)["income"]["commission"]
+        # 0.01 BNB 按 BNB 的美元价折算，不是 0.01 美元
+        from binance_mock import PRICES
+        bnb_usd = float(next(p["price"] for p in PRICES if p["symbol"] == "BNBUSDT"))
+        assert after == pytest.approx(base - 0.01 * bnb_usd)
+        assert abs(after - (base - 0.01)) > 1.0     # 确实不是当成 0.01 美元
+    finally:
+        INCOME.remove(extra)
+
+
+def test_futures_wallet_exposes_per_asset_balances(cache):
+    """把币划进合约当保证金是常见做法。只读 totalWalletBalance 的话，
+    这些币在成本基础里就凭空消失了。"""
+    snap = build(cache)
+    by = {a["asset"]: a for a in snap["futures"]["assets"]}
+    assert by["USDT"]["wallet_balance"] == pytest.approx(8426.13)
+    # marginBalance 含浮盈，成本基础不能用它
+    assert by["USDT"]["margin_balance"] == pytest.approx(8806.58)
+    assert "PAXG" not in by      # 余额为 0 的不占位
+
+
+def test_cost_basis_counts_coins_sitting_in_the_futures_wallet(cache):
+    """合约钱包里的 USDT 要算进持有量——只看现货的话它凭空少一大块。"""
+    snap = build(cache)
+    usdt = next(a for a in snap["pnl"]["spot_assets"] if a["asset"] == "USDT")
+    spot_usdt = next(a["total"] for a in snap["spot"] if a["asset"] == "USDT")
+    fut_usdt = next(a["wallet_balance"] for a in snap["futures"]["assets"]
+                    if a["asset"] == "USDT")
+    marg_usdt = sum(a["net"] for a in snap["margin"]["assets"] if a["asset"] == "USDT")
+    earn_usdt = sum(e["amount"] for e in snap["earn"] if e["asset"] == "USDT")
+
+    assert usdt["qty"] > spot_usdt          # 光看现货会少一大块
+    assert usdt["qty"] == pytest.approx(spot_usdt + fut_usdt + marg_usdt + earn_usdt,
+                                        rel=1e-9)

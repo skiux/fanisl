@@ -285,6 +285,31 @@ class BinanceClient:
                                {"symbol": symbol, "startTime": start_ms,
                                 "endTime": end_ms, "limit": limit})
 
+    def spot_trades_since(self, symbol: str, *, from_id: int = 0,
+                          limit: int = 1000, max_pages: int = 20) -> list[dict]:
+        """一个交易对的成交，从 `from_id` 起往后取全。
+
+        用 `fromId` 而不是时间窗：`startTime`/`endTime` 同时给的时候窗口最多 24 小时，
+        要回溯全历史就得翻上千次；`fromId` 没有时间上限，一次 1000 条往前走。
+        成本基础必须看**全部**成交，少一笔均价就错。
+
+        `max_pages` 是护栏：单次调用权重 20，20 页就是 400，够 2 万笔成交。
+        真的超了会在返回里少数据——调用方拿最后一个 tradeId 下次接着走。
+        """
+        out: list[dict] = []
+        cursor = from_id
+        for _ in range(max_pages):
+            page = self.signed_get(SPOT_BASE, "/api/v3/myTrades",
+                                   {"symbol": symbol, "fromId": cursor, "limit": limit})
+            if not isinstance(page, list) or not page:
+                break
+            out.extend(page)
+            if len(page) < limit:
+                break
+            # fromId 是"**大于等于**"，不加一会把最后一条重复取一遍，永远走不完
+            cursor = max(int(t.get("id", 0)) for t in page) + 1
+        return out
+
     def futures_user_trades(self, symbol: str, *, start_ms: int, end_ms: int,
                             limit: int = 500) -> Any:
         return self.signed_get(FAPI_BASE, "/fapi/v1/userTrades",

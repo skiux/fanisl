@@ -10,6 +10,7 @@ import { EmptyLedgerState, ErrorState, StatementSkeleton, StaleBanner, Unauthori
 import { LedgerStrip } from './LedgerStrip'
 import { WindowSwitcher } from './WindowSwitcher'
 import { FILTER_LABEL, filterEntries, LedgerView, type LedgerFilter } from './views'
+import { useIsAdmin } from '../../lib/role'
 
 const FILTERS: LedgerFilter[] = ['all', 'external', 'income', 'internal']
 
@@ -108,6 +109,7 @@ function Body({ phase, filter, onSelectFilter, onRetry }: {
   onSelectFilter: (key: LedgerFilter) => void
   onRetry: () => void
 }) {
+  const isAdmin = useIsAdmin()
   if (phase.kind === 'loading') return <StatementSkeleton />
   if (phase.kind === 'failed') {
     return <div className="px-6 sm:px-10"><ErrorState message={phase.message} onRetry={onRetry} /></div>
@@ -145,11 +147,14 @@ function Body({ phase, filter, onSelectFilter, onRetry }: {
         </div>
       </div>
 
+      {/* 口径说明是给维护的人看的，成员看了只是噪音 */}
+      {isAdmin && (
       <footer className="border-t border-rule bg-sheet-2/60 px-5 py-2.5 sm:px-10">
         <p className="text-xs text-ink-3">
           八个接口合并成一条时间线，每条记录带着自己的出处 · 能看多久由其中最紧的那个决定 · 内部划转不计入净额
         </p>
       </footer>
+      )}
     </>
   )
 }
