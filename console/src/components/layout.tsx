@@ -10,24 +10,26 @@ import { useIsAdmin } from '../lib/role'
  * 单列堆叠下每一节都得横跨整幅版心，窄内容于是被拉出上千像素的空档，
  * 或者被限宽后在右侧留一片空。模块按自己的天然宽度占列，并排铺满。
  */
-export function Module({ title, figure, tone, note, span, onOpen, children }: {
+export function Module({ title, figure, tone, note, caliber, span, onOpen, children }: {
   title: string
   figure?: string
   tone?: 'gain' | 'loss' | 'accent' | 'muted'
+  /** 数据本身的一部分（条数、区间长度），谁都看得到 */
   note?: string
+  /** 这一块是怎么算的，只给管理员。与 `note` 分开的理由见 Figure */
+  caliber?: string
   /** 12 栏栅格里占几栏 */
   span: string
   onOpen?: () => void
   children: ReactNode
 }) {
-  // 标题旁那行小字讲的是口径——"钱在哪个钱包"、"越线才需要处理"、"已剔除充提"。
-  // 成员看的是数字本身，这些既是噪音，也在讲系统内部是怎么算的。
   const isAdmin = useIsAdmin()
+  const hint = note ?? (isAdmin ? caliber : undefined)
   const head = (
     <div className="flex items-baseline justify-between gap-4 border-b border-rule pb-2.5">
       <div className="flex items-baseline gap-2.5">
         <h3 className="section-title text-base">{title}</h3>
-        {isAdmin && note && <span className="text-xs text-ink-3">{note}</span>}
+        {hint && <span className="text-xs text-ink-3">{hint}</span>}
       </div>
       <div className="flex items-baseline gap-2">
         {figure && (
@@ -58,12 +60,25 @@ export function Module({ title, figure, tone, note, span, onOpen, children }: {
   )
 }
 
-export function Figure({ label, value, tone, note }: {
+/**
+ * 一个读数。
+ *
+ * **`note` 与 `caliber` 是两件事，故意分开。** 之前它们都叫 `note`：一边是数据
+ * （"3"、"QQQ"），一边是口径（"占成交额"、"仓位已占用"）。混在一个字段里，
+ * 按角色收的时候只能一刀切——要么把口径留给成员，要么把数据也一起藏掉。
+ * 分成两个字段之后，这个区别写在类型上，后面的人不会再糊在一起。
+ */
+export function Figure({ label, value, tone, note, caliber }: {
   label: string
   value: string
   tone?: 'gain' | 'loss'
+  /** 数据本身的一部分，谁都看得到 */
   note?: string
+  /** 这个数是怎么算的，只给管理员 */
+  caliber?: string
 }) {
+  const isAdmin = useIsAdmin()
+  const hint = note ?? (isAdmin ? caliber : undefined)
   return (
     <div>
       <dt className="text-xs text-ink-3">{label}</dt>
@@ -71,7 +86,7 @@ export function Figure({ label, value, tone, note }: {
         <span className={cn('tnum text-lg', tone === 'gain' ? 'text-gain' : tone === 'loss' ? 'text-loss' : 'text-ink')}>
           {value}
         </span>
-        {note && <span className="text-xs text-ink-3">{note}</span>}
+        {hint && <span className="text-xs text-ink-3">{hint}</span>}
       </dd>
     </div>
   )

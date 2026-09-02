@@ -30,12 +30,12 @@ const byKind = (rows: LedgerEntry[], kind: LedgerEntry['kind']) =>
 
 /** 各筛选下该看的四个数不一样，硬套同一组只会有一半是废格子 */
 function summaryOf(all: LedgerEntry[], rows: LedgerEntry[], filter: LedgerFilter) {
-  const count = { label: '记录数', value: `${rows.length} 笔` }
+  const count = { label: '记录数', value: `${rows.length}` }
   switch (filter) {
     case 'external':
       return [
-        { label: '充值', value: money(sumUsd(byKind(rows, 'deposit'))), note: `${byKind(rows, 'deposit').length} 笔` },
-        { label: '提现', value: money(Math.abs(sumUsd(byKind(rows, 'withdraw')))), note: `${byKind(rows, 'withdraw').length} 笔` },
+        { label: '充值', value: money(sumUsd(byKind(rows, 'deposit'))), note: `${byKind(rows, 'deposit').length}` },
+        { label: '提现', value: money(Math.abs(sumUsd(byKind(rows, 'withdraw')))), note: `${byKind(rows, 'withdraw').length}` },
         { label: '净流入', value: signedMoney(sumUsd(rows)), tone: sumUsd(rows) >= 0 ? 'gain' as const : 'loss' as const },
         count,
       ]
@@ -51,9 +51,9 @@ function summaryOf(all: LedgerEntry[], rows: LedgerEntry[], filter: LedgerFilter
     }
     case 'internal':
       return [
-        { label: '钱包划转', value: money(Math.abs(sumUsd(byKind(rows, 'transfer')))), note: `${byKind(rows, 'transfer').length} 笔` },
-        { label: '闪兑', value: money(Math.abs(sumUsd(byKind(rows, 'convert')))), note: `${byKind(rows, 'convert').length} 笔` },
-        { label: '小额兑换', value: money(Math.abs(sumUsd(byKind(rows, 'dust')))), note: `${byKind(rows, 'dust').length} 笔` },
+        { label: '钱包划转', value: money(Math.abs(sumUsd(byKind(rows, 'transfer')))), note: `${byKind(rows, 'transfer').length}` },
+        { label: '闪兑', value: money(Math.abs(sumUsd(byKind(rows, 'convert')))), note: `${byKind(rows, 'convert').length}` },
+        { label: '小额兑换', value: money(Math.abs(sumUsd(byKind(rows, 'dust')))), note: `${byKind(rows, 'dust').length}` },
         count,
       ]
     default: {
@@ -100,7 +100,7 @@ export function LedgerView({ snapshot, veiled, filter }: {
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>
-          <Module note="八个接口合并，这一类的全没回来" span="lg:col-span-7" title="流水取不到">
+          <Module caliber="八个接口合并，这一类的全没回来" span="lg:col-span-7" title="流水取不到">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
               这一页没有单一的数据源，时间线是下面这些端点各拉一段拼出来的。
               相关的几个这次都没返回，所以这里既不给记录也不给合计——
@@ -128,7 +128,7 @@ export function LedgerView({ snapshot, veiled, filter }: {
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
         <Module
-          note={`${snapshot.window.days} 天 · ${rows.length} 笔`}
+          note={`${snapshot.window.days} 天 · ${rows.length}`}
           span="lg:col-span-8"
           title="流水"
         >

@@ -126,103 +126,53 @@ function Empty({ children }: { children: string }) {
   return <p className="py-10 text-center text-sm text-ink-3">{children}</p>
 }
 
-const LIMIT_ROW = 'grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_104px]'
-
-export function LimitOrderTable({ orders }: { orders: Order[] }) {
-  if (orders.length === 0) return <Empty>没有限价挂单。</Empty>
-  return (
-    <>
-      <div className={cn(LIMIT_ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
-        <span>交易对</span>
-        <span className="hidden sm:block">方向</span>
-        <span className="hidden sm:block">委托价</span>
-        <span className="hidden sm:block">数量</span>
-        <span className="text-right sm:text-left">名义</span>
-        <span className="hidden sm:block">距成交</span>
-      </div>
-      <ul className="divide-y divide-rule">
-        {orders.map((order) => (
-          <li className={cn(LIMIT_ROW, 'py-3 transition-colors duration-200 hover:bg-sheet-2/45')} key={order.id}>
-            <SymbolCell order={order} />
-            <div className="hidden sm:block"><SideKind order={order} /></div>
-            <div className="tnum hidden truncate text-sm text-ink sm:block">{price(order.price)}</div>
-            <div className="hidden sm:block"><Filled order={order} /></div>
-            <div className="tnum truncate text-right text-sm text-ink-2 sm:text-left">
-              {money(order.notional_usd)}
-            </div>
-            <div className="hidden sm:block"><Gap label="距成交" order={order} /></div>
-            <MobileDetail order={order} />
-          </li>
-        ))}
-      </ul>
-    </>
-  )
-}
-
-const COND_ROW = 'grid grid-cols-[minmax(0,1fr)_76px] items-center gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.1fr)_76px]'
+const OPEN_ROW = 'grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_104px]'
 
 /**
- * 条件单的列和限价单不是一套：这里要看的是触发价、按什么价触发、触发后干什么。
- * 排得比限价单窄——它天生行数少，和限价单并排放正好把一行填满。
+ * 挂单表。**限价与条件在同一张表里**。
+ *
+ * 上一版按类型切成两个模块，可每一行本来就写着自己是限价还是条件——分开等于把
+ * 同一件事说两遍。更要命的是"我现在只想看合约"这种问题跨在两块之上，切开反而更难答。
+ * 类型现在是筛选项之一，与账户并排。
+ *
+ * 价格那一列对两类是同一个意思：**你等的那个价**。限价单是委托价，条件单是触发价，
+ * 表头因此写"价格"，行内用小字说明是哪一种。
  */
-export function ConditionalOrderTable({ orders }: { orders: Order[] }) {
-  if (orders.length === 0) return <Empty>没有条件单。</Empty>
+export function OpenOrderTable({ orders }: { orders: Order[] }) {
+  if (orders.length === 0) return <Empty>没有符合条件的挂单。</Empty>
   return (
     <>
-      <div className={cn(COND_ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
+      <div className={cn(OPEN_ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
         <span>交易对</span>
-        <span className="hidden sm:block">触发价</span>
-        <span className="hidden sm:block">触发后</span>
-        <span>距触发</span>
+        <span className="hidden sm:block">方向 / 类型</span>
+        <span className="hidden sm:block">价格</span>
+        <span className="hidden sm:block">数量</span>
+        <span className="text-right sm:text-left">名义</span>
+        <span className="hidden sm:block">距触发</span>
       </div>
       <ul className="divide-y divide-rule">
-        {orders.map((order) => (
-          <li className={cn(COND_ROW, 'py-2.5 transition-colors duration-200 hover:bg-sheet-2/45')} key={order.id}>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="truncate text-sm text-ink">{baseOf(order.symbol)}</span>
-                <VenueTag venue={order.venue} />
-                {order.order_list_id && (
-                  <span className="rounded-[4px] border border-accent/40 px-1 py-px font-mono text-[9px] uppercase tracking-wider text-accent">
-                    OCO
-                  </span>
-                )}
+        {orders.map((order) => {
+          const stop = order.stop_price ?? order.activate_price
+          const target = stop ?? order.price
+          return (
+            <li className={cn(OPEN_ROW, 'py-3 transition-colors duration-200 hover:bg-sheet-2/45')} key={order.id}>
+              <SymbolCell order={order} />
+              <div className="hidden sm:block"><SideKind order={order} /></div>
+              <div className="hidden min-w-0 sm:block">
+                <div className="tnum truncate text-sm text-ink">{price(target)}</div>
+                <div className="truncate text-micro text-ink-3">
+                  {stop !== null ? '触发价' : '委托价'}
+                </div>
               </div>
-              <div className="truncate text-micro text-ink-3">
-                {order.side === 'buy' ? '买入' : '卖出'} · {ORDER_KIND_LABEL[order.kind] ?? order.kind}
+              <div className="hidden sm:block"><Filled order={order} /></div>
+              <div className="tnum truncate text-right text-sm text-ink-2 sm:text-left">
+                {money(order.notional_usd)}
               </div>
-              <div className="tnum truncate text-micro text-ink-3 sm:hidden">
-                触发 {price(order.stop_price ?? order.activate_price)}
-                {order.close_position && ' · 全平仓位'}
-                {!order.close_position && order.reduce_only && ' · 只减仓'}
-              </div>
-            </div>
-            <div className="hidden min-w-0 sm:block">
-              <div className="tnum truncate text-sm text-ink">
-                {price(order.stop_price ?? order.activate_price)}
-              </div>
-              <div className="truncate text-micro text-ink-3">
-                {order.trigger_by === 'mark' ? '标记价' : order.trigger_by === 'last' ? '最新价' : '—'}
-              </div>
-            </div>
-            <div className="hidden min-w-0 sm:block">
-              {/* 现货没有"减仓/平仓"这回事，落到这一列的是委托数量本身 */}
-              <div className="truncate text-sm text-ink-2">
-                {order.close_position ? '全平仓位'
-                  : order.reduce_only ? '只减仓'
-                    : order.venue === 'spot' ? amount(order.orig_qty)
-                      : '新开仓'}
-              </div>
-              <div className="tnum truncate text-micro text-ink-3">
-                {order.callback_rate !== null ? `回调 ${percent(order.callback_rate, 1)}`
-                  : order.kind === 'stop' || order.kind === 'take_profit'
-                    ? `限价 ${price(order.price)}`
-                    : amount(order.orig_qty)}
-              </div>
-            </div>
-            <Gap label="距触发" order={order} />
-          </li>
-        ))}
+              <div className="hidden sm:block"><Gap label="距触发" order={order} /></div>
+              <MobileDetail order={order} />
+            </li>
+          )
+        })}
       </ul>
     </>
   )

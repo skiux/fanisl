@@ -140,7 +140,7 @@ function BucketRow({ bucket }: { bucket: Bucket }) {
             <div className="truncate text-sm text-ink-2">
               {LEDGER_KIND_LABEL[bucket.kind] ?? bucket.kind}
             </div>
-            <div className="truncate text-micro text-ink-3">{bucket.entries.length} 笔</div>
+            <div className="truncate text-micro text-ink-3">{bucket.entries.length}</div>
           </div>
         </div>
         <div className="tnum hidden truncate text-sm text-ink-3 sm:block">
@@ -180,7 +180,7 @@ export function Timeline({ entries }: { entries: LedgerEntry[] }) {
             <div className="flex items-baseline gap-2.5">
               <span className="tnum text-sm text-ink">{day.date.slice(5)}</span>
               <span className="text-micro text-ink-3">
-                {WEEKDAY[new Date(`${day.date}T00:00:00Z`).getUTCDay()]} · {day.count} 笔
+                {WEEKDAY[new Date(`${day.date}T00:00:00Z`).getUTCDay()]} · {day.count}
               </span>
             </div>
             {day.netCount > 0 && (

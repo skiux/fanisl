@@ -93,9 +93,8 @@ function PositionRow({ position }: { position: FuturesPosition }) {
           </div>
           <div className="tnum mt-1 text-xs text-ink-3">
             {/* 持仓数量：方向已经由上面的 Long/Short 表达，这里给绝对值 */}
-            <span className="text-ink-2">
-              {amount(Math.abs(position.position_amt))} {baseOf(position.symbol)}
-            </span>
+            {/* 标的代码上面那行已经有了，这里只给数量 */}
+            <span className="text-ink-2">{amount(Math.abs(position.position_amt))}</span>
             {' · '}{position.leverage}× · {position.isolated ? '逐仓' : '全仓'} · {money(position.notional_usd)}
           </div>
         </div>

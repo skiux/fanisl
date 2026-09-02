@@ -1,5 +1,6 @@
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
 import { useState } from 'react'
+import { SegmentedControl } from '../../components/controls'
 import { cn } from '../../lib/cn'
 import {
   CONDITIONAL_KINDS, money, ORDER_KIND_LABEL, percent, price, relativeTime,
@@ -7,52 +8,13 @@ import {
 } from '../../lib/format'
 import type { OrdersSnapshot, Order, OrderVenue, SourceKey } from '../../api/types'
 import { NoOrdersState } from '../portfolio/states'
-import {
-  ConditionalOrderTable, FillTable, gapOf, HistoryTable, LimitOrderTable,
-} from './OrderTables'
+import { FillTable, gapOf, HistoryTable, OpenOrderTable } from './OrderTables'
 
 export const isConditional = (order: Order) => CONDITIONAL_KINDS.has(order.kind)
 
 const VENUES: OrderVenue[] = ['spot', 'usdm', 'margin']
 
-/** 账户筛选。取不到的账户也列出来并标灰——不列的话，人会以为那个账户没挂单 */
-function VenueFilter({ value, onSelect, counts, total }: {
-  value: OrderVenue | null
-  onSelect: (venue: OrderVenue | null) => void
-  counts: { venue: OrderVenue; count: number; down: boolean }[]
-  total: number
-}) {
-  const items: { key: OrderVenue | null; label: string; count: number; down: boolean }[] = [
-    { key: null, label: '全部', count: total, down: false },
-    ...counts.map((row) => ({
-      key: row.venue as OrderVenue | null,
-      label: VENUE_LABEL[row.venue] ?? row.venue,
-      count: row.count,
-      down: row.down,
-    })),
-  ]
-  return (
-    <div className="mb-5 flex flex-wrap items-center gap-2">
-      {items.map((item) => (
-        <button
-          aria-pressed={value === item.key}
-          className={cn(
-            'rounded-[var(--radius-control)] border px-3 py-1 text-xs transition-colors duration-200',
-            value === item.key
-              ? 'border-rule-strong bg-sheet-2 text-ink'
-              : 'border-rule text-ink-3 hover:border-rule-strong hover:text-ink-2',
-          )}
-          key={item.label}
-          onClick={() => onSelect(item.key)}
-          type="button"
-        >
-          {item.label}
-          <span className="tnum ml-1.5 text-ink-3">{item.down ? '—' : item.count}</span>
-        </button>
-      ))}
-    </div>
-  )
-}
+type OrderKindFilter = 'all' | 'limit' | 'conditional'
 
 const VENUE_SOURCE: Record<OrderVenue, SourceKey> = {
   spot: 'spot_open',
@@ -64,10 +26,12 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
   // 按账户筛。三个账户的挂单原先揉在一张表里，只能靠每行的小标签分辨——
   // 而"我现在只想看合约"是这一页最常见的问题。
   const [only, setOnly] = useState<OrderVenue | null>(null)
+  const [kind, setKind] = useState<OrderKindFilter>('all')
   const shown = only === null ? snapshot.open
     : snapshot.open.filter((order) => order.venue === only)
   const limits = shown.filter((order) => !isConditional(order))
   const conditionals = shown.filter(isConditional)
+  const rows = kind === 'limit' ? limits : kind === 'conditional' ? conditionals : shown
   const notional = snapshot.open.reduce((sum, order) => sum + (order.notional_usd ?? 0), 0)
   const byVenue = VENUES.map((venue) => {
     const rows = snapshot.open.filter((order) => order.venue === venue)
@@ -107,7 +71,7 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>
-          <Module note="三个账户分别请求，这次都没回来" span="lg:col-span-7" title="挂单取不到">
+          <Module caliber="三个账户分别请求，这次都没回来" span="lg:col-span-7" title="挂单取不到">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
               现货、合约与杠杆的挂单各走一个接口，本次一个都没取到。
               这里不写「0 笔」——取不到和没有挂单是两回事。
@@ -131,29 +95,43 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
 
   return (
     <div className={cn(veiled && 'veiled')}>
-      <VenueFilter
-        counts={byVenue}
-        onSelect={setOnly}
-        total={snapshot.open.length}
-        value={only}
-      />
+      {/* 一张表。每一条已经写着自己是限价还是条件了，再按类型切成两块是把同一件事
+          说两遍——而且"我现在只想看合约"这种问题跨在两块之上，切开反而更难答。
+          类型成了筛选项之一，与账户并排。 */}
+      <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2">
+        <SegmentedControl
+          items={[
+            { value: 'all', label: '全部', badge: snapshot.open.length },
+            ...byVenue.map((row) => ({
+              value: row.venue, label: VENUE_LABEL[row.venue] ?? row.venue,
+              badge: row.down ? '—' : row.count, muted: row.down,
+            })),
+          ]}
+          label="账户"
+          onValueChange={(next) => setOnly(next === 'all' ? null : next as OrderVenue)}
+          size="sm"
+          value={only ?? 'all'}
+        />
+        <SegmentedControl
+          items={[
+            { value: 'all', label: '全部类型' },
+            { value: 'limit', label: '限价', badge: limits.length },
+            { value: 'conditional', label: '条件', badge: conditionals.length },
+          ]}
+          label="委托类型"
+          onValueChange={(next) => setKind(next as OrderKindFilter)}
+          size="sm"
+          value={kind}
+        />
+      </div>
       <ViewGrid>
         <Module
-          figure={money(limits.reduce((sum, order) => sum + (order.notional_usd ?? 0), 0))}
+          figure={money(rows.reduce((sum, order) => sum + (order.notional_usd ?? 0), 0))}
           note={downVenues.length > 0 ? '不含取不到的账户' : '名义合计'}
-          span="lg:col-span-7"
-          title="限价挂单"
+          span="lg:col-span-12"
+          title="挂单"
         >
-          <LimitOrderTable orders={limits} />
-        </Module>
-
-        <Module
-          figure={String(conditionals.length)}
-          note="触发后才真正下单"
-          span="lg:col-span-5"
-          title="条件单"
-        >
-          <ConditionalOrderTable orders={conditionals} />
+          <OpenOrderTable orders={rows} />
         </Module>
 
         <VenueBreakdown notional={notional} rows={byVenue} span="lg:col-span-4" />
@@ -174,12 +152,12 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
               value={medianAge === null ? '—' : `${Math.round(medianAge / 3600_000)} 小时`}
             />
             <Figure label="24 小时内新挂" value={String(freshCount)} />
-            <Figure label="已部分成交" note="仓位已占用" value={String(partial)} />
+            <Figure label="已部分成交" caliber="仓位已占用" value={String(partial)} />
           </dl>
         </Module>
 
         {snapshot.order_lists.length > 0 && (
-          <Module note="一条成交，另一条自动撤销" span="lg:col-span-4" title="OCO 组">
+          <Module caliber="一条成交，另一条自动撤销" span="lg:col-span-4" title="OCO 组">
             <ul className="space-y-4">
               {snapshot.order_lists.map((group) => {
                 const legs = snapshot.open.filter((order) => order.order_list_id === group.id)
@@ -216,7 +194,7 @@ function VenueBreakdown({ rows, notional, span }: {
   span: string
 }) {
   return (
-    <Module note="未成交量 × 委托价" span={span} title="按账户">
+    <Module caliber="未成交量 × 委托价" span={span} title="按账户">
       {rows.length > 0 ? (
         <ul className="space-y-3">
           {rows.map((row) => (
@@ -268,7 +246,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>
-          <Module note="委托与成交同源" span="lg:col-span-7" title="历史查询不可用">
+          <Module caliber="委托与成交同源" span="lg:col-span-7" title="历史查询不可用">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
               历史委托与成交明细都要按交易对逐次查询，这次的请求没有回来。
               交易对可以照常切换，但在接口恢复前这里不会有记录——空着，不拿别的区间顶替。
@@ -319,7 +297,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
 
           <Module
             figure={fills.length > 0 ? signedMoney(realized) : '—'}
-            note="区间内已实现"
+            caliber="区间内已实现"
             span=""
             title="成交小结"
             tone={fills.length === 0 ? 'muted' : realized >= 0 ? 'gain' : 'loss'}
@@ -338,7 +316,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
                   <Figure label="手续费" tone="loss" value={signedMoney(-fees)} />
                   <Figure
                     label="费率"
-                    note="占成交额"
+                    caliber="占成交额"
                     value={traded > 0 ? percent(fees / traded, 3) : '—'}
                   />
                 </dl>
@@ -372,7 +350,7 @@ function QueryPanel({ symbol, symbols, query, span, onSelectSymbol }: {
   onSelectSymbol: (next: string) => void
 }) {
   return (
-    <Module note="接口只允许按交易对查" span={span} title="查询范围">
+    <Module caliber="接口只允许按交易对查" span={span} title="查询范围">
       <label className="flex items-center gap-3">
         <span className="w-[56px] shrink-0 text-xs text-ink-2">交易对</span>
         <select
