@@ -42,6 +42,7 @@ App → AuthGate → 三个页面
 | `api/session.ts` | 会话 store + 登录/退出/改口令 + 管理员接口 |
 | `features/auth/AuthGate.tsx` | 闸门 |
 | `features/auth/LoginPage.tsx` | 登录页 |
+| `features/auth/AccountPage.tsx` | 自己的账号（`#/account`）：改口令、看/撤销会话 |
 | `features/auth/AdminPage.tsx` | 用户管理（`#/admin`，仅管理员，前后端都拦） |
 
 几处不是随手定的：
@@ -54,6 +55,8 @@ App → AuthGate → 三个页面
   就触发全局登出，登录页把自己重置一遍。
 - **管理页不复制后端的判定规则**（最后一个在岗管理员不能停用/降级/删除、不能删自己）。
   前端复制一遍必然与后端漂移，而漂移方向通常是前端更松。这里只把 409 的原话显示出来。
+- **账号页与用户管理页的纸张按内容收**，不钉在视口高度——那两页内容不多，钉住只会在
+  下面留一大片空白。数据页要钉住是另一回事：那是为了让切换分节时页面高度波动为 0。
 - **「没有数据」与「为什么没有」分开判**。原来写的是"每个来源都 unauthorized"，
   而 `prices` 是公开端点、没有 key 也照常返回，于是这个条件再也不成立——
   没配 key 会被误报成"账户里还没有资产"，屏幕上还留着一句"前往 Binance"，方向指反了。
@@ -63,7 +66,7 @@ App → AuthGate → 三个页面
 ```bash
 npm install
 npm run dev          # http://127.0.0.1:5175/console/
-npm test             # vitest：http 层与会话 13 条
+npm test             # vitest：http 层与会话
 npm run typecheck
 npm run build
 ```

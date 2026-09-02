@@ -41,7 +41,10 @@ function SessionChip() {
   const { user } = session
   return (
     <span className="flex items-center gap-2.5 whitespace-nowrap text-xs text-ink-3">
-      <span className="text-ink-2">{user.display_name || user.username}</span>
+      <a className="text-ink-2 transition-colors hover:text-ink" href="#/account"
+         title="账号与口令">
+        {user.display_name || user.username}
+      </a>
       {user.role === 'admin' && (
         <a className="transition-colors hover:text-ink" href="#/admin">用户</a>
       )}

@@ -118,7 +118,9 @@ def build_router(store: UserStore, settings: Settings) -> APIRouter:
             user_agent=request.headers.get("user-agent", ""), ip=ip)
         store.mark_login(row["id"])
         _set_cookie(response, token)
-        return {"user": _public(row)}
+        # 重新读一次：row 是 mark_login **之前**读到的，直接回它的话
+        # last_login_at 还是上一次登录的值——首次登录时界面上会显示"从未登录"
+        return {"user": _public(store.get(row["id"]) or row)}
 
     @router.post("/auth/logout")
     def logout(request: Request, response: Response) -> dict:

@@ -151,7 +151,13 @@ def ledger(days: int = 7, force: bool = False) -> dict:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "model": settings.model, "exchange": settings.exchange}
+    """存活探针。**全站唯一一个不需要登录的数据端点**，所以只回存活与否。
+
+    原来还回 model 与 exchange，但没有任何调用方读它们（前端不用，auto-update.sh
+    只看 HTTP 状态码），却把"这台机器用哪个 Claude 模型、连哪个交易所"白送给任何
+    扫到它的人。要看生效配置，进程启动第一屏就打印了，`journalctl -u fanisl-api` 可查。
+    """
+    return {"status": "ok"}
 
 
 @app.post("/chat", response_model=ChatResponse)

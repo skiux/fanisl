@@ -219,3 +219,26 @@ def test_no_symbols_means_no_query_not_a_fake_one(cache):
     assert snap["history_symbols"] == []
     assert snap["query"] is None
     assert snap["history"] == [] and snap["fills"] == []
+
+
+def test_malformed_response_degrades_one_group_not_the_page(cache):
+    """一组挂单的形状变了，只该带走那一组。"""
+    base = make_transport()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/fapi/v1/openOrders":
+            return httpx.Response(200, json=["not-an-object"])
+        return base.handler(request)
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        snap = build_orders(client, cache, force=True, now=NOW)
+    finally:
+        client.close()
+
+    states = {s["key"]: s for s in snap["sources"]}
+    assert states["futures_open"]["status"] == "unsupported"
+    assert "形状意外" in states["futures_open"]["detail"]
+    assert states["spot_open"]["status"] == "ok"
+    assert [o for o in snap["open"] if o["venue"] == "spot"]

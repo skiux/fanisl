@@ -14,13 +14,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 from .cache import SourceCache, SourceResult, fetch_all
 from .client import BinanceClient
 from .common import (
-    WALLET_KIND, base_of, dec, dec0, ms_to_iso, price_map, usd_price, usd_value,
+    WALLET_KIND, dec, dec0, guard, ms_to_iso, price_map, usd_price, usd_value,
 )
 
 WINDOW_DAYS = 30
@@ -108,7 +108,9 @@ _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
 }
 
 
-def _states(results: dict[str, SourceResult]) -> list[dict]:
+def _states(results: dict[str, SourceResult],
+            parse_errors: dict[str, str] | None = None) -> list[dict]:
+    parse_errors = parse_errors or {}
     out = []
     for key, (primary, extras) in _CONTRACT_SOURCES.items():
         head = results.get(primary)
@@ -120,9 +122,14 @@ def _states(results: dict[str, SourceResult]) -> list[dict]:
         # 主调用成功但某个补充调用挂了：状态仍是 ok（数据能用），但把缺了什么说出来，
         # 免得界面上出现"来源正常却少了强平价"这种说不清的情形。
         if state["status"] == "ok":
-            missing = [k for k in extras if not results[k].ok]
-            if missing:
-                state["detail"] = "部分补充数据取不到：" + "、".join(missing)
+            # 取到了但装配失败：数据是坏的，不能报 ok
+            if key in parse_errors:
+                state["status"] = "unsupported"
+                state["detail"] = parse_errors[key]
+            else:
+                missing = [k for k in extras if not results[k].ok]
+                if missing:
+                    state["detail"] = "部分补充数据取不到：" + "、".join(missing)
         out.append(state)
     return out
 
@@ -443,22 +450,34 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         got = results.get(key)
         return got.payload if got else None
 
-    prices = price_map(payload("prices"))
+    # 每一块单独装配。**装配失败只降级这一块**——缓存层兜得住网络错误，
+    # 但字段解析在它外面，Binance 改一次字段类型就会把整页 500 掉。
+    errors: dict[str, str] = {}
+
+    def block(key: str, fn, fallback=None):
+        value, error = guard(key, fn, fallback=fallback)
+        if error:
+            errors[key] = error
+        return value
+
+    prices = block("prices", lambda: price_map(payload("prices")), fallback={}) or {}
     btc_usd = prices.get("BTCUSDT")
 
-    wallets = _wallets(payload("wallets"), btc_usd)
-    spot = _spot(payload("spot"), prices)
-    futures = _futures(payload("futures.account"), payload("futures.config"),
-                       payload("futures.risk"), payload("futures.adl"),
-                       payload("brackets"))
-    earn = _earn(payload("earn.flexible"), payload("earn.locked"), prices)
-    margin = _margin(payload("margin"), btc_usd)
-    income = _income(payload("income"))
-    transfers = _transfers(payload("transfers.deposits"),
-                           payload("transfers.withdrawals"), prices)
-    curve, curve_detail = _equity_curve(
+    wallets = block("wallets", lambda: _wallets(payload("wallets"), btc_usd), fallback=[]) or []
+    spot = block("spot", lambda: _spot(payload("spot"), prices), fallback=[]) or []
+    futures = block("futures", lambda: _futures(
+        payload("futures.account"), payload("futures.config"),
+        payload("futures.risk"), payload("futures.adl"), payload("brackets")))
+    earn = block("earn", lambda: _earn(payload("earn.flexible"),
+                                       payload("earn.locked"), prices), fallback=[]) or []
+    margin = block("margin", lambda: _margin(payload("margin"), btc_usd))
+    income = block("income", lambda: _income(payload("income")))
+    transfers = block("transfers", lambda: _transfers(
+        payload("transfers.deposits"), payload("transfers.withdrawals"), prices))
+    curve, curve_detail = block("snapshots", lambda: _equity_curve(
         payload("snapshots.spot"), payload("snapshots.margin"),
-        payload("snapshots.futures"), payload("snapshots.btc"))
+        payload("snapshots.futures"), payload("snapshots.btc")),
+        fallback=([], None)) or ([], None)
 
     # 净值以钱包分布为准：它是 Binance 自己给的、跨全部钱包的合计，
     # 比把各块自己加起来更不容易漏（漏一个钱包就少一块钱）。
@@ -479,7 +498,7 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "change_24h_pct": change_24h_pct,
     }
 
-    states = _states(results)
+    states = _states(results, errors)
     if curve_detail:
         for state in states:
             if state["key"] == "snapshots" and state["status"] == "ok":
@@ -505,5 +524,6 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "income": income,
         "transfers": transfers,
         "equity_curve": curve,
-        "attribution": _attribution(curve, equity, transfers, income),
+        "attribution": block("attribution",
+                             lambda: _attribution(curve, equity, transfers, income)),
     }

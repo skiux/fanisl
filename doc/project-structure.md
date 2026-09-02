@@ -47,9 +47,25 @@ fanisl/
 - `migrate_sqlite.py` — 旧 SQLite → PG 一次性迁移。
 
 ### 组合根 / 配置
-- `runtime.py` — **共享对象装配**（pool/store/resolver/agent/trading_service/ACCOUNT_ID）。
-  三个入口都 import 它，各进程各建一份。
-- `config.py` — 集中配置（pydantic-settings）：API key、阈值、交易参数、采集/扫描节奏。
+- `runtime.py` — **共享对象装配**（pool/store/resolver/agent/trading_service/ACCOUNT_ID
+  + user_store + binance_client/binance_cache）。三个入口都 import 它，各进程各建一份。
+- `config.py` — 集中配置（pydantic-settings）：API key、阈值、交易参数、采集/扫描节奏、
+  登录与会话、Binance 只读凭据。
+
+### 登录与用户 `auth/`（2026-09-02，全站默认关门）
+中间件**默认拒绝**：新加的路由自动受保护，放行必须显式进白名单（只有 `/health`、
+`/auth/login`、`/auth/logout` 三条）。2~3 个成员 + 1 个管理员，**共用同一个 Binance
+只读账户**——用户系统解决的是"谁能看"，不是"看谁的"。
+口令用 stdlib scrypt（不引编译依赖）、会话 token 只存 sha256、CSRF 靠 SameSite=Lax。
+详见 [`auth/README.md`](../backend/src/analyzer/auth/README.md)。
+
+### 资产台数据层 `binance/`（2026-09-02）
+给 `console/` 供数的三组接口：`/portfolio` `/orders` `/ledger`。
+**不用 ccxt**——它的统一模型会抹掉这三页要的字段（现货四种锁定态、ADL 分位、
+条件单的 workingType/closePosition、维持保证金档位、日快照、理财持仓）。
+签名支持 Ed25519 / RSA / HMAC 三种 key（官方已把 HMAC 标为 deprecated）。
+按来源缓存 + 按来源降级：451 常常只打在 fapi 上，现货那半边照常。
+详见 [`binance/README.md`](../backend/src/analyzer/binance/README.md)。
 
 ### 数据层 `data/`（抽象 + 多源，加/换源只碰这里 + factory）
 - `base.py` — `MarketDataSource` 接口（OHLCV/ticker/衍生品/盘口）。

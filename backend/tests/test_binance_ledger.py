@@ -189,3 +189,46 @@ def test_different_windows_are_cached_separately(cache):
     first = len(calls)
     build(cache, days=30, calls=calls, force=False)
     assert any(p == "/sapi/v1/capital/deposit/hisrec" for p in calls[first:])
+
+
+def test_entry_ids_are_unique_even_without_a_natural_key(cache):
+    """前端拿 id 当 React key，撞了不会报错，只会渲染错行——那种看着正常的错。"""
+    snap = build(cache)
+    ids = [e["id"] for e in snap["entries"]]
+    assert len(ids) == len(set(ids))
+
+
+def test_unique_id_pass_handles_real_collisions():
+    """同一资产在同一时刻的两条派息就会撞——直接构造出来验去重本身。"""
+    from analyzer.binance.ledger import _ensure_unique_ids
+
+    rows = [{"id": "earn_rewards:T:USDT"}, {"id": "earn_rewards:T:USDT"},
+            {"id": "income:7001"}, {"id": "earn_rewards:T:USDT"}]
+    _ensure_unique_ids(rows)
+    ids = [r["id"] for r in rows]
+    assert ids == ["earn_rewards:T:USDT", "earn_rewards:T:USDT#1",
+                   "income:7001", "earn_rewards:T:USDT#2"]
+    assert len(set(ids)) == 4
+
+
+def test_malformed_response_degrades_one_kind_not_the_page(cache):
+    """一类流水的形状变了，只该带走那一类。"""
+    base = make_transport(ledger=True)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/sapi/v1/margin/interestHistory":
+            return httpx.Response(200, json={"rows": ["not-an-object"]})
+        return base.handler(request)
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        snap = build_ledger(client, cache, days=7, force=True, now=NOW)
+    finally:
+        client.close()
+
+    states = {s["key"]: s for s in snap["sources"]}
+    assert states["margin_interest"]["status"] == "unsupported"
+    assert "形状意外" in states["margin_interest"]["detail"]
+    assert states["deposits"]["status"] == "ok"
+    assert kinds(snap)["deposit"]      # 其余照常

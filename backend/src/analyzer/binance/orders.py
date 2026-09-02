@@ -16,12 +16,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 from .cache import SourceCache, SourceResult, fetch_all
 from .client import BinanceClient
-from .common import dec, dec0, ms_to_iso, price_map, usd_price
+from .common import dec, dec0, guard, ms_to_iso, price_map, usd_price
 
 MS_HOUR = 3_600_000
 
@@ -236,15 +236,25 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
             return marks[sym]
         return prices.get(sym) or usd_price(sym, prices)
 
+    # 每组单独装配：一组形状变了只带走那一组，不让整页 500（同 portfolio 的理由）
+    errors: dict[str, str] = {}
+
+    def parse(key: str, fn, fallback=None):
+        value, error = guard(key, fn, fallback=fallback)
+        if error:
+            errors[key] = error
+        return value
+
     open_orders: list[dict] = []
-    for key, venue_name in (("orders.spot_open", "spot"),
-                            ("orders.futures_open", "usdm"),
-                            ("orders.margin_open", "margin")):
-        for row in payload(key) or []:
-            open_orders.append(_order(row, venue_name,
-                                      reference_of(row.get("symbol", ""), venue_name == "usdm")))
-    open_orders.extend(_algo_orders(payload("orders.algo"),
-                                    lambda s: reference_of(s, True)))
+    for key, venue_name, state_key in (("orders.spot_open", "spot", "spot_open"),
+                                       ("orders.futures_open", "usdm", "futures_open"),
+                                       ("orders.margin_open", "margin", "margin_open")):
+        rows = parse(state_key, lambda k=key, v=venue_name: [
+            _order(row, v, reference_of(row.get("symbol", ""), v == "usdm"))
+            for row in payload(k) or []], fallback=[]) or []
+        open_orders.extend(rows)
+    open_orders.extend(parse("algo_open", lambda: _algo_orders(
+        payload("orders.algo"), lambda sym: reference_of(sym, True)), fallback=[]) or [])
     open_orders.sort(key=lambda o: o["created_at"] or "", reverse=True)
 
     futures_symbols = {r.get("symbol") for r in risk}
@@ -271,10 +281,12 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         h_res = hist[f"orders.history:{v}:{picked}"]
         t_res = hist[f"orders.trades:{v}:{picked}"]
         reference = reference_of(picked, v == "usdm")
-        history = [_order(r, v, reference) for r in (h_res.payload or [])]
-        history.sort(key=lambda o: o["created_at"] or "", reverse=True)
-        fills = [_fill(r, v) for r in (t_res.payload or [])]
-        fills.sort(key=lambda f: f["time"] or "", reverse=True)
+        history = parse("order_history", lambda: sorted(
+            (_order(r, v, reference) for r in (h_res.payload or [])),
+            key=lambda o: o["created_at"] or "", reverse=True), fallback=[]) or []
+        fills = parse("trade_history", lambda: sorted(
+            (_fill(r, v) for r in (t_res.payload or [])),
+            key=lambda f: f["time"] or "", reverse=True), fallback=[]) or []
         query = {
             "symbol": picked, "venue": v,
             "from": datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc).isoformat(),
@@ -301,6 +313,11 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         {"key": "algo_open", **_state(results["orders.algo"])},
         *history_states,
     ]
+    # 取到了但装配失败：数据是坏的，不能报 ok
+    for state in states:
+        if state["status"] == "ok" and state["key"] in errors:
+            state["status"] = "unsupported"
+            state["detail"] = errors[state["key"]]
     fresh = [datetime.fromisoformat(s["as_of"]) for s in states
              if s["status"] == "ok" and s["as_of"]]
 
@@ -308,7 +325,8 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         "as_of": min(fresh).isoformat() if fresh else None,
         "sources": states,
         "open": open_orders,
-        "order_lists": _order_lists(payload("orders.lists")),
+        "order_lists": parse("order_lists",
+                             lambda: _order_lists(payload("orders.lists")), fallback=[]) or [],
         "history_symbols": symbols,
         "query": query,
         "history": history,

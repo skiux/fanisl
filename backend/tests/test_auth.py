@@ -540,3 +540,25 @@ def test_auth_disabled_also_makes_me_work(auth_store):
         # 顶栏上要一眼看出这不是真登录
         assert user["display_name"] == "鉴权已关闭"
         assert user["role"] == "admin"      # 关了鉴权本来就什么都能做
+
+
+def test_login_response_reports_this_login_not_the_previous_one(client, admin):
+    """登录响应里的 last_login_at 必须是**这一次**。
+
+    mark_login 之前读到的那行还带着上一次的值，直接回它的话，首次登录后界面上
+    会显示"从未登录"——数字自相矛盾，而且只在第一次登录时看得见。
+    """
+    assert admin["last_login_at"] is None
+    body = login(client, "root", ADMIN_PW).json()
+    assert body["user"]["last_login_at"] is not None
+    assert client.get("/auth/me").json()["user"]["last_login_at"] == body["user"]["last_login_at"]
+
+
+def test_public_health_endpoint_discloses_nothing_beyond_liveness(real_client):
+    """/health 是全站唯一不需要登录的数据端点，回什么都等于公开。
+
+    它曾经回 model 与 exchange——没有调用方读（auto-update.sh 只看状态码），
+    却把"用哪个 Claude 模型、连哪个交易所"送给任何扫到这台机器的人。
+    """
+    body = real_client.get("/health").json()
+    assert body == {"status": "ok"}

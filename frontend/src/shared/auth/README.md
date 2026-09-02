@@ -48,9 +48,11 @@ main.tsx
 
 ## 测试
 
-- `session.test.ts`（vitest，11 条）：状态迁移、401 分流、`credentials: 'include'`、
+- `session.test.ts`（vitest）：状态迁移、401 分流、`credentials: 'include'`、
   退出失败的处理。
-- `e2e/auth.spec.ts`（Playwright，6 条 × 2 视口）：未登录只渲染登录页、口令错误、
+- `client.test.ts`：非 JSON 的错误响应要指到 nginx，而不是原样丢一句上游的
+  `Not Allowed`（线上真踩过，害人以为自己记错了口令）。
+- `e2e/auth.spec.ts`（Playwright，桌面与移动两个视口）：未登录只渲染登录页、口令错误、
   被限速、登录后停在原页、会话中途失效整体切回、顶栏退出。
 - 原有 e2e 用例经 `mockAuth` 默认注入一个已登录用户，验的仍是它们本来要验的东西。
 

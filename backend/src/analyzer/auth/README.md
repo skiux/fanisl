@@ -116,7 +116,7 @@ Lax 的语义是：跨站的**顶层 GET 导航**会带 cookie，跨站的 POST/
 
 ## 测试
 
-`backend/tests/test_auth.py`，43 条。分两层：
+`backend/tests/test_auth.py`。分两层：
 
 - **门本身**：用一个最小 app（一条受保护路由 + 真正的中间件），验登录、限速、
   会话失效、角色、各种 409 边界。
@@ -125,6 +125,10 @@ Lax 的语义是：跨站的**顶层 GET 导航**会带 cookie，跨站的 POST/
   这条测试递归走进 `include_router`——FastAPI 0.141 不再把子路由摊平进 `app.routes`，
   只遍历顶层会静默漏掉整组，而漏检在安全断言里等于假通过。
 
+另有 `tests/test_startup.py`：**起独立进程**验 `analyzer.main` 能 import
+（同进程 import 一次就缓存了，验不出东西）。runtime 在模块级就建连接池与客户端，
+构造期的任何异常都等于全站 502，而 nginx 只会给一句 Bad Gateway。
+
 ```bash
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_auth.py -q
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_auth.py tests/test_startup.py -q
 ```

@@ -115,9 +115,12 @@ export const WALLET_LABEL: Record<string, string> = {
   isolated_margin: '逐仓杠杆',
   funding: '资金账户',
   earn: '理财',
+  options: '期权',
+  trading_bots: '策略交易',
 }
 
 export const SOURCE_LABEL: Record<string, string> = {
+  prices: '现价',
   wallets: '钱包分布',
   spot: '现货账户',
   futures: '合约账户',
@@ -183,6 +186,8 @@ export const ORDER_KIND_LABEL: Record<string, string> = {
   take_profit: '止盈限价',
   take_profit_market: '止盈市价',
   trailing_stop_market: '追踪止损',
+  twap: 'TWAP 策略',
+  vp: '成交量占比策略',
 }
 
 export const ORDER_STATUS_LABEL: Record<string, string> = {

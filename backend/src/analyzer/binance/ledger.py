@@ -16,12 +16,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Callable
 
-from .cache import SourceCache, SourceResult, fetch_all
+from .cache import SourceCache, fetch_all
 from .client import BinanceClient
-from .common import dec, dec0, ms_to_iso, price_map, usd_value
+from .common import dec, dec0, guard, ms_to_iso, price_map, usd_value
 
 MS_DAY = 86_400_000
 
@@ -243,6 +243,22 @@ def _dust(payload: Any, prices: dict[str, float]) -> list[dict]:
     return out
 
 
+def _ensure_unique_ids(entries: list[dict]) -> None:
+    """保证 id 全局唯一。
+
+    有自然主键的（tranId / txId / orderId / positionId）直接用；剩下几类只能靠
+    来源+时刻+资产拼，理论上会撞——同一资产在同一时刻的两条理财派息就是一例。
+    前端拿 id 当 React key，撞了不会报错，只会**渲染错行**，是那种看着正常的错。
+    """
+    seen: dict[str, int] = {}
+    for entry in entries:
+        base = entry["id"]
+        n = seen.get(base, 0)
+        seen[base] = n + 1
+        if n:
+            entry["id"] = f"{base}#{n}"
+
+
 def build_ledger(client: BinanceClient, cache: SourceCache, *, days: int = 7,
                  force: bool = False, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
@@ -286,17 +302,29 @@ def build_ledger(client: BinanceClient, cache: SourceCache, *, days: int = 7,
     prices = price_map(payload("prices"))
     transfer_payloads = {k: payload(f"ledger.transfer:{k}:{tag}") for k in TRANSFER_TYPES}
 
+    # 每一类单独装配：一类形状变了只带走那一类（同 portfolio 的理由）
+    errors: dict[str, str] = {}
+
+    def parse(key: str, fn) -> list[dict]:
+        value, error = guard(key, fn, fallback=[])
+        if error:
+            errors[key] = error
+        return value or []
+
     entries: list[dict] = []
-    entries += _deposits(payload(f"ledger.deposits:{tag}"), prices)
-    entries += _withdrawals(payload(f"ledger.withdrawals:{tag}"), prices)
-    entries += _income(payload(f"ledger.income:{tag}"), prices)
-    entries += _transfers(transfer_payloads, prices)
-    entries += _earn_rewards(payload(f"ledger.earn_flex:{tag}"),
-                             payload(f"ledger.earn_locked:{tag}"), prices)
-    entries += _margin_interest(payload(f"ledger.interest:{tag}"), prices)
-    entries += _convert(payload(f"ledger.convert:{tag}"), prices)
-    entries += _dust(payload(f"ledger.dust:{tag}"), prices)
+    entries += parse("deposits", lambda: _deposits(payload(f"ledger.deposits:{tag}"), prices))
+    entries += parse("withdrawals",
+                     lambda: _withdrawals(payload(f"ledger.withdrawals:{tag}"), prices))
+    entries += parse("income", lambda: _income(payload(f"ledger.income:{tag}"), prices))
+    entries += parse("wallet_transfers", lambda: _transfers(transfer_payloads, prices))
+    entries += parse("earn_rewards", lambda: _earn_rewards(
+        payload(f"ledger.earn_flex:{tag}"), payload(f"ledger.earn_locked:{tag}"), prices))
+    entries += parse("margin_interest",
+                     lambda: _margin_interest(payload(f"ledger.interest:{tag}"), prices))
+    entries += parse("convert", lambda: _convert(payload(f"ledger.convert:{tag}"), prices))
+    entries += parse("dust", lambda: _dust(payload(f"ledger.dust:{tag}"), prices))
     entries.sort(key=lambda e: e["time"] or "", reverse=True)
+    _ensure_unique_ids(entries)
 
     # 划转的状态取这 12 次调用里最坏的那个：只要有一种没问到，这一类就是不完整的
     transfer_results = [results[f"ledger.transfer:{k}:{tag}"] for k in TRANSFER_TYPES]
@@ -316,6 +344,10 @@ def build_ledger(client: BinanceClient, cache: SourceCache, *, days: int = 7,
                "as_of": r.as_of.isoformat() if r.as_of else None,
                "detail": r.detail}
               for key, r in source_of.items()]
+    for state in states:
+        if state["status"] == "ok" and state["key"] in errors:
+            state["status"] = "unsupported"
+            state["detail"] = errors[state["key"]]
     fresh = [datetime.fromisoformat(s["as_of"]) for s in states
              if s["status"] == "ok" and s["as_of"]]
 

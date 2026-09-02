@@ -92,6 +92,20 @@ export async function changePassword(current: string, next: string): Promise<voi
   })
 }
 
+export type SessionRow = {
+  created_at: string
+  last_seen_at: string
+  expires_at: string
+  user_agent: string
+  ip: string
+}
+
+export const listSessions = () => apiJson<SessionRow[]>('/auth/sessions')
+
+/** 撤销**全部**会话，包括当前这条——后端就是这个语义，界面上不要说成"其他设备"。 */
+export const revokeAllSessions = () =>
+  apiJson<{ revoked: number }>('/auth/sessions', { method: 'DELETE' })
+
 /* --------------------------- 管理员 --------------------------- */
 
 export const listUsers = () => apiJson<User[]>('/admin/users')

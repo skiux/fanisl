@@ -68,6 +68,12 @@ fapi 上**，现货那半边不该跟着一起坏。
 | 过期且失败 | **旧数据** + 真实失败原因 + **旧时刻** | 蒙上 `.veiled`，标红原因 |
 | 从未成功 | `null` | 留空，不是 0 |
 
+**装配失败也按来源降级。** 缓存层只兜得住网络与 HTTP 错误（`BinanceError`），而字段解析
+在它外面——Binance 改一次字段类型（数组元素从对象变字符串这类），整页就会 500，
+而 nginx 只给一句 Bad Gateway。所以每一块装配都过 `common.guard()`：失败时这一块变
+`null`、该来源记 `unsupported`、原因进 `detail` 显示在「取数状态」里，同时打到 stderr
+（journalctl 可查）。**不静默吞掉，也不带走别的来源。**
+
 错误分成五类（对齐契约的 `SourceStatus`）。分类是给人看的：`unauthorized` 说明去查 key
 权限与 IP 白名单，`unreachable` 说明等网络或换出口——两者处置完全不同，不该混成一句"失败"。
 时钟漂移（`-1021`）是唯一自动重试的错误，重新对时后重试一次；其余重试只会浪费权重预算。
@@ -139,8 +145,8 @@ IP 权重上限 **6000/分钟**。而：
 
 ## 测试
 
-`tests/test_binance_{signing,portfolio,orders,ledger}.py`，69 条，全部用 `httpx.MockTransport`
-喂**真实形状**的响应，不联网。样本在 `tests/binance_mock.py` 三组共用——各写一份必然漂移：
+`tests/test_binance_{signing,portfolio,orders,ledger}.py`，全部用 `httpx.MockTransport`
+喂**真实形状**的响应，不联网。上面「读文档才知道的坑」那张表里的每一条都有测试盯着。样本在 `tests/binance_mock.py` 三组共用——各写一份必然漂移：
 改了一处样本，另一处还在验旧形状，而两边都是绿的。
 
 样本按用户的实际持仓形态编（美股永续 NVDA/QQQ 为主，现货只留 BNB 与稳定币）。

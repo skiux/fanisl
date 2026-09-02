@@ -196,7 +196,9 @@ def test_missing_prices_degrade_to_null_not_zero(cache):
     # 稳定币不依赖行情端点，$1 仍然成立；其余一律留空而不是记 0
     assert by["USDT"]["price_usd"] == 1.0
     assert by["BNB"]["value_usd"] is None and by["PAXG"]["value_usd"] is None
-    # 钱包余额是 BTC 计价的，没有 BTCUSDT 就换不出 USD
+    # 钱包余额是 BTC 计价的，没有 BTCUSDT 就换不出 USD。
+    # 先断言非空：wallets 为空时 all() 恒真，这条会空跑通过。
+    assert snap["wallets"]
     assert all(w["value_usd"] is None for w in snap["wallets"])
     assert snap["totals"] is None            # 净值算不出来就整块留空
     assert snap["attribution"] is None
@@ -287,3 +289,36 @@ def test_page_as_of_falls_back_when_no_live_source_succeeds(cache):
     assert live == []
     # 日线（公开端点）仍然取到了，页面时刻退回到它
     assert snap["as_of"] is not None
+
+
+def test_malformed_response_degrades_one_block_not_the_whole_page(cache):
+    """一个来源的形状变了，只该带走那一块。
+
+    缓存层兜得住网络与 HTTP 错误，但**字段解析在它外面**。Binance 改过字段类型
+    （数组元素从对象变字符串这类），改之前这种情况会让整页 500——nginx 只给一句
+    Bad Gateway，而设计原则从头到尾都是"按来源降级"。
+    """
+    base = make_transport()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/fapi/v2/account":
+            # positions 从对象数组变成字符串数组
+            return httpx.Response(200, json={"totalWalletBalance": "1",
+                                             "positions": ["oops"]})
+        return base.handler(request)
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        snap = build_portfolio(client, cache, force=True, now=NOW)   # 不抛就是通过
+    finally:
+        client.close()
+
+    states = {s["key"]: s for s in snap["sources"]}
+    assert states["futures"]["status"] == "unsupported"
+    assert "形状意外" in states["futures"]["detail"]
+    assert snap["futures"] is None
+    # 其余照常
+    assert states["spot"]["status"] == "ok" and snap["spot"]
+    assert states["wallets"]["status"] == "ok" and snap["wallets"]
+    assert snap["totals"] is not None

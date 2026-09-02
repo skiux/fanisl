@@ -55,7 +55,8 @@ export function AdminPage() {
 
   return (
     <div className="min-h-[100dvh] bg-desk px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-6">
-      <div className="sheet mx-auto flex max-w-[1420px] flex-col lg:h-[calc(100dvh-3rem)]">
+      {/* 这两页内容不多，纸张按内容收——钉在视口高度只会在下面留一大片空白 */}
+      <div className="sheet mx-auto flex max-w-[1420px] flex-col">
         <Masthead asOf={null} onRefresh={() => { void load() }} page="admin"
                   refreshing={false} sources={[]} title="用户管理" />
 
@@ -64,7 +65,7 @@ export function AdminPage() {
             <ErrorState message="需要管理员权限" onRetry={() => { void load() }} />
           </div>
         ) : (
-          <div className="scroll-y min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8">
+          <div className="min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8">
             <div className="rise">
               {error && (
                 <p className="mb-6 rounded-[var(--radius-control)] border-l-2 border-loss bg-loss/[0.07] px-3 py-2.5 text-xs text-loss"

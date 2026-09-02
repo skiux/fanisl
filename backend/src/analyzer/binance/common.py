@@ -7,8 +7,11 @@ Binance 的数值**一律是字符串**（"0.00000000"），而且缺字段与�
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable, TypeVar
+
+T = TypeVar("T")
 
 # walletName → 契约里的 WalletKind。未登记的名字（期权、策略交易之类）原样 slug 化，
 # 不丢弃——丢掉就等于把那部分钱从总额里抹掉了。
@@ -94,3 +97,22 @@ def base_of(symbol: str) -> str:
         if symbol.endswith(quote) and len(symbol) > len(quote):
             return symbol[: -len(quote)]
     return symbol
+
+
+def guard(label: str, fn: Callable[[], T], *, fallback: T | None = None
+          ) -> tuple[T | None, str | None]:
+    """跑一个装配步骤，失败就降级成"这一块没有"，而不是把整页带走。
+
+    缓存层只兜得住**网络与 HTTP 错误**（BinanceError），而字段解析是在它外面做的。
+    Binance 改过字段类型（数组元素从对象变字符串这类），那时整页会 500，
+    而设计原则是按来源降级——一个来源坏了，其余照常。
+
+    错误文本会进到该来源的 detail 里，界面上的「取数状态」看得见；同时打到 stderr，
+    journalctl 里能查。**不静默吞掉**。
+    """
+    try:
+        return fn(), None
+    except Exception as exc:  # noqa: BLE001 — 装配失败只降级这一块
+        detail = f"数据形状意外（{type(exc).__name__}: {exc}）"
+        print(f"[fanisl] binance 装配失败 {label}: {exc!r}", file=sys.stderr, flush=True)
+        return fallback, detail

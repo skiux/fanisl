@@ -16,6 +16,9 @@
 
 /** 能独立失败的来源分组。451 打在 fapi 上会同时带走 futures 与 income，但不影响 spot。 */
 export type SourceKey =
+  // 行情是**公开端点**，不需要凭据。它单独成一个来源：没配 key 时它照常正常，
+  // 而其余全部 unauthorized——界面据此能分清"网络/凭据问题"与"确实没有资产"。
+  | 'prices'
   | 'wallets' | 'spot' | 'futures' | 'brackets'
   | 'earn' | 'margin' | 'income' | 'transfers' | 'snapshots'
   // 委托页
@@ -36,9 +39,15 @@ export type SourceState = {
 }
 
 /** GET /sapi/v1/asset/wallet/balance 的 walletName 取值 */
+/**
+ * `walletName` 的取值。未登记的名字后端会 slug 化后原样返回（而不是丢弃——
+ * 丢掉就等于把那部分钱从净值里抹掉），所以这里留一个 string 兜底。
+ */
 export type WalletKind =
   | 'spot' | 'funding' | 'cross_margin' | 'isolated_margin'
   | 'usdm_futures' | 'coinm_futures' | 'earn'
+  | 'options' | 'trading_bots'
+  | (string & {})
 
 export type WalletBucket = {
   kind: WalletKind
@@ -230,6 +239,9 @@ export type OrderKind =
   | 'stop' | 'stop_market'
   | 'take_profit' | 'take_profit_market'
   | 'trailing_stop_market'
+  // 策略单（/sapi/v1/algo/futures/openOrders）。多数账户是空的，
+  // 但"空"与"没查"是两回事，不查就等于悄悄漏掉一类挂单。
+  | 'twap' | 'vp'
 
 export type OrderStatus =
   | 'new' | 'partially_filled' | 'filled'
