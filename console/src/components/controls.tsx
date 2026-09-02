@@ -34,7 +34,7 @@ export function SegmentedControl<K extends string>({
   return (
     <ToggleGroup.Root
       aria-label={label}
-      className={cn('flex flex-wrap items-center', size === 'sm' ? 'gap-1' : 'gap-1.5')}
+      className={cn('flex flex-wrap items-center', size === 'sm' ? 'gap-4' : 'gap-5')}
       onValueChange={(next) => { if (next) onValueChange(next as K) }}
       type="single"
       value={value}
@@ -42,13 +42,18 @@ export function SegmentedControl<K extends string>({
       {items.map((item) => (
         <ToggleGroup.Item
           className={cn(
-            'rounded-[var(--radius-control)] border transition-colors duration-200',
-            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2',
+            // 选中态只用颜色 + 一条下划线，不用方框。报头导航一直就是这么写的
+            // （current ? text-ink : text-ink-3）——上一版给它套了边框和底色，
+            // 在这套纸面语言里读着像一个禁用的按钮。
+            'relative whitespace-nowrap pb-1 outline-none transition-colors duration-200',
+            'text-ink-3 hover:text-ink-2 data-[state=on]:text-ink',
+            'after:absolute after:inset-x-0 after:bottom-0 after:h-px after:origin-left',
+            'after:scale-x-0 after:bg-ink after:transition-transform after:duration-200',
+            'data-[state=on]:after:scale-x-100',
+            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4',
             'focus-visible:outline-accent',
-            size === 'sm' ? 'px-2 py-0.5 text-[12px]' : 'px-2.5 py-1 text-xs',
-            'border-transparent text-ink-3 hover:text-ink-2',
-            'data-[state=on]:border-rule-strong data-[state=on]:bg-sheet-2 data-[state=on]:text-ink',
-            item.muted && 'opacity-45',
+            size === 'sm' ? 'text-xs' : 'text-sm',
+            item.muted && 'opacity-40',
           )}
           key={item.value}
           value={item.value}

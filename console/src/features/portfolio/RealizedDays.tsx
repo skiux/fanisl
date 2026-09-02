@@ -28,7 +28,7 @@ import type { DailyRealized } from '../../api/types'
 const PRESETS = { '7': 7, '30': 30, '90': 90 } as const
 type Preset = keyof typeof PRESETS | 'custom'
 
-const H = 96          // 绘图区高度，零线居中
+const H = 150         // 绘图区高度，零线居中。96px 时柱子又宽又矮，读不出形状
 
 export function RealizedDays({ days, maxDays }: { days: DailyRealized[]; maxDays: number }) {
   const [preset, setPreset] = useState<Preset>('30')
@@ -81,50 +81,53 @@ export function RealizedDays({ days, maxDays }: { days: DailyRealized[]; maxDays
       </div>
 
       <figure className="m-0">
-        {/* 用 flex 画柱子，不用 SVG。SVG 要么固定宽高比（三十根柱子在宽屏上会被拉扁），
-            要么 preserveAspectRatio="none"——那会把 x 轴单独拉伸，圆角变成椭圆、
-            间距跟着变形。DOM 元素没有这个问题，2px 的间距就是 2px。 */}
-        <div
-          className="flex items-stretch gap-[2px]"
-          onPointerLeave={() => setHover(null)}
-          style={{ height: H }}
-        >
-          {shown.map((day) => {
-            const value = day.realized_usd
-            const share = Math.abs(value) / peak
-            const up = value >= 0
-            const dim = hover !== null && hover !== day.date
-            return (
-              <button
-                aria-label={`${day.date} ${day.traded ? signedMoney(value) : '没有交易'}`}
-                className="group relative flex-1 outline-none"
-                key={day.date}
-                onFocus={() => setHover(day.date)}
-                onPointerEnter={() => setHover(day.date)}
-                type="button"
-              >
-                {/* 零线穿过每一列的正中，是这张图唯一的实线 */}
-                <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-rule-strong" />
-                <span
-                  className={cn(
-                    'absolute inset-x-0 rounded-[2px] transition-opacity duration-150',
-                    !day.traded || value === 0 ? 'bg-rule'
-                      : up ? 'bg-gain' : 'bg-loss',
-                    dim && 'opacity-30',
-                    'group-focus-visible:outline group-focus-visible:outline-1',
-                    'group-focus-visible:outline-offset-2 group-focus-visible:outline-accent',
-                  )}
-                  style={day.traded && value !== 0 ? {
-                    height: `${Math.max(share * 46, 1.5)}%`,
-                    [up ? 'bottom' : 'top']: '50%',
-                  } : { height: '2px', top: 'calc(50% - 1px)' }}
-                />
-              </button>
-            )
-          })}
+        {/* 零线画在容器上，**一条**，不是每列各画一段——上一版就是那样，
+            三十段之间隔着柱间距，看着是一排虚线。 */}
+        <div className="relative" onPointerLeave={() => setHover(null)} style={{ height: H }}>
+          <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-rule-strong" />
+          <div className="relative flex h-full items-stretch">
+            {shown.map((day) => {
+              const value = day.realized_usd
+              const share = Math.abs(value) / peak
+              const up = value >= 0
+              const dim = hover !== null && hover !== day.date
+              const bar = day.traded && value !== 0
+              return (
+                <button
+                  aria-label={`${day.date} ${bar ? signedMoney(value) : '没有交易'}`}
+                  className="group relative flex-1 outline-none"
+                  key={day.date}
+                  onFocus={() => setHover(day.date)}
+                  onPointerEnter={() => setHover(day.date)}
+                  type="button"
+                >
+                  {/* 柱子细、居中、封顶。上一版让它撑满整列，三十天里只有十来天有交易，
+                      每根柱子六十来像素宽——读着是色块，不是图。 */}
+                  <span
+                    className={cn(
+                      'absolute left-1/2 w-[62%] max-w-[13px] -translate-x-1/2 rounded-[1.5px]',
+                      'transition-opacity duration-150',
+                      !bar ? 'bg-rule' : up ? 'bg-gain' : 'bg-loss',
+                      dim && 'opacity-25',
+                      'group-focus-visible:outline group-focus-visible:outline-1',
+                      'group-focus-visible:outline-offset-2 group-focus-visible:outline-accent',
+                    )}
+                    style={bar ? {
+                      height: `${Math.max(share * 47, 1.2)}%`,
+                      [up ? 'bottom' : 'top']: '50%',
+                    } : {
+                      // 没交易：一个几乎看不见的点，只为让这一列可点、可读出日期
+                      height: '3px', width: '3px', top: 'calc(50% - 1.5px)',
+                      borderRadius: '50%',
+                    }}
+                  />
+                </button>
+              )
+            })}
+          </div>
         </div>
 
-        <figcaption className="mt-2 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <figcaption className="mt-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
           <span className="tnum text-micro text-ink-3">
             {shown[0]?.date} — {shown.at(-1)?.date}
           </span>
