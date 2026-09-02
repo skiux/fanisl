@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import atexit
+import os
 import threading
 
 from .agent import Agent
@@ -56,9 +57,24 @@ _described = [(label, *describe_conninfo(conninfo)) for label, conninfo in _dbs]
 _remote = [label for label, _, local in _described if not local]
 print("[fanisl] 库 " + " | ".join(f"{label}={where}" for label, where, _ in _described),
       flush=True)
+if _remote and not os.getenv("FANISL_ALLOW_REMOTE_DB"):
+    # **拒绝启动，不是警告。** 上一版只打一行 ⚠——而警告会随启动日志滚过去，
+    # 照样把服务跑在生产库上（2026-09-03 就这么发生了一次）。可以被忽略的警告
+    # 就一定会被忽略；这条线要么拦住，要么不如不写。
+    #
+    # 生产服务器自己不受影响：那边的 conninfo 是 `host=127.0.0.1 dbname=fanisl`，
+    # 没有 port、走默认 5432，判定为本机。只有开发机上指着 5433 隧道时才会拦。
+    #
+    # 确实要用本地服务读生产（复现线上问题），加 FANISL_ALLOW_REMOTE_DB=1。
+    raise SystemExit(
+        f"[fanisl] 拒绝启动：{'、'.join(_remote)} 指向远端"
+        f"（多半是 5433 那条通到生产的隧道）。\n"
+        f"  · 本地开发：tools/dev_db.sh 建库，然后\n"
+        f"      FANISL_ENV_FILE=.env.dev PYTHONPATH=src .venv/bin/uvicorn analyzer.main:app --port 8000\n"
+        f"  · 确实要读生产：FANISL_ALLOW_REMOTE_DB=1 再启动\n"
+        f"  详见 backend/README.md「本地开发用隔离的库」")
 if _remote:
-    print(f"[fanisl] ⚠ {'、'.join(_remote)} 指向**远端**（多半是 5433 那条生产隧道）。"
-          f"本地开发请改用本机库，见 backend/README.md「本地开发用隔离的库」。",
+    print("[fanisl] ⚠ 正在使用**远端**库（FANISL_ALLOW_REMOTE_DB 已设）。写操作会落在生产上。",
           flush=True)
 
 # --- 行情库（行情时间序列 + 对话）---

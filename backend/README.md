@@ -44,17 +44,19 @@ uv run uvicorn analyzer.main:app --reload --app-dir src
 做开发：页面上显示的是生产缓存下来的真实数字，而任何写入直接落在生产上。
 2026-09-02 就因此在生产库里误建过一个账号。
 
-一次性建好三个本机库：
+一次性建好三个本机库，然后起服务：
 
 ```bash
 tools/dev_db.sh
 ```
 
-之后用隔离配置启动（`.env.dev` 已在仓库里，没有机密）：
-
 ```bash
-FANISL_ENV_FILE=.env.dev PYTHONPATH=src .venv/bin/uvicorn analyzer.main:app --port 8000
+tools/dev.sh
 ```
+
+`dev.sh` 首次运行会生成 `.env.dev`（不入库——名字是凭据形态，见
+`tests/test_no_tracked_secrets.py`），然后带着它启动。**一条命令，不用记前缀**：
+靠人记住 `FANISL_ENV_FILE=` 这种前缀，和之前靠人记住改 `.env` 是同一个失败模式。
 
 表结构不用管：各个 Store 构造时都 `CREATE TABLE IF NOT EXISTS`，空库自己会长出来。
 
@@ -63,7 +65,11 @@ FANISL_ENV_FILE=.env.dev PYTHONPATH=src .venv/bin/uvicorn analyzer.main:app --po
 见 config.py 的注释）。所以在命令行前面覆盖单个变量会被 `.env` 静默盖掉——看着像
 生效了，实际连的还是生产。`FANISL_ENV_FILE` 换的是整份来源，不会有这个问题。
 
-启动第一屏会打印连的是哪个库；连着远端时还会多一行 ⚠。
+**直接 `uvicorn` 起会拒绝启动**，因为 `.env` 指着生产隧道。上一版只打一行 ⚠——
+而警告会随启动日志滚过去，照样把服务跑在生产库上（真发生过）。可以被忽略的警告
+就一定会被忽略。确实要用本地服务读生产（复现线上问题）时加 `FANISL_ALLOW_REMOTE_DB=1`。
+
+生产服务器不受影响：那边的 conninfo 没有 `port=`，走默认 5432，判定为本机。
 `python -m analyzer.auth.bootstrap` 在库指向远端时**默认拒绝执行**，要故意对生产
 建账号得加 `--remote`。
 

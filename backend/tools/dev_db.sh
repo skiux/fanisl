@@ -19,17 +19,17 @@ done
 
 cat <<'ENV'
 
-把下面几行放进 backend/.env.dev，然后用它启动：
+建好了。启动本地服务：
 
-  PG_CONNINFO=dbname=fanisl_dev
-  PG_TRADING_CONNINFO=dbname=fanisl_dev_trading
-  PG_KNOWLEDGE_CONNINFO=dbname=fanisl_dev_knowledge
-  AUTH_ENABLED=false
+  tools/dev.sh
 
-启动：
+它等价于（`.env.dev` 已在仓库里，没有机密）：
 
-  cd backend && env $(grep -v '^#' .env.dev | xargs) \
-    PYTHONPATH=src .venv/bin/uvicorn analyzer.main:app --port 8000
+  FANISL_ENV_FILE=.env.dev PYTHONPATH=src .venv/bin/uvicorn analyzer.main:app --port 8000
 
-启动第一屏会打印连的是哪个库。看到 ⚠ 就说明还连着远端。
+注意**不能**写成 `PG_CONNINFO=... uvicorn`：dotenv 的优先级高于 shell 环境变量
+（见 config.py 的注释），在命令行前面覆盖单个变量会被 .env 静默盖掉。
+所以换的是整份配置文件。
+
+直接 `uvicorn` 起会拒绝启动——.env 指着生产隧道。
 ENV
