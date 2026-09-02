@@ -1,8 +1,11 @@
 import { useEffect, useSyncExternalStore, type ReactNode } from 'react'
-import { setUnauthenticatedHandler } from '../api/client'
-import LoginPage from './LoginPage'
-import { getSession, markAnonymous, refreshSession, subscribe } from './session'
+import { ApiError, setUnauthenticatedHandler } from '../api/client'
+import LoginPage from '../../../../shared/login/LoginPage'
+import { getSession, login, markAnonymous, refreshSession, subscribe } from './session'
 import './auth.css'
+
+// 登录页是两个应用共用的，不认识这边的 ApiError——由这里把异常翻成一句话
+const messageOf = (error: unknown) => error instanceof ApiError ? error.message : null
 
 /**
  * 会话闸门：没登录就只渲染登录页，应用本体一行都不挂载。
@@ -25,7 +28,7 @@ function AuthGate({ children }: { children: ReactNode }) {
     return <div className="auth-checking">正在确认会话</div>
   }
   if (session.status === 'anonymous') {
-    return <LoginPage />
+    return <LoginPage messageOf={messageOf} onLogin={login} />
   }
   return <>{children}</>
 }

@@ -41,7 +41,7 @@ App → AuthGate → 三个页面
 | `api/http.ts` | fetch 包装：`credentials: 'include'` · 非 JSON 视为错误 · 401 分流 |
 | `api/session.ts` | 会话 store + 登录/退出/改口令 + 管理员接口 |
 | `features/auth/AuthGate.tsx` | 闸门 |
-| `features/auth/LoginPage.tsx` | 登录页 |
+| — | 登录页在仓库根的 `shared/login/`，**与知识引擎共用一份** |
 | `features/auth/AccountPage.tsx` | 自己的账号（`#/account`）：改口令、看/撤销会话 |
 | `features/auth/AdminPage.tsx` | 用户管理（`#/admin`，仅管理员，前后端都拦） |
 | `lib/router.ts` | 两级 hash 路由 + `canView(页, 角色)` |

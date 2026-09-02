@@ -1,5 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { fileURLToPath } from 'node:url'
+
+const r = (p: string) => fileURLToPath(new URL(p, import.meta.url))
 
 const previewApi = process.env.FANISL_PREVIEW_API
 const apiPrefixes = [
@@ -17,6 +20,15 @@ const previewProxy = {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // shared/ 在仓库根，node 解析从那里往上找不到 react（各应用自己装的）。
+  // 显式指到本应用的那一份，顺带保证不会打进两份 react。
+  resolve: {
+    alias: { react: r('node_modules/react'), 'react-dom': r('node_modules/react-dom') },
+    dedupe: ['react', 'react-dom'],
+  },
+
+  // 见 console/vite.config.ts：共用的登录页在仓库根的 shared/ 下
+  server: { fs: { allow: ['..'] } },
   preview: previewApi ? { proxy: previewProxy } : undefined,
   test: {
     environment: 'jsdom',

@@ -1,0 +1,220 @@
+/* 登录页 = **整个系统的正门**，两个应用共用这一份。
+   原先控制台与知识引擎各有一个登录页，长得还不一样——一套账号、一个域名，
+   却有两扇不同的门。合并之后留下的是知识引擎那版：它在 `/`，是产品的正面，
+   而资产台挂在 `/console/` 之下；登录是进这个系统，不是进其中某一个应用。
+
+   令牌在 `.auth-screen` 上就地定义，不依赖任何一个应用的全局样式表——
+   控制台走 Tailwind、知识引擎走手写 CSS，共用的东西不能挑食。 */
+
+.auth-screen,
+.auth-checking {
+  --auth-ink: #252d26;
+  --auth-muted: #697269;
+  --auth-paper: #f2f0e8;
+  --auth-paper-deep: #e8e5da;
+  --auth-sage: #718162;
+  --auth-peach: #bb816d;
+  --auth-line: rgb(37 45 38 / .13);
+  --auth-caption: .8125rem;
+  --auth-meta: .875rem;
+  --auth-ui: .875rem;
+  --auth-body: .9375rem;
+  --auth-reading: 1.125rem;
+
+  color: var(--auth-ink);
+  font: 400 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+/* 标记：角线 + 斜杠 + 圆点。与知识引擎顶栏是同一个，不是随手一个圆点。 */
+.auth-card .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  margin-bottom: 44px;
+  font-size: 17px;
+  letter-spacing: -.045em;
+}
+
+.auth-card .brand i {
+  position: relative;
+  display: block;
+  width: 25px;
+  height: 25px;
+  border-top: 1px solid #596258;
+  border-left: 1px solid #596258;
+}
+
+.auth-card .brand i::before {
+  position: absolute;
+  top: 8px;
+  left: 4px;
+  width: 20px;
+  height: 1px;
+  transform: rotate(-28deg);
+  transform-origin: left;
+  background: #596258;
+  content: "";
+}
+
+.auth-card .brand i::after {
+  position: absolute;
+  top: 2px;
+  right: -2px;
+  width: 4px;
+  height: 4px;
+  border: 1px solid #596258;
+  border-radius: 50%;
+  background: #f4f3ed;
+  content: "";
+}
+
+.auth-card .brand strong { font-weight: 690; }
+
+.auth-screen {
+  position: relative;
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 32px 24px;
+  background: var(--auth-paper-deep);
+  isolation: isolate;
+}
+
+/* 纸纹。全站研究底图用的同一张网点，登录页也铺一层——
+   它是这个应用"纸上工作"这件事最直接的触感。 */
+.auth-screen::after {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  opacity: .1;
+  background-image: repeating-radial-gradient(circle, rgba(50, 47, 38, .34) 0, rgba(50, 47, 38, .34) .25px, transparent .45px, transparent 3.4px);
+  background-size: 5px 5px;
+  mix-blend-mode: multiply;
+  content: "";
+  pointer-events: none;
+}
+
+.auth-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 392px);
+}
+
+/* 眉标：与知识库那几屏同一套（等宽、大写、.18em、650） */
+.auth-eyebrow {
+  margin: 0;
+  color: var(--auth-muted);
+  font: 650 var(--auth-meta) ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .18em;
+}
+
+/* 标题用中文衬线——这是全站页面标题的写法，不是随手挑的字体 */
+.auth-card h1 {
+  margin: 18px 0 0;
+  color: var(--auth-ink);
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: clamp(30px, 3.4vw, 40px);
+  font-weight: 520;
+  letter-spacing: -.055em;
+  line-height: 1.02;
+}
+
+.auth-lede {
+  max-width: 34ch;
+  margin: 14px 0 0;
+  color: var(--auth-muted);
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: var(--auth-body);
+  line-height: 1.8;
+}
+
+.auth-form {
+  margin-top: 38px;
+  padding-top: 30px;
+  border-top: 1px solid var(--auth-line);
+}
+
+.auth-field + .auth-field { margin-top: 22px; }
+
+.auth-field label {
+  display: block;
+  color: var(--auth-muted);
+  font: 650 var(--auth-caption) ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+/* 输入框走行线，不是描边盒子：全站的分隔都是发丝线，
+   这里冒出一圈圆角边框就是另一套语言了。 */
+.auth-field input {
+  width: 100%;
+  margin-top: 9px;
+  padding: 0 0 7px;
+  color: var(--auth-ink);
+  font: inherit;
+  font-size: var(--auth-reading);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(37, 45, 38, .26);
+  border-radius: 0;
+  transition: border-color .2s ease;
+}
+
+.auth-field input:hover { border-bottom-color: rgba(37, 45, 38, .45); }
+
+.auth-field input:focus {
+  border-bottom-color: var(--auth-sage);
+  outline: none;
+}
+
+.auth-field input:disabled { opacity: .5; }
+
+/* 报错靠文字承担，不只靠颜色——色觉障碍下边框变红是读不出来的 */
+.auth-error {
+  margin: 0 0 26px;
+  padding: 10px 0 10px 12px;
+  color: #7a3f30;
+  font-size: var(--auth-caption);
+  line-height: 1.55;
+  border-left: 2px solid var(--auth-peach);
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 32px;
+  padding: 12px;
+  color: var(--auth-paper);
+  font: inherit;
+  font-size: var(--auth-ui);
+  letter-spacing: .04em;
+  background: var(--auth-ink);
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: opacity .2s ease, transform .12s ease;
+}
+
+.auth-submit:hover:not(:disabled) { opacity: .87; }
+.auth-submit:active:not(:disabled) { transform: translateY(1px); }
+.auth-submit:disabled { opacity: .28; cursor: default; }
+
+.auth-note {
+  margin: 26px 0 0;
+  color: var(--auth-muted);
+  font-size: var(--auth-caption);
+  line-height: 1.7;
+}
+
+/* 会话检查期间的过渡屏：不要一闪而过地先露出登录页再跳走 */
+.auth-checking {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  color: var(--auth-muted);
+  font: 650 var(--auth-caption) ui-monospace, SFMono-Regular, monospace;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  background: var(--auth-paper-deep);
+}

@@ -12,8 +12,8 @@ main.tsx
 |---|---|
 | `session.ts` | 会话状态（可订阅的极小 store）+ `login` / `logout` / `refreshSession` |
 | `AuthGate.tsx` | 闸门：挂载时问一次 `/auth/me`，并接管全局 401 |
-| `LoginPage.tsx` | 登录页 |
-| `auth.css` | 沿用全站纸面语言（`--paper` / `--ink` / `--sage`），不另起一套视觉 |
+| — | 登录页在仓库根的 `shared/login/`，**两个应用共用一份**（见那边的 README） |
+| `auth.css` | 账号菜单的样式（登录页的那部分已随组件挪走） |
 
 ## 几个不是随手定的决定
 

@@ -18,7 +18,10 @@ fanisl/
 │   │                              + reference.py（asset_profiles / news_items / asset_events 三表 + 刷新 CLI）
 │   │                              + news_triage.py（动态降噪：确定性规则 + LLM 判相关，只筛不判）
 │   └── tools/                    运维脚本：check_db / check_sources / check_ingest
-├── frontend/     React + TS + Vite 前端
+├── frontend/     React + TS + Vite 前端（知识引擎，挂 /）
+├── console/      React + TS + Vite 前端（资产台，挂 /console/）
+├── shared/       两个前端共用的东西
+│   └── login/                    登录页。一套账号一个域名，只该有一扇门
 ├── deploy/       部署指南 + systemd 单元 + nginx + .env 模板
 │                 + backup.sh（服务器备份）+ auto-update.sh（自动更新）
 │                 + pull-snapshot.sh（拉本机快照）
