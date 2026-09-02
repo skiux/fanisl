@@ -319,6 +319,38 @@ def test_last_admin_is_protected(client, admin):
     assert client.delete(f"/admin/users/{admin['id']}").status_code == 409
 
 
+def test_admin_cannot_change_own_role_even_with_another_admin(client, auth_store, admin):
+    """降级自己后果比停用自己更隐蔽：还能登录，但管理面没了，自己捞不回来。
+
+    `test_last_admin_is_protected` 挡的是"最后一个管理员"这一条；这里另开一个管理员，
+    让那条守卫失效，验的是"自己"这一条。
+    """
+    auth_store.create_user("root2", hash_password("second-admin-pw-1"), role="admin")
+    login(client, "root", ADMIN_PW)
+    r = client.patch(f"/admin/users/{admin['id']}", json={"role": "member"})
+    assert r.status_code == 409 and "自己" in r.json()["detail"]
+    assert auth_store.get(admin["id"])["role"] == "admin"
+    # 改自己的显示名不受影响，只有角色被拦
+    assert client.patch(f"/admin/users/{admin['id']}",
+                        json={"display_name": "老板"}).status_code == 200
+    # 把 role 原样传回来也不算改，不该拦
+    assert client.patch(f"/admin/users/{admin['id']}",
+                        json={"role": "admin"}).status_code == 200
+
+
+def test_session_list_marks_the_current_one(client, app, admin):
+    """同一台 nginx 后面，几台设备的出口 IP 常常一样——不标出来就分不清哪条是自己。"""
+    login(client, "root", ADMIN_PW)
+    with TestClient(app, base_url="https://testserver") as other:
+        login(other, "root", ADMIN_PW)
+        rows = client.get("/auth/sessions").json()
+        assert len(rows) == 2
+        assert [r["is_current"] for r in rows].count(True) == 1
+        assert [r["is_current"] for r in other.get("/auth/sessions").json()].count(True) == 1
+    # token 的散列不能出现在响应里
+    assert not any("sha" in key or "token" in key for row in rows for key in row)
+
+
 def test_admin_cannot_delete_self_even_with_another_admin(client, auth_store, admin):
     auth_store.create_user("root2", hash_password("second-admin-pw-1"), role="admin")
     login(client, "root", ADMIN_PW)

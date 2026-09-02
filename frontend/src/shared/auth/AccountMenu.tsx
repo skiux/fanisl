@@ -60,7 +60,7 @@ function AccountMenu() {
             <b>{user.display_name || user.username}</b>
             <span>{ROLE_LABEL[user.role]} · {user.username}</span>
           </div>
-          <a href="/console/#/account" onClick={() => setOpen(false)} role="menuitem">账号与口令</a>
+          <a href="/console/#/account" onClick={() => setOpen(false)} role="menuitem">账号</a>
           {user.role === 'admin' && (
             <a href="/console/#/admin" onClick={() => setOpen(false)} role="menuitem">用户管理</a>
           )}

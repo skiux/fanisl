@@ -98,6 +98,7 @@ export type SessionRow = {
   expires_at: string
   user_agent: string
   ip: string
+  is_current: boolean
 }
 
 export const listSessions = () => apiJson<SessionRow[]>('/auth/sessions')

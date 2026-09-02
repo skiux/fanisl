@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Plus, Trash, Key, ArrowsClockwise } from '@phosphor-icons/react'
+import { Plus } from '@phosphor-icons/react'
 import { ApiError } from '../../api/http'
 import {
   createUser, deleteUser, getSession, listUsers, resetPassword, updateUser,
@@ -8,8 +8,9 @@ import {
 import { Module, ViewGrid } from '../../components/layout'
 import { cn } from '../../lib/cn'
 import { clockTime } from '../../lib/format'
+import { hrefOf } from '../../lib/router'
 import { Masthead } from '../portfolio/Masthead'
-import { ErrorState } from '../portfolio/states'
+import { PermissionState } from '../portfolio/states'
 
 const ROLE_LABEL: Record<Role, string> = { admin: '管理员', member: '成员' }
 
@@ -62,7 +63,7 @@ export function AdminPage() {
 
         {me?.role !== 'admin' ? (
           <div className="px-6 sm:px-10">
-            <ErrorState message="需要管理员权限" onRetry={() => { void load() }} />
+            <PermissionState message="用户管理只对管理员开放。要开账号或改口令，找管理员。" />
           </div>
         ) : (
           <div className="min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8">
@@ -97,7 +98,9 @@ export function AdminPage() {
   )
 }
 
-const ROW = 'grid grid-cols-[minmax(0,1.3fr)_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)_128px]'
+// 窄屏收掉"最近登录"，但角色必须留着：改角色的按钮就在同一行，
+// 看不见现在是什么角色就没法判断该不该按。
+const ROW = 'grid grid-cols-[minmax(0,1fr)] items-start gap-x-4 gap-y-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_236px] sm:items-center'
 
 function UserTable({ users, meId, busy, onAct }: {
   users: User[] | null
@@ -110,10 +113,10 @@ function UserTable({ users, meId, busy, onAct }: {
 
   return (
     <>
-      <div className={cn(ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
+      <div className={cn(ROW, 'hidden border-b border-rule pb-2 text-micro text-ink-3 sm:grid')}>
         <span>用户</span>
-        <span className="hidden sm:block">角色</span>
-        <span className="hidden sm:block">最近登录</span>
+        <span>角色</span>
+        <span>最近登录</span>
         <span className="text-right">操作</span>
       </div>
       <ul className="divide-y divide-rule">
@@ -138,48 +141,18 @@ function UserTable({ users, meId, busy, onAct }: {
               <div className="truncate font-mono text-micro text-ink-3">{user.username}</div>
             </div>
 
-            <div className="hidden text-xs text-ink-2 sm:block">{ROLE_LABEL[user.role]}</div>
+            <div className="text-xs text-ink-2">
+              {ROLE_LABEL[user.role]}
+              <span className="tnum text-ink-3 sm:hidden">
+                {' · '}{user.last_login_at ? clockTime(user.last_login_at) : '从未登录'}
+              </span>
+            </div>
 
             <div className="tnum hidden truncate text-xs text-ink-3 sm:block">
               {user.last_login_at ? clockTime(user.last_login_at) : '从未登录'}
             </div>
 
-            <div className="flex items-center justify-end gap-2.5">
-              <IconAction
-                busy={busy}
-                icon={<Key size={13} />}
-                label="重置口令"
-                onClick={() => {
-                  const next = window.prompt(`给 ${user.username} 设置新口令（至少 10 位）`)
-                  if (next) void onAct(() => resetPassword(user.id, next))
-                }}
-              />
-              <IconAction
-                busy={busy}
-                icon={<ArrowsClockwise size={13} />}
-                label={user.role === 'admin' ? '降为成员' : '升为管理员'}
-                onClick={() => void onAct(() => updateUser(user.id, {
-                  role: user.role === 'admin' ? 'member' : 'admin',
-                }))}
-              />
-              <IconAction
-                busy={busy}
-                icon={<span className="text-micro">{user.is_active ? '停用' : '启用'}</span>}
-                label={user.is_active ? '停用' : '启用'}
-                onClick={() => void onAct(() => updateUser(user.id, { is_active: !user.is_active }))}
-              />
-              <IconAction
-                busy={busy}
-                icon={<Trash size={13} />}
-                label="删除"
-                onClick={() => {
-                  if (window.confirm(`删除用户 ${user.username}？此操作不可撤销。`)) {
-                    void onAct(() => deleteUser(user.id))
-                  }
-                }}
-                tone="loss"
-              />
-            </div>
+            <RowActions busy={busy} isMe={user.id === meId} onAct={onAct} user={user} />
           </li>
         ))}
       </ul>
@@ -187,24 +160,107 @@ function UserTable({ users, meId, busy, onAct }: {
   )
 }
 
-function IconAction({ icon, label, onClick, busy, tone }: {
-  icon: React.ReactNode
+/**
+ * 一行的操作。四个动作全是文字按钮：原先是 13px 的图标，其中"改角色"用的还是
+ * 一个循环箭头——跟报头上"重新取数"同一个符号，指的却是"把成员升成管理员"。
+ *
+ * 自己那一行不给任何管理动作。停用和删除后端本来就拒绝，而降级不拒绝——
+ * 手一抖就把自己踢出管理面，且只能求另一个管理员捞回来。改自己的口令走「账号」页。
+ */
+function RowActions({ user, isMe, busy, onAct }: {
+  user: User
+  isMe: boolean
+  busy: boolean
+  onAct: (fn: () => Promise<unknown>) => Promise<void>
+}) {
+  const [mode, setMode] = useState<'idle' | 'reset' | 'delete'>('idle')
+  const [password, setPassword] = useState('')
+
+  const close = () => { setMode('idle'); setPassword('') }
+  const run = (fn: () => Promise<unknown>) => { close(); void onAct(fn) }
+
+  if (isMe) {
+    return (
+      <div className="flex justify-start text-xs text-ink-3 sm:justify-end">
+        <a className="underline-offset-4 hover:text-ink-2 hover:underline" href={hrefOf('account')}>
+          在「账号」里改自己的口令
+        </a>
+      </div>
+    )
+  }
+
+  if (mode === 'reset') {
+    return (
+      <form
+        className="flex flex-wrap items-center justify-start gap-2 sm:justify-end"
+        onSubmit={(event) => {
+          event.preventDefault()
+          run(() => resetPassword(user.id, password))
+        }}
+      >
+        <input
+          aria-label={`${user.username} 的新口令`}
+          autoFocus
+          className="min-w-0 flex-1 border-b border-rule-strong bg-transparent pb-1 text-xs text-ink outline-none placeholder:text-ink-3 sm:max-w-[150px]"
+          minLength={10}
+          onChange={(event) => setPassword(event.target.value)}
+          placeholder="新口令，至少 10 位"
+          required
+          type="password"
+          value={password}
+        />
+        <TextAction busy={busy} label="确定" type="submit" />
+        <TextAction busy={false} label="取消" onClick={close} />
+      </form>
+    )
+  }
+
+  if (mode === 'delete') {
+    return (
+      <div className="flex flex-wrap items-center justify-start gap-2.5 sm:justify-end">
+        <span className="text-xs text-ink-2">删了不能恢复。</span>
+        <TextAction busy={busy} label="确认删除" onClick={() => run(() => deleteUser(user.id))} tone="loss" />
+        <TextAction busy={false} label="取消" onClick={close} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-1 sm:justify-end">
+      <TextAction busy={busy} label="重置口令" onClick={() => setMode('reset')} />
+      <TextAction
+        busy={busy}
+        label={user.role === 'admin' ? '降为成员' : '升为管理员'}
+        onClick={() => void onAct(() => updateUser(user.id, {
+          role: user.role === 'admin' ? 'member' : 'admin',
+        }))}
+      />
+      <TextAction
+        busy={busy}
+        label={user.is_active ? '停用' : '启用'}
+        onClick={() => void onAct(() => updateUser(user.id, { is_active: !user.is_active }))}
+      />
+      <TextAction busy={busy} label="删除" onClick={() => setMode('delete')} tone="loss" />
+    </div>
+  )
+}
+
+function TextAction({ label, onClick, busy, tone, type = 'button' }: {
   label: string
-  onClick: () => void
+  onClick?: () => void
   busy: boolean
   tone?: 'loss'
+  type?: 'button' | 'submit'
 }) {
   return (
     <button
-      aria-label={label}
-      className={cn('shrink-0 transition-colors duration-200 disabled:opacity-30',
+      className={cn('shrink-0 py-1 text-xs transition-colors duration-200 disabled:opacity-30',
         tone === 'loss' ? 'text-ink-3 hover:text-loss' : 'text-ink-3 hover:text-ink')}
       disabled={busy}
       onClick={onClick}
-      title={label}
-      type="button"
+      type={type}
     >
-      {icon}
+      {label}
     </button>
   )
 }
@@ -248,8 +304,11 @@ function CreateForm({ busy, onAct }: {
       <div>
         <label className="label" htmlFor="new-password">初始口令</label>
         <input autoComplete="new-password" className={input} disabled={busy} id="new-password"
-               onChange={(e) => setPassword(e.target.value)} required type="password"
-               value={password} />
+               minLength={10} onChange={(e) => setPassword(e.target.value)} required
+               type="password" value={password} />
+        {password && password.length < 10 && (
+          <p className="mt-1.5 text-micro text-loss">还差 {10 - password.length} 位</p>
+        )}
       </div>
       <div>
         <label className="label" htmlFor="new-role">角色</label>
@@ -263,7 +322,7 @@ function CreateForm({ busy, onAct }: {
         className={cn('flex w-full items-center justify-center gap-1.5 rounded-[var(--radius-control)]',
           'bg-ink py-2.5 text-sm text-sheet transition-all duration-200',
           'hover:opacity-88 active:translate-y-px disabled:cursor-default disabled:opacity-35')}
-        disabled={busy || !username || !password}
+        disabled={busy || !username || password.length < 10}
         type="submit"
       >
         <Plus aria-hidden="true" size={13} />新建

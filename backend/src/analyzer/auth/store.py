@@ -229,12 +229,17 @@ class UserStore:
             cur = conn.execute("DELETE FROM sessions WHERE user_id = %s", (user_id,))
             return cur.rowcount
 
-    def list_sessions(self, user_id: int) -> list[dict]:
+    def list_sessions(self, user_id: int, current_token: str = "") -> list[dict]:
+        """当前这条要标出来：几台设备的出口 IP 往往是同一个（都走一层 nginx），
+        列表里只有 IP 和时间的话，人分不出哪一条是自己正在用的。
+        比较放在 SQL 里做，token 的哈希不出这个方法。"""
+        digest = _sha256(current_token) if current_token else ""
         with self.pool.connection() as conn:
             return conn.execute(
-                "SELECT created_at, last_seen_at, expires_at, user_agent, ip "
+                "SELECT created_at, last_seen_at, expires_at, user_agent, ip, "
+                "       (token_sha256 = %s) AS is_current "
                 "FROM sessions WHERE user_id = %s ORDER BY last_seen_at DESC",
-                (user_id,)).fetchall()
+                (digest, user_id)).fetchall()
 
     def purge_expired(self) -> int:
         with self.pool.connection() as conn:

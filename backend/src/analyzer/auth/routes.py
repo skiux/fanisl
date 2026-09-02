@@ -154,7 +154,9 @@ def build_router(store: UserStore, settings: Settings) -> APIRouter:
 
     @router.get("/auth/sessions")
     def my_sessions(request: Request) -> list[dict]:
-        return store.list_sessions(current_user(request)["id"])
+        return store.list_sessions(
+            current_user(request)["id"],
+            request.cookies.get(settings.auth_cookie_name, ""))
 
     @router.delete("/auth/sessions")
     def revoke_my_sessions(request: Request, response: Response) -> dict:
@@ -202,8 +204,13 @@ def build_router(store: UserStore, settings: Settings) -> APIRouter:
         )
         if losing_admin and store.count_active_admins() <= 1:
             raise HTTPException(status_code=409, detail="不能停用或降级最后一个管理员")
-        if req.is_active is False and target["id"] == admin["id"]:
-            raise HTTPException(status_code=409, detail="不能停用自己")
+        if target["id"] == admin["id"]:
+            # 停用自己会立刻把自己锁在门外；降级自己同样——只是后果更隐蔽：
+            # 账号还能登录，但管理面没了，只能求另一个管理员把角色改回来。
+            if req.is_active is False:
+                raise HTTPException(status_code=409, detail="不能停用自己")
+            if req.role is not None and req.role != admin["role"]:
+                raise HTTPException(status_code=409, detail="不能改自己的角色")
 
         if req.role is not None:
             if req.role not in ROLES:

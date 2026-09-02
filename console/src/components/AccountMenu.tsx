@@ -85,7 +85,7 @@ export function AccountMenu() {
           </div>
 
           <a className={item} href="#/account" onClick={() => setOpen(false)} role="menuitem">
-            账号与口令
+            账号
           </a>
           {user.role === 'admin' && (
             <a className={item} href="#/admin" onClick={() => setOpen(false)} role="menuitem">

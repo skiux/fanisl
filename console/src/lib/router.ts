@@ -10,7 +10,7 @@ export const PAGES: { key: PageKey; label: string; enabled: boolean }[] = [
   { key: 'ledger', label: '流水', enabled: true },
 ]
 
-const EXTRA_TITLES: Partial<Record<PageKey, string>> = { account: '账号', admin: '用户' }
+const EXTRA_TITLES: Partial<Record<PageKey, string>> = { account: '账号', admin: '用户管理' }
 
 export function titleOf(page: PageKey) {
   const label = EXTRA_TITLES[page]
@@ -39,6 +39,17 @@ export function readRoute(): Route {
     return { page: 'assets', section: first }
   }
   return { page: 'assets', section: null }
+}
+
+/**
+ * 这一页这个角色能不能看。
+ *
+ * 后端才是权威（`/admin/*` 会 403），这里只是不要把人领到一扇打不开的门前：
+ * 成员进 `#/admin` 应当直接退回资产页，而不是先看见"用户管理"的标题、
+ * 再看见一屏错误——那把权限问题讲成了故障。
+ */
+export function canView(page: PageKey, role: 'admin' | 'member') {
+  return page !== 'admin' || role === 'admin'
 }
 
 export function hrefOf(page: PageKey, section?: string) {

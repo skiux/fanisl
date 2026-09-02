@@ -92,9 +92,16 @@ export function AccountPage() {
                         {rows.map((row) => (
                           <li className="flex items-baseline justify-between gap-3"
                               key={`${row.created_at}-${row.ip}`}>
-                            <span className="min-w-0 truncate text-xs text-ink-2"
-                                  title={row.user_agent}>
-                              {row.ip || '未知来源'}
+                            <span className="flex min-w-0 items-baseline gap-2">
+                              <span className="truncate text-xs text-ink-2" title={row.user_agent}>
+                                {row.ip || '未知来源'}
+                              </span>
+                              {/* 几台设备常常是同一个出口 IP，不标出来就分不清哪条是自己 */}
+                              {row.is_current && (
+                                <span className="shrink-0 rounded-[4px] bg-sheet-2 px-1.5 py-px text-micro text-ink-2">
+                                  当前
+                                </span>
+                              )}
                             </span>
                             <span className="tnum shrink-0 text-micro text-ink-3">
                               {relativeTime(row.last_seen_at)}

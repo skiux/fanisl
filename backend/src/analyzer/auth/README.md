@@ -60,7 +60,7 @@ Lax 的语义是：跨站的**顶层 GET 导航**会带 cookie，跨站的 POST/
 | POST | `/auth/logout` | 销毁会话并清 cookie |
 | GET | `/auth/me` | 当前用户 |
 | POST | `/auth/password` | `{current_password, new_password}`，改完踢掉**别处**的会话，自己续上 |
-| GET | `/auth/sessions` | 自己的会话列表（时间/UA/IP） |
+| GET | `/auth/sessions` | 自己的会话列表（时间/UA/IP + `is_current`） |
 | DELETE | `/auth/sessions` | 撤销自己全部会话（含当前） |
 | GET | `/admin/users` | 🔑 用户列表 |
 | POST | `/admin/users` | 🔑 建用户 `{username, password, role?, display_name?}` |
@@ -74,7 +74,15 @@ Lax 的语义是：跨站的**顶层 GET 导航**会带 cookie，跨站的 POST/
 旧 cookie 就不该继续作数。改显示名不踢。
 
 **几条不许做的事**（返回 409）：停用或降级最后一个管理员、删除最后一个管理员、
-停用自己、删除自己。留一个人进得去管理面。
+停用自己、删除自己、**改自己的角色**。留一个人进得去管理面。
+
+最后一条容易被漏掉：另有管理员在岗时，"最后一个管理员"那条守卫不生效，而降级自己的
+后果比停用自己更隐蔽——账号还能登录，只是管理面没了，自己捞不回来，只能求别人改回去。
+把 `role` 原样传回来不算改，不拦。
+
+`/auth/sessions` 里的 `is_current` 标出正在用的那一条。几台设备走同一层 nginx 时
+出口 IP 往往一样，只给 IP 和时间的话人分不出哪条是自己。比较在 SQL 里做，
+token 的散列不出 `list_sessions`。
 
 ## 限速
 

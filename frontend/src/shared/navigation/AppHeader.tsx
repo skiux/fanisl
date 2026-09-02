@@ -17,12 +17,15 @@ const primaryItems = [
   { key: 'discovery', label: '发现', href: '#/discovery', enabled: true },
 ] as const
 
-// 资产台是**另一个应用**，但对使用者而言它就是一件研究工具，放在这一组最自然——
-// 比在右侧控件堆里再挤一个链接好。它是整行里唯一一个离开本应用的入口。
 const toolItems = [
   { key: 'evaluation', label: '评测', href: '#/evaluation', enabled: false },
   { key: 'chat', label: '对话', href: '#/chat', enabled: false },
   { key: 'archive', label: '档案', href: '#/archive', enabled: true },
+] as const
+
+// 资产台是另一个应用。控制台那边用一条竖线把回到知识库的入口分开，这边同理——
+// 混在研究工具里，看起来就像本应用的第八页。
+const crossAppItems = [
   { key: 'console', label: '资产', href: '/console/', enabled: true },
 ] as const
 
@@ -44,7 +47,7 @@ function AppHeader({ current, onHomeClick, onSearch }: AppHeaderProps) {
     setMenuOpen(false)
   }
 
-  const renderItem = (item: (typeof primaryItems)[number] | (typeof toolItems)[number]) => {
+  const renderItem = (item: (typeof primaryItems)[number] | (typeof toolItems)[number] | (typeof crossAppItems)[number]) => {
     if (!item.enabled) {
       return <span aria-disabled="true" key={item.key}>{item.label}</span>
     }
@@ -72,6 +75,10 @@ function AppHeader({ current, onHomeClick, onSearch }: AppHeaderProps) {
         <i aria-hidden="true" className="nav-divider" />
         <div aria-label="研究工具" className="nav-group nav-group-tools" role="group">
           {toolItems.map(renderItem)}
+        </div>
+        <i aria-hidden="true" className="nav-divider" />
+        <div aria-label="其他应用" className="nav-group nav-group-tools" role="group">
+          {crossAppItems.map(renderItem)}
         </div>
       </nav>
       <div className="nav-actions">

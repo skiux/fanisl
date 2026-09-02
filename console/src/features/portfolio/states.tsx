@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { ArrowClockwise, Key, ListChecks, PlugsConnected, Receipt, Wallet } from '@phosphor-icons/react'
+import { ArrowClockwise, Key, ListChecks, Lock, PlugsConnected, Receipt, Wallet } from '@phosphor-icons/react'
 import { Eyebrow } from '../../components/Primitives'
 import type { SourceState } from '../../api/types'
 
@@ -166,7 +166,7 @@ export function UnauthorizedState({ sources, onRetry }: { sources: SourceState[]
   const detail = sources.find((s) => s.detail)?.detail
   return (
     <Frame
-      action={<RetryButton onRetry={onRetry} />}
+      action={<RetryButton label="再试一次" onRetry={onRetry} />}
       body={
         <>
           <p>{detail ?? 'API key 校验没有通过。'}</p>
@@ -178,7 +178,18 @@ export function UnauthorizedState({ sources, onRetry }: { sources: SourceState[]
         </>
       }
       icon={<Key aria-hidden="true" size={19} />}
-      title="凭据没有通过校验"
+      title="Binance 凭据没有通过校验"
+    />
+  )
+}
+
+/** 403 不是故障，是这个账号就不该看这一页——所以不给重试按钮 */
+export function PermissionState({ message }: { message: string }) {
+  return (
+    <Frame
+      body={message}
+      icon={<Lock aria-hidden="true" size={19} />}
+      title="这个账号没有权限"
     />
   )
 }
@@ -186,7 +197,7 @@ export function UnauthorizedState({ sources, onRetry }: { sources: SourceState[]
 export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <Frame
-      action={<RetryButton onRetry={onRetry} />}
+      action={<RetryButton label="再试一次" onRetry={onRetry} />}
       body={
         <>
           <p>{message}</p>

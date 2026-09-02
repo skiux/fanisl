@@ -100,7 +100,9 @@ test('账号菜单：一个入口装下身份、账号、用户管理与退出',
 
   const menu = page.getByRole('menu')
   await expect(menu).toContainText('测试用户')
-  await expect(menu.getByRole('menuitem', { name: '账号与口令' })).toBeVisible()
+  // 菜单项与目标页面的标题同名，跳过去不会觉得进错了地方
+  await expect(menu.getByRole('menuitem', { name: '账号' })).toHaveAttribute(
+    'href', '/console/#/account')
   await menu.getByRole('menuitem', { name: '退出' }).click()
   await expect(page.getByRole('heading', { name: '个人投资知识引擎' })).toBeVisible()
 })

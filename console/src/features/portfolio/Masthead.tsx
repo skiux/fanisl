@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ArrowsClockwise, MoonStars, Sun } from '@phosphor-icons/react'
 import { AccountMenu } from '../../components/AccountMenu'
 import { StatusDot } from '../../components/Primitives'
@@ -10,23 +10,29 @@ import type { SourceState } from '../../api/types'
 const THEME_KEY = 'fanisl.console.theme'
 type Theme = 'dark' | 'light'
 
-function readTheme(): Theme {
-  const stored = window.localStorage.getItem(THEME_KEY)
-  if (stored === 'dark' || stored === 'light') return stored
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+// 首帧的深浅由 index.html 里的引导脚本定（登录页没有报头，切换器管不到它）。
+// 这里只读它落下的结果，别再自己判断一次——两处判断迟早会不一致。
+function currentTheme(): Theme {
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
 }
 
 function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(readTheme)
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-    window.localStorage.setItem(THEME_KEY, theme)
-  }, [theme])
+  const [theme, setTheme] = useState<Theme>(currentTheme)
+  // 只在用户真的点了之后才写存储：挂载即写会把"跟随系统"固化成一次明确选择。
+  const pick = (next: Theme) => {
+    document.documentElement.classList.toggle('dark', next === 'dark')
+    try {
+      window.localStorage.setItem(THEME_KEY, next)
+    } catch {
+      /* 隐私模式下写不进去，本次会话内仍然生效 */
+    }
+    setTheme(next)
+  }
   return (
     <button
       aria-label={theme === 'dark' ? '切换到浅色' : '切换到深色'}
       className="grid size-7 place-items-center text-ink-3 transition-colors duration-200 hover:text-ink"
-      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      onClick={() => pick(theme === 'dark' ? 'light' : 'dark')}
       type="button"
     >
       {theme === 'dark' ? <MoonStars aria-hidden="true" size={15} /> : <Sun aria-hidden="true" size={15} />}
@@ -98,7 +104,9 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
           </a>
         </nav>
 
-        <div className="ml-auto flex items-center gap-3">
+        {/* 这一组也要能折行：流水页比另外两页多一个区间选择器，375px 下正好顶出去，
+            整页跟着横向滚动。够宽时 ml-auto 仍然把它推到右边。 */}
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 sm:ml-auto">
           {controls}
           <AccountMenu />
           <ThemeToggle />

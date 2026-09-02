@@ -61,7 +61,9 @@ Body `{"username": str, "password": str}` → `{"user": {...}}`，并在响应�
 成功后**别处的会话全部作废，调用方自己续上新会话**（响应会重新种 cookie）。
 
 ### GET /auth/sessions · DELETE /auth/sessions
-列出 / 撤销自己的全部会话。DELETE 连当前这条一起撤，之后需要重新登录。
+列出 / 撤销自己的全部会话。每条含 `created_at` / `last_seen_at` / `expires_at` /
+`user_agent` / `ip` / `is_current`——最后一个标出正在用的那条（同一层 nginx 后面几台
+设备的 IP 往往一样）。DELETE 连当前这条一起撤，之后需要重新登录。
 
 ### 管理员接口（`role=admin`，否则 403）
 
