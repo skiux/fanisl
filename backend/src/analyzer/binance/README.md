@@ -180,12 +180,14 @@ IP 权重上限 **6000/分钟**。而：
 | `income` | `GET /fapi/v1/income` | 30 † | 300s | 已实现 / 资金费 / 手续费 |
 | `transfers` | `GET /sapi/v1/capital/deposit/hisrec` | 1 | 300s | 充值 |
 | | `GET /sapi/v1/capital/withdraw/history` | **18000** | 900s | UID 限速 10 次/秒，最贵的一个 |
-| `snapshots` | `GET /sapi/v1/accountSnapshot` ×3 | **2400** ×3 | 6h | SPOT / MARGIN / FUTURES，日频 |
-| | `GET /api/v3/klines` | 2 | 6h | BTC 日线，给快照换算 USD |
+| `trades.*` | `GET /api/v3/myTrades` | 20 / 交易对 | 6h | `fromId` 翻页，**无时间上限**；喂现货成本基础 |
 
-一次完整取数：SPOT 池约 **21 000**（其中提现 18 000、快照 7 200 不在同一分钟内重取），
-FAPI 池约 **50**。所以 `withdrawals` 与 `snapshots.*` 列在 `NEVER_FORCE` 里——
-"重新取数"穿不透它们。
+日快照（`accountSnapshot`，单次权重 2400）**已经不用了**：它只覆盖现货 / 全仓杠杆 /
+U 本位三种，理财、资金、币本位没有历史快照，拿它算盈亏会把钱包间划转算成损益。
+盈亏改成从成交重放（见 `costbasis.py`）。
+
+一次完整取数：SPOT 池约 **18 300**（提现一项就占 18 000），FAPI 池约 **50**。
+`withdrawals` 列在 `NEVER_FORCE` 里——"重新取数"穿不透它。
 
 ### 委托页 `/orders`
 
@@ -201,6 +203,8 @@ FAPI 池约 **50**。所以 `withdrawals` 与 `snapshots.*` 列在 `NEVER_FORCE`
 | 成交 | `GET /api/v3/myTrades` · `/fapi/v1/userTrades` | 20 † / 5 † | 300s | 同上 |
 
 历史类端点**必须传 symbol**，所以是按标的扇出——持仓越多调用次数越多。
+而且**必须按 id 翻页，不能按时间窗**：`startTime`/`endTime` 的间隔上限是 24 小时
+（现货）/ 7 天（合约），只取最近一个窗口的话，上次交易在窗口之前就是一片空白。
 
 ### 流水页 `/ledger`
 

@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp } from '@phosphor-icons/react'
 import { cn } from '../../lib/cn'
 import {
   amount, money, ORDER_KIND_LABEL, ORDER_STATUS_LABEL, percent, price,
-  relativeTime, signedMoney, signedPercent, VENUE_LABEL,
+  baseOf, relativeTime, signedMoney, signedPercent, VENUE_LABEL,
 } from '../../lib/format'
 import type { Fill, Order } from '../../api/types'
 
@@ -37,7 +37,7 @@ function SymbolCell({ order }: { order: Order }) {
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-2">
-        <span className="truncate text-sm text-ink">{order.symbol}</span>
+        <span className="truncate text-sm text-ink">{baseOf(order.symbol)}</span>
         <VenueTag venue={order.venue} />
         {order.order_list_id && (
           <span className="rounded-[4px] border border-accent/40 px-1 py-px font-mono text-[9px] uppercase tracking-wider text-accent">
@@ -93,6 +93,35 @@ function Filled({ order }: { order: Order }) {
   )
 }
 
+/**
+ * 窄屏下的整条摘要。原先除了交易对和名义，其余列一律 `hidden sm:block`——
+ * 手机上一条挂单只剩"NVDA · $8,299"，方向、类型、价格、数量全看不见，
+ * 等于这一页在手机上没法用。列放不下不等于信息可以丢，堆起来就行。
+ */
+function MobileDetail({ order }: { order: Order }) {
+  const buy = order.side === 'buy'
+  const gap = gapOf(order)
+  const target = order.stop_price ?? order.price ?? order.activate_price
+  return (
+    <div className="tnum col-span-2 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 text-micro text-ink-3 sm:hidden">
+      <span className={cn('font-medium', buy ? 'text-gain' : 'text-loss')}>
+        {buy ? '买入' : '卖出'}
+      </span>
+      <span className="text-ink-2">{ORDER_KIND_LABEL[order.kind] ?? order.kind}</span>
+      {target !== null && <span>{order.stop_price !== null ? '触发' : '委托'} {price(target)}</span>}
+      <span>{amount(order.orig_qty)}</span>
+      {order.executed_qty > 0 && (
+        <span className="text-accent">已成交 {percent(order.executed_qty / order.orig_qty, 0)}</span>
+      )}
+      {gap !== null && (
+        <span className={cn(Math.abs(gap) < 0.03 && 'text-accent')}>
+          距 {signedPercent(gap, 1)}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function Empty({ children }: { children: string }) {
   return <p className="py-10 text-center text-sm text-ink-3">{children}</p>
 }
@@ -122,6 +151,7 @@ export function LimitOrderTable({ orders }: { orders: Order[] }) {
               {money(order.notional_usd)}
             </div>
             <div className="hidden sm:block"><Gap label="距成交" order={order} /></div>
+            <MobileDetail order={order} />
           </li>
         ))}
       </ul>
@@ -150,7 +180,7 @@ export function ConditionalOrderTable({ orders }: { orders: Order[] }) {
           <li className={cn(COND_ROW, 'py-2.5 transition-colors duration-200 hover:bg-sheet-2/45')} key={order.id}>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="truncate text-sm text-ink">{order.symbol}</span>
+                <span className="truncate text-sm text-ink">{baseOf(order.symbol)}</span>
                 <VenueTag venue={order.venue} />
                 {order.order_list_id && (
                   <span className="rounded-[4px] border border-accent/40 px-1 py-px font-mono text-[9px] uppercase tracking-wider text-accent">

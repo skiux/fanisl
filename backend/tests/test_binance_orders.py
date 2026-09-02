@@ -137,13 +137,17 @@ def test_history_symbols_come_from_orders_positions_and_balances(cache):
     assert "BNBUSDT" in snap["history_symbols"]      # 现货有余额且存在该交易对
 
 
-def test_history_window_follows_the_venue_limit(cache):
-    """合约单次 < 7 天、回溯 90 天；现货单次 ≤ 24 小时。"""
+def test_history_reaches_back_past_a_single_api_window(cache):
+    """按 id 翻页，不按时间窗。
+
+    时间窗最多 24 小时（现货）/ 7 天（合约）。只取最近一个窗口的话，上次交易
+    在窗口之前就是一片空白——"历史完全没有数据"就是这么来的。
+    """
     fut = build(cache, symbol="NVDAUSDT")["query"]
     assert fut["venue"] == "usdm"
     assert fut["max_window_hours"] == 168 and fut["lookback_days"] == 90
     span = datetime.fromisoformat(fut["to"]) - datetime.fromisoformat(fut["from"])
-    assert span == timedelta(hours=168)
+    assert span == timedelta(days=90)     # 回溯到接口的上限，不是单窗口的 7 天
 
     spot = build(cache, symbol="BNBUSDT")["query"]
     assert spot["venue"] == "spot"

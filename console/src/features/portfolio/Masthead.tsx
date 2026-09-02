@@ -148,15 +148,19 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
               <span className="text-xs text-ink-3">计价 USD</span>
             </>
           )}
-          <button
-            className="flex items-center gap-1.5 text-xs text-ink-3 transition-colors duration-200 hover:text-ink disabled:opacity-40"
-            disabled={refreshing}
-            onClick={onRefresh}
-            type="button"
-          >
-            <ArrowsClockwise aria-hidden="true" className={cn(refreshing && 'animate-spin')} size={12} />
-            重新取数
-          </button>
+          {/* 重新取数是运维动作：它绕过缓存直接打交易所，而权重预算是共享的。
+              成员点它既没有判断依据，也可能把预算打空让所有人一起 429。 */}
+          {isAdmin && (
+            <button
+              className="flex items-center gap-1.5 text-xs text-ink-3 transition-colors duration-200 hover:text-ink disabled:opacity-40"
+              disabled={refreshing}
+              onClick={onRefresh}
+              type="button"
+            >
+              <ArrowsClockwise aria-hidden="true" className={cn(refreshing && 'animate-spin')} size={12} />
+              重新取数
+            </button>
+          )}
         </div>
       </div>
     </header>

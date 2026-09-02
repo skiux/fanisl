@@ -83,7 +83,7 @@ function PositionRow({ position }: { position: FuturesPosition }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="truncate text-sm text-ink">{position.symbol}</span>
+            <span className="truncate text-sm text-ink">{baseOf(position.symbol)}</span>
             {/* 方向用中性色 + 箭头：绿/红在这个界面里只表示盈亏 */}
             <span className="flex items-center gap-1 rounded-[4px] bg-sheet-2 px-1.5 py-px font-mono text-[9.5px] font-medium uppercase tracking-wider text-ink-2">
               {long ? <ArrowUp aria-hidden="true" size={9} weight="bold" /> : <ArrowDown aria-hidden="true" size={9} weight="bold" />}

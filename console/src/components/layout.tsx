@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { ArrowRight } from '@phosphor-icons/react'
 import { cn } from '../lib/cn'
 import { percent } from '../lib/format'
+import { useIsAdmin } from '../lib/role'
 
 
 /**
@@ -19,11 +20,14 @@ export function Module({ title, figure, tone, note, span, onOpen, children }: {
   onOpen?: () => void
   children: ReactNode
 }) {
+  // 标题旁那行小字讲的是口径——"钱在哪个钱包"、"越线才需要处理"、"已剔除充提"。
+  // 成员看的是数字本身，这些既是噪音，也在讲系统内部是怎么算的。
+  const isAdmin = useIsAdmin()
   const head = (
     <div className="flex items-baseline justify-between gap-4 border-b border-rule pb-2.5">
       <div className="flex items-baseline gap-2.5">
         <h3 className="section-title text-base">{title}</h3>
-        {note && <span className="text-xs text-ink-3">{note}</span>}
+        {isAdmin && note && <span className="text-xs text-ink-3">{note}</span>}
       </div>
       <div className="flex items-baseline gap-2">
         {figure && (

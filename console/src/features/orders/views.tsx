@@ -1,8 +1,9 @@
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
+import { useState } from 'react'
 import { cn } from '../../lib/cn'
 import {
   CONDITIONAL_KINDS, money, ORDER_KIND_LABEL, percent, price, relativeTime,
-  signedMoney, SOURCE_LABEL, VENUE_LABEL,
+  baseOf, signedMoney, SOURCE_LABEL, VENUE_LABEL,
 } from '../../lib/format'
 import type { OrdersSnapshot, Order, OrderVenue, SourceKey } from '../../api/types'
 import { NoOrdersState } from '../portfolio/states'
@@ -14,6 +15,45 @@ export const isConditional = (order: Order) => CONDITIONAL_KINDS.has(order.kind)
 
 const VENUES: OrderVenue[] = ['spot', 'usdm', 'margin']
 
+/** 账户筛选。取不到的账户也列出来并标灰——不列的话，人会以为那个账户没挂单 */
+function VenueFilter({ value, onSelect, counts, total }: {
+  value: OrderVenue | null
+  onSelect: (venue: OrderVenue | null) => void
+  counts: { venue: OrderVenue; count: number; down: boolean }[]
+  total: number
+}) {
+  const items: { key: OrderVenue | null; label: string; count: number; down: boolean }[] = [
+    { key: null, label: '全部', count: total, down: false },
+    ...counts.map((row) => ({
+      key: row.venue as OrderVenue | null,
+      label: VENUE_LABEL[row.venue] ?? row.venue,
+      count: row.count,
+      down: row.down,
+    })),
+  ]
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-2">
+      {items.map((item) => (
+        <button
+          aria-pressed={value === item.key}
+          className={cn(
+            'rounded-[var(--radius-control)] border px-3 py-1 text-xs transition-colors duration-200',
+            value === item.key
+              ? 'border-rule-strong bg-sheet-2 text-ink'
+              : 'border-rule text-ink-3 hover:border-rule-strong hover:text-ink-2',
+          )}
+          key={item.label}
+          onClick={() => onSelect(item.key)}
+          type="button"
+        >
+          {item.label}
+          <span className="tnum ml-1.5 text-ink-3">{item.down ? '—' : item.count}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 const VENUE_SOURCE: Record<OrderVenue, SourceKey> = {
   spot: 'spot_open',
   usdm: 'futures_open',
@@ -21,8 +61,13 @@ const VENUE_SOURCE: Record<OrderVenue, SourceKey> = {
 }
 
 export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veiled: boolean }) {
-  const limits = snapshot.open.filter((order) => !isConditional(order))
-  const conditionals = snapshot.open.filter(isConditional)
+  // 按账户筛。三个账户的挂单原先揉在一张表里，只能靠每行的小标签分辨——
+  // 而"我现在只想看合约"是这一页最常见的问题。
+  const [only, setOnly] = useState<OrderVenue | null>(null)
+  const shown = only === null ? snapshot.open
+    : snapshot.open.filter((order) => order.venue === only)
+  const limits = shown.filter((order) => !isConditional(order))
+  const conditionals = shown.filter(isConditional)
   const notional = snapshot.open.reduce((sum, order) => sum + (order.notional_usd ?? 0), 0)
   const byVenue = VENUES.map((venue) => {
     const rows = snapshot.open.filter((order) => order.venue === venue)
@@ -86,10 +131,16 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
 
   return (
     <div className={cn(veiled && 'veiled')}>
+      <VenueFilter
+        counts={byVenue}
+        onSelect={setOnly}
+        total={snapshot.open.length}
+        value={only}
+      />
       <ViewGrid>
         <Module
           figure={money(limits.reduce((sum, order) => sum + (order.notional_usd ?? 0), 0))}
-          note={downVenues.length > 0 ? `${limits.length} 笔 · 不含取不到的账户` : `${limits.length} 笔 · 名义合计`}
+          note={downVenues.length > 0 ? '不含取不到的账户' : '名义合计'}
           span="lg:col-span-7"
           title="限价挂单"
         >
@@ -97,7 +148,7 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
         </Module>
 
         <Module
-          figure={`${conditionals.length} 笔`}
+          figure={String(conditionals.length)}
           note="触发后才真正下单"
           span="lg:col-span-5"
           title="条件单"
@@ -108,22 +159,22 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
         <VenueBreakdown notional={notional} rows={byVenue} span="lg:col-span-4" />
 
         <Module
-          note={nearest ? `离成交最近的是 ${nearest.order.symbol}` : '没有可比对的报价'}
+          note={nearest ? `离成交最近的是 ${baseOf(nearest.order.symbol)}` : '没有可比对的报价'}
           span="lg:col-span-4"
           title="挂了多久"
         >
           <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
             <Figure
               label="最早一笔"
-              note={oldest?.symbol}
+              note={oldest ? baseOf(oldest.symbol) : undefined}
               value={oldest ? relativeTime(oldest.created_at) : '—'}
             />
             <Figure
               label="挂单时长中位"
               value={medianAge === null ? '—' : `${Math.round(medianAge / 3600_000)} 小时`}
             />
-            <Figure label="24 小时内新挂" value={`${freshCount} 笔`} />
-            <Figure label="已部分成交" note="仓位已占用" value={`${partial} 笔`} />
+            <Figure label="24 小时内新挂" value={String(freshCount)} />
+            <Figure label="已部分成交" note="仓位已占用" value={String(partial)} />
           </dl>
         </Module>
 
@@ -135,7 +186,7 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
                 return (
                   <li key={group.id}>
                     <div className="flex items-baseline justify-between gap-3 border-b border-rule pb-1.5">
-                      <span className="text-sm text-ink">{group.symbol}</span>
+                      <span className="text-sm text-ink">{baseOf(group.symbol)}</span>
                       <span className="text-xs text-ink-3">{group.contingency} · {legs.length} 条</span>
                     </div>
                     <ul className="mt-2 space-y-1.5">
@@ -182,7 +233,7 @@ function VenueBreakdown({ rows, notional, span }: {
               ) : (
                 <>
                   <span className="tnum ml-auto whitespace-nowrap text-sm text-ink">{money(row.notional)}</span>
-                  <span className="tnum w-[34px] shrink-0 text-right text-xs text-ink-3">{row.count} 笔</span>
+                  <span className="tnum w-[34px] shrink-0 text-right text-xs text-ink-3">{row.count}</span>
                 </>
               )}
             </li>
@@ -249,8 +300,8 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
         <Module
-          figure={`${snapshot.history.length} 笔`}
-          note={q ? `${q.symbol} · ${VENUE_LABEL[q.venue]}` : '未选定交易对'}
+          figure={String(snapshot.history.length)}
+          note={q ? `${baseOf(q.symbol)} · ${VENUE_LABEL[q.venue]}` : '未选定交易对'}
           span="lg:col-span-7"
           title="委托历史"
         >
@@ -282,7 +333,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
                   rightLabel="吃单成交"
                 />
                 <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-                  <Figure label="成交笔数" value={`${fills.length} 笔`} />
+                  <Figure label="成交笔数" value={String(fills.length)} />
                   <Figure label="成交额" value={money(traded)} />
                   <Figure label="手续费" tone="loss" value={signedMoney(-fees)} />
                   <Figure
@@ -298,7 +349,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
 
         <Module
           figure={money(traded)}
-          note={`${fills.length} 笔 · 成交额`}
+          note="成交额"
           span="lg:col-span-12"
           title="成交明细"
         >

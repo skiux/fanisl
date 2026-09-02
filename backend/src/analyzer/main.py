@@ -9,7 +9,7 @@ import json
 import re
 
 import anthropic
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
@@ -24,7 +24,7 @@ from contextlib import asynccontextmanager
 
 from .binance.ledger import build_ledger
 from .binance.orders import build_orders
-from .binance.portfolio import build_portfolio
+from .binance.portfolio import MEMBER_MAX_DAYS, build_portfolio
 from .runtime import (
     ACCOUNT_ID,
     ACCOUNT_IDS,
@@ -113,8 +113,32 @@ class ChatResponse(BaseModel):
     reply: str
 
 
+def _is_admin(request: Request) -> bool:
+    user = getattr(request.state, "user", None)
+    return bool(user) and user.get("role") == "admin"
+
+
+def _clip_for_member(snapshot: dict, request: Request) -> dict:
+    """成员只能看 90 天以内。
+
+    **必须在服务端裁**：前端把数字藏起来不算数，接口原样返回的话，任何人打开
+    开发者工具都能看到全部历史。90 天也正好是合约 income / userTrades 的接口上限，
+    所以对合约那半边本来就没有更多可看的。
+    """
+    if _is_admin(request):
+        return snapshot
+    pnl = snapshot.get("pnl")
+    if isinstance(pnl, dict):
+        daily = pnl.get("daily") or []
+        pnl["daily"] = daily[-MEMBER_MAX_DAYS:]
+        # 现货已实现是全历史的，成员看不到——留空比给一个"其实是全历史"的数诚实
+        pnl["realized"] = {**pnl["realized"], "spot_usd": None,
+                           "spot_scope": f"仅管理员可见（成员上限 {MEMBER_MAX_DAYS} 天）"}
+    return snapshot
+
+
 @app.get("/portfolio")
-def portfolio(force: bool = False) -> dict:
+def portfolio(request: Request, force: bool = False) -> dict:
     """资产快照。形状见 console/src/api/types.ts 的 PortfolioSnapshot。
 
     十来个 Binance 端点拼一份，每个来源单独缓存、单独记状态——451 常常只打在 fapi 上，
@@ -122,11 +146,14 @@ def portfolio(force: bool = False) -> dict:
     与杠杆档位**：前者单次权重 2400（一分钟预算才 6000），连点几下就能把预算打空，
     而它本身是日频数据。
     """
-    return build_portfolio(binance_client, binance_cache, force=force)
+    return _clip_for_member(
+        build_portfolio(binance_client, binance_cache,
+                        force=force and _is_admin(request)),
+        request)
 
 
 @app.get("/orders")
-def orders(symbol: str | None = None, venue: str | None = None,
+def orders(request: Request, symbol: str | None = None, venue: str | None = None,
            force: bool = False) -> dict:
     """委托快照。形状见 console/src/api/types.ts 的 OrdersSnapshot。
 
@@ -135,18 +162,20 @@ def orders(symbol: str | None = None, venue: str | None = None,
     合约 < 7 天）。所以 symbol 省略时取候选里的第一个，venue 按该符号在哪边有仓位/挂单推断。
     """
     return build_orders(binance_client, binance_cache, symbol=symbol, venue=venue,
-                        force=force)
+                        force=force and _is_admin(request))
 
 
 @app.get("/ledger")
-def ledger(days: int = 7, force: bool = False) -> dict:
+def ledger(request: Request, days: int = 7, force: bool = False) -> dict:
     """资金流水。形状见 console/src/api/types.ts 的 LedgerSnapshot。
 
     Binance **没有统一的流水接口**，这条时间线是八个端点各拉一段合并出来的，
     每条记录带着自己的出处。`days` 超过各来源上限的交集（30 天）会被截到上限——
     卡住它的是理财派息 / 杠杆利息 / 闪兑三个端点，界面上的「取数窗口」会说明这件事。
     """
-    return build_ledger(binance_client, binance_cache, days=days, force=force)
+    # 流水窗口本来就 ≤30 天，成员这里不必再裁；force 仍然只给管理员
+    return build_ledger(binance_client, binance_cache, days=days,
+                        force=force and _is_admin(request))
 
 
 @app.get("/health")

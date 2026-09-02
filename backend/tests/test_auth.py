@@ -594,3 +594,47 @@ def test_public_health_endpoint_discloses_nothing_beyond_liveness(real_client):
     """
     body = real_client.get("/health").json()
     assert body == {"status": "ok"}
+
+
+# --- 成员的数据上限 --------------------------------------------------------
+
+def test_member_data_is_clipped_to_90_days_on_the_server(auth_store):
+    """成员只能看 90 天以内，**这条必须在服务端做**。
+
+    前端把数字藏起来不算数：接口原样返回的话，任何人打开开发者工具都能看到全部历史。
+    """
+    from analyzer.main import _clip_for_member, MEMBER_MAX_DAYS
+
+    class Req:
+        class state:
+            user = None
+
+    snapshot = {"pnl": {
+        "daily": [{"date": f"d{i}", "realized_usd": 0.0, "traded": False}
+                  for i in range(400)],
+        "realized": {"spot_usd": 1234.5, "spot_scope": "全部成交历史",
+                     "futures_usd": 10.0, "futures_scope": "最近 90 天"},
+    }}
+
+    member = Req()
+    member.state.user = {"role": "member"}
+    out = _clip_for_member(snapshot, member)
+    assert len(out["pnl"]["daily"]) == MEMBER_MAX_DAYS
+    assert out["pnl"]["daily"][-1]["date"] == "d399"      # 留最近的，不是最早的
+    # 现货已实现是全历史的，成员留空——给一个"其实是全历史"的数才是骗人
+    assert out["pnl"]["realized"]["spot_usd"] is None
+    assert out["pnl"]["realized"]["futures_usd"] == 10.0  # 合约本来就只有 90 天
+
+
+def test_admin_data_is_not_clipped(auth_store):
+    from analyzer.main import _clip_for_member
+
+    class Req:
+        class state:
+            user = {"role": "admin"}
+
+    snapshot = {"pnl": {"daily": [{"date": f"d{i}"} for i in range(400)],
+                        "realized": {"spot_usd": 1234.5}}}
+    out = _clip_for_member(snapshot, Req())
+    assert len(out["pnl"]["daily"]) == 400
+    assert out["pnl"]["realized"]["spot_usd"] == 1234.5

@@ -11,7 +11,6 @@
  *   margin     GET  /sapi/v1/margin/account                marginLevel
  *   income     GET  /fapi/v1/income                        资金费/已实现/手续费
  *   transfers  GET  /sapi/v1/capital/{deposit/hisrec,withdraw/history}
- *   snapshots  GET  /sapi/v1/accountSnapshot               最多 30 天日快照
  */
 
 /** 能独立失败的来源分组。451 打在 fapi 上会同时带走 futures 与 income，但不影响 spot。 */
@@ -20,7 +19,7 @@ export type SourceKey =
   // 而其余全部 unauthorized——界面据此能分清"网络/凭据问题"与"确实没有资产"。
   | 'prices'
   | 'wallets' | 'spot' | 'futures'
-  | 'earn' | 'margin' | 'income' | 'transfers' | 'snapshots'
+  | 'earn' | 'margin' | 'income' | 'transfers'
   // 委托页
   | 'spot_open' | 'futures_open' | 'margin_open' | 'order_lists' | 'algo_open'
   | 'order_history' | 'trade_history'
@@ -182,6 +181,14 @@ export type Attribution = {
   true_return: number | null
 }
 
+export type DailyRealized = {
+  /** YYYY-MM-DD，UTC 日切，与 Binance 的结算日一致 */
+  date: string
+  realized_usd: number
+  /** 这天有没有成交/结算。没有的话 realized_usd 是 0，不是"亏了 0" */
+  traded: boolean
+}
+
 export type SpotCostRow = {
   asset: string
   qty: number
@@ -220,6 +227,9 @@ export type Pnl = {
     referral_usd: number | null
     scope: string
   }
+  /** 每天落袋多少。取代净值走势图——那条线来自日快照，钱包间划转会让它骗人 */
+  daily: DailyRealized[]
+  today_usd: number | null
   spot_assets: SpotCostRow[]
   /** 覆盖范围的实话：已清仓的标的查不到交易对 */
   coverage: string | null
@@ -247,9 +257,7 @@ export type PortfolioSnapshot = {
   margin: MarginAccount | null
   income: IncomeBreakdown | null
   transfers: Transfers | null
-  equity_curve: EquityPoint[]
   pnl: Pnl | null
-  attribution: Attribution | null
 }
 
 export class PortfolioError extends Error {

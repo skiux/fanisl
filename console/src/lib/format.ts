@@ -109,7 +109,7 @@ export function clockTime(asOf: string | null) {
 
 export const WALLET_LABEL: Record<string, string> = {
   spot: '现货',
-  usdm_futures: 'U 本位合约',
+  usdm_futures: '合约',
   coinm_futures: '币本位合约',
   cross_margin: '全仓杠杆',
   isolated_margin: '逐仓杠杆',
@@ -128,7 +128,6 @@ export const SOURCE_LABEL: Record<string, string> = {
   margin: '杠杆账户',
   income: '收支流水',
   transfers: '充提记录',
-  snapshots: '日快照',
   spot_open: '现货挂单',
   futures_open: '合约挂单',
   margin_open: '杠杆挂单',
@@ -171,7 +170,7 @@ export type FlowKind = 'transfer' | 'gain' | 'cost' | 'anchor'
 
 export const VENUE_LABEL: Record<string, string> = {
   spot: '现货',
-  usdm: 'U 本位',
+  usdm: '合约',
   margin: '杠杆',
 }
 

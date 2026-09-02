@@ -100,7 +100,7 @@ function buildTabs(snapshot: PortfolioSnapshot, futuresMissing: boolean): TabIte
     // 四个分节。原先六个里，理财只有 3 项、风险只有 2 个读数，各自填不满一个视图
     // （实测填充率 26% / 36%）——那是分节分错了，不是内容不够。合并进相邻的视图。
     { key: 'overview', label: '总览' },
-    { key: 'changes', label: '本期变动', muted: snapshot.attribution === null },
+    { key: 'changes', label: '盈亏', muted: snapshot.pnl === null },
     { key: 'holdings', label: '持仓' },
     { key: 'perp', label: '合约与风险', muted: futuresMissing },
   ]
@@ -184,8 +184,9 @@ function Body({ phase, view, onSelectView, onRetry }: {
       {isAdmin && (
       <footer className="border-t border-rule bg-sheet-2/60 px-5 py-2.5 sm:px-10">
         <p className="text-xs text-ink-3">
-          真实盈亏已剔除充提，只算现货 / 全仓杠杆 / U 本位合约三个钱包（日快照的口径）·
-          取不到的项目留空，不以 0 代替 · 窗口最长 30 天，受日快照接口所限
+          盈亏按成交算，不由资产变化倒推——钱包之间的划转不影响它 ·
+          现货成本用移动加权平均，充值按到账时市价计入 · 取不到的项目留空，不以 0 代替 ·
+          合约的已实现与每日数据受接口所限只有 90 天
         </p>
       </footer>
       )}

@@ -110,7 +110,6 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         // 合约取不到就没法做归因：缺 realized/funding/commission，恒等式不闭合。
         // 与其给一个残缺的瀑布图，不如明说这一节暂时算不了。
         pnl: null,
-        attribution: null,
         totals: base.totals && {
           ...base.totals,
           equity_usd: equityWithoutFutures,
@@ -135,10 +134,8 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
       const base = fx.buildSnapshot(minutesAgo(1))
       return {
         ...base,
-        sources: degrade(base, ['snapshots'], 'unreachable', '日快照接口暂时取不到', null),
-        equity_curve: [],
+        sources: degrade(base, ['income'], 'unreachable', '合约损益接口暂时取不到', null),
         pnl: null,
-        attribution: null,
         totals: base.totals && { ...base.totals, change_24h_usd: null, change_24h_pct: null },
       }
     }
@@ -148,13 +145,13 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
       return {
         as_of: iso,
         base_currency: 'USD',
-        sources: (['wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers', 'snapshots'] as const)
+        sources: (['wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers'] as const)
           .map((key) => ({
             key, status: 'unauthorized' as const, as_of: null,
             detail: 'API key 无读取权限，或调用 IP 不在白名单内',
           })),
         totals: null, wallets: [], spot: [], futures: null, earn: [], margin: null,
-        income: null, transfers: null, equity_curve: [], pnl: null, attribution: null,
+        income: null, transfers: null, pnl: null,
       }
     }
 
@@ -163,11 +160,11 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
       return {
         as_of: iso,
         base_currency: 'USD',
-        sources: (['wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers', 'snapshots'] as const)
+        sources: (['wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers'] as const)
           .map((key) => fx.okSource(key, iso)),
         totals: { equity_usd: 0, gross_exposure_ratio: null, change_24h_usd: null, change_24h_pct: null },
         wallets: [], spot: [], futures: null, earn: [], margin: null,
-        income: null, transfers: null, equity_curve: [], pnl: null, attribution: null,
+        income: null, transfers: null, pnl: null,
       }
     }
 

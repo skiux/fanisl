@@ -269,14 +269,16 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         v = venue or _venue_of(picked, futures_symbols)
         limits = WINDOW.get(v, WINDOW["spot"])
         end_ms = int(now.timestamp() * 1000)
-        start_ms = end_ms - limits["max_hours"] * MS_HOUR
-        orders_fn = client.futures_all_orders if v == "usdm" else client.spot_all_orders
-        trades_fn = client.futures_user_trades if v == "usdm" else client.spot_my_trades
+        # 按 id 翻页而不是按时间窗。时间窗最多 24 小时（现货）/ 7 天（合约），
+        # 只取最近一个窗口的话，上次交易在窗口之前就是一片空白——这就是
+        # "历史那里完全没有数据"。合约那边接口本身只留 90 天，走到头自然停。
+        start_ms = end_ms - (limits["lookback_days"] or 90) * MS_HOUR * 24
         hist = fetch_all(cache, [
             (f"orders.history:{v}:{picked}", TTL["history"],
-             lambda: orders_fn(picked, start_ms=start_ms, end_ms=end_ms)),
+             lambda: client.orders_since(picked, venue=v)),
             (f"orders.trades:{v}:{picked}", TTL["history"],
-             lambda: trades_fn(picked, start_ms=start_ms, end_ms=end_ms)),
+             (lambda: client.futures_trades_since(picked)) if v == "usdm"
+             else (lambda: client.spot_trades_since(picked))),
         ], force=force)
         h_res = hist[f"orders.history:{v}:{picked}"]
         t_res = hist[f"orders.trades:{v}:{picked}"]

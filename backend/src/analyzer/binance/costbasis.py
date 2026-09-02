@@ -32,6 +32,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Iterable
 
 from .common import dec, dec0
@@ -61,12 +62,15 @@ class Lot:
     进而把它从已实现合计里剔掉——而它恰恰是账户里最大的一块。
     """
 
-    __slots__ = ("qty", "cost_usd", "realized_usd", "unknown_cost", "is_cash")
+    __slots__ = ("qty", "cost_usd", "realized_usd", "unknown_cost", "is_cash",
+                 "realized_by_day")
 
     def __init__(self, *, is_cash: bool = False) -> None:
         self.qty = 0.0
         self.cost_usd = 0.0
         self.realized_usd = 0.0
+        # 按天分桶，给日历图用。卖出发生在哪天就记在哪天。
+        self.realized_by_day: dict[str, float] = {}
         # 有一笔进账算不出美元成本（跨币种成交缺历史汇率、或来源不明）。
         # 一旦置位，这个币的均价就不再可信，界面上要留空。
         self.unknown_cost = False
@@ -94,7 +98,7 @@ class Lot:
         self.qty += qty
         self.cost_usd += qty * price_usd
 
-    def sell(self, qty: float, price_usd: float | None) -> None:
+    def sell(self, qty: float, price_usd: float | None, day: str = "") -> None:
         """卖出按卖出**当时**的均价结转，剩下的持仓均价不变。"""
         if qty <= 0:
             return
@@ -114,7 +118,10 @@ class Lot:
                 return
         avg = self.cost_usd / self.qty if self.qty > 0 else 0.0
         if price_usd is not None and not self.unknown_cost:
-            self.realized_usd += qty * (price_usd - avg)
+            gain = qty * (price_usd - avg)
+            self.realized_usd += gain
+            if day:
+                self.realized_by_day[day] = self.realized_by_day.get(day, 0.0) + gain
         elif price_usd is not None:
             # 成本不明时不记已实现——记了就是编一个数
             pass
@@ -161,7 +168,7 @@ def replay(trades: Iterable[dict], *, deposits: Iterable[dict] = (),
     for at, _, event in events:
         row = event["row"]
         if event["kind"] == "trade":
-            _apply_trade(lot, row, at, rate)
+            _apply_trade(lot, row, at, rate, _day_of(at))
         else:
             asset = row.get("coin") or row.get("asset") or ""
             amount = dec0(row.get("amount") or row.get("rewards"))
@@ -176,7 +183,7 @@ def replay(trades: Iterable[dict], *, deposits: Iterable[dict] = (),
     return lots
 
 
-def _apply_trade(lot, row: dict, at: int, rate) -> None:
+def _apply_trade(lot, row: dict, at: int, rate, day: str = "") -> None:
     pair = split_symbol(row.get("symbol", ""), _QUOTE_GUESSES)
     if pair is None:
         return
@@ -192,7 +199,7 @@ def _apply_trade(lot, row: dict, at: int, rate) -> None:
         lot(base).buy(qty, price_usd)
         lot(quote).sell(qty * price, rate(quote, at))
     else:
-        lot(base).sell(qty, price_usd)
+        lot(base).sell(qty, price_usd, day)
         lot(quote).buy(qty * price, rate(quote, at))
 
     # 手续费。用 BNB 抵扣时那笔 BNB 从余额里出，它的成本在 BNB 自己账上，
@@ -205,6 +212,24 @@ def _apply_trade(lot, row: dict, at: int, rate) -> None:
 
 # 拆 symbol 时除了稳定币还要认得出常见的币本位计价，否则 `BNBBTC` 会被整条丢掉
 _QUOTE_GUESSES = (*USD_QUOTES, "BTC", "ETH", "BNB")
+
+
+def _day_of(ms: int) -> str:
+    """毫秒 → UTC 日期。日历按 UTC 分桶，与 Binance 的结算日一致。"""
+    if ms <= 0:
+        return ""
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).date().isoformat()
+
+
+def realized_by_day(lots: dict[str, Lot]) -> dict[str, float]:
+    """全部币加起来，每天现货结转了多少。"""
+    out: dict[str, float] = {}
+    for lot in lots.values():
+        if lot.unknown_cost and not lot.is_cash:
+            continue
+        for day, amount in lot.realized_by_day.items():
+            out[day] = out.get(day, 0.0) + amount
+    return out
 
 
 def _ms(value: Any) -> int:

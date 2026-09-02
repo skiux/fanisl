@@ -2,10 +2,12 @@ import { cn } from '../../lib/cn'
 import { money, percent, signedMoney, SOURCE_LABEL } from '../../lib/format'
 import type { MarginAccount, PortfolioSnapshot } from '../../api/types'
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
-import { DailyChange } from './DailyChange'
-import { EquityCurve } from './EquityCurve'
+import { RealizedCalendar } from './RealizedCalendar'
 import { EarnTable, SpotTable } from './Holdings'
-import { Reconciliation } from './Reconciliation'
+import { PnlBreakdown } from './PnlBreakdown'
+
+/** 合约 income 与 userTrades 都只保留 90 天，这是接口硬限 */
+const WINDOW_DAYS = 90
 import { PositionsList, RiskGauges } from './RiskPanel'
 import { SourceHealth } from './SourceHealth'
 import { WalletSpread } from './WalletSpread'
@@ -24,23 +26,22 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
   onOpen: (key: 'changes' | 'holdings' | 'perp') => void
 }) {
   const isAdmin = useIsAdmin()
-  const a = snapshot.attribution
+  const pnl = snapshot.pnl
   const okCount = snapshot.sources.filter((source) => source.status === 'ok').length
 
   return (
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
-        <Module note="30 天 · 日快照" onOpen={() => onOpen('changes')} span="lg:col-span-8" title="净值走势">
-          <div className="flex h-[clamp(170px,26vh,260px)] flex-col">
-            <EquityCurve points={snapshot.equity_curve} veiled={false} />
-          </div>
-          {a && (
-            <p className="mt-5 font-display text-lg leading-[1.5] text-ink">
-              净值增加 <span className="tnum">{signedMoney(a.closing_equity - a.opening_equity)}</span>，
-              其中 <span className="tnum text-accent">{signedMoney(a.net_transfer)}</span> 是转入的；
-              实际赚了 <span className={cn('tnum', a.true_pnl >= 0 ? 'text-gain' : 'text-loss')}>{signedMoney(a.true_pnl)}</span>。
-            </p>
-          )}
+        <Module
+          figure={pnl?.today_usd == null ? '—' : signedMoney(pnl.today_usd)}
+          note="今日已实现"
+          onOpen={() => onOpen('changes')}
+          span="lg:col-span-8"
+          title="每日已实现"
+          tone={pnl?.today_usd == null ? 'muted'
+            : pnl.today_usd >= 0 ? 'gain' : 'loss'}
+        >
+          <RealizedCalendar days={pnl?.daily ?? []} veiled={false} />
         </Module>
 
         <Module note="钱在哪个钱包" onOpen={() => onOpen('holdings')} span="lg:col-span-4" title="资产分布">
@@ -81,8 +82,9 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
 }
 
 export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; veiled: boolean }) {
+  const isAdmin = useIsAdmin()
   const t = snapshot.transfers
-  const a = snapshot.attribution
+  const pnl = snapshot.pnl
   const income = snapshot.income
   const grossFlow = t ? Math.max(t.deposits_usd, t.withdrawals_usd, 1) : 1
   // 成本口径：资金费与手续费都是负数流出，取绝对值当"成本"，与毛利同向比较
@@ -92,10 +94,11 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
   return (
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
-        {/* 窗口写实际起止：日快照只留 30 天，账户不满 30 天或中间缺日就会短一截 */}
-        <Module note={a ? `${a.window_start} 起 ${a.window_days} 天 · 逐项对账` : '逐项对账'}
-                span="lg:col-span-7" title="本期变动">
-          <Reconciliation data={a} veiled={false} />
+        {/* 原先这里是"期末 − 期初 − 净充提"的归因表，未实现变动由残差反解——
+            那个残差会把钱包间划转一起吸进来，所以它的"未实现变动"里混着充提。
+            现在每一项都有出处：现货来自成交重放，合约来自 positionRisk 与 income。 */}
+        <Module note="现货按成本重放 · 合约取交易所值" span="lg:col-span-7" title="盈亏构成">
+          <PnlBreakdown pnl={pnl} />
         </Module>
 
         <Stack span="lg:col-span-5">
@@ -122,17 +125,10 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
                         />
                       </span>
                       <span className="tnum ml-auto whitespace-nowrap text-sm text-ink">{money(value)}</span>
-                      <span className="tnum w-[36px] shrink-0 text-right text-xs text-ink-3">{count} 笔</span>
+                      <span className="tnum w-[36px] shrink-0 text-right text-xs text-ink-3">{count}</span>
                     </li>
                   ))}
                 </ul>
-                <dl className="mt-4 border-t border-rule pt-4">
-                  <Figure
-                    label="占期初净值"
-                    note="涨幅里自己充的部分"
-                    value={a && a.opening_equity > 0 ? percent(t.net_usd / a.opening_equity, 1) : '—'}
-                  />
-                </dl>
               </>
             ) : <p className="text-sm text-ink-3">充提记录取不到。</p>}
           </Module>
@@ -144,7 +140,7 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
             title="成本"
             tone={costs === null ? 'muted' : 'loss'}
           >
-            {income && a ? (
+            {income ? (
               <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
                 <Figure label="毛利" tone="gain" value={signedMoney(grossProfit)} />
                 <Figure
@@ -153,9 +149,9 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
                 />
                 <Figure
                   label="日均资金费"
-                  note={`${a.window_days} 天`}
+                  note={isAdmin ? `${WINDOW_DAYS} 天` : undefined}
                   tone={income.funding_fee >= 0 ? 'gain' : 'loss'}
-                  value={signedMoney(income.funding_fee / a.window_days)}
+                  value={signedMoney(income.funding_fee / WINDOW_DAYS)}
                 />
                 <Figure label="返佣" tone="gain" value={signedMoney(income.referral_kickback)} />
               </dl>
@@ -163,8 +159,8 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
           </Module>
         </Stack>
 
-        <Module note="日快照差分 · 含充提" span="lg:col-span-12" title="逐日变化">
-          <DailyChange points={snapshot.equity_curve} />
+        <Module note="每天落袋多少 · 划转不计入" span="lg:col-span-12" title="每日已实现">
+          <RealizedCalendar days={pnl?.daily ?? []} veiled={false} />
         </Module>
       </ViewGrid>
     </div>

@@ -306,19 +306,44 @@ function buildPnl(): Pnl {
       spot_usd: spotReal,
       spot_scope: '全部成交历史',
       futures_usd: income.realized_pnl,
-      futures_scope: '最近 30 天（接口只保留 90 天）',
+      futures_scope: '最近 90 天（接口上限）',
     },
     carry: {
       funding_usd: income.funding_fee,
       commission_usd: income.commission,
       referral_usd: income.referral_kickback,
-      scope: '最近 30 天',
+      scope: '最近 90 天',
     },
+    daily: buildDaily(),
+    today_usd: buildDaily().at(-1)?.realized_usd ?? null,
     spot_assets: spotRows,
     coverage: '只覆盖当前还持有的币；已清仓的标的查不到交易对',
     incomplete_assets: spotRows.filter((r) => !r.cost_known).map((r) => r.asset),
     failed_symbols: [],
   }
+}
+
+/**
+ * 每天落袋多少。日频离散数据，样例里用一个稳定的伪随机——刷新页面不该换一批数，
+ * 否则没法拿它对界面。真实来源是合约 income 逐行分桶 + 现货成交结转。
+ */
+function buildDaily() {
+  const out = []
+  const today = new Date()
+  for (let back = 89; back >= 0; back -= 1) {
+    const day = new Date(today)
+    day.setDate(day.getDate() - back)
+    const weekday = day.getDay()
+    // 周末不交易：日历上留白比编一个假数字诚实
+    const traded = weekday !== 0 && weekday !== 6 && Math.sin(back * 2.7) > -0.45
+    const swing = Math.sin(back * 1.31) * 420 + Math.sin(back * 0.47 + 2) * 260
+    out.push({
+      date: day.toISOString().slice(0, 10),
+      realized_usd: traded ? Math.round(swing * 100) / 100 : 0,
+      traded,
+    })
+  }
+  return out
 }
 
 const STABLE_FIXTURE = ['USDT', 'USDC', 'BUSD', 'FDUSD']
@@ -341,7 +366,7 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
     as_of: iso,
     base_currency: 'USD',
     sources: ([
-      'wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers', 'snapshots',
+      'wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers',
     ] as const).map((key) => okSource(key, iso)),
     totals: {
       equity_usd: equity,
@@ -351,8 +376,6 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
       change_24h_pct: yesterday ? (closingEquity - yesterday) / yesterday : null,
     },
     wallets, spot, futures, earn, margin, income, transfers,
-    equity_curve: curve,
     pnl: buildPnl(),
-    attribution: buildAttribution(curve.length, curve[0].date),
   }
 }

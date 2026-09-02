@@ -1,5 +1,6 @@
 import { cn } from '../../lib/cn'
-import { money, percent, signedMoney, signedPercent } from '../../lib/format'
+import { money, percent, signedMoney } from '../../lib/format'
+import { useIsAdmin } from '../../lib/role'
 import type { PortfolioSnapshot } from '../../api/types'
 
 type Cell = {
@@ -18,6 +19,7 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled }: {
   futuresMissing: boolean
   veiled: boolean
 }) {
+  const isAdmin = useIsAdmin()
   const totals = snapshot.totals
   const pnl = snapshot.pnl
   const ratio = snapshot.futures?.margin_ratio ?? null
@@ -32,10 +34,12 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled }: {
 
   const cells: Cell[] = [
     {
-      label: '今日',
-      value: totals?.change_24h_usd == null ? '—' : signedMoney(totals.change_24h_usd),
-      note: totals?.change_24h_pct == null ? '无昨日快照' : signedPercent(totals.change_24h_pct),
-      tone: totals?.change_24h_usd == null ? 'muted' : totals.change_24h_usd >= 0 ? 'gain' : 'loss',
+      // 原先是"今日净值变化"，拿全部钱包减昨天的日快照——理财余额每天都被算成
+      // "今天赚的"。改成今日实际落袋，只认成交与结算。
+      label: '今日已实现',
+      value: pnl?.today_usd == null ? '—' : signedMoney(pnl.today_usd),
+      note: '含资金费与手续费',
+      tone: pnl?.today_usd == null ? 'muted' : pnl.today_usd >= 0 ? 'gain' : 'loss',
     },
     {
       // 未实现盈亏来自成交重放（现货）与 positionRisk（合约），不是"期末 − 期初"。
@@ -48,7 +52,7 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled }: {
     {
       label: '已实现盈亏',
       value: real == null ? '—' : signedMoney(real),
-      note: real == null ? '不可用' : '现货全历史 · 合约近 30 天',
+      note: real == null ? '不可用' : '现货全历史 · 合约近 90 天',
       tone: real == null ? 'muted' : real >= 0 ? 'gain' : 'loss',
     },
     {
@@ -81,7 +85,8 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled }: {
           >
             {cell.value}
           </div>
-          {cell.note && <div className="mt-1 text-xs text-ink-3">{cell.note}</div>}
+          {/* 说明是口径，只给管理员。成员看的是数字本身，多一行小字只是噪音 */}
+          {isAdmin && cell.note && <div className="mt-1 text-xs text-ink-3">{cell.note}</div>}
         </div>
       ))}
     </div>

@@ -39,12 +39,11 @@ def build(cache, *, fail=None, calls=None, force=True):
 def test_snapshot_shape_matches_contract(cache):
     snap = build(cache)
     assert set(snap) == {"as_of", "base_currency", "sources", "totals", "wallets", "spot",
-                         "futures", "earn", "margin", "income", "transfers",
-                         "equity_curve", "pnl", "attribution"}
+                         "futures", "earn", "margin", "income", "transfers", "pnl"}
     assert snap["base_currency"] == "USD"
     assert {s["key"] for s in snap["sources"]} == {
         "prices", "wallets", "spot", "futures", "earn", "margin",
-        "income", "transfers", "snapshots"}
+        "income", "transfers"}
     assert all(s["status"] == "ok" for s in snap["sources"])
 
 
@@ -124,79 +123,10 @@ def test_transfers_only_count_settled(cache):
     assert snap["transfers"]["net_usd"] == pytest.approx(1000.0)
 
 
-def test_equity_curve_uses_each_days_btc_close(cache):
-    """拿今天的 BTC 价乘 30 天前的余额，画出来的是 BTC 的走势不是账户的。"""
-    snap = build(cache)
-    curve = {row["date"]: row["equity_usd"] for row in snap["equity_curve"]}
-    closes = {datetime.fromtimestamp(k[0] / 1000, tz=timezone.utc).date().isoformat(): float(k[4])
-              for k in _klines()}
-    # 现货 BTC 计价 × 当天收盘 + 合约 USDT 余额
-    assert curve[_day(1)] == pytest.approx(0.5 * closes[_day(1)] + 8000)
-    assert curve[_day(0)] == pytest.approx(0.55 * closes[_day(0)] + 8400)
-    assert closes[_day(1)] != closes[_day(0)]     # 两天价格确实不同，断言才有意义
 
 
-def test_attribution_identity_closes(cache):
-    snap = build(cache)
-    a = snap["attribution"]
-    total = (a["net_transfer"] + a["realized_pnl"] + a["unrealized_delta"]
-             + a["funding_fee"] + a["commission"])
-    assert a["opening_equity"] + total == pytest.approx(a["closing_equity"])
-    assert a["true_pnl"] == pytest.approx(a["closing_equity"] - a["opening_equity"]
-                                          - a["net_transfer"])
 
 
-def test_change_24h_compares_like_for_like(cache):
-    """「今日」也是拿净值减昨天的快照，同样必须用快照口径的那三个钱包。
-
-    原先用的是全部钱包合计减昨日快照，于是理财与资金里的余额每天都被算进"今日变动"。
-    """
-    snap = build(cache)
-    kinds = {w["kind"]: w for w in snap["wallets"]}
-    three = sum(kinds[k]["value_usd"] for k in ("spot", "usdm_futures") if k in kinds)
-    yesterday = snap["equity_curve"][-2]["equity_usd"]
-    assert snap["totals"]["change_24h_usd"] == pytest.approx(three - yesterday)
-    # 用总净值算的话会多出理财与 Trading Bots，这里断言它确实不是那个数
-    assert snap["totals"]["change_24h_usd"] != pytest.approx(
-        snap["totals"]["equity_usd"] - yesterday)
-
-
-def test_attribution_closing_is_measured_on_the_same_wallets_as_the_snapshots(cache):
-    """期末只能算日快照覆盖的那三个钱包，否则理财余额会被当成利润。
-
-    恒等式里未实现变动是残差反解的，闭合**不构成**口径正确的证据——原先期末用的是
-    全部钱包合计（含理财、资金、币本位），期初来自只有三种类型的日快照，差额被残差
-    整个吸走，瀑布照样闭合，而"30 天真实盈亏"多出了一整笔理财本金。
-    """
-    snap = build(cache)
-    a = snap["attribution"]
-    kinds = {w["kind"]: w for w in snap["wallets"]}
-    three = sum(kinds[k]["value_usd"] for k in ("spot", "usdm_futures") if k in kinds)
-
-    assert a["closing_equity"] == pytest.approx(three)
-    # 理财与 Trading Bots 有余额，但不在快照口径里，不该出现在期末
-    assert kinds["earn"]["value_usd"] > 0 and kinds["trading_bots"]["value_usd"] > 0
-    assert a["closing_equity"] < snap["totals"]["equity_usd"]
-
-
-def test_attribution_window_is_the_real_curve_length_not_a_hardcoded_30(cache):
-    """accountSnapshot 只留最近 30 天，账户不满 30 天或中间缺日，曲线就短一截。"""
-    snap = build(cache)
-    a = snap["attribution"]
-    assert a["window_days"] == len(snap["equity_curve"]) == 2
-    assert a["window_start"] == snap["equity_curve"][0]["date"]
-
-
-def test_attribution_cuts_income_and_transfers_to_the_curve_window(cache):
-    """两边的窗口必须一致，否则窗口外的损益会被残差吸走，表面上照样闭合。
-
-    mock 里充值在 20 天前、提现在 8 天前，而曲线只有 2 天——两笔都在窗口之外，
-    它们早已包含在期初里，不该再从盈亏里扣一次。
-    """
-    snap = build(cache)
-    assert snap["attribution"]["net_transfer"] == pytest.approx(0.0)
-    # 页面上单列的「收支」是整个 30 天窗口，与归因表的窗口是两回事，不受影响
-    assert snap["transfers"]["net_usd"] == pytest.approx(1000.0)
 
 
 # --- 降级 -----------------------------------------------------------------
@@ -212,7 +142,7 @@ def test_fapi_451_kills_futures_but_not_spot(cache):
 
     assert snap["futures"] is None
     assert snap["income"] is None
-    assert snap["attribution"] is None      # 缺收支流水，恒等式不闭合，整块留空
+    # 合约整块取不到时，盈亏里合约那两项留空
     assert snap["spot"] and snap["wallets"]
     assert snap["totals"]["gross_exposure_ratio"] is None
 
@@ -260,7 +190,10 @@ def test_missing_prices_degrade_to_null_not_zero(cache):
     assert snap["wallets"]
     assert all(w["value_usd"] is None for w in snap["wallets"])
     assert snap["totals"] is None            # 净值算不出来就整块留空
-    assert snap["attribution"] is None
+    # 合约损益结在 USDT 上，稳定币不依赖行情端点，这一项照样算得出来
+    assert snap["pnl"]["realized"]["futures_usd"] == pytest.approx(3847.22)
+    # 但现货的未实现要市价，没有行情就留空而不是记 0
+    assert snap["pnl"]["unrealized"]["spot_usd"] == pytest.approx(0.0)
 
 
 def test_as_of_reports_the_oldest_successful_source(cache):
@@ -295,7 +228,7 @@ def test_missing_credentials_report_unauthorized_not_crash(cache):
     assert all(states[k]["status"] == "unauthorized" for k in private)
     assert all("未配置" in states[k]["detail"] for k in private)
     assert snap["totals"] is None and snap["futures"] is None
-    assert snap["spot"] == [] and snap["equity_curve"] == []
+    assert snap["spot"] == []
 
 
 def test_force_does_not_punch_through_expensive_sources(cache):
@@ -325,18 +258,16 @@ def test_page_as_of_ignores_daily_cadence_sources(cache):
     # 否则它们会被重新取、时间戳又变新，这条测试就验不到东西了
     with cache.pool.connection() as conn:
         conn.execute("UPDATE binance_cache SET fetched_at = now() - interval '3 hours' "
-                     "WHERE source_key LIKE 'snapshots%' OR source_key = 'brackets'")
+                     "WHERE source_key LIKE 'trades.%'")
     aged = build(cache, force=False)
     aged_states = {s["key"]: s for s in aged["sources"]}
 
-    # 它们自己的年龄照常如实返回——没有藏起来，界面上「取数状态」一格一格显示
-    assert aged_states["snapshots"]["as_of"] < states["snapshots"]["as_of"]
-    # 但页面时刻跟着**会变的**那些走，不被它们拖老
+    # 页面时刻跟着**会变的**那些走，不被长缓存的成交历史拖老
     assert aged["as_of"] == min(
         s["as_of"] for s in aged["sources"]
         if s["key"] in {"prices", "wallets", "spot", "futures", "earn",
                         "margin", "income", "transfers"} and s["status"] == "ok")
-    assert aged["as_of"] > aged_states["snapshots"]["as_of"]
+    assert aged["pnl"] is not None      # 成交历史吃缓存，盈亏照算
 
 
 def test_page_as_of_falls_back_when_no_live_source_succeeds(cache):
@@ -346,8 +277,9 @@ def test_page_as_of_falls_back_when_no_live_source_succeeds(cache):
             if s["key"] in {"prices", "wallets", "spot", "futures", "earn",
                             "margin", "income", "transfers"} and s["status"] == "ok"]
     assert live == []
-    # 日线（公开端点）仍然取到了，页面时刻退回到它
-    assert snap["as_of"] is not None
+    # 一个来源都没成功时如实报 None，而不是拿一个假时刻充数；页面本身仍然要能渲染
+    assert snap["as_of"] is None
+    assert snap["totals"] is None and snap["spot"] == []
 
 
 def test_malformed_response_degrades_one_block_not_the_whole_page(cache):
@@ -471,3 +403,42 @@ def test_cost_basis_counts_coins_sitting_in_the_futures_wallet(cache):
     assert usdt["qty"] > spot_usdt          # 光看现货会少一大块
     assert usdt["qty"] == pytest.approx(spot_usdt + fut_usdt + marg_usdt + earn_usdt,
                                         rel=1e-9)
+
+
+# --- 每日已实现（日历图） --------------------------------------------------
+
+def test_daily_realized_covers_the_whole_window_including_quiet_days(cache):
+    """日历要铺满：没交易的那天是 0，不是缺一格。缺格会让日历看着像漏数据。"""
+    daily = build(cache)["pnl"]["daily"]
+    assert len(daily) == 90
+    assert daily[-1]["date"] == datetime.now(timezone.utc).date().isoformat()
+    assert all(set(d) == {"date", "realized_usd", "traded"} for d in daily)
+    quiet = [d for d in daily if not d["traded"]]
+    assert quiet and all(d["realized_usd"] == 0.0 for d in quiet)
+
+
+def test_daily_realized_counts_funding_and_commission_not_just_pnl(cache):
+    """资金费与手续费也是真金白银的进出，只报 REALIZED_PNL 会让"这天赚了多少"偏乐观。"""
+    snap = build(cache)
+    today = next(d for d in snap["pnl"]["daily"]
+                 if d["date"] == datetime.now(timezone.utc).date().isoformat())
+    inc = snap["income"]
+    expect = (inc["realized_pnl"] + inc["funding_fee"] + inc["commission"]
+              + inc["referral_kickback"])
+    assert today["realized_usd"] == pytest.approx(expect)
+    assert snap["pnl"]["today_usd"] == pytest.approx(today["realized_usd"])
+
+
+def test_daily_realized_ignores_transfers(cache):
+    """划转不是损益。混进来的话，从现货转钱进合约那天会显示成大赚。"""
+    from binance_mock import INCOME
+    fake = {"symbol": "", "incomeType": "TRANSFER", "income": "99999",
+            "asset": "USDT", "time": int(NOW.timestamp() * 1000)}
+    before = build(cache)["pnl"]["today_usd"]
+    INCOME.append(fake)
+    try:
+        with cache.pool.connection() as conn:
+            conn.execute("TRUNCATE binance_cache")
+        assert build(cache)["pnl"]["today_usd"] == pytest.approx(before)
+    finally:
+        INCOME.remove(fake)

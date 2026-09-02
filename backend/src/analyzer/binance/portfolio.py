@@ -14,22 +14,27 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 from .cache import SourceCache, SourceResult, fetch_all
 from .client import BinanceClient
-from .costbasis import USD_QUOTES, held_across_wallets, replay, summarize
+from .costbasis import (
+    USD_QUOTES, held_across_wallets, realized_by_day, replay, summarize,
+)
 from .common import (
     WALLET_KIND, dec, dec0, guard, ms_to_iso, price_map, usd_price, usd_value,
 )
 
-WINDOW_DAYS = 30
+# 合约 income 与 userTrades 都只保留 90 天，这是接口的硬上限，不是选择。
+# 日历图与"今日已实现"都按这个窗口取。
+WINDOW_DAYS = 90
 MS_DAY = 86_400_000
 
-# 每个来源的缓存时长。Binance 的 IP 权重上限 6000/分钟，这些数字是照着权重定的：
-#   snapshots 单次权重 2400（三种类型就是 7200，已经超一分钟预算），但它是**日频**数据，
-#   缓存 6 小时完全不损失信息。
+# 成员只能看 90 天以内。管理员看全量——现货成交没有时间上限，能一直回溯到开户。
+MEMBER_MAX_DAYS = 90
+
+# 每个来源的缓存时长。Binance 的 IP 权重上限 6000/分钟，这些数字是照着权重定的。
 TTL = {
     "prices": 30,
     "wallets": 60,
@@ -43,7 +48,6 @@ TTL = {
     # 30 天窗口的充提合计在 5 分钟里不会有意义地变化，单独放长到 15 分钟，
     # 与流水页对齐。充值那半边权重只有 1，照旧 300 秒。
     "withdrawals": 900,
-    "snapshots": 21_600,
     # 成交历史只增不改，重放一次就够。放长不是省权重（单次 20 很便宜），
     # 是因为全量重放要翻页，页数随成交笔数增长。
     "trades": 21_600,
@@ -102,24 +106,23 @@ def _jobs(client: BinanceClient, now: datetime) -> list[tuple[str, int, Callable
          lambda: client.deposits(start_ms=start_ms, end_ms=end_ms)),
         ("transfers.withdrawals", TTL["withdrawals"],
          lambda: client.withdrawals(start_ms=start_ms, end_ms=end_ms)),
-        ("snapshots.spot", TTL["snapshots"], lambda: client.account_snapshot("SPOT")),
-        ("snapshots.margin", TTL["snapshots"], lambda: client.account_snapshot("MARGIN")),
-        ("snapshots.futures", TTL["snapshots"], lambda: client.account_snapshot("FUTURES")),
-        ("snapshots.btc", TTL["snapshots"],
-         lambda: client.klines("BTCUSDT", "1d", WINDOW_DAYS + 2)),
     ]
 
 
 # 哪些来源是"会变的"。
 #
-# 页面顶上那个「截至 X」说的是**这些数字有多新**，而 snapshots（日快照）是
-# **日频数据，长缓存是有意的**（单次权重 2400，三种类型就超一分钟预算）。把它们算进页面时刻，整页会被拖成"已过期"，还挂上一句
-# "下面全部数字来自 X 的快照，不是当前余额"——而余额其实是 60 秒内的，那句话是假的。
+# 页面顶上那个「截至 X」说的是**这些数字有多新**。成交历史（`trades.*`）缓存 6 小时，
+# 因为它只增不改；把它算进页面时刻，整页会被拖成"已过期"，而余额其实是 60 秒内的。
 #
 # 它们各自的真实年龄没有被藏起来：每个来源自己的 as_of 照常返回，
 # 界面上的「取数状态」一格一格地显示。
 LIVE_CADENCE = frozenset({"prices", "wallets", "spot", "futures", "earn", "margin",
                           "income", "transfers"})
+
+# 贵到不该被"重新取数"穿透的来源。提现历史单次权重 18000（账户维度 10 次/秒），
+# 是所有端点里最贵的；成交历史要按 id 翻页，页数随成交笔数增长，而它只增不改，
+# 强刷没有意义。用户连点几下就能把权重预算打空，然后所有页面一起 429。
+NEVER_FORCE = frozenset({"transfers.withdrawals"})
 
 # 契约里的八个来源，各自由哪些子调用支撑。primary 决定状态，extra 只在失败时补一句说明。
 _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
@@ -131,8 +134,6 @@ _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
     "margin": ("margin", ()),
     "income": ("income", ()),
     "transfers": ("transfers.deposits", ("transfers.withdrawals",)),
-    "snapshots": ("snapshots.spot", ("snapshots.margin", "snapshots.futures",
-                                     "snapshots.btc")),
 }
 
 
@@ -444,76 +445,45 @@ def _transfers(deposits: Any, withdrawals: Any, prices: dict[str, float],
             "deposit_count": dep_n, "withdrawal_count": wit_n}
 
 
-def _btc_closes(klines: Any) -> dict[str, float]:
-    """日线 → {YYYY-MM-DD: 收盘价}。"""
-    out = {}
-    for row in klines or []:
-        try:
-            day = datetime.fromtimestamp(int(row[0]) / 1000, tz=timezone.utc).date().isoformat()
-            out[day] = float(row[4])
-        except (TypeError, ValueError, IndexError):
-            continue
-    return out
 
 
-def _snapshot_days(payload: Any, *, btc_denominated: bool) -> dict[str, float]:
-    """accountSnapshot → {日期: 该账户当天的总额}。
+def _daily_realized(income_rows: Any, spot_days: dict[str, float],
+                    prices: dict[str, float], days: int) -> list[dict]:
+    """每天落袋多少。日历图与"今日已实现"都用它。
 
-    现货与杠杆的快照给 `totalAssetOfBtc`（BTC 计价）；合约那份没有这个字段，
-    只有逐资产的 marginBalance（USDT 计价）。两者单位不同，调用方负责换算。
+    "已实现"含**当天实际结算掉的全部**：合约的已实现盈亏、资金费、手续费、返佣，
+    加上现货卖出结转的部分。资金费与手续费也是真金白银的进出，只报 REALIZED_PNL
+    会让"这天赚了多少"偏乐观。
+
+    换掉净值走势图的理由：那条线来自日快照，而快照只有三个钱包，钱包间划转会让它
+    凭空抬升或塌陷——图上看着像赚了，其实只是把钱挪了个地方。每日已实现不受划转
+    影响，因为它只认成交与结算。
     """
-    out: dict[str, float] = {}
-    vos = (payload or {}).get("snapshotVos", []) if isinstance(payload, dict) else []
-    for vo in vos:
-        day = (ms_to_iso(vo.get("updateTime")) or "")[:10]
+    buckets: dict[str, float] = {}
+    for row in income_rows or []:
+        if row.get("incomeType") in ("TRANSFER", "INTERNAL_TRANSFER"):
+            continue
+        day = (ms_to_iso(row.get("time")) or "")[:10]
         if not day:
             continue
-        data = vo.get("data") or {}
-        if btc_denominated:
-            out[day] = dec0(data.get("totalAssetOfBtc"))
-        else:
-            out[day] = sum(dec0(a.get("marginBalance")) for a in data.get("assets", []))
-    return out
-
-
-def _equity_curve(spot_snap: Any, margin_snap: Any, futures_snap: Any,
-                  klines: Any) -> tuple[list[dict], str | None]:
-    """日快照拼成净值曲线，并说明这条线包含了哪几块。"""
-    closes = _btc_closes(klines)
-    if not closes:
-        return [], "缺 BTC 日线，BTC 计价的快照换不成 USD"
-
-    spot_days = _snapshot_days(spot_snap, btc_denominated=True)
-    margin_days = _snapshot_days(margin_snap, btc_denominated=True)
-    futures_days = _snapshot_days(futures_snap, btc_denominated=False)
-
-    included, missing = [], []
-    for label, days in (("现货", spot_days), ("杠杆", margin_days), ("合约", futures_days)):
-        (included if days else missing).append(label)
-    if not included:
-        return [], "三种日快照都没取到"
-
-    out = []
-    for day in sorted(set(spot_days) | set(margin_days) | set(futures_days)):
-        btc_close = closes.get(day)
-        if btc_close is None:
+        usd = usd_value(row.get("asset", ""), dec0(row.get("income")), prices)
+        if usd is None:
             continue
-        # **用当天的 BTC 价**，不是今天的——否则画出来的是 BTC 的走势
-        equity = (spot_days.get(day, 0.0) + margin_days.get(day, 0.0)) * btc_close
-        equity += futures_days.get(day, 0.0)
-        out.append({"date": day, "equity_usd": equity})
+        buckets[day] = buckets.get(day, 0.0) + usd
+    for day, amount in spot_days.items():
+        buckets[day] = buckets.get(day, 0.0) + amount
 
-    detail = None if not missing else f"这条曲线只含{'、'.join(included)}，缺{'、'.join(missing)}"
-    return out[-WINDOW_DAYS:], detail
-
-
-# 日快照只覆盖这三个钱包（accountSnapshot 的 type 就只有这三种）。期初与期末
-# 必须量同一批钱包，否则理财/资金/币本位里的余额会被整个算成"这段时间赚的"。
-_SNAPSHOT_WALLETS = frozenset({"spot", "cross_margin", "usdm_futures"})
+    today = datetime.now(timezone.utc).date()
+    out = []
+    for back in range(days - 1, -1, -1):
+        day = (today - timedelta(days=back)).isoformat()
+        out.append({"date": day, "realized_usd": buckets.get(day, 0.0),
+                    "traded": day in buckets})
+    return out
 
 
 def _pnl(spot_cost: dict | None, futures: dict | None,
-         income: dict | None) -> dict | None:
+         income: dict | None, daily: list[dict]) -> dict | None:
     """盈亏构成。**每一项都有出处，没有残差项。**
 
     原先这里是"期末 − 期初 − 净充提"，剩下的靠残差反解未实现变动。那条路在
@@ -564,6 +534,10 @@ def _pnl(spot_cost: dict | None, futures: dict | None,
             "referral_usd": (income or {}).get("referral_kickback"),
             "scope": f"最近 {WINDOW_DAYS} 天",
         },
+        # 每天落袋多少。取代原来的净值走势图：那条线来自日快照，钱包间划转会让它
+        # 凭空抬升或塌陷，图上看着像赚了，其实只是把钱挪了个地方。
+        "daily": daily,
+        "today_usd": daily[-1]["realized_usd"] if daily else None,
         "spot_assets": (spot_cost or {}).get("assets", []),
         "coverage": (spot_cost or {}).get("coverage"),
         "incomplete_assets": (spot_cost or {}).get("incomplete_assets", []),
@@ -571,69 +545,10 @@ def _pnl(spot_cost: dict | None, futures: dict | None,
     }
 
 
-def _comparable_equity(wallets: list[dict]) -> float | None:
-    """与日快照同口径的期末净值：只取快照覆盖的那三个钱包。"""
-    values = [w["value_usd"] for w in wallets
-              if w["kind"] in _SNAPSHOT_WALLETS and w["value_usd"] is not None]
-    return sum(values) if values else None
 
 
-def _window_start(curve: list[dict]) -> int | None:
-    """曲线第一天 00:00 UTC 的毫秒时间戳。归因表的窗口以它为准。"""
-    return _day_start_ms(curve[0]["date"]) if curve else None
 
 
-def _day_start_ms(day: str) -> int | None:
-    """"2026-08-04" → 当天 00:00 UTC 的毫秒时间戳。日快照就是按 UTC 日切的。"""
-    try:
-        dt = datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    except (TypeError, ValueError):
-        return None
-    return int(dt.timestamp() * 1000)
-
-
-def _attribution(curve: list[dict], wallets: list[dict], transfers: dict | None,
-                 income: dict | None) -> dict | None:
-    """恒等式：期末 = 期初 + 净充提 + 已实现 + 未实现变动 + 资金费 + 手续费。
-
-    缺任何一项都不闭合。与其给一张对不上账的表，不如整块留空——这是契约里写死的口径。
-
-    两条曾经错得很隐蔽的地方：
-
-    - **期末原先用的是全部钱包的合计**（`totals.equity_usd`），期初却来自日快照，
-      而快照只有现货 / 全仓杠杆 / U 本位合约三种。于是理财、资金、币本位、期权里的
-      余额被整个当成利润。这里改成同口径的三个钱包。
-    - **窗口原先写死 30 天**。accountSnapshot 只保留最近 30 天，账户没满 30 天、
-      或中间有缺日，曲线就短一截，而标题照旧写"30 天"。现在报实际天数与起始日期。
-
-    残差项照旧反解未实现变动，瀑布因此总是闭合——**这正是上面两个错误一直没被发现的
-    原因**：残差会把任何口径错误照单全收。所以口径本身必须是对的，闭合不构成证据。
-    """
-    closing = _comparable_equity(wallets)
-    if not curve or closing is None or transfers is None or income is None:
-        return None
-    opening = curve[0]["equity_usd"]
-    net_transfer = transfers["net_usd"]
-    realized = income["realized_pnl"] + income["referral_kickback"] + income["insurance_clear"]
-    funding, commission = income["funding_fee"], income["commission"]
-    true_pnl = closing - opening - net_transfer
-    unrealized = true_pnl - realized - funding - commission
-    average_capital = opening + net_transfer / 2
-    return {
-        "window_days": len(curve),
-        "window_start": curve[0]["date"],
-        "opening_equity": opening, "closing_equity": closing,
-        "net_transfer": net_transfer, "realized_pnl": realized,
-        "unrealized_delta": unrealized, "funding_fee": funding, "commission": commission,
-        "true_pnl": true_pnl,
-        "true_return": (true_pnl / average_capital) if average_capital > 0 else None,
-    }
-
-
-# 贵到不该被"重新取数"穿透的来源。日快照单次权重 2400，三种类型 7200，
-# 已经超过一分钟 6000 的预算；而它本身是日频数据，强刷没有意义。
-NEVER_FORCE = frozenset({"snapshots.spot", "snapshots.margin", "snapshots.futures",
-                         "snapshots.btc"})
 
 
 def build_portfolio(client: BinanceClient, cache: SourceCache, *,
@@ -669,15 +584,11 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
     income = block("income", lambda: _income(payload("income"), prices))
     transfers = block("transfers", lambda: _transfers(
         payload("transfers.deposits"), payload("transfers.withdrawals"), prices))
-    curve, curve_detail = block("snapshots", lambda: _equity_curve(
-        payload("snapshots.spot"), payload("snapshots.margin"),
-        payload("snapshots.futures"), payload("snapshots.btc")),
-        fallback=([], None)) or ([], None)
-
     # --- 第二阶段：现货成交 ------------------------------------------------
     # `myTrades` 的 symbol 必填，而"交易过哪些对"要先看余额——余额本身是第一阶段
     # 的来源，所以只能分两轮。第二轮很小且缓存 6 小时，多一次往返换一个不靠残差的
     # 盈亏数，值得。
+    spot_realized_days: dict[str, float] = {}
     held = held_across_wallets(spot, futures, margin, earn)
     cost_symbols = _cost_symbols(held, prices)
     trade_results: dict[str, SourceResult] = {}
@@ -698,12 +609,13 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
                 trades.append({**row, "symbol": sym})
         if missing and len(missing) == len(cost_symbols):
             return None
-        out = summarize(
-            replay(trades,
-                   deposits=payload("transfers.deposits") or [],
-                   rewards=[]),
-            {a: usd_price(a, prices) for a in held} | {"USDT": 1.0},
-            held=held)
+        lots = replay(trades,
+                      deposits=payload("transfers.deposits") or [],
+                      rewards=[])
+        out = summarize(lots, {a: usd_price(a, prices) for a in held} | {"USDT": 1.0},
+                        held=held)
+        nonlocal spot_realized_days
+        spot_realized_days = realized_by_day(lots)
         out["symbols"] = cost_symbols
         # 已经卖光的币查不到：它不在余额里，就没有线索指向它的交易对。
         # 说出来，别让人以为已实现是全的。
@@ -717,27 +629,12 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
     equity = sum(usable) if usable else None
 
     notional = sum(p["notional_usd"] for p in (futures or {}).get("positions", []))
-    change_24h = change_24h_pct = None
-    # 与曲线比大小必须用同口径的净值：曲线来自日快照（只有三个钱包），
-    # 拿全部钱包的合计去减昨天的快照，理财与资金里的余额每天都会被算成"今日变动"。
-    comparable = _comparable_equity(wallets)
-    if comparable is not None and len(curve) >= 2:
-        yesterday = curve[-2]["equity_usd"]
-        change_24h = comparable - yesterday
-        change_24h_pct = (change_24h / yesterday) if yesterday else None
-
     totals = None if equity is None else {
         "equity_usd": equity,
         "gross_exposure_ratio": (notional / equity) if (equity and futures) else None,
-        "change_24h_usd": change_24h,
-        "change_24h_pct": change_24h_pct,
     }
 
     states = _states(results, errors)
-    if curve_detail:
-        for state in states:
-            if state["key"] == "snapshots" and state["status"] == "ok":
-                state["detail"] = curve_detail
 
     # 页面时刻 = **会变的那些来源里最旧的一个**。取最旧而不是最新，是因为报最新的
     # 会让整页显得比实际新鲜；只算 live 那一组，是因为日频数据的年龄不该拖垮整页。
@@ -758,12 +655,8 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "margin": margin,
         "income": income,
         "transfers": transfers,
-        "equity_curve": curve,
-        "pnl": block("pnl", lambda: _pnl(block("cost_basis", cost_basis),
-                                         futures, income)),
-        "attribution": block("attribution", lambda: _attribution(
-            curve, wallets,
-            _transfers(payload("transfers.deposits"), payload("transfers.withdrawals"),
-                       prices, _window_start(curve)),
-            _income(payload("income"), prices, _window_start(curve)))),
+        "pnl": block("pnl", lambda: _pnl(
+            block("cost_basis", cost_basis), futures, income,
+            _daily_realized(payload("income"), spot_realized_days, prices,
+                            WINDOW_DAYS))),
     }
