@@ -108,11 +108,18 @@ export function RealizedDays({ days, maxDays }: { days: DailyRealized[]; maxDays
   )
 }
 
-/** 格子只有 58px 宽，$1,234.56 放不下。千位以上压成 1.2k，符号保留 */
+/**
+ * 格子只有 58px 宽，$1,234.56 放不下。千位以上压成 1.2k，符号保留。
+ *
+ * **一美元以内保留两位小数，不四舍五入成 0。** 只收了几分钱资金费的那天写"0"，
+ * 和真的一分没动看起来一样，可下面那行还写着"26 天有交易"——两处对不上。
+ * 位数是为了塞进格子而压缩的，不该把一个数压成另一个意思。
+ */
 function compact(value: number) {
   const sign = value > 0 ? '+' : value < 0 ? '−' : ''
   const abs = Math.abs(value)
-  if (abs < 1) return '0'
+  if (abs === 0) return '0'
+  if (abs < 1) return `${sign}${abs.toFixed(2)}`
   if (abs < 1000) return `${sign}${Math.round(abs)}`
   return `${sign}${(abs / 1000).toFixed(abs < 10_000 ? 1 : 0)}k`
 }
