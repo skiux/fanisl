@@ -21,14 +21,16 @@ export function PnlBreakdown({ pnl }: { pnl: Pnl | null }) {
     )
   }
 
-  const rows: { label: string; value: number | null; note: string }[] = [
-    { label: '现货未实现', value: pnl.unrealized.spot_usd, note: '市值 − 加权平均成本' },
-    { label: '合约未实现', value: pnl.unrealized.futures_usd, note: '交易所标记价' },
-    { label: '现货已实现', value: pnl.realized.spot_usd, note: pnl.realized.spot_scope },
-    { label: '合约已实现', value: pnl.realized.futures_usd, note: pnl.realized.futures_scope },
-    { label: '资金费', value: pnl.carry.funding_usd, note: pnl.carry.scope },
-    { label: '手续费', value: pnl.carry.commission_usd, note: pnl.carry.scope },
-    { label: '返佣', value: pnl.carry.referral_usd, note: pnl.carry.scope },
+  // 每行只有标签和数字。窗口与出处收进摘要条那三个数字的详情抽屉里——
+  // 常驻在这里的话，七行小字比数字本身还占地方，而它们 99% 的时间没人看。
+  const rows: { label: string; value: number | null }[] = [
+    { label: '现货未实现', value: pnl.unrealized.spot_usd },
+    { label: '合约未实现', value: pnl.unrealized.futures_usd },
+    { label: '现货已实现', value: pnl.realized.spot_usd },
+    { label: '合约已实现', value: pnl.realized.futures_usd },
+    { label: '资金费', value: pnl.carry.funding_usd },
+    { label: '手续费', value: pnl.carry.commission_usd },
+    { label: '返佣', value: pnl.carry.referral_usd },
   ]
   const scale = Math.max(...rows.map((r) => Math.abs(r.value ?? 0)), 1)
 
@@ -40,7 +42,6 @@ export function PnlBreakdown({ pnl }: { pnl: Pnl | null }) {
             <tr className="border-b border-rule/70" key={row.label}>
               <th className="py-2.5 text-left text-sm font-normal text-ink-2" scope="row">
                 {row.label}
-                <span className="ml-2 text-micro text-ink-3">{row.note}</span>
               </th>
               <td className="w-[140px] px-4 align-middle">
                 {row.value !== null && <Bar scale={scale} value={row.value} />}
@@ -55,14 +56,7 @@ export function PnlBreakdown({ pnl }: { pnl: Pnl | null }) {
         </tbody>
       </table>
 
-      {pnl.coverage && (
-        <p className="mt-4 text-xs leading-relaxed text-ink-3">{pnl.coverage}</p>
-      )}
-      {pnl.incomplete_assets.length > 0 && (
-        <p className="mt-1.5 text-xs text-loss">
-          {pnl.incomplete_assets.join('、')} 的成本算不出来（缺跨币种的历史汇率），已从合计里剔除。
-        </p>
-      )}
+      {/* 覆盖范围与"哪个币算不出来"都在详情抽屉里，这里不重复一遍 */}
 
       {pnl.spot_assets.filter((row) => !row.is_cash).length > 0 && (
         <div className="mt-6 border-t border-rule pt-4">

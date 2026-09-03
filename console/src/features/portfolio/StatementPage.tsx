@@ -6,6 +6,7 @@ import { baseOf, clockTime, freshnessOf, STABLE_ASSETS } from '../../lib/format'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { Masthead } from './Masthead'
 import { SectionTabs, type TabItem } from './SectionTabs'
+import { PnlDetail, type PnlTopic } from './PnlDetail'
 import { SummaryStrip } from './SummaryStrip'
 import { EmptyState, ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from './states'
 import { ChangesView, HoldingsView, OverviewView, PerpRiskView } from './views'
@@ -116,6 +117,9 @@ function Body({ phase, view, onSelectView, onRetry }: {
     return <div className="px-6 sm:px-10"><ErrorState message={phase.message} onRetry={onRetry} /></div>
   }
 
+  // 详情抽屉的开关。放在 Body 里而不是页面顶层：只有拿到 snapshot 这一层
+  // 才有数据可给，往上提要么多传一层，要么在没数据时也挂着一个空对话框。
+  const [detail, setDetail] = useState<PnlTopic | null>(null)
   const { snapshot } = phase
   // 「一条数据都没有」与「为什么没有」是两件事，分开判。
   //
@@ -162,7 +166,9 @@ function Body({ phase, view, onSelectView, onRetry }: {
         </div>
       )}
 
-      <SummaryStrip futuresMissing={futuresMissing} snapshot={snapshot} veiled={veiled} />
+      <SummaryStrip futuresMissing={futuresMissing} onOpenDetail={setDetail}
+                    snapshot={snapshot} veiled={veiled} />
+      <PnlDetail onClose={() => setDetail(null)} pnl={snapshot.pnl} topic={detail} />
 
       <SectionTabs current={view} items={buildTabs(snapshot, futuresMissing)} onSelect={onSelectView} />
 
