@@ -411,7 +411,7 @@ def test_daily_realized_covers_the_whole_window_including_quiet_days(cache):
     """日历要铺满：没交易的那天是 0，不是缺一格。缺格会让日历看着像漏数据。"""
     daily = build(cache)["pnl"]["daily"]
     assert len(daily) == 90
-    assert daily[-1]["date"] == datetime.now(timezone.utc).date().isoformat()
+    assert daily[-1]["date"] == NOW.astimezone(timezone.utc).date().isoformat()
     assert all(set(d) == {"date", "realized_usd", "traded"} for d in daily)
     quiet = [d for d in daily if not d["traded"]]
     assert quiet and all(d["realized_usd"] == 0.0 for d in quiet)
@@ -421,7 +421,7 @@ def test_daily_realized_counts_funding_and_commission_not_just_pnl(cache):
     """资金费与手续费也是真金白银的进出，只报 REALIZED_PNL 会让"这天赚了多少"偏乐观。"""
     snap = build(cache)
     today = next(d for d in snap["pnl"]["daily"]
-                 if d["date"] == datetime.now(timezone.utc).date().isoformat())
+                 if d["date"] == NOW.astimezone(timezone.utc).date().isoformat())
     inc = snap["income"]
     expect = (inc["realized_pnl"] + inc["funding_fee"] + inc["commission"]
               + inc["referral_kickback"])
@@ -442,3 +442,25 @@ def test_daily_realized_ignores_transfers(cache):
         assert build(cache)["pnl"]["today_usd"] == pytest.approx(before)
     finally:
         INCOME.remove(fake)
+
+
+def test_daily_realized_follows_the_passed_now_not_the_wall_clock(cache):
+    """日历的最后一格必须是 `now` 那天，不是进程读到的今天。
+
+    `_daily_realized` 原先自己调 `datetime.now()`，而 `build_portfolio` 全程用传进来的
+    `now`。两者跨过一次日切就对不上：2026-09-03 凌晨整套测试红了一次，因为 mock 的
+    NOW 停在 09-02。真实运行时的表现更隐蔽——页面时刻是昨天、日历最后一格却是今天。
+    """
+    from analyzer.binance.portfolio import build_portfolio
+    from binance_mock import make_transport
+
+    other = NOW - timedelta(days=11)
+    client = BinanceClient("k", "s", client=httpx.Client(transport=make_transport()))
+    try:
+        snap = build_portfolio(client, cache, force=True, now=other)
+    finally:
+        client.close()
+    daily = snap["pnl"]["daily"]
+    assert daily[-1]["date"] == other.astimezone(timezone.utc).date().isoformat()
+    assert daily[0]["date"] == (other - timedelta(days=89)).astimezone(
+        timezone.utc).date().isoformat()

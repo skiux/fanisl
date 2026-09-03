@@ -23,13 +23,17 @@ export function SectionTabs<K extends string>({ items, current, onSelect }: {
   onSelect: (key: K) => void
 }) {
   return (
-    <SegmentedControl
-      items={items.map((item) => ({
-        value: item.key, label: item.label, muted: item.muted,
-      }))}
-      label="分节导航"
-      onValueChange={onSelect}
-      value={current}
-    />
+    // 外层的内边距与下边线是这一行的**位置**，跟控件长相无关。上一版换成共用控件时
+    // 把这层容器一起丢了，于是第一个标签贴着纸边，而下面每个模块都是缩进的。
+    <div className="scrollbar-none overflow-x-auto border-b border-rule px-5 pt-1 sm:px-10">
+      <SegmentedControl
+        items={items.map((item) => ({
+          value: item.key, label: item.label, muted: item.muted,
+        }))}
+        label="分节导航"
+        onValueChange={onSelect}
+        value={current}
+      />
+    </div>
   )
 }

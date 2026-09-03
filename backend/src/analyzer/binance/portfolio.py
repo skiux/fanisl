@@ -448,7 +448,7 @@ def _transfers(deposits: Any, withdrawals: Any, prices: dict[str, float],
 
 
 def _daily_realized(income_rows: Any, spot_days: dict[str, float],
-                    prices: dict[str, float], days: int) -> list[dict]:
+                    prices: dict[str, float], days: int, now: datetime) -> list[dict]:
     """每天落袋多少。日历图与"今日已实现"都用它。
 
     "已实现"含**当天实际结算掉的全部**：合约的已实现盈亏、资金费、手续费、返佣，
@@ -473,7 +473,10 @@ def _daily_realized(income_rows: Any, spot_days: dict[str, float],
     for day, amount in spot_days.items():
         buckets[day] = buckets.get(day, 0.0) + amount
 
-    today = datetime.now(timezone.utc).date()
+    # 用传进来的 now，不自己读时钟：`build_portfolio` 全程用同一个 now，
+    # 这里另读一次的话，测试里固定的 NOW 与真实时钟一跨天就对不上——
+    # 而且真实运行时也会出现"页面时刻是昨天、日历最后一格是今天"的错位。
+    today = now.astimezone(timezone.utc).date()
     out = []
     for back in range(days - 1, -1, -1):
         day = (today - timedelta(days=back)).isoformat()
@@ -658,5 +661,5 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "pnl": block("pnl", lambda: _pnl(
             block("cost_basis", cost_basis), futures, income,
             _daily_realized(payload("income"), spot_realized_days, prices,
-                            WINDOW_DAYS))),
+                            WINDOW_DAYS, now))),
     }
