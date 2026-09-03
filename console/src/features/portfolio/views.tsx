@@ -11,7 +11,6 @@ const WINDOW_DAYS = 90
 import { PositionsList, RiskGauges } from './RiskPanel'
 import { SourceHealth } from './SourceHealth'
 import { WalletSpread } from './WalletSpread'
-import { useIsAdmin } from '../../lib/role'
 
 /**
  * 总览。这一节只放别处没有的东西：
@@ -25,7 +24,6 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
   concentration: { asset: string; share: number } | null
   onOpen: (key: 'changes' | 'holdings' | 'perp') => void
 }) {
-  const isAdmin = useIsAdmin()
   const pnl = snapshot.pnl
   const okCount = snapshot.sources.filter((source) => source.status === 'ok').length
 
@@ -62,14 +60,15 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
           />
         </Module>
 
-        {/* 来源健康是运维信息，只给管理员。成员看到"8 / 9"只会以为出了故障，
-            而他既判断不了也处理不了。 */}
-        {isAdmin && (
+        {/* **只在出问题时出现。** 全绿时这一块是纯运维信息——和流水页那张
+            「取数窗口」端点表同一类，删了；但来源挂掉时它是有用的：页面上的数字
+            少了一块，得说清楚少的是哪一块。所以不按角色藏，按状态出。 */}
+        {okCount < snapshot.sources.length && (
           <Module
-            figure={`${okCount} / ${snapshot.sources.length}`}
+            figure={`${snapshot.sources.length - okCount} 项缺失`}
             span="lg:col-span-7"
-            title="取数状态"
-            tone={okCount === snapshot.sources.length ? undefined : 'muted'}
+            title="下面的数字不完整"
+            tone="muted"
           >
             <SourceHealth sources={snapshot.sources} />
           </Module>
@@ -80,7 +79,6 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
 }
 
 export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; veiled: boolean }) {
-  const isAdmin = useIsAdmin()
   const t = snapshot.transfers
   const pnl = snapshot.pnl
   const income = snapshot.income
@@ -147,7 +145,7 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
                 />
                 <Figure
                   label="日均资金费"
-                  note={isAdmin ? `${WINDOW_DAYS} 天` : undefined}
+                  note={`${WINDOW_DAYS} 天`}
                   tone={income.funding_fee >= 0 ? 'gain' : 'loss'}
                   value={signedMoney(income.funding_fee / WINDOW_DAYS)}
                 />

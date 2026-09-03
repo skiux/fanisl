@@ -1,6 +1,5 @@
 import { cn } from '../../lib/cn'
 import { money, percent } from '../../lib/format'
-import { useIsAdmin } from '../../lib/role'
 import type { OrdersSnapshot, SourceKey } from '../../api/types'
 
 const ORDER_VENUE_SOURCES: SourceKey[] = ['spot_open', 'futures_open', 'margin_open']
@@ -12,7 +11,6 @@ import { isConditional } from './views'
  * 而不是两个各自为政的页面。
  */
 export function OrdersStrip({ snapshot, veiled }: { snapshot: OrdersSnapshot; veiled: boolean }) {
-  const isAdmin = useIsAdmin()
   const open = snapshot.open
   // 三个挂单接口全挂时，"0 笔 / $0.00" 是假话——摘要条一律留空
   const blind = ORDER_VENUE_SOURCES.every((key) => (
@@ -27,8 +25,8 @@ export function OrdersStrip({ snapshot, veiled }: { snapshot: OrdersSnapshot; ve
   }, null)
 
   const cells = [
-    { label: '名义合计', value: blind ? '—' : money(notional), note: blind ? '取不到' : '未成交部分', muted: blind },
-    { label: '条件单', value: blind ? '—' : String(conditionals), note: blind ? '取不到' : '触发后才下单', muted: blind },
+    { label: '名义合计', value: blind ? '—' : money(notional), note: blind ? '取不到' : undefined, muted: blind },
+    { label: '条件单', value: blind ? '—' : String(conditionals), note: blind ? '取不到' : undefined, muted: blind },
     {
       label: '离成交最近',
       value: nearest === null ? '—' : percent(Math.abs(nearest), 1),
@@ -52,8 +50,8 @@ export function OrdersStrip({ snapshot, veiled }: { snapshot: OrdersSnapshot; ve
           <div className={cn('tnum mt-1.5 text-lg leading-none', cell.muted ? 'text-ink-3' : 'text-ink')}>
             {cell.value}
           </div>
-          {/* 说明是口径，只给管理员 */}
-          {isAdmin && <div className="mt-1 text-xs text-ink-3">{cell.note}</div>}
+          {/* 同资产页：只留把数字翻成判断的那种（"很近""取不到"） */}
+          {cell.note && <div className="mt-1 text-xs text-ink-3">{cell.note}</div>}
         </div>
       ))}
     </div>

@@ -59,6 +59,9 @@ _INCOME_KIND = {
 
 # 每个来源自己的窗口限制与取数代价。这是**页面内容**，不是脚注——
 # "为什么只能看 30 天"和"刷一次多贵"都由它回答。数字来自官方文档（2026-08 复核）。
+# 每个来源的窗口上限与权重。**这份表不出接口**——它曾经作为 `windows` 字段返回，
+# 界面上画成一张「取数窗口」的端点清单。那是接口的构造，属于 README 不属于页面
+# （2026-09-04 删）。这里留着是因为 MAX_WINDOW_DAYS / NEVER_FORCE 从它推出来。
 WINDOWS: list[dict] = [
     {"key": "deposits", "endpoint": "GET /sapi/v1/capital/deposit/hisrec",
      "weight": 1, "max_window_days": 90, "lookback_days": 90, "fanout": None, "calls": 1},
@@ -354,7 +357,6 @@ def build_ledger(client: BinanceClient, cache: SourceCache, *, days: int = 7,
     return {
         "as_of": min(fresh).isoformat() if fresh else None,
         "sources": states,
-        "windows": WINDOWS,
         "window": {
             "from": datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc).isoformat(),
             "to": now.isoformat(), "days": days,

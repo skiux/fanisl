@@ -18,9 +18,14 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 
 # 文件名形态：cookies.txt / .env / *.pem / id_rsa 之类
+#
+# `.env` 那一支要写成"**开头是 .env 就算**"，不能是 `\.env(\..*)?$`——
+# 后者认不出 `.env.bak-003457`（`bak-003457` 里的连字符不在 `\..*` 的范围内）。
+# 2026-09-04 就这么把一份带生产口令的备份提交了进去（未推送，已改历史移除）。
+# 备份、临时副本、编辑器的 .env~ 都该落在同一张网里。
 _SECRET_NAMES = re.compile(
     r"(^|/)("
-    r"cookies\.txt|\.env(\..*)?|.*\.pem|.*\.p12|.*\.pfx|id_rsa|id_ed25519|"
+    r"cookies\.txt|\.env.*|.*\.pem|.*\.p12|.*\.pfx|id_rsa|id_ed25519|"
     r".*credentials\.json|.*service[-_]account.*\.json"
     r")$", re.IGNORECASE)
 # .env.example 这类模板是有意入库的
@@ -67,3 +72,20 @@ def test_no_credential_content_in_tracked_text_files():
                 offenders.append(f"{f}（{label}）")
                 break
     assert not offenders, f"追踪中的文件里出现凭据：{offenders}"
+
+
+def test_the_name_pattern_catches_backups_and_editor_leftovers():
+    """备份和临时副本照样带口令，必须落在同一张网里。
+
+    2026-09-04 把 `.env.bak-003457`（含生产库口令与 Anthropic key）提交了进去，
+    而当时的正则是 `\\.env(\\..*)?$`——`bak-003457` 里的连字符不在 `\\..*` 的
+    范围内，于是漏掉了。未推送，已改历史移除。
+    """
+    caught = ("backend/.env.bak-003457", "backend/.env", "backend/.env~",
+              "backend/.env.dev", "a/b/.env.local")
+    passed = ("deploy/.env.example", "frontend/.env.example", "backend/README.md",
+              "console/src/env.ts")
+    for name in caught:
+        assert _SECRET_NAMES.search(name) and not _ALLOW.search(name), f"漏了 {name}"
+    for name in passed:
+        assert not (_SECRET_NAMES.search(name) and not _ALLOW.search(name)), f"误伤 {name}"

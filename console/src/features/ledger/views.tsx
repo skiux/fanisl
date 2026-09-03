@@ -85,17 +85,19 @@ export function LedgerView({ snapshot, veiled, filter }: {
     .sort((a, b) => Math.abs(b.usd) - Math.abs(a.usd))
   const scale = Math.max(...kinds.map((row) => Math.abs(row.usd)), 1)
 
-  // 按该类**可能**用到的来源收窄，而不是按这次真取到几条——
-  // 这一节回答的是"这一类为什么只能看这么久"，某个接口这次恰好没记录，
-  // 不代表它的窗口限制不在。
-  const windows = snapshot.windows.filter((row) => (
-    filter === 'all' || GROUP_SOURCES[filter].has(row.key)
-  ))
-  const down = windows
-    .filter((row) => snapshot.sources.find((source) => source.key === row.key)?.status !== 'ok')
-    .map((row) => row.key)
+  // 这一类用到的来源里，哪些这次没取到——合计不完整时要跟着数字一起说。
+  // 原先是从 `snapshot.windows`（端点清单）里筛的，那份数据只为「取数窗口」
+  // 那张表存在；表删了之后，直接从 sources 算就够，不必让接口再驮着它。
+  const down = snapshot.sources
+    .filter((source) => source.status !== 'ok'
+      && (filter === 'all' || GROUP_SOURCES[filter].has(source.key)))
+    .map((source) => source.key)
 
-  if (down.length === windows.length && windows.length > 0) {
+  // 这一类的来源全挂了才说"取不到"——只挂一两个时数字仍然有意义，
+  // 上面那句"缺 X"会跟着合计一起出现
+  const relevant = snapshot.sources.filter((source) =>
+    filter === 'all' || GROUP_SOURCES[filter].has(source.key))
+  if (relevant.length > 0 && down.length === relevant.length) {
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>

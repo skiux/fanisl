@@ -138,24 +138,22 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
         </h1>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          {/*
-            用户管理这类页面没有数据来源，整条取数状态就不该出现——
-            `sources=[]` 时原来会显示"截至 —· 0 个来源正常"，读着像故障。
-          */}
-          {/* 取数状态是运维信息：来源健康、口径、页面时刻。成员要看的是自己的钱
-              怎么样，这些只是噪音，而且泄露的是系统内部构造。 */}
-          {isAdmin && sources.length > 0 && (
+          {/* 「截至」是数据本身的一部分（这些数字有多新），谁都要看。
+              而"8 个来源正常""计价 USD"全绿时是废话——**只在出异常时说话**，
+              和资产页那块来源健康同一条规则。用户管理这类没有数据源的页面
+              整条都不出现（`sources=[]` 时原先会显示"截至 — · 0 个来源正常"，
+              读着像故障）。 */}
+          {sources.length > 0 && (
             <>
               <span className="tnum text-xs text-ink-2">截至 {clockTime(asOf)}</span>
-              <span className="flex items-center gap-1.5">
-                <StatusDot level={degraded.length > 0 ? 'error' : level} />
-                <span className={cn('text-xs', degraded.length > 0 ? 'text-loss' : 'text-ink-3')}>
-                  {degraded.length > 0
-                    ? `${degraded.length} / ${sources.length} 个来源异常`
-                    : `${sources.length} 个来源正常`}
+              {(degraded.length > 0 || level === 'stale') && (
+                <span className="flex items-center gap-1.5">
+                  <StatusDot level={degraded.length > 0 ? 'error' : level} />
+                  <span className="text-xs text-loss">
+                    {degraded.length > 0 ? `${degraded.length} 项取不到` : '数据已过期'}
+                  </span>
                 </span>
-              </span>
-              <span className="text-xs text-ink-3">计价 USD</span>
+              )}
             </>
           )}
           {/* 重新取数是运维动作：它绕过缓存直接打交易所，而权重预算是共享的。

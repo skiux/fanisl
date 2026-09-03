@@ -46,7 +46,7 @@ def kinds(snap):
 
 def test_snapshot_shape_and_sources(cache):
     snap = build(cache)
-    assert set(snap) == {"as_of", "sources", "windows", "window", "entries"}
+    assert set(snap) == {"as_of", "sources", "window", "entries"}
     assert {s["key"] for s in snap["sources"]} == {
         "deposits", "withdrawals", "income", "wallet_transfers", "earn_rewards",
         "margin_interest", "convert", "dust"}
@@ -62,15 +62,17 @@ def test_window_is_capped_by_the_tightest_source(cache):
     assert snap["window"]["limited_by"] == "earn_rewards"
 
 
-def test_windows_table_is_exposed_for_the_ui(cache):
-    """"为什么只能看 30 天"和"刷一次多贵"都由这张表回答，它是内容不是脚注。"""
-    snap = build(cache)
-    rows = {w["key"]: w for w in snap["windows"]}
-    assert rows["withdrawals"]["weight"] == 18000
-    assert rows["convert"]["fanout"] == "起止时间都必填"
-    assert rows["wallet_transfers"]["calls"] == len(TRANSFER_TYPES)
-    total = sum(w["weight"] * w["calls"] for w in WINDOWS)
-    assert total > 20_000        # IP 限额 6000/分钟，界面上要说出这个代价
+def test_window_cap_comes_from_the_tightest_source():
+    """页面上的 7 / 14 / 30 不是设计选的，是最紧的那个端点定的。
+
+    端点清单本身**不出接口**（它曾作为 `windows` 字段返回、画成一张表，那是接口的
+    构造，属于 README）。但上限得算对，所以在这里对着表验一遍。
+    """
+    from analyzer.binance.ledger import LIMITED_BY, MAX_WINDOW_DAYS, WINDOWS
+
+    capped = [w for w in WINDOWS if w["max_window_days"] is not None]
+    assert MAX_WINDOW_DAYS == min(w["max_window_days"] for w in capped) == 30
+    assert LIMITED_BY == min(capped, key=lambda w: w["max_window_days"])["key"]
 
 
 # --- 三个读文档才知道的坑 --------------------------------------------------

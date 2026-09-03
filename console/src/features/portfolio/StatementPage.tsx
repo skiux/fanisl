@@ -9,7 +9,6 @@ import { SectionTabs, type TabItem } from './SectionTabs'
 import { SummaryStrip } from './SummaryStrip'
 import { EmptyState, ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from './states'
 import { ChangesView, HoldingsView, OverviewView, PerpRiskView } from './views'
-import { useIsAdmin } from '../../lib/role'
 
 type Phase =
   | { kind: 'loading' }
@@ -112,7 +111,6 @@ function Body({ phase, view, onSelectView, onRetry }: {
   onSelectView: (key: ViewKey) => void
   onRetry: () => void
 }) {
-  const isAdmin = useIsAdmin()
   if (phase.kind === 'loading') return <StatementSkeleton />
   if (phase.kind === 'failed') {
     return <div className="px-6 sm:px-10"><ErrorState message={phase.message} onRetry={onRetry} /></div>
@@ -180,16 +178,6 @@ function Body({ phase, view, onSelectView, onRetry }: {
         </div>
       </div>
 
-      {/* 口径说明是给维护的人看的，成员看了只是噪音 */}
-      {isAdmin && (
-      <footer className="border-t border-rule bg-sheet-2/60 px-5 py-2.5 sm:px-10">
-        <p className="text-xs text-ink-3">
-          盈亏按成交算，不由资产变化倒推——钱包之间的划转不影响它 ·
-          现货成本用移动加权平均，充值按到账时市价计入 · 取不到的项目留空，不以 0 代替 ·
-          合约的已实现与每日数据受接口所限只有 90 天
-        </p>
-      </footer>
-      )}
     </>
   )
 }

@@ -1,6 +1,5 @@
 import { cn } from '../../lib/cn'
 import { money, percent, signedMoney } from '../../lib/format'
-import { useIsAdmin } from '../../lib/role'
 import type { PortfolioSnapshot } from '../../api/types'
 
 type Cell = {
@@ -19,7 +18,6 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled }: {
   futuresMissing: boolean
   veiled: boolean
 }) {
-  const isAdmin = useIsAdmin()
   const totals = snapshot.totals
   const pnl = snapshot.pnl
   const ratio = snapshot.futures?.margin_ratio ?? null
@@ -38,9 +36,7 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled }: {
       // "今天赚的"。改成今日实际落袋，只认成交与结算。
       label: '今日盈亏',
       value: pnl?.today_usd == null ? '—' : signedMoney(pnl.today_usd),
-      // 口径要说清楚：这里只有**已实现**的部分，持仓的浮动不含在内——
-      // 「今日盈亏」这个说法容易被读成含浮盈浮亏。
-      note: '已实现 · 含资金费与手续费',
+
       tone: pnl?.today_usd == null ? 'muted' : pnl.today_usd >= 0 ? 'gain' : 'loss',
     },
     {
@@ -48,13 +44,13 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled }: {
       // 后者在 Binance 上算不准：日快照只有三个钱包，钱包间划转会被算成盈亏。
       label: '未实现盈亏',
       value: unreal == null ? '—' : signedMoney(unreal),
-      note: unreal == null ? '不可用' : '现货按成本 · 合约按标记价',
+      note: unreal == null ? '不可用' : undefined,
       tone: unreal == null ? 'muted' : unreal >= 0 ? 'gain' : 'loss',
     },
     {
       label: '已实现盈亏',
       value: real == null ? '—' : signedMoney(real),
-      note: real == null ? '不可用' : '现货全历史 · 合约近 90 天',
+      note: real == null ? '不可用' : undefined,
       tone: real == null ? 'muted' : real >= 0 ? 'gain' : 'loss',
     },
     {
@@ -87,8 +83,9 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled }: {
           >
             {cell.value}
           </div>
-          {/* 说明是口径，只给管理员。成员看的是数字本身，多一行小字只是噪音 */}
-          {isAdmin && cell.note && <div className="mt-1 text-xs text-ink-3">{cell.note}</div>}
+          {/* 只留**读数**：把数字翻成一句判断（"安全""取不到"）。
+              口径——这个数怎么算出来的——不进界面，那是 README 的事。 */}
+          {cell.note && <div className="mt-1 text-xs text-ink-3">{cell.note}</div>}
         </div>
       ))}
     </div>
