@@ -275,9 +275,17 @@ def summarize(lots: dict[str, Lot], prices: dict[str, float],
               held: dict[str, float] | None = None) -> dict:
     """`Lot` → 给接口的形状。
 
-    `held` 是**账户里实际的余额**。有它就以它为准：重放出来的数量会和真实余额
-    对不上（成交历史不全、有过我们没看到的划入），这时候数量必须信余额，
-    只是均价按重放的成本算——反过来用重放的数量，页面上的持仓就和资产页打架了。
+    `held` 是**账户里实际的余额**。数量以它为准：重放出来的数量常常比余额少
+    （成交历史只覆盖能猜到交易对的那部分，划转 / 理财派息 / 小额兑换进来的币
+    从来没出现在 myTrades 里）。
+
+    **但均价只对重放出来的那部分成立。** 这里曾经拿 `cost_usd / lot.qty` 去乘
+    `held` 的全部数量——等于假设那些没见过买入记录的币和见过的同价。实测：重放
+    1 个 BNB @ $650、实际持有 6.712 个，未实现被算成 +$215.79，而有据可依的只有
+    +$32.15，凭空多出 $183.64。
+
+    现在只对 `min(余额, 重放数量)` 那部分算盈亏，多出来的数量单独报在
+    `unpriced_qty` 里，界面上说清楚"其中多少成本不明"。
     """
     rows = []
     unrealized = realized = 0.0
@@ -287,7 +295,11 @@ def summarize(lots: dict[str, Lot], prices: dict[str, float],
         price = prices.get(asset)
         avg = lot.avg_cost
         value = None if price is None else qty * price
-        gain = None if (value is None or avg is None) else value - qty * avg
+        # 成本已知的只有重放到的那部分。现金除外：USDT 的成本恒等于面值，
+        # 不需要见过它怎么进来的
+        priced_qty = qty if lot.is_cash else min(qty, lot.qty)
+        unpriced_qty = max(0.0, qty - priced_qty)
+        gain = None if (price is None or avg is None) else priced_qty * (price - avg)
         if gain is not None:
             unrealized += gain
         if lot.unknown_cost and not lot.is_cash:
@@ -299,6 +311,8 @@ def summarize(lots: dict[str, Lot], prices: dict[str, float],
         rows.append({
             "asset": asset,
             "qty": qty,
+            # 这些币没见过买入记录，成本算不出来——数量报出来，让界面说清楚
+            "unpriced_qty": unpriced_qty,
             "avg_cost_usd": avg,
             "price_usd": price,
             "value_usd": value,

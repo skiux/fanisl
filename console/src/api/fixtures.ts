@@ -285,10 +285,13 @@ function buildPnl(): Pnl {
       // 均价编在成本上，不编在盈亏上：盈亏由市值减成本算出来
       const avg = cash ? 1 : (SPOT_AVG_COST[row.asset] ?? null)
       const value = row.value_usd as number
+      // 划转 / 理财进来的那部分：样例里给 BNB 留一截没有买入记录的量，
+      // 好让"成本不明"那条路径在本地也走得到
+      const unpriced = row.asset === 'BNB' ? row.total * 0.4 : 0
       return {
-        asset: row.asset, qty: row.total, avg_cost_usd: avg,
+        asset: row.asset, qty: row.total, unpriced_qty: unpriced, avg_cost_usd: avg,
         price_usd: row.price_usd, value_usd: value,
-        unrealized_usd: avg === null ? null : value - row.total * avg,
+        unrealized_usd: avg === null ? null : (row.total - unpriced) * ((row.price_usd ?? 0) - avg),
         realized_usd: cash ? 0 : (SPOT_REALIZED[row.asset] ?? 0),
         cost_known: avg !== null, is_cash: cash,
       }

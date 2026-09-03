@@ -192,6 +192,8 @@ export type DailyRealized = {
 export type SpotCostRow = {
   asset: string
   qty: number
+  /** 这些币没见过买入记录（划转 / 理财 / 小额兑换进来的），成本算不出来，不计入盈亏 */
+  unpriced_qty: number
   avg_cost_usd: number | null
   price_usd: number | null
   value_usd: number | null

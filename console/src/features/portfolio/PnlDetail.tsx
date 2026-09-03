@@ -1,79 +1,19 @@
 import { Dialog } from 'radix-ui'
 import { X } from '@phosphor-icons/react'
 import { cn } from '../../lib/cn'
-import { money, signedMoney } from '../../lib/format'
+import { amount, money, signedMoney } from '../../lib/format'
 import type { Pnl } from '../../api/types'
 
 /**
- * 一个数字是怎么算出来的。
+ * 一个数字由哪几项加起来的。
  *
- * 口径说明一直在页面上占地方，而它 99% 的时间没人看；可真要核对一个数对不对时，
- * 又非有它不可。所以不是"删掉"也不是"常驻"，是**点开才看**。
- *
- * 里面写的是构成，不是解释：这个数由哪几项加起来、每项多少、各自的窗口是什么、
- * 哪一项取不到。能照着它把数字加一遍，才叫说得清。
+ * **只放数字，不放说明。** 上一版把页面上删掉的口径原样搬进这里——换个地方又写了
+ * 一遍，而且对所有人可见。这里要回答的是"这个数怎么凑出来的"，那是数据；
+ * "它取自哪个接口""窗口多长"是构造，属于 README。
  */
-type Part = {
-  label: string
-  value: number | null
-  /** 这一项覆盖的时间范围。三块的窗口不一样是接口的硬限，不是选择 */
-  window: string
-  /** 数从哪个接口来的 */
-  source: string
-}
+export type PnlTopic = 'today' | 'unrealized'
 
-export type PnlTopic = 'today' | 'unrealized' | 'realized'
-
-const TITLE: Record<PnlTopic, string> = {
-  today: '今日盈亏',
-  unrealized: '未实现盈亏',
-  realized: '已实现盈亏',
-}
-
-function partsOf(topic: PnlTopic, pnl: Pnl): Part[] {
-  if (topic === 'today') {
-    const today = pnl.daily.at(-1)
-    return [{
-      label: '当日结算合计',
-      value: today?.realized_usd ?? null,
-      window: today?.date ?? '今天',
-      source: '合约 income 按天分桶 + 现货成交结转',
-    }]
-  }
-  if (topic === 'unrealized') {
-    return [
-      {
-        label: '现货',
-        value: pnl.unrealized.spot_usd,
-        window: '此刻的持仓',
-        source: '市值 − 加权平均成本（成交重放）',
-      },
-      {
-        label: '合约',
-        value: pnl.unrealized.futures_usd,
-        window: '此刻的持仓',
-        source: 'positionRisk 的 unRealizedProfit（交易所标记价）',
-      },
-    ]
-  }
-  return [
-    {
-      label: '现货',
-      value: pnl.realized.spot_usd,
-      window: pnl.realized.spot_scope,
-      source: 'myTrades 全量重放，卖出按当时的加权平均成本结转',
-    },
-    {
-      label: '合约',
-      value: pnl.realized.futures_usd,
-      window: pnl.realized.futures_scope,
-      source: 'income 的 REALIZED_PNL',
-    },
-    { label: '资金费', value: pnl.carry.funding_usd, window: pnl.carry.scope, source: 'income 的 FUNDING_FEE' },
-    { label: '手续费', value: pnl.carry.commission_usd, window: pnl.carry.scope, source: 'income 的 COMMISSION' },
-    { label: '返佣', value: pnl.carry.referral_usd, window: pnl.carry.scope, source: 'income 的 REFERRAL_KICKBACK' },
-  ]
-}
+const TITLE: Record<PnlTopic, string> = { today: '今日盈亏', unrealized: '未实现盈亏' }
 
 export function PnlDetail({ topic, pnl, onClose }: {
   topic: PnlTopic | null
@@ -81,31 +21,37 @@ export function PnlDetail({ topic, pnl, onClose }: {
   onClose: () => void
 }) {
   if (topic === null) return null
-  const parts = pnl ? partsOf(topic, pnl) : []
+
+  const parts = pnl === null ? [] : topic === 'today'
+    ? [{ label: '当日结算', value: pnl.daily.at(-1)?.realized_usd ?? null }]
+    : [{ label: '现货', value: pnl.unrealized.spot_usd },
+       { label: '合约', value: pnl.unrealized.futures_usd }]
   const known = parts.filter((p) => p.value !== null)
   const total = known.length ? known.reduce((sum, p) => sum + (p.value ?? 0), 0) : null
-  const missing = parts.filter((p) => p.value === null)
+  const coins = pnl?.spot_assets.filter((r) => !r.is_cash && r.qty > 0) ?? []
+  // 没见过买入记录的那部分不参与盈亏，但要说出来——否则合计看着像"少算了"
+  const unpriced = coins.filter((r) => r.unpriced_qty > 0)
 
   return (
     <Dialog.Root onOpenChange={(open) => { if (!open) onClose() }} open>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/25" />
         <Dialog.Content
-          // 触发器在 cells.map 里，每次开关都会重建成新节点，Radix 认不出原来那个，
-          // 焦点会掉到 body 开头（实测跑到了品牌上）。这里自己把它送回去。
-          onCloseAutoFocus={(event) => {
-            event.preventDefault()
-            document.querySelector<HTMLElement>(`[data-pnl-topic="${topic}"]`)?.focus()
-          }}
           className={cn(
             'fixed inset-x-0 bottom-0 z-50 max-h-[86dvh] overflow-y-auto',
             'border-t border-rule bg-sheet px-5 pb-7 pt-5 shadow-[var(--sheet-shadow)]',
             // 窄屏从底部升起（拇指够得着），宽屏居中成一张纸
-            'sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[min(34rem,92vw)]',
+            'sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[min(30rem,92vw)]',
             'sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[3px] sm:border sm:px-8 sm:pb-8',
           )}
+          // 触发器在 cells.map 里，每次开关都重建成新节点，Radix 认不出原来那个，
+          // 焦点会掉到 body 开头。这里自己把它送回去。
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            document.querySelector<HTMLElement>(`[data-pnl-topic="${topic}"]`)?.focus()
+          }}
         >
-          <div className="mb-5 flex items-baseline justify-between gap-4">
+          <div className="mb-4 flex items-baseline justify-between gap-4">
             <Dialog.Title className="font-display text-lg text-ink">{TITLE[topic]}</Dialog.Title>
             <Dialog.Close
               aria-label="关闭"
@@ -116,69 +62,45 @@ export function PnlDetail({ topic, pnl, onClose }: {
           </div>
 
           {pnl === null ? (
-            <p className="text-sm text-ink-3">成交记录取不到，这个数算不出来。</p>
+            <p className="text-sm text-ink-3">取不到。</p>
           ) : (
             <>
               <ul className="divide-y divide-rule border-y border-rule">
                 {parts.map((part) => (
-                  <li className="py-3" key={part.label}>
-                    <div className="flex items-baseline justify-between gap-4">
-                      <span className="text-sm text-ink">{part.label}</span>
-                      <span className={cn('tnum shrink-0 text-sm',
-                        part.value === null ? 'text-ink-3'
-                          : part.value >= 0 ? 'text-gain' : 'text-loss')}>
-                        {part.value === null ? '取不到' : signedMoney(part.value)}
-                      </span>
-                    </div>
-                    <div className="mt-1 text-xs leading-relaxed text-ink-3">
-                      {part.window} · {part.source}
-                    </div>
+                  <li className="flex items-baseline justify-between gap-4 py-2.5" key={part.label}>
+                    <span className="text-sm text-ink-2">{part.label}</span>
+                    <span className={cn('tnum shrink-0 text-sm',
+                      part.value === null ? 'text-ink-3'
+                        : part.value >= 0 ? 'text-gain' : 'text-loss')}>
+                      {part.value === null ? '取不到' : signedMoney(part.value)}
+                    </span>
                   </li>
                 ))}
               </ul>
 
-              <div className="mt-4 flex items-baseline justify-between gap-4">
-                <span className="text-sm text-ink">
-                  合计
-                  {missing.length > 0 && (
-                    <span className="ml-2 text-xs text-loss">
-                      不含取不到的 {missing.length} 项
-                    </span>
-                  )}
-                </span>
+              <div className="mt-3 flex items-baseline justify-between gap-4">
+                <span className="text-sm text-ink">合计</span>
                 <span className={cn('tnum text-base',
                   total === null ? 'text-ink-3' : total >= 0 ? 'text-gain' : 'text-loss')}>
                   {total === null ? '—' : signedMoney(total)}
                 </span>
               </div>
 
-              {topic === 'realized' && (
-                // 三块的窗口不一样是接口的硬限。加成一个数本身就有歧义，
-                // 这句话必须跟着合计一起出现，不能只写在文档里。
-                <p className="mt-4 border-t border-rule pt-3 text-xs leading-relaxed text-ink-3">
-                  各项的窗口不一样：现货成交没有时间上限，合约的损益接口只保留 90 天。
-                  所以这个合计不是任何一个统一区间的成绩。
-                </p>
-              )}
-
-              {pnl.coverage && (
-                <p className="mt-2 text-xs leading-relaxed text-ink-3">{pnl.coverage}</p>
-              )}
-              {pnl.incomplete_assets.length > 0 && (
-                <p className="mt-2 text-xs text-loss">
-                  {pnl.incomplete_assets.join('、')} 的成本算不出来（缺跨币种的历史汇率），已剔除。
-                </p>
-              )}
-
-              {topic === 'unrealized' && pnl.spot_assets.filter((r) => !r.is_cash).length > 0 && (
+              {topic === 'unrealized' && coins.length > 0 && (
                 <div className="mt-5 border-t border-rule pt-4">
-                  <p className="label mb-2">现货逐个币</p>
+                  <p className="label mb-2">现货</p>
                   <ul className="divide-y divide-rule/70">
-                    {pnl.spot_assets.filter((r) => !r.is_cash).map((row) => (
-                      <li className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4 py-2" key={row.asset}>
+                    {coins.map((row) => (
+                      <li className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-4 py-2" key={row.asset}>
                         <span className="text-sm text-ink-2">{row.asset}</span>
-                        <span className="tnum text-xs text-ink-3">
-                          {row.qty} × 均价 {row.avg_cost_usd === null ? '—' : money(row.avg_cost_usd)}
+                        <span className="tnum truncate text-xs text-ink-3">
+                          {amount(row.qty)}
+                          {row.avg_cost_usd !== null && ` × ${money(row.avg_cost_usd)}`}
+                          {row.unpriced_qty > 0 && (
+                            <span className="text-loss">
+                              {` （${amount(row.unpriced_qty)} 成本不明）`}
+                            </span>
+                          )}
                         </span>
                         <span className={cn('tnum text-right text-sm',
                           row.unrealized_usd === null ? 'text-ink-3'
@@ -188,6 +110,12 @@ export function PnlDetail({ topic, pnl, onClose }: {
                       </li>
                     ))}
                   </ul>
+                  {unpriced.length > 0 && (
+                    <p className="mt-3 text-xs leading-relaxed text-loss">
+                      标注的数量没有买入记录（划转、理财、小额兑换进来的），成本算不出来，
+                      不计入盈亏。
+                    </p>
+                  )}
                 </div>
               )}
             </>

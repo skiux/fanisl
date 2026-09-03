@@ -32,7 +32,6 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled, onOpenDetail }:
     return known.length ? known.reduce((a, b) => a + b, 0) : null
   }
   const unreal = sum(pnl?.unrealized.spot_usd, pnl?.unrealized.futures_usd)
-  const real = sum(pnl?.realized.spot_usd, pnl?.realized.futures_usd)
 
   const cells: Cell[] = [
     {
@@ -52,13 +51,6 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled, onOpenDetail }:
       value: unreal == null ? '—' : signedMoney(unreal),
       note: unreal == null ? '不可用' : undefined,
       tone: unreal == null ? 'muted' : unreal >= 0 ? 'gain' : 'loss',
-    },
-    {
-      label: '已实现盈亏',
-      topic: 'realized' as const,
-      value: real == null ? '—' : signedMoney(real),
-      note: real == null ? '不可用' : undefined,
-      tone: real == null ? 'muted' : real >= 0 ? 'gain' : 'loss',
     },
     {
       label: '合约保证金率',
