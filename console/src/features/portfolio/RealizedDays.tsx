@@ -1,183 +1,171 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { cn } from '../../lib/cn'
-import { DateRangeInput, SegmentedControl } from '../../components/controls'
 import { signedMoney } from '../../lib/format'
 import type { DailyRealized } from '../../api/types'
 
 /**
- * 每日已实现盈亏日历。
+ * 每日盈亏日历。**按月浏览，不按滚动窗口。**
  *
- * 前三版都错了，而且错在同一件事上：我把"日历"换成了自己觉得更好的东西——
- * 先是 GitHub 那种色块热力图（读数只在悬浮时出现，手机上没有悬浮），
- * 再是一格一格的方块网格（不按星期排，读不出"周几"这个交易者最关心的维度），
- * 最后是零线柱状图（那是走势图，不是日历）。
+ * 上一版把两个模型混在一起：日历由 7/30/90 天的滚动窗口驱动，于是渲染出
+ * "8 月从 5 号开始"和"9 月只有 3 天"两个高矮不一的块——它不是一个东西，
+ * 所以怎么调都差点意思。窗口回答的是"最近怎么样"，那件事上面的摘要条已经答了；
+ * 日历回答的是"某个月过得怎么样"，那就该按月翻。
  *
- * 看了 TradeZella / Tradervue / TradesViz 三家的做法，交易日志的 P&L 日历是同一套：
+ * 六行固定高度：五周的月份和六周的月份切换时版面不该跳。
  *
- * - **月网格，星期分列**。看"周几容易亏"是这个视图存在的主要理由之一。
- * - **右侧一列周合计**。三家都有。
- * - 格子里日期小而淡、金额是主角，绿红着色。
- * - **没交易的日子留空**，不写"—"：空白本身就是信息（那天没做单）。
- * - 热力图不是没用，但那是**年视图**的做法；月视图就该是规规矩矩的日历。
- *
- * 着色只用很浅的底 + 有色数字：红绿在色盲下的分离度只有 ΔE 6.1，光靠底色的深浅
- * 分不出正负，所以金额一律带正负号——符号是第二重编码。
+ * 着色只用很浅的底 + 有色数字，金额一律带正负号——红绿在色盲下分离度只有 ΔE 6.1
+ * （验证器实测），光靠底色深浅分不出正负，符号是第二重编码。
  */
-const PRESETS = { '7': 7, '30': 30, '90': 90 } as const
-type Preset = keyof typeof PRESETS | 'custom'
-
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
+const ROWS = 6
 
-type Cell = { date: string; value: number; traded: boolean } | null
-type Week = { key: string; cells: Cell[]; total: number; traded: number }
+/**
+ * 一格。`null` 只用于**月首月末的补位**，不用于"这天没数据"——
+ * 上一版把窗口外的日期也渲染成空白，于是当月只画出有数据的那几天，
+ * 剩下一大片虚空。日历要画出整个月的每一天：没有数据的日子仍然是这个月的日子。
+ */
+type Cell = null | {
+  date: string
+  day: number
+  /** 有没有落在可取区间内（合约只保留 90 天，未来的日子也没有） */
+  known: boolean
+  value: number
+  traded: boolean
+}
 
-/** 按自然月切开，每月再按周（周一起）铺成网格。窗口外与本月外的格子留空。 */
-function toMonths(days: DailyRealized[]) {
-  const byDate = new Map(days.map((d) => [d.date, d]))
-  const months: { key: string; label: string; weeks: Week[]; total: number }[] = []
-  if (days.length === 0) return months
+function monthKey(date: Date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
+}
 
-  const first = new Date(`${days[0]!.date}T00:00:00Z`)
-  const last = new Date(`${days.at(-1)!.date}T00:00:00Z`)
-  const cursor = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 1))
+export function RealizedDays({ days }: { days: DailyRealized[] }) {
+  const bounds = useMemo(() => {
+    if (days.length === 0) return null
+    return {
+      first: new Date(`${days[0]!.date}T00:00:00Z`),
+      last: new Date(`${days.at(-1)!.date}T00:00:00Z`),
+    }
+  }, [days])
 
-  while (cursor <= last) {
+  const [cursor, setCursor] = useState(() => {
+    const last = days.at(-1)?.date
+    const at = last ? new Date(`${last}T00:00:00Z`) : new Date()
+    return new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), 1))
+  })
+
+  const byDate = useMemo(() => new Map(days.map((d) => [d.date, d])), [days])
+
+  const month = useMemo(() => {
     const year = cursor.getUTCFullYear()
-    const month = cursor.getUTCMonth()
-    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
-    // 周一起：getUTCDay() 里周日是 0，挪成 6
-    const lead = (new Date(Date.UTC(year, month, 1)).getUTCDay() + 6) % 7
+    const index = cursor.getUTCMonth()
+    const total = new Date(Date.UTC(year, index + 1, 0)).getUTCDate()
+    // 周一起头：getUTCDay() 里周日是 0，挪到末位
+    const lead = (new Date(Date.UTC(year, index, 1)).getUTCDay() + 6) % 7
 
     const flat: Cell[] = Array(lead).fill(null)
-    for (let day = 1; day <= daysInMonth; day += 1) {
-      const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    for (let day = 1; day <= total; day += 1) {
+      const iso = `${year}-${String(index + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
       const hit = byDate.get(iso)
-      flat.push(hit ? { date: iso, value: hit.realized_usd, traded: hit.traded } : null)
+      flat.push({
+        date: iso, day, known: hit !== undefined,
+        value: hit?.realized_usd ?? 0, traded: hit?.traded ?? false,
+      })
     }
-    while (flat.length % 7 !== 0) flat.push(null)
+    // 补满六行：五周与六周的月份切换时，日历高度不该跳
+    while (flat.length < ROWS * 7) flat.push(null)
 
-    const weeks: Week[] = []
-    for (let i = 0; i < flat.length; i += 7) {
-      const cells = flat.slice(i, i + 7)
-      // 整周都在窗口外就不占一行。窗口从月中开始时，月初那一两周全是空格子，
-      // 画出来是几行空白加一个"—"的周合计。
-      if (cells.every((cell) => cell === null)) continue
-      const live = cells.filter((c): c is NonNullable<Cell> => c !== null && c.traded)
-      weeks.push({
-        key: `${year}-${month}-${i}`,
+    const weeks = Array.from({ length: ROWS }, (_, i) => {
+      const cells = flat.slice(i * 7, i * 7 + 7)
+      const live = cells.filter((c): c is NonNullable<Cell> => c !== null && c.known && c.traded)
+      return {
+        key: `${year}-${index}-${i}`,
         cells,
         total: live.reduce((sum, c) => sum + c.value, 0),
         traded: live.length,
-      })
-    }
-    if (weeks.length === 0) { cursor.setUTCMonth(month + 1); continue }
-    months.push({
-      key: `${year}-${month}`,
-      label: `${year} 年 ${month + 1} 月`,
-      weeks,
-      total: weeks.reduce((sum, w) => sum + w.total, 0),
+        empty: cells.every((c) => c === null),
+      }
     })
-    cursor.setUTCMonth(month + 1)
-  }
-  return months
-}
-
-export function RealizedDays({ days, maxDays }: { days: DailyRealized[]; maxDays: number }) {
-  const [preset, setPreset] = useState<Preset>('30')
-  const [range, setRange] = useState(() => ({
-    from: days[0]?.date ?? '', to: days.at(-1)?.date ?? '',
-  }))
-
-  const shown = useMemo(() => {
-    if (preset === 'custom') {
-      return days.filter((d) => d.date >= range.from && d.date <= range.to)
+    const live = flat.filter((c): c is NonNullable<Cell> => c !== null && c.known && c.traded)
+    return {
+      label: `${year} 年 ${index + 1} 月`,
+      weeks,
+      total: live.reduce((sum, c) => sum + c.value, 0),
+      traded: live.length,
+      wins: live.filter((c) => c.value > 0).length,
+      peak: Math.max(...live.map((c) => Math.abs(c.value)), 1),
+      covered: flat.filter((c) => c !== null && c.known).length,
+      inMonth: total,
     }
-    return days.slice(-PRESETS[preset])
-  }, [days, preset, range])
+  }, [byDate, cursor])
 
-  const months = useMemo(() => toMonths(shown), [shown])
-
-  if (days.length === 0) {
+  if (bounds === null) {
     return <p className="py-10 text-center text-sm text-ink-3">还没有可用的成交记录。</p>
   }
 
-  const peak = Math.max(...shown.map((d) => Math.abs(d.realized_usd)), 1)
-  const traded = shown.filter((d) => d.traded)
-  const wins = traded.filter((d) => d.realized_usd > 0).length
-  const total = shown.reduce((sum, d) => sum + d.realized_usd, 0)
-
-  const options = (Object.keys(PRESETS) as (keyof typeof PRESETS)[])
-    .filter((key) => PRESETS[key] <= maxDays)
-    .map((key) => ({ value: key as Preset, label: `${key} 天` }))
+  const key = monthKey(cursor)
+  // 数据只有 90 天，翻到头就把箭头禁掉——而不是翻出一片空月历
+  const canPrev = key > monthKey(bounds.first)
+  const canNext = key < monthKey(bounds.last)
+  const step = (delta: number) => setCursor((at) =>
+    new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() + delta, 1)))
 
   return (
     <>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <SegmentedControl
-          items={[...options, { value: 'custom' as Preset, label: '自定义' }]}
-          label="统计区间"
-          onValueChange={setPreset}
-          size="sm"
-          value={preset}
-        />
-        {preset === 'custom' && (
-          <DateRangeInput
-            from={range.from}
-            max={days.at(-1)?.date}
-            min={days[0]?.date}
-            onChange={setRange}
-            to={range.to}
-          />
-        )}
-      </div>
+      <header className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+        <span />
+        <span className="flex items-center gap-1">
+          <Arrow disabled={!canPrev} label="上一月" onClick={() => step(-1)} />
+          <h4 className="tnum min-w-[7.5rem] text-center text-sm text-ink">{month.label}</h4>
+          <Arrow disabled={!canNext} forward label="下一月" onClick={() => step(1)} />
+        </span>
+        <span className={cn('tnum justify-self-end text-sm',
+          month.traded === 0 ? 'text-ink-3'
+            : month.total >= 0 ? 'text-gain' : 'text-loss')}>
+          {month.traded === 0 ? '—' : signedMoney(month.total)}
+        </span>
+      </header>
 
-      <div className="space-y-7">
-        {months.map((month) => (
-          <section key={month.key}>
-            <header className="mb-2 flex items-baseline justify-between gap-4 border-b border-rule pb-1.5">
-              <h4 className="text-xs text-ink-2">{month.label}</h4>
-              <span className={cn('tnum text-xs',
-                month.total > 0 ? 'text-gain' : month.total < 0 ? 'text-loss' : 'text-ink-3')}>
-                {signedMoney(month.total)}
-              </span>
-            </header>
+      <div className="grid grid-cols-[repeat(7,minmax(0,1fr))] gap-x-1 sm:grid-cols-[repeat(7,minmax(0,1fr))_minmax(3.6rem,0.75fr)]">
+        {WEEKDAYS.map((day, index) => (
+          <span
+            className={cn('pb-1.5 text-center text-micro',
+              // 周末压暗一档：不是隐藏（合约的资金费周末照样结算），只是让工作日先跳出来
+              index >= 5 ? 'text-ink-3/55' : 'text-ink-3')}
+            key={day}
+          >
+            {day}
+          </span>
+        ))}
+        <span className="hidden pb-1.5 pl-3 text-right text-micro text-ink-3 sm:block">本周</span>
 
-            {/* 七列日期 + 一列周合计。窄屏放不下周合计那列，收起来 */}
-            <div className="grid grid-cols-7 gap-px sm:grid-cols-[repeat(7,minmax(0,1fr))_minmax(0,0.9fr)]">
-              {WEEKDAYS.map((day) => (
-                <span className="pb-1 text-center text-micro text-ink-3" key={day}>{day}</span>
-              ))}
-              <span className="hidden pb-1 text-right text-micro text-ink-3 sm:block">本周</span>
-
-              {month.weeks.map((week) => (
-                <Fragment key={week.key}>
-                  {week.cells.map((cell, index) => (
-                    <DayCell cell={cell} key={cell?.date ?? `${week.key}-${index}`} peak={peak} />
-                  ))}
-                  <span className={cn(
-                    'hidden items-baseline justify-end gap-1.5 self-center pl-2 sm:flex',
-                    week.traded === 0 && 'opacity-35',
-                  )}>
-                    <span className={cn('tnum text-[11px]',
-                      week.total > 0 ? 'text-gain' : week.total < 0 ? 'text-loss' : 'text-ink-3')}>
-                      {week.traded === 0 ? '—' : signedMoney(week.total)}
-                    </span>
-                  </span>
-                </Fragment>
-              ))}
-            </div>
-          </section>
+        {month.weeks.map((week) => (
+          <div className="contents" key={week.key}>
+            {week.cells.map((cell, index) => (
+              <DayCell cell={cell} key={cell?.date ?? `${week.key}-${index}`} peak={month.peak} />
+            ))}
+            <span className={cn(
+              'tnum hidden items-center justify-end pl-3 text-[11px] sm:flex',
+              // 整月之外的补位行不画分界线：那条线原先一路穿到底，末尾拖着一截空竖线
+              !week.empty && 'border-l border-rule',
+              week.total > 0 ? 'text-gain' : week.total < 0 ? 'text-loss' : 'text-ink-3/45',
+            )}>
+              {week.empty ? '' : week.traded === 0 ? '—' : signedMoney(week.total)}
+            </span>
+          </div>
         ))}
       </div>
 
-      <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-rule pt-3">
+      <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-rule pt-3">
+        {/* 这一行在窄屏必须一行放得下：折成两行会让"固定高度"的日历模块
+            在切月时上下跳（实测 468↔484）。所以覆盖度写成最短的形式。 */}
         <span className="tnum text-xs text-ink-3">
-          {shown.length} 天 · {traded.length} 天有交易 · {wins} 天为正
+          {month.traded} 天有交易 · {month.wins} 天为正
+          {month.covered < month.inMonth && ` · ${month.covered}/${month.inMonth} 天有数据`}
         </span>
         <span className="tnum text-xs text-ink-3">
-          合计
-          <span className={cn('ml-2 text-sm', total >= 0 ? 'text-gain' : 'text-loss')}>
-            {signedMoney(total)}
+          胜率
+          <span className="ml-2 text-ink-2">
+            {month.traded === 0 ? '—' : `${Math.round(month.wins / month.traded * 100)}%`}
           </span>
         </span>
       </div>
@@ -185,30 +173,62 @@ export function RealizedDays({ days, maxDays }: { days: DailyRealized[]; maxDays
   )
 }
 
-function DayCell({ cell, peak }: { cell: Cell; peak: number }) {
-  if (cell === null) return <span aria-hidden="true" />
-  const { value, traded } = cell
-  const day = Number(cell.date.slice(8))
-  // 底色极浅：这套视觉是纸面，重色块会把整页压垮。深浅只做次要提示，
-  // 正负靠数字的符号与颜色——红绿在色盲下分不开。
-  const weight = traded && value !== 0 ? Math.abs(value) / peak : 0
+function Arrow({ onClick, disabled, label, forward }: {
+  onClick: () => void
+  disabled: boolean
+  label: string
+  forward?: boolean
+}) {
+  const Icon = forward ? CaretRight : CaretLeft
   return (
+    <button
+      aria-label={label}
+      className={cn('grid size-6 place-items-center rounded-[var(--radius-control)]',
+        'text-ink-3 transition-colors duration-200',
+        'hover:bg-sheet-2 hover:text-ink disabled:pointer-events-none disabled:opacity-25',
+        'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1',
+        'focus-visible:outline-accent')}
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      <Icon aria-hidden="true" size={13} weight="bold" />
+    </button>
+  )
+}
+
+function DayCell({ cell, peak }: { cell: Cell; peak: number }) {
+  // 月首月末的补位格：不属于这个月，留空
+  if (cell === null) return <span aria-hidden="true" className="min-h-[52px]" />
+
+  const { day, known, traded, value } = cell
+  const paint = known && traded && value !== 0
+  const weight = paint ? Math.abs(value) / peak : 0
+
+  return (
+    // 不给每个格子描边：三十多个方框会把这一页压成一张表单。
+    // 分隔靠留白，深浅靠底色——发丝线只留给"本周"那一列的分界。
     <div
-      // 边框对所有格子一视同仁：上一版给无交易的格子加边框、给有色的去掉，
-      // 同一张网格里两种画法，看着像两套东西。深浅由底色说，不由边框说。
-      className="min-h-[46px] rounded-[2px] border border-rule/60 px-1.5 py-1"
+      className={cn('flex min-h-[52px] flex-col justify-between rounded-[3px] px-2 py-1.5',
+        !known && 'bg-sheet-2/35',              // 区间外 / 未来：更淡的底
+        known && !paint && 'bg-sheet-2/70',     // 有数据但没交易
+      )}
       style={weight > 0 ? {
         backgroundColor: `color-mix(in oklab, var(--${value >= 0 ? 'gain' : 'loss'}) ${
-          (5 + weight * 13).toFixed(1)}%, transparent)`,
+          (6 + weight * 15).toFixed(1)}%, transparent)`,
       } : undefined}
-      title={traded ? `${cell.date} ${signedMoney(value)}` : `${cell.date} 没有交易`}
+      title={!known ? `${cell.date} 不在可取区间内`
+        : traded ? `${cell.date} ${signedMoney(value)}` : `${cell.date} 没有交易`}
     >
-      <div className="tnum text-micro leading-none text-ink-3">{day}</div>
-      {traded && value !== 0 && (
-        <div className={cn('tnum mt-1 truncate text-[11px] leading-tight',
+      <span className={cn('tnum text-micro leading-none',
+        known ? 'text-ink-3' : 'text-ink-3/40')}>
+        {day}
+      </span>
+      {paint && (
+        <span className={cn('tnum truncate text-right text-[11px] leading-none',
           value > 0 ? 'text-gain' : 'text-loss')}>
           {compact(value)}
-        </div>
+        </span>
       )}
     </div>
   )

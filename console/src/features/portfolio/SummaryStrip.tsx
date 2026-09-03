@@ -36,9 +36,11 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled }: {
     {
       // 原先是"今日净值变化"，拿全部钱包减昨天的日快照——理财余额每天都被算成
       // "今天赚的"。改成今日实际落袋，只认成交与结算。
-      label: '今日已实现',
+      label: '今日盈亏',
       value: pnl?.today_usd == null ? '—' : signedMoney(pnl.today_usd),
-      note: '含资金费与手续费',
+      // 口径要说清楚：这里只有**已实现**的部分，持仓的浮动不含在内——
+      // 「今日盈亏」这个说法容易被读成含浮盈浮亏。
+      note: '已实现 · 含资金费与手续费',
       tone: pnl?.today_usd == null ? 'muted' : pnl.today_usd >= 0 ? 'gain' : 'loss',
     },
     {

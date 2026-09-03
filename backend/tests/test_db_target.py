@@ -6,6 +6,9 @@
 误建过一个账号。
 """
 
+import ast
+import pathlib
+
 import pytest
 
 from analyzer.db import describe_conninfo
@@ -65,3 +68,26 @@ def test_bootstrap_allows_remote_when_asked_explicitly(monkeypatch):
 
     with pytest.raises(_PastTheGuard):
         bootstrap.main(["--remote", "someone"])
+
+
+def test_every_entry_point_goes_through_the_remote_guard():
+    """所有连库的入口都必须经过 runtime，也就都会被那道守卫拦住。
+
+    守卫写在 `analyzer.runtime` 的模块级。这条测试守的是"将来新加一个入口时
+    别绕过它"——只要它 import runtime 就自动有保护，而这里检查的正是这一点。
+    `backfill` 是在函数里才 import 的，所以模块级检查不到，单独列出来。
+    """
+    src = pathlib.Path(__file__).resolve().parents[1] / "src" / "analyzer"
+    entries = ["main.py", "worker_collector.py", "worker_trader.py", "backfill.py"]
+    for name in entries:
+        tree = ast.parse((src / name).read_text())
+        hits = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and (node.module or "").endswith("runtime")
+        ] + [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module is None
+            and any(a.name == "runtime" for a in node.names)
+        ]
+        assert hits, f"{name} 没有 import runtime——它连库时不会经过远端守卫"
+

@@ -34,14 +34,14 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
       <ViewGrid>
         <Module
           figure={pnl?.today_usd == null ? '—' : signedMoney(pnl.today_usd)}
-          note="今日已实现"
+          note="今日"
           onOpen={() => onOpen('changes')}
           span="lg:col-span-8"
-          title="每日已实现"
+          title="每日盈亏"
           tone={pnl?.today_usd == null ? 'muted'
             : pnl.today_usd >= 0 ? 'gain' : 'loss'}
         >
-          <RealizedDays days={pnl?.daily ?? []} maxDays={90} />
+          <RealizedDays days={pnl?.daily ?? []} />
         </Module>
 
         <Module caliber="钱在哪个钱包" onOpen={() => onOpen('holdings')} span="lg:col-span-4" title="资产分布">
@@ -125,7 +125,9 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
                         />
                       </span>
                       <span className="tnum ml-auto whitespace-nowrap text-sm text-ink">{money(value)}</span>
-                      <span className="tnum w-[36px] shrink-0 text-right text-xs text-ink-3">{count}</span>
+                      {/* 去掉"笔"之后这里剩个裸数字，读不出是什么。摘要条上有标签
+                          （"条件单 5"）不需要单位，这里没有，用 ×n 表示次数 */}
+                      <span className="tnum w-[36px] shrink-0 text-right text-xs text-ink-3">×{count}</span>
                     </li>
                   ))}
                 </ul>
@@ -159,8 +161,8 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
           </Module>
         </Stack>
 
-        <Module caliber="每天落袋多少 · 划转不计入" span="lg:col-span-12" title="每日已实现">
-          <RealizedDays days={pnl?.daily ?? []} maxDays={90} />
+        <Module caliber="只算已实现 · 划转不计入" span="lg:col-span-12" title="每日盈亏">
+          <RealizedDays days={pnl?.daily ?? []} />
         </Module>
       </ViewGrid>
     </div>

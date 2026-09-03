@@ -211,7 +211,8 @@ function VenueBreakdown({ rows, notional, span }: {
               ) : (
                 <>
                   <span className="tnum ml-auto whitespace-nowrap text-sm text-ink">{money(row.notional)}</span>
-                  <span className="tnum w-[34px] shrink-0 text-right text-xs text-ink-3">{row.count}</span>
+                  {/* 同「充提」：去掉"笔"之后这里剩个裸数字，用 ×n 表示条数 */}
+                  <span className="tnum w-[34px] shrink-0 text-right text-xs text-ink-3">×{row.count}</span>
                 </>
               )}
             </li>
