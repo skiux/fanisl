@@ -61,53 +61,79 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled, onOpenDetail }:
   ]
 
   return (
-    <div className={cn('flex flex-wrap items-end gap-x-14 gap-y-5 px-5 pb-4 pt-4 sm:px-10 sm:pb-5 sm:pt-5', veiled && 'veiled')}>
-      <div>
-        <span className="label">净值</span>
-        <div className="tnum mt-2 text-[2rem] font-medium leading-none tracking-[-0.03em] text-ink sm:text-[2.5rem]">
-          {totals ? money(totals.equity_usd) : '—'}
-        </div>
-      </div>
+    // **三行网格，不是 items-end 的一排盒子。** 原先靠底边对齐，于是"有注的格子"
+    // 比"没注的"高一截，它的标签和数字整块被顶上去——删掉两个 note 之后，
+    // 「合约保证金率」就明显和另外两个错开了。
+    //
+    // 每一格用 `grid-template-rows: subgrid` 借父级的行槽，所以标签一排、数字一排、
+    // 注一排，有没有注都不影响前两排。`display: contents` 做不到这件事：
+    // 窄屏换行之后三个子元素会各自散进列里。
+    <div
+      className={cn(
+        'grid gap-x-14 px-5 pb-4 pt-4 sm:px-10 sm:pb-5 sm:pt-5',
+        // 窄屏两列换行，宽屏一排；两种情况下同一排里的格子都共用行槽
+        'grid-cols-2 gap-x-8 gap-y-5 sm:auto-cols-max sm:grid-flow-col sm:grid-cols-none sm:gap-x-14 sm:gap-y-0',
+        veiled && 'veiled')}
+      style={{ gridTemplateRows: 'repeat(3, auto)', gridAutoRows: 'auto' }}
+    >
+      {/* 净值的字号是其余的两倍多，窄屏两列里塞不下——它会撑破自己那一列，
+          把旁边那格的数字挤到贴着。让它独占一整行。 */}
+      <Cell
+        className="max-sm:col-span-2"
+        label="净值"
+        value={totals ? money(totals.equity_usd) : '—'}
+        valueClass="text-[2rem] font-medium tracking-[-0.03em] text-ink sm:text-[2.5rem]"
+      />
+      {cells.map((cell) => (
+        <Cell
+          key={cell.label}
+          label={cell.label}
+          note={cell.note}
+          onOpen={cell.topic ? () => onOpenDetail(cell.topic!) : undefined}
+          topic={cell.topic}
+          value={cell.value}
+          valueClass={cn('text-lg',
+            cell.tone === 'gain' ? 'text-gain'
+              : cell.tone === 'loss' ? 'text-loss'
+                : cell.tone === 'muted' ? 'text-ink-3' : 'text-ink')}
+        />
+      ))}
+    </div>
+  )
+}
 
-      {cells.map((cell) => {
-        const body = (
-          <>
-            <span className={cn('label', cell.topic && 'group-hover:text-ink-2')}>
-              {cell.label}
-            </span>
-            <div
-              className={cn(
-                'tnum mt-1.5 text-lg leading-none',
-                cell.tone === 'gain' ? 'text-gain'
-                  : cell.tone === 'loss' ? 'text-loss'
-                    : cell.tone === 'muted' ? 'text-ink-3' : 'text-ink',
-              )}
-            >
-              {cell.value}
-            </div>
-            {/* 只留**读数**：把数字翻成一句判断（"安全""取不到"）。
-                口径——这个数怎么算出来的——收进点开的详情里。 */}
-            {cell.note && <div className="mt-1 text-xs text-ink-3">{cell.note}</div>}
-          </>
-        )
-        if (!cell.topic) return <div className="pb-1" key={cell.label}>{body}</div>
-        return (
-          <button
-            className={cn('group pb-1 text-left outline-none',
-              // 下划虚线是"这里能点"的最轻提示，不给它加边框或底色——
-              // 摘要条是一排读数，不是一排按钮
-              'decoration-rule-strong underline-offset-[6px] hover:underline hover:decoration-dotted',
-              'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4',
-              'focus-visible:outline-accent')}
-            data-pnl-topic={cell.topic}
-            key={cell.label}
-            onClick={() => onOpenDetail(cell.topic!)}
-            type="button"
-          >
-            {body}
-          </button>
-        )
-      })}
+function Cell({ label, value, valueClass, note, onOpen, topic, className }: {
+  label: string
+  value: string
+  valueClass: string
+  note?: string
+  onOpen?: () => void
+  topic?: PnlTopic
+  className?: string
+}) {
+  // 可点与不可点必须是**同一种盒子**，否则标签的行盒高度不同，两排差几像素
+  // （实测差 6px）。都用 `.label` 直接挂在最外层，不再往里套一层 span。
+  const labelClass = cn('label self-start text-left', onOpen && cn(
+    'group cursor-pointer outline-none transition-colors duration-200 hover:text-ink-2',
+    // 下划虚线是"这里能点"的最轻提示，不给它加边框或底色——
+    // 摘要条是一排读数，不是一排按钮
+    'decoration-rule-strong underline-offset-[5px] hover:underline hover:decoration-dotted',
+    'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4',
+    'focus-visible:outline-accent'))
+
+  return (
+    <div className={cn('row-span-3 grid', className)} style={{ gridTemplateRows: 'subgrid' }}>
+      {onOpen ? (
+        <button className={labelClass} data-pnl-topic={topic} onClick={onOpen} type="button">
+          {label}
+        </button>
+      ) : (
+        <span className={labelClass}>{label}</span>
+      )}
+      <div className={cn('tnum mt-2 self-end leading-none', valueClass)}>{value}</div>
+      {/* 只留**读数**：把数字翻成一句判断（"安全""取不到"）。
+          口径——这个数怎么算出来的——收进点开的详情里。 */}
+      <div className="mt-1 self-start text-xs text-ink-3">{note ?? ''}</div>
     </div>
   )
 }
