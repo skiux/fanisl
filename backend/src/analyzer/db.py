@@ -6,12 +6,21 @@
 
 from __future__ import annotations
 
+import sys
+
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 
 def make_pool(conninfo: str, *, min_size: int = 1, max_size: int = 10) -> ConnectionPool:
-    """创建并打开连接池。调用方负责在进程退出时 pool.close()。"""
+    """创建并打开连接池。调用方负责在进程退出时 pool.close()。
+
+    **建池就说一声连的是哪个库。** 服务类入口有启动横幅，而知识引擎那批 CLI
+    （提取 / 归并 / 关系边）自建池、不走 runtime，跑起来一句都不说——它们连的
+    往往正是经隧道的生产库。这一行印在最前面，省掉"我刚才那条命令写到哪去了"。
+    """
+    where, local = describe_conninfo(conninfo)
+    print(f"[fanisl] 连库 {where}{'' if local else '  ← 远端'}", file=sys.stderr, flush=True)
     return ConnectionPool(
         conninfo,
         min_size=min_size,

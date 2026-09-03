@@ -70,12 +70,16 @@ def test_bootstrap_allows_remote_when_asked_explicitly(monkeypatch):
         bootstrap.main(["--remote", "someone"])
 
 
-def test_every_entry_point_goes_through_the_remote_guard():
-    """所有连库的入口都必须经过 runtime，也就都会被那道守卫拦住。
+def test_service_entry_points_go_through_the_remote_guard():
+    """**服务类**入口都要经过 runtime，也就都会被那道守卫拦住。
 
-    守卫写在 `analyzer.runtime` 的模块级。这条测试守的是"将来新加一个入口时
-    别绕过它"——只要它 import runtime 就自动有保护，而这里检查的正是这一点。
-    `backfill` 是在函数里才 import 的，所以模块级检查不到，单独列出来。
+    守卫写在 `analyzer.runtime` 的模块级，只要 import 它就自动有保护。
+
+    **这条测试不覆盖知识引擎那批 CLI**（`analyzer.knowledge.*`）：它们自己
+    `make_pool(get_settings().pg_knowledge_conninfo)`，从不 import runtime，
+    因此绕过守卫——那是**有意的**，提取 / 归并本来就要经隧道写生产的知识库
+    （见 deploy/README.md 的运行形态）。下面那条测试守的是另一件事：
+    它们只碰知识库，碰不到账户数据。
     """
     src = pathlib.Path(__file__).resolve().parents[1] / "src" / "analyzer"
     entries = ["main.py", "worker_collector.py", "worker_trader.py", "backfill.py"]
@@ -91,3 +95,19 @@ def test_every_entry_point_goes_through_the_remote_guard():
         ]
         assert hits, f"{name} 没有 import runtime——它连库时不会经过远端守卫"
 
+
+
+def test_knowledge_clis_touch_only_the_knowledge_database():
+    """提取那条流程连的是生产，但它够不到账户数据。
+
+    `analyzer.knowledge.*` 里的 CLI 自建连接池、绕过远端守卫（有意的）。所以边界
+    不能靠守卫，只能靠**它们只用 `pg_knowledge_conninfo`**：Binance 缓存、用户、
+    会话都在 `pg_conninfo` 那个库里，两者不是同一个连接。
+
+    这条测试守的就是这个边界——哪天有人在知识模块里顺手连了主库，这里会红。
+    """
+    src = pathlib.Path(__file__).resolve().parents[1] / "src" / "analyzer" / "knowledge"
+    for path in sorted(src.glob("*.py")):
+        text = path.read_text()
+        for bad in ("pg_conninfo", "pg_trading_conninfo", "binance_cache", "user_store"):
+            assert bad not in text, f"{path.name} 碰到了 {bad}——知识模块只该用知识库"

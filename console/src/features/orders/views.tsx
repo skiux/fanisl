@@ -14,7 +14,6 @@ export const isConditional = (order: Order) => CONDITIONAL_KINDS.has(order.kind)
 
 const VENUES: OrderVenue[] = ['spot', 'usdm', 'margin']
 
-type OrderKindFilter = 'all' | 'limit' | 'conditional'
 
 const VENUE_SOURCE: Record<OrderVenue, SourceKey> = {
   spot: 'spot_open',
@@ -26,12 +25,9 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
   // 按账户筛。三个账户的挂单原先揉在一张表里，只能靠每行的小标签分辨——
   // 而"我现在只想看合约"是这一页最常见的问题。
   const [only, setOnly] = useState<OrderVenue | null>(null)
-  const [kind, setKind] = useState<OrderKindFilter>('all')
   const shown = only === null ? snapshot.open
     : snapshot.open.filter((order) => order.venue === only)
-  const limits = shown.filter((order) => !isConditional(order))
-  const conditionals = shown.filter(isConditional)
-  const rows = kind === 'limit' ? limits : kind === 'conditional' ? conditionals : shown
+  const rows = shown
   const notional = snapshot.open.reduce((sum, order) => sum + (order.notional_usd ?? 0), 0)
   const byVenue = VENUES.map((venue) => {
     const rows = snapshot.open.filter((order) => order.venue === venue)
@@ -95,9 +91,9 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
 
   return (
     <div className={cn(veiled && 'veiled')}>
-      {/* 一张表。每一条已经写着自己是限价还是条件了，再按类型切成两块是把同一件事
-          说两遍——而且"我现在只想看合约"这种问题跨在两块之上，切开反而更难答。
-          类型成了筛选项之一，与账户并排。 */}
+      {/* 一张表。每一条已经写着自己是限价还是条件了，按类型切块或者加类型筛选
+          都是把同一件事说两遍——屏幕上已经有的信息不该再做一遍筛选器。
+          账户不一样：那是行里的小标签，扫十条也看不出"合约一共几笔"。 */}
       <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2">
         <SegmentedControl
           items={[
@@ -111,17 +107,6 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
           onValueChange={(next) => setOnly(next === 'all' ? null : next as OrderVenue)}
           size="sm"
           value={only ?? 'all'}
-        />
-        <SegmentedControl
-          items={[
-            { value: 'all', label: '全部类型' },
-            { value: 'limit', label: '限价', badge: limits.length },
-            { value: 'conditional', label: '条件', badge: conditionals.length },
-          ]}
-          label="委托类型"
-          onValueChange={(next) => setKind(next as OrderKindFilter)}
-          size="sm"
-          value={kind}
         />
       </div>
       <ViewGrid>
