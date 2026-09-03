@@ -4,9 +4,12 @@ import type { LedgerSnapshot } from '../../api/types'
 import { countsToNet } from './Timeline'
 
 /**
- * 常驻摘要条。这一页独有的一格是"取数成本"——八个来源合并，划转还要按 type
- * 枚举几十次，刷一次的权重开销在 IP 限额（6000/分钟）面前不是可以忽略的数。
- * 界面该把这件事说出来，而不是让人点了刷新才发现要等。
+ * 常驻摘要条。
+ *
+ * 原先这里有一格"取数成本"（权重 21,373 · 48 次调用），还有每格底下一行口径说明
+ * （"没有统一接口，合并而来""进出与收支合计·不含内部搬运"）。都删了：那是接口
+ * 的构造，属于 `binance/README.md`，不属于看钱的页面。**只有"数据不完整"这种
+ * 影响读数可信度的提示留下**——它不是解释，是警告。
  */
 export function LedgerStrip({ snapshot, veiled }: { snapshot: LedgerSnapshot; veiled: boolean }) {
   const live = snapshot.sources.filter((source) => source.status === 'ok')
@@ -14,12 +17,6 @@ export function LedgerStrip({ snapshot, veiled }: { snapshot: LedgerSnapshot; ve
   const blind = live.length === 0
   const net = snapshot.entries.filter(countsToNet)
     .reduce((sum, entry) => sum + (entry.value_usd ?? 0), 0)
-
-  const used = snapshot.windows.filter((row) => (
-    snapshot.sources.find((source) => source.key === row.key)?.status === 'ok'
-  ))
-  const weight = used.reduce((sum, row) => sum + row.weight * row.calls, 0)
-  const calls = used.reduce((sum, row) => sum + row.calls, 0)
 
   const cells = [
     {
@@ -29,15 +26,9 @@ export function LedgerStrip({ snapshot, veiled }: { snapshot: LedgerSnapshot; ve
       muted: false,
     },
     {
-      label: '来源',
-      value: `${live.length} / ${snapshot.sources.length}`,
-      note: '没有统一接口，合并而来',
-      muted: blind,
-    },
-    {
-      label: '取数成本',
-      value: blind ? '—' : `w ${weight.toLocaleString('en-US')}`,
-      note: blind ? '取不到' : `${calls} 次调用`,
+      label: '记录数',
+      value: blind ? '—' : String(snapshot.entries.length),
+      note: undefined,
       muted: blind,
     },
   ]
@@ -52,11 +43,10 @@ export function LedgerStrip({ snapshot, veiled }: { snapshot: LedgerSnapshot; ve
         )}>
           {blind ? '—' : signedMoney(net)}
         </div>
-        <div className={cn('mt-1.5 text-xs', missing > 0 ? 'text-loss' : 'text-ink-3')}>
-          {missing > 0
-            ? `不完整 · ${missing} 个来源取不到`
-            : '进出与收支合计 · 不含内部搬运'}
-        </div>
+        {/* 只在数据不完整时说话。合计口径属于文档，不属于这里 */}
+        {missing > 0 && (
+          <div className="mt-1.5 text-xs text-loss">不完整 · {missing} 个来源取不到</div>
+        )}
       </div>
 
       {cells.map((cell) => (

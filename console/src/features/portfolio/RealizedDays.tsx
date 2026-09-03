@@ -186,14 +186,18 @@ export function RealizedDays({ days }: { days: DailyRealized[] }) {
         </span>
       </div>
 
-      <header className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+      {/* 窄屏 335px：月份标题 120px + 两个箭头 48px + gap，两侧各只剩 67px，
+          "−$577.58" 排不下就折成两行。标题在窄屏收窄，金额一律不折。 */}
+      <header className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-x-2 sm:gap-x-4">
         <span />
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-0.5 sm:gap-1">
           <Arrow disabled={!canPrev} label="上一月" onClick={() => step(-1)} />
-          <h4 className="tnum min-w-[7.5rem] text-center text-sm text-ink">{month.label}</h4>
+          <h4 className="tnum min-w-[6rem] text-center text-xs text-ink sm:min-w-[7.5rem] sm:text-sm">
+            {month.label}
+          </h4>
           <Arrow disabled={!canNext} forward label="下一月" onClick={() => step(1)} />
         </span>
-        <span className={cn('tnum justify-self-end text-sm',
+        <span className={cn('tnum justify-self-end whitespace-nowrap text-xs sm:text-sm',
           month.traded === 0 ? 'text-ink-3'
             : month.total >= 0 ? 'text-gain' : 'text-loss')}>
           {month.traded === 0 ? '—' : signedMoney(month.total)}
@@ -305,7 +309,10 @@ function DayCell({ cell, peak, picking, onPick, onHover }: {
     // 不给每个格子描边：三十多个方框会把这一页压成一张表单。
     // 分隔靠留白，深浅靠底色——发丝线只留给"本周"那一列的分界。
     <Tag
-      className={cn('flex min-h-[52px] w-full flex-col justify-between rounded-[3px] px-2 py-1.5',
+      // 窄屏一格只有 41px 宽，px-2 的内边距就吃掉 16px——金额放不下。
+      // 内边距和字号都跟着断点走，别指望 truncate 兜底：截断的金额是错的数字。
+      className={cn('flex min-h-[52px] w-full flex-col justify-between rounded-[3px]',
+        'px-1 py-1.5 sm:px-2',
         'text-left transition-colors duration-150',
         !known && 'bg-sheet-2/35',                    // 区间外 / 未来：更淡的底
         known && !paint && 'bg-sheet-2/70',           // 有数据但没交易
@@ -330,7 +337,7 @@ function DayCell({ cell, peak, picking, onPick, onHover }: {
         {day}
       </span>
       {paint && (
-        <span className={cn('tnum truncate text-right text-[11px] leading-none',
+        <span className={cn('tnum text-right text-[10px] leading-none sm:text-[11px]',
           value > 0 ? 'text-gain' : 'text-loss')}>
           {compact(value)}
         </span>

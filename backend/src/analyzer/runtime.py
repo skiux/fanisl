@@ -44,38 +44,31 @@ print(
     flush=True,
 )
 
-# 连的是哪个库——横幅上原先唯独缺这一项，而它是后果最重的一项。
+# 连的是哪个库。开发机上 `.env` 的 PG_* 可能指着 `port=5433`，那是通到生产的 SSH 隧道。
 #
-# 开发机上 `PG_CONNINFO` 常常指着 `port=5433`，那是通到生产的 SSH 隧道（隧道是有意的，
-# 提取/归并那条流程就靠它）。但**跑本地服务时连着它，等于拿生产库做开发**：
-# 页面上会显示生产缓存下来的真实数字，而任何写入都直接落在生产上。
-# 这件事从界面上完全看不出来，只能在启动第一屏说。
-_dbs = [("行情/对话/用户", settings.pg_conninfo),
-        ("交易", settings.pg_trading_conninfo),
-        ("知识", settings.pg_knowledge_conninfo)]
-_described = [(label, *describe_conninfo(conninfo)) for label, conninfo in _dbs]
-_remote = [label for label, _, local in _described if not local]
-print("[fanisl] 库 " + " | ".join(f"{label}={where}" for label, where, _ in _described),
-      flush=True)
+# **范围只卡账户与交易两个库。** 账户数据（binance_cache / users / sessions）在
+# `pg_conninfo`，交易在 `pg_trading_conninfo`——本地服务连上它们就是拿生产做开发，
+# 而且写操作会直接落在生产上。知识库不同：提取 / 归并那条流程本来就要经隧道写生产，
+# 卡死它等于把那条流程也一起废掉，所以只提示不拦。
+#
+# 判定要连主机带端口一起看：生产服务器上是 `host=127.0.0.1`（无 port，默认 5432），
+# 开发机上的隧道是 `host=127.0.0.1 port=5433`，光看主机分不出来。
+_GUARDED = [("账户/对话", settings.pg_conninfo), ("交易", settings.pg_trading_conninfo)]
+_remote = [label for label, conninfo in _GUARDED if not describe_conninfo(conninfo)[1]]
+_knowledge, _knowledge_local = describe_conninfo(settings.pg_knowledge_conninfo)
+print(f"[fanisl] 库 账户/对话={describe_conninfo(settings.pg_conninfo)[0]}"
+      f" | 交易={describe_conninfo(settings.pg_trading_conninfo)[0]}"
+      f" | 知识={_knowledge}{'' if _knowledge_local else '（远端）'}", flush=True)
+
 if _remote and not os.getenv("FANISL_ALLOW_REMOTE_DB"):
-    # **拒绝启动，不是警告。** 上一版只打一行 ⚠——而警告会随启动日志滚过去，
-    # 照样把服务跑在生产库上（2026-09-03 就这么发生了一次）。可以被忽略的警告
-    # 就一定会被忽略；这条线要么拦住，要么不如不写。
-    #
-    # 生产服务器自己不受影响：那边的 conninfo 是 `host=127.0.0.1 dbname=fanisl`，
-    # 没有 port、走默认 5432，判定为本机。只有开发机上指着 5433 隧道时才会拦。
-    #
-    # 确实要用本地服务读生产（复现线上问题），加 FANISL_ALLOW_REMOTE_DB=1。
+    # **拒绝启动，不是警告。** 警告会随启动日志滚过去，照样把服务跑在生产库上。
     raise SystemExit(
-        f"[fanisl] 拒绝启动：{'、'.join(_remote)} 指向远端"
-        f"（多半是 5433 那条通到生产的隧道）。\n"
-        f"  · 本地开发：tools/dev_db.sh 建库，然后\n"
-        f"      FANISL_ENV_FILE=.env.dev PYTHONPATH=src .venv/bin/uvicorn analyzer.main:app --port 8000\n"
+        f"[fanisl] 拒绝启动：{'、'.join(_remote)} 指向远端（多半是 5433 那条生产隧道）。\n"
+        f"  · 本地开发：把 .env 里的 PG_CONNINFO / PG_TRADING_CONNINFO 改成本机库\n"
+        f"      PG_CONNINFO=dbname=fanisl_dev\n"
+        f"      PG_TRADING_CONNINFO=dbname=fanisl_dev_trading\n"
         f"  · 确实要读生产：FANISL_ALLOW_REMOTE_DB=1 再启动\n"
         f"  详见 backend/README.md「本地开发用隔离的库」")
-if _remote:
-    print("[fanisl] ⚠ 正在使用**远端**库（FANISL_ALLOW_REMOTE_DB 已设）。写操作会落在生产上。",
-          flush=True)
 
 # --- 行情库（行情时间序列 + 对话）---
 pool = make_pool(settings.pg_conninfo)

@@ -43,3 +43,7 @@ frontend/dist/
 
 # 本地开发的隔离配置，由 backend/tools/dev.sh 生成（凭据形态的文件名一律不入库）
 .env.dev
+
+# 备份出来的配置照样带口令。曾把 .env.bak-003457 提交进仓库（未推送，已改历史移除）
+.env.bak*
+.env.*.bak

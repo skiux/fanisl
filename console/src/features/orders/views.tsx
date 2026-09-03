@@ -67,7 +67,7 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>
-          <Module caliber="三个账户分别请求，这次都没回来" span="lg:col-span-7" title="挂单取不到">
+          <Module span="lg:col-span-7" title="挂单取不到">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
               现货、合约与杠杆的挂单各走一个接口，本次一个都没取到。
               这里不写「0 笔」——取不到和没有挂单是两回事。
@@ -137,12 +137,12 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
               value={medianAge === null ? '—' : `${Math.round(medianAge / 3600_000)} 小时`}
             />
             <Figure label="24 小时内新挂" value={String(freshCount)} />
-            <Figure label="已部分成交" caliber="仓位已占用" value={String(partial)} />
+            <Figure label="已部分成交" value={String(partial)} />
           </dl>
         </Module>
 
         {snapshot.order_lists.length > 0 && (
-          <Module caliber="一条成交，另一条自动撤销" span="lg:col-span-4" title="OCO 组">
+          <Module span="lg:col-span-4" title="OCO 组">
             <ul className="space-y-4">
               {snapshot.order_lists.map((group) => {
                 const legs = snapshot.open.filter((order) => order.order_list_id === group.id)
@@ -179,7 +179,7 @@ function VenueBreakdown({ rows, notional, span }: {
   span: string
 }) {
   return (
-    <Module caliber="未成交量 × 委托价" span={span} title="按账户">
+    <Module span={span} title="按账户">
       {rows.length > 0 ? (
         <ul className="space-y-3">
           {rows.map((row) => (
@@ -232,7 +232,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>
-          <Module caliber="委托与成交同源" span="lg:col-span-7" title="历史查询不可用">
+          <Module span="lg:col-span-7" title="历史查询不可用">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
               历史委托与成交明细都要按交易对逐次查询，这次的请求没有回来。
               交易对可以照常切换，但在接口恢复前这里不会有记录——空着，不拿别的区间顶替。
@@ -283,7 +283,6 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
 
           <Module
             figure={fills.length > 0 ? signedMoney(realized) : '—'}
-            caliber="区间内已实现"
             span=""
             title="成交小结"
             tone={fills.length === 0 ? 'muted' : realized >= 0 ? 'gain' : 'loss'}
@@ -302,7 +301,6 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
                   <Figure label="手续费" tone="loss" value={signedMoney(-fees)} />
                   <Figure
                     label="费率"
-                    caliber="占成交额"
                     value={traded > 0 ? percent(fees / traded, 3) : '—'}
                   />
                 </dl>
@@ -336,7 +334,7 @@ function QueryPanel({ symbol, symbols, query, span, onSelectSymbol }: {
   onSelectSymbol: (next: string) => void
 }) {
   return (
-    <Module caliber="接口只允许按交易对查" span={span} title="查询范围">
+    <Module span={span} title="查询范围">
       <label className="flex items-center gap-3">
         <span className="w-[56px] shrink-0 text-xs text-ink-2">交易对</span>
         <select

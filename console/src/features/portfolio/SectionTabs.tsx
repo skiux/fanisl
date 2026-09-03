@@ -17,15 +17,17 @@ export type TabItem<K extends string = string> = {
  * 现在与流水页区间、委托页筛选共用一个控件。少了动效，多了一致——
  * 而且键盘漫游与 `aria-*` 是 Radix 给的，不是我又写一遍。
  */
-export function SectionTabs<K extends string>({ items, current, onSelect }: {
+export function SectionTabs<K extends string>({ items, current, onSelect, trailing }: {
   items: TabItem<K>[]
   current: K
   onSelect: (key: K) => void
+  /** 与分节同一层的页面级筛选（流水页的区间）。放这一行，不放全站报头里 */
+  trailing?: React.ReactNode
 }) {
   return (
     // 外层的内边距与下边线是这一行的**位置**，跟控件长相无关。上一版换成共用控件时
     // 把这层容器一起丢了，于是第一个标签贴着纸边，而下面每个模块都是缩进的。
-    <div className="scrollbar-none overflow-x-auto border-b border-rule px-5 pt-1 sm:px-10">
+    <div className="scrollbar-none flex flex-wrap items-center justify-between gap-x-8 gap-y-2 overflow-x-auto border-b border-rule px-5 pt-1 sm:px-10">
       <SegmentedControl
         items={items.map((item) => ({
           value: item.key, label: item.label, muted: item.muted,
@@ -34,6 +36,7 @@ export function SectionTabs<K extends string>({ items, current, onSelect }: {
         onValueChange={onSelect}
         value={current}
       />
+      {trailing && <div className="flex shrink-0 items-center pb-1">{trailing}</div>}
     </div>
   )
 }

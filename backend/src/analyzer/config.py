@@ -7,8 +7,6 @@
 from functools import lru_cache
 
 from pydantic import BaseModel, Field
-import os
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -66,18 +64,9 @@ class IndicatorThresholds(BaseModel):
     iv_skew_pct: float = 2.0
 
 
-# 用哪份配置文件。默认 `.env`；本地开发用 `FANISL_ENV_FILE=.env.dev` 换一整份。
-#
-# 为什么必须整份换、不能只覆盖单个变量：下面 `settings_customise_sources` 里
-# **dotenv 的优先级高于 shell 环境变量**（为了不让残留的 ANTHROPIC_* 劫持配置）。
-# 于是 `PG_CONNINFO=... uvicorn` 这种写法会被 .env 静默盖掉——看着像生效了，
-# 实际连的还是 .env 里那个库。开发机上 .env 指着生产隧道，这个静默失效很危险。
-_ENV_FILE = os.getenv("FANISL_ENV_FILE", ".env")
-
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
     @classmethod

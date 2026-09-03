@@ -61,8 +61,11 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
 
   return (
     <header className="rule-heavy px-5 pb-3.5 pt-4 sm:px-10 sm:pb-4 sm:pt-5">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <span className="flex items-center gap-2">
+      {/* 窄屏分两行：第一行是品牌与账号（各占一端），第二行才是导航与控件。
+          原先三组东西挤在一个 flex-wrap 里，375px 下账号和主题被挤到下一行，
+          落在哪儿全看内容长短——显示名一长就又是另一个样子。 */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
+        <span className="order-1 flex items-center gap-2">
           <svg aria-hidden="true" className="text-ink" height="15" viewBox="0 0 20 20" width="15">
             <path d="M2 16.5 L8.2 3.5 L11 9.4 L13.4 5.1 L18 16.5" fill="none" stroke="currentColor" strokeLinecap="square" strokeWidth="1.5" />
             <circle cx="13.4" cy="5.1" fill="var(--accent)" r="1.9" />
@@ -71,7 +74,14 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
           <span className="label">Console</span>
         </span>
 
-        <nav aria-label="控制台导航" className="flex items-center gap-4">
+        {/* 账号与主题：窄屏跟品牌同一行、贴右；宽屏挪到整行最右 */}
+        <div className="order-2 ml-auto flex shrink-0 items-center gap-3 sm:order-4">
+          <AccountMenu />
+          <ThemeToggle />
+        </div>
+
+        <nav aria-label="控制台导航"
+             className="order-3 flex w-full items-center gap-4 sm:order-2 sm:w-auto">
           {PAGES.map((item) => {
             const current = item.key === page
             if (!item.enabled) {
@@ -113,13 +123,13 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
           )}
         </nav>
 
-        {/* 这一组也要能折行：流水页比另外两页多一个区间选择器，375px 下正好顶出去，
-            整页跟着横向滚动。够宽时 ml-auto 仍然把它推到右边。 */}
-        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 sm:ml-auto">
-          {controls}
-          <AccountMenu />
-          <ThemeToggle />
-        </div>
+        {/* 页面自己的控件（流水页的区间选择器等）。窄屏另起一行，
+            宽屏挤在导航右边、被账号那一组推到中间 */}
+        {controls && (
+          <div className="order-4 flex w-full flex-wrap items-center gap-x-3 gap-y-2 sm:order-3 sm:ml-auto sm:w-auto sm:justify-end">
+            {controls}
+          </div>
+        )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2">

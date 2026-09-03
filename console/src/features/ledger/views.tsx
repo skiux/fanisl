@@ -2,10 +2,9 @@ import { Figure, Module, Stack, ViewGrid } from '../../components/layout'
 import { cn } from '../../lib/cn'
 import { LEDGER_KIND_LABEL, money, signedMoney, SOURCE_LABEL } from '../../lib/format'
 import type {
-  LedgerEntry, LedgerGroup, LedgerSnapshot, LedgerSourceWindow, SourceKey,
+  LedgerEntry, LedgerGroup, LedgerSnapshot, SourceKey,
 } from '../../api/types'
 import { Timeline } from './Timeline'
-import { useIsAdmin } from '../../lib/role'
 
 export type LedgerFilter = 'all' | LedgerGroup
 
@@ -61,9 +60,9 @@ function summaryOf(all: LedgerEntry[], rows: LedgerEntry[], filter: LedgerFilter
       const income = all.filter((row) => row.group === 'income')
       const internal = all.filter((row) => row.group === 'internal')
       return [
-        { label: '外部净流入', value: signedMoney(sumUsd(external)), note: '改变本金' },
-        { label: '收支净额', value: signedMoney(sumUsd(income)), tone: sumUsd(income) >= 0 ? 'gain' as const : 'loss' as const, note: '真盈亏' },
-        { label: '内部搬运', value: money(Math.abs(sumUsd(internal))), note: '净值不变' },
+        { label: '外部净流入', value: signedMoney(sumUsd(external)) },
+        { label: '收支净额', value: signedMoney(sumUsd(income)), tone: sumUsd(income) >= 0 ? 'gain' as const : 'loss' as const },
+        { label: '内部搬运', value: money(Math.abs(sumUsd(internal))) },
         count,
       ]
     }
@@ -100,7 +99,7 @@ export function LedgerView({ snapshot, veiled, filter }: {
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>
-          <Module caliber="八个接口合并，这一类的全没回来" span="lg:col-span-7" title="流水取不到">
+          <Module span="lg:col-span-7" title="流水取不到">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
               这一页没有单一的数据源，时间线是下面这些端点各拉一段拼出来的。
               相关的几个这次都没返回，所以这里既不给记录也不给合计——
@@ -118,7 +117,6 @@ export function LedgerView({ snapshot, veiled, filter }: {
               })}
             </ul>
           </Module>
-          <WindowPanel down={down} span="lg:col-span-5" windows={windows} window={snapshot.window} />
         </ViewGrid>
       </div>
     )
@@ -144,7 +142,7 @@ export function LedgerView({ snapshot, veiled, filter }: {
         <Stack span="lg:col-span-4">
           {/* 有来源挂掉时合计必然不完整，这句话得跟着数字一起出现，不能只在页脚 */}
           <Module
-            note={down.length === 0 ? FILTER_LABEL[filter]
+            note={down.length === 0 ? undefined
               : down.length <= 2
                 ? `缺 ${down.map((key) => SOURCE_LABEL[key] ?? key).join('、')}`
                 : `缺 ${down.length} 个来源`}
@@ -194,56 +192,9 @@ export function LedgerView({ snapshot, veiled, filter }: {
           </Module>
         </Stack>
 
-        <WindowPanel down={down} span="lg:col-span-12" windows={windows} window={snapshot.window} />
 
       </ViewGrid>
     </div>
   )
 }
 
-/**
- * 没有统一的流水接口，这条时间线是下面这些端点各拉一段拼出来的。
- * 能看多久由其中最紧的那个决定——这是内容，不是脚注。
- */
-function WindowPanel({ windows, window: range, down, span }: {
-  windows: LedgerSourceWindow[]
-  window: LedgerSnapshot['window']
-  down: SourceKey[]
-  span: string
-}) {
-  // 端点、权重、扇出——这是接口的构造，只对维护的人有意义。成员看到的应该是
-  // "这段时间的钱怎么进出的"，不是"这些数字是从哪几个接口拼的"。
-  if (!useIsAdmin()) return null
-  return (
-    <Module
-      figure={`${range.max_days} 天`}
-      note={`单次上限 · 卡在${SOURCE_LABEL[range.limited_by] ?? range.limited_by}`}
-      span={span}
-      title="取数窗口"
-    >
-      <ul className={cn('grid gap-x-10 gap-y-px sm:grid-cols-2',
-        span.includes('12') ? 'xl:grid-cols-4' : 'xl:grid-cols-2')}>
-        {windows.map((row) => {
-          const missing = down.includes(row.key)
-          return (
-            <li className="border-b border-rule py-2.5" key={row.key}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className={cn('text-xs', missing ? 'text-loss' : 'text-ink-2')}>
-                  {SOURCE_LABEL[row.key] ?? row.key}
-                </span>
-                <span className="tnum shrink-0 text-micro text-ink-3">
-                  {row.max_window_days === null ? '区间不限' : `≤ ${row.max_window_days} 天`}
-                  {' · w'}{row.weight}
-                </span>
-              </div>
-              <div className="truncate font-mono text-[10px] text-ink-3" title={row.endpoint}>
-                {row.endpoint}
-              </div>
-              {row.fanout && <div className="truncate text-micro text-accent">{row.fanout}</div>}
-            </li>
-          )
-        })}
-      </ul>
-    </Module>
-  )
-}

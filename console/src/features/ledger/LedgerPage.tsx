@@ -72,23 +72,15 @@ export function LedgerPage() {
       <div className="sheet mx-auto flex max-w-[1420px] flex-col lg:h-[calc(100dvh-3rem)]">
         <Masthead
           asOf={snapshot?.as_of ?? null}
-          controls={
-            <>
-              <WindowSwitcher
-                days={days}
-                max={snapshot?.window.max_days ?? 30}
-                onChange={setDays}
-              />
-              <ScenarioSwitcher onChange={changeScenario} value={scenario} />
-            </>
-          }
+          controls={<ScenarioSwitcher onChange={changeScenario} value={scenario} />}
           onRefresh={retry}
           page="ledger"
           refreshing={refreshing}
           sources={snapshot?.sources ?? []}
           title="资金流水"
         />
-        <Body filter={filter} onRetry={retry} onSelectFilter={selectFilter} phase={phase} />
+        <Body days={days} filter={filter} onRetry={retry} onSelectDays={setDays}
+              onSelectFilter={selectFilter} phase={phase} />
       </div>
     </div>
   )
@@ -103,11 +95,13 @@ function buildTabs(snapshot: LedgerSnapshot): TabItem<LedgerFilter>[] {
   }))
 }
 
-function Body({ phase, filter, onSelectFilter, onRetry }: {
+function Body({ phase, filter, onSelectFilter, onRetry, days, onSelectDays }: {
   phase: Phase
   filter: LedgerFilter
   onSelectFilter: (key: LedgerFilter) => void
   onRetry: () => void
+  days: number
+  onSelectDays: (days: number) => void
 }) {
   const isAdmin = useIsAdmin()
   if (phase.kind === 'loading') return <StatementSkeleton />
@@ -137,7 +131,16 @@ function Body({ phase, filter, onSelectFilter, onRetry }: {
 
       <LedgerStrip snapshot={snapshot} veiled={veiled} />
 
-      <SectionTabs current={filter} items={buildTabs(snapshot)} onSelect={onSelectFilter} />
+      {/* 区间和分类是同一层的筛选，并排放在这一行。原先区间挤在全站报头里，
+          和品牌、导航、账号混作一堆——那一行是"这是哪个应用"，不是"这一页怎么筛"。 */}
+      <SectionTabs
+        current={filter}
+        items={buildTabs(snapshot)}
+        onSelect={onSelectFilter}
+        trailing={
+          <WindowSwitcher days={days} max={snapshot.window.max_days} onChange={onSelectDays} />
+        }
+      />
 
       <div className="scroll-y min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8" key={filter}>
         <div className="rise">

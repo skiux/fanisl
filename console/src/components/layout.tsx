@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { ArrowRight } from '@phosphor-icons/react'
 import { cn } from '../lib/cn'
 import { percent } from '../lib/format'
-import { useIsAdmin } from '../lib/role'
 
 
 /**
@@ -10,21 +9,18 @@ import { useIsAdmin } from '../lib/role'
  * 单列堆叠下每一节都得横跨整幅版心，窄内容于是被拉出上千像素的空档，
  * 或者被限宽后在右侧留一片空。模块按自己的天然宽度占列，并排铺满。
  */
-export function Module({ title, figure, tone, note, caliber, span, onOpen, children }: {
+export function Module({ title, figure, tone, note, span, onOpen, children }: {
   title: string
   figure?: string
   tone?: 'gain' | 'loss' | 'accent' | 'muted'
-  /** 数据本身的一部分（条数、区间长度），谁都看得到 */
+  /** 数据本身的一部分（条数、区间长度）。口径说明不进界面，见 Figure */
   note?: string
-  /** 这一块是怎么算的，只给管理员。与 `note` 分开的理由见 Figure */
-  caliber?: string
   /** 12 栏栅格里占几栏 */
   span: string
   onOpen?: () => void
   children: ReactNode
 }) {
-  const isAdmin = useIsAdmin()
-  const hint = note ?? (isAdmin ? caliber : undefined)
+  const hint = note
   const head = (
     <div className="flex items-baseline justify-between gap-4 border-b border-rule pb-2.5">
       <div className="flex items-baseline gap-2.5">
@@ -63,22 +59,17 @@ export function Module({ title, figure, tone, note, caliber, span, onOpen, child
 /**
  * 一个读数。
  *
- * **`note` 与 `caliber` 是两件事，故意分开。** 之前它们都叫 `note`：一边是数据
- * （"3"、"QQQ"），一边是口径（"占成交额"、"仓位已占用"）。混在一个字段里，
- * 按角色收的时候只能一刀切——要么把口径留给成员，要么把数据也一起藏掉。
- * 分成两个字段之后，这个区别写在类型上，后面的人不会再糊在一起。
+ * `note` 只放**数据本身的一部分**（条数、标的代码）。口径说明不进界面——
+ * 曾经有过一个 `caliber` 字段，按角色只给管理员看；后来发现管理员也不需要它，
+ * 那些话属于代码注释和文档，不属于屏幕。
  */
-export function Figure({ label, value, tone, note, caliber }: {
+export function Figure({ label, value, tone, note }: {
   label: string
   value: string
   tone?: 'gain' | 'loss'
-  /** 数据本身的一部分，谁都看得到 */
   note?: string
-  /** 这个数是怎么算的，只给管理员 */
-  caliber?: string
 }) {
-  const isAdmin = useIsAdmin()
-  const hint = note ?? (isAdmin ? caliber : undefined)
+  const hint = note
   return (
     <div>
       <dt className="text-xs text-ink-3">{label}</dt>

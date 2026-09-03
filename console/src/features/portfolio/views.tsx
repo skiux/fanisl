@@ -44,12 +44,11 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
           <RealizedDays days={pnl?.daily ?? []} />
         </Module>
 
-        <Module caliber="钱在哪个钱包" onOpen={() => onOpen('holdings')} span="lg:col-span-4" title="资产分布">
+        <Module onOpen={() => onOpen('holdings')} span="lg:col-span-4" title="资产分布">
           <WalletSpread veiled={false} wallets={snapshot.wallets} />
         </Module>
 
         <Module
-          caliber="越线才需要处理"
           onOpen={() => onOpen('perp')}
           span="lg:col-span-5"
           title="风险仪表"
@@ -68,7 +67,6 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
         {isAdmin && (
           <Module
             figure={`${okCount} / ${snapshot.sources.length}`}
-            caliber="留空的是哪一项"
             span="lg:col-span-7"
             title="取数状态"
             tone={okCount === snapshot.sources.length ? undefined : 'muted'}
@@ -97,14 +95,13 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
         {/* 原先这里是"期末 − 期初 − 净充提"的归因表，未实现变动由残差反解——
             那个残差会把钱包间划转一起吸进来，所以它的"未实现变动"里混着充提。
             现在每一项都有出处：现货来自成交重放，合约来自 positionRisk 与 income。 */}
-        <Module caliber="现货按成本重放 · 合约取交易所值" span="lg:col-span-7" title="盈亏构成">
+        <Module span="lg:col-span-7" title="盈亏构成">
           <PnlBreakdown pnl={pnl} />
         </Module>
 
         <Stack span="lg:col-span-5">
           <Module
             figure={t ? signedMoney(t.net_usd) : '—'}
-            caliber="中性事件，不计入盈亏"
             span=""
             title="充提"
             tone="accent"
@@ -137,7 +134,6 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
 
           <Module
             figure={costs === null ? '—' : signedMoney(-costs)}
-            caliber="资金费 + 手续费"
             span=""
             title="成本"
             tone={costs === null ? 'muted' : 'loss'}
@@ -161,7 +157,7 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
           </Module>
         </Stack>
 
-        <Module caliber="只算已实现 · 划转不计入" span="lg:col-span-12" title="每日盈亏">
+        <Module span="lg:col-span-12" title="每日盈亏">
           <RealizedDays days={pnl?.daily ?? []} />
         </Module>
       </ViewGrid>
@@ -224,7 +220,6 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
 
           <Module
             figure={apr === null ? '—' : percent(apr, 2)}
-            caliber="理财加权年化"
             span=""
             title="理财收益"
             tone="gain"
@@ -278,7 +273,7 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>
-          <Module caliber="仓位 · 保证金 · 敞口同源" span="lg:col-span-7" title="合约账户不可用">
+          <Module span="lg:col-span-7" title="合约账户不可用">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
               仓位、保证金与多空敞口都出自同一组 fapi 接口，这次一起没取到。
               这里不拿上一次的数字顶替，也不用 0 充数。
@@ -324,7 +319,7 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
               <Figure label="维持保证金" value={money(f.total_maint_margin)} />
               <Figure label="起始保证金" value={money(f.total_initial_margin)} />
               <Figure label="可用余额" value={money(f.available_balance)} />
-              <Figure label="钱包余额" caliber="不含未实现" value={money(f.total_wallet_balance)} />
+              <Figure label="钱包余额" value={money(f.total_wallet_balance)} />
             </dl>
           </Module>
 
@@ -374,7 +369,6 @@ function MarginAccountModule({ margin, liability, span, dense }: {
   return (
     <Module
       figure={margin?.margin_level == null ? '—' : margin.margin_level.toFixed(2)}
-      caliber="风险率 · 预警 1.30 · 强平 1.10"
       span={span}
       title="杠杆账户"
       tone={margin?.margin_level != null && margin.margin_level < 1.5 ? 'accent' : undefined}
