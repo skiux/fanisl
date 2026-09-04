@@ -2,20 +2,11 @@ import { ArrowDown, ArrowUp, Lightning } from '@phosphor-icons/react'
 import { Delta, Eyebrow } from '../../components/Primitives'
 import { cn } from '../../lib/cn'
 import { amount, baseOf, money, percent, price, signedMoney, signedPercent } from '../../lib/format'
+import {
+  MARGIN_LEVEL_SAFE, MARGIN_LEVEL_WARN, MARGIN_RATIO_DANGER,
+  liqDistanceRisk, marginLevelRisk, marginRatioRisk, riskBar, riskText,
+} from '../../lib/risk'
 import type { FuturesAccount, FuturesPosition, MarginAccount } from '../../api/types'
-
-function marginTone(ratio: number) {
-  if (ratio < 0.3) return { bar: 'bg-gain', text: 'text-gain', label: '安全' }
-  if (ratio < 0.6) return { bar: 'bg-accent', text: 'text-accent', label: '偏紧' }
-  return { bar: 'bg-loss', text: 'text-loss', label: '危险' }
-}
-
-/** 杠杆账户的 marginLevel 语义与合约相反：越小越危险，< 1.3 预警、< 1.1 强平 */
-function marginLevelTone(level: number) {
-  if (level >= 2) return { text: 'text-gain', label: '安全' }
-  if (level >= 1.3) return { text: 'text-accent', label: '偏紧' }
-  return { text: 'text-loss', label: '接近强平' }
-}
 
 function Gauge({ label, value, hint, tone, fill, marker }: {
   label: string
@@ -75,8 +66,7 @@ function PositionRow({ position }: { position: FuturesPosition }) {
     ? position.unrealized_pnl_usd / position.initial_margin_usd
     : null
   const distance = position.liq_distance
-  // 距强平越近条越满：与保证金率同向，"变满 = 变危险"
-  const risk = distance === null ? 0 : Math.max(0, Math.min(1, 1 - distance / 0.5))
+  const risk = liqDistanceRisk(distance)
 
   return (
     <li className="py-4 first:pt-0">
@@ -124,8 +114,8 @@ function PositionRow({ position }: { position: FuturesPosition }) {
           <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-rule">
             <span
               className={cn('block h-full rounded-full transition-[width] duration-700',
-                risk > 0.6 ? 'bg-loss' : risk > 0.3 ? 'bg-accent' : 'bg-ink-3')}
-              style={{ width: `${(risk * 100).toFixed(1)}%` }}
+                riskBar(risk.tone))}
+              style={{ width: `${(risk.fill * 100).toFixed(1)}%` }}
             />
           </span>
           <span className="tnum shrink-0 text-xs text-ink-3">距强平 {percent(distance, 1)}</span>
@@ -157,20 +147,22 @@ export function RiskGauges({ futures, margin, exposureRatio, concentration, unav
       {futures?.margin_ratio != null && (
         <Gauge
           fill={futures.margin_ratio}
-          hint={marginTone(futures.margin_ratio).label}
+          hint={marginRatioRisk(futures.margin_ratio).label}
           label="合约保证金率"
-          marker={0.8}
-          tone={marginTone(futures.margin_ratio).text}
-          value={percent(futures.margin_ratio, 2)}
+          // 标记线就是判红那条线，两者同源；小数位也与摘要条同一档，
+          // 否则同一个数在一屏上印成 4.5% 和 4.46%
+          marker={MARGIN_RATIO_DANGER}
+          tone={riskText(marginRatioRisk(futures.margin_ratio).tone)}
+          value={percent(futures.margin_ratio, 1)}
         />
       )}
       {margin?.margin_level != null && (
         <Gauge
-          fill={Math.max(0, Math.min(1, (3 - margin.margin_level) / 2))}
-          hint={marginLevelTone(margin.margin_level).label}
+          fill={Math.max(0, Math.min(1, (MARGIN_LEVEL_SAFE + 1 - margin.margin_level) / 2))}
+          hint={marginLevelRisk(margin.margin_level).label}
           label="杠杆账户风险率"
-          marker={(3 - 1.3) / 2}
-          tone={marginLevelTone(margin.margin_level).text}
+          marker={(MARGIN_LEVEL_SAFE + 1 - MARGIN_LEVEL_WARN) / 2}
+          tone={riskText(marginLevelRisk(margin.margin_level).tone)}
           value={margin.margin_level.toFixed(2)}
         />
       )}

@@ -1,5 +1,6 @@
 import { Strip, type StripCell } from '../../components/Strip'
 import { money, percent, signedMoney } from '../../lib/format'
+import { marginRatioRisk } from '../../lib/risk'
 import type { PortfolioSnapshot } from '../../api/types'
 import type { PnlTopic } from './PnlDetail'
 
@@ -49,9 +50,11 @@ export function SummaryStrip({ snapshot, veiled, onOpenDetail }: {
     {
       label: '合约保证金率',
       value: ratio === null ? '—' : percent(ratio, 1),
-      // 数字自己说安不安全：过半转金，接近八成转红。取不到就是 `—`，
-      // 哪个来源挂了报头那一行已经在说了。
-      tone: ratio === null ? 'muted' : ratio >= 0.8 ? 'loss' : ratio >= 0.5 ? 'warn' : undefined,
+      // 数字自己说安不安全。阈值与风险仪表同源（`lib/risk`）——两处各判一套的话，
+      // 摘要条还是黑的，仪表已经写着"偏紧"。安全区不上色：一排读数里
+      // 三个都染绿，绿色就不再是"赚了"的意思了。
+      tone: ratio === null ? 'muted'
+        : marginRatioRisk(ratio).tone === 'gain' ? undefined : marginRatioRisk(ratio).tone,
     },
   ]
 
