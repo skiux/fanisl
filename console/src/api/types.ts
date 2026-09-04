@@ -152,34 +152,7 @@ export type Transfers = {
   withdrawal_count: number
 }
 
-export type EquityPoint = {
-  /** YYYY-MM-DD */
-  date: string
-  equity_usd: number
-}
 
-/**
- * 期间业绩归因。净值涨了不等于赚了——可能只是充钱进去。
- * 恒等式：closing = opening + net_transfer + realized + unrealized_delta + funding + commission
- * unrealized_delta 由残差反解，保证瀑布图永远闭合。
- */
-export type Attribution = {
-  /** 实际天数，不是固定 30——日快照只留 30 天，账户不满或缺日都会短一截 */
-  window_days: number
-  /** 窗口第一天（曲线起点），YYYY-MM-DD */
-  window_start: string
-  opening_equity: number
-  closing_equity: number
-  net_transfer: number
-  realized_pnl: number
-  unrealized_delta: number
-  funding_fee: number
-  commission: number
-  /** 剔除充提后的真实盈亏 */
-  true_pnl: number
-  /** true_pnl / 平均投入资本 */
-  true_return: number | null
-}
 
 export type DailyRealized = {
   /** YYYY-MM-DD，UTC 日切，与 Binance 的结算日一致 */
@@ -243,8 +216,6 @@ export type PortfolioTotals = {
   equity_usd: number
   /** 合约名义敞口 / 净值。衡量真实杠杆，比单笔的 leverage 有意义 */
   gross_exposure_ratio: number | null
-  change_24h_usd: number | null
-  change_24h_pct: number | null
 }
 
 export type PortfolioSnapshot = {
@@ -482,13 +453,14 @@ export type LedgerSourceWindow = {
   calls: number
 }
 
+
+/** 流水页那个「7 / 14 / 30 天」的可选区间与它的上限 */
 export type LedgerWindow = {
   from: string
   to: string
   days: number
-  /** 单次可查的上限，等于各来源上限里最小的那个 */
+  /** 上限由最紧的那个端点定（理财派息 / 杠杆利息 / 闪兑都是 30 天） */
   max_days: number
-  /** 卡住上限的是哪一个来源 */
   limited_by: SourceKey
 }
 

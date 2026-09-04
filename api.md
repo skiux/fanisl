@@ -96,12 +96,52 @@ Body `{"username": str, "password": str}` → `{"user": {...}}`，并在响应�
 - `as_of` 取**最旧的那个成功来源**：整页的可信时刻由最落后的那块决定。
 
 ### GET /portfolio
-Query：`force`（默认 false，界面上的"重新取数"）。
+Query：`force`（默认 false，界面上的"重新取数"，只有管理员看得到这个按钮）。
 返回 `PortfolioSnapshot`：`totals` / `wallets` / `spot` / `futures` / `earn` / `margin` /
-`income` / `transfers` / `equity_curve` / `attribution`。
+`income` / `transfers` / `pnl`。
 
-`force` **不穿透日快照与杠杆档位**：前者单次权重 2400（一分钟预算才 6000），
-连点几下就能把预算打空，而它本身是日频数据。
+`force` **不穿透提现历史**（单次权重 18000，是所有端点里最贵的一个）。
+
+#### `pnl` —— 盈亏，按成交算，不由资产变化倒推
+
+这一块的口径是整份接口里最容易搞错的地方，2026-09 连着修过四轮，每一轮的错都写在
+`backend/src/analyzer/binance/README.md` 里。要点：
+
+- **不能用"期末 − 期初 − 净充提"。** `accountSnapshot` 只覆盖 SPOT / MARGIN / FUTURES
+  三种钱包，理财、资金、币本位、期权都没有历史快照。拿它当期初、拿全部钱包当期末，
+  差额会被整个算成盈亏；而钱包之间的划转（现货 → 理财）会直接变成一笔"亏损"。
+  更糟的是残差反解会让恒等式永远闭合，错了也看不出来。**日快照相关的字段
+  `equity_curve` / `attribution` 已经删除**，不要再依赖。
+- 现在的口径：
+
+  ```
+  unrealized.spot_usd     现货成交重放出的加权平均成本 → (市价 − 均价) × 成本已知的数量
+  unrealized.futures_usd  positionRisk 的 unRealizedProfit（交易所标记价）
+  realized.spot_usd       myTrades 全量重放，卖出按当时的均价结转（无时间上限）
+  realized.futures_usd    income 的 REALIZED_PNL（接口只保留 90 天）
+  carry.*                 资金费 / 手续费 / 返佣，同样 90 天
+  daily[]                 每天落袋多少：income 逐行按天分桶 + 现货成交结转
+                          固定 90 格，没交易的那天是 0 且 traded=false（不是缺一格）
+  today_usd               daily 最后一格，即 `now` 那天的合计
+  coverage                覆盖范围的实话（"已清仓的标的查不到交易对"）
+  incomplete_assets[]     成本完全算不出来的币（缺跨币种历史汇率），已从合计剔除
+  ```
+
+- **`unrealized.spot_usd` 只算成本已知的那部分。** 成交历史只覆盖能猜到交易对的币，
+  划转 / 理财派息 / 小额兑换进来的从不出现在 `myTrades` 里。数量按真实余额报
+  （`spot_assets[].qty`），但盈亏只对 `min(余额, 重放数量)` 算，多出来的报在
+  `spot_assets[].unpriced_qty`。**别拿 `qty × (price − avg_cost)` 自己重算**——
+  那正是修过的 bug，实测把现货未实现放大了六倍多。
+- `income` 的金额单位是该行的 `asset`，不一定是 USDT（手续费常用 BNB 抵扣）。
+  已在服务端按币种换算成 USD，客户端不必再折算。
+- 三块的窗口不一样是接口硬限，**不要把 `realized.spot_usd` 与 `realized.futures_usd`
+  加成一个数**当作某个统一区间的成绩。
+
+#### 成员只能看 90 天
+
+非管理员的响应经 `main.py:_clip_for_member` 裁过：`pnl.daily` 只留最近 90 天，
+`pnl.realized.spot_usd` 置为 `null`（它是全历史的）。**这一步在服务端做**——
+前端把数字藏起来不算数。
 
 ### GET /orders
 Query：`symbol`、`venue`（`spot|usdm|margin`）、`force`。
@@ -118,9 +158,12 @@ Query：`days`（默认 7）、`force`。
 
 Binance **没有统一的流水接口**，`entries` 是八个端点合并的时间线，每条带 `source`。
 `days` 超过 30 会被截到 30——那是各来源上限的**交集**，卡在理财派息/杠杆利息/闪兑。
-`windows` 原样返回每个端点的路径、权重、单次上限、回溯天数与调用次数，
-界面上的"取数窗口"与"取数成本"就是它（一次全量 21345 权重、20 次调用，
-而 IP 限额是 6000/分钟）。
+`window` 里带着本次实际的起止、天数、上限与卡住它的来源。
+
+端点清单（路径、权重、单次上限、回溯天数、调用次数）**不再出现在响应里**：
+它曾作为 `windows` 字段返回、在界面上画成一张表，那是接口的构造，属于文档不属于页面。
+现在写在 `backend/src/analyzer/binance/README.md` 的接口清单一节，
+`ledger.py:WINDOWS` 是唯一权威。
 
 ---
 

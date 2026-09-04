@@ -1,7 +1,7 @@
 import { PRICE } from './prices'
 import { NVDA_ENTRY_PRICE, spotLockedByAsset } from './orders-fixtures'
 import type {
-  Attribution, EarnPosition, EquityPoint, FuturesAccount, FuturesPosition, Pnl,
+  EarnPosition, FuturesAccount, FuturesPosition, Pnl,
   IncomeBreakdown, MarginAccount, PortfolioSnapshot, SourceState, SpotAsset,
   Transfers, WalletBucket,
 } from './types'
@@ -220,53 +220,10 @@ export const transfers: Transfers = {
  *   属于接口给的原始值；倒推的话，归因表就成了自己证明自己，任何口径错误
  *   都会被残差项吸走而看不出来——线上那个 bug 正是这么藏了很久。
  */
-const SNAPSHOT_WALLETS = ['spot', 'cross_margin', 'usdm_futures'] as const
 
-const closingEquity = wallets
-  .filter((w) => (SNAPSHOT_WALLETS as readonly string[]).includes(w.kind))
-  .reduce((sum, w) => sum + (w.value_usd ?? 0), 0)
 
-/** 窗口第一天的快照值。写死的是它，不是盈亏 */
-const OPENING_EQUITY = 22800
 
-const WINDOW_DAYS = 30
 
-export function buildAttribution(windowDays: number, windowStart: string): Attribution {
-  const realized = income.realized_pnl + income.referral_kickback
-  const truePnl = closingEquity - OPENING_EQUITY - transfers.net_usd
-  // 未实现变动仍由残差反解——后端也是这么算的，因为历史浮盈没有接口可查。
-  // 但残差只有在期初期末同口径时才有意义，见上面的注释。
-  const unrealizedDelta = truePnl - realized - income.funding_fee - income.commission
-  const averageCapital = OPENING_EQUITY + transfers.net_usd / 2
-  return {
-    window_days: windowDays,
-    window_start: windowStart,
-    opening_equity: OPENING_EQUITY,
-    closing_equity: closingEquity,
-    net_transfer: transfers.net_usd,
-    realized_pnl: realized,
-    unrealized_delta: unrealizedDelta,
-    funding_fee: income.funding_fee,
-    commission: income.commission,
-    true_pnl: truePnl,
-    true_return: averageCapital > 0 ? truePnl / averageCapital : null,
-  }
-}
-
-/** 日快照。真实来源 /sapi/v1/accountSnapshot，最多 30 天 */
-export function buildEquityCurve(asOf: Date): EquityPoint[] {
-  const points: EquityPoint[] = []
-  const span = closingEquity - OPENING_EQUITY
-  for (let index = 0; index < WINDOW_DAYS; index += 1) {
-    const day = new Date(asOf)
-    day.setDate(day.getDate() - (WINDOW_DAYS - 1 - index))
-    const wobble = Math.sin(index * 0.9) * 780 + Math.sin(index * 0.31 + 1.4) * 1420
-    const progress = index / (WINDOW_DAYS - 1)
-    const value = OPENING_EQUITY + span * progress + (index === WINDOW_DAYS - 1 ? 0 : wobble)
-    points.push({ date: day.toISOString().slice(0, 10), equity_usd: value })
-  }
-  return points
-}
 
 export const okSource = (key: SourceState['key'], asOf: string): SourceState => ({
   key, status: 'ok', as_of: asOf, detail: null,
@@ -362,8 +319,6 @@ const SPOT_REALIZED: Record<string, number> = { BNB: 184.2, ETH: -62.4, SOL: 41.
 
 export function buildSnapshot(asOf: Date): PortfolioSnapshot {
   const iso = asOf.toISOString()
-  const curve = buildEquityCurve(asOf)
-  const yesterday = curve[curve.length - 2]?.equity_usd ?? null
   const notional = positions.reduce((sum, p) => sum + p.notional_usd, 0)
   return {
     as_of: iso,
@@ -374,9 +329,6 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
     totals: {
       equity_usd: equity,
       gross_exposure_ratio: equity > 0 ? notional / equity : null,
-      // 与曲线同口径：曲线是三个钱包的日快照，不能拿总净值去减
-      change_24h_usd: yesterday === null ? null : closingEquity - yesterday,
-      change_24h_pct: yesterday ? (closingEquity - yesterday) / yesterday : null,
     },
     wallets, spot, futures, earn, margin, income, transfers,
     pnl: buildPnl(),

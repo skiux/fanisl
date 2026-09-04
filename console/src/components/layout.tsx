@@ -24,7 +24,9 @@ export function Module({ title, figure, tone, note, span, onOpen, children }: {
   const head = (
     <div className="flex items-baseline justify-between gap-4 border-b border-rule pb-2.5">
       <div className="flex items-baseline gap-2.5">
-        <h3 className="section-title text-base">{title}</h3>
+        {/* h2 而不是 h3：页面标题是 h1，模块是它的下一级。跳到 h3 会让屏幕阅读器
+            的标题导航看起来缺了一层（全站四个页面都是 h1→h3）。 */}
+        <h2 className="section-title text-base">{title}</h2>
         {hint && <span className="text-xs text-ink-3">{hint}</span>}
       </div>
       <div className="flex items-baseline gap-2">

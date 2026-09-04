@@ -8,6 +8,9 @@
 
 from datetime import datetime, timedelta, timezone
 
+import pathlib
+import re
+
 import httpx
 import pytest
 
@@ -464,3 +467,19 @@ def test_daily_realized_follows_the_passed_now_not_the_wall_clock(cache):
     assert daily[-1]["date"] == other.astimezone(timezone.utc).date().isoformat()
     assert daily[0]["date"] == (other - timedelta(days=89)).astimezone(
         timezone.utc).date().isoformat()
+
+
+def test_totals_shape_matches_what_the_console_declares(cache):
+    """`totals` 的字段要和 console/src/api/types.ts 的 PortfolioTotals 一致。
+
+    删掉净值曲线时后端顺手去掉了 change_24h_usd / change_24h_pct，但前端的类型和
+    样例数据里还留着——真实数据里那两个字段一直是 undefined，只有 mock 在编。
+    契约漂移在类型检查里查不出来（多一个字段不报错），所以在这里对着源码验。
+    """
+    types = (pathlib.Path(__file__).resolve().parents[2] / "console" / "src" / "api"
+             / "types.ts").read_text()
+    block = re.search(r"export type PortfolioTotals = \{(.*?)\n\}", types, re.S)
+    assert block, "types.ts 里找不到 PortfolioTotals"
+    declared = set(re.findall(r"^\s*(\w+):", block.group(1), re.M))
+    assert set(build(cache)["totals"]) == declared
+

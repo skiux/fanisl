@@ -49,9 +49,24 @@ function shiftDays(day: string, delta: number) {
   return at.toISOString().slice(0, 10)
 }
 
+/**
+ * 没有数据时**不挂载**里面那个组件，而不是在它内部提前 return。
+ *
+ * 之前空数组的判断写在几个 `useMemo` 之后——hook 先跑，守卫永远轮不到，
+ * `shiftDays('')` 造出 Invalid Date 直接 `RangeError` 整页白屏。
+ * 合约域名 451 时 `pnl` 整块为空，正好踩上（实测 fapi_blocked / no_history
+ * 两个场景六个页面全白）。守卫必须在 hook 之前，那就只能提到外面来。
+ */
 export function RealizedDays({ days }: { days: DailyRealized[] }) {
-  const last = days.at(-1)?.date ?? ''
-  const first = days[0]?.date ?? ''
+  if (days.length === 0) {
+    return <p className="py-10 text-center text-sm text-ink-3">还没有可用的成交记录。</p>
+  }
+  return <Calendar days={days} />
+}
+
+function Calendar({ days }: { days: DailyRealized[] }) {
+  const last = days.at(-1)!.date
+  const first = days[0]!.date
 
   const [preset, setPreset] = useState<Preset>('30')
   const [custom, setCustom] = useState<{ from: string; to: string } | null>(null)
@@ -59,7 +74,7 @@ export function RealizedDays({ days }: { days: DailyRealized[] }) {
   const [anchor, setAnchor] = useState<string | null>(null)
   const [hover, setHover] = useState<string | null>(null)
   const [cursor, setCursor] = useState(() => {
-    const at = last ? new Date(`${last}T00:00:00Z`) : new Date()
+    const at = new Date(`${last}T00:00:00Z`)
     return new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), 1))
   })
 
@@ -131,10 +146,6 @@ export function RealizedDays({ days }: { days: DailyRealized[] }) {
     }
   }, [days, range])
 
-  if (days.length === 0) {
-    return <p className="py-10 text-center text-sm text-ink-3">还没有可用的成交记录。</p>
-  }
-
   const key = monthKey(cursor)
   // 数据只有 90 天，翻到头就把箭头禁掉——而不是翻出一片空月历
   const canPrev = key > monthKey(new Date(`${first}T00:00:00Z`))
@@ -192,9 +203,9 @@ export function RealizedDays({ days }: { days: DailyRealized[] }) {
         <span />
         <span className="flex items-center gap-0.5 sm:gap-1">
           <Arrow disabled={!canPrev} label="上一月" onClick={() => step(-1)} />
-          <h4 className="tnum min-w-[6rem] text-center text-xs text-ink sm:min-w-[7.5rem] sm:text-sm">
+          <h3 className="tnum min-w-[6rem] text-center text-xs text-ink sm:min-w-[7.5rem] sm:text-sm">
             {month.label}
-          </h4>
+          </h3>
           <Arrow disabled={!canNext} forward label="下一月" onClick={() => step(1)} />
         </span>
         <span className={cn('tnum justify-self-end whitespace-nowrap text-xs sm:text-sm',

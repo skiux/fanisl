@@ -17,6 +17,7 @@ leverageBracket 的维持保证金档位、日快照、理财持仓、小额兑�
 
 from __future__ import annotations
 
+import threading
 import time
 import urllib.parse
 from typing import Any, Literal
@@ -87,6 +88,8 @@ class BinanceClient:
         # 配置错误应当降级成"这个来源 unauthorized"，而不是"服务起不来"。
         self._signer = signer
         self._signer_loaded = signer is not None
+        # 见 signer 属性：懒加载在多线程下会读到半成品
+        self._signer_lock = threading.Lock()
         self._signer_error: str | None = None
         self._signer_config = (api_secret, private_key_path, private_key_passphrase)
         self.recv_window_ms = recv_window_ms
@@ -101,16 +104,28 @@ class BinanceClient:
 
     @property
     def signer(self) -> Signer | None:
-        if not self._signer_loaded:
-            self._signer_loaded = True
-            secret, key_path, passphrase = self._signer_config
-            try:
-                self._signer = build_signer(api_secret=secret, private_key_path=key_path,
-                                            passphrase=passphrase)
-            except Exception as e:  # noqa: BLE001 — 任何加载失败都只降级，不上抛
-                self._signer = None
-                self._signer_error = str(e)
-        return self._signer
+        """懒加载签名器。**加载过程必须加锁。**
+
+        `fetch_all` 会开 6 个线程共用同一个 client，而这里原先是把
+        `_signer_loaded = True` 写在加载**之前**：线程 A 刚置位就去读私钥文件，
+        线程 B 看到已置位、直接返回还是 `None` 的 `_signer`，`_signer_error` 也还没写，
+        于是错误信息退化成笼统的"未配置凭据"，而不是"私钥文件不存在"。
+
+        表现是整套测试**间歇性**红一次（约 1/3），断言拿到的是那句笼统消息。
+        排查方向很容易跑偏到"测试之间串了状态"上——实际是这个双重检查写反了顺序。
+        """
+        with self._signer_lock:
+            if not self._signer_loaded:
+                secret, key_path, passphrase = self._signer_config
+                try:
+                    self._signer = build_signer(api_secret=secret, private_key_path=key_path,
+                                                passphrase=passphrase)
+                except Exception as e:  # noqa: BLE001 — 任何加载失败都只降级，不上抛
+                    self._signer = None
+                    self._signer_error = str(e)
+                # 置位放在最后：加载完成之后别的线程才能看到结果
+                self._signer_loaded = True
+            return self._signer
 
     @property
     def credential_status(self) -> str:

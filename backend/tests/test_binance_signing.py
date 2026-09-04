@@ -243,3 +243,24 @@ def test_broken_key_config_still_lets_portfolio_render(tmp_path, pool):
     assert states["prices"]["status"] == "ok"          # 公开端点照常
     assert states["spot"]["status"] == "unauthorized"
     assert "不存在" in states["spot"]["detail"]
+
+
+def test_lazy_signer_is_safe_under_concurrency(tmp_path):
+    """六个线程同时问 signer，错误信息不能退化成笼统的那句。
+
+    `fetch_all` 开 6 个 worker 共用一个 client。这里原先把 `_signer_loaded = True`
+    写在加载**之前**：先到的线程刚置位就去读私钥，后到的看到已置位、拿到还是 None 的
+    `_signer` 和还没写的 `_signer_error`，于是 `CredentialsMissing` 退化成默认文案。
+    表现是整套测试间歇性红一次（约 1/3），排查方向很容易跑偏到测试间串状态上。
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    client = BinanceClient("k", private_key_path=str(tmp_path / "missing.pem"))
+    try:
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            list(pool.map(lambda _: client.signer, range(6)))
+        assert client.signer is None
+        # 加载完成后，出错原因必须是具体的那一条
+        assert client._signer_error and "不存在" in client._signer_error
+    finally:
+        client.close()

@@ -9,9 +9,14 @@
 >   `PG_KNOWLEDGE_CONNINFO` 现在指向 SSH 隧道，本机 collector 一跑就变成**第二个写服务器库
 >   的进程**（隧道通时重复写、隧道断时刷错误日志）。它的 PG advisory lock 取在 `fanisl` 库上，
 >   拦不住这种跨机重复。停：`launchctl bootout gui/$(id -u)/com.fanisl.collector`
-> - **backup 备的已经是服务器库**，不再是本机副本——同样因为连接串指向隧道。想留本机
->   历史副本，得显式指库：`FANISL_ENV_FILE=/dev/null deploy/backup.sh`（脚本读不到 .env
->   时回退到本地 socket 的 `dbname=xxx`）。
+> - **backup 备哪个库，看 `.env` 里的连接串。** 2026-09-04 起 `PG_CONNINFO` /
+>   `PG_TRADING_CONNINFO` 已改指本机开发库（见 backend/README.md「本地开发用隔离的库」），
+>   所以本机跑 backup 备的是本机库；只有 `PG_KNOWLEDGE_CONNINFO` 仍指隧道，
+>   那是提取流程有意的。
+>
+>   曾经写过 `FANISL_ENV_FILE=/dev/null deploy/backup.sh` 这条建议——**那个环境变量
+>   已经删掉了**（它是一层为了绕开"`.env` 指向生产"而搭的脚手架，后来把 `.env` 直接
+>   改对了，脚手架就没必要了）。照着敲的话它会被静默忽略，脚本照常连 `.env` 里的库。
 >
 > 服务器侧的备份走 systemd timer，见 `deploy/README.md` §8。
 

@@ -106,6 +106,13 @@ function buildTabs(snapshot: PortfolioSnapshot, futuresMissing: boolean): TabIte
   ]
 }
 
+/**
+ * 加载与失败两态先在这里挡掉，**有数据了才挂载 `Loaded`**。
+ *
+ * 不能在一个组件里先 return 再调 hook：加详情抽屉时我把 `useState` 写在了这两个
+ * return 之后，hook 顺序会随 phase 变。同样的错在 `RealizedDays` 里已经造成过
+ * 一次整页白屏，这次是 lint 抓到的（那时候这个项目还没有 lint）。
+ */
 function Body({ phase, view, onSelectView, onRetry }: {
   phase: Phase
   view: ViewKey
@@ -116,9 +123,17 @@ function Body({ phase, view, onSelectView, onRetry }: {
   if (phase.kind === 'failed') {
     return <div className="px-6 sm:px-10"><ErrorState message={phase.message} onRetry={onRetry} /></div>
   }
+  return <Loaded onRetry={onRetry} onSelectView={onSelectView} phase={phase} view={view} />
+}
 
-  // 详情抽屉的开关。放在 Body 里而不是页面顶层：只有拿到 snapshot 这一层
-  // 才有数据可给，往上提要么多传一层，要么在没数据时也挂着一个空对话框。
+function Loaded({ phase, view, onSelectView, onRetry }: {
+  phase: Extract<Phase, { kind: 'ready' }>
+  view: ViewKey
+  onSelectView: (key: ViewKey) => void
+  onRetry: () => void
+}) {
+  // 详情抽屉的开关。放在这一层而不是页面顶层：只有拿到 snapshot 才有数据可给，
+  // 往上提要么多传一层，要么在没数据时也挂着一个空对话框。
   const [detail, setDetail] = useState<PnlTopic | null>(null)
   const { snapshot } = phase
   // 「一条数据都没有」与「为什么没有」是两件事，分开判。

@@ -136,7 +136,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         ...base,
         sources: degrade(base, ['income'], 'unreachable', '合约损益接口暂时取不到', null),
         pnl: null,
-        totals: base.totals && { ...base.totals, change_24h_usd: null, change_24h_pct: null },
+        totals: base.totals,
       }
     }
 
@@ -162,7 +162,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         base_currency: 'USD',
         sources: (['wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers'] as const)
           .map((key) => fx.okSource(key, iso)),
-        totals: { equity_usd: 0, gross_exposure_ratio: null, change_24h_usd: null, change_24h_pct: null },
+        totals: { equity_usd: 0, gross_exposure_ratio: null },
         wallets: [], spot: [], futures: null, earn: [], margin: null,
         income: null, transfers: null, pnl: null,
       }
