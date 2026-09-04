@@ -80,10 +80,7 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled, onOpenDetail }:
           `flex-1` 会让它们挤在右边糊成一团（实测溢出 54px）。 */}
       <div className="w-full sm:w-auto">
         <div className="label">净值</div>
-        {/* `items-baseline` 对齐的是每块的**第一行文本**（标签），不是数字。
-            要让 40px 的净值和 17px 的指标落在同一条数字基线上，只能把两边
-            "标签底到数字基线"的距离做成一样：净值那行的距离由字号决定，
-            指标那边用 padding 补齐差额（40px 与 17px 的基线差，实测 23px）。 */}
+        {/* 净值与指标的数字基线要对齐，见 Cell 里那段注释。 */}
         <div className="tnum mt-2 text-[2rem] font-medium leading-none tracking-[-0.03em] text-ink sm:text-[2.5rem]">
           {totals ? money(totals.equity_usd) : '—'}
         </div>
@@ -141,9 +138,14 @@ function Cell({ label, value, valueClass, note, onOpen, topic }: {
       ) : (
         <span className={labelClass}>{label}</span>
       )}
-      {/* 三个指标之间字号一致；`pt` 把它们的基线压到与净值同一条线上。
-          窄屏净值独占一行、不同排，就不需要这个补偿。 */}
-      <div className={cn('tnum mt-2 self-start text-lg leading-none sm:pt-[23px]', valueClass)}>
+      {/* 把三个指标的数字基线压到净值那条线上。
+
+          **别用行盒去算这个补偿量。** `getBoundingClientRect` 给的是行盒，
+          空 inline-block 探针给的是下边距边——两个都不是基线，我先后拿它们
+          算出过 23px 和"已经对齐"，都是错的。
+          基线 = 文本框底 − 字号 × 下伸部系数（同字体下 d 是常数，实测 0.3043）。
+          20px 是照着实测的基线差调出来的：23px 时差 3px，16px 时反超 4px。 */}
+      <div className={cn('tnum mt-2 self-start text-lg leading-none sm:pt-[20px]', valueClass)}>
         {value}
       </div>
       {/* 只留**读数**：把数字翻成一句判断（"安全""取不到"）。
