@@ -181,8 +181,7 @@ function Loaded({ phase, view, onSelectView, onRetry }: {
         </div>
       )}
 
-      <SummaryStrip futuresMissing={futuresMissing} onOpenDetail={setDetail}
-                    snapshot={snapshot} veiled={veiled} />
+      <SummaryStrip onOpenDetail={setDetail} snapshot={snapshot} veiled={veiled} />
       <PnlDetail onClose={() => setDetail(null)} pnl={snapshot.pnl} topic={detail} />
 
       <SectionTabs current={view} items={buildTabs(snapshot, futuresMissing)} onSelect={onSelectView} />

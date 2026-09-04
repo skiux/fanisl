@@ -127,9 +127,13 @@
     font-style: italic;
     color: var(--ink-3);
   }
+  /* 小标签。字号原本是 micro（11px）——那是照着拉丁文小型大写字定的，
+     可这个类全站十四处里有十三处装的是中文（连表单的字段名也用它）。
+     11px 的汉字笔画糊在一起，中文界面的下限普遍取 12px。
+     字距同步从 0.14em 收到 0.1em，字号涨了，字与字之间的实际距离不变。 */
   .label {
-    font-size: var(--text-micro);
-    letter-spacing: 0.14em;
+    font-size: var(--text-xs);
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--ink-3);
   }

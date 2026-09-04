@@ -1,4 +1,4 @@
-import { cn } from '../../lib/cn'
+import { Strip, type StripCell } from '../../components/Strip'
 import { money, percent } from '../../lib/format'
 import type { OrdersSnapshot, SourceKey } from '../../api/types'
 
@@ -8,11 +8,11 @@ import { isConditional } from './views'
 
 /**
  * 常驻摘要条。与资产页同一个位置、同一套字号——两页应当像同一份文件的两章，
- * 而不是两个各自为政的页面。
+ * 而不是两个各自为政的页面。版式见 `components/Strip.tsx`。
  */
 export function OrdersStrip({ snapshot, veiled }: { snapshot: OrdersSnapshot; veiled: boolean }) {
   const open = snapshot.open
-  // 三个挂单接口全挂时，"0 笔 / $0.00" 是假话——摘要条一律留空
+  // 三个挂单接口全挂时，"0 / $0.00" 是假话——摘要条一律留空
   const blind = ORDER_VENUE_SOURCES.every((key) => (
     snapshot.sources.find((source) => source.key === key)?.status !== 'ok'
   ))
@@ -24,36 +24,26 @@ export function OrdersStrip({ snapshot, veiled }: { snapshot: OrdersSnapshot; ve
     return best === null || Math.abs(gap) < Math.abs(best) ? gap : best
   }, null)
 
-  const cells = [
-    { label: '名义合计', value: blind ? '—' : money(notional), note: blind ? '取不到' : undefined, muted: blind },
-    { label: '条件单', value: blind ? '—' : String(conditionals), note: blind ? '取不到' : undefined, muted: blind },
+  const cells: StripCell[] = [
+    { label: '名义合计', value: blind ? '—' : money(notional), tone: blind ? 'muted' : undefined },
+    { label: '条件单', value: blind ? '—' : String(conditionals), tone: blind ? 'muted' : undefined },
     {
       label: '离成交最近',
       value: nearest === null ? '—' : percent(Math.abs(nearest), 1),
-      note: blind ? '取不到' : nearest === null ? '无报价' : Math.abs(nearest) < 0.03 ? '很近' : '还有距离',
-      muted: nearest === null,
+      // 快碰到了就让这个数自己变色，不再在下面挂一行"很近"
+      tone: nearest === null ? 'muted' : Math.abs(nearest) < 0.03 ? 'warn' : undefined,
     },
   ]
 
   return (
-    <div className={cn('flex flex-wrap items-end gap-x-14 gap-y-5 px-5 pb-4 pt-4 sm:px-10 sm:pb-5 sm:pt-5', veiled && 'veiled')}>
-      <div>
-        <span className="label">当前挂单</span>
-        <div className={cn('tnum mt-2 text-[2rem] font-medium leading-none tracking-[-0.03em] sm:text-[2.5rem]', blind ? 'text-ink-3' : 'text-ink')}>
-          {blind ? '—' : open.length}
-        </div>
-      </div>
-
-      {cells.map((cell) => (
-        <div className="pb-1" key={cell.label}>
-          <span className="label">{cell.label}</span>
-          <div className={cn('tnum mt-1.5 text-lg leading-none', cell.muted ? 'text-ink-3' : 'text-ink')}>
-            {cell.value}
-          </div>
-          {/* 同资产页：只留把数字翻成判断的那种（"很近""取不到"） */}
-          {cell.note && <div className="mt-1 text-xs text-ink-3">{cell.note}</div>}
-        </div>
-      ))}
-    </div>
+    <Strip
+      cells={cells}
+      hero={{
+        label: '当前挂单',
+        value: blind ? '—' : String(open.length),
+        tone: blind ? 'muted' : undefined,
+      }}
+      veiled={veiled}
+    />
   )
 }

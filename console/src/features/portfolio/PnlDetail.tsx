@@ -44,11 +44,11 @@ export function PnlDetail({ topic, pnl, onClose }: {
             'sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[min(30rem,92vw)]',
             'sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[3px] sm:border sm:px-8 sm:pb-8',
           )}
-          // 触发器在 cells.map 里，每次开关都重建成新节点，Radix 认不出原来那个，
-          // 焦点会掉到 body 开头。这里自己把它送回去。
+          // 触发器在摘要条的 cells.map 里，每次开关都重建成新节点，Radix 认不出
+          // 原来那个，焦点会掉到 body 开头。这里自己把它送回去。
           onCloseAutoFocus={(event) => {
             event.preventDefault()
-            document.querySelector<HTMLElement>(`[data-pnl-topic="${topic}"]`)?.focus()
+            document.querySelector<HTMLElement>(`[data-strip-cell="${topic}"]`)?.focus()
           }}
         >
           <div className="mb-4 flex items-baseline justify-between gap-4">
