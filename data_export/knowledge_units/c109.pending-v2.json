@@ -1,252 +1,347 @@
 {
-  "content_id": 109,
-  "extractor_version": "pending-v2",
-  "model": "claude-session",
-  "units": [
-    {
-      "kind": "claim",
-      "quote": "那有不少人担心，日本央行如果加息对于美股这边会有一个风险在那边。那这个风险是不是一个合理的一个担心呢？其实我个人认为并不是。",
-      "locator": "04:44",
-      "tags": ["fx-intervention", "us10y", "spx", "fed-policy"],
-      "payload": {
-        "asset_text": "日本央行 9 月 18 日加息对美股是否构成风险（作者判不是；市场隐含 9/18 加息概率 118.8%，即约 20% 的可能直接加两码 50bp。未指明幅度或指数，无法机械判定）",
-        "asset_symbol": null,
-        "priceable": false,
-        "claim_class": "risk_warning",
-        "direction": null,
-        "magnitude": null,
-        "horizon": {"type": "by_date", "deadline": "2026-09-18"},
-        "condition_text": null,
-        "condition_observable": false,
-        "stance_strength": "explicit",
-        "verifiability": "D"
-      }
+ "content_id": 109,
+ "extractor_version": "pending-v2",
+ "model": "claude-session",
+ "units": [
+  {
+   "kind": "claim",
+   "quote": "那有不少人担心，日本央行如果加息对于美股这边会有一个风险在那边。那这个风险是不是一个合理的一个担心呢？其实我个人认为并不是。",
+   "locator": "04:44",
+   "tags": [
+    "fx-intervention",
+    "us10y",
+    "spx",
+    "fed-policy"
+   ],
+   "payload": {
+    "asset_text": "日本央行 9 月 18 日加息对美股是否构成风险（作者判不是；市场隐含 9/18 加息概率 118.8%，即约 20% 的可能直接加两码 50bp。未指明幅度或指数，无法机械判定）",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "risk_warning",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2026-09-18"
     },
-    {
-      "kind": "claim",
-      "quote": "就将近两年之后 forward P/E 是在12倍，我个人认为是相当便宜。我也看了一下英伟达，英伟达差不多2029财年也是两年半之后吧，forward P/E 是在11倍。",
-      "locator": "16:12",
-      "ref_price": 367.24,
-      "tags": ["avgo", "nvda", "valuation", "semiconductor-cycle"],
-      "payload": {
-        "asset_text": "博通 AVGO（按 367 的价格与管理层上调后的 FY28 每股收益 30 美元算，FY28 forward PE 约 12 倍；英伟达 FY29 约 11 倍。作者判相当便宜——这是估值判断，未对价格给出方向或目标）",
-        "asset_symbol": "AVGO",
-        "priceable": true,
-        "claim_class": "price_target",
-        "direction": null,
-        "magnitude": {"forward_pe_fy28": 12},
-        "horizon": {"type": "open_ended"},
-        "condition_text": null,
-        "condition_observable": false,
-        "stance_strength": "explicit",
-        "verifiability": "D"
-      }
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "就将近两年之后 forward P/E 是在12倍，我个人认为是相当便宜。我也看了一下英伟达，英伟达差不多2029财年也是两年半之后吧，forward P/E 是在11倍。",
+   "locator": "16:12",
+   "ref_price": 367.24,
+   "tags": [
+    "avgo",
+    "nvda",
+    "valuation",
+    "semiconductor-cycle"
+   ],
+   "payload": {
+    "asset_text": "博通 AVGO（按 367 的价格与管理层上调后的 FY28 每股收益 30 美元算，FY28 forward PE 约 12 倍；英伟达 FY29 约 11 倍。作者判相当便宜——这是估值判断，未对价格给出方向或目标）",
+    "asset_symbol": "AVGO",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": {
+     "forward_pe_fy28": 12
     },
-    {
-      "kind": "claim",
-      "quote": "所以这时候，如果有硬件公司的话，我认为要拿好，如果没有硬件公司的话，现在其实一个非常好的去布局硬件公司的时候。",
-      "locator": "18:09",
-      "ref_price": 501.44,
-      "tags": ["soxx", "semiconductor-cycle", "valuation", "positioning"],
-      "payload": {
-        "asset_text": "硬件/芯片板块（作者判现在是很好的布局时候，依据是 forward PE 与 PEG 都在很低的位置、短期偏向情绪非常低；我方以 SOXX 计价。他未对价格给出方向或目标）",
-        "asset_symbol": "SOXX",
-        "priceable": true,
-        "claim_class": "price_target",
-        "direction": null,
-        "magnitude": null,
-        "horizon": {"type": "open_ended"},
-        "condition_text": null,
-        "condition_observable": false,
-        "stance_strength": "explicit",
-        "verifiability": "D"
-      }
+    "horizon": {
+     "type": "open_ended"
     },
-    {
-      "kind": "claim",
-      "quote": "然后这个判断本身，我认为可能在当下这个角度，可能要延后半年到一年，那可能要延后到2027年的3月份到6月份左右。",
-      "locator": "06:58",
-      "tags": ["labor-market", "ai-agent", "macro-data", "software"],
-      "payload": {
-        "asset_text": "AI 造成劳动力市场明显低迷的时点（作者年初判 2026 年，现自陈时间线判错、修正到 2027 年 3-6 月；我方行情库无失业率序列）",
-        "asset_symbol": null,
-        "priceable": false,
-        "claim_class": "timing",
-        "direction": null,
-        "magnitude": null,
-        "horizon": {"type": "by_date", "deadline": "2027-06-30"},
-        "condition_text": null,
-        "condition_observable": false,
-        "stance_strength": "explicit",
-        "verifiability": "D"
-      }
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "所以这时候，如果有硬件公司的话，我认为要拿好，如果没有硬件公司的话，现在其实一个非常好的去布局硬件公司的时候。",
+   "locator": "18:09",
+   "ref_price": 501.44,
+   "tags": [
+    "soxx",
+    "semiconductor-cycle",
+    "valuation",
+    "positioning"
+   ],
+   "payload": {
+    "asset_text": "硬件/芯片板块（作者判现在是很好的布局时候，依据是 forward PE 与 PEG 都在很低的位置、短期偏向情绪非常低；我方以 SOXX 计价。他未对价格给出方向或目标）",
+    "asset_symbol": "SOXX",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
     },
-    {
-      "kind": "concept",
-      "quote": "他的最终目的是使得美国长债的利率出现下降，而不是为了去拯救日元。所以如果说因为日本政府的一个加息，导致日元出现上涨的话，其实你可以期待的一个结果是，这是贝森特他所希望看到的。",
-      "locator": "04:44",
-      "tags": ["fx-intervention", "us10y", "bond-yields", "fiscal-policy"],
-      "payload": {
-        "canonical_statement": "日本央行加息不能直接画等号成美股风险，要先理解机制。贝森特救日元不是为了救日元本身，而是为了降低日本抛售美债的速度、从而压低美国长债利率——日元升值与美债收益率下降这两件事可以同时发生，图上日元/美元汇率与 10 年期美债收益率多数时候正相关（白线下行=日元升值，通常伴随蓝线下行=收益率下降）。因此日本央行加息导致日元上涨，正是贝森特希望看到的结果。另一层：贝森特说要和日本央行一起救日元之后，日本央行必须 follow through——不能一边说救日元一边不加息、维持宽松。",
-        "category": "macro_framework",
-        "stance": "assert",
-        "regime_qualifier": null
-      }
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "然后这个判断本身，我认为可能在当下这个角度，可能要延后半年到一年，那可能要延后到2027年的3月份到6月份左右。",
+   "locator": "06:58",
+   "tags": [
+    "labor-market",
+    "ai-agent",
+    "macro-data",
+    "software"
+   ],
+   "payload": {
+    "asset_text": "AI 造成劳动力市场明显低迷的时点（作者年初判 2026 年，现自陈时间线判错、修正到 2027 年 3-6 月；我方行情库无失业率序列）",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "timing",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2027-06-30"
     },
-    {
-      "kind": "concept",
-      "quote": "那另外一点，那么与其我们担心日本央行在9月18日要加息，无论是加息一次也好，加息两次也好，现从现在市场的预期去看，起码要加息一次了，一次或者两次。但是在9月18日之前，将会有9月16日美联储的这个决定。现在连美联储接下去是加息还是不加息都是未知数。",
-      "locator": "03:54",
-      "tags": ["fed-policy", "fx-intervention", "macro-data"],
-      "payload": {
-        "canonical_statement": "排风险要按时间顺序排：日本央行的决定在 9 月 18 日，而美联储的决定在 9 月 16 日、更早两天且方向本身还是未知数。因此在担心日本央行加息几次之前，先要处理美联储加不加息这个更近、更不确定的变量。",
-        "category": "macro_framework",
-        "stance": "assert",
-        "regime_qualifier": null
-      }
-    },
-    {
-      "kind": "concept",
-      "quote": "截止到周三的收盘，CNN的恐慌贪婪指数在33, 34左右，35左右，35还没有到极度恐慌，但是是在一个，是在恐慌区间的一个下区间了。所以其实和昨天我和大家分享市场的参与度是非常的一致。",
-      "locator": "00:08",
-      "tags": ["psychology", "market-breadth", "risk-mgmt"],
-      "payload": {
-        "canonical_statement": "两个独立的情绪指标互相印证：CNN 恐慌贪婪指数在 33-35，处于恐慌区间的下沿但还没到极度恐慌；市场参与度同样在恐慌边缘（低于 30 才是恐慌）。拆开看 CNN 指数的分项，『强度』（NYSE 净新高/新低）已在 Extreme Fear，上一次是 2026 年 3 月、再上一次是 2025 年 11 月；『广度』（McClellan 成交量累积指标）为中性，上一次恐慌是 2026 年 3 月底与 7 月底。结论是市场处在恐慌阶段但还不到非常恐慌——VIX 也没到很高的位置。",
-        "category": "market_structure",
-        "stance": "assert",
-        "regime_qualifier": null
-      }
-    },
-    {
-      "kind": "concept",
-      "quote": "那这时候不代、不代表我们要空仓的，而是代表我们现在应该是持有一定的一个仓位在市场里面。如果去到极度恐慌我们加仓，我们满仓，我们把仓位全部打满。反过来也是一样。",
-      "locator": null,
-      "tags": ["risk-mgmt", "position-sizing", "psychology"],
-      "payload": {
-        "canonical_statement": "把仓位当成跟随情绪钟摆连续变动的量，而不是非黑即白的开关：恐慌阶段应当持有一定仓位、不空仓；到极度恐慌才满仓；钟摆摆到乐观就多留现金，到极度乐观留更多现金。作者当下的配置是 90% 仓位加 10% 现金，并明确没有标准答案（70/30 还是 90/10 因人而异）。他的舒适感来源是两条同时成立：自己 YTD 回报还不错、离新高不远，而市场情绪面与参与度在相对低位——『这时候应该是持有股票的时候』。无论交易还是投资都一样，分批进场、分批离场。",
-        "category": "risk_mgmt",
-        "stance": "assert",
-        "regime_qualifier": null
-      }
-    },
-    {
-      "kind": "concept",
-      "quote": "所以我在2026年年初对于劳动市场所做的这个判断，当时时间线我认为完全是错的。然后这个判断本身，我认为可能在当下这个角度，可能要延后半年到一年",
-      "locator": "06:58",
-      "tags": ["labor-market", "ai-agent", "software", "macro-data"],
-      "payload": {
-        "canonical_statement": "作者复盘自己年初『2026 年劳动市场会因 AI 而低迷』的判断，认定时间线完全判错，原因是 AI 的扩散范围没有想象中好——直到现在仍主要停留在科技公司内部。传导链要按顺序走：这个季度才刚看到软件公司的 AI 营收上来，说明传统公司开始用 AI；传统公司接受 AI 后 IT budget 会上升；若营收没有同步加速，下一步就是拿 Opex 换 IT budget，即裁员。Uber 是现成的样本：管理层先把工程师派到各岗位与业务专家合作、用开源模型烧 token（AI 花销保持不变或低增速），一到两周就出成效，随后裁掉 10% 客服岗，半个月后又大范围裁员 10%（共约 3300 个岗位）。",
-        "category": "macro_framework",
-        "stance": "assert",
-        "regime_qualifier": null
-      }
-    },
-    {
-      "kind": "concept",
-      "quote": "接下去在2027财年和2028财年，你可以看到 Anthropic 将会成为 Broadcom，将会成为博通的第一大客户，有10个吉瓦的这个订单。OpenAI 将会成为第二大客户，谷歌肯定就排到第三了。",
-      "locator": "09:18",
-      "tags": ["avgo", "neocloud", "ai-capex", "moat"],
-      "payload": {
-        "canonical_statement": "博通的客户结构在 FY27 发生反转：Anthropic 成为第一大客户（10 吉瓦订单）、OpenAI 第二、谷歌退到第三。这与谷歌扶持 Marvell 是同一枚硬币的两面——谷歌在分散自己的供应链、以获得议价权，博通在分散自己过于集中的客户风险，两边各自从自己的角度出发做同一类事。",
-        "category": "market_structure",
-        "stance": "assert",
-        "regime_qualifier": null
-      }
-    },
-    {
-      "kind": "concept",
-      "quote": "2028财年 AI 这一块的营收直接上调到230个 billion，就是在2027财年的基础之上再翻一倍。市场的预期是180，所以2028财年上调的这个预期幅度相当的大。",
-      "locator": "09:18",
-      "tags": ["avgo", "ai-capex", "valuation"],
-      "payload": {
-        "canonical_statement": "博通这次财报的重点全在指引而不在当季数据：当季数据没有亮点，下一季营收指引比市场高约 5 亿美元；FY27 的 AI 营收指引 115 亿美元反而低于市场预期的 121 亿；但 FY28 直接上调到 230 亿（在 FY27 基础上再翻一倍），远高于市场预期的 180 亿，并给出 FY28 每股收益 30 美元（市场预期 26 美元，上调 10% 以上）。管理层强调这个指引有两个支撑：一是背后的供给端已经确认，二是他们尽量给保守的指引。",
-        "category": "market_structure",
-        "stance": "assert",
-        "regime_qualifier": null
-      }
-    },
-    {
-      "kind": "concept",
-      "quote": "那管理层的这个回答是，首先 ship 和 deploy 是两个概念。那这有点是类似于你在什么样的一个阶段能够放到从会计准则这个角度去看能够放到你的一个营收里面来，所以这中间会有一个定义上的一个差距在那边。",
-      "locator": "09:18",
-      "tags": ["avgo", "valuation", "ai-capex"],
-      "payload": {
-        "canonical_statement": "把吉瓦数换算成营收时必须区分 ship 与 deploy：会计上能计入营收的阶段与实际部署不是一回事，因此 FY27 的 10 吉瓦或 FY28 的 20 吉瓦不会完全反映在对应财年的营收里。这解释了分析师提出的账对不上——按 230 亿营收除以吉瓦数得到每吉瓦 11-12 亿，而英伟达新 Blackwell 是每吉瓦 40 亿，差距看似过大。管理层上季度给的口径是每卖出一吉瓦约 20 亿营收、约为同类竞品的一半价格，与英伟达的 40 亿正好对得上；作者综合后取每吉瓦 15-20 亿。",
-        "category": "market_structure",
-        "stance": "assert",
-        "regime_qualifier": null
-      }
-    },
-    {
-      "kind": "concept",
-      "quote": "那么那对于模型公司来说，你的 margin 瞬间从60%提升到80%，25除以30，80%。",
-      "locator": "09:18",
-      "tags": ["avgo", "neocloud", "nvda", "compute-pricing"],
-      "payload": {
-        "canonical_statement": "模型公司转向自研芯片的驱动力可以用一笔账算清楚：Neocloud 一年营收 120 亿，而 Neocloud 的营收就是模型公司的成本（cost of goods sold）；自研芯片的成本约为该 GPU 成本的 40%，即从 120 亿降到不到 50 亿。按 Hock Tan 给的『一吉瓦芯片对模型公司等于 300 亿 ARR』，毛利率就从 60%（120/300）跳到约 80%（(30-5)/30）。这是模型公司做自研芯片的强意愿所在——不是性能之争，是毛利之争。",
-        "category": "market_structure",
-        "stance": "assert",
-        "regime_qualifier": "作者明确把性能对比先放一边；他个人仍认为 Blackwell 的 token throughput 最高"
-      }
-    },
-    {
-      "kind": "concept",
-      "quote": "英伟达是对这些 Neocloud 去做一个担保，博通是对这两家模型公司去做一个担保。那他们、但是他们担保本身并不是担保这两家公司本身，并不是担保 Neocloud，他们只是担保他们自己所卖出来的这个芯片，芯片的这个剩余价值去做一个担保。",
-      "locator": "09:18",
-      "tags": ["nvda", "avgo", "gpu-depreciation", "neocloud"],
-      "payload": {
-        "canonical_statement": "英伟达与博通都在为自己卖出的芯片做剩余价值担保，但担保对象不同：英伟达担保的是 Neocloud，博通担保的是两家模型公司——担保的都是芯片的剩余价值，不是被担保方这家公司本身。横向比风险：模型公司的财务状况一定比 Neocloud 好，但从芯片本身看，英伟达的风险更低——因为可转移性（fungibility）更强，一家 Neocloud 运行不下去时英伟达的芯片还能卖给别人，自研芯片则不能。不过作者判两家的剩余价值风险都不高，理由是回本周期：一吉瓦成本 150-200 亿，而对模型公司一年的 ARR 是 300 亿，回报周期小于一年。",
-        "category": "market_structure",
-        "stance": "assert",
-        "regime_qualifier": null
-      }
-    },
-    {
-      "kind": "concept",
-      "quote": "市场预期这家公司未来的 EPS 增速在下降，在 decelerate，在放缓。我上一次在聊英伟达、在聊博通和聊 Marvell 三家公司财报放在一起的时候，和大家分享过这个问题。市场愿意做一个线性外推，市场喜欢你今年就你未来的一年会比今年的 EPS 增速增幅会更大，会一个 accelerate。",
-      "locator": "17:03",
-      "tags": ["crdo", "valuation", "semiconductor-cycle", "market-structure"],
-      "payload": {
-        "canonical_statement": "市场给估值时对增速的二阶方向敏感：喜欢逐年加速的公司、不喜欢增速放缓的公司，因为它做的是线性外推。CRDO 是这一规律的又一个样本——市场预期其 FY27/28/29 的 EPS 增速为 81%/55%/29%，逐年放缓，因此估值受压。这条与此前把英伟达、博通、Marvell 放在一起得出的结论同源。作者补充了反向可能：市场也可能低估了 CRDO 在 FY28 的 EPS 体量。",
-        "category": "market_structure",
-        "stance": "assert",
-        "regime_qualifier": null
-      }
-    },
-    {
-      "kind": "concept",
-      "quote": "如果从估值这个角度去出发，经过周三20%的这个下跌之后，静态市盈率40.3倍。如果我们去它那个 PEG ratio，一倍都不到。那和，无论是和，你和英伟达去做对比，和博通去做对比，和 Marvell 去做对比，几乎是在同一个状态之下，小于一倍的一个 PEG ratio。",
-      "locator": "18:09",
-      "tags": ["crdo", "valuation", "semiconductor-cycle"],
-      "payload": {
-        "canonical_statement": "CRDO 财报后跌 20%，作者判为 sell the news——数据本身与博通类似、没有非常亮眼（营收超预期 1%、EPS 超预期 3.7%），真正的原因是市场对硬件板块短期情绪面非常低。跌完之后静态市盈率 40.3 倍、PEG 不到 1 倍、forward PE 22.15 倍已回到 2026 年 3 月的水平。横向看，英伟达、博通、Marvell 与 CRDO 几乎都处在 PEG 小于 1 的同一状态（Marvell 略高）——即整个硬件与芯片板块当前的 forward PE 与 PEG 都在很低的位置。",
-        "category": "market_structure",
-        "stance": "assert",
-        "regime_qualifier": null
-      }
-    },
-    {
-      "kind": "method",
-      "quote": "那针对这个问题我的回答是，我不知道，我并不知道周三的这个反弹到底是一个接下去一波上涨的开始，还是说接下去还会去探一个新低。但是从我个人的角度，我一直建议是我们停留在这个市场里面。就仓位在这个市场里面，然后留一部分的现金仓位出来，等着去进行加仓。",
-      "locator": null,
-      "tags": ["risk-mgmt", "position-sizing", "psychology", "execution"],
-      "payload": {
-        "name": "不预测反弹真伪，用仓位结构替代择时",
-        "summary": "对『现在能不能追』这类问题直接回答不知道，改用『始终在场 + 留一部分现金等加仓』的结构来承接不确定性",
-        "family": "positioning",
-        "rules": [
-          "明确承认不知道当前反弹是新一波上涨的开始还是还要探新低——不为了给答案而编一个判断",
-          "默认状态是留在市场里，而不是空仓等信号",
-          "同时留一部分现金专门用于加仓，比例因人而异（作者当下 90% 仓位 / 10% 现金），没有标准答案",
-          "决定比例的两个输入：自己 YTD 的回报位置（离新高远近）与市场情绪面/参与度的位置",
-          "情绪越恐慌，现金投放越多；到极度恐慌打满；情绪转乐观则反向多留现金",
-          "无论交易还是投资都分批进出，不做一次性的全进全出"
-        ],
-        "claimed_performance": null,
-        "data_requirements": ["CNN 恐慌贪婪指数与分项", "市场参与度", "自身组合的回报位置"],
-        "overlap_with_killed": [],
-        "testability": "C"
-      }
-    }
-  ]
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "他的最终目的是使得美国长债的利率出现下降，而不是为了去拯救日元。所以如果说因为日本政府的一个加息，导致日元出现上涨的话，其实你可以期待的一个结果是，这是贝森特他所希望看到的。",
+   "locator": "04:44",
+   "tags": [
+    "fx-intervention",
+    "us10y",
+    "bond-yields",
+    "fiscal-policy"
+   ],
+   "payload": {
+    "canonical_statement": "日本央行加息不能直接画等号成美股风险，要先理解机制。贝森特救日元不是为了救日元本身，而是为了降低日本抛售美债的速度、从而压低美国长债利率——日元升值与美债收益率下降这两件事可以同时发生，图上日元/美元汇率与 10 年期美债收益率多数时候正相关（白线下行=日元升值，通常伴随蓝线下行=收益率下降）。因此日本央行加息导致日元上涨，正是贝森特希望看到的结果。另一层：贝森特说要和日本央行一起救日元之后，日本央行必须 follow through——不能一边说救日元一边不加息、维持宽松。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那另外一点，那么与其我们担心日本央行在9月18日要加息，无论是加息一次也好，加息两次也好，现从现在市场的预期去看，起码要加息一次了，一次或者两次。但是在9月18日之前，将会有9月16日美联储的这个决定。现在连美联储接下去是加息还是不加息都是未知数。",
+   "locator": "03:54",
+   "tags": [
+    "fed-policy",
+    "fx-intervention",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "排风险要按时间顺序排：日本央行的决定在 9 月 18 日，而美联储的决定在 9 月 16 日、更早两天且方向本身还是未知数。因此在担心日本央行加息几次之前，先要处理美联储加不加息这个更近、更不确定的变量。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "截止到周三的收盘，CNN的恐慌贪婪指数在33, 34左右，35左右，35还没有到极度恐慌，但是是在一个，是在恐慌区间的一个下区间了。所以其实和昨天我和大家分享市场的参与度是非常的一致。",
+   "locator": "00:08",
+   "tags": [
+    "psychology",
+    "market-breadth",
+    "risk-mgmt"
+   ],
+   "payload": {
+    "canonical_statement": "两个独立的情绪指标互相印证：CNN 恐慌贪婪指数在 33-35，处于恐慌区间的下沿但还没到极度恐慌；市场参与度同样在恐慌边缘（低于 30 才是恐慌）。拆开看 CNN 指数的分项，『强度』（NYSE 净新高/新低）已在 Extreme Fear，上一次是 2026 年 3 月、再上一次是 2025 年 11 月；『广度』（McClellan 成交量累积指标）为中性，上一次恐慌是 2026 年 3 月底与 7 月底。结论是市场处在恐慌阶段但还不到非常恐慌——VIX 也没到很高的位置。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那这时候不代、不代表我们要空仓的，而是代表我们现在应该是持有一定的一个仓位在市场里面。如果去到极度恐慌我们加仓，我们满仓，我们把仓位全部打满。反过来也是一样。",
+   "locator": null,
+   "tags": [
+    "risk-mgmt",
+    "position-sizing",
+    "psychology"
+   ],
+   "payload": {
+    "canonical_statement": "把仓位当成跟随情绪钟摆连续变动的量，而不是非黑即白的开关：恐慌阶段应当持有一定仓位、不空仓；到极度恐慌才满仓；钟摆摆到乐观就多留现金，到极度乐观留更多现金。作者当下的配置是 90% 仓位加 10% 现金，并明确没有标准答案（70/30 还是 90/10 因人而异）。他的舒适感来源是两条同时成立：自己 YTD 回报还不错、离新高不远，而市场情绪面与参与度在相对低位——『这时候应该是持有股票的时候』。无论交易还是投资都一样，分批进场、分批离场。",
+    "category": "risk_mgmt",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "所以我在2026年年初对于劳动市场所做的这个判断，当时时间线我认为完全是错的。然后这个判断本身，我认为可能在当下这个角度，可能要延后半年到一年",
+   "locator": "06:58",
+   "tags": [
+    "labor-market",
+    "ai-agent",
+    "software",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "作者复盘自己年初『2026 年劳动市场会因 AI 而低迷』的判断，认定时间线完全判错，原因是 AI 的扩散范围没有想象中好——直到现在仍主要停留在科技公司内部。传导链要按顺序走：这个季度才刚看到软件公司的 AI 营收上来，说明传统公司开始用 AI；传统公司接受 AI 后 IT budget 会上升；若营收没有同步加速，下一步就是拿 Opex 换 IT budget，即裁员。Uber 是现成的样本：管理层先把工程师派到各岗位与业务专家合作、用开源模型烧 token（AI 花销保持不变或低增速），一到两周就出成效，随后裁掉 10% 客服岗，半个月后又大范围裁员 10%（共约 3300 个岗位）。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "接下去在2027财年和2028财年，你可以看到 Anthropic 将会成为 Broadcom，将会成为博通的第一大客户，有10个吉瓦的这个订单。OpenAI 将会成为第二大客户，谷歌肯定就排到第三了。",
+   "locator": "09:18",
+   "tags": [
+    "avgo",
+    "neocloud",
+    "ai-capex",
+    "moat"
+   ],
+   "payload": {
+    "canonical_statement": "博通的客户结构在 FY27 发生反转：Anthropic 成为第一大客户（10 吉瓦订单）、OpenAI 第二、谷歌退到第三。这与谷歌扶持 Marvell 是同一枚硬币的两面——谷歌在分散自己的供应链、以获得议价权，博通在分散自己过于集中的客户风险，两边各自从自己的角度出发做同一类事。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "2028财年 AI 这一块的营收直接上调到230个 billion，就是在2027财年的基础之上再翻一倍。市场的预期是180，所以2028财年上调的这个预期幅度相当的大。",
+   "locator": "09:18",
+   "tags": [
+    "avgo",
+    "ai-capex",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "博通这次财报的重点全在指引而不在当季数据：当季数据没有亮点，下一季营收指引比市场高约 5 亿美元；FY27 的 AI 营收指引 115 亿美元反而低于市场预期的 121 亿；但 FY28 直接上调到 230 亿（在 FY27 基础上再翻一倍），远高于市场预期的 180 亿，并给出 FY28 每股收益 30 美元（市场预期 26 美元，上调 10% 以上）。管理层强调这个指引有两个支撑：一是背后的供给端已经确认，二是他们尽量给保守的指引。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那管理层的这个回答是，首先 ship 和 deploy 是两个概念。那这有点是类似于你在什么样的一个阶段能够放到从会计准则这个角度去看能够放到你的一个营收里面来，所以这中间会有一个定义上的一个差距在那边。",
+   "locator": "09:18",
+   "tags": [
+    "avgo",
+    "valuation",
+    "ai-capex"
+   ],
+   "payload": {
+    "canonical_statement": "把吉瓦数换算成营收时必须区分 ship 与 deploy：会计上能计入营收的阶段与实际部署不是一回事，因此 FY27 的 10 吉瓦或 FY28 的 20 吉瓦不会完全反映在对应财年的营收里。这解释了分析师提出的账对不上——按 230 亿营收除以吉瓦数得到每吉瓦 11-12 亿，而英伟达新 Blackwell 是每吉瓦 40 亿，差距看似过大。管理层上季度给的口径是每卖出一吉瓦约 20 亿营收、约为同类竞品的一半价格，与英伟达的 40 亿正好对得上；作者综合后取每吉瓦 15-20 亿。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那么那对于模型公司来说，你的 margin 瞬间从60%提升到80%，25除以30，80%。",
+   "locator": "09:18",
+   "tags": [
+    "avgo",
+    "neocloud",
+    "nvda",
+    "compute-pricing"
+   ],
+   "payload": {
+    "canonical_statement": "模型公司转向自研芯片的驱动力可以用一笔账算清楚：Neocloud 一年营收 120 亿，而 Neocloud 的营收就是模型公司的成本（cost of goods sold）；自研芯片的成本约为该 GPU 成本的 40%，即从 120 亿降到不到 50 亿。按 Hock Tan 给的『一吉瓦芯片对模型公司等于 300 亿 ARR』，毛利率就从 60%（(300−120)/300）跳到约 80%（(30-5)/30）。这是模型公司做自研芯片的强意愿所在——不是性能之争，是毛利之争。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": "作者明确把性能对比先放一边；他个人仍认为 Blackwell 的 token throughput 最高"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "英伟达是对这些 Neocloud 去做一个担保，博通是对这两家模型公司去做一个担保。那他们、但是他们担保本身并不是担保这两家公司本身，并不是担保 Neocloud，他们只是担保他们自己所卖出来的这个芯片，芯片的这个剩余价值去做一个担保。",
+   "locator": "09:18",
+   "tags": [
+    "nvda",
+    "avgo",
+    "gpu-depreciation",
+    "neocloud"
+   ],
+   "payload": {
+    "canonical_statement": "英伟达与博通都在为自己卖出的芯片做剩余价值担保，但担保对象不同：英伟达担保的是 Neocloud，博通担保的是两家模型公司——担保的都是芯片的剩余价值，不是被担保方这家公司本身。横向比风险：模型公司的财务状况一定比 Neocloud 好，但从芯片本身看，英伟达的风险更低——因为可转移性（fungibility）更强，一家 Neocloud 运行不下去时英伟达的芯片还能卖给别人，自研芯片则不能。不过作者判两家的剩余价值风险都不高，理由是回本周期：一吉瓦成本 150-200 亿，而对模型公司一年的 ARR 是 300 亿，回报周期小于一年。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "市场预期这家公司未来的 EPS 增速在下降，在 decelerate，在放缓。我上一次在聊英伟达、在聊博通和聊 Marvell 三家公司财报放在一起的时候，和大家分享过这个问题。市场愿意做一个线性外推，市场喜欢你今年就你未来的一年会比今年的 EPS 增速增幅会更大，会一个 accelerate。",
+   "locator": "17:03",
+   "tags": [
+    "crdo",
+    "valuation",
+    "semiconductor-cycle",
+    "market-structure"
+   ],
+   "payload": {
+    "canonical_statement": "市场给估值时对增速的二阶方向敏感：喜欢逐年加速的公司、不喜欢增速放缓的公司，因为它做的是线性外推。CRDO 是这一规律的又一个样本——市场预期其 FY27/28/29 的 EPS 增速为 81%/55%/29%，逐年放缓，因此估值受压。这条与此前把英伟达、博通、Marvell 放在一起得出的结论同源。作者补充了反向可能：市场也可能低估了 CRDO 在 FY28 的 EPS 体量。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "如果从估值这个角度去出发，经过周三20%的这个下跌之后，静态市盈率40.3倍。如果我们去它那个 PEG ratio，一倍都不到。那和，无论是和，你和英伟达去做对比，和博通去做对比，和 Marvell 去做对比，几乎是在同一个状态之下，小于一倍的一个 PEG ratio。",
+   "locator": "18:09",
+   "tags": [
+    "crdo",
+    "valuation",
+    "semiconductor-cycle"
+   ],
+   "payload": {
+    "canonical_statement": "CRDO 财报后跌 20%，作者判为 sell the news——数据本身与博通类似、没有非常亮眼（营收超预期 1%、EPS 超预期 3.7%），真正的原因是市场对硬件板块短期情绪面非常低。跌完之后静态市盈率 40.3 倍、PEG 不到 1 倍、forward PE 22.15 倍已回到 2026 年 3 月的水平。横向看，英伟达、博通、Marvell 与 CRDO 几乎都处在 PEG 小于 1 的同一状态（Marvell 略高）——即整个硬件与芯片板块当前的 forward PE 与 PEG 都在很低的位置。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "那针对这个问题我的回答是，我不知道，我并不知道周三的这个反弹到底是一个接下去一波上涨的开始，还是说接下去还会去探一个新低。但是从我个人的角度，我一直建议是我们停留在这个市场里面。就仓位在这个市场里面，然后留一部分的现金仓位出来，等着去进行加仓。",
+   "locator": null,
+   "tags": [
+    "risk-mgmt",
+    "position-sizing",
+    "psychology",
+    "execution"
+   ],
+   "payload": {
+    "name": "不预测反弹真伪，用仓位结构替代择时",
+    "summary": "对『现在能不能追』这类问题直接回答不知道，改用『始终在场 + 留一部分现金等加仓』的结构来承接不确定性",
+    "family": "positioning",
+    "rules": [
+     "明确承认不知道当前反弹是新一波上涨的开始还是还要探新低——不为了给答案而编一个判断",
+     "默认状态是留在市场里，而不是空仓等信号",
+     "同时留一部分现金专门用于加仓，比例因人而异（作者当下 90% 仓位 / 10% 现金），没有标准答案",
+     "决定比例的两个输入：自己 YTD 的回报位置（离新高远近）与市场情绪面/参与度的位置",
+     "情绪越恐慌，现金投放越多；到极度恐慌打满；情绪转乐观则反向多留现金",
+     "无论交易还是投资都分批进出，不做一次性的全进全出"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "CNN 恐慌贪婪指数与分项",
+     "市场参与度",
+     "自身组合的回报位置"
+    ],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  }
+ ]
 }

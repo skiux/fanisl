@@ -1,0 +1,996 @@
+{
+ "content_id": 110,
+ "extractor_version": "pending-v2",
+ "model": "claude-session",
+ "units": [
+  {
+   "kind": "method",
+   "quote": "我和大家反复强调过，如果我们去更新美国整体消费者的消费水平，最好的一个渠道就是美国银行的一个财报。但如果我们带着美联储的这个视角去看当下的这个经济的话，有另外一个比较好的渠道就是美联储他们自己公布的一个褐皮书叫做Beige Book。",
+   "locator": "00:00",
+   "tags": [
+    "macro-data",
+    "consumer",
+    "fed-policy"
+   ],
+   "payload": {
+    "name": "分渠道读经济：消费看美国银行财报，美联储视角看褐皮书",
+    "summary": "更新美国消费者消费水平用美国银行（BAC）财报；要从美联储自己的视角看当下经济则用褐皮书 Beige Book。",
+    "family": "other",
+    "rules": [
+     "更新美国整体消费者的消费水平：看美国银行的财报",
+     "带着美联储的视角看当下经济：看美联储公布的褐皮书 Beige Book",
+     "褐皮书读法：12 个辖区各自的经济增速是放缓、不变还是增强，先数方向再看增长来源"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "BAC 季报",
+     "Fed Beige Book"
+    ],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "芯片板块，就整个周四是出现了比较大波幅的下跌。我个人认为主要的一个原因可能还是和美元的指数下跌有关。那美元指数的下跌因为什么？因为日元出现了一个上涨。",
+   "locator": "01:02",
+   "tags": [
+    "dxy",
+    "semiconductor-cycle",
+    "fx-intervention",
+    "price-action"
+   ],
+   "payload": {
+    "canonical_statement": "作者给 2026-09-03 芯片板块下跌的归因链：日元上涨 → 美元指数下跌 → 芯片板块下跌。（归因是他自己的判断，措辞是'可能'。）",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "高贝塔动能板块继续出现下跌，2.2%。QTD从7月份到现在为止，高贝塔动能板块下跌了41%。",
+   "locator": "01:20",
+   "tags": [
+    "market-structure",
+    "rotation",
+    "price-action"
+   ],
+   "payload": {
+    "canonical_statement": "截至 2026-09-03，高贝塔动能板块当日再跌 2.2%，7 月初以来（QTD）累计下跌 41%——作者读自己盘面表的数据。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那我们看一下，7月份到现在为止写支票的公司上涨了9.1%，软件板块在整个上半年被市场唾弃的一个板块，7月份、8月份到现在为止上涨了18%。",
+   "locator": "01:58",
+   "tags": [
+    "igv",
+    "mags",
+    "rotation",
+    "market-structure"
+   ],
+   "payload": {
+    "canonical_statement": "2026 年 7 月初至 9 月 3 日：'写支票的公司'（前期大科技）上涨 9.1%，上半年被市场唾弃的软件板块上涨 18%——这是市场从'只买收支票的公司'转向的量化证据。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "但是，我个人的看法是，黄金这一波的上涨是由长期美债真实收益的这一波下跌所带领。然后在基础之上，才出现了比特币的这一波上涨，比特币上涨也非常的巨大，两个多月的时间上涨了40%。",
+   "locator": "02:19",
+   "tags": [
+    "xauusd",
+    "btcusdt",
+    "bond-yields",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "2026 年七、八月这一波的传导次序：长端美债真实收益率下行在先，带起黄金，比特币的上涨（两个多月 +40%）建立在此之上。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "其实，你可以，我们回过头去想一下。从QTD7月份到现在为止，走得好的这些板块和标的基本上都是上半年没人喜欢的。没有，没有一个例外。",
+   "locator": "02:31",
+   "tags": [
+    "rotation",
+    "market-structure",
+    "igv",
+    "xauusd"
+   ],
+   "payload": {
+    "canonical_statement": "2026 年 7 月至 9 月初，QTD 走得好的板块与标的基本上都是上半年市场不喜欢的——黄金、IGV 软件、比特币、前期大科技、特斯拉；作者称没有一个例外。上半年走得好的芯片、硬件则反过来转弱。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "你想，如果我们把11.6、七、八月份的这一个涨幅给去掉的话，那，即使七、八月份涨了11.6，YTD黄金还是只涨了3.6。说明什么？说明上半年黄金是下跌的，即使在美股在上涨的情况下，美股上涨了10%，黄金出现了下跌。",
+   "locator": "02:44",
+   "tags": [
+    "xauusd",
+    "rotation",
+    "market-structure"
+   ],
+   "payload": {
+    "canonical_statement": "黄金 2026 年的涨幅几乎全部集中在七、八月（+11.6%），YTD 仅 +3.6%——反推上半年黄金是下跌的，且这段下跌发生在美股上涨 10% 的同期。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "而上半年走得差的，市场不喜欢的这些标的，有一个非常、基本面好的情况下，有一个非常好的一个setup。仓位又不在上面，我们看七、八月份就反弹的非常的好。",
+   "locator": "03:18",
+   "tags": [
+    "rotation",
+    "positioning",
+    "market-structure"
+   ],
+   "payload": {
+    "canonical_statement": "好的反弹 setup 由三件事同时具备构成：基本面没有问题、前一段走得差且市场不喜欢、市场仓位不在其上；三者齐备时反弹幅度大。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "当然这中间，我们说，我们可以买在无人问津时，但是当我们买在无人问津时，到什么时候这些标的出现反弹，到出现市场开始喜欢这些标的。中间的确是有一个等待的时间，那这一个等待的时间有可能会比较的煎熬。",
+   "locator": "03:33",
+   "tags": [
+    "psychology",
+    "positioning",
+    "rotation"
+   ],
+   "payload": {
+    "canonical_statement": "'买在无人问津时'的真实成本是等待期：从买入到市场重新喜欢该标的之间的时间长度无法预知，且这段等待可能相当煎熬——这是该原则在实操上唯一的难点。",
+    "category": "psychology",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "我个人认为现在硬件板块反而是一个非常好的去进场的一个时机，从长期这个角度去布局。什么时候出现反弹我不知道，但是我知道现在的估值已经非常的合理，甚至于是非常的低估。",
+   "locator": "03:48",
+   "ref_price": 502.2,
+   "tags": [
+    "soxx",
+    "semiconductor-cycle",
+    "valuation",
+    "positioning"
+   ],
+   "payload": {
+    "asset_text": "硬件 / 芯片板块（作者判现在是很好的长期布局时机、估值从合理到低估；同一句里他自己说'什么时候出现反弹我不知道'，明确回避了时点。我方以 SOXX 计价）",
+    "asset_symbol": "SOXX",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那趋势交易过去65天的这一个滚动回报，现在是处在什么一个阶段？现在是处在历史上百分之一，1 Percentile，就是历史上1%的这种概率会出现这种情况。也就是从7月份以来，这一波硬件和动能板块的回调幅度已经相当的大，并且非常的快速。",
+   "locator": "04:10",
+   "tags": [
+    "market-structure",
+    "semiconductor-cycle",
+    "rotation",
+    "price-action"
+   ],
+   "payload": {
+    "canonical_statement": "罗素 1000 信息技术板块的动能（多空）因子，过去 65 天滚动回报处在历史第 1 百分位——2026 年 7 月以来硬件与动能板块的回调，幅度与速度都属于历史 1% 的极端事件。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "但是我仍然认为这三家公司，前两家公司，Marvell相对合理一些，然后另外两家公司英伟达和Broadcom，这两家公司是便宜的，其实相当便宜的。",
+   "locator": "05:11",
+   "ref_price": 228.45,
+   "tags": [
+    "nvda",
+    "avgo",
+    "mrvl",
+    "valuation",
+    "semiconductor-cycle"
+   ],
+   "payload": {
+    "asset_text": "英伟达 NVDA 与博通 AVGO（作者判两家相当便宜，Marvell 相对合理一些；他同时说明 AVGO、NVDA、MRVL 三家正股自己都没有买。估值判断，未对价格给出方向或目标）",
+    "asset_symbol": "NVDA",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "包括你问我我现在自己比较大仓位的英特尔，我也认为是便宜的。",
+   "locator": "05:28",
+   "ref_price": 91.67,
+   "tags": [
+    "intc",
+    "valuation",
+    "semiconductor-cycle"
+   ],
+   "payload": {
+    "asset_text": "英特尔 INTC（作者自称是他比较大的仓位，判便宜；并说'我认为便宜的标的我自己不一定一定要买'。这是估值立场，未对价格给出方向或目标）",
+    "asset_symbol": "INTC",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "并且更加重要的是，我现在整体的硬件板块的仓位，差不多还是在17%、18%左右。所以对于我来说，如果我的目标仓位是20%，那其实离我的目标仓位并没有非常的远。对吧，如果它继续回调，那回调到15%，比如，英特尔继续出现下跌。那那时候的话我一定会加仓的。在基本面没有变的情况下。",
+   "locator": "05:54",
+   "tags": [
+    "positioning",
+    "risk-mgmt",
+    "intc",
+    "semiconductor-cycle"
+   ],
+   "payload": {
+    "name": "按目标仓位的缺口决定加仓，回调压低权重才补",
+    "summary": "硬件板块目标仓位 20%、当前 17%-18%，缺口不大就不急于加仓；若回调把权重压到 15% 且基本面没变，则一定加仓。",
+    "family": "positioning",
+    "rules": [
+     "设定板块目标仓位（硬件 20%），当前 17%-18%，离目标不远则不急于加仓",
+     "若继续回调使该板块权重降到 15%（例如英特尔继续下跌），且基本面没有变，则一定加仓",
+     "触发条件是组合权重不是价位——加仓与否取决于回调把权重打下去多少"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "作者未披露的实际持仓，外部无法机械复现"
+    ],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "昨天我是拿CNN的恐慌贪婪指数和大家做分享，CNN的恐慌贪婪指数是在一个恐慌的一个阶段，离非常恐慌这个阶段有一些些距离，但是已经非常的接近了。那随着周四市场的一个反弹之后，参与度也出现了反弹，现在来到了，中性还没有到，现在是来到了中性偏悲观的一个位置一点点。",
+   "locator": "06:20",
+   "tags": [
+    "psychology",
+    "positioning",
+    "price-action"
+   ],
+   "payload": {
+    "canonical_statement": "2026-09-03 收盘后 CNN 恐慌贪婪指数由'恐慌、已很接近极度恐慌'反弹到'中性偏悲观一点点'，尚未回到中性。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "那根据周四收盘之后市场的参与度去看，我从投资仓位这个角度，我就更不需要做任何的调整了。如果在30、32的时候我是一个等待的时机，等待它非常超卖，等待一个非常好的一个机会，把最后的子弹全部打出去。那在现在市场已经出现了一个反弹，我超过90%这个仓位，我仍然是持续拿着，那我不会做任何的操作了。",
+   "locator": "06:38",
+   "tags": [
+    "psychology",
+    "positioning",
+    "risk-mgmt"
+   ],
+   "payload": {
+    "name": "以 CNN 恐慌贪婪指数的位置决定要不要动用最后的仓位",
+    "summary": "指数落在 30、32 一带（恐慌但离极度恐慌尚有距离）时是等待更超卖机会的窗口；反弹回中性偏悲观则不做任何调整。",
+    "family": "positioning",
+    "rules": [
+     "指数在 30、32 附近：不动手，等它非常超卖、等一个非常好的机会，再把最后的子弹全部打出去",
+     "指数随市场反弹回到中性偏悲观（尚未到中性）：90% 以上的仓位继续持有，不做任何操作",
+     "参与度只用来决定是否动用剩余仓位，不用来减仓"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "CNN Fear & Greed 指数日频序列（我方未采集）"
+    ],
+    "overlap_with_killed": [],
+    "testability": "B"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "彭博ANON这个团队，他再次给出了这一个展望。他认为失业率将会出现上升，非农的就业数据将会令人失望。市场预期可能在5万、6万左右吧，彭博他们的预期是在1.2万。",
+   "locator": "07:03",
+   "tags": [
+    "labor-market",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "彭博经济研究团队对 2026 年 8 月非农的展望：失业率将上升、非农就业令人失望，预期 1.2 万，同期市场预期在 5 万-6 万（作者转述；他自己的判断是这组数据对美联储影响不大）。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "但是，我个人的看法，我在周的时候也有和大家分享过，我并不认为这组非农数据会，对于美联储的影响会非常的大。",
+   "locator": "07:15",
+   "tags": [
+    "labor-market",
+    "fed-policy",
+    "macro-data"
+   ],
+   "payload": {
+    "asset_text": "2026 年 8 月非农就业数据（2026-09-04 周五早上公布）对美联储的影响——作者判不大。deadline 填的是数据公布日；'对美联储的影响'本身要到议息才见分晓，且没有可机械判定的口径",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "event_outcome",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2026-09-04"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那所以1.2万也好，负的1.2万也好，你觉得会改变美联储这个看法，并不会，如果他们认为新平衡是零增速的话。那么反而在这一基础之上，就，在这个相对情况下，CPI的数据或者通胀数据就会更加的重要。",
+   "locator": "07:35",
+   "tags": [
+    "labor-market",
+    "fed-policy",
+    "inflation",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "鲍威尔说过未来一个平衡的劳动市场下非农增速可能就是 0；若美联储以此为基准，非农印 1.2 万还是 -1.2 万都不改变其看法，通胀数据的权重因此高于就业数据——两个风险不是平衡的。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "在6月份、7月份失业率出现下降的时候，我和大家说，失业率的下降是因为很多人离开了劳动市场，它并不是一个好的现象。虽然失业率下降，但它并不是一个好的现象，当人们离开这个劳动市场，很大一部分是因为人们对于劳动市场感到悲观了、感到灰心了，原本是在找工作的，现在我不找。",
+   "locator": "08:06",
+   "tags": [
+    "labor-market",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "失业率的方向必须配合劳动参与率一起读：人们因对就业前景灰心而退出劳动市场时失业率会下降，那不是好现象；反过来失业率因参与度回升而上升，可以是好现象。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "一共是12个区域，其中里面有10个区域经济增速都出现了上涨。这是一个非常强且非常覆盖面非常广的一个经济的一个Expansion，或者经济的一个增长。",
+   "locator": "08:52",
+   "tags": [
+    "macro-data",
+    "fed-policy"
+   ],
+   "payload": {
+    "canonical_statement": "2026 年 9 月褐皮书：12 个联储辖区里有 10 个经济增速上升，是覆盖面很广的扩张。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "首先，高收入消费者非常的强劲，包括了旅游支出，支撑了整体的这个需求。那，这一部分或者这一个点，和我们在美国银行的财报里面看到的点是完全一致的。然后，第二点，制造业依然表现非常的亮眼，大部分地区的生产活动均有所回升。",
+   "locator": "09:05",
+   "tags": [
+    "macro-data",
+    "consumer",
+    "fed-policy"
+   ],
+   "payload": {
+    "canonical_statement": "褐皮书里的增长来源：高收入消费者（含旅游支出）强劲支撑总需求——与美国银行财报所见完全一致；制造业表现亮眼，大部分地区生产活动回升。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "现在正影响也非常的简单，你去看看德州他们的电工。德州，因为德州造了很多数据中心，德州的电工的一个工资上涨速度非常的快。所以确实是对于就整个数据中心的一个建造，其实创造了很多类似的岗位。那，包括对于部分的一些工程的这些工资上涨，也造成了非常大的这个推力。但同时我们会发现一些初步一开始先去接受，先去接触AI的这些公司，反而会出现裁员，那比如说像昨天公布的Uber，直接裁掉10%。",
+   "locator": "09:40",
+   "tags": [
+    "labor-market",
+    "ai-capex",
+    "uber",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "AI 对劳动力需求的两侧证据：正面是数据中心建设创造岗位——德州因建了很多数据中心，电工工资上涨很快；负面是最早接触 AI 的公司开始裁员——Uber 前一日宣布裁员 10%。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那未来我认为，我个人的看法，随着更多的公司、更多的传统公司开始，开始接触AI，短线来说对于劳动市场可能净影响是一个负面的。",
+   "locator": "10:12",
+   "tags": [
+    "labor-market",
+    "ai-capex",
+    "macro-data"
+   ],
+   "payload": {
+    "asset_text": "人工智能对美国劳动市场的净影响（作者判短线偏负）。期限的 7 天来自 §3 冻结映射表里'短线'一档，不是作者自己的时间尺度；劳动市场无价格序列",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "directional",
+    "direction": "down",
+    "magnitude": null,
+    "horizon": {
+     "type": "within_duration",
+     "duration_days": 7
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "然后，接下去一点，通胀压力有所显现，主要反映在价格上涨报道非常的普遍。就是，从能源、运输、原材料价格都出现了上涨。",
+   "locator": "10:23",
+   "tags": [
+    "inflation",
+    "macro-data",
+    "fed-policy"
+   ],
+   "payload": {
+    "canonical_statement": "褐皮书里的通胀信号是'价格上涨的报道十分普遍'——能源、运输、原材料价格同时上涨，是覆盖面而非单点的涨价。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "我个人的看法是，通胀回不到以前的2%。即使美联储加息，甚至于我都不认为会回到2%。",
+   "locator": "10:33",
+   "tags": [
+    "inflation",
+    "ai-capex",
+    "fed-policy",
+    "macro-data"
+   ],
+   "payload": {
+    "asset_text": "美国通胀（作者判回不到 2%，理由是大科技资本开支相当于政府洒钱。'回不到 2%'是维持在 2% 以上、不是再创新高，按 §2 取 flat 而非 sign。我方无通胀序列，也没有合理的价格代理）",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "directional",
+    "direction": "flat",
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "主要的原因是因为可以把这一次大科技资本开支上的这个开支理解为政府的这个洒钱。那，可以把它比作是08年中国政府的一个4万亿。那这一次你想，今年26年大科技是7000亿、8000亿，然后明年，英伟达就已经预期要到1.3万亿。",
+   "locator": "10:39",
+   "tags": [
+    "ai-capex",
+    "inflation",
+    "fiscal-policy",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "把大科技资本开支理解为类似财政洒钱的总需求冲击（作者类比 08 年中国的 4 万亿）：2026 年大科技资本开支 7000-8000 亿美元，英伟达预期 2027 年到 1.3 万亿——这是作者判通胀回不到 2% 的主要依据。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "但大多数的或者很大一部分其实还是影响到了美国这边的消费者。最直接的就是3C产品，你可以看到现在没有一个3C产品不涨价，而且涨价的幅度相当的高。",
+   "locator": "11:05",
+   "tags": [
+    "inflation",
+    "ai-capex",
+    "consumer"
+   ],
+   "payload": {
+    "canonical_statement": "资本开支外溢到消费端最直接的表现是 3C 产品——现在没有一个 3C 产品不涨价，而且涨幅相当高；这是资本开支传导到通胀的可观察环节。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那，所以，即使到了2027年，我也不认为美国经济会出现增速上的一个放缓，或者会出现一个GDP出现一个负增长，或者会出现一个衰退，我并，我并不这样认为。",
+   "locator": "11:21",
+   "tags": [
+    "macro-data",
+    "ai-capex",
+    "fiscal-policy"
+   ],
+   "payload": {
+    "asset_text": "美国经济增速 / GDP（作者判到 2027 年不放缓、不负增长、不衰退，理由是资本开支继续增加对增速本身就是利好。GDP 无价格序列、无合理代理）",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "event_outcome",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2027-12-31"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "所以，利率这一块，其实很难会出现一个下降。",
+   "locator": "11:32",
+   "tags": [
+    "bond-yields",
+    "fed-policy",
+    "macro-data"
+   ],
+   "payload": {
+    "asset_text": "美国利率（作者没有指明是政策利率还是长端收益率，按 §0.6 补不出唯一解就不替他指定品种；且'很难下降'是维持而非变化，按 §2 取 flat）",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "directional",
+    "direction": "flat",
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "然后最后一点，就是做一个总结：整个经济扩张中需求出现了这个不平衡的一个局面。相对来说，制造业啊、国防啊、些建设啊、高端消费啊依然强劲。但是，仍然有一些相对比较传统的行业，确实受到了压力。",
+   "locator": "11:43",
+   "tags": [
+    "macro-data",
+    "consumer"
+   ],
+   "payload": {
+    "canonical_statement": "这轮扩张的需求是不平衡的：制造业、国防、建设、高端消费强劲，部分较传统的行业仍受压——总量扩张与结构分化同时成立。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "营收比市场预期低了2%，盈利高出市场预期15%，所以数据本身还是OK的。那主要这个盈利的一个高出市场的预期，来自于他们的Margin，利润率比市场预期高了1%。",
+   "locator": "12:08",
+   "tags": [
+    "lulu",
+    "consumer",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "Lululemon 2027 财年 Q2 实际：营收低于市场预期 2%，盈利高出预期 15%，超出部分来自利润率比预期高 1%——当季数据本身不差，盘后暴跌来自指引不是来自当季。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "营收他们整个2027财年，在只剩下两个季度的情况下，他们把营收整个全年的一营收下调了将近6%，那，从11.03下调到了10.4。EPS第三季度、就下面的这个季度，市场预期，原本的预期是2.41。公司管理层给到了多少？0.95。那，下降的幅度也相当的大。整个全年这一块比较的有意思，原本市场预期全年EPS体量是在10.84。公司的管理层给到了9.6。",
+   "locator": "12:25",
+   "tags": [
+    "lulu",
+    "consumer",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "Lululemon 2027 财年指引下调（在只剩两个季度时）：全年营收从 11.03 下调到 10.4（约 -6%）；Q3 EPS 指引 0.95，市场原本预期 2.41；全年 EPS 指引 9.6，市场原本预期 10.84；倒推第四季度隐含 4.9，市场预期 4.99。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "但是，我根据财报会议里面公司管理层所给的一些态度、包括他们一个信心去看，我认为第四季度4.9、就现在Implicit是一个4.9，4.9的这个EPS体量我认为可能会继续下调。",
+   "locator": "13:00",
+   "tags": [
+    "lulu",
+    "consumer",
+    "valuation"
+   ],
+   "payload": {
+    "asset_text": "Lululemon（LULU）2027 财年第四季度的隐含 EPS 指引 4.9 美元——由管理层给的全年 9.6 倒推得出，作者判还会继续下调。magnitude 里装的是每股收益不是股价；LULU 未登记进 assets.py，行情库里也没有日线，无法机械评分",
+    "asset_symbol": "LULU",
+    "priceable": false,
+    "claim_class": "event_outcome",
+    "direction": "down",
+    "magnitude": {
+     "eps_q4_implied": 4.9
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "非常大一部分是受到了另外一家公司Alo的挑战。它不是一家上市公司。然后，在8月12日的时候，Alo正式的进入了中国市场。Alo在全世界是最大的Lululemon的挑战者。那而8月份他们第一次进入中国市场，所以我认为Lululemon在中国的这个市场，挑战才刚刚开始。",
+   "locator": "13:18",
+   "tags": [
+    "lulu",
+    "consumer"
+   ],
+   "payload": {
+    "canonical_statement": "Alo（非上市公司）是全球最大的 Lululemon 挑战者，2026-08-12 正式进入中国市场——作者判 Lululemon 在中国市场的挑战才刚刚开始，这是他眼中最大的不确定性。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "对吧。总体2027年营收的这一个增速，原本市场预期是负的1%，现在变成了负的6%。EPS也是一样，其实你可以看到这一个季度EPS的增速是负的34%。原本根据市场的这个预期，下一个季度应该比这个季度要好，那同比增速会放缓到负的7%。那但是现在，你把0.95的这一个数字给扔出来的话，你和去年同期去作环比的话，这个下降多少？这个下降了67%以上了。",
+   "locator": "13:43",
+   "tags": [
+    "lulu",
+    "consumer",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "Lululemon 指引把增速曲线整个翻转：2027 财年营收增速由市场预期的 -1% 变成 -6%；EPS 本季增速 -34%，市场原本预期下季收敛到 -7%，按 0.95 的指引算却是同比 -67% 以上——由'最差已过'变成'还在加速恶化'。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "你说盘后股价下跌20%，我认为非常的正常，甚至于更大的幅度我认为都是正常的。",
+   "locator": "14:16",
+   "tags": [
+    "lulu",
+    "consumer",
+    "valuation"
+   ],
+   "payload": {
+    "asset_text": "Lululemon（LULU）盘后跌 20%——作者判这个幅度非常正常、更大的幅度也正常。他评的是已发生跌幅的合理性，不是预测还会跌多少；同一期里他又说新 CEO 或裁员公告可能先把股价买上去，两侧都留了口。LULU 无日线，无法机械评分",
+    "asset_symbol": "LULU",
+    "priceable": false,
+    "claim_class": "directional",
+    "direction": "down",
+    "magnitude": {
+     "observed_afterhours_pct": -20
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "hedged",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "即使在营收增速、毛利率增速放缓的情况下，它在运营这一块的花费、它在广告业务这一块的花费增速没有丝毫的放缓。我认为这一点非常的致命。毛利润这一块，你看一下2026年，已经几乎没有增速了，0.21，但是那一年SG&A仍然上涨了8.1%。今年，那今年已经过了一半，2027年过了一半。毛利润负的2.32%，同时仍然SG&A增长7.6%。",
+   "locator": "14:24",
+   "tags": [
+    "lulu",
+    "consumer",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "毛利增速已归零甚至转负而 SG&A 仍保持高增，是致命信号：Lululemon 2026 财年毛利 +0.21%、SG&A +8.11%；2027 财年毛利 -2.32%、SG&A +7.60%。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "他们给的一个答案是：我们认为我们有必要去花。某种程度也告诉你，就即使在广告花费没有明显放缓的情况下，它的营收增速还是不如预期。说明什么情况？说明如果你不去砸这个广告费用的话，你的结果会更差。",
+   "locator": "14:59",
+   "tags": [
+    "lulu",
+    "consumer",
+    "market-structure"
+   ],
+   "payload": {
+    "canonical_statement": "广告费没有放缓而营收增速仍不及预期，可以反推：不砸这笔广告费结果会更差——当前营收是被营销支出撑住的，营销效率已经在下滑。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那新任的CEO上位之后，我认为Lululemon内部将会进行非常大的一个整改。裁员的这个幅度，我认为会相当的高。",
+   "locator": "15:16",
+   "tags": [
+    "lulu",
+    "consumer",
+    "positioning"
+   ],
+   "payload": {
+    "asset_text": "Lululemon（LULU）新任 CEO 上位后的内部整改与裁员幅度（作者判整改很大、裁员幅度相当高）。裁员规模无公开的机械口径，LULU 也无日线",
+    "asset_symbol": "LULU",
+    "priceable": false,
+    "claim_class": "event_outcome",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "你拿100块钱除以它Forward EPS，10块钱每股收益，你得到的PE差不多，9块钱、10块钱，你得到10块钱的话，你得到了一个Forward PE差不多就是10倍。也就是10倍。从现在的11倍下降多少？也就是下降10%。那如果是9块钱Forward EPS的话，那你的Forward PE还是在11倍。股价下跌了20%，你会发现它的Forward PE还完全没有任何的下跌。为什么？是因为它Forward的EPS出现了下跌。",
+   "locator": "16:02",
+   "tags": [
+    "lulu",
+    "valuation",
+    "consumer"
+   ],
+   "payload": {
+    "name": "指引暴雷后判断股票有没有变便宜：用下调后的 forward EPS 重算 PE",
+    "summary": "跌幅本身不等于变便宜——若 forward EPS 与股价同比例下调，forward PE 原地不动。",
+    "family": "other",
+    "rules": [
+     "按管理层的新指引倒推未来四个季度 EPS（LULU：下季约 1 元 + 第四季约 4.9 元 + 2028 财年前两季，合计不超过 10 元）",
+     "用盘后价除以这个 forward EPS：100 / 10 = 10 倍，对比暴雷前的 11 倍只降了 10%",
+     "若 forward EPS 只有 9 元，则 forward PE 仍是 11 倍——股价跌 20% 而估值毫无变化",
+     "结论：财报暴雷后要先换掉分母再谈便宜，不能拿跌幅当估值改善"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "股价",
+     "卖方一致预期 forward EPS / 管理层指引"
+    ],
+    "overlap_with_killed": [],
+    "testability": "A"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "所以Lululemon这家公司本身，我认为现在是不值得去做投资的，即使它有可能会出现翻转这种情况下，最好这种、就除非我们有一个非常明确的判断。",
+   "locator": "16:32",
+   "tags": [
+    "lulu",
+    "consumer",
+    "valuation",
+    "positioning"
+   ],
+   "payload": {
+    "asset_text": "Lululemon（LULU）——作者判现在不值得投资，最大的不确定性是中国市场（Alo 8 月才进入）。这是投资价值与仓位立场，作者在这里没有说价格会怎样；LULU 亦无日线",
+    "asset_symbol": "LULU",
+    "priceable": false,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "刚刚过去第二季度。Lululemon最引以为豪的Legging。你知道多少？同比增速负的20%，连Legging都卖不动了。你想一下。他们内部，产品端、产品端这一块、创新端这一块出现了非常大的这个问题。",
+   "locator": "16:56",
+   "tags": [
+    "lulu",
+    "consumer"
+   ],
+   "payload": {
+    "canonical_statement": "Lululemon 最核心的 Legging 品类 2027 财年 Q2 同比 -20%——作者据此判断问题出在产品端与创新端，而不只是需求周期。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "所以这家公司本身。我认为最好的一个进场，如果要投资的话，一定是等到右侧，什么是右侧？就是明显基本面出现一个见底的信号，才去进行进场。",
+   "locator": "17:11",
+   "tags": [
+    "lulu",
+    "risk-mgmt",
+    "execution"
+   ],
+   "payload": {
+    "name": "基本面仍在恶化的公司只在右侧进场",
+    "summary": "不抄左侧，等明显出现基本面见底的信号再进场。",
+    "family": "event",
+    "rules": [
+     "在没有任何信号表明最糟糕的情况已经在身后之前，不进场",
+     "等到明显出现基本面见底的信号（右侧）才进场",
+     "承认代价：新 CEO 到位、宣布裁员这类事件可能先把股价买上去，右侧进场会让掉这一段"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "当然，新的CEO进来之后，有可能市场会去、先去买一个未来有可能翻转的这个可能性，先去买起来、新的CEO进来可能期待一些改变等等。或者随着他们宣布裁员，那么股价会出现一步上涨。",
+   "locator": "17:20",
+   "tags": [
+    "lulu",
+    "consumer",
+    "psychology"
+   ],
+   "payload": {
+    "asset_text": "Lululemon（LULU）股价（这是全期唯一一处作者真的说了价格会怎样：新 CEO 到位或宣布裁员后股价可能先涨一波；但他同一段里说'真正基本面上的这个改变，我认为还是需要时间的'，两侧都留了口。判 D 的原因是 LULU 无日线、无法机械评分，不是 §2 的立场/价格之分）",
+    "asset_symbol": "LULU",
+    "priceable": false,
+    "claim_class": "directional",
+    "direction": "up",
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "hedged",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那回到Nike这一块，为什么我认为Nike有可能会出现翻转的？其实是因为他们财报会议里面公司管理层所告诉我们的。",
+   "locator": "17:36",
+   "ref_price": 38.77,
+   "tags": [
+    "nke",
+    "consumer",
+    "positioning"
+   ],
+   "payload": {
+    "asset_text": "耐克 NKE（作者持仓，前段时间开的仓；判有可能出现困境翻转，依据是财报会议上管理层的口径——2026 财年是供应链整改的投资年、2027 财年是收获年。这是基本面判断，作者没有对股价给出方向或目标）",
+    "asset_symbol": "NKE",
+    "priceable": true,
+    "claim_class": "event_outcome",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "他们告诉我，2026财年，那么他们花了很多的花费在整个供应链上的一个整改。包括供应链上怎么去提高这个效率，所以他们的一个期待是：2026财年是投资的一年，接下去2027财年是收获的一年。所以从Margin、从利润率这个角度去看，管理层明显有非常大的这个信心在背后。",
+   "locator": "17:44",
+   "tags": [
+    "nke",
+    "consumer",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "耐克管理层的口径：2026 财年是供应链整改的投资年、2027 财年是收获年，利润率角度有明确信心——作者转述并背书为逆境翻转的信号。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "另外一点就是从产品端这一块，他们其实已经有聊到了新推出的这个Running其实非常受到市场的这个欢迎，增速还是不错的。包括中国在上海那块所开的一个体验店的一个增速也非常的。包括在中国端、在中国那块，产品策略上或者定位上的一个调整，从原来一个打折产品变成要为一个Premium。",
+   "locator": "18:03",
+   "tags": [
+    "nke",
+    "consumer"
+   ],
+   "payload": {
+    "canonical_statement": "耐克的改善依据落在两处：新推出的 Running 系列受市场欢迎、增速不错；中国端从打折定位重做成 Premium（上海体验店增速亦好）——重定位要求创新与材料同步跟上，否则做不成。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "所以Nike的财报，我不是说100%就能够觉得，对吧，它一定会出现这个逆境翻转，但是管理层起码已经给出一些信号，给出一些逆境翻转这个信号。并且财报会议里面你可以明显听到有一个信心在背后，但是Lululemon这个财报里面我听不到任何的信息。",
+   "locator": "19:07",
+   "tags": [
+    "nke",
+    "lulu",
+    "consumer",
+    "execution"
+   ],
+   "payload": {
+    "name": "困境反转的判别：管理层对每一个弱点给不给得出针对性方案",
+    "summary": "逐个列出公司在各市场、各环节的弱点，看财报会议上管理层是否对每一处都给得出明显的解决方案；给得出才算翻转信号。",
+    "family": "event",
+    "rules": [
+     "逐个列出该公司在各市场、各环节的弱点",
+     "看财报会议上管理层对每一个弱点是否给得出明显的解决方案，并听得出信心",
+     "耐克：供应链整改提效率、产品端 Running 受欢迎、中国端从打折重定位为 Premium——每个弱点都有方案；Lululemon 的财报会议里听不到任何信息",
+     "有信号不等于会兑现：Lululemon 也尝试过创新、但市场不接受，同样的事在耐克身上也可能发生，仍需验证"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  }
+ ]
+}
