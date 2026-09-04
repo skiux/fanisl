@@ -70,12 +70,20 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled, onOpenDetail }:
     //
     // 现在净值自成一块，三个指标各自是一个共用行槽的子网格：它们之间标签齐、
     // 数字齐、有没有第三行的注都不影响前两行。
+    //
+    // 两块之间用 `items-baseline`：同一横排里字号不同的数字，眼睛要的是**同一条
+    // 基线**。顶对齐会让 40px 的净值和 17px 的指标差出 23px（实测），
+    // 和之前底对齐是同一个错位换了个方向。
     <div className={cn('flex flex-wrap items-baseline gap-x-14 gap-y-6',
       'px-5 pb-4 pt-4 sm:px-10 sm:pb-5 sm:pt-5', veiled && 'veiled')}>
       {/* 窄屏净值独占一行：2.5rem 的数字旁边塞不下三个指标，
           `flex-1` 会让它们挤在右边糊成一团（实测溢出 54px）。 */}
       <div className="w-full sm:w-auto">
         <div className="label">净值</div>
+        {/* `items-baseline` 对齐的是每块的**第一行文本**（标签），不是数字。
+            要让 40px 的净值和 17px 的指标落在同一条数字基线上，只能把两边
+            "标签底到数字基线"的距离做成一样：净值那行的距离由字号决定，
+            指标那边用 padding 补齐差额（40px 与 17px 的基线差，实测 23px）。 */}
         <div className="tnum mt-2 text-[2rem] font-medium leading-none tracking-[-0.03em] text-ink sm:text-[2.5rem]">
           {totals ? money(totals.equity_usd) : '—'}
         </div>
@@ -133,8 +141,11 @@ function Cell({ label, value, valueClass, note, onOpen, topic }: {
       ) : (
         <span className={labelClass}>{label}</span>
       )}
-      {/* 三个指标字号一致，顶对齐即可——标签到数字的距离因此处处相同 */}
-      <div className={cn('tnum mt-2 self-start text-lg leading-none', valueClass)}>{value}</div>
+      {/* 三个指标之间字号一致；`pt` 把它们的基线压到与净值同一条线上。
+          窄屏净值独占一行、不同排，就不需要这个补偿。 */}
+      <div className={cn('tnum mt-2 self-start text-lg leading-none sm:pt-[23px]', valueClass)}>
+        {value}
+      </div>
       {/* 只留**读数**：把数字翻成一句判断（"安全""取不到"）。
           口径——这个数怎么算出来的——收进点开的详情里。 */}
       <div className="mt-1 self-start text-xs text-ink-3">{note ?? ''}</div>

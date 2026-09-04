@@ -30,15 +30,9 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
   return (
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
-        <Module
-          figure={pnl?.today_usd == null ? '—' : signedMoney(pnl.today_usd)}
-          note="今日"
-          onOpen={() => onOpen('changes')}
-          span="lg:col-span-8"
-          title="每日盈亏"
-          tone={pnl?.today_usd == null ? 'muted'
-            : pnl.today_usd >= 0 ? 'gain' : 'loss'}
-        >
+        {/* 不给 figure：它原先放的是 today_usd，而摘要条上那个「今日盈亏」
+            就是同一个数——同一屏里说两遍。日历自己有月合计和区间合计。 */}
+        <Module onOpen={() => onOpen('changes')} span="lg:col-span-8" title="每日盈亏">
           <RealizedDays days={pnl?.daily ?? []} />
         </Module>
 
