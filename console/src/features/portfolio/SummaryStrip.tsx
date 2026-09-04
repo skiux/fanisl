@@ -61,55 +61,58 @@ export function SummaryStrip({ snapshot, futuresMissing, veiled, onOpenDetail }:
   ]
 
   return (
-    // **三行网格，不是 items-end 的一排盒子。** 原先靠底边对齐，于是"有注的格子"
-    // 比"没注的"高一截，它的标签和数字整块被顶上去——删掉两个 note 之后，
-    // 「合约保证金率」就明显和另外两个错开了。
+    // 净值是**标题**，另外三个是指标——两种东西，不塞进同一排网格。
     //
-    // 每一格用 `grid-template-rows: subgrid` 借父级的行槽，所以标签一排、数字一排、
-    // 注一排，有没有注都不影响前两排。`display: contents` 做不到这件事：
-    // 窄屏换行之后三个子元素会各自散进列里。
-    <div
-      className={cn(
-        'grid gap-x-14 px-5 pb-4 pt-4 sm:px-10 sm:pb-5 sm:pt-5',
-        // 窄屏两列换行，宽屏一排；两种情况下同一排里的格子都共用行槽
-        'grid-cols-2 gap-x-8 gap-y-5 sm:auto-cols-max sm:grid-flow-col sm:grid-cols-none sm:gap-x-14 sm:gap-y-0',
-        veiled && 'veiled')}
-      style={{ gridTemplateRows: 'repeat(3, auto)', gridAutoRows: 'auto' }}
-    >
-      {/* 净值的字号是其余的两倍多，窄屏两列里塞不下——它会撑破自己那一列，
-          把旁边那格的数字挤到贴着。让它独占一整行。 */}
-      <Cell
-        className="max-sm:col-span-2"
-        label="净值"
-        value={totals ? money(totals.equity_usd) : '—'}
-        valueClass="text-[2rem] font-medium tracking-[-0.03em] text-ink sm:text-[2.5rem]"
-      />
-      {cells.map((cell) => (
-        <Cell
-          key={cell.label}
-          label={cell.label}
-          note={cell.note}
-          onOpen={cell.topic ? () => onOpenDetail(cell.topic!) : undefined}
-          topic={cell.topic}
-          value={cell.value}
-          valueClass={cn('text-lg',
-            cell.tone === 'gain' ? 'text-gain'
-              : cell.tone === 'loss' ? 'text-loss'
-                : cell.tone === 'muted' ? 'text-ink-3' : 'text-ink')}
-        />
-      ))}
+    // 上一版把四个一起放进三行网格、数字底对齐，结果净值高 40px 而其余高 17px，
+    // 差出来的 23px 全挂在了三个小标签下面：净值的标签到数字只有 8px，
+    // 另外三个是 31px（实测）。底对齐让净值和指标落在同一基线，代价却是
+    // 标签与数字之间被撑开——那是更显眼的错。
+    //
+    // 现在净值自成一块，三个指标各自是一个共用行槽的子网格：它们之间标签齐、
+    // 数字齐、有没有第三行的注都不影响前两行。
+    <div className={cn('flex flex-wrap items-baseline gap-x-14 gap-y-6',
+      'px-5 pb-4 pt-4 sm:px-10 sm:pb-5 sm:pt-5', veiled && 'veiled')}>
+      {/* 窄屏净值独占一行：2.5rem 的数字旁边塞不下三个指标，
+          `flex-1` 会让它们挤在右边糊成一团（实测溢出 54px）。 */}
+      <div className="w-full sm:w-auto">
+        <div className="label">净值</div>
+        <div className="tnum mt-2 text-[2rem] font-medium leading-none tracking-[-0.03em] text-ink sm:text-[2.5rem]">
+          {totals ? money(totals.equity_usd) : '—'}
+        </div>
+      </div>
+
+      <div
+        className={cn('grid w-full gap-x-8 sm:w-auto sm:gap-x-14',
+          // 窄屏三个指标挤不下一排，两列换行；两种情况下同一排都共用行槽
+          'grid-cols-2 gap-y-5 sm:auto-cols-max sm:grid-flow-col sm:grid-cols-none sm:gap-y-0')}
+        style={{ gridTemplateRows: 'repeat(3, auto)' }}
+      >
+        {cells.map((cell) => (
+          <Cell
+            key={cell.label}
+            label={cell.label}
+            note={cell.note}
+            onOpen={cell.topic ? () => onOpenDetail(cell.topic!) : undefined}
+            topic={cell.topic}
+            value={cell.value}
+            valueClass={cn(
+              cell.tone === 'gain' ? 'text-gain'
+                : cell.tone === 'loss' ? 'text-loss'
+                  : cell.tone === 'muted' ? 'text-ink-3' : 'text-ink')}
+          />
+        ))}
+      </div>
     </div>
   )
 }
 
-function Cell({ label, value, valueClass, note, onOpen, topic, className }: {
+function Cell({ label, value, valueClass, note, onOpen, topic }: {
   label: string
   value: string
   valueClass: string
   note?: string
   onOpen?: () => void
   topic?: PnlTopic
-  className?: string
 }) {
   // 可点与不可点必须是**同一种盒子**，否则标签的行盒高度不同，两排差几像素
   // （实测差 6px）。都用 `.label` 直接挂在最外层，不再往里套一层 span。
@@ -122,7 +125,7 @@ function Cell({ label, value, valueClass, note, onOpen, topic, className }: {
     'focus-visible:outline-accent'))
 
   return (
-    <div className={cn('row-span-3 grid', className)} style={{ gridTemplateRows: 'subgrid' }}>
+    <div className="row-span-3 grid" style={{ gridTemplateRows: 'subgrid' }}>
       {onOpen ? (
         <button className={labelClass} data-pnl-topic={topic} onClick={onOpen} type="button">
           {label}
@@ -130,7 +133,8 @@ function Cell({ label, value, valueClass, note, onOpen, topic, className }: {
       ) : (
         <span className={labelClass}>{label}</span>
       )}
-      <div className={cn('tnum mt-2 self-end leading-none', valueClass)}>{value}</div>
+      {/* 三个指标字号一致，顶对齐即可——标签到数字的距离因此处处相同 */}
+      <div className={cn('tnum mt-2 self-start text-lg leading-none', valueClass)}>{value}</div>
       {/* 只留**读数**：把数字翻成一句判断（"安全""取不到"）。
           口径——这个数怎么算出来的——收进点开的详情里。 */}
       <div className="mt-1 self-start text-xs text-ink-3">{note ?? ''}</div>
