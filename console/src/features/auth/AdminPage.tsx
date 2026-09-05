@@ -26,15 +26,21 @@ export function AdminPage() {
   const me = session.status === 'authenticated' ? session.user : null
 
   const [users, setUsers] = useState<User[] | null>(null)
+  const [failed, setFailed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
     setError(null)
+    setFailed(false)
     try {
       setUsers(await listUsers())
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '读取用户列表失败')
+      // **失败要落地，但不能落成空列表。** 不动 users 的话上面挂着报错、下面
+      // 还转着"正在读取…"；落成 `[]` 又会显示"还没有用户"——把"读失败"说成
+      // "没有用户"，和"空账户 vs 取不到"是同一类错。所以单独一个失败态。
+      setFailed(true)
     }
   }, [])
 
@@ -77,7 +83,7 @@ export function AdminPage() {
               <ViewGrid>
                 <Module figure={users ? `${users.length} 人` : '—'} note="停用与删除会立即踢掉该用户的会话"
                         span="lg:col-span-7" title="用户">
-                  <UserTable busy={busy} meId={me.id} onAct={act} users={users} />
+                  <UserTable busy={busy} failed={failed} meId={me.id} onAct={act} users={users} />
                 </Module>
                 <Module note="口令至少 10 位" span="lg:col-span-5" title="新建用户">
                   <CreateForm busy={busy} onAct={act} />
@@ -102,12 +108,14 @@ export function AdminPage() {
 // 看不见现在是什么角色就没法判断该不该按。
 const ROW = 'grid grid-cols-[minmax(0,1fr)] items-start gap-x-4 gap-y-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_236px] sm:items-center'
 
-function UserTable({ users, meId, busy, onAct }: {
+function UserTable({ users, failed, meId, busy, onAct }: {
   users: User[] | null
+  failed: boolean
   meId: number
   busy: boolean
   onAct: (fn: () => Promise<unknown>) => Promise<void>
 }) {
+  if (failed) return <p className="py-10 text-center text-sm text-ink-3">这次没读到。</p>
   if (users === null) return <p className="py-10 text-center text-sm text-ink-3">正在读取…</p>
   if (users.length === 0) return <p className="py-10 text-center text-sm text-ink-3">还没有用户。</p>
 

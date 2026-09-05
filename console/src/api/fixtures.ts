@@ -253,23 +253,11 @@ const PREV_CLOSE_RATIO: Record<string, number> = {
  * 盈亏构成。和后端同一套口径。**没有残差项**——旧的归因表用"期末 − 期初 −
  * 净充提"，钱包间划转会被算成盈亏。
  *
- * **现货这半边看的是每天涨跌，不是相对成本的未实现。** 后者要完整的买入历史，而划转 /
- * 派息 / 小额兑换进来的币在成交记录里没有痕迹，那段历史补不齐。均价与已实现留着
- * ——已实现只认真实发生过的卖出，重放给得全。
+ * **现货这一侧只有"每天涨跌了多少"**，没有任何相对成本的数。均价、现货已实现
+ * 连同后端那套成本基础引擎一起删了：买入历史补不齐，算出来会无声出错。
  */
 function buildPnl(): Pnl {
   const live = spot.filter((row) => row.value_usd !== null && row.total > 0)
-
-  const spotRows = live.map((row) => {
-    const cash = STABLE_FIXTURE.includes(row.asset)
-    const avg = cash ? 1 : (SPOT_AVG_COST[row.asset] ?? null)
-    return {
-      asset: row.asset, qty: row.total, avg_cost_usd: avg,
-      price_usd: row.price_usd, value_usd: row.value_usd as number,
-      realized_usd: cash ? 0 : (SPOT_REALIZED[row.asset] ?? 0),
-      cost_known: avg !== null, is_cash: cash,
-    }
-  })
 
   const marks = live
     .filter((row) => !STABLE_FIXTURE.includes(row.asset))
@@ -286,7 +274,6 @@ function buildPnl(): Pnl {
     })
 
   const daily = buildDaily()
-  const spotReal = spotRows.reduce((sum, r) => sum + (r.realized_usd ?? 0), 0)
 
   return {
     today: {
@@ -300,8 +287,6 @@ function buildPnl(): Pnl {
       scope: '此刻的合约持仓',
     },
     realized: {
-      spot_usd: spotReal,
-      spot_scope: '全部成交历史',
       futures_usd: income.realized_pnl,
       futures_scope: '最近 90 天（接口上限）',
     },
@@ -313,18 +298,10 @@ function buildPnl(): Pnl {
     },
     daily,
     spot_marks: marks,
-    spot_assets: spotRows,
-    coverage: '只覆盖当前还持有的币；已清仓的标的查不到交易对',
-    incomplete_assets: spotRows.filter((r) => !r.cost_known).map((r) => r.asset),
-    failed_symbols: [],
     unbalanced_assets: [],
   }
 }
 
-/**
- * 每天落袋多少。日频离散数据，样例里用一个稳定的伪随机——刷新页面不该换一批数，
- * 否则没法拿它对界面。真实来源是合约 income 逐行分桶 + 现货成交结转。
- */
 function buildDaily(): DailyPnl[] {
   const out: DailyPnl[] = []
   // **全程 UTC。** 原先是本地的 setDate/getDay 再 toISOString 出去，
@@ -355,15 +332,6 @@ function buildDaily(): DailyPnl[] {
 }
 
 const STABLE_FIXTURE = ['USDT', 'USDC', 'BUSD', 'FDUSD']
-
-/** 现货持仓的加权平均成本。这是"接口重放出来的"，属于原始输入，写死合理 */
-const SPOT_AVG_COST: Record<string, number> = {
-  BNB: 612.4, ETH: 2980.5, SOL: 205.1, ARB: 1.04, DOGE: 0.288,
-  SHIB: 0.00002114, LUNC: 0.00000118,
-}
-
-/** 已清掉的那部分实现了多少 */
-const SPOT_REALIZED: Record<string, number> = { BNB: 184.2, ETH: -62.4, SOL: 41.8 }
 
 export function buildSnapshot(asOf: Date): PortfolioSnapshot {
   const iso = asOf.toISOString()

@@ -205,18 +205,6 @@ export type WalletAsset = {
   value_usd: number | null
 }
 
-/** 现货成本。**只出已实现**——未实现要完整买入历史，那段历史补不齐，见下 */
-export type SpotCostRow = {
-  asset: string
-  qty: number
-  avg_cost_usd: number | null
-  price_usd: number | null
-  value_usd: number | null
-  realized_usd: number | null
-  cost_known: boolean
-  is_cash: boolean
-}
-
 /**
  * 盈亏构成。**每一项都有出处，没有残差项**（旧的 Attribution 是"期末 − 期初 −
  * 净充提"，剩下的靠残差反解，钱包间划转会被算成盈亏）。
@@ -224,11 +212,12 @@ export type SpotCostRow = {
  * 三块的窗口不一样，是接口的硬限：现货成交没有时间上限，合约损益只保留 90 天，
  * 合约未实现是此刻的值。所以不能加成一个数说"这段时间赚了多少"。
  *
- * **现货没有"未实现"。** 它是市值减加权平均成本，而那个成本要完整的买入历史——
- * 划转 / 理财派息 / 小额兑换进来的币在 `myTrades` 里没有痕迹，90 天以前的充值也
- * 查不回来，算出来永远缺一块。现货要看的是**每天涨跌了多少**，那只需要当天的
+ * **现货这一侧没有"相对成本"的任何数**——未实现没有，已实现也没有。两者都要
+ * 完整的买入历史，而划转 / 理财派息 / 小额兑换进来的币在 `myTrades` 里没有痕迹，
+ * 90 天以前的充值也查不回来。现货要看的是**每天涨跌了多少**，那只需要当天的
  * 持仓量与当天的收盘价，不需要任何成本。
- * 合约那半边不一样：`unRealizedProfit` 是交易所按自己的开仓均价给的，拿来即用。
+ * 合约那半边不一样：`unRealizedProfit` 与 `REALIZED_PNL` 都是交易所按自己的开仓
+ * 均价算好给的，拿来即用。
  */
 export type Pnl = {
   /** 今天赚了多少 = 日历最后一格。同一个数只算一处，两边不会对不上 */
@@ -242,9 +231,8 @@ export type Pnl = {
     futures_usd: number | null
     scope: string
   }
+  /** **只有合约。** 现货这一侧没有"相对成本"的任何数，见上 */
   realized: {
-    spot_usd: number | null
-    spot_scope: string
     futures_usd: number | null
     futures_scope: string
   }
@@ -258,16 +246,11 @@ export type Pnl = {
   daily: DailyPnl[]
   today_usd: number | null
   spot_marks: SpotMarkRow[]
-  spot_assets: SpotCostRow[]
   /**
    * 持仓量回滚不平的币：有一类进出没被覆盖到（多半是 90 天以外的充值，
    * 那个接口回不了那么远）。受影响的天已经报成 null，这里说出是哪几个币。
    */
   unbalanced_assets: string[]
-  /** 覆盖范围的实话：已清仓的标的查不到交易对 */
-  coverage: string | null
-  incomplete_assets: string[]
-  failed_symbols: string[]
 }
 
 export type PortfolioTotals = {

@@ -19,9 +19,7 @@ from typing import Any, Callable
 
 from .cache import SourceCache, SourceResult, fetch_all
 from .client import BinanceClient
-from .costbasis import (
-    USD_QUOTES, held_across_wallets, replay, split_symbol, summarize,
-)
+from .costbasis import USD_QUOTES, held_across_wallets, split_symbol
 from .dailypnl import collect_flows, daily_spot_pnl
 from .common import (
     WALLET_KIND, dec, dec0, guard, ms_to_iso, price_map, usd_price, usd_value,
@@ -112,14 +110,6 @@ def _closes(results: dict[str, SourceResult], symbols: list[str]
             out[pair[0]] = series
     return out
 
-
-class _Missing:
-    """`trade_results` 里没有这个键时的替身，省掉一处 `is None or not ok`。"""
-    ok = False
-    payload = None
-
-
-_MISSING = _Missing()
 
 _NO_DAILY = {"days": {}, "today_by_asset": [], "unknown_days": [],
              "unbalanced_assets": [], "unpriced_assets": []}
@@ -551,10 +541,9 @@ def _daily(income_rows: Any, spot_days: dict[str, float | None],
     是"这天没成交"——拿着 6 个 BNB 什么都不做，涨 10 块就是赚 60 块。现在按当天的
     持仓量与收盘价算，见 `dailypnl.py`。
 
-    **现货已实现不在这里再加一遍**：卖出那笔的盈亏已经含在市值变化里
-    （卖出当天的 `数量 × (收盘 − 成交价)` 那一项），加两次就是重复计。
-    `costbasis` 的已实现回答的是另一个问题（相对**终身**均价赚了多少），
-    只出现在盈亏构成里。
+    **现货这一侧不再有"相对成本"的任何数**：卖出那笔的盈亏已经含在市值变化里
+    （卖出当天的 `数量 × (收盘 − 成交价)` 那一项）。相对终身均价的那套算法整个
+    删了，理由见 `costbasis.py`。
 
     现货算不出来的那天（缺收盘价、或持仓量回滚出负数）整格报 `null`，
     不拿"只有合约那半边"的数冒充当天的盈亏。
@@ -592,7 +581,7 @@ def _daily(income_rows: Any, spot_days: dict[str, float | None],
     return out
 
 
-def _pnl(spot_cost: dict | None, spot_daily: dict, futures: dict | None,
+def _pnl(spot_daily: dict, futures: dict | None,
          income: dict | None, daily: list[dict]) -> dict | None:
     """盈亏构成。**每一项都有出处，没有残差项。**
 
@@ -604,28 +593,25 @@ def _pnl(spot_cost: dict | None, spot_daily: dict, futures: dict | None,
         每天   = 现货持仓涨跌（含当天成交那部分）+ 当天结算，见 `dailypnl.py`
         今天   = 上面那条的最后一格
         未实现 = **只有合约**：positionRisk 的 unRealizedProfit
-        已实现 = 现货卖出相对终身均价结转的 + 合约 REALIZED_PNL
+        已实现 = **只有合约**：income 的 REALIZED_PNL
         其他   = 资金费 + 手续费 + 返佣
 
-    **现货没有"未实现"这一项。** 它是市值减加权平均成本，而那个成本要完整的买入
-    历史，划转 / 派息 / 小额兑换进来的币在 `myTrades` 里没有痕迹，90 天以前的充值
-    也查不回来——算出来永远缺一块。现货要看的是每天涨跌了多少，那只需要当天的
-    持仓量与当天的收盘价，不需要任何成本。合约那半边不一样：`unRealizedProfit`
-    是交易所按自己的开仓均价给的，拿来即用。
+    **现货这一侧没有"相对成本"的任何数**——未实现没有，已实现也没有。两者都要
+    完整的买入历史：划转 / 派息 / 小额兑换进来的币在 `myTrades` 里没有痕迹，
+    90 天以前的充值也查不回来。卖得比重放看到的还多时能被识破（那个币会被标成
+    成本不明），可**买得比看到的多、卖得不多时无声出错**——报一个看不出错的数
+    比不报更糟。现货要看的是每天涨跌了多少，那只需要当天的持仓量与当天的收盘价，
+    不需要任何成本。合约那半边不一样：`unRealizedProfit` 与 `REALIZED_PNL` 都是
+    交易所按自己的开仓均价算好给的，拿来即用。
 
-    窗口不一样，是接口的硬限，不是选择：
-    - 现货成交 `myTrades` 用 fromId 翻页，**没有时间上限**，是全历史
-    - 合约 `income` **只保留 90 天**，`userTrades` 同样只有 90 天
-    - 合约未实现是**此刻**的值，没有窗口概念
-
-    所以界面上必须分开写，不能加成一个数说"这段时间赚了多少"。
+    窗口不一样，是接口的硬限，不是选择：逐日盈亏与 `income` 都只有 90 天，
+    而合约未实现是**此刻**的值、没有窗口。所以界面上必须分开写。
     """
-    spot_real = (spot_cost or {}).get("realized_usd")
     fut_unreal = (futures or {}).get("total_unrealized_pnl")
     fut_real = (income or {}).get("realized_pnl")
     last = daily[-1] if daily else None
 
-    if spot_cost is None and futures is None and income is None:
+    if futures is None and income is None and not spot_daily.get("days"):
         return None
     return {
         # 今天赚了多少 = 日历最后一格。**同一个数只算一处**——上一版今天与日历
@@ -641,8 +627,6 @@ def _pnl(spot_cost: dict | None, spot_daily: dict, futures: dict | None,
             "scope": "此刻的合约持仓",
         },
         "realized": {
-            "spot_usd": spot_real,
-            "spot_scope": "全部成交历史",
             "futures_usd": fut_real,
             "futures_scope": f"最近 {WINDOW_DAYS} 天（接口只保留 90 天）",
         },
@@ -655,10 +639,6 @@ def _pnl(spot_cost: dict | None, spot_daily: dict, futures: dict | None,
         "daily": daily,
         # 逐币的今日涨跌。数量跨全部钱包，划进合约当保证金的也算在里面。
         "spot_marks": spot_daily.get("today_by_asset", []),
-        "spot_assets": (spot_cost or {}).get("assets", []),
-        "coverage": (spot_cost or {}).get("coverage"),
-        "incomplete_assets": (spot_cost or {}).get("incomplete_assets", []),
-        "failed_symbols": (spot_cost or {}).get("failed_symbols", []),
         # 持仓量回滚不平的币：有一类进出没被覆盖到（多半是 90 天以外的充值）。
         # 受影响的天已经报成 null，这里把是哪几个币说出来，便于查。
         "unbalanced_assets": spot_daily.get("unbalanced_assets", []),
@@ -738,23 +718,6 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
                       dust=payload("flows.dust")),
         days=WINDOW_DAYS, now=now), fallback=_NO_DAILY) or _NO_DAILY
 
-    def cost_basis() -> dict | None:
-        missing = [sym for sym in cost_symbols
-                   if not (trade_results.get(f"trades.{sym}") or _MISSING).ok]
-        if missing and len(missing) == len(cost_symbols):
-            return None
-        lots = replay(all_trades(),
-                      deposits=payload("transfers.deposits") or [],
-                      rewards=[])
-        out = summarize(lots, {a: usd_price(a, prices) for a in held} | {"USDT": 1.0},
-                        held=held)
-        out["symbols"] = cost_symbols
-        # 已经卖光的币查不到：它不在余额里，就没有线索指向它的交易对。
-        # 说出来，别让人以为已实现是全的。
-        out["coverage"] = "只覆盖当前还持有的币；已清仓的标的查不到交易对"
-        out["failed_symbols"] = missing
-        return out
-
     # 净值以钱包分布为准：它是 Binance 自己给的、跨全部钱包的合计，
     # 比把各块自己加起来更不容易漏（漏一个钱包就少一块钱）。
     usable = [w["value_usd"] for w in wallets if w["activate"] and w["value_usd"] is not None]
@@ -788,7 +751,7 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "income": income,
         "transfers": transfers,
         "pnl": block("pnl", lambda: _pnl(
-            block("cost_basis", cost_basis), spot_daily, futures, income,
+            spot_daily, futures, income,
             _daily(payload("income"), spot_daily.get("days", {}), prices,
                    WINDOW_DAYS, now))),
     }

@@ -1,40 +1,43 @@
 import { cn } from '../../lib/cn'
-import { price, signedMoney } from '../../lib/format'
+import { signedMoney } from '../../lib/format'
 import type { Pnl } from '../../api/types'
 
 /**
- * 盈亏构成。**每一行都有出处，没有残差项。**
+ * 合约这 90 天的收支构成。**四行同一个窗口、同一个来源，所以条形可比。**
  *
- * 原先这里是一张归因表：期末 − 期初 − 净充提，剩下的靠残差反解"未实现变动"。
- * 那个残差会把一切口径错误照单全收——包括钱包之间的划转，所以它算出来的
- * "未实现变动"里混着充提。表面上瀑布永远闭合，错了也看不出来。
+ * 上一版叫「盈亏构成」，七行混着四种窗口：现货今日涨跌（1 天）、合约未实现（此刻）、
+ * 现货已实现（**全历史**）、合约已实现与资金费手续费（90 天）。条形是让人比较长短的，
+ * 而这些数根本不在一个尺度上——`+$3,847`（90 天）旁边摆着 `+$127`（今天），
+ * 比出来的东西没有意义。
  *
- * 三块的窗口不一样，是接口的硬限，不是选择。所以**不加成一个总数**：
- * "现货全历史 + 合约 90 天"加起来不是任何一个真实区间的成绩。
+ * 拆掉之后各归各位：
+ *
+ * - **现货涨跌归日历**：那里本来就按选中的区间求和，也是唯一有区间概念的地方。
+ * - **合约未实现归摘要条**：它是"此刻"，没有窗口，摘要条上已经有一格。
+ * - **现货已实现删掉**：它是"相对终身加权平均成本"的结转，和早先删掉的「现货
+ *   未实现」是同一个数的两半，依赖同一个算不准的成本。买入历史缺一块（划转 /
+ *   派息 / 小额兑换进来的币在 `myTrades` 里没有痕迹），均价就偏，卖出结转跟着偏。
+ *   卖得比重放看到的还多时能被识破（那个币会被标成成本不明），可**买得比看到的多、
+ *   卖得不多时无声出错**——报一个看不出错的数比不报更糟。
+ *
+ * 剩下这四行全部来自 `/fapi/v1/income`，同一个 90 天窗口（接口硬限），
+ * 加起来正好是这段时间合约结算掉的钱。
  */
 export function PnlBreakdown({ pnl }: { pnl: Pnl | null }) {
-  if (!pnl) {
-    return (
-      <p className="py-10 text-sm text-ink-3">
-        成交记录取不到，盈亏算不出来。这里不拿资产变化倒推——钱包之间的划转会被算成盈亏。
-      </p>
-    )
+  const rows: { label: string; value: number | null }[] = [
+    { label: '已实现盈亏', value: pnl?.realized.futures_usd ?? null },
+    { label: '资金费', value: pnl?.carry.funding_usd ?? null },
+    { label: '手续费', value: pnl?.carry.commission_usd ?? null },
+    { label: '返佣', value: pnl?.carry.referral_usd ?? null },
+  ]
+  const known = rows.filter((row) => row.value !== null)
+
+  if (known.length === 0) {
+    return <p className="py-10 text-sm text-ink-3">合约收支取不到。</p>
   }
 
-  // 每行只有标签和数字。窗口与出处收进摘要条那三个数字的详情抽屉里——
-  // 常驻在这里的话，七行小字比数字本身还占地方，而它们 99% 的时间没人看。
-  const rows: { label: string; value: number | null }[] = [
-    // 现货这一行是**今天的涨跌**，不是相对成本的未实现——后者要完整的买入历史，
-    // 而划转 / 派息 / 小额兑换进来的币在成交记录里没有痕迹，那段历史补不齐。
-    { label: '现货今日涨跌', value: pnl.today.spot_usd },
-    { label: '合约未实现', value: pnl.unrealized.futures_usd },
-    { label: '现货已实现', value: pnl.realized.spot_usd },
-    { label: '合约已实现', value: pnl.realized.futures_usd },
-    { label: '资金费', value: pnl.carry.funding_usd },
-    { label: '手续费', value: pnl.carry.commission_usd },
-    { label: '返佣', value: pnl.carry.referral_usd },
-  ]
-  const scale = Math.max(...rows.map((r) => Math.abs(r.value ?? 0)), 1)
+  const scale = Math.max(...known.map((row) => Math.abs(row.value ?? 0)), 1)
+  const total = known.reduce((sum, row) => sum + (row.value ?? 0), 0)
 
   return (
     <>
@@ -58,28 +61,13 @@ export function PnlBreakdown({ pnl }: { pnl: Pnl | null }) {
         </tbody>
       </table>
 
-      {/* 覆盖范围与"哪个币算不出来"都在详情抽屉里，这里不重复一遍 */}
-
-      {pnl.spot_marks.length > 0 && (
-        <div className="mt-6 border-t border-rule pt-4">
-          <p className="label mb-2.5">现货逐币</p>
-          <ul className="divide-y divide-rule/70">
-            {pnl.spot_marks.map((row) => (
-              <li className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4 py-2" key={row.asset}>
-                <span className="text-sm text-ink-2">{row.asset}</span>
-                <span className="tnum text-xs text-ink-3">
-                  {price(row.prev_close_usd)} → {price(row.price_usd)}
-                </span>
-                <span className={cn('tnum text-right text-sm',
-                  row.today_usd === null ? 'text-ink-3'
-                    : row.today_usd >= 0 ? 'text-gain' : 'text-loss')}>
-                  {row.today_usd === null ? '—' : signedMoney(row.today_usd)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* 四行同窗口同来源，加得起来——这是拆掉旧表之后才成立的 */}
+      <div className="mt-3 flex items-baseline justify-between gap-4">
+        <span className="text-sm text-ink">合计</span>
+        <span className={cn('tnum text-base', total >= 0 ? 'text-gain' : 'text-loss')}>
+          {signedMoney(total)}
+        </span>
+      </div>
     </>
   )
 }

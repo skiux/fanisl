@@ -75,23 +75,22 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
 export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; veiled: boolean }) {
   const t = snapshot.transfers
   const pnl = snapshot.pnl
-  const income = snapshot.income
   const grossFlow = t ? Math.max(t.deposits_usd, t.withdrawals_usd, 1) : 1
-  // 成本口径：资金费与手续费都是负数流出，取绝对值当"成本"，与毛利同向比较
-  const costs = income ? Math.abs(income.funding_fee) + Math.abs(income.commission) : null
-  const grossProfit = income ? income.realized_pnl + income.referral_kickback : null
 
   return (
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
-        {/* 原先这里是"期末 − 期初 − 净充提"的归因表，未实现变动由残差反解——
-            那个残差会把钱包间划转一起吸进来，所以它的"未实现变动"里混着充提。
-            现在每一项都有出处：现货来自成交重放，合约来自 positionRisk 与 income。 */}
-        <Module span="lg:col-span-7" title="盈亏构成">
+        {/* 四行同一个窗口、同一个来源，条形才可比——旧的「盈亏构成」把 1 天、
+            此刻、全历史、90 天四种窗口混在一张表里画对比条，见 PnlBreakdown。
+            现货那半边归日历（那里才有区间概念）。 */}
+        <Module note={`${WINDOW_DAYS} 天`} span="lg:col-span-8" title="合约收支">
           <PnlBreakdown pnl={pnl} />
         </Module>
 
-        <Stack span="lg:col-span-5">
+        {/* 原先这里还有一块「成本」，写着毛利 / 成本 / 成本占毛利 / 日均资金费——
+            全是左边那四个数换个排法算出来的（毛利 − 成本 恰好等于左边的合计），
+            同一屏说两遍。手续费与资金费在左边的条形上本来就一眼看得出占多少。 */}
+        <Stack span="lg:col-span-4">
           <Module
             figure={t ? signedMoney(t.net_usd) : '—'}
             span=""
@@ -124,29 +123,6 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
             ) : <p className="text-sm text-ink-3">充提记录取不到。</p>}
           </Module>
 
-          <Module
-            figure={costs === null ? '—' : signedMoney(-costs)}
-            span=""
-            title="成本"
-            tone={costs === null ? 'muted' : 'loss'}
-          >
-            {income ? (
-              <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-                <Figure label="毛利" tone="gain" value={signedMoney(grossProfit)} />
-                <Figure
-                  label="成本占毛利"
-                  value={grossProfit && grossProfit > 0 && costs !== null ? percent(costs / grossProfit, 1) : '—'}
-                />
-                <Figure
-                  label="日均资金费"
-                  note={`${WINDOW_DAYS} 天`}
-                  tone={income.funding_fee >= 0 ? 'gain' : 'loss'}
-                  value={signedMoney(income.funding_fee / WINDOW_DAYS)}
-                />
-                <Figure label="返佣" tone="gain" value={signedMoney(income.referral_kickback)} />
-              </dl>
-            ) : <p className="text-sm text-ink-3">收支流水取不到（fapi 不可达时这一节没有数据）。</p>}
-          </Module>
         </Stack>
 
         <Module span="lg:col-span-12" title="每日盈亏">
@@ -262,8 +238,10 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
         {parked.length > 0 && (
           <Module
             figure={money(parkedValue)}
-            // 同一个币可能同时在合约和杠杆里，按币种去重而不是数行数
-            note={`${new Set(parked.map((row) => row.asset)).size} 个币种`}
+            // 同一个币可能同时在合约和杠杆里，所以数的是**行**不是币种——
+            // 写"1 个币种"而底下列着两行（BNB 在合约、BNB 在杠杆）读着像错的。
+            // 单位跟「理财持仓 3 项」一致。
+            note={`${parked.length} 项`}
             span="lg:col-span-12"
             title="合约中的现货持仓"
           >

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Popover } from 'radix-ui'
 import { segmentClass } from './controls'
 import { cn } from '../lib/cn'
@@ -43,12 +43,20 @@ export function RangePicker({ first, last, value, active, onChange, onOpen }: {
   const [draft, setDraft] = useState({ from: first, to: last })
   const [edit, setEdit] = useState<'from' | 'to'>('from')
 
+  // 默认：右边是最后一天（"现在"），左边往前推一个月
+  const fallback = {
+    from: clamp(iso(new Date(Date.parse(`${last}T00:00:00Z`) - 29 * MS_DAY)), first, last),
+    to: last,
+  }
+
   const start = () => {
-    // 默认：右边是最后一天（"现在"），左边往前推一个月
-    setDraft(value ?? { from: clamp(iso(new Date(Date.parse(`${last}T00:00:00Z`) - 29 * MS_DAY)), first, last), to: last })
+    setDraft(value ?? fallback)
     setEdit('from')
     setOpen(true)
     onOpen()
+    // 头一次打开就把默认区间落下去。不落的话选择器里写着 08-07 — 09-05，
+    // 而页面按"还没选，先用全窗口"算了 90 天，两个数当着面对不上。
+    if (value === null) onChange(fallback)
   }
 
   const months: string[] = []
@@ -159,30 +167,81 @@ function Wheel({ items, value, onChange, label }: {
   label: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const settle = useRef<number | undefined>(undefined)
-  /** 程序在滚的时候别回读位置，见下 */
-  const driving = useRef(0)
+  const timer = useRef<number | undefined>(undefined)
+  const unlock = useRef<number | undefined>(undefined)
+  /** 正在由程序滚动：这期间读位置读到的是动画中途的值 */
+  const driving = useRef(false)
   const index = Math.max(0, items.findIndex((item) => item.value === value))
+
+  /**
+   * 滚到某一格。
+   *
+   * **一定要有解锁兜底。** 不是所有环境都做平滑滚动（本项目的预览面板整个关掉了，
+   * 连页面主滚动容器都不动），那时 `scrollTo` 不产生任何滚动，`scrollend` 永远不来。
+   * 只靠事件解锁的话 `driving` 永久为真，之后用户自己滚也回读不出值。
+   *
+   * 曾经以为是"吸附取消了平滑滚动"，还为此退回瞬时跳并把 `scroll-snap` 临时摘掉——
+   * 摘掉之后同样因为事件不来而再也装不回去，吸附直接没了。两个都是误诊的代价。
+   */
+  const glide = (top: number, smooth: boolean) => {
+    const el = ref.current
+    if (!el) return
+    driving.current = true
+    window.clearTimeout(unlock.current)
+    unlock.current = window.setTimeout(() => {
+      driving.current = false
+      // 平滑滚动没生效的环境里位置还停在原处：直接就位，
+      // 别让滚轮显示的格子和上面的日期对不上
+      const now = ref.current
+      if (now && Math.abs(now.scrollTop - top) > 2) now.scrollTop = top
+    }, 600)
+    el.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' })
+  }
+
+  /** 滚停了：把停在哪一格回写成值 */
+  const settle = () => {
+    const el = ref.current
+    if (!el) return
+    if (driving.current) { driving.current = false; return }
+    const hit = items[Math.min(items.length - 1,
+                               Math.max(0, Math.round(el.scrollTop / ITEM)))]
+    if (hit && hit.value !== value) onChange(hit.value)
+  }
+
+  // 事件回调要拿到最新的 `value` / `items`，而监听只挂一次——用 ref 转一道
+  const latest = useRef(settle)
+  latest.current = settle
+
+  // `scrollend` 在滚动**与吸附都结束**的那一刻触发，比定时器准也比定时器快；
+  // 上一版等 120ms 再回读，手感上就是那一下迟滞。不支持的浏览器走兜底定时器。
+  const hasScrollEnd = typeof window !== 'undefined' && 'onscrollend' in window
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !hasScrollEnd) return
+    const fn = () => latest.current()
+    el.addEventListener('scrollend', fn)
+    return () => el.removeEventListener('scrollend', fn)
+  }, [hasScrollEnd])
+
+  useEffect(() => () => {
+    window.clearTimeout(timer.current)
+    window.clearTimeout(unlock.current)
+  }, [])
 
   // 上下各留两格空白，第一项与最后一项才能停在中间。
   // 于是"第 i 项居中"恰好等于 scrollTop = i × 行高，取值与回填都只有这一条算式。
   //
-  // 两处踩过的坑，改动前先读：
-  //
   // **必须在布局阶段对齐。** Popover 是打开那一刻才挂载的，用 `useEffect` 的话
   // 首帧容器还没布局，滚动请求落空——打开看到的是停在 0 的滚轮。
-  //
-  // **不能用 `behavior: 'smooth'`。** 容器是 `scroll-snap-type: y mandatory`，
-  // 吸附会把程序发起的平滑滚动取消掉：实测点 7 月，字段变成 7 月而滚轮纹丝不动
-  // （effect 确实跑了、scrollTo 也调了，位置就是不动）。瞬时对位没有这个问题。
+  // 首次（打开那一下）直接就位，之后换值才滑过去。
+  const opened = useRef(false)
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
     const top = index * ITEM
-    if (Math.abs(el.scrollTop - top) < 2) return
-    // 瞬时跳也会触发一次 scroll，锁住下面那个回读，免得它把值又读回去
-    driving.current = Date.now() + 200
-    el.scrollTo({ top, behavior: 'auto' })
+    if (Math.abs(el.scrollTop - top) < 2) { opened.current = true; return }
+    glide(top, opened.current)
+    opened.current = true
   }, [index])
 
   return (
@@ -193,15 +252,9 @@ function Wheel({ items, value, onChange, label }: {
         aria-label={label}
         className="wheel relative h-full"
         onScroll={() => {
-          // 滚停之后再取值：滚动途中每一帧都回写会跟吸附打架
-          window.clearTimeout(settle.current)
-          settle.current = window.setTimeout(() => {
-            const el = ref.current
-            if (!el || Date.now() < driving.current) return
-            const hit = items[Math.min(items.length - 1,
-                                       Math.max(0, Math.round(el.scrollTop / ITEM)))]
-            if (hit && hit.value !== value) onChange(hit.value)
-          }, 120)
+          if (hasScrollEnd) return
+          window.clearTimeout(timer.current)
+          timer.current = window.setTimeout(() => latest.current(), 140)
         }}
         ref={ref}
       >

@@ -21,15 +21,20 @@ export function AccountPage() {
   const user = session.status === 'authenticated' ? session.user : null
 
   const [rows, setRows] = useState<SessionRow[] | null>(null)
+  const [failed, setFailed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
+    setFailed(false)
     try {
       setRows(await listSessions())
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '读取会话列表失败')
+      // **失败要落地，但不能落成空列表。** 不动 rows 的话上面挂着报错、下面
+      // 还转着"正在读取…"；落成 `[]` 又会显示成"一个会话都没有"。
+      setFailed(true)
     }
   }, [])
 
@@ -84,7 +89,9 @@ export function AccountPage() {
                   span=""
                   title="活跃会话"
                 >
-                  {rows === null ? (
+                  {failed ? (
+                    <p className="py-6 text-center text-sm text-ink-3">这次没读到。</p>
+                  ) : rows === null ? (
                     <p className="py-6 text-center text-sm text-ink-3">正在读取…</p>
                   ) : (
                     <>

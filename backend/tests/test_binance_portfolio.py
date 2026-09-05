@@ -323,16 +323,26 @@ def test_malformed_response_degrades_one_block_not_the_whole_page(cache):
 
 def test_pnl_has_no_residual_every_line_has_a_source(cache):
     """原先未实现变动是残差反解的，任何口径错误都会被它吸走而看不出来。
-    现在每一项都有出处：现货来自成交重放，合约来自 positionRisk 与 income。"""
+    现在每一项都有出处：现货来自逐日盯市，合约来自 positionRisk 与 income。"""
     snap = build(cache)
     pnl = snap["pnl"]
     assert pnl["unrealized"]["futures_usd"] == pytest.approx(
         snap["futures"]["total_unrealized_pnl"])
     assert pnl["realized"]["futures_usd"] == pytest.approx(
         snap["income"]["realized_pnl"])
-    # 三块的窗口不一样，接口的硬限，必须分开说
-    assert "全部成交历史" in pnl["realized"]["spot_scope"]
     assert "90 天" in pnl["realized"]["futures_scope"]
+
+
+def test_spot_has_no_cost_based_number_at_all(cache):
+    """守住方向：现货这一侧不出"相对成本"的任何数——未实现没有，已实现也没有。
+
+    两者要的是同一段补不齐的买入历史（划转 / 派息 / 小额兑换进来的币在 myTrades
+    里没有痕迹）。卖得比看到的多时能被识破，可买得比看到的多、卖得不多时无声出错。
+    """
+    pnl = build(cache)["pnl"]
+    assert set(pnl["unrealized"]) == {"futures_usd", "scope"}
+    assert set(pnl["realized"]) == {"futures_usd", "futures_scope"}
+    assert "spot_assets" not in pnl
 
 
 def test_pnl_is_immune_to_wallet_transfers(cache):
@@ -354,8 +364,8 @@ def test_pnl_is_immune_to_wallet_transfers(cache):
         after = build(cache)["pnl"]
         # 逐日盈亏按**跨全部钱包**的持有量算，币挪去哪个钱包都不影响
         assert after["today"]["spot_usd"] == pytest.approx(before["today"]["spot_usd"])
-        assert after["realized"]["spot_usd"] == pytest.approx(
-            before["realized"]["spot_usd"])
+        assert [d["spot_usd"] for d in after["daily"]] == pytest.approx(
+            [d["spot_usd"] for d in before["daily"]])
     finally:
         USER_ASSET[USER_ASSET.index(moved)] = bnb
         FUT_ACCOUNT["assets"] = [a for a in FUT_ACCOUNT["assets"]
@@ -394,19 +404,19 @@ def test_futures_wallet_exposes_per_asset_balances(cache):
     assert "PAXG" not in by      # 余额为 0 的不占位
 
 
-def test_cost_basis_counts_coins_sitting_in_the_futures_wallet(cache):
-    """合约钱包里的 USDT 要算进持有量——只看现货的话它凭空少一大块。"""
-    snap = build(cache)
-    usdt = next(a for a in snap["pnl"]["spot_assets"] if a["asset"] == "USDT")
-    spot_usdt = next(a["total"] for a in snap["spot"] if a["asset"] == "USDT")
-    fut_usdt = next(a["wallet_balance"] for a in snap["futures"]["assets"]
-                    if a["asset"] == "USDT")
-    marg_usdt = sum(a["net"] for a in snap["margin"]["assets"] if a["asset"] == "USDT")
-    earn_usdt = sum(e["amount"] for e in snap["earn"] if e["asset"] == "USDT")
+def test_held_counts_coins_sitting_in_the_futures_wallet(cache):
+    """合约钱包里的币要算进持有量——只看现货的话它凭空少一块。
 
-    assert usdt["qty"] > spot_usdt          # 光看现货会少一大块
-    assert usdt["qty"] == pytest.approx(spot_usdt + fut_usdt + marg_usdt + earn_usdt,
-                                        rel=1e-9)
+    逐日盈亏用的就是这个持有量，所以 `spot_marks` 里的数量能反过来验它。
+    """
+    snap = build(cache)
+    bnb = next(r for r in snap["pnl"]["spot_marks"] if r["asset"] == "BNB")
+    spot_bnb = next(a["total"] for a in snap["spot"] if a["asset"] == "BNB")
+    earn_bnb = sum(e["amount"] for e in snap["earn"] if e["asset"] == "BNB")
+    marg_bnb = sum(a["net"] for a in snap["margin"]["assets"] if a["asset"] == "BNB")
+
+    assert bnb["qty"] > spot_bnb            # 光看现货会少一块
+    assert bnb["qty"] == pytest.approx(spot_bnb + earn_bnb + marg_bnb, rel=1e-9)
 
 
 # --- 每日已实现（日历图） --------------------------------------------------

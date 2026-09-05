@@ -1,46 +1,32 @@
-"""现货的成本基础：从成交明细重放出每个币的持仓均价与已实现盈亏。
+"""持有量与交易对：把 Binance 的原始形状翻成"这个账户一共有多少某个币"。
 
-**为什么不能用资产差额法。** 原先"真实盈亏 = 期末净值 − 期初净值 − 净充提"这条路
-在 Binance 上走不通：`accountSnapshot` 只有 SPOT / MARGIN / FUTURES 三种日快照，
-理财、资金、币本位、期权没有历史快照，"全部钱包的期初"取不到。只覆盖三个钱包的话，
-**钱包之间的划转会被算成盈亏**——从现货转 10000 USDT 进理财，就凭空亏 10000。
-币安自己能用差额法是因为它看得见所有钱包，我们看不见。
+原来这里还有一整套**成本基础**引擎（`Lot` / `replay` / `summarize`）：从成交明细
+重放出每个币的持仓均价，再算相对成本的未实现与已实现。整套删了，理由是它答的
+那个问题在这个账户上答不了——
 
-成交法对划转完全免疫：划转不是成交，动不了任何一个币的数量与成本。
+**买入历史补不齐。** 划转、理财派息、小额兑换、闪兑进来的币在 `myTrades` 里没有
+任何痕迹，`capital/deposit/hisrec` 又只回 90 天，更早的充值永远查不回来。均价缺一块，
+未实现和已实现就都跟着偏。卖得比重放看到的还多时能被识破（那个币会被标成成本不明），
+可**买得比看到的多、卖得不多时无声出错**——报一个看不出错的数比不报更糟。
+为它修过三轮（虚高六倍 → 只算成本已知的那部分 → 开一条人工通道让人手填均价），
+每一轮都是在给一个不该问的问题找答案。
 
-## 口径
+**现货要回答的是"每天涨跌了多少"**，那只需要当天的持仓量与当天的收盘价，
+不需要任何成本。见 `dailypnl.py`。合约那半边不受影响：`unRealizedProfit` 与
+`REALIZED_PNL` 都是交易所按自己的开仓均价算好给的，拿来即用。
 
-**移动加权平均。** 买入时把成本并进去，卖出时按当时的均价结转：
+剩下的两件事仍然要做，所以留在这里：
 
-    新均价 = (原持仓 × 原均价 + 买入量 × 买入价) / (原持仓 + 买入量)
-    已实现 = 卖出量 × (卖出价 − 卖出时的均价)
-
-不用 FIFO：FIFO 要维护完整的批次队列，而两者在**全部卖光**时结果完全一致，
-只在中途部分卖出时分摊不同。加权平均更好解释，也是交易所面板的通行做法。
-
-**手续费按计价币扣在成本上。** BNB 抵扣的手续费另算——那笔 BNB 是从余额里出的，
-它自己的成本已经在 BNB 的账上，不能再从这笔交易的成本里扣一次。
-
-**充值进来的币按到账时市价计入成本。** 它在别处的买入价我们看不到；当成 0 成本的话，
-一笔从别的交易所转进来的 BNB 会显示成 100% 的利润。这也是 Binance 自己的口径：
-盈亏从"资产进入这个账户"那一刻起算。
-
-**只认能换算成 USD 的成交。** 计价币是 USDT / USDC 这类稳定币时直接按 1 美元算；
-计价币是 BTC / ETH 时需要成交当时的汇率，取不到就整个币标为"成本不明"，
-在界面上留空而不是给一个错的均价。
-
-**这里只出已实现。** 现货的未实现盈亏不算——见 `summarize` 的注释：它需要完整的
-买入历史，而那段历史补不齐。今天涨跌多少改用盯市（`portfolio._spot_today`）。
+- `split_symbol`：`BNBUSDT` → `("BNB", "USDT")`。Binance 的 symbol 不带分隔符。
+- `held_across_wallets`：**跨全部钱包**的持有量。逐日盈亏的回滚全靠它——
+  钱包之间的划转因此自动抵消，不必去查划转记录。
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Iterable
+from typing import Iterable
 
-from .common import dec, dec0
-
-# 计价币是这些时，成交价就是美元价（差几个基点，对成本基础没有意义）
+# 计价币是这些时，成交价就是美元价（差几个基点，对逐日盈亏没有意义）
 USD_QUOTES = ("USDT", "USDC", "BUSD", "FDUSD", "TUSD", "USDP", "DAI")
 
 
@@ -55,191 +41,6 @@ def split_symbol(symbol: str, quotes: Iterable[str] = USD_QUOTES) -> tuple[str, 
         if symbol.endswith(quote) and len(symbol) > len(quote):
             return symbol[: -len(quote)], quote
     return None
-
-
-class Lot:
-    """一个币的持仓与成本。数量和成本都是"这个账户里现在有多少、花了多少"。
-
-    **稳定币是现金，不是持仓。** USDT 的成本恒等于面值、盈亏恒为 0；把它当成
-    有成本的仓位来记，会因为"没见过 USDT 的买入"而被标成成本不明，
-    进而把它从已实现合计里剔掉——而它恰恰是账户里最大的一块。
-    """
-
-    __slots__ = ("qty", "cost_usd", "realized_usd", "unknown_cost", "is_cash",
-                 "realized_by_day")
-
-    def __init__(self, *, is_cash: bool = False) -> None:
-        self.qty = 0.0
-        self.cost_usd = 0.0
-        self.realized_usd = 0.0
-        # 按天分桶，给日历图用。卖出发生在哪天就记在哪天。
-        self.realized_by_day: dict[str, float] = {}
-        # 有一笔进账算不出美元成本（跨币种成交缺历史汇率、或来源不明）。
-        # 一旦置位，这个币的均价就不再可信，界面上要留空。
-        self.unknown_cost = False
-        self.is_cash = is_cash
-
-    @property
-    def avg_cost(self) -> float | None:
-        if self.is_cash:
-            return 1.0
-        if self.unknown_cost or self.qty <= 0:
-            return None
-        return self.cost_usd / self.qty
-
-    def buy(self, qty: float, price_usd: float | None) -> None:
-        if qty <= 0:
-            return
-        if self.is_cash:
-            self.qty += qty
-            self.cost_usd += qty
-            return
-        if price_usd is None:
-            self.unknown_cost = True
-            self.qty += qty
-            return
-        self.qty += qty
-        self.cost_usd += qty * price_usd
-
-    def sell(self, qty: float, price_usd: float | None, day: str = "") -> None:
-        """卖出按卖出**当时**的均价结转，剩下的持仓均价不变。"""
-        if qty <= 0:
-            return
-        if self.is_cash:
-            # 现金花出去就是花出去，没有盈亏，也不因为"花得比看到的多"而变成不明——
-            # 我们本来就看不全 USDT 是怎么进来的
-            self.qty -= qty
-            self.cost_usd -= qty
-            return
-        # 卖得比记录的还多，说明有进账没被看到（成交历史不全、或币是充值进来的
-        # 而充值记录没覆盖）。把差额按 0 成本记，并标记这个币成本不明——
-        # 悄悄让数量变成负数才是最糟的，那会让均价变成负的。
-        if qty > self.qty + 1e-12:
-            self.unknown_cost = True
-            qty = self.qty if self.qty > 0 else 0.0
-            if qty <= 0:
-                return
-        avg = self.cost_usd / self.qty if self.qty > 0 else 0.0
-        if price_usd is not None and not self.unknown_cost:
-            gain = qty * (price_usd - avg)
-            self.realized_usd += gain
-            if day:
-                self.realized_by_day[day] = self.realized_by_day.get(day, 0.0) + gain
-        elif price_usd is not None:
-            # 成本不明时不记已实现——记了就是编一个数
-            pass
-        self.qty -= qty
-        self.cost_usd -= qty * avg
-        if self.qty <= 1e-12:
-            self.qty = 0.0
-            self.cost_usd = 0.0
-
-
-def replay(trades: Iterable[dict], *, deposits: Iterable[dict] = (),
-           rewards: Iterable[dict] = (), usd_rate: Any = None) -> dict[str, Lot]:
-    """把成交与进账按时间重放成每个币的 `Lot`。
-
-    `trades`   现货成交（`/api/v3/myTrades` 的原样行，需带 `symbol`）
-    `deposits` 充值（`/sapi/v1/capital/deposit/hisrec`），按到账时市价计入成本
-    `rewards`  理财派息一类的白得收益，按到账时市价计入成本、同额记为已实现
-    `usd_rate` `(asset, time_ms) -> float | None`，非稳定币计价时用来换算。
-               给 None 表示"没有历史汇率"，跨币种成交会把该币标为成本不明。
-    """
-    lots: dict[str, Lot] = {}
-
-    def lot(asset: str) -> Lot:
-        if asset not in lots:
-            lots[asset] = Lot(is_cash=asset in USD_QUOTES)
-        return lots[asset]
-
-    def rate(asset: str, at: int) -> float | None:
-        if asset in USD_QUOTES:
-            return 1.0
-        return usd_rate(asset, at) if usd_rate else None
-
-    events: list[tuple[int, int, dict]] = []
-    # 第二个键是同一毫秒内的排序：先进账再成交，免得"充值到账与买入同毫秒"时
-    # 卖出先跑而把持仓算成负的
-    for row in deposits or []:
-        events.append((_ms(row.get("insertTime")), 0, {"kind": "deposit", "row": row}))
-    for row in rewards or []:
-        events.append((_ms(row.get("time")), 0, {"kind": "reward", "row": row}))
-    for row in trades or []:
-        events.append((_ms(row.get("time")), 1, {"kind": "trade", "row": row}))
-    events.sort(key=lambda e: (e[0], e[1]))
-
-    for at, _, event in events:
-        row = event["row"]
-        if event["kind"] == "trade":
-            _apply_trade(lot, row, at, rate, _day_of(at))
-        else:
-            asset = row.get("coin") or row.get("asset") or ""
-            amount = dec0(row.get("amount") or row.get("rewards"))
-            if not asset or amount <= 0:
-                continue
-            price = rate(asset, at)
-            lot(asset).buy(amount, price)
-            if event["kind"] == "reward" and price is not None:
-                # 派息是白得的：成本记市价，同时把这一笔记成已实现收益，
-                # 否则它会在"未实现"里冒出来，看着像持仓涨了
-                lot(asset).realized_usd += amount * price
-    return lots
-
-
-def _apply_trade(lot, row: dict, at: int, rate, day: str = "") -> None:
-    pair = split_symbol(row.get("symbol", ""), _QUOTE_GUESSES)
-    if pair is None:
-        return
-    base, quote = pair
-    qty = dec0(row.get("qty"))
-    price = dec(row.get("price"))
-    if qty <= 0 or price is None:
-        return
-    quote_usd = rate(quote, at)
-    price_usd = None if quote_usd is None else price * quote_usd
-
-    if row.get("isBuyer"):
-        lot(base).buy(qty, price_usd)
-        lot(quote).sell(qty * price, rate(quote, at))
-    else:
-        lot(base).sell(qty, price_usd, day)
-        lot(quote).buy(qty * price, rate(quote, at))
-
-    # 手续费。用 BNB 抵扣时那笔 BNB 从余额里出，它的成本在 BNB 自己账上，
-    # 这里只把数量扣掉；手续费收计价币时，才算进这笔交易的成本。
-    fee = dec0(row.get("commission"))
-    fee_asset = row.get("commissionAsset", "")
-    if fee > 0 and fee_asset:
-        lot(fee_asset).sell(fee, rate(fee_asset, at))
-
-
-# 拆 symbol 时除了稳定币还要认得出常见的币本位计价，否则 `BNBBTC` 会被整条丢掉
-_QUOTE_GUESSES = (*USD_QUOTES, "BTC", "ETH", "BNB")
-
-
-def _day_of(ms: int) -> str:
-    """毫秒 → UTC 日期。日历按 UTC 分桶，与 Binance 的结算日一致。"""
-    if ms <= 0:
-        return ""
-    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).date().isoformat()
-
-
-def realized_by_day(lots: dict[str, Lot]) -> dict[str, float]:
-    """全部币加起来，每天现货结转了多少。"""
-    out: dict[str, float] = {}
-    for lot in lots.values():
-        if lot.unknown_cost and not lot.is_cash:
-            continue
-        for day, amount in lot.realized_by_day.items():
-            out[day] = out.get(day, 0.0) + amount
-    return out
-
-
-def _ms(value: Any) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return 0
 
 
 def held_across_wallets(spot: list[dict], futures: dict | None,
