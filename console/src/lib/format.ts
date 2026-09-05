@@ -48,11 +48,18 @@ export function amount(value: number) {
   return value.toFixed(8).replace(/0+$/, '').replace(/\.$/, '')
 }
 
+/**
+ * 报价。位数按数量级走：几千块的标的不需要小数，亚分币需要八位。
+ *
+ * 小数那一档**不能用 `toPrecision`**：它在指数小于 −6 时改回科学计数法，
+ * LUNC（9.1e-7）会印成 `$9.10e-7`。`maximumSignificantDigits` 同样是三位有效数字，
+ * 但一路展开成 `$0.00000091`。
+ */
 export function price(value: number | null) {
   if (value === null || !Number.isFinite(value)) return '—'
   if (value >= 1000) return usd.format(value)
   if (value >= 1) return `$${value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}`
-  return `$${value.toPrecision(3)}`
+  return `$${value.toLocaleString('en-US', { maximumSignificantDigits: 3 })}`
 }
 
 /** 稳定币不是"集中持仓"：算最大单一敞口时要排除，否则 USDT 永远是第一名 */

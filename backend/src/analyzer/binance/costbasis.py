@@ -28,6 +28,10 @@
 **只认能换算成 USD 的成交。** 计价币是 USDT / USDC 这类稳定币时直接按 1 美元算；
 计价币是 BTC / ETH 时需要成交当时的汇率，取不到就整个币标为"成本不明"，
 在界面上留空而不是给一个错的均价。
+
+**重放盖不住的那部分由人手补。** 划转 / 派息 / 小额兑换进来的币在 `myTrades` 里
+没有任何痕迹，90 天以前的充值也查不回来——缺的是历史，不是算法。管理员可以给某个
+币直接录一个持仓均价，见 `costbasis_store.py`；`summarize` 的 `overrides` 就是它。
 """
 
 from __future__ import annotations
@@ -272,7 +276,8 @@ def held_across_wallets(spot: list[dict], futures: dict | None,
 
 
 def summarize(lots: dict[str, Lot], prices: dict[str, float],
-              held: dict[str, float] | None = None) -> dict:
+              held: dict[str, float] | None = None,
+              overrides: dict[str, float] | None = None) -> dict:
     """`Lot` → 给接口的形状。
 
     `held` 是**账户里实际的余额**。数量以它为准：重放出来的数量常常比余额少
@@ -284,20 +289,32 @@ def summarize(lots: dict[str, Lot], prices: dict[str, float],
     1 个 BNB @ $650、实际持有 6.712 个，未实现被算成 +$215.79，而有据可依的只有
     +$32.15，凭空多出 $183.64。
 
-    现在只对 `min(余额, 重放数量)` 那部分算盈亏，多出来的数量单独报在
+    所以只对 `min(余额, 重放数量)` 那部分算盈亏，多出来的数量单独报在
     `unpriced_qty` 里，界面上说清楚"其中多少成本不明"。
+
+    `overrides` 是**人手填的均价**（见 costbasis_store.py）：填了就整仓按它算，
+    `unpriced_qty` 归零。缺的是历史不是算法——90 天以前的充值接口再也查不回来，
+    只能让知道的人报出来。已实现不受影响：一个当前的均价回答不了过去那些卖出。
+
+    **遍历的是余额 ∪ 重放 ∪ 录入**，不只是重放。只从 `lots` 出发的话，一个从来
+    没在这个账户里买过的币（整仓划转进来的）压根不会出现在列表里——而它恰恰是
+    最需要人手填均价的那一类。
     """
     rows = []
     unrealized = realized = 0.0
     incomplete = []
-    for asset, lot in sorted(lots.items()):
-        qty = held.get(asset, lot.qty) if held is not None else lot.qty
+    overrides = overrides or {}
+    held = held if held is not None else {}
+    for asset in sorted(set(lots) | set(held) | set(overrides)):
+        lot = lots.get(asset) or Lot(is_cash=asset in USD_QUOTES)
+        qty = held.get(asset, lot.qty)
         price = prices.get(asset)
-        avg = lot.avg_cost
+        manual = overrides.get(asset)
+        avg = manual if manual is not None else lot.avg_cost
         value = None if price is None else qty * price
-        # 成本已知的只有重放到的那部分。现金除外：USDT 的成本恒等于面值，
-        # 不需要见过它怎么进来的
-        priced_qty = qty if lot.is_cash else min(qty, lot.qty)
+        # 成本已知的只有重放到的那部分。现金除外（USDT 的成本恒等于面值，
+        # 不需要见过它怎么进来的），人手填了均价的也除外——那句话管的是整仓。
+        priced_qty = qty if (lot.is_cash or manual is not None) else min(qty, lot.qty)
         unpriced_qty = max(0.0, qty - priced_qty)
         gain = None if (price is None or avg is None) else priced_qty * (price - avg)
         if gain is not None:
@@ -314,12 +331,17 @@ def summarize(lots: dict[str, Lot], prices: dict[str, float],
             # 这些币没见过买入记录，成本算不出来——数量报出来，让界面说清楚
             "unpriced_qty": unpriced_qty,
             "avg_cost_usd": avg,
+            # 这个均价是谁给的。界面要能把人手填的那几行标出来，否则"改了没生效"
+            # 与"改的是另一个币"分不开
+            "cost_source": "manual" if manual is not None
+                           else "cash" if lot.is_cash
+                           else "trades" if lot.avg_cost is not None else None,
             "price_usd": price,
             "value_usd": value,
             "unrealized_usd": gain,
             "realized_usd": None if (lot.unknown_cost and not lot.is_cash)
                             else lot.realized_usd,
-            "cost_known": lot.is_cash or not lot.unknown_cost,
+            "cost_known": lot.is_cash or manual is not None or not lot.unknown_cost,
             "is_cash": lot.is_cash,
         })
     return {

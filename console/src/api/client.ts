@@ -4,6 +4,7 @@ import * as lfx from './ledger-fixtures'
 import * as ofx from './orders-fixtures'
 import {
   PortfolioError,
+  type CostBasisEntry,
   type LedgerSnapshot,
   type OrdersSnapshot,
   type PortfolioSnapshot, type SourceKey, type SourceState, type SourceStatus,
@@ -53,9 +54,10 @@ export function writeScenario(scenario: Scenario) {
 }
 
 /** 真接口的网络/服务错误统一成 PortfolioError，上层的错误屏不用认两种类型。 */
-async function live<T>(path: string, signal?: AbortSignal): Promise<T> {
+async function live<T>(path: string, signal?: AbortSignal,
+                       init?: RequestInit): Promise<T> {
   try {
-    return await apiJson<T>(path, { signal })
+    return await apiJson<T>(path, { signal, ...init })
   } catch (error) {
     if (error instanceof ApiError) {
       // 401 交给会话闸门处理，不要在这里变成"读不到账户数据"那一屏
@@ -191,7 +193,41 @@ export async function fetchPortfolio(
   if (scenario === 'down') {
     throw new PortfolioError('network', '连不上 fanisl 后端（127.0.0.1:8000）')
   }
-  return scenarioSnapshot(scenario)
+  return applyCostBasis(scenarioSnapshot(scenario))
+}
+
+/**
+ * 把内存里那几条人手录的均价按**后端同一条规则**盖到快照上，供「现货成本」页评审用。
+ *
+ * 不做这一步的话，mock 下点了保存屏幕上什么都不动——而"改了没生效"正是这一页
+ * 最该讲清楚的一件事，评审时看到的却是一个假象。
+ */
+function applyCostBasis(snapshot: PortfolioSnapshot): PortfolioSnapshot {
+  if (mockCostBasis.size === 0 || !snapshot.pnl) return snapshot
+  const assets = snapshot.pnl.spot_assets.map((row) => {
+    const avg = mockCostBasis.get(row.asset)?.avg_cost_usd
+    if (avg === undefined) return row
+    // 录了均价就整仓按它算，unpriced_qty 归零；已实现不动
+    return {
+      ...row, avg_cost_usd: avg, unpriced_qty: 0,
+      cost_source: 'manual' as const,
+      unrealized_usd: row.price_usd === null ? null : row.qty * (row.price_usd - avg),
+    }
+  })
+  const spot = assets.reduce((sum, row) => sum + (row.unrealized_usd ?? 0), 0)
+  const futures = snapshot.pnl.unrealized.futures_usd
+  return {
+    ...snapshot,
+    pnl: {
+      ...snapshot.pnl,
+      spot_assets: assets,
+      unrealized: {
+        ...snapshot.pnl.unrealized,
+        spot_usd: spot,
+        total_usd: spot + (futures ?? 0),
+      },
+    },
+  }
 }
 
 /* --------------------------- 委托 --------------------------- */
@@ -398,4 +434,48 @@ export async function fetchLedger(
     throw new PortfolioError('network', '连不上 fanisl 后端（127.0.0.1:8000）')
   }
   return scenarioLedger(scenario, days)
+}
+
+/* ------------------------ 现货成本（仅管理员）------------------------ */
+/**
+ * 人手录的持仓均价。读写都只给管理员——效果（改过的盈亏数字）对所有人可见，
+ * 但这里是配置：谁在什么时候按什么价录的，成员看了也做不了什么。
+ *
+ * **mock 场景下走内存**，与另外三个取数函数同一个理由：这一页也要能在
+ * 十种降级态里扫一遍版式，而它原本会在每个场景下 404 成一屏错误。
+ * 内存那份跟着页面刷新消失，只用来看长相与改动流程。
+ */
+const mockCostBasis = new Map<string, CostBasisEntry>()
+
+export async function listCostBasis(scenario: Scenario): Promise<CostBasisEntry[]> {
+  if (scenario === 'live') return live<CostBasisEntry[]>('/admin/cost-basis')
+  await new Promise((resolve) => setTimeout(resolve, 120))
+  if (scenario === 'down') {
+    throw new PortfolioError('network', '连不上 fanisl 后端（127.0.0.1:8000）')
+  }
+  return [...mockCostBasis.values()].sort((a, b) => a.asset.localeCompare(b.asset))
+}
+
+export async function setCostBasis(scenario: Scenario, asset: string, body: {
+  avg_cost_usd: number
+  qty_at_entry: number | null
+}): Promise<CostBasisEntry> {
+  if (scenario === 'live') {
+    return live<CostBasisEntry>(`/admin/cost-basis/${encodeURIComponent(asset)}`, undefined,
+                                { method: 'PUT', body: JSON.stringify(body) })
+  }
+  const entry: CostBasisEntry = {
+    asset: asset.toUpperCase(), ...body, note: '',
+    updated_at: new Date().toISOString(), updated_by: 'mock',
+  }
+  mockCostBasis.set(entry.asset, entry)
+  return entry
+}
+
+export async function deleteCostBasis(scenario: Scenario, asset: string): Promise<void> {
+  if (scenario === 'live') {
+    await live(`/admin/cost-basis/${encodeURIComponent(asset)}`, undefined, { method: 'DELETE' })
+    return
+  }
+  mockCostBasis.delete(asset.toUpperCase())
 }

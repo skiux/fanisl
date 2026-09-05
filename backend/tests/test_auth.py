@@ -457,10 +457,16 @@ def _walk_routes(routes):
 
 @pytest.fixture(scope="module")
 def real_client():
+    """**不进 lifespan 上下文**（不写 `with`）。
+
+    `main._lifespan` 退出时会 `shutdown_pools()`，把 runtime 那三个全局池关掉——
+    模块 teardown 之后，本次会话里任何再用到它们的用例都会 `PoolClosed`。
+    这一组要验的是路由与中间件，启动钩子里没有它们需要的东西（这个 app 的
+    lifespan 只有关池那一句），所以不进上下文，什么也没少验。
+    """
     from analyzer.main import app as real_app
 
-    with TestClient(real_app, base_url="https://testserver") as c:
-        yield c
+    yield TestClient(real_app, base_url="https://testserver")
 
 
 def test_route_walker_sees_included_routers():
