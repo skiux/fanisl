@@ -132,37 +132,10 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
   （`spot_assets[].qty`），但盈亏只对 `min(余额, 重放数量)` 算，多出来的报在
   `spot_assets[].unpriced_qty`。**别拿 `qty × (price − avg_cost)` 自己重算**——
   那正是修过的 bug，实测把现货未实现放大了六倍多。
-- `spot_assets[]` 遍历的是**余额 ∪ 重放 ∪ 人手录入**，不只是重放：整仓划进合约、
-  从没在现货买过的币也会出现（`avg_cost_usd: null`、`unpriced_qty` 等于全部数量）。
-- `spot_assets[].cost_source` 说这个均价是谁给的：`manual`（管理员录的，见
-  `/admin/cost-basis`）/ `trades`（成交重放）/ `cash`（稳定币，恒为 1）/ `null`（算不出）。
-  `manual` 的那几行 `unpriced_qty` 是 0——录入的均价管整仓。
 - `income` 的金额单位是该行的 `asset`，不一定是 USDT（手续费常用 BNB 抵扣）。
   已在服务端按币种换算成 USD，客户端不必再折算。
 - 三块的窗口不一样是接口硬限，**不要把 `realized.spot_usd` 与 `realized.futures_usd`
   加成一个数**当作某个统一区间的成绩。
-
-#### 现货成本的人工修正
-
-```
-GET    /admin/cost-basis              → [{asset, avg_cost_usd, qty_at_entry, note,
-                                          updated_at, updated_by}]
-PUT    /admin/cost-basis/{asset}      body {avg_cost_usd>0, qty_at_entry?, note?}
-DELETE /admin/cost-basis/{asset}      404 表示本来就没有这条
-```
-
-**三条都只给管理员**（非管理员 403），尽管效果——改过的 `unrealized.spot_usd`——
-对所有人可见。这里是配置，不是读数。
-
-存在的理由：重放照不到划转 / 派息 / 小额兑换 / 闪兑，而 `capital/deposit/hisrec`
-只回 90 天，更早的充值永远查不回来。**缺的是历史，不是算法。**
-
-口径（`binance/costbasis.py:summarize` 的 `overrides` 参数）：
-
-- 录了就**整仓**按它算，`unpriced_qty` 归零，`cost_source` 变 `manual`；
-- **只影响未实现，不影响已实现**——当前的均价回答不了过去那些卖出是赚是赔；
-- `asset` 一律大写存（`bnb` 与 `BNB` 是同一条，否则会存成两行、只有一条生效）；
-- `qty_at_entry` 是录入当时的持有量，供界面判断"加过仓了、这条该更新"，后端不用它算。
 
 #### 成员只能看 90 天
 

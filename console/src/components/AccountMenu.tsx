@@ -66,14 +66,9 @@ export function AccountMenu() {
             <a className={item} href="#/account">账号</a>
           </DropdownMenu.Item>
           {user.role === 'admin' && (
-            <>
-              <DropdownMenu.Item asChild>
-                <a className={item} href="#/admin">用户管理</a>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item asChild>
-                <a className={item} href="#/costbasis">现货成本</a>
-              </DropdownMenu.Item>
-            </>
+            <DropdownMenu.Item asChild>
+              <a className={item} href="#/admin">用户管理</a>
+            </DropdownMenu.Item>
           )}
 
           <DropdownMenu.Separator className="border-t border-rule" />

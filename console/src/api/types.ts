@@ -168,25 +168,12 @@ export type SpotCostRow = {
   /** 这些币没见过买入记录（划转 / 理财 / 小额兑换进来的），成本算不出来，不计入盈亏 */
   unpriced_qty: number
   avg_cost_usd: number | null
-  /** 这个均价是谁给的。`manual` = 管理员在「现货成本」里手填的 */
-  cost_source: 'manual' | 'trades' | 'cash' | null
   price_usd: number | null
   value_usd: number | null
   unrealized_usd: number | null
   realized_usd: number | null
   cost_known: boolean
   is_cash: boolean
-}
-
-/** 人手录的现货持仓均价（仅管理员可读写，见 backend costbasis_store.py） */
-export type CostBasisEntry = {
-  asset: string
-  avg_cost_usd: number
-  /** 录入当时的持有量。跟现在的持有量对不上就说明加过仓，这条该更新了 */
-  qty_at_entry: number | null
-  note: string
-  updated_at: string
-  updated_by: string
 }
 
 /**

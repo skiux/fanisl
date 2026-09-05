@@ -3,7 +3,7 @@ import { NVDA_ENTRY_PRICE, spotLockedByAsset } from './orders-fixtures'
 import type {
   EarnPosition, FuturesAccount, FuturesPosition, Pnl,
   IncomeBreakdown, MarginAccount, PortfolioSnapshot, SourceState, SpotAsset,
-  SpotCostRow, Transfers, WalletBucket,
+  Transfers, WalletBucket,
 } from './types'
 
 /** locked（挂单占用）不在这里写死，由委托 fixture 反推，两页的数对得上 */
@@ -247,7 +247,6 @@ function buildPnl(): Pnl {
       const unpriced = row.asset === 'BNB' ? row.total * 0.4 : 0
       return {
         asset: row.asset, qty: row.total, unpriced_qty: unpriced, avg_cost_usd: avg,
-        cost_source: (cash ? 'cash' : avg === null ? null : 'trades') as SpotCostRow['cost_source'],
         price_usd: row.price_usd, value_usd: value,
         unrealized_usd: avg === null ? null : (row.total - unpriced) * ((row.price_usd ?? 0) - avg),
         realized_usd: cash ? 0 : (SPOT_REALIZED[row.asset] ?? 0),

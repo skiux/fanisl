@@ -6,7 +6,6 @@ import { AuthGate } from './features/auth/AuthGate'
 import { canView, hrefOf, onRouteChange, readRoute, titleOf } from './lib/router'
 import { LedgerPage } from './features/ledger/LedgerPage'
 import { OrdersPage } from './features/orders/OrdersPage'
-import { CostBasisPage } from './features/portfolio/CostBasisPage'
 import { StatementPage } from './features/portfolio/StatementPage'
 
 export default function App() {
@@ -14,8 +13,8 @@ export default function App() {
   const session = useSyncExternalStore(subscribe, getSession)
   useEffect(() => onRouteChange(() => setPage(readRoute().page)), [])
 
-  // 成员进不了用户管理与现货成本。后端本来就会 403，但让成员先看见标题
-  // 再看见一屏错误，是把权限问题讲成了故障——直接退回资产页。
+  // 成员进不了用户管理。后端本来就会 403，但让成员先看见一个"用户管理"的
+  // 标题再看见一屏错误，是把权限问题讲成了故障——直接退回资产页。
   // 用 replace：这个地址不该留在历史里，否则后退键会把人弹回来。
   const denied = session.status === 'authenticated'
     && !canView(page, session.user.role)
@@ -34,7 +33,6 @@ export default function App() {
       : page === 'ledger' ? <LedgerPage key="ledger" />
         : page === 'account' ? <AccountPage key="account" />
           : page === 'admin' ? <AdminPage key="admin" />
-            : page === 'costbasis' ? <CostBasisPage key="costbasis" />
-              : <StatementPage key="assets" />
+            : <StatementPage key="assets" />
   return <AuthGate>{view}</AuthGate>
 }

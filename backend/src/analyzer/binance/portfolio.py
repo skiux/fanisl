@@ -555,13 +555,7 @@ def _pnl(spot_cost: dict | None, futures: dict | None,
 
 
 def build_portfolio(client: BinanceClient, cache: SourceCache, *,
-                    force: bool = False, now: datetime | None = None,
-                    cost_overrides: dict[str, float] | None = None) -> dict:
-    """`cost_overrides` 是人手录的现货持仓均价（asset → USD，见 costbasis_store）。
-
-    这里只收一个普通的 dict，不碰库：装配层依赖数据库的话，测试要连库才跑得动，
-    而这一整个模块现在只需要一个 client 和一个 cache。取数由调用方（main.py）负责。
-    """
+                    force: bool = False, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     results = fetch_all(cache, _jobs(client, now), force=force, never_force=NEVER_FORCE)
 
@@ -621,10 +615,8 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         lots = replay(trades,
                       deposits=payload("transfers.deposits") or [],
                       rewards=[])
-        # 人手录的均价也要进 `held`：整仓划转进来、从来没在这里买过的币不在
-        # `held_across_wallets` 的盲区之外，但价格表得给它备一格
         out = summarize(lots, {a: usd_price(a, prices) for a in held} | {"USDT": 1.0},
-                        held=held, overrides=cost_overrides or {})
+                        held=held)
         nonlocal spot_realized_days
         spot_realized_days = realized_by_day(lots)
         out["symbols"] = cost_symbols

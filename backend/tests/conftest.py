@@ -35,7 +35,6 @@ import psycopg
 import pytest
 
 from analyzer.db import make_pool
-from analyzer.binance.costbasis_store import CostBasisStore
 from analyzer.knowledge.models import KnowledgeUnit
 from analyzer.knowledge.nodes import NodeStore
 from analyzer.knowledge.store import KnowledgeStore
@@ -133,15 +132,6 @@ def conv_store(pool):
     with pool.connection() as conn:
         conn.execute("TRUNCATE conversations, messages RESTART IDENTITY CASCADE")
     return s
-
-
-@pytest.fixture
-def cost_basis_store(pool):
-    """隔离的 CostBasisStore：建表后清空。"""
-    st = CostBasisStore(pool)
-    with pool.connection() as conn:
-        conn.execute("TRUNCATE spot_cost_basis")
-    return st
 
 
 @pytest.fixture

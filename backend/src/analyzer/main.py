@@ -12,7 +12,7 @@ import anthropic
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from . import assets as assets_registry
 from . import metrics as metrics_registry
@@ -43,7 +43,6 @@ from .runtime import (
     knowledge_pool,
     node_store,
     trading_store,
-    cost_basis_store,
 )
 from .knowledge import discovery, keyframes, league, spotcheck
 from .knowledge.browser import browse_nodes_page, browse_units_page, verification_page, verification_summary
@@ -149,50 +148,8 @@ def portfolio(request: Request, force: bool = False) -> dict:
     """
     return _clip_for_member(
         build_portfolio(binance_client, binance_cache,
-                        force=force and _is_admin(request),
-                        cost_overrides=cost_basis_store.overrides()),
+                        force=force and _is_admin(request)),
         request)
-
-
-class CostBasisRequest(BaseModel):
-    """录一个币的持仓均价。`qty_at_entry` 是录入当时的持有量，用来判它过没过期。"""
-    avg_cost_usd: float = Field(gt=0, le=1e9)
-    qty_at_entry: float | None = Field(default=None, ge=0)
-    note: str = Field(default="", max_length=200)
-
-
-def _require_admin(request: Request) -> dict:
-    if not _is_admin(request):
-        raise HTTPException(status_code=403, detail="需要管理员权限")
-    return request.state.user
-
-
-@app.get("/admin/cost-basis")
-def cost_basis_list(request: Request) -> list[dict]:
-    """人手录的现货持仓均价。
-
-    **只有管理员能读**，尽管它的效果（改过的盈亏数字）对所有人可见。这里是配置，
-    不是读数：谁在什么时候按什么价录的，成员看了也做不了什么。
-    """
-    _require_admin(request)
-    return cost_basis_store.list()
-
-
-@app.put("/admin/cost-basis/{asset}")
-def cost_basis_set(asset: str, body: CostBasisRequest, request: Request) -> dict:
-    user = _require_admin(request)
-    return cost_basis_store.set(asset, avg_cost_usd=body.avg_cost_usd,
-                                qty_at_entry=body.qty_at_entry, note=body.note,
-                                by=user.get("username", ""))
-
-
-@app.delete("/admin/cost-basis/{asset}")
-def cost_basis_delete(asset: str, request: Request) -> dict:
-    """删掉之后这个币退回成交重放的口径，不是退回"没有盈亏"。"""
-    _require_admin(request)
-    if not cost_basis_store.delete(asset):
-        raise HTTPException(status_code=404, detail="没有这个币的记录")
-    return {"ok": True}
 
 
 @app.get("/orders")
