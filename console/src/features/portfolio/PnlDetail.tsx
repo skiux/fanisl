@@ -30,10 +30,9 @@ export function PnlDetail({ topic, pnl, onClose }: {
     { label: '现货涨跌', value: pnl.today.spot_usd },
     { label: '当日结算', value: pnl.today.settled_usd },
   ]
-  // 逐币的涨跌。只列算得出来的，昨收取不到的那些单独放在下面
+  // 逐币的涨跌。算不出来的那几个照样列出来，值写 `—`——
+  // 底下再补一句"某某没有报价"是把表格已经说清的事又说一遍
   const coins = (pnl?.spot_marks ?? []).filter((row) => row.qty > 0)
-  const priced = coins.filter((row) => row.today_usd !== null)
-  const blind = coins.filter((row) => row.today_usd === null)
 
   return (
     <Dialog.Root onOpenChange={(open) => { if (!open) onClose() }} open>
@@ -90,31 +89,25 @@ export function PnlDetail({ topic, pnl, onClose }: {
                 </span>
               </div>
 
-              {priced.length > 0 && (
+              {coins.length > 0 && (
                 <div className="mt-5 border-t border-rule pt-4">
                   <p className="label mb-2">现货逐币</p>
                   <ul className="divide-y divide-rule/70">
-                    {priced.map((row) => (
+                    {coins.map((row) => (
                       <li className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-4 py-2" key={row.asset}>
                         <span className="text-sm text-ink-2">{row.asset}</span>
                         <span className="tnum truncate text-xs text-ink-3">
                           {amount(row.qty)} · {price(row.prev_close_usd)} → {price(row.price_usd)}
                         </span>
                         <span className={cn('tnum text-right text-sm',
-                          (row.today_usd ?? 0) >= 0 ? 'text-gain' : 'text-loss')}>
-                          {signedMoney(row.today_usd)}
+                          row.today_usd === null ? 'text-ink-3'
+                            : row.today_usd >= 0 ? 'text-gain' : 'text-loss')}>
+                          {row.today_usd === null ? '—' : signedMoney(row.today_usd)}
                         </span>
                       </li>
                     ))}
                   </ul>
                 </div>
-              )}
-
-              {/* 昨收或现价取不到的币：说出来，否则合计看着像"少算了" */}
-              {blind.length > 0 && (
-                <p className="mt-3 text-xs leading-relaxed text-loss">
-                  {blind.map((row) => row.asset).join('、')} 没有报价，不计入。
-                </p>
               )}
             </>
           )}

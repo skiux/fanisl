@@ -22,11 +22,30 @@ export type SegmentItem<K extends string> = {
   muted?: boolean
 }
 
+/**
+ * 分段项的长相。单独导出是因为**有些"选一个"不能用 ToggleGroup**——
+ * Radix 在点已选中项时不触发 `onValueChange`（单选组里那是"取消选中"），
+ * 于是"自定义区间"选过一次之后再点就打不开选择器了。那种要另开一个按钮，
+ * 但长相必须一样。
+ */
+export function segmentClass(size: 'sm' | 'md' = 'md', active = false) {
+  return cn(
+    'relative whitespace-nowrap pb-1 outline-none transition-colors duration-200',
+    'after:absolute after:inset-x-0 after:bottom-0 after:h-px after:origin-left',
+    'after:scale-x-0 after:bg-ink after:transition-transform after:duration-200',
+    'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4',
+    'focus-visible:outline-accent',
+    size === 'sm' ? 'text-xs' : 'text-sm',
+    active ? 'text-ink after:scale-x-100' : 'text-ink-3 hover:text-ink-2',
+  )
+}
+
 export function SegmentedControl<K extends string>({
   items, value, onValueChange, size = 'md', label,
 }: {
   items: SegmentItem<K>[]
-  value: K
+  /** `''` = 一个都没选中（旁边另有一个不属于本组的选项处于选中态） */
+  value: K | ''
   onValueChange: (value: K) => void
   size?: 'sm' | 'md'
   label: string

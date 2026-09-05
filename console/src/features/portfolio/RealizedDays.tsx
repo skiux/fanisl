@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { cn } from '../../lib/cn'
 import { SegmentedControl } from '../../components/controls'
+import { RangePicker } from '../../components/RangePicker'
 import { signedMoney } from '../../lib/format'
 import type { DailyPnl } from '../../api/types'
 
@@ -17,9 +18,8 @@ import type { DailyPnl } from '../../api/types'
  * 上一版把这两件事混成一个：日历直接由滚动窗口驱动，于是渲染出"8 月从 5 号开始"
  * 和"9 月只有 3 天"两个高矮不一的块。分开之后各自都讲得通。
  *
- * **自定义就在日历上点。** 点第一天定起点、再点一天定终点，中间实时预览。
- * 不另做一个日期控件：日历本来就在屏幕上，让人对着两个输入框敲日期，
- * 而旁边就摆着一整月的格子，是把现成的东西浪费掉。
+ * **自定义走独立的选择器**（`components/RangePicker`）。原先是在日历上点两下选
+ * 起止：要先读一句"点一天作为起点"才知道怎么用，选完也没有再进入选取态的入口。
  *
  * 着色只用很浅的底 + 有色数字，金额一律带正负号——红绿在色盲下分离度只有 ΔE 6.1
  * （验证器实测），光靠底色深浅分不出正负，符号是第二重编码。
@@ -73,25 +73,15 @@ function Calendar({ days }: { days: DailyPnl[] }) {
 
   const [preset, setPreset] = useState<Preset>('30')
   const [custom, setCustom] = useState<{ from: string; to: string } | null>(null)
-  /** 自定义的两步：null 表示不在选取中；有值表示已点了起点、正等终点 */
-  const [anchor, setAnchor] = useState<string | null>(null)
-  const [hover, setHover] = useState<string | null>(null)
   const [cursor, setCursor] = useState(() => {
     const at = new Date(`${last}T00:00:00Z`)
     return new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), 1))
   })
 
   const range = useMemo(() => {
-    if (preset === 'custom') {
-      if (anchor !== null) {
-        // 选取中：起点到光标之间实时预览，还没落笔就先照着起点当一天算
-        const edge = hover ?? anchor
-        return anchor <= edge ? { from: anchor, to: edge } : { from: edge, to: anchor }
-      }
-      return custom ?? { from: first, to: last }
-    }
+    if (preset === 'custom') return custom ?? { from: first, to: last }
     return { from: shiftDays(last, -(PRESETS[preset] - 1)), to: last }
-  }, [anchor, custom, first, hover, last, preset])
+  }, [custom, first, last, preset])
 
   const byDate = useMemo(() => new Map(days.map((d) => [d.date, d])), [days])
 
@@ -156,48 +146,33 @@ function Calendar({ days }: { days: DailyPnl[] }) {
   const step = (delta: number) => setCursor((at) =>
     new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() + delta, 1)))
 
-  const pick = (date: string) => {
-    if (preset !== 'custom') return
-    if (anchor === null) { setAnchor(date); return }
-    const [from, to] = anchor <= date ? [anchor, date] : [date, anchor]
-    setCustom({ from, to })
-    setAnchor(null)
-    setHover(null)
+  // 翻到某个区间末尾那个月。选了"7 天"却还停在三个月前是没道理的
+  const gotoMonth = (day: string) => {
+    const at = new Date(`${day}T00:00:00Z`)
+    setCursor(new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), 1)))
   }
-
-  const choosePreset = (next: Preset) => {
-    setPreset(next)
-    setAnchor(next === 'custom' ? null : null)
-    if (next === 'custom') {
-      setCustom(null)
-    } else {
-      // 换区间时把日历翻到区间末尾那个月，否则选了"7 天"却还停在三个月前
-      const at = new Date(`${last}T00:00:00Z`)
-      setCursor(new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), 1)))
-    }
-  }
-
-  const picking = preset === 'custom' && (anchor !== null || custom === null)
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-5 gap-y-2">
+      <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
         <SegmentedControl
-          items={[
-            ...(Object.keys(PRESETS) as (keyof typeof PRESETS)[])
-              .map((k) => ({ value: k as Preset, label: `${k} 天` })),
-            { value: 'custom' as Preset, label: '自定义' },
-          ]}
+          items={(Object.keys(PRESETS) as (keyof typeof PRESETS)[])
+            .map((k) => ({ value: k as Preset, label: `${k} 天` }))}
           label="统计区间"
-          onValueChange={choosePreset}
+          onValueChange={(next) => { setPreset(next); gotoMonth(last) }}
           size="sm"
-          value={preset}
+          value={preset === 'custom' ? '' : preset}
         />
-        <span className="tnum text-micro text-ink-3">
-          {picking
-            ? (anchor === null ? '在日历上点一天作为起点' : '再点一天作为终点')
-            : `${range.from} — ${range.to}`}
-        </span>
+        {/* 「自定义」不能放进上面那组：Radix 单选组点已选中项不触发回调，
+            选过一次就再也打不开选择器了。 */}
+        <RangePicker
+          active={preset === 'custom'}
+          first={first}
+          last={last}
+          onChange={(next) => { setCustom(next); gotoMonth(next.to) }}
+          onOpen={() => setPreset('custom')}
+          value={custom}
+        />
       </div>
 
       {/* 窄屏 335px：月份标题 120px + 两个箭头 48px + gap，两侧各只剩 67px，
@@ -220,7 +195,6 @@ function Calendar({ days }: { days: DailyPnl[] }) {
 
       <div
         className="grid grid-cols-[repeat(7,minmax(0,1fr))] gap-1 sm:grid-cols-[repeat(7,minmax(0,1fr))_minmax(3.6rem,0.75fr)] sm:gap-1.5"
-        onPointerLeave={() => setHover(null)}
       >
         {/* 周末不压暗了：币是 7×24 的，资金费周末照样结算，持仓周末照样涨跌。
             压暗等于说"这两天不太算数"，而现在每一天都是真实盈亏。 */}
@@ -235,10 +209,7 @@ function Calendar({ days }: { days: DailyPnl[] }) {
               <DayCell
                 cell={cell}
                 key={cell?.date ?? `${week.key}-${index}`}
-                onHover={setHover}
-                onPick={pick}
                 peak={scope.peak}
-                picking={picking}
                 today={last}
               />
             ))}
@@ -254,16 +225,10 @@ function Calendar({ days }: { days: DailyPnl[] }) {
         ))}
       </div>
 
-      {/* 这一行描述的是**区间**，不是当前这个月：区间可以横跨几个月。
-          窄屏必须一行放得下，折行会让固定高度的模块在切月时上下跳。 */}
+      {/* 这一行描述的是**区间**，不是当前这个月：区间可以横跨几个月 */}
       <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-rule pt-3">
         <span className="tnum text-xs text-ink-3">
-          {/* "N 天有交易"这条没了：现货不成交也在涨跌，每天都有盈亏。
-              留下的是"算不出来"的天数，而且只在真的有的时候才说。 */}
           区间 {scope.span} 天 · {scope.wins} 天为正
-          {scope.span > scope.computed && (
-            <span className="text-loss"> · {scope.span - scope.computed} 天算不出来</span>
-          )}
         </span>
         <span className="tnum text-xs text-ink-3">
           合计
@@ -302,12 +267,9 @@ function Arrow({ onClick, disabled, label, forward }: {
   )
 }
 
-function DayCell({ cell, peak, picking, onPick, onHover, today }: {
+function DayCell({ cell, peak, today }: {
   cell: Cell
   peak: number
-  picking: boolean
-  onPick: (date: string) => void
-  onHover: (date: string | null) => void
   today: string
 }) {
   // 月首月末的补位格：不属于这个月，**整格不画**（不是画一个空色块）
@@ -318,39 +280,26 @@ function DayCell({ cell, peak, picking, onPick, onHover, today }: {
   // 深浅按金额大小。参考的那张图用同一个深浅，于是 +0.17 和 +68.29 一样绿——
   // 白丢掉了"哪几天真的要紧"。下限抬到 9%，小额也还看得见。
   const weight = paint ? Math.abs(value) / peak : 0
-  // **只有有数据的日子能选。** 上一版让整月都可点，于是能选出 09-05 — 09-19
-  // 这种全在未来、区间 0 天的范围——选得出来但什么也没有。
-  const selectable = picking && known
-  const Tag = selectable ? 'button' : 'div'
 
   return (
     // 每天一块独立的圆角色块，靠间距分隔而不是描边——三十多个方框会把这一页
     // 压成一张表单。
-    <Tag
+    <div
       // 窄屏一格只有 41px 宽，px-2 的内边距就吃掉 16px——金额放不下。
       // 内边距和字号都跟着断点走，别指望 truncate 兜底：截断的金额是错的数字。
       className={cn('flex min-h-[54px] w-full flex-col justify-between rounded-[5px]',
         'px-1.5 py-1.5 sm:px-2',
-        'text-left transition-colors duration-150',
         !known && 'bg-sheet-2/30',                    // 可取区间之外 / 未来
         known && !paint && 'bg-sheet-2/60',           // 有这天但算不出来 / 恰好为 0
         !inRange && 'opacity-40',                     // 不在统计区间里：整格压暗
         // 今天：一圈细环。这是所有格子里最先被找的那一个
         cell.date === today && 'ring-1 ring-inset ring-rule-strong',
-        selectable && 'cursor-pointer hover:ring-1 hover:ring-accent',
-        selectable && 'focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent',
-        // 选取中但这天没数据：明确标成不可选，而不是看着能点、点了没反应
-        picking && !known && 'cursor-not-allowed',
       )}
-      onClick={selectable ? () => onPick(cell.date) : undefined}
-      onPointerEnter={selectable ? () => onHover(cell.date) : undefined}
       style={weight > 0 ? {
         backgroundColor: `color-mix(in oklab, var(--${value >= 0 ? 'gain' : 'loss'}) ${
           (9 + weight * 20).toFixed(1)}%, transparent)`,
       } : undefined}
-      title={!known ? `${cell.date} 不在可取区间内`
-        : computed ? `${cell.date} ${signedMoney(value)}` : `${cell.date} 算不出来`}
-      {...(selectable ? { type: 'button' as const } : {})}
+      title={computed ? `${cell.date} ${signedMoney(value)}` : cell.date}
     >
       {/* 日期是这张表的索引，要一眼找得到——原先 11px 的灰字比金额还轻，
           翻月的时候要盯着找。金额在下面，颜色与符号各是一重编码。 */}
@@ -364,7 +313,7 @@ function DayCell({ cell, peak, picking, onPick, onHover, today }: {
           {compact(value)}
         </span>
       )}
-    </Tag>
+    </div>
   )
 }
 
