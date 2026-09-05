@@ -104,6 +104,67 @@
 }
 
 @layer components {
+  /* ── iOS 那种滚筒选择器 ──────────────────────────────────────────
+     中间一项正对着你，上下的逐渐变小、变淡、绕 X 轴向后倒，顶底渐隐。
+     平着排一列文字加一块灰底不是这个东西。
+
+     **动画由滚动位置驱动，不写 JS**（`animation-timeline: view()`）：每一项
+     按自己在滚动容器里的位置走同一条关键帧，0% 是刚从底部进来、50% 是正居中、
+     100% 是从顶上出去。手写的话要在 scroll 事件里逐项改 transform，
+     还得自己接 rAF——那正是上一版被说"造轮子"的做法。
+
+     不支持这个特性的浏览器（Safari 18 之前）走 @supports 之外的降级：
+     没有滚筒，但中间的高亮条、吸附、点选照常，功能不缺一块。
+     `both` 的填充在不支持时会把每一项停在 0% 那一帧（透明），所以整段
+     必须包在 @supports 里，不能只包 timeline 那一行。 */
+  .wheel {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-snap-type: y mandatory;
+    /* 滚筒上不该有滚动条 */
+    scrollbar-width: none;
+  }
+  .wheel::-webkit-scrollbar { display: none; }
+
+  .wheel-item {
+    scroll-snap-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    font-size: 0.9375rem;
+    color: var(--ink-2);
+    outline: none;
+    transition: color 0.2s;
+  }
+  .wheel-item[data-on="true"] { color: var(--ink); }
+
+  @supports (animation-timeline: view()) {
+    .wheel {
+      /* 透视放近一点，倾倒才看得出来；620px 那一版几乎是平的 */
+      perspective: 440px;
+      /* 顶底渐隐。收在 12%/88%：再往里收就把上下第二格整个抹掉了，
+         而那两格恰恰是倾倒看得最清楚的地方，iOS 上它们也是可见的。 */
+      mask-image: linear-gradient(to bottom,
+        transparent, #000 12%, #000 88%, transparent);
+    }
+    .wheel-track { transform-style: preserve-3d; }
+    .wheel-item {
+      animation: wheel-drum linear both;
+      animation-timeline: view(block);
+      animation-range: cover;
+      backface-visibility: hidden;
+    }
+  }
+
+  @keyframes wheel-drum {
+    /* 刚从底部进来：底边向后倒 */
+    0%   { opacity: 0.15; transform: rotateX(-52deg) scale(0.86); }
+    50%  { opacity: 1;    transform: rotateX(0deg)   scale(1); }
+    /* 从顶上出去：顶边向后倒 */
+    100% { opacity: 0.15; transform: rotateX(52deg)  scale(0.86); }
+  }
+
   /* 纸。有边、有极轻的投影，桌面填满其余空间——超宽屏下版心不会被拉散。 */
   .sheet {
     background: var(--sheet);
@@ -217,4 +278,9 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  /* 滚筒明确关掉，别指望上面那条 !important 把它按住：滚动驱动的动画不吃
+     `animation-duration`，各家引擎的处理还不一致。关掉之后是一列平的文字，
+     吸附与点选照常。 */
+  .wheel-item { animation: none !important; transform: none !important; opacity: 1 !important; }
+  .wheel { mask-image: none; }
 }

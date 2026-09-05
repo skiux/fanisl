@@ -11,10 +11,12 @@ import { cn } from '../lib/cn'
  * 「自定义」项上，Radix 单选组点已选中项不触发 `onValueChange`，于是选过一次
  * 就再也打不开。现在它是一个独立按钮，按钮上直接写着选中的区间。
  *
- * 滚轮用 CSS `scroll-snap`，没有手写动画与指针事件——浏览器自带惯性与吸附。
- * 每一项同时是按钮：鼠标上滚轮不好用，点一下就选中。
+ * 滚轮是 iOS 那种**滚筒**：中间一项正对，上下的逐渐变小变淡、绕 X 轴向后倒，
+ * 顶底渐隐。吸附与惯性交给 `scroll-snap`，倾倒交给滚动驱动的关键帧
+ * （`animation-timeline: view()`，见 index.css 的 `.wheel`）——两样都是浏览器
+ * 自己做，这里一行动画 JS 都没有。每一项同时是按钮：鼠标上滚轮不好用。
  */
-const ITEM = 36
+const ITEM = 40
 const VISIBLE = 5
 
 const MS_DAY = 86_400_000
@@ -104,7 +106,14 @@ export function RangePicker({ first, last, value, active, onChange, onOpen }: {
             ))}
           </div>
 
-          <div className="grid grid-cols-[1.4fr_1fr] gap-2">
+          <div className="relative grid grid-cols-[1.4fr_1fr]">
+            {/* 选中条横跨两列，不是每列一条——iOS 的 UIDatePicker 就是一条。
+                放在网格上而不是各自的 Wheel 里，中间那条缝才不会把它切断。 */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-[9px] bg-sheet-2"
+              style={{ height: ITEM }}
+            />
             <Wheel
               items={months.map((m) => ({
                 value: m, label: `${m.slice(0, 4)} 年 ${+m.slice(5, 7)} 月`,
@@ -177,20 +186,14 @@ function Wheel({ items, value, onChange, label }: {
   }, [index])
 
   return (
-    <div className="relative" style={{ height: VISIBLE * ITEM }}>
-      {/* 中间那一格的底：滚轮停在哪，哪一项就落进这个框里 */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-[3px] bg-sheet-2"
-        style={{ height: ITEM }}
-      />
-      {/* `relative` 不能少：定位元素会盖在普通流内容之上，不给滚动容器也定位的话，
-          这块高亮底会把正中间那一项的文字整个遮住——打开看到的是一道空框。 */}
+    <div style={{ height: VISIBLE * ITEM }}>
+      {/* `relative` 不能少：选中条是绝对定位的，定位元素会盖在普通流内容之上，
+          不给滚动容器也定位的话，那块底会把正中间一项的文字整个遮住。 */}
       <div
         aria-label={label}
-        className="scroll-y relative h-full snap-y snap-mandatory"
+        className="wheel relative h-full"
         onScroll={() => {
-          // 滚停之后再取值：滚动途中每一帧都回写会跟平滑滚动打架
+          // 滚停之后再取值：滚动途中每一帧都回写会跟吸附打架
           window.clearTimeout(settle.current)
           settle.current = window.setTimeout(() => {
             const el = ref.current
@@ -202,13 +205,12 @@ function Wheel({ items, value, onChange, label }: {
         }}
         ref={ref}
       >
-        <div style={{ paddingBlock: ((VISIBLE - 1) / 2) * ITEM }}>
+        <div className="wheel-track" style={{ paddingBlock: ((VISIBLE - 1) / 2) * ITEM }}>
           {items.map((item) => (
             <button
               // 鼠标上滚轮不好用，每一项同时是按钮
-              className={cn('tnum flex w-full snap-center items-center justify-center',
-                'text-xs outline-none transition-colors duration-200',
-                item.value === value ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}
+              className="wheel-item tnum"
+              data-on={item.value === value}
               key={item.value}
               onClick={() => onChange(item.value)}
               style={{ height: ITEM }}
