@@ -1,7 +1,7 @@
 import { PRICE } from './prices'
 import { NVDA_ENTRY_PRICE, spotLockedByAsset } from './orders-fixtures'
 import type {
-  EarnPosition, FuturesAccount, FuturesPosition, Pnl,
+  DailyPnl, EarnPosition, FuturesAccount, FuturesPosition, Pnl,
   IncomeBreakdown, MarginAccount, PortfolioSnapshot, SourceState, SpotAsset,
   Transfers, WalletBucket,
 } from './types'
@@ -123,6 +123,14 @@ export const futures: FuturesAccount = (() => {
     max_withdraw: marginBalance - initial,
     margin_ratio: marginBalance > 0 ? maint / marginBalance : null,
     positions,
+    // 合约钱包里躺着的币。把 BNB 划进来当保证金 / 抵手续费是常见做法——
+    // 它们仍然是现货持仓，只是不在现货钱包里
+    assets: [
+      { asset: 'USDT', wallet_balance: FUTURES_WALLET - 810, margin_balance: marginBalance - 810,
+        available: marginBalance - initial - 810, value_usd: FUTURES_WALLET - 810 },
+      { asset: 'BNB', wallet_balance: 1.1875, margin_balance: 1.1875,
+        available: 1.1875, value_usd: 1.1875 * (PRICE.BNB ?? 0) },
+    ],
   }
 })()
 
@@ -168,6 +176,13 @@ export const margin: MarginAccount = (() => {
     total_asset_usd: asset,
     total_liability_usd: liability,
     total_net_asset_usd: asset - liability,
+    // 杠杆钱包里也躺着现货币种。net = free + locked − borrowed
+    assets: [
+      { asset: 'USDT', free: 8900, locked: 0, borrowed: 5205.67,
+        net: 3694.33, value_usd: 3694.33 },
+      { asset: 'BNB', free: 0.75, locked: 0, borrowed: 0,
+        net: 0.75, value_usd: 0.75 * (PRICE.BNB ?? 0) },
+    ],
   }
 })()
 
@@ -229,7 +244,7 @@ export const okSource = (key: SourceState['key'], asOf: string): SourceState => 
   key, status: 'ok', as_of: asOf, detail: null,
 })
 
-/** 昨日 UTC 收盘 = 现价 × 这个数。样例里让今天普涨一点，好让盯市那条路径有东西看 */
+/** 昨日 UTC 收盘 = 现价 × 这个数。样例里让今天普涨一点，逐币那张表才有东西看 */
 const PREV_CLOSE_RATIO: Record<string, number> = {
   BNB: 0.982, ETH: 1.004, ARB: 0.961, SOL: 1.017, SHIB: 0.994, DOGE: 0.973,
 }
@@ -238,7 +253,7 @@ const PREV_CLOSE_RATIO: Record<string, number> = {
  * 盈亏构成。和后端同一套口径。**没有残差项**——旧的归因表用"期末 − 期初 −
  * 净充提"，钱包间划转会被算成盈亏。
  *
- * **现货这半边是盯市，不是相对成本的未实现。** 后者要完整的买入历史，而划转 /
+ * **现货这半边看的是每天涨跌，不是相对成本的未实现。** 后者要完整的买入历史，而划转 /
  * 派息 / 小额兑换进来的币在成交记录里没有痕迹，那段历史补不齐。均价与已实现留着
  * ——已实现只认真实发生过的卖出，重放给得全。
  */
@@ -270,18 +285,16 @@ function buildPnl(): Pnl {
       }
     })
 
-  const known = marks.filter((row) => row.today_usd !== null)
-  const mark = known.length ? known.reduce((sum, r) => sum + (r.today_usd ?? 0), 0) : null
-  const settled = buildDaily().at(-1)?.realized_usd ?? null
+  const daily = buildDaily()
   const spotReal = spotRows.reduce((sum, r) => sum + (r.realized_usd ?? 0), 0)
 
   return {
     today: {
-      spot_mark_usd: mark,
-      settled_usd: settled,
-      total_usd: (mark ?? 0) + (settled ?? 0),
+      spot_usd: daily.at(-1)?.spot_usd ?? null,
+      settled_usd: daily.at(-1)?.settled_usd ?? null,
+      total_usd: daily.at(-1)?.pnl_usd ?? null,
     },
-    today_usd: (mark ?? 0) + (settled ?? 0),
+    today_usd: daily.at(-1)?.pnl_usd ?? null,
     unrealized: {
       futures_usd: futures.total_unrealized_pnl,
       scope: '此刻的合约持仓',
@@ -298,12 +311,13 @@ function buildPnl(): Pnl {
       referral_usd: income.referral_kickback,
       scope: '最近 90 天',
     },
-    daily: buildDaily(),
+    daily,
     spot_marks: marks,
     spot_assets: spotRows,
     coverage: '只覆盖当前还持有的币；已清仓的标的查不到交易对',
     incomplete_assets: spotRows.filter((r) => !r.cost_known).map((r) => r.asset),
     failed_symbols: [],
+    unbalanced_assets: [],
   }
 }
 
@@ -311,20 +325,29 @@ function buildPnl(): Pnl {
  * 每天落袋多少。日频离散数据，样例里用一个稳定的伪随机——刷新页面不该换一批数，
  * 否则没法拿它对界面。真实来源是合约 income 逐行分桶 + 现货成交结转。
  */
-function buildDaily() {
-  const out = []
+function buildDaily(): DailyPnl[] {
+  const out: DailyPnl[] = []
   const today = new Date()
   for (let back = 89; back >= 0; back -= 1) {
     const day = new Date(today)
     day.setDate(day.getDate() - back)
     const weekday = day.getDay()
-    // 周末不交易：日历上留白比编一个假数字诚实
-    const traded = weekday !== 0 && weekday !== 6 && Math.sin(back * 2.7) > -0.45
-    const swing = Math.sin(back * 1.31) * 420 + Math.sin(back * 0.47 + 2) * 260
+    // **每天都有现货盈亏**：持仓不成交也在涨跌。原先这里靠 traded 把周末与
+    // 不交易的日子填成 0，那正是被指出来的错——0 是"没成交"，不是"没赚没亏"。
+    const spot = Math.round((Math.sin(back * 1.31) * 260
+                             + Math.sin(back * 0.47 + 2) * 140) * 100) / 100
+    // 合约结算只在有成交的日子发生
+    const settledDay = weekday !== 0 && weekday !== 6 && Math.sin(back * 2.7) > -0.45
+    const settled = settledDay
+      ? Math.round(Math.sin(back * 2.1) * 180 * 100) / 100 : 0
+    // 最早那两天故意算不出来：日历要能画出"这天没有数"的样子
+    const known = back < 88
     out.push({
       date: day.toISOString().slice(0, 10),
-      realized_usd: traded ? Math.round(swing * 100) / 100 : 0,
-      traded,
+      spot_usd: known ? spot : null,
+      settled_usd: settled,
+      pnl_usd: known ? Math.round((spot + settled) * 100) / 100 : null,
+      known,
     })
   }
   return out

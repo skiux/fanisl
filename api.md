@@ -115,20 +115,25 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
 - 现在的口径：
 
   ```
-  today.spot_mark_usd     现货盯市：Σ 持有量 × (现价 − 昨日 UTC 收盘)
-  today.settled_usd       当日结算 = daily 最后一格
-  today.total_usd         两项之和；today_usd 是它的别名（摘要条用）
+  daily[]                 **每天到底赚了多少**，固定 90 格：
+                            date        YYYY-MM-DD，UTC 日切
+                            spot_usd    现货持仓当天的涨跌（含当天成交那部分）
+                            settled_usd 合约当天结算（已实现+资金费+手续费+返佣）
+                            pnl_usd     两者之和；算不出来时 null
+                            known       这天算不算得出来
+  today.{spot_usd,settled_usd,total_usd}
+                          daily 最后一格。**同一个数只算一处**，两边不会对不上
+  today_usd               = today.total_usd（摘要条用）
   unrealized.futures_usd  positionRisk 的 unRealizedProfit（交易所标记价）
   realized.spot_usd       myTrades 全量重放，卖出按当时的均价结转（无时间上限）
+                          **不进 daily**——那笔盈亏已含在当天的市值变化里
   realized.futures_usd    income 的 REALIZED_PNL（接口只保留 90 天）
   carry.*                 资金费 / 手续费 / 返佣，同样 90 天
-  daily[]                 每天**结算**落袋多少：income 逐行按天分桶 + 现货成交结转
-                          固定 90 格，没交易的那天是 0 且 traded=false（不是缺一格）
-                          **不含盯市**，所以最后一格 ≠ today.total_usd
   spot_marks[]            逐币今日涨跌：{asset, qty, price_usd, prev_close_usd,
                           value_usd, today_usd}
   spot_assets[]           逐币成本与已实现：{asset, qty, avg_cost_usd, price_usd,
                           value_usd, realized_usd, cost_known, is_cash}
+  unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖到），受影响的天已报 null
   coverage                覆盖范围的实话（"已清仓的标的查不到交易对"）
   incomplete_assets[]     成本完全算不出来的币（缺跨币种历史汇率），已从合计剔除
   ```
@@ -138,12 +143,17 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
   出现在 `myTrades` 里，`capital/deposit/hisrec` 又只回 90 天，更早的充值永远查不
   回来。算出来的数永远缺一块（2026-09 为它修过三轮，一版虚高六倍）。
   **别在客户端拿 `qty × (price − avg_cost)` 自己算一个补回去。**
-  现货要回答的是"今天涨跌了多少"，那用盯市，见 `today.spot_mark_usd`。
-- **盯市的持有量是跨全部钱包的**（`held_across_wallets`）：划进合约当保证金、存进
-  理财的币都算在里面。所谓"现货数据取不到"往往只是币不在现货钱包，量一直都在。
-- **昨收取自 `klines(symbol, '1d', limit=2)` 的倒数第二根**——最后一根是今天这根、
-  还在走，拿它当昨收今日盈亏永远是 0。取不到昨收的币 `today_usd` 为 `null`，
-  不参与合计，也不按"没动"记 0。一个币都算不出来时 `spot_mark_usd` 是 `null`。
+  现货要回答的是"每天涨跌了多少"，见 `daily[].spot_usd`。
+- **持有量是跨全部钱包的**（`held_across_wallets`）：划进合约当保证金、存进理财的
+  币都算在里面。所谓"现货数据取不到"往往只是币不在现货钱包，量一直都在——
+  `futures.assets[]` / `margin.assets[]` 把它们逐个列出来。
+- **日历的每一天都是真实盈亏，不只是成交结算。** 一天 =
+  `q_d × close_d − q_{d−1} × close_{d−1} − 当天进出`。历史持仓量没有接口，
+  从今天的余额往回滚；跨钱包统计让划转自动抵消，所以只需要成交 / 充提 / 合约结算 /
+  理财派息 / 杠杆利息 / 闪兑 / 小额兑换这几类。算不出来的天 `pnl_usd` 是 `null`，
+  **不是 0**——0 会被读成"这天没赚没亏"。
+- **`today` 就是 `daily` 的最后一格**，不另算一遍。上一版两处各算各的，
+  屏幕上两个数对不上。
 - `income` 的金额单位是该行的 `asset`，不一定是 USDT（手续费常用 BNB 抵扣）。
   已在服务端按币种换算成 USD，客户端不必再折算。
 - 三块的窗口不一样是接口硬限，**不要把 `realized.spot_usd` 与 `realized.futures_usd`

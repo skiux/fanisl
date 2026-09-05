@@ -7,6 +7,9 @@ import type { Pnl } from '../../api/types'
 /**
  * 「今日盈亏」这个数由哪几项加起来的。
  *
+ * 两项：现货持仓当天涨跌了多少，加上合约当天结算掉的。和日历最后一格同源——
+ * 上一版今天与日历各算各的，屏幕上两个数对不上。
+ *
  * **只放数字，不放说明。** 上一版把页面上删掉的口径原样搬进这里——换个地方又写了
  * 一遍，而且对所有人可见。这里要回答的是"这个数怎么凑出来的"，那是数据；
  * "它取自哪个接口""窗口多长"是构造，属于 README。
@@ -24,7 +27,7 @@ export function PnlDetail({ topic, pnl, onClose }: {
   if (topic === null) return null
 
   const parts = pnl === null ? [] : [
-    { label: '现货盯市', value: pnl.today.spot_mark_usd },
+    { label: '现货涨跌', value: pnl.today.spot_usd },
     { label: '当日结算', value: pnl.today.settled_usd },
   ]
   // 逐币的涨跌。只列算得出来的，昨收取不到的那些单独放在下面

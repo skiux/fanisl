@@ -195,8 +195,9 @@ def test_missing_prices_degrade_to_null_not_zero(cache):
     assert snap["totals"] is None            # 净值算不出来就整块留空
     # 合约损益结在 USDT 上，稳定币不依赖行情端点，这一项照样算得出来
     assert snap["pnl"]["realized"]["futures_usd"] == pytest.approx(3847.22)
-    # 但现货盯市要现价，没有行情就留空而不是记 0——"今天没涨没跌"与"取不到"是两件事
-    assert snap["pnl"]["today"]["spot_mark_usd"] is None
+    # 现货那半边要行情，没有就留空而不是记 0——"今天没涨没跌"与"取不到"是两件事
+    assert snap["pnl"]["today"]["spot_usd"] is None
+    assert snap["pnl"]["today"]["total_usd"] is None
 
 
 def test_as_of_reports_the_oldest_successful_source(cache):
@@ -351,9 +352,8 @@ def test_pnl_is_immune_to_wallet_transfers(cache):
         with cache.pool.connection() as conn:
             conn.execute("TRUNCATE binance_cache")
         after = build(cache)["pnl"]
-        # 盯市按**跨全部钱包**的持有量算，币挪去哪个钱包都不影响
-        assert after["today"]["spot_mark_usd"] == pytest.approx(
-            before["today"]["spot_mark_usd"])
+        # 逐日盈亏按**跨全部钱包**的持有量算，币挪去哪个钱包都不影响
+        assert after["today"]["spot_usd"] == pytest.approx(before["today"]["spot_usd"])
         assert after["realized"]["spot_usd"] == pytest.approx(
             before["realized"]["spot_usd"])
     finally:
@@ -411,30 +411,6 @@ def test_cost_basis_counts_coins_sitting_in_the_futures_wallet(cache):
 
 # --- 每日已实现（日历图） --------------------------------------------------
 
-def test_daily_realized_covers_the_whole_window_including_quiet_days(cache):
-    """日历要铺满：没交易的那天是 0，不是缺一格。缺格会让日历看着像漏数据。"""
-    daily = build(cache)["pnl"]["daily"]
-    assert len(daily) == 90
-    assert daily[-1]["date"] == NOW.astimezone(timezone.utc).date().isoformat()
-    assert all(set(d) == {"date", "realized_usd", "traded"} for d in daily)
-    quiet = [d for d in daily if not d["traded"]]
-    assert quiet and all(d["realized_usd"] == 0.0 for d in quiet)
-
-
-def test_daily_realized_counts_funding_and_commission_not_just_pnl(cache):
-    """资金费与手续费也是真金白银的进出，只报 REALIZED_PNL 会让"这天赚了多少"偏乐观。"""
-    snap = build(cache)
-    today = next(d for d in snap["pnl"]["daily"]
-                 if d["date"] == NOW.astimezone(timezone.utc).date().isoformat())
-    inc = snap["income"]
-    expect = (inc["realized_pnl"] + inc["funding_fee"] + inc["commission"]
-              + inc["referral_kickback"])
-    assert today["realized_usd"] == pytest.approx(expect)
-    # `today_usd` 不等于日历最后一格：日历只有结算，今日还要加上现货盯市。
-    # 往前的每一天要盯市就得知道那天持有多少，而历史持仓量拿不到，所以只有今天有。
-    assert snap["pnl"]["today"]["settled_usd"] == pytest.approx(expect)
-    assert snap["pnl"]["today_usd"] == pytest.approx(
-        expect + snap["pnl"]["today"]["spot_mark_usd"])
 
 
 def test_daily_realized_ignores_transfers(cache):
@@ -490,33 +466,55 @@ def test_totals_shape_matches_what_the_console_declares(cache):
 
 
 
-# --- 现货今日盈亏：盯市，不是相对成本的未实现 -------------------------------
+# --- 逐日盈亏：按当天的持仓量与当天的收盘价算 -------------------------------
 
-def test_spot_today_is_quantity_times_price_move(cache):
-    """现货今天赚了多少 = 持有量 ×（现价 − 昨收）。
+def test_daily_counts_price_moves_not_just_settlements(cache):
+    """不成交的日子也有盈亏。拿着 6 个 BNB 什么都不做，涨 10 块就是赚 60 块。
 
-    不用"市值 − 加权平均成本"：那个成本要完整的买入历史，而划转 / 派息 / 小额兑换
-    进来的币在 myTrades 里没有痕迹，90 天以前的充值也查不回来——算出来永远缺一块。
-    盯市不需要任何历史，只要数量和两个价格。
+    原来一格只算"那天结算掉的"，于是不交易的日子全是 0——那不是"这天没赚没亏"，
+    是"这天没成交"。
     """
     snap = build(cache)
-    marks = {row["asset"]: row for row in snap["pnl"]["spot_marks"]}
-    bnb = marks["BNB"]
-    assert bnb["prev_close_usd"] == pytest.approx(682.15 * PREV_CLOSE_RATIO)
-    assert bnb["today_usd"] == pytest.approx(
-        bnb["qty"] * (682.15 - 682.15 * PREV_CLOSE_RATIO))
-    total = sum(r["today_usd"] for r in marks.values() if r["today_usd"] is not None)
-    assert snap["pnl"]["today"]["spot_mark_usd"] == pytest.approx(total)
+    daily = snap["pnl"]["daily"]
+    today = daily[-1]
+    assert today["date"] == NOW.astimezone(timezone.utc).date().isoformat()
+
+    # 样本里合约结算只发生在今天，往前的日子结算都是 0——可它们照样有盈亏，
+    # 因为价格在动。这正是原来那版拿不到的东西。
+    quiet = [d for d in daily[:-1] if d["settled_usd"] == 0]
+    assert quiet, "样本里应当有不成交的日子"
+    assert any(abs(d["spot_usd"]) > 1 for d in quiet), "不成交的日子也该有盈亏"
+
+    assert today["pnl_usd"] == pytest.approx(today["spot_usd"] + today["settled_usd"])
+    assert snap["pnl"]["today_usd"] == pytest.approx(today["pnl_usd"])
 
 
-def test_spot_today_counts_coins_parked_in_the_futures_wallet(cache):
+def test_daily_still_counts_settlements(cache):
+    """资金费与手续费也是真金白银的进出，只报 REALIZED_PNL 会让"这天赚了多少"偏乐观。"""
+    snap = build(cache)
+    today = snap["pnl"]["daily"][-1]
+    inc = snap["income"]
+    assert today["settled_usd"] == pytest.approx(
+        inc["realized_pnl"] + inc["funding_fee"] + inc["commission"]
+        + inc["referral_kickback"])
+
+
+def test_daily_covers_the_whole_window_including_quiet_days(cache):
+    snap = build(cache)
+    daily = snap["pnl"]["daily"]
+    assert len(daily) == 90
+    assert daily[0]["date"] == _day(89)
+    assert all(d["known"] for d in daily), "样本里每天都算得出来"
+
+
+def test_spot_half_uses_the_cross_wallet_quantity(cache):
     """"现货数据取不到"其实只是币不在现货钱包里。
 
-    把 BNB 划进合约当保证金是常见做法，持有量一点没变。盯市按跨全部钱包的持有量算，
-    所以划过去之后今日盈亏不变——只看现货余额的话，划走的那部分会凭空消失。
+    把 BNB 划进合约当保证金是常见做法，持有量一点没变。逐日盈亏按跨全部钱包的
+    持有量算，所以划过去之后每天的数不变——只看现货余额的话，划走的那部分会凭空消失。
     """
     from binance_mock import FUT_ACCOUNT, USER_ASSET
-    before = build(cache)["pnl"]["today"]["spot_mark_usd"]
+    before = [d["spot_usd"] for d in build(cache)["pnl"]["daily"]]
     bnb = next(a for a in USER_ASSET if a["asset"] == "BNB")
     moved = dict(bnb, free="2.212")          # 现货 4.212 → 2.212，划出去 2 个
     USER_ASSET[USER_ASSET.index(bnb)] = moved
@@ -526,50 +524,29 @@ def test_spot_today_counts_coins_parked_in_the_futures_wallet(cache):
     try:
         with cache.pool.connection() as conn:
             conn.execute("TRUNCATE binance_cache")
-        assert build(cache)["pnl"]["today"]["spot_mark_usd"] == pytest.approx(before)
+        after = [d["spot_usd"] for d in build(cache)["pnl"]["daily"]]
+        assert after == pytest.approx(before)
     finally:
         USER_ASSET[USER_ASSET.index(moved)] = bnb
         FUT_ACCOUNT["assets"] = [a for a in FUT_ACCOUNT["assets"]
                                  if a["asset"] != "BNB"]
 
 
-def test_stablecoins_do_not_move(cache):
-    """USDT 的价格恒等于面值，把它算进盯市只会引入噪声。"""
+def test_todays_candle_is_the_live_price_not_yesterdays_close(cache):
+    """日线最后一根是今天这根、还在走，它的 close 就是现价。
+
+    拿倒数第一根当昨收的话今天永远是 0；拿倒数第二根当今价的话今天永远差一天。
+    """
+    snap = build(cache)
+    bnb = next(r for r in snap["pnl"]["spot_marks"] if r["asset"] == "BNB")
+    assert bnb["price_usd"] == pytest.approx(682.15)
+    assert bnb["prev_close_usd"] == pytest.approx(682.15 * PREV_CLOSE_RATIO)
+
+
+def test_stablecoins_stay_out_of_the_spot_half(cache):
+    """USDT 面值不动，算进去只有噪声——而它的进出量最大，最容易把误差放大。"""
     snap = build(cache)
     assert all(row["asset"] != "USDT" for row in snap["pnl"]["spot_marks"])
-
-
-def test_prev_close_takes_the_completed_candle_not_todays(cache):
-    """`limit=2` 的最后一根是今天这根、还在走。拿它当昨收，今日盈亏永远是 0。"""
-    import analyzer.binance.portfolio as mod
-
-    class Ok:
-        ok = True
-
-        def __init__(self, payload):
-            self.payload = payload
-
-    rows = [[0, "0", "0", "0", "100.0", "1", 0, "0", 0, "0", "0", "0"],
-            [1, "0", "0", "0", "110.0", "1", 1, "0", 0, "0", "0", "0"]]
-    assert mod._prev_closes({"close.BNBUSDT": Ok(rows)}, ["BNBUSDT"]) == {"BNB": 100.0}
-
-
-def test_no_prev_close_leaves_the_coin_out_rather_than_assuming_flat(cache):
-    """取不到昨收就不算这个币——按"没动"处理会把它悄悄记成 0 收益。"""
-    import analyzer.binance.portfolio as mod
-
-    out = mod._spot_today({"BNB": 2.0, "ETH": 1.0}, {"BNBUSDT": 700.0, "ETHUSDT": 3000.0},
-                          {"BNB": 650.0})
-    rows = {r["asset"]: r for r in out["assets"]}
-    assert rows["BNB"]["today_usd"] == pytest.approx(2.0 * 50.0)
-    assert rows["ETH"]["today_usd"] is None
-    assert out["total_usd"] == pytest.approx(100.0)
-
-
-def test_spot_mark_is_null_not_zero_when_nothing_can_be_priced():
-    import analyzer.binance.portfolio as mod
-    out = mod._spot_today({"BNB": 2.0}, {"BNBUSDT": 700.0}, {})
-    assert out["total_usd"] is None
 
 
 def test_pnl_has_no_spot_unrealized_field(cache):

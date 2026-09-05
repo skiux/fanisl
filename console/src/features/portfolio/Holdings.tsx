@@ -145,3 +145,44 @@ export function EarnTable({ earn }: { earn: EarnPosition[] }) {
     </ul>
   )
 }
+
+/**
+ * 合约 / 全仓杠杆钱包里躺着的币。
+ *
+ * 它们仍然是现货持仓，只是不在现货钱包里——把 BNB 划进合约当保证金、抵手续费
+ * 是常见做法。「现货持仓」那张表只读现货钱包，于是这些币在页面上凭空消失，
+ * 屏幕上就成了"现货数据取不到"。盈亏那边一直是按跨钱包持有量算的。
+ */
+export function ParkedTable({ rows }: {
+  rows: { asset: string; qty: number; value_usd: number | null; where: string }[]
+}) {
+  return (
+    <>
+      <div className={cn(PARKED_ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
+        <span>资产</span>
+        <span className="hidden sm:block">数量</span>
+        <span className="hidden sm:block">在哪个钱包</span>
+        <span className="text-right">价值</span>
+      </div>
+      <ul className="divide-y divide-rule">
+        {rows.map((row) => (
+          <li className={cn(PARKED_ROW, 'py-3')} key={`${row.where}:${row.asset}`}>
+            <span className="flex min-w-0 items-center gap-2.5">
+              <Ticker asset={row.asset} />
+              <span className="truncate text-sm text-ink">{row.asset}</span>
+              {/* 窄屏没有"在哪个钱包"那一列，钱包名跟在代码后面 */}
+              <span className="shrink-0 text-micro text-ink-3 sm:hidden">{row.where}</span>
+            </span>
+            <span className="tnum hidden text-sm text-ink-2 sm:block">{amount(row.qty)}</span>
+            <span className="hidden text-sm text-ink-2 sm:block">{row.where}</span>
+            <span className="tnum text-right text-sm text-ink">
+              {row.value_usd === null ? '—' : money(row.value_usd)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
+const PARKED_ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)]'

@@ -6,6 +6,7 @@ portfolio / orders / ledger 三组测试共用这一份。各写一份必然会�
 样本按用户的实际持仓形态编：美股永续为主（NVDA/QQQ），现货只留 BNB 与稳定币。
 """
 
+import math
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -15,27 +16,39 @@ BTC = 94180.22
 DAY_MS = 86_400_000
 
 
-# 昨收 = 现价 × 这个数。今日盯市因此是 持有量 × 现价 × (1 − 比值)，测试能直接算。
+# 昨收 = 现价 × 这个数。今日盈亏因此是 持有量 × 现价 × (1 − 比值)，测试能直接算。
 PREV_CLOSE_RATIO = 0.98
 
+# 日线根数：portfolio.WINDOW_DAYS + 2（多两根是因为算窗口第一天要用它前一天的收盘）
+KLINE_BARS = 92
 
-def _klines(symbol: str):
-    """日线两根：[开盘时间, o, h, l, 收盘, ...]。
 
-    **最后一根是今天这根**（还在走），前一根才是昨天收盘的。按 symbol 各给各的价——
-    早先这条路线不分交易对，一律返回 BTC 价，于是每个币的"昨收"都成了九万多。
+def _klines(symbol: str, bars: int = KLINE_BARS):
+    """日线：[开盘时间, o, h, l, 收盘, ...]。
+
+    **最后一根是今天这根**（还在走，close 就是现价），倒数第二根才是昨天收盘的。
+    按 symbol 各给各的价——早先这条路线不分交易对，一律返回 BTC 价，
+    于是每个币的"昨收"都成了九万多。
+
+    更早的日子按一条平缓的确定性波动走：全平的话日历上除了今天全是 0，
+    看不出版式；用随机数的话每次跑出来的断言都不一样。
     """
     price = next((float(row["price"]) for row in PRICES if row["symbol"] == symbol), None)
     if price is None:
         return []
     midnight = NOW.replace(hour=0, minute=0, second=0, microsecond=0)
-    yday = int((midnight - timedelta(days=1)).timestamp() * 1000)
-    return [
-        [yday, "0", "0", "0", f"{price * PREV_CLOSE_RATIO}", "1",
-         yday + DAY_MS - 1, "0", 0, "0", "0", "0"],
-        [int(midnight.timestamp() * 1000), "0", "0", "0", f"{price}", "1",
-         int(midnight.timestamp() * 1000) + DAY_MS - 1, "0", 0, "0", "0", "0"],
-    ]
+    out = []
+    for i in range(bars):
+        ts = int((midnight - timedelta(days=bars - 1 - i)).timestamp() * 1000)
+        if i == bars - 1:
+            close = price
+        elif i == bars - 2:
+            close = price * PREV_CLOSE_RATIO
+        else:
+            close = price * (PREV_CLOSE_RATIO + 0.03 * math.sin(i / 4))
+        out.append([ts, "0", "0", "0", f"{close}", "1", ts + DAY_MS - 1,
+                    "0", 0, "0", "0", "0"])
+    return out
 
 
 def _snapshot_vos(total_btc_by_day: dict[str, float]):

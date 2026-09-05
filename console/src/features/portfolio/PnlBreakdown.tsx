@@ -26,7 +26,7 @@ export function PnlBreakdown({ pnl }: { pnl: Pnl | null }) {
   const rows: { label: string; value: number | null }[] = [
     // 现货这一行是**今天的涨跌**，不是相对成本的未实现——后者要完整的买入历史，
     // 而划转 / 派息 / 小额兑换进来的币在成交记录里没有痕迹，那段历史补不齐。
-    { label: '现货今日盯市', value: pnl.today.spot_mark_usd },
+    { label: '现货今日涨跌', value: pnl.today.spot_usd },
     { label: '合约未实现', value: pnl.unrealized.futures_usd },
     { label: '现货已实现', value: pnl.realized.spot_usd },
     { label: '合约已实现', value: pnl.realized.futures_usd },
@@ -62,7 +62,7 @@ export function PnlBreakdown({ pnl }: { pnl: Pnl | null }) {
 
       {pnl.spot_marks.length > 0 && (
         <div className="mt-6 border-t border-rule pt-4">
-          <p className="label mb-2.5">现货今日</p>
+          <p className="label mb-2.5">现货逐币</p>
           <ul className="divide-y divide-rule/70">
             {pnl.spot_marks.map((row) => (
               <li className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4 py-2" key={row.asset}>

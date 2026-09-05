@@ -1,9 +1,9 @@
 import { cn } from '../../lib/cn'
-import { money, percent, signedMoney, SOURCE_LABEL } from '../../lib/format'
+import { money, percent, signedMoney, SOURCE_LABEL, STABLE_ASSETS } from '../../lib/format'
 import type { MarginAccount, PortfolioSnapshot } from '../../api/types'
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
 import { RealizedDays } from './RealizedDays'
-import { EarnTable, SpotTable } from './Holdings'
+import { EarnTable, ParkedTable, SpotTable } from './Holdings'
 import { PnlBreakdown } from './PnlBreakdown'
 
 /** 合约 income 与 userTrades 都只保留 90 天，这是接口硬限 */
@@ -176,6 +176,18 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
   const lockedEarn = snapshot.earn.filter((item) => item.kind === 'locked')
   const lockedValue = lockedEarn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
 
+  // 合约与全仓杠杆钱包里躺着的币。稳定币不列——那是保证金，不是"持仓"
+  const parked = [
+    ...(snapshot.futures?.assets ?? []).map((row) => ({
+      asset: row.asset, qty: row.wallet_balance, value_usd: row.value_usd, where: '合约',
+    })),
+    ...(snapshot.margin?.assets ?? []).map((row) => ({
+      asset: row.asset, qty: row.net, value_usd: row.value_usd, where: '全仓杠杆',
+    })),
+  ].filter((row) => !STABLE_ASSETS.has(row.asset) && row.qty > 0)
+   .sort((a, b) => (b.value_usd ?? 0) - (a.value_usd ?? 0))
+  const parkedValue = parked.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
+
   return (
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
@@ -242,6 +254,22 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
         >
           <EarnTable earn={snapshot.earn} />
         </Module>
+
+        {/* 划进合约当保证金 / 抵手续费的币，仍然是现货持仓，只是不在现货钱包里。
+            这一节原先没有，于是"现货持仓"那张表里看不到它们，屏幕上就成了
+            "现货数据取不到"——其实量一直都在，只是这一页没把它列出来。
+            盈亏那边一直是按跨钱包持有量算的（`held_across_wallets`）。 */}
+        {parked.length > 0 && (
+          <Module
+            figure={money(parkedValue)}
+            // 同一个币可能同时在合约和杠杆里，按币种去重而不是数行数
+            note={`${new Set(parked.map((row) => row.asset)).size} 个币种`}
+            span="lg:col-span-12"
+            title="合约中的现货持仓"
+          >
+            <ParkedTable rows={parked} />
+          </Module>
+        )}
       </ViewGrid>
     </div>
   )

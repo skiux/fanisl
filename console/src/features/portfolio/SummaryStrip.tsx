@@ -25,8 +25,8 @@ export function SummaryStrip({ snapshot, veiled, onOpenDetail }: {
 
   const cells: StripCell[] = [
     {
-      // 现货盯市 + 当日结算。原先只报结算，不交易的日子屏幕上永远 $0.00，
-      // 而持仓明明在涨跌——那是"今天没成交"，不是"今天没赚没亏"。
+      // = 日历最后一格（现货当天涨跌 + 当天结算），不另算一遍。
+      // 原先只报结算，不成交的日子屏幕上永远 $0.00，而持仓明明在涨跌。
       label: '今日盈亏',
       id: 'today',
       onOpen: () => onOpenDetail('today'),

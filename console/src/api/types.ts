@@ -107,6 +107,8 @@ export type FuturesAccount = {
   /** totalMaintMargin / totalMarginBalance，越接近 1 越危险 */
   margin_ratio: number | null
   positions: FuturesPosition[]
+  /** 合约钱包里的币。持有量按"账户一共有多少"算，不认钱包，所以这些也是现货持仓 */
+  assets: WalletAsset[]
 }
 
 export type EarnPosition = {
@@ -131,6 +133,17 @@ export type MarginAccount = {
   total_asset_usd: number
   total_liability_usd: number
   total_net_asset_usd: number
+  /** 杠杆钱包里逐个币的净额（free + locked − borrowed）。借来的币不是自己的持仓 */
+  assets: MarginAsset[]
+}
+
+export type MarginAsset = {
+  asset: string
+  free: number
+  locked: number
+  borrowed: number
+  net: number
+  value_usd: number | null
 }
 
 /** /fapi/v1/income 按类型汇总。资金费是永续的持续性损益，长期持仓可能超过价格波动本身。 */
@@ -154,12 +167,22 @@ export type Transfers = {
 
 
 
-export type DailyRealized = {
+/**
+ * 日历的一格：**那天到底赚了多少**。
+ *
+ * `spot_usd` 是现货持仓当天的涨跌（含当天成交的那部分），按当天的持仓量与当天的
+ * 收盘价算；`settled_usd` 是合约当天结算掉的（已实现 + 资金费 + 手续费 + 返佣）。
+ *
+ * 原先一格只有结算，于是不成交的日子全是 0——那不是"这天没赚没亏"，是"这天没成交"。
+ */
+export type DailyPnl = {
   /** YYYY-MM-DD，UTC 日切，与 Binance 的结算日一致 */
   date: string
-  realized_usd: number
-  /** 这天有没有成交/结算。没有的话 realized_usd 是 0，不是"亏了 0" */
-  traded: boolean
+  spot_usd: number | null
+  settled_usd: number
+  pnl_usd: number | null
+  /** 这天算不算得出来。算不出来时 pnl_usd 是 null，不是"亏了 0" */
+  known: boolean
 }
 
 /** 逐币的今日涨跌。数量跨全部钱包——划进合约当保证金的那部分也算在里面 */
@@ -170,8 +193,16 @@ export type SpotMarkRow = {
   /** 昨日 UTC 收盘。取不到就留空，不按"没动"处理 */
   prev_close_usd: number | null
   value_usd: number | null
-  /** qty × (price − prev_close) */
   today_usd: number | null
+}
+
+/** 合约钱包里逐个币的余额。把 BNB 划进来当保证金 / 抵手续费是常见做法 */
+export type WalletAsset = {
+  asset: string
+  wallet_balance: number
+  margin_balance: number
+  available: number
+  value_usd: number | null
 }
 
 /** 现货成本。**只出已实现**——未实现要完整买入历史，那段历史补不齐，见下 */
@@ -195,14 +226,14 @@ export type SpotCostRow = {
  *
  * **现货没有"未实现"。** 它是市值减加权平均成本，而那个成本要完整的买入历史——
  * 划转 / 理财派息 / 小额兑换进来的币在 `myTrades` 里没有痕迹，90 天以前的充值也
- * 查不回来，算出来永远缺一块。现货要看的是今天涨跌了多少，用盯市：
- * `持有量 ×（现价 − 昨收）`，只要数量和两个价格，不需要任何历史。
+ * 查不回来，算出来永远缺一块。现货要看的是**每天涨跌了多少**，那只需要当天的
+ * 持仓量与当天的收盘价，不需要任何成本。
  * 合约那半边不一样：`unRealizedProfit` 是交易所按自己的开仓均价给的，拿来即用。
  */
 export type Pnl = {
-  /** 今天赚了多少 = 现货盯市 + 当日结算。不交易的日子结算是 0，只报它屏幕上永远 $0.00 */
+  /** 今天赚了多少 = 日历最后一格。同一个数只算一处，两边不会对不上 */
   today: {
-    spot_mark_usd: number | null
+    spot_usd: number | null
     settled_usd: number | null
     total_usd: number | null
   }
@@ -223,16 +254,16 @@ export type Pnl = {
     referral_usd: number | null
     scope: string
   }
-  /**
-   * 每天落袋多少。取代净值走势图——那条线来自日快照，钱包间划转会让它骗人。
-   *
-   * **只含结算，不含盯市**：往前的每一天要盯市就得知道那天持有多少，而历史持仓量
-   * 拿不到。所以最后一格 ≠ `today.total_usd`，差的正是今天的盯市那一项。
-   */
-  daily: DailyRealized[]
+  /** 每天赚了多少。取代净值走势图——那条线来自日快照，钱包间划转会让它骗人 */
+  daily: DailyPnl[]
   today_usd: number | null
   spot_marks: SpotMarkRow[]
   spot_assets: SpotCostRow[]
+  /**
+   * 持仓量回滚不平的币：有一类进出没被覆盖到（多半是 90 天以外的充值，
+   * 那个接口回不了那么远）。受影响的天已经报成 null，这里说出是哪几个币。
+   */
+  unbalanced_assets: string[]
   /** 覆盖范围的实话：已清仓的标的查不到交易对 */
   coverage: string | null
   incomplete_assets: string[]

@@ -3,7 +3,7 @@ import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { cn } from '../../lib/cn'
 import { SegmentedControl } from '../../components/controls'
 import { signedMoney } from '../../lib/format'
-import type { DailyRealized } from '../../api/types'
+import type { DailyPnl } from '../../api/types'
 
 /**
  * 每日盈亏日历。
@@ -37,7 +37,8 @@ type Cell = null | {
   /** 在当前统计区间里吗。区间外照常显示日期，但压暗、不计入合计 */
   inRange: boolean
   value: number
-  traded: boolean
+  /** 这天算不算得出来。算不出来的格子不上色、不计入合计 */
+  computed: boolean
 }
 
 const monthKey = (at: Date) =>
@@ -57,14 +58,14 @@ function shiftDays(day: string, delta: number) {
  * 合约域名 451 时 `pnl` 整块为空，正好踩上（实测 fapi_blocked / no_history
  * 两个场景六个页面全白）。守卫必须在 hook 之前，那就只能提到外面来。
  */
-export function RealizedDays({ days }: { days: DailyRealized[] }) {
+export function RealizedDays({ days }: { days: DailyPnl[] }) {
   if (days.length === 0) {
     return <p className="py-10 text-center text-sm text-ink-3">还没有可用的成交记录。</p>
   }
   return <Calendar days={days} />
 }
 
-function Calendar({ days }: { days: DailyRealized[] }) {
+function Calendar({ days }: { days: DailyPnl[] }) {
   const last = days.at(-1)!.date
   const first = days[0]!.date
 
@@ -106,14 +107,14 @@ function Calendar({ days }: { days: DailyRealized[] }) {
       flat.push({
         date, day, known: hit !== undefined,
         inRange: date >= range.from && date <= range.to,
-        value: hit?.realized_usd ?? 0, traded: hit?.traded ?? false,
+        value: hit?.pnl_usd ?? 0, computed: hit?.known ?? false,
       })
     }
     // 补满六行：五周与六周的月份切换时，日历高度不该跳
     while (flat.length < ROWS * 7) flat.push(null)
 
     const counted = (cell: Cell): cell is NonNullable<Cell> =>
-      cell !== null && cell.known && cell.inRange && cell.traded
+      cell !== null && cell.known && cell.inRange && cell.computed
 
     return {
       label: `${year} 年 ${index + 1} 月`,
@@ -124,25 +125,25 @@ function Calendar({ days }: { days: DailyRealized[] }) {
           key: `${year}-${index}-${i}`,
           cells,
           total: live.reduce((sum, c) => sum + c.value, 0),
-          traded: live.length,
+          computed: live.length,
           empty: cells.every((c) => c === null),
         }
       }),
       total: flat.filter(counted).reduce((sum, c) => sum + c.value, 0),
-      traded: flat.filter(counted).length,
+      computed: flat.filter(counted).length,
     }
   }, [byDate, cursor, range])
 
   // 合计描述的是**区间**，不是当前这个月——区间可能横跨好几个月
   const scope = useMemo(() => {
-    const live = days.filter((d) => d.traded && d.date >= range.from && d.date <= range.to)
+    const live = days.filter((d) => d.known && d.date >= range.from && d.date <= range.to)
     const span = days.filter((d) => d.date >= range.from && d.date <= range.to).length
     return {
       span,
-      traded: live.length,
-      wins: live.filter((d) => d.realized_usd > 0).length,
-      total: live.reduce((sum, d) => sum + d.realized_usd, 0),
-      peak: Math.max(...live.map((d) => Math.abs(d.realized_usd)), 1),
+      computed: live.length,
+      wins: live.filter((d) => (d.pnl_usd ?? 0) > 0).length,
+      total: live.reduce((sum, d) => sum + (d.pnl_usd ?? 0), 0),
+      peak: Math.max(...live.map((d) => Math.abs(d.pnl_usd ?? 0)), 1),
     }
   }, [days, range])
 
@@ -209,9 +210,9 @@ function Calendar({ days }: { days: DailyRealized[] }) {
           <Arrow disabled={!canNext} forward label="下一月" onClick={() => step(1)} />
         </span>
         <span className={cn('tnum justify-self-end whitespace-nowrap text-xs sm:text-sm',
-          month.traded === 0 ? 'text-ink-3'
+          month.computed === 0 ? 'text-ink-3'
             : month.total >= 0 ? 'text-gain' : 'text-loss')}>
-          {month.traded === 0 ? '—' : signedMoney(month.total)}
+          {month.computed === 0 ? '—' : signedMoney(month.total)}
         </span>
       </header>
 
@@ -249,7 +250,7 @@ function Calendar({ days }: { days: DailyRealized[] }) {
               !week.empty && 'border-l border-rule',
               week.total > 0 ? 'text-gain' : week.total < 0 ? 'text-loss' : 'text-ink-3/45',
             )}>
-              {week.empty ? '' : week.traded === 0 ? '—' : signedMoney(week.total)}
+              {week.empty ? '' : week.computed === 0 ? '—' : signedMoney(week.total)}
             </span>
           </div>
         ))}
@@ -259,14 +260,19 @@ function Calendar({ days }: { days: DailyRealized[] }) {
           窄屏必须一行放得下，折行会让固定高度的模块在切月时上下跳。 */}
       <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-rule pt-3">
         <span className="tnum text-xs text-ink-3">
-          区间 {scope.span} 天 · {scope.traded} 天有交易 · {scope.wins} 天为正
+          {/* "N 天有交易"这条没了：现货不成交也在涨跌，每天都有盈亏。
+              留下的是"算不出来"的天数，而且只在真的有的时候才说。 */}
+          区间 {scope.span} 天 · {scope.wins} 天为正
+          {scope.span > scope.computed && (
+            <span className="text-loss"> · {scope.span - scope.computed} 天算不出来</span>
+          )}
         </span>
         <span className="tnum text-xs text-ink-3">
           合计
           <span className={cn('ml-2 text-sm',
-            scope.traded === 0 ? 'text-ink-3'
+            scope.computed === 0 ? 'text-ink-3'
               : scope.total >= 0 ? 'text-gain' : 'text-loss')}>
-            {scope.traded === 0 ? '—' : signedMoney(scope.total)}
+            {scope.computed === 0 ? '—' : signedMoney(scope.total)}
           </span>
         </span>
       </div>
@@ -308,8 +314,8 @@ function DayCell({ cell, peak, picking, onPick, onHover }: {
   // 月首月末的补位格：不属于这个月，留空
   if (cell === null) return <span aria-hidden="true" className="min-h-[52px]" />
 
-  const { day, known, inRange, traded, value } = cell
-  const paint = known && inRange && traded && value !== 0
+  const { day, known, inRange, computed, value } = cell
+  const paint = known && inRange && computed && value !== 0
   const weight = paint ? Math.abs(value) / peak : 0
   // **只有有数据的日子能选。** 上一版让整月都可点，于是能选出 09-05 — 09-19
   // 这种全在未来、区间 0 天的范围——选得出来但什么也没有。
@@ -340,7 +346,7 @@ function DayCell({ cell, peak, picking, onPick, onHover }: {
           (6 + weight * 15).toFixed(1)}%, transparent)`,
       } : undefined}
       title={!known ? `${cell.date} 不在可取区间内`
-        : traded ? `${cell.date} ${signedMoney(value)}` : `${cell.date} 没有交易`}
+        : computed ? `${cell.date} ${signedMoney(value)}` : `${cell.date} 没有交易`}
       {...(selectable ? { type: 'button' as const } : {})}
     >
       <span className={cn('tnum text-micro leading-none',

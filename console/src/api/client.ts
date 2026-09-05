@@ -108,19 +108,23 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         futures: null,
         income: null,
         // **盈亏不整块留空。** 现货那半边一点没受影响：行情是公开端点、现货余额走
-        // sapi，盯市与已实现照常算得出来。451 只带走合约的未实现与当日结算。
+        // sapi，现货涨跌与已实现照常算得出来。451 只带走合约的未实现与当日结算。
         // 后端就是这么做的（`_pnl` 只在三块全缺时才返回 null），mock 也得一样，
         // 否则这个场景演的是一件不会发生的事。
         pnl: base.pnl && {
           ...base.pnl,
           today: { ...base.pnl.today, settled_usd: null,
-                   total_usd: base.pnl.today.spot_mark_usd },
-          today_usd: base.pnl.today.spot_mark_usd,
+                   total_usd: base.pnl.today.spot_usd },
+          today_usd: base.pnl.today.spot_usd,
           unrealized: { ...base.pnl.unrealized, futures_usd: null },
           realized: { ...base.pnl.realized, futures_usd: null },
           carry: { ...base.pnl.carry, funding_usd: null, commission_usd: null,
                    referral_usd: null },
-          daily: [],
+          // 日历不清空：现货那半边照常算得出来，没了的只是合约结算。
+          // 后端就是这样（income 取不到时 settled 全是 0，pnl 只剩现货）。
+          daily: base.pnl.daily.map((day) => ({
+            ...day, settled_usd: 0, pnl_usd: day.spot_usd, known: day.spot_usd !== null,
+          })),
         },
         totals: base.totals && {
           ...base.totals,
@@ -147,17 +151,21 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
       return {
         ...base,
         sources: degrade(base, ['income'], 'unreachable', '合约损益接口暂时取不到', null),
-        // 只有 income 挂了。合约未实现来自 positionRisk、现货盯市来自行情与余额，
+        // 只有 income 挂了。合约未实现来自 positionRisk、现货涨跌来自行情与余额，
         // 两样都还在——挂掉的是当日结算、合约已实现与那三项持有成本。
         pnl: base.pnl && {
           ...base.pnl,
           today: { ...base.pnl.today, settled_usd: null,
-                   total_usd: base.pnl.today.spot_mark_usd },
-          today_usd: base.pnl.today.spot_mark_usd,
+                   total_usd: base.pnl.today.spot_usd },
+          today_usd: base.pnl.today.spot_usd,
           realized: { ...base.pnl.realized, futures_usd: null },
           carry: { ...base.pnl.carry, funding_usd: null, commission_usd: null,
                    referral_usd: null },
-          daily: [],
+          // 日历不清空：现货那半边照常算得出来，没了的只是合约结算。
+          // 后端就是这样（income 取不到时 settled 全是 0，pnl 只剩现货）。
+          daily: base.pnl.daily.map((day) => ({
+            ...day, settled_usd: 0, pnl_usd: day.spot_usd, known: day.spot_usd !== null,
+          })),
         },
         totals: base.totals,
       }
