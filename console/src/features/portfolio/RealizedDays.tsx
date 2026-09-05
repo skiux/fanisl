@@ -24,7 +24,9 @@ import type { DailyPnl } from '../../api/types'
  * 着色只用很浅的底 + 有色数字，金额一律带正负号——红绿在色盲下分离度只有 ΔE 6.1
  * （验证器实测），光靠底色深浅分不出正负，符号是第二重编码。
  */
-const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
+// **周日起头。** 中文日历两种排法都常见，这里跟通行的 S M T W T F S 一致。
+// 汉字本来就是单字，窄屏不用再缩写。
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 const ROWS = 6
 const PRESETS = { '7': 7, '30': 30, '90': 90 } as const
 type Preset = keyof typeof PRESETS | 'custom'
@@ -97,8 +99,8 @@ function Calendar({ days }: { days: DailyPnl[] }) {
     const year = cursor.getUTCFullYear()
     const index = cursor.getUTCMonth()
     const total = new Date(Date.UTC(year, index + 1, 0)).getUTCDate()
-    // 周一起头：getUTCDay() 里周日是 0，挪到末位
-    const lead = (new Date(Date.UTC(year, index, 1)).getUTCDay() + 6) % 7
+    // 周日起头：getUTCDay() 里周日就是 0，直接用
+    const lead = new Date(Date.UTC(year, index, 1)).getUTCDay()
 
     const flat: Cell[] = Array(lead).fill(null)
     for (let day = 1; day <= total; day += 1) {
@@ -217,18 +219,13 @@ function Calendar({ days }: { days: DailyPnl[] }) {
       </header>
 
       <div
-        className="grid grid-cols-[repeat(7,minmax(0,1fr))] gap-x-1 sm:grid-cols-[repeat(7,minmax(0,1fr))_minmax(3.6rem,0.75fr)]"
+        className="grid grid-cols-[repeat(7,minmax(0,1fr))] gap-1 sm:grid-cols-[repeat(7,minmax(0,1fr))_minmax(3.6rem,0.75fr)] sm:gap-1.5"
         onPointerLeave={() => setHover(null)}
       >
-        {WEEKDAYS.map((day, index) => (
-          <span
-            className={cn('pb-1.5 text-center text-micro',
-              // 周末压暗一档：不是隐藏（合约的资金费周末照样结算），只是让工作日先跳出来
-              index >= 5 ? 'text-ink-3/55' : 'text-ink-3')}
-            key={day}
-          >
-            {day}
-          </span>
+        {/* 周末不压暗了：币是 7×24 的，资金费周末照样结算，持仓周末照样涨跌。
+            压暗等于说"这两天不太算数"，而现在每一天都是真实盈亏。 */}
+        {WEEKDAYS.map((day) => (
+          <span className="pb-2 text-center text-micro text-ink-3" key={day}>{day}</span>
         ))}
         <span className="hidden pb-1.5 pl-3 text-right text-micro text-ink-3 sm:block">本周</span>
 
@@ -242,6 +239,7 @@ function Calendar({ days }: { days: DailyPnl[] }) {
                 onPick={pick}
                 peak={scope.peak}
                 picking={picking}
+                today={last}
               />
             ))}
             <span className={cn(
@@ -304,18 +302,21 @@ function Arrow({ onClick, disabled, label, forward }: {
   )
 }
 
-function DayCell({ cell, peak, picking, onPick, onHover }: {
+function DayCell({ cell, peak, picking, onPick, onHover, today }: {
   cell: Cell
   peak: number
   picking: boolean
   onPick: (date: string) => void
   onHover: (date: string | null) => void
+  today: string
 }) {
-  // 月首月末的补位格：不属于这个月，留空
-  if (cell === null) return <span aria-hidden="true" className="min-h-[52px]" />
+  // 月首月末的补位格：不属于这个月，**整格不画**（不是画一个空色块）
+  if (cell === null) return <span aria-hidden="true" className="min-h-[54px]" />
 
   const { day, known, inRange, computed, value } = cell
   const paint = known && inRange && computed && value !== 0
+  // 深浅按金额大小。参考的那张图用同一个深浅，于是 +0.17 和 +68.29 一样绿——
+  // 白丢掉了"哪几天真的要紧"。下限抬到 9%，小额也还看得见。
   const weight = paint ? Math.abs(value) / peak : 0
   // **只有有数据的日子能选。** 上一版让整月都可点，于是能选出 09-05 — 09-19
   // 这种全在未来、区间 0 天的范围——选得出来但什么也没有。
@@ -323,17 +324,19 @@ function DayCell({ cell, peak, picking, onPick, onHover }: {
   const Tag = selectable ? 'button' : 'div'
 
   return (
-    // 不给每个格子描边：三十多个方框会把这一页压成一张表单。
-    // 分隔靠留白，深浅靠底色——发丝线只留给"本周"那一列的分界。
+    // 每天一块独立的圆角色块，靠间距分隔而不是描边——三十多个方框会把这一页
+    // 压成一张表单。
     <Tag
       // 窄屏一格只有 41px 宽，px-2 的内边距就吃掉 16px——金额放不下。
       // 内边距和字号都跟着断点走，别指望 truncate 兜底：截断的金额是错的数字。
-      className={cn('flex min-h-[52px] w-full flex-col justify-between rounded-[3px]',
-        'px-1 py-1.5 sm:px-2',
+      className={cn('flex min-h-[54px] w-full flex-col justify-between rounded-[5px]',
+        'px-1.5 py-1.5 sm:px-2',
         'text-left transition-colors duration-150',
-        !known && 'bg-sheet-2/35',                    // 区间外 / 未来：更淡的底
-        known && !paint && 'bg-sheet-2/70',           // 有数据但没交易
+        !known && 'bg-sheet-2/30',                    // 可取区间之外 / 未来
+        known && !paint && 'bg-sheet-2/60',           // 有这天但算不出来 / 恰好为 0
         !inRange && 'opacity-40',                     // 不在统计区间里：整格压暗
+        // 今天：一圈细环。这是所有格子里最先被找的那一个
+        cell.date === today && 'ring-1 ring-inset ring-rule-strong',
         selectable && 'cursor-pointer hover:ring-1 hover:ring-accent',
         selectable && 'focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent',
         // 选取中但这天没数据：明确标成不可选，而不是看着能点、点了没反应
@@ -343,18 +346,20 @@ function DayCell({ cell, peak, picking, onPick, onHover }: {
       onPointerEnter={selectable ? () => onHover(cell.date) : undefined}
       style={weight > 0 ? {
         backgroundColor: `color-mix(in oklab, var(--${value >= 0 ? 'gain' : 'loss'}) ${
-          (6 + weight * 15).toFixed(1)}%, transparent)`,
+          (9 + weight * 20).toFixed(1)}%, transparent)`,
       } : undefined}
       title={!known ? `${cell.date} 不在可取区间内`
-        : computed ? `${cell.date} ${signedMoney(value)}` : `${cell.date} 没有交易`}
+        : computed ? `${cell.date} ${signedMoney(value)}` : `${cell.date} 算不出来`}
       {...(selectable ? { type: 'button' as const } : {})}
     >
-      <span className={cn('tnum text-micro leading-none',
-        known ? 'text-ink-3' : 'text-ink-3/40')}>
+      {/* 日期是这张表的索引，要一眼找得到——原先 11px 的灰字比金额还轻，
+          翻月的时候要盯着找。金额在下面，颜色与符号各是一重编码。 */}
+      <span className={cn('tnum text-xs font-medium leading-none sm:text-sm',
+        known ? 'text-ink' : 'text-ink-3/45')}>
         {day}
       </span>
       {paint && (
-        <span className={cn('tnum text-right text-[10px] leading-none sm:text-[11px]',
+        <span className={cn('tnum text-[11px] leading-none sm:text-xs',
           value > 0 ? 'text-gain' : 'text-loss')}>
           {compact(value)}
         </span>
@@ -363,11 +368,17 @@ function DayCell({ cell, peak, picking, onPick, onHover }: {
   )
 }
 
-/** 格子窄，$1,234.56 放不下。千位以上压成 1.2k；符号一律保留——它是正负的第二重编码 */
+/**
+ * 格子窄，`$1,234.56` 放不下。位数跟着量级走，最长五个字符（`+41.6` / `+1.2k`）。
+ *
+ * 十以下留两位小数：这个账户不少天就是几毛钱，一律取整会印成 `+0`，看着像没赚。
+ * 符号一律保留——红绿在色盲下分离度只有 ΔE 6.1，符号是第二重编码。
+ */
 function compact(value: number) {
   const sign = value > 0 ? '+' : '−'
   const abs = Math.abs(value)
-  if (abs < 1) return `${sign}${abs.toFixed(2)}`
+  if (abs < 10) return `${sign}${abs.toFixed(2)}`
+  if (abs < 100) return `${sign}${abs.toFixed(1)}`
   if (abs < 1000) return `${sign}${Math.round(abs)}`
   return `${sign}${(abs / 1000).toFixed(abs < 10_000 ? 1 : 0)}k`
 }

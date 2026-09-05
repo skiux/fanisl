@@ -327,11 +327,12 @@ function buildPnl(): Pnl {
  */
 function buildDaily(): DailyPnl[] {
   const out: DailyPnl[] = []
-  const today = new Date()
+  // **全程 UTC。** 原先是本地的 setDate/getDay 再 toISOString 出去，
+  // UTC+8 的人在本地 08:00 之前打开，日期会整体差一天。
+  const todayMs = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`)
   for (let back = 89; back >= 0; back -= 1) {
-    const day = new Date(today)
-    day.setDate(day.getDate() - back)
-    const weekday = day.getDay()
+    const day = new Date(todayMs - back * 86_400_000)
+    const weekday = day.getUTCDay()
     // **每天都有现货盈亏**：持仓不成交也在涨跌。原先这里靠 traded 把周末与
     // 不交易的日子填成 0，那正是被指出来的错——0 是"没成交"，不是"没赚没亏"。
     const spot = Math.round((Math.sin(back * 1.31) * 260

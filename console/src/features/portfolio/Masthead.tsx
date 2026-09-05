@@ -145,7 +145,12 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
               读着像故障）。 */}
           {sources.length > 0 && (
             <>
-              <span className="tnum text-xs text-ink-2">截至 {clockTime(asOf)}</span>
+              <span className="tnum text-xs text-ink-2">
+                截至 {clockTime(asOf)}
+                {/* 整页按 UTC 日切走（日历的每一格、成交与结算的分桶都是
+                    Binance 的 UTC 结算日）。标一次，别让 UTC+8 的人默认它是本地时间 */}
+                <span className="text-ink-3"> UTC</span>
+              </span>
               {(degraded.length > 0 || level === 'stale') && (
                 <span className="flex items-center gap-1.5">
                   <StatusDot level={degraded.length > 0 ? 'error' : level} />

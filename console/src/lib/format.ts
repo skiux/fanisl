@@ -100,18 +100,25 @@ export function relativeTime(asOf: string | null) {
   return `${Math.round(hours / 24)} 天前`
 }
 
+/**
+ * 时刻，**一律 UTC**。
+ *
+ * 原先硬编码 Asia/Shanghai（UTC+8），而这一页别的地方全按 UTC 日切走：
+ * 日历的每一格、成交与结算的分桶，都是 Binance 的 UTC 结算日。两套时区混在
+ * 一起，跨零点的那几个小时里"截至"与日历会指着不同的一天。
+ *
+ * 时区标在报头的「截至」那一行（每页都有），不在这里逐个缀——流水页一屏九十行，
+ * 每行后面挂一个 UTC 只是噪声。标一次就够，那是数据的一部分（这些时刻按哪个
+ * 时区读），不标的话 UTC+8 的人会默认它是本地时间，差出八小时。
+ */
 export function clockTime(asOf: string | null) {
   if (!asOf) return '—'
   const date = new Date(asOf)
-  const zone = 'Asia/Shanghai'
-  const dayOf = (value: Date) =>
-    new Intl.DateTimeFormat('en-CA', { timeZone: zone }).format(value)
+  const dayOf = (value: Date) => value.toISOString().slice(0, 10)
   // 当天的只给时分：一分钟前的数据再标上日期是噪音
   const sameDay = dayOf(date) === dayOf(new Date())
-  return new Intl.DateTimeFormat('zh-CN', {
-    ...(sameDay ? {} : { month: '2-digit', day: '2-digit' }),
-    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: zone,
-  }).format(date)
+  const iso = date.toISOString()
+  return `${sameDay ? '' : `${iso.slice(5, 7)}-${iso.slice(8, 10)} `}${iso.slice(11, 16)}`
 }
 
 export const WALLET_LABEL: Record<string, string> = {

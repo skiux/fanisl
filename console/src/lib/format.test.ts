@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { price } from './format'
+import { clockTime, price } from './format'
 
 describe('price', () => {
   it('不用科学计数法印亚分币', () => {
@@ -18,5 +18,24 @@ describe('price', () => {
   it('取不到就是取不到，不是 $0', () => {
     expect(price(null)).toBe('—')
     expect(price(Number.NaN)).toBe('—')
+  })
+})
+
+describe('clockTime', () => {
+  it('按 UTC 读，不按本地时区', () => {
+    // 原先硬编码 Asia/Shanghai，而整页的日切是 UTC——跨零点那几个小时里
+    // "截至"与日历会指着不同的一天
+    expect(clockTime('2026-09-05T02:30:00Z')).toContain('02:30')
+    expect(clockTime('2026-09-04T23:45:00Z')).toContain('23:45')
+  })
+
+  it('不是今天就带上日期', () => {
+    // "今天"按 UTC 判，与日历同一条边界
+    const iso = new Date(Date.now() - 5 * 86_400_000).toISOString()
+    expect(clockTime(iso)).toMatch(/^\d{2}-\d{2} \d{2}:\d{2}$/)
+  })
+
+  it('取不到就是取不到', () => {
+    expect(clockTime(null)).toBe('—')
   })
 })
