@@ -162,15 +162,25 @@ export type DailyRealized = {
   traded: boolean
 }
 
+/** 逐币的今日涨跌。数量跨全部钱包——划进合约当保证金的那部分也算在里面 */
+export type SpotMarkRow = {
+  asset: string
+  qty: number
+  price_usd: number | null
+  /** 昨日 UTC 收盘。取不到就留空，不按"没动"处理 */
+  prev_close_usd: number | null
+  value_usd: number | null
+  /** qty × (price − prev_close) */
+  today_usd: number | null
+}
+
+/** 现货成本。**只出已实现**——未实现要完整买入历史，那段历史补不齐，见下 */
 export type SpotCostRow = {
   asset: string
   qty: number
-  /** 这些币没见过买入记录（划转 / 理财 / 小额兑换进来的），成本算不出来，不计入盈亏 */
-  unpriced_qty: number
   avg_cost_usd: number | null
   price_usd: number | null
   value_usd: number | null
-  unrealized_usd: number | null
   realized_usd: number | null
   cost_known: boolean
   is_cash: boolean
@@ -182,12 +192,23 @@ export type SpotCostRow = {
  *
  * 三块的窗口不一样，是接口的硬限：现货成交没有时间上限，合约损益只保留 90 天，
  * 合约未实现是此刻的值。所以不能加成一个数说"这段时间赚了多少"。
+ *
+ * **现货没有"未实现"。** 它是市值减加权平均成本，而那个成本要完整的买入历史——
+ * 划转 / 理财派息 / 小额兑换进来的币在 `myTrades` 里没有痕迹，90 天以前的充值也
+ * 查不回来，算出来永远缺一块。现货要看的是今天涨跌了多少，用盯市：
+ * `持有量 ×（现价 − 昨收）`，只要数量和两个价格，不需要任何历史。
+ * 合约那半边不一样：`unRealizedProfit` 是交易所按自己的开仓均价给的，拿来即用。
  */
 export type Pnl = {
-  unrealized: {
-    spot_usd: number | null
-    futures_usd: number | null
+  /** 今天赚了多少 = 现货盯市 + 当日结算。不交易的日子结算是 0，只报它屏幕上永远 $0.00 */
+  today: {
+    spot_mark_usd: number | null
+    settled_usd: number | null
     total_usd: number | null
+  }
+  /** **只有合约。** 现货没有未实现这一项，见 SpotMarkRow */
+  unrealized: {
+    futures_usd: number | null
     scope: string
   }
   realized: {
@@ -202,9 +223,15 @@ export type Pnl = {
     referral_usd: number | null
     scope: string
   }
-  /** 每天落袋多少。取代净值走势图——那条线来自日快照，钱包间划转会让它骗人 */
+  /**
+   * 每天落袋多少。取代净值走势图——那条线来自日快照，钱包间划转会让它骗人。
+   *
+   * **只含结算，不含盯市**：往前的每一天要盯市就得知道那天持有多少，而历史持仓量
+   * 拿不到。所以最后一格 ≠ `today.total_usd`，差的正是今天的盯市那一项。
+   */
   daily: DailyRealized[]
   today_usd: number | null
+  spot_marks: SpotMarkRow[]
   spot_assets: SpotCostRow[]
   /** 覆盖范围的实话：已清仓的标的查不到交易对 */
   coverage: string | null

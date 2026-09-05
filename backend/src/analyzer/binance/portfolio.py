@@ -20,7 +20,7 @@ from typing import Any, Callable
 from .cache import SourceCache, SourceResult, fetch_all
 from .client import BinanceClient
 from .costbasis import (
-    USD_QUOTES, held_across_wallets, realized_by_day, replay, summarize,
+    USD_QUOTES, held_across_wallets, realized_by_day, replay, split_symbol, summarize,
 )
 from .common import (
     WALLET_KIND, dec, dec0, guard, ms_to_iso, price_map, usd_price, usd_value,
@@ -51,6 +51,9 @@ TTL = {
     # 成交历史只增不改，重放一次就够。放长不是省权重（单次 20 很便宜），
     # 是因为全量重放要翻页，页数随成交笔数增长。
     "trades": 21_600,
+    # 昨日收盘：一整个 UTC 日里是个定值，但**跨过零点就得换一根**。
+    # 放太长的话，日切之后"今日盈亏"还在拿前天的收盘当基准。单次权重 2。
+    "prev_close": 900,
 }
 
 
@@ -63,6 +66,72 @@ def _trade_jobs(client: BinanceClient, symbols: list[str]
     """
     return [(f"trades.{sym}", TTL["trades"],
              (lambda s=sym: client.spot_trades_since(s))) for sym in symbols]
+
+
+def _close_jobs(client: BinanceClient, symbols: list[str]
+                ) -> list[tuple[str, int, Any]]:
+    """昨日 UTC 收盘价，按交易对一个来源。公开端点、不签名、单次权重 2。
+
+    `limit=2` 拿两根日线：最后一根是**今天这根**（还在走），前一根才是昨天收盘的。
+    直接取最后一根的 close 等于拿现价当昨收，今日盈亏永远是 0。
+    """
+    return [(f"close.{sym}", TTL["prev_close"],
+             (lambda s=sym: client.klines(s, interval="1d", limit=2))) for sym in symbols]
+
+
+def _prev_closes(results: dict[str, SourceResult], symbols: list[str]) -> dict[str, float]:
+    """`{资产: 昨日收盘价}`。取不到的币不出现在里面——留空比给一个错的基准好。"""
+    out: dict[str, float] = {}
+    for sym in symbols:
+        got = results.get(f"close.{sym}")
+        rows = got.payload if (got and got.ok) else None
+        if not isinstance(rows, list) or len(rows) < 2:
+            continue
+        close = dec(rows[-2][4]) if len(rows[-2]) > 4 else None
+        if close is not None and close > 0:
+            base = split_symbol(sym)
+            if base:
+                out[base[0]] = close
+    return out
+
+
+def _spot_today(held: dict[str, float], prices: dict[str, float],
+                prev: dict[str, float]) -> dict:
+    """现货今天赚了多少：**持有量 ×（现价 − 昨收）**。
+
+    **现货不按成本算未实现。** 那是相对买入价的终身数，要完整的买入历史——而
+    划转 / 理财派息 / 小额兑换进来的币在 `myTrades` 里没有任何痕迹，那段历史补不齐
+    （`capital/deposit/hisrec` 只回 90 天）。硬算的结果是一个永远缺一块的数，
+    2026-09 为它修过三轮，还一度做成"让人手填均价"。
+
+    盯市不需要历史：只要数量和两个价格。数量是**跨全部钱包**的（`held_across_wallets`），
+    划进合约当保证金的那部分本来就在里面——所谓"现货数据缺失"其实只是币不在现货钱包，
+    量一直都在。
+
+    稳定币不参与：它的价格恒等于面值，算出来是噪声。
+    """
+    rows = []
+    total = 0.0
+    for asset in sorted(held):
+        qty = held[asset]
+        if qty <= 0 or asset in USD_QUOTES:
+            continue
+        now_price = usd_price(asset, prices)
+        was = prev.get(asset)
+        change = None if (now_price is None or was is None) else qty * (now_price - was)
+        if change is not None:
+            total += change
+        rows.append({
+            "asset": asset,
+            "qty": qty,
+            "price_usd": now_price,
+            "prev_close_usd": was,
+            "value_usd": None if now_price is None else qty * now_price,
+            "today_usd": change,
+        })
+    # 一个币都算不出来时别报 0——"今天没涨没跌"与"取不到昨收"是两件事
+    known = [r for r in rows if r["today_usd"] is not None]
+    return {"assets": rows, "total_usd": total if known else None}
 
 
 def _cost_symbols(held: dict[str, float], prices: dict[str, float]) -> list[str]:
@@ -485,7 +554,7 @@ def _daily_realized(income_rows: Any, spot_days: dict[str, float],
     return out
 
 
-def _pnl(spot_cost: dict | None, futures: dict | None,
+def _pnl(spot_cost: dict | None, spot_today: dict, futures: dict | None,
          income: dict | None, daily: list[dict]) -> dict | None:
     """盈亏构成。**每一项都有出处，没有残差项。**
 
@@ -496,21 +565,29 @@ def _pnl(spot_cost: dict | None, futures: dict | None,
 
     成交法对划转免疫：划转不是成交。
 
-        未实现 = 现货（市值 − 加权平均成本）+ 合约 unRealizedProfit
-        已实现 = 现货卖出实现的 + 合约 REALIZED_PNL
+        今日   = 现货盯市（持有量 ×（现价 − 昨收））+ 当日结算
+        未实现 = **只有合约**：positionRisk 的 unRealizedProfit
+        已实现 = 现货卖出结转的 + 合约 REALIZED_PNL
         其他   = 资金费 + 手续费 + 返佣
 
-    三块的窗口不一样，这是接口的硬限，不是选择：
+    **现货没有"未实现"这一项。** 它曾经算的是市值减加权平均成本，可那个成本要
+    完整的买入历史，而划转 / 派息 / 小额兑换进来的币在 `myTrades` 里没有痕迹，
+    90 天以前的充值也查不回来——算出来永远缺一块。现货要看的是今天涨跌了多少，
+    盯市就够，不需要任何历史。合约那半边不一样：`unRealizedProfit` 是交易所按
+    自己的开仓均价给的，拿来即用，不需要我们重建成本。
+
+    窗口不一样，是接口的硬限，不是选择：
     - 现货成交 `myTrades` 用 fromId 翻页，**没有时间上限**，是全历史
     - 合约 `income` **只保留 90 天**，`userTrades` 同样只有 90 天
-    - 合约未实现来自 positionRisk，是**此刻**的值，没有窗口概念
+    - 盯市与合约未实现都是**此刻**的值，没有窗口概念
 
     所以界面上必须分开写，不能加成一个数说"这段时间赚了多少"。
     """
-    spot_unreal = (spot_cost or {}).get("unrealized_usd")
     spot_real = (spot_cost or {}).get("realized_usd")
     fut_unreal = (futures or {}).get("total_unrealized_pnl")
     fut_real = (income or {}).get("realized_pnl")
+    mark = spot_today.get("total_usd")
+    settled = daily[-1]["realized_usd"] if daily else None
 
     def total(*parts):
         known = [p for p in parts if p is not None]
@@ -519,11 +596,17 @@ def _pnl(spot_cost: dict | None, futures: dict | None,
     if spot_cost is None and futures is None and income is None:
         return None
     return {
+        # 今天赚了多少。**两项加起来，别只报一项**：不交易的日子结算是 0，
+        # 只报结算的话屏幕上永远是 $0.00，而持仓明明在涨跌。
+        "today": {
+            "spot_mark_usd": mark,
+            "settled_usd": settled,
+            "total_usd": total(mark, settled),
+        },
+        "today_usd": total(mark, settled),
         "unrealized": {
-            "spot_usd": spot_unreal,
             "futures_usd": fut_unreal,
-            "total_usd": total(spot_unreal, fut_unreal),
-            "scope": "此刻的持仓",
+            "scope": "此刻的合约持仓",
         },
         "realized": {
             "spot_usd": spot_real,
@@ -537,10 +620,12 @@ def _pnl(spot_cost: dict | None, futures: dict | None,
             "referral_usd": (income or {}).get("referral_kickback"),
             "scope": f"最近 {WINDOW_DAYS} 天",
         },
-        # 每天落袋多少。取代原来的净值走势图：那条线来自日快照，钱包间划转会让它
-        # 凭空抬升或塌陷，图上看着像赚了，其实只是把钱挪了个地方。
+        # 每天落袋多少。**只含结算**（成交结转 + 资金费 + 手续费），不含盯市——
+        # 往前的每一天要盯市就得知道那天持有多少，而历史持仓量拿不到。
+        # 所以最后一格 ≠ `today.total_usd`，差的就是今天的盯市那一项。
         "daily": daily,
-        "today_usd": daily[-1]["realized_usd"] if daily else None,
+        # 逐币的今日涨跌。数量跨全部钱包，划进合约当保证金的也算在里面。
+        "spot_marks": spot_today.get("assets", []),
         "spot_assets": (spot_cost or {}).get("assets", []),
         "coverage": (spot_cost or {}).get("coverage"),
         "incomplete_assets": (spot_cost or {}).get("incomplete_assets", []),
@@ -587,18 +672,24 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
     income = block("income", lambda: _income(payload("income"), prices))
     transfers = block("transfers", lambda: _transfers(
         payload("transfers.deposits"), payload("transfers.withdrawals"), prices))
-    # --- 第二阶段：现货成交 ------------------------------------------------
-    # `myTrades` 的 symbol 必填，而"交易过哪些对"要先看余额——余额本身是第一阶段
-    # 的来源，所以只能分两轮。第二轮很小且缓存 6 小时，多一次往返换一个不靠残差的
+    # --- 第二阶段：按交易对取的东西 ----------------------------------------
+    # `myTrades` 与 `klines` 的 symbol 都必填，而"持有哪些币"要先看余额——余额本身
+    # 是第一阶段的来源，所以只能分两轮。第二轮很小，多一次往返换一个不靠残差的
     # 盈亏数，值得。
     spot_realized_days: dict[str, float] = {}
     held = held_across_wallets(spot, futures, margin, earn)
     cost_symbols = _cost_symbols(held, prices)
     trade_results: dict[str, SourceResult] = {}
+    prev_closes: dict[str, float] = {}
     if cost_symbols:
-        trade_results = fetch_all(cache, _trade_jobs(client, cost_symbols),
+        trade_results = fetch_all(cache,
+                                  _trade_jobs(client, cost_symbols)
+                                  + _close_jobs(client, cost_symbols),
                                   force=False, never_force=NEVER_FORCE)
         results.update(trade_results)
+        prev_closes = _prev_closes(trade_results, cost_symbols)
+
+    spot_today = _spot_today(held, prices, prev_closes)
 
     def cost_basis() -> dict | None:
         trades = []
@@ -659,7 +750,7 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "income": income,
         "transfers": transfers,
         "pnl": block("pnl", lambda: _pnl(
-            block("cost_basis", cost_basis), futures, income,
+            block("cost_basis", cost_basis), spot_today, futures, income,
             _daily_realized(payload("income"), spot_realized_days, prices,
                             WINDOW_DAYS, now))),
     }

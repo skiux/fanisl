@@ -83,7 +83,7 @@ def test_cash_never_lands_in_incomplete_assets():
     assert out["incomplete_assets"] == []
     usdt = next(r for r in out["assets"] if r["asset"] == "USDT")
     assert usdt["is_cash"] is True
-    assert usdt["unrealized_usd"] == pytest.approx(0.0)
+    assert usdt["realized_usd"] == pytest.approx(0.0)
 
 
 # --- 手续费 ----------------------------------------------------------------
@@ -149,48 +149,54 @@ def test_selling_more_than_we_saw_bought_marks_unknown_instead_of_going_negative
 
 # --- 汇总 ------------------------------------------------------------------
 
-def test_unrealized_only_counts_the_quantity_whose_cost_we_actually_know():
-    """重放 10 个、实际持有 12 个：多出来的 2 个**没见过买入记录**，不能按同价算。
+def test_summarize_does_not_emit_spot_unrealized_at_all():
+    """**现货没有未实现这一项。** 这条守的是不要再把它加回来。
 
-    这条原先反着写，锁定的正是那个 bug：拿 `cost_usd / 重放数量` 得到的均价去乘
-    余额的全部数量，等于假设没见过的币和见过的同价。实测里现货未实现因此被放大了
-    六倍多（重放 1 个 BNB、持有 6.712 个，+$215.79 vs 有据可依的 +$32.15）。
-
-    数量仍然信余额——那是账户里真有的，页面上的持仓不能和资产页打架；
-    只是盈亏只对成本已知的那部分算，多出来的数量单独报出来。
+    它是市值减加权平均成本，而那个成本要完整的买入历史——划转 / 派息 / 小额兑换
+    进来的币在 myTrades 里没有痕迹，90 天以前的充值也查不回来，算出来永远缺一块。
+    2026-09 为它修过三轮（一版虚高六倍：重放 1 个 BNB @ $650、实际持有 6.712 个，
+    算成 +$215.79 而有据可依的只有 +$32.15；补丁版不虚高但仍然缺一块），
+    最后一版甚至做成"让人手填均价"——都是在给一个不该问的问题找答案。
+    今天涨跌多少改用盯市，见 `portfolio._spot_today`。
     """
     lots = replay([trade("BNBUSDT", buy=True, qty=10, price=600, at=DAY)])
     out = summarize(lots, {"BNB": 700.0}, held={"BNB": 12.0})
+    assert "unrealized_usd" not in out
     bnb = next(r for r in out["assets"] if r["asset"] == "BNB")
-    assert bnb["qty"] == pytest.approx(12)          # 余额说了算
-    assert bnb["avg_cost_usd"] == pytest.approx(600)
-    assert bnb["unpriced_qty"] == pytest.approx(2)  # 这 2 个成本不明
-    assert bnb["unrealized_usd"] == pytest.approx(10 * (700 - 600))
-    assert out["unrealized_usd"] == pytest.approx(10 * (700 - 600))
+    assert "unrealized_usd" not in bnb
+    assert "unpriced_qty" not in bnb
 
 
-def test_selling_more_than_the_balance_is_not_inflated_either():
-    """反向：重放到的比余额多（有过没看到的划出）。这时余额更小，按余额算就对。"""
+def test_quantity_follows_the_balance_not_the_replay():
+    """数量信余额——那是账户里真有的，页面上的持仓不能和资产页打架。
+
+    重放到的比余额少（划转 / 派息进来的没见过）也好，比余额多（有过没看到的
+    划出）也好，报出去的都是余额。均价仍然只对重放到的那部分成立。
+    """
     lots = replay([trade("BNBUSDT", buy=True, qty=10, price=600, at=DAY)])
-    out = summarize(lots, {"BNB": 700.0}, held={"BNB": 4.0})
-    bnb = next(r for r in out["assets"] if r["asset"] == "BNB")
-    assert bnb["unpriced_qty"] == pytest.approx(0)
-    assert bnb["unrealized_usd"] == pytest.approx(4 * (700 - 600))
+    more = next(r for r in summarize(lots, {"BNB": 700.0}, held={"BNB": 12.0})["assets"]
+                if r["asset"] == "BNB")
+    less = next(r for r in summarize(lots, {"BNB": 700.0}, held={"BNB": 4.0})["assets"]
+                if r["asset"] == "BNB")
+    assert more["qty"] == pytest.approx(12)
+    assert less["qty"] == pytest.approx(4)
+    assert more["avg_cost_usd"] == pytest.approx(600)
+    assert more["value_usd"] == pytest.approx(12 * 700)
 
 
-def test_cash_is_never_treated_as_unpriced():
-    """USDT 的成本恒等于面值，不需要见过它怎么进来的——余额比重放出来的多也一样。
+def test_cash_rows_carry_face_value(): 
+    """USDT 的成本恒等于面值，不需要见过它怎么进来的。
 
     （`replay([])` 不会凭空生出 USDT 那一档：`summarize` 遍历的是重放结果，
-    从没在成交里出现过的币根本不进这张表。对合计没影响——它的成本本来就未知——
-    只是逐个币的清单不含它。）
+    从没在成交里出现过的币根本不进这张表。）
     """
     lots = replay([trade("BNBUSDT", buy=True, qty=1, price=600, at=DAY)])
     out = summarize(lots, {"USDT": 1.0, "BNB": 600.0},
                     held={"USDT": 5000.0, "BNB": 1.0})
     usdt = next(r for r in out["assets"] if r["asset"] == "USDT")
-    assert usdt["unpriced_qty"] == pytest.approx(0)
-    assert usdt["unrealized_usd"] == pytest.approx(0)
+    assert usdt["is_cash"] is True
+    assert usdt["avg_cost_usd"] == pytest.approx(1.0)
+    assert usdt["cost_known"] is True
 
 
 def test_summary_reports_which_assets_have_no_usable_cost():
@@ -199,7 +205,7 @@ def test_summary_reports_which_assets_have_no_usable_cost():
     out = summarize({"XYZ": lot}, {"XYZ": 5.0})
     assert out["incomplete_assets"] == ["XYZ"]
     row = out["assets"][0]
-    assert row["avg_cost_usd"] is None and row["unrealized_usd"] is None
+    assert row["avg_cost_usd"] is None
     assert row["realized_usd"] is None and row["cost_known"] is False
 
 

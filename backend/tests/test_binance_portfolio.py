@@ -18,7 +18,7 @@ from analyzer.binance.cache import SourceCache
 from analyzer.binance.client import BinanceClient
 from analyzer.binance.portfolio import build_portfolio
 
-from binance_mock import BTC, NOW, _day, _klines, make_transport
+from binance_mock import BTC, NOW, PREV_CLOSE_RATIO, _day, make_transport
 
 
 @pytest.fixture
@@ -195,8 +195,8 @@ def test_missing_prices_degrade_to_null_not_zero(cache):
     assert snap["totals"] is None            # 净值算不出来就整块留空
     # 合约损益结在 USDT 上，稳定币不依赖行情端点，这一项照样算得出来
     assert snap["pnl"]["realized"]["futures_usd"] == pytest.approx(3847.22)
-    # 但现货的未实现要市价，没有行情就留空而不是记 0
-    assert snap["pnl"]["unrealized"]["spot_usd"] == pytest.approx(0.0)
+    # 但现货盯市要现价，没有行情就留空而不是记 0——"今天没涨没跌"与"取不到"是两件事
+    assert snap["pnl"]["today"]["spot_mark_usd"] is None
 
 
 def test_as_of_reports_the_oldest_successful_source(cache):
@@ -351,8 +351,9 @@ def test_pnl_is_immune_to_wallet_transfers(cache):
         with cache.pool.connection() as conn:
             conn.execute("TRUNCATE binance_cache")
         after = build(cache)["pnl"]
-        assert after["unrealized"]["spot_usd"] == pytest.approx(
-            before["unrealized"]["spot_usd"])
+        # 盯市按**跨全部钱包**的持有量算，币挪去哪个钱包都不影响
+        assert after["today"]["spot_mark_usd"] == pytest.approx(
+            before["today"]["spot_mark_usd"])
         assert after["realized"]["spot_usd"] == pytest.approx(
             before["realized"]["spot_usd"])
     finally:
@@ -429,7 +430,11 @@ def test_daily_realized_counts_funding_and_commission_not_just_pnl(cache):
     expect = (inc["realized_pnl"] + inc["funding_fee"] + inc["commission"]
               + inc["referral_kickback"])
     assert today["realized_usd"] == pytest.approx(expect)
-    assert snap["pnl"]["today_usd"] == pytest.approx(today["realized_usd"])
+    # `today_usd` 不等于日历最后一格：日历只有结算，今日还要加上现货盯市。
+    # 往前的每一天要盯市就得知道那天持有多少，而历史持仓量拿不到，所以只有今天有。
+    assert snap["pnl"]["today"]["settled_usd"] == pytest.approx(expect)
+    assert snap["pnl"]["today_usd"] == pytest.approx(
+        expect + snap["pnl"]["today"]["spot_mark_usd"])
 
 
 def test_daily_realized_ignores_transfers(cache):
@@ -483,3 +488,91 @@ def test_totals_shape_matches_what_the_console_declares(cache):
     declared = set(re.findall(r"^\s*(\w+):", block.group(1), re.M))
     assert set(build(cache)["totals"]) == declared
 
+
+
+# --- 现货今日盈亏：盯市，不是相对成本的未实现 -------------------------------
+
+def test_spot_today_is_quantity_times_price_move(cache):
+    """现货今天赚了多少 = 持有量 ×（现价 − 昨收）。
+
+    不用"市值 − 加权平均成本"：那个成本要完整的买入历史，而划转 / 派息 / 小额兑换
+    进来的币在 myTrades 里没有痕迹，90 天以前的充值也查不回来——算出来永远缺一块。
+    盯市不需要任何历史，只要数量和两个价格。
+    """
+    snap = build(cache)
+    marks = {row["asset"]: row for row in snap["pnl"]["spot_marks"]}
+    bnb = marks["BNB"]
+    assert bnb["prev_close_usd"] == pytest.approx(682.15 * PREV_CLOSE_RATIO)
+    assert bnb["today_usd"] == pytest.approx(
+        bnb["qty"] * (682.15 - 682.15 * PREV_CLOSE_RATIO))
+    total = sum(r["today_usd"] for r in marks.values() if r["today_usd"] is not None)
+    assert snap["pnl"]["today"]["spot_mark_usd"] == pytest.approx(total)
+
+
+def test_spot_today_counts_coins_parked_in_the_futures_wallet(cache):
+    """"现货数据取不到"其实只是币不在现货钱包里。
+
+    把 BNB 划进合约当保证金是常见做法，持有量一点没变。盯市按跨全部钱包的持有量算，
+    所以划过去之后今日盈亏不变——只看现货余额的话，划走的那部分会凭空消失。
+    """
+    from binance_mock import FUT_ACCOUNT, USER_ASSET
+    before = build(cache)["pnl"]["today"]["spot_mark_usd"]
+    bnb = next(a for a in USER_ASSET if a["asset"] == "BNB")
+    moved = dict(bnb, free="2.212")          # 现货 4.212 → 2.212，划出去 2 个
+    USER_ASSET[USER_ASSET.index(bnb)] = moved
+    FUT_ACCOUNT.setdefault("assets", []).append(
+        {"asset": "BNB", "walletBalance": "2.0", "marginBalance": "2.0",
+         "availableBalance": "2.0"})
+    try:
+        with cache.pool.connection() as conn:
+            conn.execute("TRUNCATE binance_cache")
+        assert build(cache)["pnl"]["today"]["spot_mark_usd"] == pytest.approx(before)
+    finally:
+        USER_ASSET[USER_ASSET.index(moved)] = bnb
+        FUT_ACCOUNT["assets"] = [a for a in FUT_ACCOUNT["assets"]
+                                 if a["asset"] != "BNB"]
+
+
+def test_stablecoins_do_not_move(cache):
+    """USDT 的价格恒等于面值，把它算进盯市只会引入噪声。"""
+    snap = build(cache)
+    assert all(row["asset"] != "USDT" for row in snap["pnl"]["spot_marks"])
+
+
+def test_prev_close_takes_the_completed_candle_not_todays(cache):
+    """`limit=2` 的最后一根是今天这根、还在走。拿它当昨收，今日盈亏永远是 0。"""
+    import analyzer.binance.portfolio as mod
+
+    class Ok:
+        ok = True
+
+        def __init__(self, payload):
+            self.payload = payload
+
+    rows = [[0, "0", "0", "0", "100.0", "1", 0, "0", 0, "0", "0", "0"],
+            [1, "0", "0", "0", "110.0", "1", 1, "0", 0, "0", "0", "0"]]
+    assert mod._prev_closes({"close.BNBUSDT": Ok(rows)}, ["BNBUSDT"]) == {"BNB": 100.0}
+
+
+def test_no_prev_close_leaves_the_coin_out_rather_than_assuming_flat(cache):
+    """取不到昨收就不算这个币——按"没动"处理会把它悄悄记成 0 收益。"""
+    import analyzer.binance.portfolio as mod
+
+    out = mod._spot_today({"BNB": 2.0, "ETH": 1.0}, {"BNBUSDT": 700.0, "ETHUSDT": 3000.0},
+                          {"BNB": 650.0})
+    rows = {r["asset"]: r for r in out["assets"]}
+    assert rows["BNB"]["today_usd"] == pytest.approx(2.0 * 50.0)
+    assert rows["ETH"]["today_usd"] is None
+    assert out["total_usd"] == pytest.approx(100.0)
+
+
+def test_spot_mark_is_null_not_zero_when_nothing_can_be_priced():
+    import analyzer.binance.portfolio as mod
+    out = mod._spot_today({"BNB": 2.0}, {"BNBUSDT": 700.0}, {})
+    assert out["total_usd"] is None
+
+
+def test_pnl_has_no_spot_unrealized_field(cache):
+    """守住方向：现货没有"未实现"这一项，别再加回来。"""
+    snap = build(cache)
+    assert set(snap["pnl"]["unrealized"]) == {"futures_usd", "scope"}

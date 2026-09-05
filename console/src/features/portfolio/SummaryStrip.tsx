@@ -20,32 +20,26 @@ export function SummaryStrip({ snapshot, veiled, onOpenDetail }: {
   const totals = snapshot.totals
   const pnl = snapshot.pnl
   const ratio = snapshot.futures?.margin_ratio ?? null
-
-  // 现货与合约各有各的取不到的可能：一边缺就只报另一边，别把 null 当 0 加进去
-  const sum = (...parts: (number | null | undefined)[]) => {
-    const known = parts.filter((p): p is number => p != null)
-    return known.length ? known.reduce((a, b) => a + b, 0) : null
-  }
-  const unreal = sum(pnl?.unrealized.spot_usd, pnl?.unrealized.futures_usd)
+  const today = pnl?.today.total_usd ?? null
+  const futUnreal = pnl?.unrealized.futures_usd ?? null
 
   const cells: StripCell[] = [
     {
-      // 原先是"今日净值变化"，拿全部钱包减昨天的日快照——理财余额每天都被算成
-      // "今天赚的"。改成今日实际落袋，只认成交与结算。
+      // 现货盯市 + 当日结算。原先只报结算，不交易的日子屏幕上永远 $0.00，
+      // 而持仓明明在涨跌——那是"今天没成交"，不是"今天没赚没亏"。
       label: '今日盈亏',
       id: 'today',
       onOpen: () => onOpenDetail('today'),
-      value: pnl?.today_usd == null ? '—' : signedMoney(pnl.today_usd),
-      tone: pnl?.today_usd == null ? 'muted' : pnl.today_usd >= 0 ? 'gain' : 'loss',
+      value: today == null ? '—' : signedMoney(today),
+      tone: today == null ? 'muted' : today >= 0 ? 'gain' : 'loss',
     },
     {
-      // 未实现盈亏来自成交重放（现货）与 positionRisk（合约），不是"期末 − 期初"。
-      // 后者在 Binance 上算不准：日快照只有三个钱包，钱包间划转会被算成盈亏。
-      label: '未实现盈亏',
-      id: 'unrealized',
-      onOpen: () => onOpenDetail('unrealized'),
-      value: unreal == null ? '—' : signedMoney(unreal),
-      tone: unreal == null ? 'muted' : unreal >= 0 ? 'gain' : 'loss',
+      // **只有合约。** 现货的未实现要相对买入成本，那个成本要完整的买入历史，
+      // 而划转 / 派息 / 小额兑换进来的币在成交记录里没有痕迹，补不齐。
+      // 合约这半边是 positionRisk 直接给的，交易所按自己的开仓均价算，拿来即用。
+      label: '合约未实现',
+      value: futUnreal == null ? '—' : signedMoney(futUnreal),
+      tone: futUnreal == null ? 'muted' : futUnreal >= 0 ? 'gain' : 'loss',
     },
     {
       label: '合约保证金率',

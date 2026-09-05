@@ -1,5 +1,5 @@
 import { cn } from '../../lib/cn'
-import { money, signedMoney } from '../../lib/format'
+import { price, signedMoney } from '../../lib/format'
 import type { Pnl } from '../../api/types'
 
 /**
@@ -24,7 +24,9 @@ export function PnlBreakdown({ pnl }: { pnl: Pnl | null }) {
   // 每行只有标签和数字。窗口与出处收进摘要条那三个数字的详情抽屉里——
   // 常驻在这里的话，七行小字比数字本身还占地方，而它们 99% 的时间没人看。
   const rows: { label: string; value: number | null }[] = [
-    { label: '现货未实现', value: pnl.unrealized.spot_usd },
+    // 现货这一行是**今天的涨跌**，不是相对成本的未实现——后者要完整的买入历史，
+    // 而划转 / 派息 / 小额兑换进来的币在成交记录里没有痕迹，那段历史补不齐。
+    { label: '现货今日盯市', value: pnl.today.spot_mark_usd },
     { label: '合约未实现', value: pnl.unrealized.futures_usd },
     { label: '现货已实现', value: pnl.realized.spot_usd },
     { label: '合约已实现', value: pnl.realized.futures_usd },
@@ -58,20 +60,20 @@ export function PnlBreakdown({ pnl }: { pnl: Pnl | null }) {
 
       {/* 覆盖范围与"哪个币算不出来"都在详情抽屉里，这里不重复一遍 */}
 
-      {pnl.spot_assets.filter((row) => !row.is_cash).length > 0 && (
+      {pnl.spot_marks.length > 0 && (
         <div className="mt-6 border-t border-rule pt-4">
-          <p className="label mb-2.5">现货成本</p>
+          <p className="label mb-2.5">现货今日</p>
           <ul className="divide-y divide-rule/70">
-            {pnl.spot_assets.filter((row) => !row.is_cash).map((row) => (
+            {pnl.spot_marks.map((row) => (
               <li className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4 py-2" key={row.asset}>
                 <span className="text-sm text-ink-2">{row.asset}</span>
                 <span className="tnum text-xs text-ink-3">
-                  均价 {row.avg_cost_usd === null ? '—' : money(row.avg_cost_usd)}
+                  {price(row.prev_close_usd)} → {price(row.price_usd)}
                 </span>
                 <span className={cn('tnum text-right text-sm',
-                  row.unrealized_usd === null ? 'text-ink-3'
-                    : row.unrealized_usd >= 0 ? 'text-gain' : 'text-loss')}>
-                  {row.unrealized_usd === null ? '—' : signedMoney(row.unrealized_usd)}
+                  row.today_usd === null ? 'text-ink-3'
+                    : row.today_usd >= 0 ? 'text-gain' : 'text-loss')}>
+                  {row.today_usd === null ? '—' : signedMoney(row.today_usd)}
                 </span>
               </li>
             ))}

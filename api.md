@@ -115,23 +115,35 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
 - 现在的口径：
 
   ```
-  unrealized.spot_usd     现货成交重放出的加权平均成本 → (市价 − 均价) × 成本已知的数量
+  today.spot_mark_usd     现货盯市：Σ 持有量 × (现价 − 昨日 UTC 收盘)
+  today.settled_usd       当日结算 = daily 最后一格
+  today.total_usd         两项之和；today_usd 是它的别名（摘要条用）
   unrealized.futures_usd  positionRisk 的 unRealizedProfit（交易所标记价）
   realized.spot_usd       myTrades 全量重放，卖出按当时的均价结转（无时间上限）
   realized.futures_usd    income 的 REALIZED_PNL（接口只保留 90 天）
   carry.*                 资金费 / 手续费 / 返佣，同样 90 天
-  daily[]                 每天落袋多少：income 逐行按天分桶 + 现货成交结转
+  daily[]                 每天**结算**落袋多少：income 逐行按天分桶 + 现货成交结转
                           固定 90 格，没交易的那天是 0 且 traded=false（不是缺一格）
-  today_usd               daily 最后一格，即 `now` 那天的合计
+                          **不含盯市**，所以最后一格 ≠ today.total_usd
+  spot_marks[]            逐币今日涨跌：{asset, qty, price_usd, prev_close_usd,
+                          value_usd, today_usd}
+  spot_assets[]           逐币成本与已实现：{asset, qty, avg_cost_usd, price_usd,
+                          value_usd, realized_usd, cost_known, is_cash}
   coverage                覆盖范围的实话（"已清仓的标的查不到交易对"）
   incomplete_assets[]     成本完全算不出来的币（缺跨币种历史汇率），已从合计剔除
   ```
 
-- **`unrealized.spot_usd` 只算成本已知的那部分。** 成交历史只覆盖能猜到交易对的币，
-  划转 / 理财派息 / 小额兑换进来的从不出现在 `myTrades` 里。数量按真实余额报
-  （`spot_assets[].qty`），但盈亏只对 `min(余额, 重放数量)` 算，多出来的报在
-  `spot_assets[].unpriced_qty`。**别拿 `qty × (price − avg_cost)` 自己重算**——
-  那正是修过的 bug，实测把现货未实现放大了六倍多。
+- **现货没有"未实现"这一项，`unrealized` 里只有合约。** 现货的未实现是市值减加权
+  平均成本，而那个成本要完整的买入历史——划转 / 理财派息 / 小额兑换进来的币从不
+  出现在 `myTrades` 里，`capital/deposit/hisrec` 又只回 90 天，更早的充值永远查不
+  回来。算出来的数永远缺一块（2026-09 为它修过三轮，一版虚高六倍）。
+  **别在客户端拿 `qty × (price − avg_cost)` 自己算一个补回去。**
+  现货要回答的是"今天涨跌了多少"，那用盯市，见 `today.spot_mark_usd`。
+- **盯市的持有量是跨全部钱包的**（`held_across_wallets`）：划进合约当保证金、存进
+  理财的币都算在里面。所谓"现货数据取不到"往往只是币不在现货钱包，量一直都在。
+- **昨收取自 `klines(symbol, '1d', limit=2)` 的倒数第二根**——最后一根是今天这根、
+  还在走，拿它当昨收今日盈亏永远是 0。取不到昨收的币 `today_usd` 为 `null`，
+  不参与合计，也不按"没动"记 0。一个币都算不出来时 `spot_mark_usd` 是 `null`。
 - `income` 的金额单位是该行的 `asset`，不一定是 USDT（手续费常用 BNB 抵扣）。
   已在服务端按币种换算成 USD，客户端不必再折算。
 - 三块的窗口不一样是接口硬限，**不要把 `realized.spot_usd` 与 `realized.futures_usd`

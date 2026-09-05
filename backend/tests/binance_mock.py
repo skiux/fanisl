@@ -15,16 +15,27 @@ BTC = 94180.22
 DAY_MS = 86_400_000
 
 
-def _klines(days: int = 32):
-    """日线：[开盘时间, o, h, l, 收盘, ...]。BTC 价逐日不同，用来验"用当天价换算"。"""
-    out = []
-    for i in range(days):
-        ts = int((NOW - timedelta(days=days - 1 - i)).replace(
-            hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
-        close = 90_000 + i * 150          # 90000 → 94650，逐日递增
-        out.append([ts, "0", "0", "0", f"{close}", "1", ts + DAY_MS - 1,
-                    "0", 0, "0", "0", "0"])
-    return out
+# 昨收 = 现价 × 这个数。今日盯市因此是 持有量 × 现价 × (1 − 比值)，测试能直接算。
+PREV_CLOSE_RATIO = 0.98
+
+
+def _klines(symbol: str):
+    """日线两根：[开盘时间, o, h, l, 收盘, ...]。
+
+    **最后一根是今天这根**（还在走），前一根才是昨天收盘的。按 symbol 各给各的价——
+    早先这条路线不分交易对，一律返回 BTC 价，于是每个币的"昨收"都成了九万多。
+    """
+    price = next((float(row["price"]) for row in PRICES if row["symbol"] == symbol), None)
+    if price is None:
+        return []
+    midnight = NOW.replace(hour=0, minute=0, second=0, microsecond=0)
+    yday = int((midnight - timedelta(days=1)).timestamp() * 1000)
+    return [
+        [yday, "0", "0", "0", f"{price * PREV_CLOSE_RATIO}", "1",
+         yday + DAY_MS - 1, "0", 0, "0", "0", "0"],
+        [int(midnight.timestamp() * 1000), "0", "0", "0", f"{price}", "1",
+         int(midnight.timestamp() * 1000) + DAY_MS - 1, "0", 0, "0", "0", "0"],
+    ]
 
 
 def _snapshot_vos(total_btc_by_day: dict[str, float]):
@@ -158,7 +169,6 @@ WITHDRAWALS = [
 
 ROUTES = {
     "/api/v3/ticker/price": PRICES,
-    "/api/v3/klines": _klines(),
     "/sapi/v1/asset/wallet/balance": WALLETS,
     "/sapi/v3/asset/getUserAsset": USER_ASSET,
     "/fapi/v2/account": FUT_ACCOUNT,
@@ -419,6 +429,9 @@ def make_transport(*, fail: dict[str, int] | None = None, calls: list | None = N
             kind = dict(request.url.params).get("type", "SPOT")
             return httpx.Response(200, json={"SPOT": SPOT_SNAP, "MARGIN": MARGIN_SNAP,
                                              "FUTURES": FUTURES_SNAP}[kind])
+        if path == "/api/v3/klines":
+            return httpx.Response(200, json=_klines(
+                dict(request.url.params).get("symbol", "")))
         if path == "/sapi/v1/asset/transfer":
             kind = dict(request.url.params).get("type", "")
             return httpx.Response(200, json=LEDGER_TRANSFERS.get(

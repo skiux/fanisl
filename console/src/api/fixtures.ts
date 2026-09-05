@@ -229,38 +229,62 @@ export const okSource = (key: SourceState['key'], asOf: string): SourceState => 
   key, status: 'ok', as_of: asOf, detail: null,
 })
 
+/** 昨日 UTC 收盘 = 现价 × 这个数。样例里让今天普涨一点，好让盯市那条路径有东西看 */
+const PREV_CLOSE_RATIO: Record<string, number> = {
+  BNB: 0.982, ETH: 1.004, ARB: 0.961, SOL: 1.017, SHIB: 0.994, DOGE: 0.973,
+}
+
 /**
- * 盈亏构成。和后端同一套口径：现货按成交重放的加权平均成本，合约取交易所给的
- * 未实现与已实现。**没有残差项**——旧的归因表用"期末 − 期初 − 净充提"，
- * 钱包间划转会被算成盈亏。
+ * 盈亏构成。和后端同一套口径。**没有残差项**——旧的归因表用"期末 − 期初 −
+ * 净充提"，钱包间划转会被算成盈亏。
+ *
+ * **现货这半边是盯市，不是相对成本的未实现。** 后者要完整的买入历史，而划转 /
+ * 派息 / 小额兑换进来的币在成交记录里没有痕迹，那段历史补不齐。均价与已实现留着
+ * ——已实现只认真实发生过的卖出，重放给得全。
  */
 function buildPnl(): Pnl {
-  const spotRows = spot
-    .filter((row) => row.value_usd !== null && row.total > 0)
+  const live = spot.filter((row) => row.value_usd !== null && row.total > 0)
+
+  const spotRows = live.map((row) => {
+    const cash = STABLE_FIXTURE.includes(row.asset)
+    const avg = cash ? 1 : (SPOT_AVG_COST[row.asset] ?? null)
+    return {
+      asset: row.asset, qty: row.total, avg_cost_usd: avg,
+      price_usd: row.price_usd, value_usd: row.value_usd as number,
+      realized_usd: cash ? 0 : (SPOT_REALIZED[row.asset] ?? 0),
+      cost_known: avg !== null, is_cash: cash,
+    }
+  })
+
+  const marks = live
+    .filter((row) => !STABLE_FIXTURE.includes(row.asset))
     .map((row) => {
-      const cash = STABLE_FIXTURE.includes(row.asset)
-      // 均价编在成本上，不编在盈亏上：盈亏由市值减成本算出来
-      const avg = cash ? 1 : (SPOT_AVG_COST[row.asset] ?? null)
-      const value = row.value_usd as number
-      // 划转 / 理财进来的那部分：样例里给 BNB 留一截没有买入记录的量，
-      // 好让"成本不明"那条路径在本地也走得到
-      const unpriced = row.asset === 'BNB' ? row.total * 0.4 : 0
+      const now = row.price_usd
+      // 没登记比值的币当作"昨收取不到"：留空那条路径本地也要走得到
+      const ratio = PREV_CLOSE_RATIO[row.asset]
+      const prev = now === null || ratio === undefined ? null : now * ratio
       return {
-        asset: row.asset, qty: row.total, unpriced_qty: unpriced, avg_cost_usd: avg,
-        price_usd: row.price_usd, value_usd: value,
-        unrealized_usd: avg === null ? null : (row.total - unpriced) * ((row.price_usd ?? 0) - avg),
-        realized_usd: cash ? 0 : (SPOT_REALIZED[row.asset] ?? 0),
-        cost_known: avg !== null, is_cash: cash,
+        asset: row.asset, qty: row.total, price_usd: now, prev_close_usd: prev,
+        value_usd: row.value_usd,
+        today_usd: now === null || prev === null ? null : row.total * (now - prev),
       }
     })
-  const spotUnreal = spotRows.reduce((sum, r) => sum + (r.unrealized_usd ?? 0), 0)
+
+  const known = marks.filter((row) => row.today_usd !== null)
+  const mark = known.length ? known.reduce((sum, r) => sum + (r.today_usd ?? 0), 0) : null
+  const settled = buildDaily().at(-1)?.realized_usd ?? null
   const spotReal = spotRows.reduce((sum, r) => sum + (r.realized_usd ?? 0), 0)
+
   return {
+    today: {
+      spot_mark_usd: mark,
+      settled_usd: settled,
+      total_usd: (mark ?? 0) + (settled ?? 0),
+    },
+    today_usd: (mark ?? 0) + (settled ?? 0),
     unrealized: {
-      spot_usd: spotUnreal,
       futures_usd: futures.total_unrealized_pnl,
-      total_usd: spotUnreal + futures.total_unrealized_pnl,
-      scope: '此刻的持仓',
+      scope: '此刻的合约持仓',
     },
     realized: {
       spot_usd: spotReal,
@@ -275,7 +299,7 @@ function buildPnl(): Pnl {
       scope: '最近 90 天',
     },
     daily: buildDaily(),
-    today_usd: buildDaily().at(-1)?.realized_usd ?? null,
+    spot_marks: marks,
     spot_assets: spotRows,
     coverage: '只覆盖当前还持有的币；已清仓的标的查不到交易对',
     incomplete_assets: spotRows.filter((r) => !r.cost_known).map((r) => r.asset),
