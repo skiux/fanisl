@@ -1,9 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import { ArrowsClockwise, MoonStars, Sun } from '@phosphor-icons/react'
 import { AccountMenu } from '../../components/AccountMenu'
-import { StatusDot } from '../../components/Primitives'
 import { cn } from '../../lib/cn'
-import { clockTime, freshnessOf } from '../../lib/format'
+import { relativeTime } from '../../lib/format'
 import { useIsAdmin } from '../../lib/role'
 import { hrefOf, PAGES, type PageKey } from '../../lib/router'
 import type { SourceState } from '../../api/types'
@@ -56,8 +55,6 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
   title: string
 }) {
   const isAdmin = useIsAdmin()
-  const degraded = sources.filter((source) => source.status !== 'ok')
-  const { level } = freshnessOf(asOf)
 
   return (
     <header className="rule-heavy px-5 pb-3.5 pt-4 sm:px-10 sm:pb-4 sm:pt-5">
@@ -138,23 +135,19 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
         </h1>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          {/* 「截至」是数据本身的一部分（这些数字有多新），谁都要看。
-              而"8 个来源正常""计价 USD"全绿时是废话——**只在出异常时说话**，
-              和资产页那块来源健康同一条规则。用户管理这类没有数据源的页面
-              整条都不出现（`sources=[]` 时原先会显示"截至 — · 0 个来源正常"，
-              读着像故障）。 */}
+          {/* 这些数字有多新。**用相对时间，不用时刻。**
+              整页按 UTC 日切走，时刻自然也是 UTC——可读的人在 UTC+8，
+              屏幕上写 13:09 而墙上是 21:09，那是个没法读的数；标上"UTC"两个字
+              又是给每个人看的构造说明。"3 分钟前"两样问题都没有。
+
+              旁边原先还挂着「N 项取不到」/「数据已过期」，都删了：**同一件事
+              说三遍**——取不到的那个数字本身就是 `—`，总览页还有一整块
+              「下面的数字不完整」逐个列出是哪个来源；过期则另有一条横幅。
+
+              用户管理这类没有数据源的页面整条不出现（`sources=[]` 时原先会显示
+              "截至 — · 0 个来源正常"，读着像故障）。 */}
           {sources.length > 0 && (
-            <>
-              <span className="tnum text-xs text-ink-2">截至 {clockTime(asOf)}</span>
-              {(degraded.length > 0 || level === 'stale') && (
-                <span className="flex items-center gap-1.5">
-                  <StatusDot level={degraded.length > 0 ? 'error' : level} />
-                  <span className="text-xs text-loss">
-                    {degraded.length > 0 ? `${degraded.length} 项取不到` : '数据已过期'}
-                  </span>
-                </span>
-              )}
-            </>
+            <span className="text-xs text-ink-2">{relativeTime(asOf)}</span>
           )}
           {/* 重新取数是运维动作：它绕过缓存直接打交易所，而权重预算是共享的。
               成员点它既没有判断依据，也可能把预算打空让所有人一起 429。 */}

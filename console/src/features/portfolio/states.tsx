@@ -229,7 +229,7 @@ export function StaleBanner({ asOfText }: { asOfText: string }) {
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-panel)] border border-loss/25 bg-loss/[0.06] px-4 py-3">
       <Eyebrow className="text-loss">已过期</Eyebrow>
       <p className="text-[12.5px] text-ink-2">
-        下面全部数字来自 <span className="tnum text-ink">{asOfText}</span> 的快照，不是当前余额。
+        下面全部数字来自 <span className="tnum text-ink">{asOfText}</span>的快照，不是当前余额。
       </p>
     </div>
   )

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchPortfolio, readScenario, writeScenario, type Scenario } from '../../api/client'
 import { PortfolioError, type PortfolioSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
-import { baseOf, clockTime, freshnessOf, STABLE_ASSETS } from '../../lib/format'
+import { baseOf, freshnessOf, relativeTime, STABLE_ASSETS } from '../../lib/format'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { Masthead } from './Masthead'
 import { SectionTabs, type TabItem } from './SectionTabs'
@@ -177,7 +177,7 @@ function Loaded({ phase, view, onSelectView, onRetry }: {
     <>
       {veiled && (
         <div className="border-b border-rule px-5 py-3 sm:px-10">
-          <StaleBanner asOfText={clockTime(snapshot.as_of)} />
+          <StaleBanner asOfText={relativeTime(snapshot.as_of)} />
         </div>
       )}
 

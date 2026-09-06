@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchLedger, readScenario, writeScenario, type Scenario } from '../../api/client'
 import { PortfolioError, type LedgerSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
-import { clockTime, freshnessOf } from '../../lib/format'
+import { freshnessOf, relativeTime } from '../../lib/format'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { Masthead } from '../portfolio/Masthead'
 import { SectionTabs, type TabItem } from '../portfolio/SectionTabs'
@@ -123,7 +123,7 @@ function Body({ phase, filter, onSelectFilter, onRetry, days, onSelectDays }: {
     <>
       {veiled && (
         <div className="border-b border-rule px-5 py-3 sm:px-10">
-          <StaleBanner asOfText={clockTime(snapshot.as_of)} />
+          <StaleBanner asOfText={relativeTime(snapshot.as_of)} />
         </div>
       )}
 

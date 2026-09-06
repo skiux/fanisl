@@ -5,7 +5,7 @@ import {
 } from '../../api/session'
 import { Figure, Module, Stack, ViewGrid } from '../../components/layout'
 import { cn } from '../../lib/cn'
-import { clockTime, relativeTime } from '../../lib/format'
+import { relativeTime } from '../../lib/format'
 import { Masthead } from '../portfolio/Masthead'
 
 const ROLE_LABEL = { admin: '管理员', member: '成员' } as const
@@ -77,7 +77,7 @@ export function AccountPage() {
                     <Figure label="显示名" value={user.display_name || '—'} />
                     <Figure
                       label="最近登录"
-                      value={user.last_login_at ? clockTime(user.last_login_at) : '—'}
+                      value={user.last_login_at ? relativeTime(user.last_login_at) : '—'}
                     />
                     <Figure label="状态" value={user.is_active ? '正常' : '已停用'} />
                   </dl>

@@ -7,7 +7,7 @@ import {
 } from '../../api/session'
 import { Module, ViewGrid } from '../../components/layout'
 import { cn } from '../../lib/cn'
-import { clockTime } from '../../lib/format'
+import { relativeTime } from '../../lib/format'
 import { hrefOf } from '../../lib/router'
 import { Masthead } from '../portfolio/Masthead'
 import { PermissionState } from '../portfolio/states'
@@ -152,12 +152,12 @@ function UserTable({ users, failed, meId, busy, onAct }: {
             <div className="text-xs text-ink-2">
               {ROLE_LABEL[user.role]}
               <span className="tnum text-ink-3 sm:hidden">
-                {' · '}{user.last_login_at ? clockTime(user.last_login_at) : '从未登录'}
+                {' · '}{user.last_login_at ? relativeTime(user.last_login_at) : '从未登录'}
               </span>
             </div>
 
             <div className="tnum hidden truncate text-xs text-ink-3 sm:block">
-              {user.last_login_at ? clockTime(user.last_login_at) : '从未登录'}
+              {user.last_login_at ? relativeTime(user.last_login_at) : '从未登录'}
             </div>
 
             <RowActions busy={busy} isMe={user.id === meId} onAct={onAct} user={user} />
