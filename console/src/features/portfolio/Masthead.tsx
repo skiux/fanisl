@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { ArrowsClockwise, MoonStars, Sun } from '@phosphor-icons/react'
 import { AccountMenu } from '../../components/AccountMenu'
 import { cn } from '../../lib/cn'
-import { relativeTime } from '../../lib/format'
+import { clockTime } from '../../lib/format'
 import { useIsAdmin } from '../../lib/role'
 import { hrefOf, PAGES, type PageKey } from '../../lib/router'
 import type { SourceState } from '../../api/types'
@@ -135,10 +135,11 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
         </h1>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          {/* 这些数字有多新。**用相对时间，不用时刻。**
-              整页按 UTC 日切走，时刻自然也是 UTC——可读的人在 UTC+8，
-              屏幕上写 13:09 而墙上是 21:09，那是个没法读的数；标上"UTC"两个字
-              又是给每个人看的构造说明。"3 分钟前"两样问题都没有。
+          {/* 这些数字有多新。**时刻按 UTC，后面缀上"UTC"两个字母。**
+              整页按 UTC 日切（日历的每一格、成交与结算的分桶都是 Binance 的结算日），
+              时刻自然也是 UTC。可读的人在 UTC+8，屏幕上写 13:09 而墙上是 21:09——
+              标上 UTC 才一眼看懂，那两个字母是数据的一部分，不是说明文字。
+              前面不写"截至"：一个时刻摆在报头上，本来就是"这些数字截到什么时候"。
 
               旁边原先还挂着「N 项取不到」/「数据已过期」，都删了：**同一件事
               说三遍**——取不到的那个数字本身就是 `—`，总览页还有一整块
@@ -147,7 +148,9 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
               用户管理这类没有数据源的页面整条不出现（`sources=[]` 时原先会显示
               "截至 — · 0 个来源正常"，读着像故障）。 */}
           {sources.length > 0 && (
-            <span className="text-xs text-ink-2">{relativeTime(asOf)}</span>
+            <span className="tnum text-xs text-ink-2">
+              {clockTime(asOf)}<span className="text-ink-3"> UTC</span>
+            </span>
           )}
           {/* 重新取数是运维动作：它绕过缓存直接打交易所，而权重预算是共享的。
               成员点它既没有判断依据，也可能把预算打空让所有人一起 429。 */}
