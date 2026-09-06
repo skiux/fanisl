@@ -122,18 +122,22 @@ def _clip_for_member(snapshot: dict, request: Request) -> dict:
     """成员只能看 90 天以内。
 
     **必须在服务端裁**：前端把数字藏起来不算数，接口原样返回的话，任何人打开
-    开发者工具都能看到全部历史。90 天也正好是合约 income / userTrades 的接口上限，
-    所以对合约那半边本来就没有更多可看的。
+    开发者工具都能看到全部历史。
+
+    现在这里只剩 `daily` 一条要裁，而且**恰好裁不掉东西**——`pnl` 里的每一项
+    本来就在 90 天以内：`daily` 就是 `WINDOW_DAYS` 格，`realized.futures_usd`
+    与 `carry.*` 受 `income` 接口 90 天硬限，`unrealized` 是"此刻"。
+    唯一超出 90 天的曾经是现货那个"相对终身均价"的已实现，它连同整套成本基础
+    引擎一起删了（见 `binance/costbasis.py`）。
+
+    留着这个裁剪不是走过场：哪天有人把窗口放长（比如现货日线其实能取更久），
+    成员这一侧仍然被这一行按住，不必再想起来补。
     """
     if _is_admin(request):
         return snapshot
     pnl = snapshot.get("pnl")
     if isinstance(pnl, dict):
-        daily = pnl.get("daily") or []
-        pnl["daily"] = daily[-MEMBER_MAX_DAYS:]
-        # 现货已实现是全历史的，成员看不到——留空比给一个"其实是全历史"的数诚实
-        pnl["realized"] = {**pnl["realized"], "spot_usd": None,
-                           "spot_scope": f"仅管理员可见（成员上限 {MEMBER_MAX_DAYS} 天）"}
+        pnl["daily"] = (pnl.get("daily") or [])[-MEMBER_MAX_DAYS:]
     return snapshot
 
 

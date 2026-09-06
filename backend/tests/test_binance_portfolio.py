@@ -460,19 +460,38 @@ def test_daily_realized_follows_the_passed_now_not_the_wall_clock(cache):
         timezone.utc).date().isoformat()
 
 
-def test_totals_shape_matches_what_the_console_declares(cache):
-    """`totals` 的字段要和 console/src/api/types.ts 的 PortfolioTotals 一致。
+def _declared(name: str) -> set[str]:
+    """从 console/src/api/types.ts 里读出某个类型的**顶层**字段名。
 
-    删掉净值曲线时后端顺手去掉了 change_24h_usd / change_24h_pct，但前端的类型和
-    样例数据里还留着——真实数据里那两个字段一直是 undefined，只有 mock 在编。
-    契约漂移在类型检查里查不出来（多一个字段不报错），所以在这里对着源码验。
+    只认两个空格缩进的那一层——`Pnl` 里有嵌套的对象字面量（today / unrealized /
+    realized / carry），不限缩进的话会把里层字段也算成顶层的。
     """
     types = (pathlib.Path(__file__).resolve().parents[2] / "console" / "src" / "api"
              / "types.ts").read_text()
-    block = re.search(r"export type PortfolioTotals = \{(.*?)\n\}", types, re.S)
-    assert block, "types.ts 里找不到 PortfolioTotals"
-    declared = set(re.findall(r"^\s*(\w+):", block.group(1), re.M))
-    assert set(build(cache)["totals"]) == declared
+    block = re.search(rf"export type {name} = \{{(.*?)\n\}}", types, re.S)
+    assert block, f"types.ts 里找不到 {name}"
+    return set(re.findall(r"^  (\w+):", block.group(1), re.M))
+
+
+def test_shapes_match_what_the_console_declares(cache):
+    """后端返回的字段要和 console/src/api/types.ts 声明的一字不差。
+
+    **类型检查查不出这种漂移**：后端多给一个字段前端不报错，少给一个也只在真跑到
+    那一行才炸。删净值曲线时后端去掉了 change_24h_usd/pct，而前端类型与样例里还
+    留着——真实数据里一直是 undefined，只有 mock 在编，谁都没发现。
+
+    `pnl` 这一块 2026-09 连着重做了四轮（删归因、删现货未实现、改逐日盈亏、
+    删整套成本基础引擎），是最容易漂的地方，所以逐个字段钉住。
+    """
+    snap = build(cache)
+    assert set(snap["totals"]) == _declared("PortfolioTotals")
+    assert set(snap["pnl"]) == _declared("Pnl")
+    assert set(snap["pnl"]["daily"][0]) == _declared("DailyPnl")
+    assert set(snap["pnl"]["spot_marks"][0]) == _declared("SpotMarkRow")
+    assert set(snap["futures"]["assets"][0]) == _declared("WalletAsset")
+    # 现货这一侧不该再有任何"相对成本"的字段冒出来
+    assert "spot_assets" not in snap["pnl"]
+    assert set(snap["pnl"]["realized"]) == {"futures_usd", "futures_scope"}
 
 
 

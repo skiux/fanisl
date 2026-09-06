@@ -111,7 +111,7 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
   三种钱包，理财、资金、币本位、期权都没有历史快照。拿它当期初、拿全部钱包当期末，
   差额会被整个算成盈亏；而钱包之间的划转（现货 → 理财）会直接变成一笔"亏损"。
   更糟的是残差反解会让恒等式永远闭合，错了也看不出来。**日快照相关的字段
-  `equity_curve` / `attribution` 已经删除**，不要再依赖。
+  `equity_curve` / `attribution` 已经删除**，`accountSnapshot` 也不再调用。
 - 现在的口径：
 
   ```
@@ -125,23 +125,23 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
                           daily 最后一格。**同一个数只算一处**，两边不会对不上
   today_usd               = today.total_usd（摘要条用）
   unrealized.futures_usd  positionRisk 的 unRealizedProfit（交易所标记价）
-  realized.spot_usd       myTrades 全量重放，卖出按当时的均价结转（无时间上限）
-                          **不进 daily**——那笔盈亏已含在当天的市值变化里
   realized.futures_usd    income 的 REALIZED_PNL（接口只保留 90 天）
   carry.*                 资金费 / 手续费 / 返佣，同样 90 天
   spot_marks[]            逐币今日涨跌：{asset, qty, price_usd, prev_close_usd,
                           value_usd, today_usd}
-  spot_assets[]           逐币成本与已实现：{asset, qty, avg_cost_usd, price_usd,
-                          value_usd, realized_usd, cost_known, is_cash}
   unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖到），受影响的天已报 null
-  coverage                覆盖范围的实话（"已清仓的标的查不到交易对"）
-  incomplete_assets[]     成本完全算不出来的币（缺跨币种历史汇率），已从合计剔除
   ```
 
-- **现货没有"未实现"这一项，`unrealized` 里只有合约。** 现货的未实现是市值减加权
-  平均成本，而那个成本要完整的买入历史——划转 / 理财派息 / 小额兑换进来的币从不
-  出现在 `myTrades` 里，`capital/deposit/hisrec` 又只回 90 天，更早的充值永远查不
-  回来。算出来的数永远缺一块（2026-09 为它修过三轮，一版虚高六倍）。
+  `unrealized` 与 `realized` **各自只有 `futures_*`**，没有现货那一半，见下。
+
+- **现货这一侧没有"相对成本"的任何数**——未实现没有，已实现也没有。两者要的是
+  同一段补不齐的买入历史：划转 / 理财派息 / 小额兑换进来的币从不出现在 `myTrades`
+  里，`capital/deposit/hisrec` 又只回 90 天，更早的充值永远查不回来。卖得比重放
+  看到的多时能被识破，可**买得比看到的多、卖得不多时无声出错**。
+  2026-09 为它修过三轮（虚高六倍 → 只算成本已知的那部分 → 开人工通道让人手填均价），
+  最后连同整套成本基础引擎一起删了：`Lot` / `replay` / `summarize` 没有了，
+  响应里也不再有 `spot_assets` / `realized.spot_usd` / `coverage` /
+  `incomplete_assets` / `failed_symbols`。
   **别在客户端拿 `qty × (price − avg_cost)` 自己算一个补回去。**
   现货要回答的是"每天涨跌了多少"，见 `daily[].spot_usd`。
 - **持有量是跨全部钱包的**（`held_across_wallets`）：划进合约当保证金、存进理财的
@@ -156,14 +156,20 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
   屏幕上两个数对不上。
 - `income` 的金额单位是该行的 `asset`，不一定是 USDT（手续费常用 BNB 抵扣）。
   已在服务端按币种换算成 USD，客户端不必再折算。
-- 三块的窗口不一样是接口硬限，**不要把 `realized.spot_usd` 与 `realized.futures_usd`
-  加成一个数**当作某个统一区间的成绩。
+- **不要把窗口不同的数加起来。** `unrealized.futures_usd` 是"此刻"，`daily` /
+  `realized` / `carry` 是 90 天。界面上「合约收支」那张表之所以能画对比条、能求和，
+  正是因为它四行同源同窗口（全部来自 `income`）；旧版把 1 天 / 此刻 / 全历史 /
+  90 天混在一张表里画条，比出来的东西没有意义。
 
 #### 成员只能看 90 天
 
-非管理员的响应经 `main.py:_clip_for_member` 裁过：`pnl.daily` 只留最近 90 天，
-`pnl.realized.spot_usd` 置为 `null`（它是全历史的）。**这一步在服务端做**——
-前端把数字藏起来不算数。
+非管理员的响应经 `main.py:_clip_for_member` 裁过：`pnl.daily` 只留最近 90 天。
+**这一步在服务端做**——前端把数字藏起来不算数。
+
+现在它**恰好裁不掉东西**：`pnl` 里每一项本来就在 90 天以内（`daily` 就是 90 格，
+`realized.futures_usd` 与 `carry.*` 受 `income` 接口硬限，`unrealized` 是"此刻"）。
+唯一超出的曾经是现货那个"相对终身均价"的已实现，它已随成本基础引擎一起删除。
+留着这一行是为了哪天有人把窗口放长时不必再想起来补。
 
 ### GET /orders
 Query：`symbol`、`venue`（`spot|usdm|margin`）、`force`。

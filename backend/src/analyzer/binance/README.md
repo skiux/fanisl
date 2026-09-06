@@ -27,13 +27,19 @@ Binance 支持三种，官方把 **HMAC 标为 deprecated**、推荐 **Ed25519**
   才复现"的 bug。
 
 ```
-client.py    HMAC 签名 + 错误分类 + 对时          ← 不含任何写入方法
-cache.py     按来源的 TTL 缓存 + 降级语义
-common.py    字符串数值解析、计价、钱包名映射
-portfolio.py /portfolio  资产快照（12 个端点）
-orders.py    /orders     委托（8 个端点）
-ledger.py    /ledger     流水（8 个端点，20 次调用）
+signing.py    key 类型判定（HMAC / Ed25519 / RSA），按 .env 自动选
+client.py     签名 + 错误分类 + 对时                 ← 不含任何写入方法
+cache.py      按来源的 TTL 缓存 + 降级语义
+common.py     字符串数值解析、计价、钱包名映射
+costbasis.py  交易对拆分 + **跨钱包持有量**（成本基础引擎已删，见文件头）
+dailypnl.py   **逐日盈亏**：进出清单 → 历史持仓量 → 每天赚了多少   ← 口径核心
+portfolio.py  /portfolio  资产快照（12 个端点 + 逐交易对的日线与成交）
+orders.py     /orders     委托（8 个端点）
+ledger.py     /ledger     流水（8 个端点，20 次调用）
 ```
+
+**改盈亏口径之前先读 `dailypnl.py` 的模块注释**，那里写着为什么不能用资产差额法、
+每天的持仓量怎么回滚出来、以及每一类进出为什么按那个单位成本折算。
 
 ## 为什么不用 ccxt（项目里已经装着）
 
@@ -49,12 +55,9 @@ ADL 排队分位、条件单的 `workingType`/`closePosition`、`leverageBracket
 **取不到就是 `null`，不拿 `0` 顶替。** `0` 是一个有效余额。`common.dec()` 解析失败返回
 `None` 而不是 `0`，需要"缺失即 0"的场合显式用 `dec0()`。
 
-**日快照是 BTC 计价的**，换 USD 必须用**当天**的 BTC 收盘价。拿今天的价乘 30 天前的余额，
-画出来的是 BTC 的走势不是账户的。为此多取一条日线（公开端点，权重 2）。
-
-**归因算不出来就整块留空。** 恒等式
-`期末 = 期初 + 净充提 + 已实现 + 未实现变动 + 资金费 + 手续费`
-缺任一项都不闭合，与其给一张对不上账的表不如不给。
+**日线按 UTC 日切。** 逐日盈亏拿 `klines(symbol, "1d")` 的收盘价，日期取 `openTime`
+所在的 UTC 日——与 `income` 分桶、与界面日历的每一格都是同一条边界。
+日快照（`accountSnapshot`）已经不用了，理由见下。
 
 ## 按来源降级
 
@@ -122,7 +125,7 @@ IP 权重上限 **6000/分钟**。而：
 | 策略单端点在 **sapi** 上，不在 fapi | fapi 451 时它照常可取——不是矛盾，是两个域名 |
 | `marginLevel` 无负债时返回 999 哨兵 | 照搬会显示成荒谬的风险率 |
 
-## 盈亏怎么算（`costbasis.py` + `portfolio.py:_pnl`）
+## 盈亏怎么算（`dailypnl.py` + `portfolio.py:_pnl`）
 
 **这一节是整个模块最容易搞错的地方，2026-09 连着修了四轮，每一轮的错都在下面。
 改这块之前先读完。**
@@ -154,22 +157,20 @@ daily[]                 **每天到底赚了多少**，见 dailypnl.py：
                           pnl_usd     两者之和；算不出来时是 null
 today.*                 daily 最后一格，同一个数只算一处
 unrealized.futures_usd  positionRisk 的 unRealizedProfit（交易所给的标记价）
-realized.spot_usd       myTrades 全量重放，卖出按当时的均价结转（**不进日历**）
 realized.futures_usd    income 的 REALIZED_PNL
 carry.*                 资金费 / 手续费 / 返佣
+spot_marks[]            逐币今日涨跌，给详情抽屉用
+unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖到）
 ```
 
-**`unrealized` 里没有现货。** 现货看的是每天涨跌多少，不是相对买入成本的未实现
-——理由见下面第 ① 条。
-
-**现货已实现不进日历。** 卖出那笔的盈亏已经含在当天的市值变化里
-（`数量 × (收盘 − 成交价)` 那一项），加两次就是重复计。它回答的是另一个问题
-（相对**终身**均价赚了多少），只出现在盈亏构成里。
+**`unrealized` 与 `realized` 里都只有合约。** 现货这一侧没有任何"相对成本"的数，
+理由见下面第 ① 条。响应里也没有 `spot_assets` / `coverage` / `incomplete_assets` /
+`failed_symbols`——它们随成本基础引擎一起删了。
 
 划转不是成交，动不了任何一个币的数量与成本，所以这条路对划转完全免疫；
 逐日盈亏按跨钱包持有量算，同样不受划转影响。
 
-### 四个修过的坑
+### 四个修过的坑（每一条都有测试钉着）
 
 **① 现货根本不该算"未实现"。** 它是市值减加权平均成本，而那个成本要**完整的买入
 历史**。这个账户拿不到：划转 / 理财派息 / 小额兑换 / 闪兑进来的币从不出现在
@@ -184,6 +185,12 @@ carry.*                 资金费 / 手续费 / 返佣
    但报出去的仍是一个永远缺一块的数。
 3. 开一条人工通道让管理员手填均价。这是在给一个不该问的问题找答案。
 
+**已实现是同一个病，只是更隐蔽。** 它 `= Σ 卖出量 × (卖出价 − 当时均价)`，用的是
+同一个均价。卖得比重放看到的还多时能被识破（那个币会标成成本不明、整个剔除），
+可**买得比看到的多、卖得不多时无声出错**——报一个看不出错的数比不报更糟。
+所以最后 `Lot` / `replay` / `summarize` 整套删掉，`costbasis.py` 只剩
+`split_symbol` 与 `held_across_wallets`。
+
 **现货要回答的是"每天涨跌了多少"，那只需要当天的持仓量与当天的收盘价，
 不需要任何成本。** 见 `dailypnl.py`：
 
@@ -196,8 +203,8 @@ carry.*                 资金费 / 手续费 / 返佣
 日线取 `klines(symbol, "1d", limit=WINDOW_DAYS+2)`：最后一根是今天这根、还在走，
 它的 close 就是现价；多取两根是因为算窗口第一天要用它前一天的收盘。
 
-合约那半边不一样：`unRealizedProfit` 是交易所按自己的开仓均价给的，拿来即用——
-所以 `pnl.unrealized` 里**只有合约**。
+合约那半边不受影响：`unRealizedProfit` 与 `REALIZED_PNL` 都是交易所按自己的
+开仓均价算好给的，拿来即用——所以 `pnl.unrealized` 与 `pnl.realized` 里**只有合约**。
 
 **② `income` 的金额单位是该行的 `asset`，不一定是 USDT。** 手续费常用 BNB 抵扣
 （`asset: "BNB", income: "-0.012"`）。不看 asset 直接相加等于把 0.012 个 BNB
@@ -241,22 +248,27 @@ carry.*                 资金费 / 手续费 / 返佣
 "任一持有的币缺价 ⇒ 那天报空"，结果一个几分钱的尘埃仓位（0.00071 PAXG，
 没有 USDT 对）把整张 90 天日历抹成了空白。
 
-### 三个窗口不一样，别加成一个数
+### 窗口不一样，别加成一个数
 
 | | 窗口 | 为什么 |
 |---|---|---|
-| 现货已实现 | 全历史 | `myTrades` 用 `fromId` 翻页，没有时间上限 |
-| 合约已实现 / 资金费 / 手续费 | 90 天 | `income` 接口只保留 90 天 |
-| 未实现（两边） | 此刻 | `positionRisk` 是当前值，没有窗口概念 |
+| `daily[]` / `today` | 90 天 | 与 `income` 对齐；日线本可更久，但另一半只有 90 天 |
+| 合约已实现 / 资金费 / 手续费 / 返佣 | 90 天 | `income` 接口只保留 90 天 |
+| 合约未实现 | 此刻 | `positionRisk` 是当前值，没有窗口概念 |
 
-把"现货全历史 + 合约 90 天"加起来，不是任何一个真实区间的成绩。界面上因此
-**删掉了「已实现盈亏」那个合计**，只在盈亏页逐项列。
+界面上的「合约收支」之所以能画对比条、能求和，正是因为它四行**同源同窗口**
+（全部来自 `income`）。旧版把 1 天（今日涨跌）、此刻（未实现）、全历史（现货已实现）、
+90 天混在一张表里画条，`+$3,847`(90 天) 旁边摆着 `+$127`(今天)，比出来的东西
+没有意义——那张表已经拆掉。
 
 ### 覆盖不全是硬限，要说出来
 
 `myTrades` 的 `symbol` 必填，而 Binance **没有"我交易过哪些对"的接口**。候选是从
-当前持有的币 × USDT 推的，所以**已经清仓的币查不到**——它不在余额里，就没有线索
-指向它的交易对，而它的已实现是真金白银。这条写在响应的 `coverage` 里，不假装总数是全的。
+当前持有的币 × USDT 推的，所以**已经清仓的币查不到**。
+
+这条限制现在只影响**逐日盈亏的回滚**（那个币的进出看不见），而不再影响任何一个
+"已实现"的数——那套东西已经删了。回滚不平的币报在 `unbalanced_assets` 里，
+受影响的天 `pnl_usd` 是 `null`。
 
 ## 流水页的两条硬边界
 
@@ -316,11 +328,27 @@ carry.*                 资金费 / 手续费 / 返佣
 | `income` | `GET /fapi/v1/income` | 30 † | 300s | 已实现 / 资金费 / 手续费 |
 | `transfers` | `GET /sapi/v1/capital/deposit/hisrec` | 1 | 300s | 充值 |
 | | `GET /sapi/v1/capital/withdraw/history` | **18000** | 900s | UID 限速 10 次/秒，最贵的一个 |
-| `trades.*` | `GET /api/v3/myTrades` | 20 / 交易对 | 6h | `fromId` 翻页，**无时间上限**；喂现货成本基础 |
+| `trades.*` | `GET /api/v3/myTrades` | 20 / 交易对 | 6h | `fromId` 翻页，**无时间上限** |
+| `close.*` | `GET /api/v3/klines` | 2 / 交易对 | 900s | 日线收盘，不签名；`limit=WINDOW_DAYS+2` |
+| `flows.earn_flexible` | `GET /sapi/v1/simple-earn/flexible/history/rewardsRecord` | 150 | 1800s | UID 限速 |
+| `flows.earn_locked` | `GET /sapi/v1/simple-earn/locked/history/rewardsRecord` | 150 | 1800s | UID 限速 |
+| `flows.interest` | `GET /sapi/v1/margin/interestHistory` | 1 | 1800s | 杠杆利息 |
+| `flows.convert` | `GET /sapi/v1/convert/tradeFlow` | **3000** | 1800s | **只回 30 天** |
+| `flows.dust` | `GET /sapi/v1/asset/dribblet` | 1 | 1800s | **只回 30 天** |
+
+后面这两组（`close.*` 与 `flows.*`）都是**逐日盈亏**要的，不是给别的地方用的：
+
+- `close.*` 提供每天的收盘价。**按交易对逐个问**，所以只覆盖当前持有的币
+  （`_cost_symbols`）——已清仓的币取不到日线，也就回滚不到。
+- `flows.*` 提供"某天多了/少了几个币"，用来把历史持仓量从今天的余额往回滚。
+  钱包之间的划转**不必问**：持有量按跨钱包统计，划转两头相抵。
+  闪兑与小额兑换只回 30 天是硬限，更早的日子回滚不到，那几天会报 `null`。
+
+`trades.*` 现在只剩两个用途：喂逐日盈亏的进出清单，以及推出要取哪些日线。
+成本基础引擎（`Lot` / `replay` / `summarize`）已删，见 `costbasis.py`。
 
 日快照（`accountSnapshot`，单次权重 2400）**已经不用了**：它只覆盖现货 / 全仓杠杆 /
 U 本位三种，理财、资金、币本位没有历史快照，拿它算盈亏会把钱包间划转算成损益。
-盈亏改成从成交重放（见 `costbasis.py`）。
 
 一次完整取数：SPOT 池约 **18 300**（提现一项就占 18 000），FAPI 池约 **50**。
 `withdrawals` 列在 `NEVER_FORCE` 里——"重新取数"穿不透它。
@@ -376,12 +404,14 @@ U 本位三种，理财、资金、币本位没有历史快照，拿它算盈亏
 
 ## 测试
 
-`tests/test_binance_{signing,portfolio,orders,ledger}.py`，全部用 `httpx.MockTransport`
-喂**真实形状**的响应，不联网。上面「读文档才知道的坑」那张表里的每一条都有测试盯着。样本在 `tests/binance_mock.py` 三组共用——各写一份必然漂移：
+`tests/test_binance_{signing,portfolio,orders,ledger}.py` 走 `httpx.MockTransport`，
+喂**真实形状**的响应，不联网；`tests/test_dailypnl.py` 与 `tests/test_costbasis.py`
+是纯逻辑，连 transport 都不需要——逐日盈亏的口径（持有、买入、充值、派息、手续费、
+回滚不平、无报价、"空账户的 0 是真的 vs 算不出来的空"）钉在那里。上面「读文档才知道的坑」那张表里的每一条都有测试盯着。样本在 `tests/binance_mock.py` 三组共用——各写一份必然漂移：
 改了一处样本，另一处还在验旧形状，而两边都是绿的。
 
 样本按用户的实际持仓形态编（美股永续 NVDA/QQQ 为主，现货只留 BNB 与稳定币）。
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_binance_*.py -q
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_binance_*.py tests/test_dailypnl.py -q
 ```

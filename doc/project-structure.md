@@ -62,12 +62,18 @@ fanisl/
 口令用 stdlib scrypt（不引编译依赖）、会话 token 只存 sha256、CSRF 靠 SameSite=Lax。
 详见 [`auth/README.md`](../backend/src/analyzer/auth/README.md)。
 
-### 资产台数据层 `binance/`（2026-09-02）
+### 资产台数据层 `binance/`（2026-09-02，盈亏口径 09-06 重做）
 给 `console/` 供数的三组接口：`/portfolio` `/orders` `/ledger`。
 **不用 ccxt**——它的统一模型会抹掉这三页要的字段（现货四种锁定态、ADL 分位、
-条件单的 workingType/closePosition、维持保证金档位、日快照、理财持仓）。
+条件单的 workingType/closePosition、维持保证金档位、理财持仓）。
 签名支持 Ed25519 / RSA / HMAC 三种 key（官方已把 HMAC 标为 deprecated）。
 按来源缓存 + 按来源降级：451 常常只打在 fapi 上，现货那半边照常。
+
+**盈亏口径是这个模块最容易搞错的地方**，`dailypnl.py` 一个文件说清：一天的盈亏 =
+当天收盘市值 − 昨天收盘市值 − 当天进出；历史持仓量没有接口，从今天的余额往回滚，
+而持有量按**跨钱包**统计让划转自动抵消。现货这一侧**没有任何相对成本的数**
+（未实现与已实现都要完整买入历史，那段历史补不齐），合约那半边直接用交易所给的
+`unRealizedProfit` / `REALIZED_PNL`。
 详见 [`binance/README.md`](../backend/src/analyzer/binance/README.md)。
 
 ### 数据层 `data/`（抽象 + 多源，加/换源只碰这里 + factory）
