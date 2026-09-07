@@ -1,0 +1,598 @@
+{
+ "content_id": 112,
+ "extractor_version": "pending-v2",
+ "model": "claude-session",
+ "units": [
+  {
+   "kind": "concept",
+   "quote": "代表软件板块的ETF IGV一个月的时间内上涨了近30%。\nSalesforce、Shopify、Atlassian、Snowflake等明星个股，动辄就有20%到30%的单日涨幅。而其他表现不俗的软件股更是层出不穷。\n可能有些看官还记得，就在半年前，软件股还是整个美股上表现最糟糕的板块之一。",
+   "locator": "00:10",
+   "tags": [
+    "igv",
+    "software",
+    "rotation",
+    "market-structure"
+   ],
+   "payload": {
+    "canonical_statement": "2026 年这轮财报季表现最好的板块是软件——作者称 IGV 一个月上涨近 30%，Salesforce、Shopify、Atlassian、Snowflake 动辄有 20%-30% 的单日涨幅；而半年前软件还是全美股表现最糟糕的板块之一。（同期屏上 IGV 图标注 104.57、区间 102.50→105。）",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "由于AI Agent的异军突起，软件被AI颠覆的担忧甚嚣尘上，软件板块几乎遭遇了无差别扫射。",
+   "locator": "00:34",
+   "tags": [
+    "igv",
+    "software",
+    "ai-agent",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "软件板块此前的下跌是『无差别扫射』——AI Agent 异军突起后，被 AI 颠覆的担忧不分公司好坏一起杀。无差别定价本身就是后续分化的来源。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "在AI时代，软件公司的优势不在于技术，而在于他们定义需求的能力。现在Agent的执行任务之所以会消耗那么多token，是因为很多任务都得从零开始跑，需要不断的去打磨才能完成最后的交付。这个过程就需要消耗大量的token。而一旦流程已经固定下来，下一次再执行相同任务的时候，token的消耗就会大幅降低。而软件公司最擅长的，就是根据应用场景来定义流程。",
+   "locator": "01:46",
+   "tags": [
+    "software",
+    "ai-agent",
+    "compute-pricing"
+   ],
+   "payload": {
+    "canonical_statement": "软件公司在 AI 时代的优势不是技术而是定义需求与流程的能力：Agent 之所以耗 token，是因为任务要从零跑起、反复打磨；流程一旦固定，同类任务的 token 消耗大幅下降——而定义流程正是软件公司最擅长的事。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "AI的算力瓶颈是一个会长期持续的大问题。它是不会因为某几家半导体公司的发展，或是大模型的进步就彻底能解决的，这点非常关键。",
+   "locator": "02:32",
+   "tags": [
+    "software",
+    "ai-capex",
+    "compute-pricing",
+    "semiconductor-cycle"
+   ],
+   "payload": {
+    "canonical_statement": "算力瓶颈是长期持续的问题，不会因为某几家半导体公司的发展或大模型的进步而被彻底解决——这是把它当作『持续需要被解决的问题』而非一次性缺口来投资的前提。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "但是一旦算力瓶颈要是持续下去，它所带来的就不仅仅是算力需求这么简单了，而是一个持续需要被解决的问题。你看现在所有人都在抱怨token成本太贵。如果你能够系统性的降低token成本，那自然能够创造巨大的商业价值，从而也能带来很好的投资机会。而软件股，正是我认为最好做到这点的群体之一，也是过去这段时间被很多人忽略的一个重要机会。",
+   "locator": "02:47",
+   "tags": [
+    "software",
+    "compute-pricing",
+    "ai-capex"
+   ],
+   "payload": {
+    "canonical_statement": "算力瓶颈的投资含义有两层：一层是算力需求（利好半导体），另一层是『系统性降低 token 成本』这件事本身就能创造巨大商业价值——后一层长期被忽略，而它落在软件公司身上。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "很重要的一个原因，是软件公司它有更强的context，也就是有更强的上下文环境。",
+   "locator": "03:38",
+   "tags": [
+    "software",
+    "ai-agent",
+    "now",
+    "compute-pricing"
+   ],
+   "payload": {
+    "canonical_statement": "软件公司自建 Agent 能降 token 成本的根本原因是上下文更强：外部大模型要先搜索全部信息、判断关联再回答（大海捞针），而软件自己的 Agent 已经有用户的全部足迹与任务关联，可以直接定位关键信息。这是软件相对大模型的关键壁垒，不是 Atlassian 独有——Hubspot、MongoDB、Workday、ServiceNow 也都展现了这方面能力。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "本次财报季管理层就披露，当Agent使用公司的Teamwork Graph进行上下文grounding的时候，相比于没有上下文的Agent，回答的准确率最高可以提高44%，同时token的消耗最高可以减少48%。也正因为他们本季度在Agent上的强势表现，公司财报后股价大涨了35%。",
+   "locator": "04:30",
+   "tags": [
+    "team",
+    "software",
+    "ai-agent",
+    "compute-pricing"
+   ],
+   "payload": {
+    "canonical_statement": "上下文壁垒的第一组硬数字：Atlassian 披露 Agent 用 Teamwork Graph 做上下文 grounding 后，相比无上下文的 Agent，回答准确率最高提高 44%、token 消耗最高减少 48%；公司财报后股价大涨 35%。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "本次财报季我们还看到了，软件股引领的model-neutral platform的这个趋势，也就是所谓的模型中立。什么意思呢？就是软件公司把自己建设成一个多模型的平台。用户可以根据自己的不同需求，去调用最合适该任务的模型，从而去降低整体的token成本。\n这件事最早是微软的copilot做的事情，现在很多软件股都加入了进来。比如workday，本次财报就披露，他们的AI功能，workday contract intelligence已经嵌入了多个模型组合。Snowflake本季度推出了Cortex AI Gateway，他可以根据用户任务的质量、速度和成本偏好自动去选择适合的模型。",
+   "locator": "05:18",
+   "tags": [
+    "software",
+    "ai-agent",
+    "snow",
+    "msft"
+   ],
+   "payload": {
+    "canonical_statement": "模型中立（model-neutral platform）：软件公司把自己建成多模型平台，按任务调用最合适的模型来压低整体 token 成本。最早是微软 copilot 做的，本季 Workday 的 contract intelligence 嵌入多模型组合、Snowflake 推出 Cortex AI Gateway 按质量/速度/成本自动选模型。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "但更重要的，还不是模型的个数，而是软件公司们可能比你更了解你自己的需求。那这和节省token成本有什么关系呢？AI时代，软件公司们由于长期深耕垂域，他们非常清楚你的工作流。比如Snowflake，他可能比你还要了解一个数据分析的任务该怎么执行，也就更能够帮助你去调用不同的模型去节省token成本。",
+   "locator": "06:28",
+   "tags": [
+    "software",
+    "ai-agent",
+    "snow",
+    "compute-pricing"
+   ],
+   "payload": {
+    "canonical_statement": "模型中立省成本的关键不是接了多少个模型，而是软件公司因长期深耕垂域比用户更清楚用户自己的工作流，因而更知道该调用哪个模型——这是用户自己在大模型上很难复现的，构成全新的竞争壁垒。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "未来Salesforce会主动接入Claude和ChatGPT平台，我们可以不再占用用户的工作界面，你们只需要在那里完成工作就可以了。而电商软件Shopify也有类似的表态：不管未来的交易是由人完成，还是由agent完成，Shopify都希望自己能够运行在最底层。数据分析软件Snowflake的管理层也承认，未来我们希望成为企业Agent的控制中枢。",
+   "locator": "07:38",
+   "tags": [
+    "crm",
+    "shop",
+    "snow",
+    "software",
+    "ai-agent"
+   ],
+   "payload": {
+    "canonical_statement": "方向相反的第二个趋势——软件主动向大模型『低头』：Salesforce 说会主动接入 Claude 和 ChatGPT、不再占用用户的工作界面；Shopify 说不管交易由人还是 agent 完成，都希望自己跑在最底层；Snowflake 说希望成为企业 Agent 的控制中枢。三家转型成 AI Agent 的基础设施（管理层原话，作者背书这是一个明显趋势）。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "公司现在用一种叫做Assists的单位计费。Agent每执行一次工作流就会消耗一个assist，而且任务越复杂，消耗得也就越多。以前ServiceNow主要是靠给员工卖席位，现在呢，公司不仅席位数没有减少，而且在此基础之上还增加了Assists的收入。而本季度，管理层已经特别强调，有50%的净新增业务要采用非席位定价。",
+   "locator": "09:25",
+   "tags": [
+    "now",
+    "software",
+    "ai-agent",
+    "compute-pricing"
+   ],
+   "payload": {
+    "canonical_statement": "ServiceNow 的 Assists 计费是这轮转型最具体的商业化落点：通过 Action Fabric 与 MCP 把数据、权限、工作流开放给外部 Agent，Agent 每执行一次工作流消耗一个 assist，任务越复杂消耗越多。席位数没有减少的前提下新增了这块收入，本季度 50% 的净新增业务采用非席位定价。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "其背后的原因是因为，这些软件公司虽然开放了数据给大模型，但是这些数据背后的工作流、权限和商业逻辑其实还是软件公司自己把控的。这里有些是软件公司多年积累起来的私有数据和流程管理。也有些是非常具体的，需要人来处理的事情，比如责任机制、权限和安全等等。大模型没有能力，也没有意愿去接管这些细枝末节的垂域流程，但是他们却可以在此基础之上去提升他的效率。",
+   "locator": "10:13",
+   "tags": [
+    "software",
+    "ai-agent",
+    "now",
+    "moat"
+   ],
+   "payload": {
+    "canonical_statement": "开放数据没有导致用户出走，反而换来更强粘性与更高收入，原因是数据背后的工作流、权限与商业逻辑仍由软件公司把控——其中既有多年积累的私有数据与流程管理，也有责任机制、权限、安全这类需要人处理的具体事项。大模型既没能力也没意愿接管这些垂域细节，只愿在其上提效，所以最好的办法是合作而不是竞争。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "首先，软件公司降低token使用成本这件事，相当于就是企业客户对于软件的一个新增需求。\n我们确信企业应用AI是未来的一个大趋势，而算力瓶颈又将会是长期持续的问题。那么对于有能力解决这个问题，并且已经验证能力的软件股来说，这就将会是一个全新的价值增量。\n而另一方面，对于成为AI Agent的基础设施这件事，则相当于软件公司为自己新增了一类全新的用户。软件公司就此不仅仅是在为人服务，收取固定的席位费，而是开始为AI Agent服务，收取用量费。",
+   "locator": "10:53",
+   "tags": [
+    "software",
+    "ai-agent",
+    "now",
+    "compute-pricing"
+   ],
+   "payload": {
+    "canonical_statement": "两大趋势对应两类价值增量：降低 token 成本 = 企业客户的新增需求；成为 AI Agent 基础设施 = 新增一类全新的用户（从为人服务收席位费，变成为 Agent 服务收用量费）。人的增量有限，而 Agent 的增量才刚起步。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "未来软件股和大模型，并不是谁取代谁、谁对抗谁，而是你中有我、我中有你的合作关系。在软件里面会有自己的AI Agent，他们去执行一部分非常垂域、需要很强的上下文、对于token成本非常敏感的任务。这时软件是主导，负责调用不同的模型。而大模型也会成为很多全新场景的入口，他们去执行另一部分需要跨系统、跨软件的大型任务，或者是对于token成本不敏感的任务。这时大模型是主导，负责调用不同的软件。",
+   "locator": "11:42",
+   "tags": [
+    "software",
+    "ai-agent",
+    "compute-pricing"
+   ],
+   "payload": {
+    "canonical_statement": "软件与大模型的终局是按任务类型分工共存，不是替代：垂域、需要强上下文、对 token 成本敏感的任务由软件主导并调用模型；跨系统跨软件的大型任务、或对 token 成本不敏感的任务由大模型主导并调用软件。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "甚至长期来看，大部分大模型都是商品属性，没有什么议价权，只有少数顶尖的模型才能建立起自己的生态，掌握起入口优势。",
+   "locator": "12:19",
+   "tags": [
+    "software",
+    "ai-agent",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "长期看大部分大模型是商品属性、没有议价权，只有少数顶尖模型能建立自己的生态、掌握入口优势——议价权在生态与入口，不在模型能力本身。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "注意，我们可不是说AI对于软件股的威胁就此彻底打消了，而是说，我们得辩证的来看这件事。AI在上述的这些场景之下，对于软件股来说确实是个促进，但同时威胁仍然是真实存在的。如果你无法撬动起上下文的优势，自己应用起Agent，如果你没有无法替代的底层壁垒，可以让你放心的将自己暴露给大模型。那么原本那些AI颠覆论，仍然是对你持续的威胁，AI仍然可以平替你、冲击你，也可以将你的入口彻底夺走，让你丧失议价权。",
+   "locator": "12:36",
+   "tags": [
+    "software",
+    "ai-agent",
+    "valuation",
+    "moat"
+   ],
+   "payload": {
+    "canonical_statement": "AI 对软件股的威胁没有被打消，只是要辩证看：撬不动上下文优势、用不起自己的 Agent、没有不可替代的底层壁垒的公司，仍然会被 AI 平替、冲击，入口被夺走从而丧失议价权。促进与威胁同时作用在同一个板块上。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "所以说，对于现在的软件板块，就是AI促进和AI威胁同时存在。那这就意味着，现在的软件板块将会进入一个强分化的阶段。好的公司可以受益于AI获得更高的投资价值，而差的公司将会在AI冲击下慢慢出局。",
+   "locator": "13:09",
+   "ref_price": 104.57,
+   "tags": [
+    "igv",
+    "software",
+    "ai-agent",
+    "valuation"
+   ],
+   "payload": {
+    "asset_text": "软件板块（作者判 AI 促进与 AI 威胁同时存在，板块将进入强分化：好公司获得更高投资价值、差公司慢慢出局）。这是对板块内部离散度的判断，没有对板块指数给出方向；我方以 IGV 计价",
+    "asset_symbol": "IGV",
+    "priceable": true,
+    "claim_class": "relative",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "从上述这两大趋势出发，我们看到的重点是，那些能够掌握企业级的任务入口，有着完整的上下文和执行权限，同时拥有足够深工作流的软件公司，能够更容易的撬动优势去降低token成本，也能够更有底气的去做AI Agent的基础设施。相反，如果你是C端的软件，如果你不依赖底层的工作流或生态做壁垒，而是依赖表层的使用体验做壁垒，那么你就更难受益于AI，也更容易被AI威胁。",
+   "locator": "13:27",
+   "tags": [
+    "software",
+    "ai-agent",
+    "now",
+    "msft"
+   ],
+   "payload": {
+    "name": "筛选能受益于 AI 的软件股：四个条件加一条排除",
+    "summary": "掌握企业级任务入口、有完整上下文、有执行权限、工作流足够深的软件公司能受益；靠表层使用体验做壁垒的 C 端软件更易被威胁。",
+    "family": "other",
+    "rules": [
+     "条件一：掌握企业级的任务入口",
+     "条件二：有完整的上下文",
+     "条件三：有执行权限",
+     "条件四：拥有足够深的工作流",
+     "四条齐备者更容易撬动优势降低 token 成本，也更有底气去做 AI Agent 的基础设施",
+     "排除项：C 端软件，或不依赖底层工作流与生态、而依赖表层使用体验做壁垒的公司",
+     "作者点名符合的典型：微软、ServiceNow、Salesforce、Snowflake"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "需要读财报会议与产品架构，无法从行情数据机械筛出"
+    ],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "而在当前的美股中，满足上述这些条件的软件股其实也有不少，比较典型的包括微软、ServiceNow、Salesforce、Snowflake，他们都是有自己的Agent，同时也有足够的壁垒去开放生态给Agent做基础设施。可以预见，他们未来也有能力撬动AI为自己实现更高的价值增量。多说一句，我这可不是荐股，只是单纯的分析在AI趋势下有机会受益的公司。",
+   "locator": "13:56",
+   "ref_price": 141.26,
+   "tags": [
+    "now",
+    "crm",
+    "snow",
+    "msft",
+    "software"
+   ],
+   "payload": {
+    "asset_text": "微软 MSFT、ServiceNow NOW、Salesforce CRM、Snowflake SNOW（作者判四家满足受益条件——有自己的 Agent、也有足够壁垒开放生态做 Agent 基础设施，未来能撬动 AI 实现更高价值增量）。他明确声明『我这可不是荐股』；这是基本面与商业模式判断，没有对价格给出方向或目标",
+    "asset_symbol": "NOW",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "而所有这些软件中，有这么一个我个人最看好的机会，也是我在美投Pro中唯一维持strong buy评级的软件公司。",
+   "locator": "14:41",
+   "ref_price": 337.18,
+   "tags": [
+    "snow",
+    "software",
+    "valuation",
+    "positioning"
+   ],
+   "payload": {
+    "asset_text": "Snowflake SNOW（作者个人最看好的软件机会，也是他在美投 Pro 里唯一维持 strong buy 评级的软件公司）。评级是仓位立场，作者全程没有说股价会怎样——按 §2 不编成价格 claim",
+    "asset_symbol": "SNOW",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "之前围绕在Snowflake周围的担忧主要有这么几点。第一，是老生常谈的AI威胁；第二，则是企业即便应用AI数据分析，预算也是有限的。而Snowflake的增量基本都来自老用户，所以增长受限；第三，则是来自Databricks的竞争。这些担忧都非常合理。不过，我个人也有两个不一样的见解，也是我最想跟大家分享的东西。",
+   "locator": "15:22",
+   "tags": [
+    "snow",
+    "software",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "市场此前对 Snowflake 的三条担忧：AI 威胁、企业预算有限且增量基本来自老用户因而增长受限、Databricks 的竞争——作者说三条都非常合理，随后给出了两点不一样的见解。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "第一，我认为是现在所谓的AI威胁，是市场在拿现在的软件跟未来的AI做比较，这是不合理的。是的，如果你拿现在的软件不做任何变化跟AI比，那几乎没有任何一个软件能够抵抗的了未来强大的AI的冲击。但是，软件公司它也是会发展的，我们应该拿着未来的软件跟未来的AI做对比才更合理。",
+   "locator": "15:48",
+   "tags": [
+    "snow",
+    "software",
+    "valuation",
+    "psychology"
+   ],
+   "payload": {
+    "name": "对齐比较的时点：拿未来的软件跟未来的 AI 比，而不是拿现在的软件跟未来的 AI 比",
+    "summary": "评估颠覆风险时，被颠覆方和颠覆方要放在同一个时点上比。市场普遍用『今天的软件 vs 未来的 AI』作 benchmark，这会系统性高估颠覆风险。",
+    "family": "other",
+    "rules": [
+     "识别市场在用哪个 benchmark：如果是『现在的软件 vs 未来的 AI』，那几乎没有软件能抵抗，结论必然悲观",
+     "换成『未来的软件 vs 未来的 AI』再评估——软件公司也会发展",
+     "支撑这一换算的是人：软件公司拥有最前沿的技术人才，比任何人都了解 AI 威胁、也比任何人都更有能力针对 AI 做出改变",
+     "落到个股上要验证管理层是否真的做出了改变（Snowflake 新任 CEO Rama 技术出身、做过 AI 初创产品，公司确实做出了快速且大量的改变）"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  },
+  {
+   "kind": "concept",
+   "locator": "16:48",
+   "quote": "如果我们用发展的眼光来看问题，至少说未来软件的形态被AI颠覆的风险，要远比现在的软件形态被AI颠覆的风险要低得多。而现在市场却在以后者为benchmark，我认为这就是显然高估了AI颠覆这个风险的。",
+   "tags": [
+    "software",
+    "ai-agent",
+    "valuation",
+    "psychology"
+   ],
+   "payload": {
+    "canonical_statement": "未来软件形态被 AI 颠覆的风险，远低于现在软件形态被 AI 颠覆的风险；而市场在用后者做 benchmark 定价——错的不是风险本身，是被拿来比较的那个形态。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "locator": "17:33",
+   "ref_price": 337.18,
+   "quote": "第二，我认为，是华尔街分析师的局限，低估了SNOW的增长。市场对于SNOW普遍的担忧就是，企业的预算是有限的，那他们为什么会单纯因为AI数据分析，就给SNOW付出更多的钱呢？",
+   "tags": [
+    "snow",
+    "software",
+    "valuation",
+    "macro-data"
+   ],
+   "payload": {
+    "asset_text": "Snowflake SNOW 的增长（作者判华尔街分析师因职业局限低估了它——分析师只看收入和利润，以为企业决策者也这么想，实际上决策者按有没有真正带来价值决策）。这是对卖方预期偏差的判断，不是对股价的方向或目标",
+    "asset_symbol": "SNOW",
+    "priceable": true,
+    "claim_class": "event_outcome",
+    "direction": "up",
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "分析师最关注的就是收入和利润。他们会以为企业决策者也是这么思考问题的，但实际并非如此。企业决策者不会单纯因为能不能赚钱就来决策，而是会因为他们有没有真正带来价值来决策。",
+   "locator": "18:06",
+   "tags": [
+    "snow",
+    "software",
+    "valuation",
+    "macro-data"
+   ],
+   "payload": {
+    "name": "估算企业软件预算时，用决策者的口径而不是分析师的口径",
+    "summary": "分析师按收入与利润推演企业会不会加预算，但企业决策者按『有没有真正带来价值』决策——包括为『以前想做却做不到的事』付费。",
+    "family": "other",
+    "rules": [
+     "不要只用『这个工具能不能增加收入或节省成本』来推断企业会不会加预算",
+     "改用决策者的口径：一个新工具如果能让我做以前想做却做不到的事、能让我尝试更多可能性，哪怕只是让我知道什么事不行，也值得花钱尝试",
+     "作者的依据是自己同时是 30 人公司的 CEO 和有十多年经验的分析师，清楚这两个身份的差别",
+     "推论：AI 数据分析即便不直接增加收入，企业也很可能愿意增加预算"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "而数据分析的需求又是没有边界的。你不会说，我今天分析一个一百万个token就够了，你一定能够找到新的数据分析需求，就是你找不到，AI也能帮你找到。这便是为什么我们现在看到AI数据分析的token消耗量在成指数型增长的原因。",
+   "locator": "19:06",
+   "tags": [
+    "snow",
+    "software",
+    "compute-pricing",
+    "ai-agent"
+   ],
+   "payload": {
+    "canonical_statement": "数据分析的需求没有边界——不存在『今天分析一百万 token 就够了』这种饱和点，用户找不到新需求时 AI 也会帮他找到；这是 AI 数据分析 token 消耗量呈指数增长的原因。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "所以说在我看来，这个行业的增量是没有天花板的，也是可以持续的。",
+   "locator": "19:24",
+   "tags": [
+    "snow",
+    "software",
+    "ai-agent",
+    "compute-pricing"
+   ],
+   "payload": {
+    "asset_text": "AI 数据分析行业的增量（作者判没有天花板、可持续；依据是数据分析需求没有边界、token 消耗在指数增长）。行业增量无价格序列，也无合理的单一代理",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "event_outcome",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "AI威胁确实存在，但是，可能被高估了。而企业预算虽然确实是限制，但软件股应用AI所撬动的增量也很可能被低估了。",
+   "locator": "19:36",
+   "ref_price": 104.57,
+   "tags": [
+    "igv",
+    "software",
+    "valuation",
+    "ai-agent"
+   ],
+   "payload": {
+    "asset_text": "软件股（作者的核心判断：市场高估了 AI 威胁、低估了软件股应用 AI 撬动的增量）。这是对市场定价偏差的判断，没有给出价位或方向；我方以 IGV 计价",
+    "asset_symbol": "IGV",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "TPU业务很可能成为接下来左右谷歌股价的最关键的变量，没有之一。然而问题却是，如此重要的一项业务，他的影响却并非完全是积极的，甚至可能会拖累谷歌的发展。",
+   "locator": "20:35",
+   "ref_price": 338.46,
+   "tags": [
+    "googl",
+    "ai-capex",
+    "semiconductor-cycle",
+    "valuation"
+   ],
+   "payload": {
+    "asset_text": "谷歌 GOOGL（作者判 TPU 业务很可能成为接下来左右谷歌股价最关键的变量，且影响并非完全积极、甚至可能拖累谷歌的发展）。他指出了风险方向但没有给幅度、期限或价位，正文也未展开——这是下期节目的预告",
+    "asset_symbol": "GOOGL",
+    "priceable": true,
+    "claim_class": "risk_warning",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "hedged",
+    "verifiability": "D"
+   }
+  }
+ ]
+}
