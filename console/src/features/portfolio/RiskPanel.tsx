@@ -170,9 +170,10 @@ export function RiskGauges({ futures, margin, exposureRatio, concentration, unav
         {exposureRatio !== null && (
           <div className="flex items-baseline justify-between gap-3">
             <Eyebrow>名义敞口 / 净值</Eyebrow>
-            <span className="tnum text-sm text-ink-2">
-              {exposureRatio.toFixed(2)}×<span className="text-ink-3"> · 真实杠杆</span>
-            </span>
+            {/* 不再缀一句"· 真实杠杆"：那个名字现在专指「合约与风险」里
+                名义敞口 / 保证金余额的那一个数，一名两数会对不上。
+                这里的分母是全账户净值，`名义敞口 / 净值` 本身已经说清了。 */}
+            <span className="tnum text-sm text-ink-2">{exposureRatio.toFixed(2)}×</span>
           </div>
         )}
         {concentration && (

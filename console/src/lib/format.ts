@@ -70,6 +70,21 @@ export function baseOf(symbol: string) {
   return symbol.endsWith('USDT') ? symbol.slice(0, -4) : symbol
 }
 
+/** 认得出的计价币。排前面的先匹配，互相不是后缀关系，顺序只影响可读性 */
+const QUOTE_ASSETS = ['USDT', 'USDC', 'FDUSD', 'TUSD', 'BUSD', 'DAI', 'BTC', 'ETH', 'BNB']
+
+/**
+ * 交易对拆成 基础 / 计价 两段，**只用于显示**：ETHBTC → ETH + BTC。
+ *
+ * 和 `baseOf` 看着像，但不能合并：`baseOf` 的结果还被当成**美元报价的键**用
+ * （`prices.ts` 拿它查 `PRICE`），只认 USDT 是对的——把 ETHBTC 也拆成 ETH，
+ * 那边就会拿 ETH 的美元价当成 ETH/BTC 的价格，静悄悄地错。
+ */
+export function splitPair(symbol: string): { base: string; quote: string | null } {
+  const quote = QUOTE_ASSETS.find((q) => symbol.length > q.length && symbol.endsWith(q))
+  return quote ? { base: symbol.slice(0, -quote.length), quote } : { base: symbol, quote: null }
+}
+
 /** 低于这个值算灰尘，默认折起来——真账户里灰尘条数会淹没主仓位 */
 export const DUST_THRESHOLD_USD = 25
 

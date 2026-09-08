@@ -1,14 +1,20 @@
 import { Dialog } from 'radix-ui'
 import { X } from '@phosphor-icons/react'
+import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
-import { amount, price, signedMoney } from '../../lib/format'
-import type { Pnl } from '../../api/types'
+import { amount, price, signedMoney, signedPercent } from '../../lib/format'
+import type { IncomeBreakdown, Pnl } from '../../api/types'
 
 /**
  * 「今日盈亏」这个数由哪几项加起来的。
  *
  * 两项：现货持仓当天涨跌了多少，加上合约当天结算掉的。和日历最后一格同源——
  * 上一版今天与日历各算各的，屏幕上两个数对不上。
+ *
+ * **两项都要能再拆一层。** 上一版现货那半边挂着一张逐币表，可它浮在最底下，
+ * 和「现货涨跌」那一行隔着「合计」；合约那半边则干脆没有下一层，只有一个
+ * −$12.30，看不出是资金费还是手续费——同一个合计在「合约收支」那张 90 天表里
+ * 明明是拆开的。现在两项各带各的明细，缩进挂在自己那一行下面。
  *
  * **只放数字，不放说明。** 上一版把页面上删掉的口径原样搬进这里——换个地方又写了
  * 一遍，而且对所有人可见。这里要回答的是"这个数怎么凑出来的"，那是数据；
@@ -19,6 +25,19 @@ import type { Pnl } from '../../api/types'
  */
 export type PnlTopic = 'today'
 
+/** 当日结算的分项。标签与「合约收支」那张 90 天表一字不差——本来就是同一套分类 */
+const SETTLED_ROWS: { key: keyof IncomeBreakdown; label: string }[] = [
+  { key: 'realized_pnl', label: '已实现盈亏' },
+  { key: 'funding_fee', label: '资金费' },
+  { key: 'commission', label: '手续费' },
+  { key: 'referral_kickback', label: '返佣' },
+  { key: 'insurance_clear', label: '保险清算' },
+  { key: 'other', label: '其他' },
+]
+
+/** 排序用的量级。算不出来的排最后，别让一排 `—` 占住开头 */
+const magnitude = (value: number | null) => (value === null ? -1 : Math.abs(value))
+
 export function PnlDetail({ topic, pnl, onClose }: {
   topic: PnlTopic | null
   pnl: Pnl | null
@@ -26,13 +45,17 @@ export function PnlDetail({ topic, pnl, onClose }: {
 }) {
   if (topic === null) return null
 
-  const parts = pnl === null ? [] : [
-    { label: '现货涨跌', value: pnl.today.spot_usd },
-    { label: '当日结算', value: pnl.today.settled_usd },
-  ]
-  // 逐币的涨跌。算不出来的那几个照样列出来，值写 `—`——
+  // 逐币的涨跌，大的在前。算不出来的那几个照样列出来，值写 `取不到`——
   // 底下再补一句"某某没有报价"是把表格已经说清的事又说一遍
-  const coins = (pnl?.spot_marks ?? []).filter((row) => row.qty > 0)
+  const coins = [...(pnl?.spot_marks ?? [])]
+    .filter((row) => row.qty > 0)
+    .sort((a, b) => magnitude(b.today_usd) - magnitude(a.today_usd))
+
+  const parts = pnl?.today.settled_parts ?? null
+  // 只列非零项。为零的分类摆在那里只是占位，"今天没有资金费"不需要单独说一行
+  const settled = parts === null ? [] : SETTLED_ROWS
+    .map((row) => ({ label: row.label, value: parts[row.key] }))
+    .filter((row) => Math.abs(row.value) >= 0.005)
 
   return (
     <Dialog.Root onOpenChange={(open) => { if (!open) onClose() }} open>
@@ -67,52 +90,88 @@ export function PnlDetail({ topic, pnl, onClose }: {
             <p className="text-sm text-ink-3">取不到。</p>
           ) : (
             <>
-              <ul className="divide-y divide-rule border-y border-rule">
-                {parts.map((part) => (
-                  <li className="flex items-baseline justify-between gap-4 py-2.5" key={part.label}>
-                    <span className="text-sm text-ink-2">{part.label}</span>
-                    <span className={cn('tnum shrink-0 text-sm',
-                      part.value === null ? 'text-ink-3'
-                        : part.value >= 0 ? 'text-gain' : 'text-loss')}>
-                      {part.value === null ? '取不到' : signedMoney(part.value)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <div className="border-b border-rule">
+                <Part
+                  label="现货涨跌"
+                  rows={coins.map((row) => {
+                    const change = row.prev_close_usd && row.price_usd !== null
+                      ? row.price_usd / row.prev_close_usd - 1 : null
+                    return (
+                      <Row
+                        detail={`${amount(row.qty)} · ${price(row.prev_close_usd)} → ${price(row.price_usd)}${
+                          change === null ? '' : ` · ${signedPercent(change)}`}`}
+                        key={row.asset}
+                        label={row.asset}
+                        value={row.today_usd}
+                      />
+                    )
+                  })}
+                  value={pnl.today.spot_usd}
+                />
+                <Part label="当日结算" rows={settled.map((row) => (
+                  <Row key={row.label} label={row.label} value={row.value} />
+                ))} value={pnl.today.settled_usd} />
+              </div>
 
               <div className="mt-3 flex items-baseline justify-between gap-4">
                 <span className="text-sm text-ink">合计</span>
-                <span className={cn('tnum text-base',
-                  pnl.today.total_usd === null ? 'text-ink-3'
-                    : pnl.today.total_usd >= 0 ? 'text-gain' : 'text-loss')}>
-                  {pnl.today.total_usd === null ? '—' : signedMoney(pnl.today.total_usd)}
-                </span>
+                <Amount blank="—" className="text-base" value={pnl.today.total_usd} />
               </div>
-
-              {coins.length > 0 && (
-                <div className="mt-5 border-t border-rule pt-4">
-                  <p className="label mb-2">现货逐币</p>
-                  <ul className="divide-y divide-rule/70">
-                    {coins.map((row) => (
-                      <li className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-4 py-2" key={row.asset}>
-                        <span className="text-sm text-ink-2">{row.asset}</span>
-                        <span className="tnum truncate text-xs text-ink-3">
-                          {amount(row.qty)} · {price(row.prev_close_usd)} → {price(row.price_usd)}
-                        </span>
-                        <span className={cn('tnum text-right text-sm',
-                          row.today_usd === null ? 'text-ink-3'
-                            : row.today_usd >= 0 ? 'text-gain' : 'text-loss')}>
-                          {row.today_usd === null ? '—' : signedMoney(row.today_usd)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </>
           )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  )
+}
+
+/** 一项：自己的合计一行，明细缩在下面。明细为空时不留空档 */
+function Part({ label, value, rows }: {
+  label: string
+  value: number | null
+  rows: ReactNode[]
+}) {
+  return (
+    <section className="border-t border-rule py-2.5">
+      <div className="flex items-baseline justify-between gap-4">
+        <span className="text-sm text-ink-2">{label}</span>
+        <Amount blank="取不到" className="text-sm" value={value} />
+      </div>
+      {rows.length > 0 && (
+        // 明细缩进一格，和上面那行拉开层级；细分隔线只在明细之间，
+        // 不和分节的实线抢
+        <ul className="mt-1.5 divide-y divide-rule/60 pl-3">{rows}</ul>
+      )}
+    </section>
+  )
+}
+
+/** 明细的一行。`detail` 是中间那段可截断的补充（数量、价格、涨跌幅） */
+function Row({ label, detail, value }: {
+  label: string
+  detail?: string
+  value: number | null
+}) {
+  return (
+    <li className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-3 py-1.5">
+      <span className="text-xs text-ink-2">{label}</span>
+      <span className="tnum truncate text-[11px] text-ink-3">{detail ?? ''}</span>
+      <Amount blank="—" className="text-xs" value={value} />
+    </li>
+  )
+}
+
+function Amount({ value, blank, className }: {
+  value: number | null
+  /** 没有这个数时印什么：来源挂了写「取不到」，本来就没有写「—」 */
+  blank: string
+  className?: string
+}) {
+  return (
+    <span className={cn('tnum shrink-0 text-right',
+      value === null ? 'text-ink-3' : value >= 0 ? 'text-gain' : 'text-loss',
+      className)}>
+      {value === null ? blank : signedMoney(value)}
+    </span>
   )
 }

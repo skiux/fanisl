@@ -156,6 +156,9 @@ daily[]                 **每天到底赚了多少**，见 dailypnl.py：
                           settled_usd 合约当天结算掉的（已实现+资金费+手续费+返佣）
                           pnl_usd     两者之和；算不出来时是 null
 today.*                 daily 最后一格，同一个数只算一处
+today.settled_parts     当天结算按类型拆开（`_today_settled`）。**复用 `_income`
+                        换一个窗口**，不另写一套分类——两套分类迟早对不上。
+                        各项之和 == settled_usd；income 取不到时是 null
 unrealized.futures_usd  positionRisk 的 unRealizedProfit（交易所给的标记价）
 realized.futures_usd    income 的 REALIZED_PNL
 carry.*                 资金费 / 手续费 / 返佣

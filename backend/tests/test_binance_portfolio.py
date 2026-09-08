@@ -16,7 +16,7 @@ import pytest
 
 from analyzer.binance.cache import SourceCache
 from analyzer.binance.client import BinanceClient
-from analyzer.binance.portfolio import build_portfolio
+from analyzer.binance.portfolio import build_portfolio, _today_settled
 
 from binance_mock import BTC, NOW, PREV_CLOSE_RATIO, _day, make_transport
 
@@ -116,6 +116,42 @@ def test_income_excludes_transfers(cache):
     assert snap["income"]["funding_fee"] == pytest.approx(-286.41)
     assert snap["income"]["referral_kickback"] == pytest.approx(18.40)
     assert snap["income"]["other"] == 0.0        # 5000 的 TRANSFER 没被算进任何一项
+
+
+def test_today_settled_is_broken_down_and_adds_up(cache):
+    """「今日盈亏」点开要看得出当日结算是资金费还是手续费，不是只有一个合计。
+
+    **分项之和必须等于日历最后一格的 `settled_usd`。** 两者是同一批 income 行、
+    同一条 UTC 日界线；它们在弹层里上下摆着，差一分就看得出来。
+    """
+    snap = build(cache)
+    parts = snap["pnl"]["today"]["settled_parts"]
+    assert parts["realized_pnl"] == pytest.approx(3847.22)
+    assert parts["funding_fee"] == pytest.approx(-286.41)
+    assert parts["commission"] == pytest.approx(-412.68)
+    assert parts["referral_kickback"] == pytest.approx(18.40)
+    assert parts["other"] == 0.0            # 5000 的 TRANSFER 不是损益
+
+    total = sum(parts[k] for k in ("realized_pnl", "funding_fee", "commission",
+                                   "insurance_clear", "referral_kickback", "other"))
+    assert total == pytest.approx(snap["pnl"]["today"]["settled_usd"])
+    assert total == pytest.approx(snap["pnl"]["daily"][-1]["settled_usd"])
+
+
+def test_today_settled_is_the_utc_day_not_the_last_24_hours():
+    """昨天 23:59 结算的资金费不算今天的。日界线要和日历那一格是同一条。"""
+    rows = [
+        {"incomeType": "FUNDING_FEE", "income": "-1.00", "asset": "USDT",
+         "time": int((NOW.replace(hour=23, minute=59) - timedelta(days=1)).timestamp() * 1000)},
+        {"incomeType": "FUNDING_FEE", "income": "-2.00", "asset": "USDT",
+         "time": int(NOW.replace(hour=0, minute=1).timestamp() * 1000)},
+    ]
+    assert _today_settled(rows, {}, NOW)["funding_fee"] == pytest.approx(-2.0)
+
+
+def test_today_settled_is_null_when_income_is_unavailable():
+    """取不到不是 0。income 挂掉时这一格留空，不能印成"今天没有结算"。"""
+    assert _today_settled(None, {}, NOW) is None
 
 
 def test_transfers_only_count_settled(cache):

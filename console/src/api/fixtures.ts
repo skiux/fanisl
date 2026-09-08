@@ -279,6 +279,7 @@ function buildPnl(): Pnl {
     today: {
       spot_usd: daily.at(-1)?.spot_usd ?? null,
       settled_usd: daily.at(-1)?.settled_usd ?? null,
+      settled_parts: splitSettled(daily.at(-1)?.settled_usd ?? 0),
       total_usd: daily.at(-1)?.pnl_usd ?? null,
     },
     today_usd: daily.at(-1)?.pnl_usd ?? null,
@@ -302,6 +303,25 @@ function buildPnl(): Pnl {
   }
 }
 
+/**
+ * 把当天的结算合计拆成四类。**余数落在已实现上**，四项之和精确等于合计——
+ * 界面上「当日结算」那一行与它底下的明细必须对得起来，差一分都不行。
+ */
+function splitSettled(total: number): IncomeBreakdown {
+  const round = (value: number) => Math.round(value * 100) / 100
+  const commission = -round(Math.abs(total) * 0.18)
+  const funding = round(total * 0.22)
+  const referral = round(Math.abs(total) * 0.03)
+  return {
+    realized_pnl: round(total - commission - funding - referral),
+    funding_fee: funding,
+    commission,
+    insurance_clear: 0,
+    referral_kickback: referral,
+    other: 0,
+  }
+}
+
 function buildDaily(): DailyPnl[] {
   const out: DailyPnl[] = []
   // **全程 UTC。** 原先是本地的 setDate/getDay 再 toISOString 出去，
@@ -316,8 +336,10 @@ function buildDaily(): DailyPnl[] {
                              + Math.sin(back * 0.47 + 2) * 140) * 100) / 100
     // 合约结算只在有成交的日子发生
     const settledDay = weekday !== 0 && weekday !== 6 && Math.sin(back * 2.7) > -0.45
+    // 相位不为 0：`sin(back * 2.1)` 在 back = 0 处恰好是 0，于是"今天"的结算
+    // 永远是 $0.00，弹层里那张分项表在示例数据下一次也出不来
     const settled = settledDay
-      ? Math.round(Math.sin(back * 2.1) * 180 * 100) / 100 : 0
+      ? Math.round(Math.sin(back * 2.1 + 0.9) * 180 * 100) / 100 : 0
     // 最早那两天故意算不出来：日历要能画出"这天没有数"的样子
     const known = back < 88
     out.push({

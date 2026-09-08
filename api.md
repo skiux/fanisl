@@ -123,6 +123,11 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
                             known       这天算不算得出来
   today.{spot_usd,settled_usd,total_usd}
                           daily 最后一格。**同一个数只算一处**，两边不会对不上
+  today.settled_parts     当天结算按类型拆开，字段同 `income`（realized_pnl /
+                          funding_fee / commission / insurance_clear /
+                          referral_kickback / other）。**各项之和 == settled_usd**：
+                          同一批 income 行、同一条 UTC 日界线。
+                          income 取不到时是 null，不是一串 0
   today_usd               = today.total_usd（摘要条用）
   unrealized.futures_usd  positionRisk 的 unRealizedProfit（交易所标记价）
   realized.futures_usd    income 的 REALIZED_PNL（接口只保留 90 天）
@@ -154,6 +159,10 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
   **不是 0**——0 会被读成"这天没赚没亏"。
 - **`today` 就是 `daily` 的最后一格**，不另算一遍。上一版两处各算各的，
   屏幕上两个数对不上。
+- **`today.settled_parts` 是同一个合计的分项**（`portfolio.py:_today_settled`，
+  直接复用 `_income` 换个窗口，不另写一套分类）。界面上「今日盈亏」弹层把
+  `spot_usd` 拆成逐币（`spot_marks`）、把 `settled_usd` 拆成这几类，两层数字上下
+  摆着，所以**分项必须精确加回合计**。
 - `income` 的金额单位是该行的 `asset`，不一定是 USDT（手续费常用 BNB 抵扣）。
   已在服务端按币种换算成 USD，客户端不必再折算。
 - **不要把窗口不同的数加起来。** `unrealized.futures_usd` 是"此刻"，`daily` /

@@ -471,6 +471,22 @@ def _income(rows: Any, prices: dict[str, float] | None = None,
     return out
 
 
+def _today_settled(income_rows: Any, prices: dict[str, float],
+                   now: datetime) -> dict | None:
+    """今天结算掉的钱**按类型拆开**。
+
+    摘要条上「今日盈亏」点开原先只有一行「当日结算 −$12.30」，看不出那是资金费
+    还是手续费——同一个合计在「合约收支」那张 90 天表里是拆开的，今天这一格却不是。
+
+    直接复用 `_income`：分类（`_INCOME_FIELD`）、剔除 TRANSFER、非 USDT 结算的
+    换算，那边都做过一遍，这里再写一份就会有两套口径。窗口换成今天的 UTC 日切，
+    于是**各项之和必然等于日历最后一格的 `settled_usd`**——两者是同一批行、
+    同一条日界线。
+    """
+    start = now.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    return _income(income_rows, prices, since_ms=int(start.timestamp() * 1000))
+
+
 def _epoch_ms(value: Any) -> int | None:
     """充提两边的时间格式不一样：充值 `insertTime` 是毫秒整数，
     提现 `applyTime` 是 `"2026-08-25 10:30:00"` 这样的 UTC 字符串。两种都认。"""
@@ -581,8 +597,8 @@ def _daily(income_rows: Any, spot_days: dict[str, float | None],
     return out
 
 
-def _pnl(spot_daily: dict, futures: dict | None,
-         income: dict | None, daily: list[dict]) -> dict | None:
+def _pnl(spot_daily: dict, futures: dict | None, income: dict | None,
+         daily: list[dict], today_settled: dict | None = None) -> dict | None:
     """盈亏构成。**每一项都有出处，没有残差项。**
 
     原先这里是"期末 − 期初 − 净充提"，剩下的靠残差反解未实现变动。那条路在
@@ -619,6 +635,8 @@ def _pnl(spot_daily: dict, futures: dict | None,
         "today": {
             "spot_usd": last["spot_usd"] if last else None,
             "settled_usd": last["settled_usd"] if last else None,
+            # 当天结算按类型拆开，见 `_today_settled`。各项之和 == settled_usd
+            "settled_parts": today_settled,
             "total_usd": last["pnl_usd"] if last else None,
         },
         "today_usd": last["pnl_usd"] if last else None,
@@ -753,5 +771,6 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "pnl": block("pnl", lambda: _pnl(
             spot_daily, futures, income,
             _daily(payload("income"), spot_daily.get("days", {}), prices,
-                   WINDOW_DAYS, now))),
+                   WINDOW_DAYS, now),
+            _today_settled(payload("income"), prices, now))),
     }

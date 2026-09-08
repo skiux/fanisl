@@ -113,7 +113,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         // 否则这个场景演的是一件不会发生的事。
         pnl: base.pnl && {
           ...base.pnl,
-          today: { ...base.pnl.today, settled_usd: null,
+          today: { ...base.pnl.today, settled_usd: null, settled_parts: null,
                    total_usd: base.pnl.today.spot_usd },
           today_usd: base.pnl.today.spot_usd,
           unrealized: { ...base.pnl.unrealized, futures_usd: null },
@@ -155,7 +155,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         // 两样都还在——挂掉的是当日结算、合约已实现与那三项持有成本。
         pnl: base.pnl && {
           ...base.pnl,
-          today: { ...base.pnl.today, settled_usd: null,
+          today: { ...base.pnl.today, settled_usd: null, settled_parts: null,
                    total_usd: base.pnl.today.spot_usd },
           today_usd: base.pnl.today.spot_usd,
           realized: { ...base.pnl.realized, futures_usd: null },

@@ -4,8 +4,9 @@ import { SegmentedControl } from '../../components/controls'
 import { cn } from '../../lib/cn'
 import {
   CONDITIONAL_KINDS, money, ORDER_KIND_LABEL, percent, price, relativeTime,
-  baseOf, signedMoney, SOURCE_LABEL, VENUE_LABEL,
+  baseOf, signedMoney, SOURCE_LABEL, splitPair, VENUE_LABEL,
 } from '../../lib/format'
+import { Select, type SelectGroup, type SelectOption } from '../../components/Select'
 import type { OrdersSnapshot, Order, OrderVenue, SourceKey } from '../../api/types'
 import { NoOrdersState } from '../portfolio/states'
 import { FillTable, gapOf, HistoryTable, OpenOrderTable } from './OrderTables'
@@ -221,6 +222,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
   const picker = (
     <QueryPanel
       onSelectSymbol={onSelectSymbol}
+      open={snapshot.open}
       query={q}
       span="lg:col-span-5"
       symbol={symbol}
@@ -275,6 +277,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
         <Stack span="lg:col-span-5">
           <QueryPanel
             onSelectSymbol={onSelectSymbol}
+            open={snapshot.open}
             query={q}
             span=""
             symbol={symbol}
@@ -323,31 +326,68 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
 }
 
 /**
+ * 候选交易对分组。**按计价币分**，同一计价币里按标的字母序。
+ *
+ * 有挂单的那几个在行尾标上条数——一份候选里能一眼认出"我正挂着单的是这些"，
+ * 而那多半就是要查的。条数是数据，不是提示语。
+ *
+ * 只有一组时不给分组标题：整份候选都是 USDT 计价的账户很常见，那行「USDT」
+ * 什么也没区分。
+ */
+function symbolGroups(symbols: string[], open: Order[]): SelectGroup[] {
+  const counts = new Map<string, number>()
+  for (const order of open) counts.set(order.symbol, (counts.get(order.symbol) ?? 0) + 1)
+
+  const byQuote = new Map<string, SelectOption[]>()
+  for (const symbol of symbols) {
+    const { base, quote } = splitPair(symbol)
+    const count = counts.get(symbol) ?? 0
+    const list = byQuote.get(quote ?? '其他') ?? []
+    list.push({
+      value: symbol,
+      label: base,
+      suffix: quote ? ` ${quote}` : undefined,
+      badge: count > 0 ? `×${count}` : undefined,
+    })
+    byQuote.set(quote ?? '其他', list)
+  }
+
+  const groups = [...byQuote.entries()]
+    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
+    .map(([label, options]) => ({
+      label, options: [...options].sort((a, b) => a.label.localeCompare(b.label)),
+    }))
+  return groups.length === 1 ? groups.map((group) => ({ options: group.options })) : groups
+}
+
+/**
  * 查询条件本身就是这一页的内容。allOrders / myTrades 都必须传 symbol，
  * 单次区间还有上限——把这几条摆在明面上，好过让人以为这里是一条能一直翻的全量流水。
  */
-function QueryPanel({ symbol, symbols, query, span, onSelectSymbol }: {
+function QueryPanel({ symbol, symbols, open, query, span, onSelectSymbol }: {
   symbol: string
   symbols: string[]
+  /** 只为了在候选里标出哪些交易对正挂着单 */
+  open: Order[]
   query: OrdersSnapshot['query']
   span: string
   onSelectSymbol: (next: string) => void
 }) {
   return (
     <Module span={span} title="查询范围">
-      <label className="flex items-center gap-3">
+      <div className="flex items-center gap-3">
         <span className="w-[56px] shrink-0 text-xs text-ink-2">交易对</span>
-        <select
-          className="min-w-0 flex-1 cursor-pointer rounded-[var(--radius-control)] border border-rule bg-transparent px-2 py-1.5 text-sm text-ink outline-none transition-colors hover:border-rule-strong focus-visible:border-accent disabled:opacity-40"
-          disabled={symbols.length === 0}
-          onChange={(event) => onSelectSymbol(event.target.value)}
-          value={symbol}
-        >
-          {symbols.map((item) => (
-            <option className="bg-sheet text-ink" key={item} value={item}>{item}</option>
-          ))}
-        </select>
-      </label>
+        <div className="min-w-0 flex-1">
+          <Select
+            disabled={symbols.length === 0}
+            groups={symbolGroups(symbols, open)}
+            label="交易对"
+            onValueChange={onSelectSymbol}
+            placeholder={symbols.length === 0 ? '没有可查的交易对' : '选择'}
+            value={symbol}
+          />
+        </div>
+      </div>
       <dl className="mt-4 space-y-2.5 border-t border-rule pt-4">
         {([
           ['区间', query ? `${query.from.slice(5, 10)} → ${query.to.slice(5, 10)}` : '—'],

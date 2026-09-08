@@ -16,13 +16,17 @@ import { WalletSpread } from './WalletSpread'
  * 总览。这一节只放别处没有的东西：
  *   走势（时间维度）、钱包分布（空间维度）、风险判断（越线与否）、取数可信度。
  * 明细里的清单一律不在这里重复一份缩略版——那不是摘要，是把同一份内容印两遍。
+ *
+ * **「每日盈亏」不给跳转。** 它原先点标题跳到「盈亏」页，而那个动作和上面分节标签
+ * 里的「盈亏」一模一样——同一个去处摆了两个入口，多出来的那个只会让人以为
+ * 点开会看到别的东西。日历本身留着：这一节的时间维度就靠它。
  */
 export function OverviewView({ snapshot, veiled, futuresMissing, concentration, onOpen }: {
   snapshot: PortfolioSnapshot
   veiled: boolean
   futuresMissing: boolean
   concentration: { asset: string; share: number } | null
-  onOpen: (key: 'changes' | 'holdings' | 'perp') => void
+  onOpen: (key: 'holdings' | 'perp') => void
 }) {
   const pnl = snapshot.pnl
   const okCount = snapshot.sources.filter((source) => source.status === 'ok').length
@@ -32,7 +36,7 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
       <ViewGrid>
         {/* 不给 figure：它原先放的是 today_usd，而摘要条上那个「今日盈亏」
             就是同一个数——同一屏里说两遍。日历自己有月合计和区间合计。 */}
-        <Module onOpen={() => onOpen('changes')} span="lg:col-span-8" title="每日盈亏">
+        <Module span="lg:col-span-8" title="每日盈亏">
           <RealizedDays days={pnl?.daily ?? []} />
         </Module>
 
@@ -265,6 +269,10 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
   const shortNotional = (f?.positions ?? [])
     .filter((p) => p.position_amt < 0).reduce((sum, p) => sum + p.notional_usd, 0)
   const gross = longNotional + shortNotional
+  // 真实杠杆 = 名义敞口 / 保证金余额。**两个操作数都在这一页上**——名义敞口是
+  // 「多空敞口」的读数，保证金余额是「保证金」的读数，看得见也验得了。
+  // 合约的杠杆设置（那个 20×）只是开仓上限，不代表现在扛着多少倍。
+  const realLeverage = f && f.total_margin_balance > 0 ? gross / f.total_margin_balance : null
   const liability = m && m.total_asset_usd > 0 ? m.total_liability_usd / m.total_asset_usd : null
 
   if (futuresMissing || !f) {
@@ -344,7 +352,12 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
                     note={longNotional >= shortNotional ? '偏多' : '偏空'}
                     value={signedMoney(longNotional - shortNotional)}
                   />
-                  <Figure label="最高杠杆" value={`${Math.max(...f.positions.map((p) => p.leverage))}×`} />
+                  {/* 逐仓那个 20× 是开仓上限，每一行自己已经写着；这里要的是
+                      "这笔保证金实际扛着多少倍"，扫十行也看不出来。 */}
+                  <Figure
+                    label="真实杠杆"
+                    value={realLeverage === null ? '—' : `${realLeverage.toFixed(2)}×`}
+                  />
                 </dl>
               </>
             ) : <p className="text-sm text-ink-3">当前没有合约敞口。</p>}

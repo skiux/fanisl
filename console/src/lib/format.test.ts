@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clockTime, price } from './format'
+import { baseOf, clockTime, price, splitPair } from './format'
 
 describe('price', () => {
   it('不用科学计数法印亚分币', () => {
@@ -37,5 +37,25 @@ describe('clockTime', () => {
 
   it('取不到就是取不到', () => {
     expect(clockTime(null)).toBe('—')
+  })
+})
+
+describe('splitPair', () => {
+  it('拆得出非 USDT 计价的对', () => {
+    expect(splitPair('BTCUSDT')).toEqual({ base: 'BTC', quote: 'USDT' })
+    expect(splitPair('ETHBTC')).toEqual({ base: 'ETH', quote: 'BTC' })
+  })
+
+  it('认不出计价币就整个当标的，不瞎切', () => {
+    expect(splitPair('WEIRD')).toEqual({ base: 'WEIRD', quote: null })
+    // 计价币本身不能被切成空标的
+    expect(splitPair('USDT')).toEqual({ base: 'USDT', quote: null })
+  })
+
+  it('和 baseOf 是两件事，不能互相替换', () => {
+    // baseOf 的结果还被当成"美元报价的键"用（prices.ts）。ETHBTC 拆成 ETH
+    // 那边就会拿 ETH 的美元价当成 ETH/BTC 的价格，静悄悄地错。
+    expect(baseOf('ETHBTC')).toBe('ETHBTC')
+    expect(splitPair('ETHBTC').base).toBe('ETH')
   })
 })

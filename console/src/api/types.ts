@@ -223,7 +223,14 @@ export type Pnl = {
   /** 今天赚了多少 = 日历最后一格。同一个数只算一处，两边不会对不上 */
   today: {
     spot_usd: number | null
+    /** 合约今天结算掉的合计 */
     settled_usd: number | null
+    /**
+     * 上面那个合计按类型拆开：已实现 / 资金费 / 手续费 / 返佣。
+     * 与「合约收支」同一套分类，只是窗口是今天，**各项之和 == settled_usd**。
+     * income 取不到时为 null。
+     */
+    settled_parts: IncomeBreakdown | null
     total_usd: number | null
   }
   /** **只有合约。** 现货没有未实现这一项，见 SpotMarkRow */
