@@ -1,20 +1,19 @@
 import type { CSSProperties } from 'react'
 import { cn } from '../lib/cn'
-import { BUNDLED_ICONS } from './icons'
+import { ICONS } from './icons'
 
 /**
  * 标的的识别标记：**图标下载进仓库，没有的用字母标记兜底。**
  *
- * 图标在 `public/icons/`，由 `scripts/fetch-icons.mjs` 抓下来（两个来源都是 CC0：
- * 加密货币用 spothq/cryptocurrency-icons，美股永续用 simpleicons 的品牌图形包一层
- * 品牌色圆底）。哪些有图靠 `icons.ts` 那份**生成的清单**判断，不是先请求再看 404
- * ——那样每个没有图标的标的都要闪一下才回退。
+ * 图标在 `public/icons/`，由 `scripts/fetch-icons.mjs` 抓下来（股票与 ETF 走
+ * parqet 的品牌方图，加密货币走 spothq 的圆图，个别新股用 FMP 的 PNG 兜底，
+ * 贵金属用 TradingView）。哪些有图靠 `icons.ts` 那份**生成的清单**判断，
+ * 不是先请求再看 404——那样每个没有图标的标的都要闪一下才回退。
  *
  * **不在运行时引图床。** 那会让每开一次页面，第三方就收到一份"这个账户持有哪些币"
  * 的请求。一个私人资产台不该为了几个图标做这件事。下载下来还顺带解决了离线与缓存。
  *
- * 清单覆盖不到的（ARB / SHIB / LUNC / XAU / QQQ 这些，图标源里确实没有）走**带颜色
- * 的字母标记**：颜色由代码哈希，同一个标的永远同一个色，扫一列的时候眼睛能锁住行
+ * 清单覆盖不到的（SHIB / LUNC 这种图标源里确实没有的）走**带颜色的字母标记**：颜色由代码哈希，同一个标的永远同一个色，扫一列的时候眼睛能锁住行
  * ——那正是 logo 在这里的作用。要加新的就往 `fetch-icons.mjs` 的名单里补一行再跑。
  *
  * **字母标记的色相避开 gain / loss / accent 三个已被占用的**（绿 ≈155°、红 ≈30°、
@@ -37,13 +36,16 @@ export function tickerHue(asset: string) {
 
 export function Ticker({ asset, size = 'md' }: { asset: string; size?: 'sm' | 'md' }) {
   const box = size === 'sm' ? 'size-5' : 'size-7'
-  if (BUNDLED_ICONS.has(asset)) {
+  const file = ICONS[asset]
+  if (file) {
     return (
       <img
         alt=""
-        // 图标自带圆底，不再套一层方框——套了就成了"圆里嵌方"
-        className={cn('shrink-0 rounded-full', box)}
-        src={`${import.meta.env.BASE_URL}icons/${asset}.svg`}
+        // **统一裁成圆的**：股票那批是 60×60 的品牌色方图，加密那批是 32×32 圆图，
+        // 混在一列里方一个圆一个很扎眼。垫一层 sheet-2 是给透明底的 PNG 用的，
+        // 不垫的话那几个会显得没有圆盘、浮在纸上。
+        className={cn('shrink-0 rounded-full bg-sheet-2 object-cover', box)}
+        src={`${import.meta.env.BASE_URL}icons/${file}`}
       />
     )
   }

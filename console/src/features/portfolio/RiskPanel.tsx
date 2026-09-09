@@ -72,9 +72,13 @@ function PositionRow({ position }: { position: FuturesPosition }) {
   const risk = liqDistanceRisk(distance)
 
   return (
-    <li className="py-4 first:pt-0">
+    // **图标在整行的左边，其余全部缩进对齐到标的名。** 上一版只把标题那一行推开，
+    // 底下的开仓/标记/强平与距强平条还从图标下面起头——同一行里两套左边界，
+    // 看着像图标压在了表格上。
+    <li className="flex gap-3 py-4 first:pt-0">
+      <Ticker asset={baseOf(position.symbol)} />
+      <div className="min-w-0 flex-1">
       <div className="flex items-start justify-between gap-3">
-        <Ticker asset={baseOf(position.symbol)} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm text-ink">{baseOf(position.symbol)}</span>
@@ -125,6 +129,7 @@ function PositionRow({ position }: { position: FuturesPosition }) {
           <span className="tnum shrink-0 text-xs text-ink-3">距强平 {percent(distance, 1)}</span>
         </div>
       )}
+      </div>
     </li>
   )
 }

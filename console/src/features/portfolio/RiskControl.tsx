@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react'
+import { Cell, Pie, PieChart, ResponsiveContainer, Sector, Tooltip } from 'recharts'
 import { cn } from '../../lib/cn'
 import { Figure, Module, Stack, ViewGrid } from '../../components/layout'
 import { SegmentedControl } from '../../components/controls'
 import { Ticker } from '../../components/Ticker'
-import { DUST_THRESHOLD_USD, money, percent, signedMoney, signedPercent } from '../../lib/format'
+import {
+  DUST_THRESHOLD_USD, money, moneyCompact, percent, signedMoney, signedPercent,
+} from '../../lib/format'
 import { cash, exposures } from '../../lib/holdings'
 import { breakingDrop, shock } from '../../lib/stress'
 import { marginRatioRisk, riskBar, riskText } from '../../lib/risk'
@@ -13,22 +16,12 @@ import type { PortfolioSnapshot } from '../../api/types'
 const PIE_SLICES = 6
 
 /**
- * 一块饼的底色。
- *
- * **不按名次转色相。** 绿(155°)、红(30°)、黄铜(85°)在这套界面里已被盈亏与充提占死，
- * 剩下 190–330 一段塞五个色相必然互相像——第一版就是把色相从 192° 摊到 320°，
- * 画出来是一圈深浅不一的蓝，而 27.8 / 26.6 / 24.1 / 21.1 四块角度本来就几乎一样，
- * 等于没画。
- *
- * 现在色只负责**把相邻两块分开**，"哪块大"交给块里那个百分比去说——数字比角度和
- * 色深都准。所以用同一个蓝灰调不同的墨量，而且**整条都调得偏淡**：
- * 墨量拉满的话最深那块要配浅色字、最浅那块要配深色字，同一张图里两套字色，
- * 深浅主题下还得各翻一次。淡底 + 统一的 `--ink` 字色，两个主题都不用特判。
+ * 一块饼的底色。顺序色阶，定义在 `index.css` 的 `--pie-1..6`（深浅两套方向相反，
+ * 理由写在那里）。不给每块一个"自己的颜色"是因为能用的色相不够——绿、红、黄铜
+ * 已被盈亏与充提占死；识别哪块是谁交给块里的代码与金额，色只管排序和分块。
  */
-const sliceInk = (rank: number) => {
-  const steps = [52, 40, 30, 22, 16, 12]
-  return `color-mix(in oklab, var(--pie-ink) ${steps[Math.min(rank, steps.length - 1)]}%, var(--sheet))`
-}
+const sliceInk = (rank: number, asset: string) =>
+  (asset === '其他' ? 'var(--rule-strong)' : `var(--pie-${Math.min(rank + 1, 6)})`)
 
 const DROPS = { '10': 0.1, '20': 0.2, '30': 0.3, '50': 0.5 } as const
 const LEVERAGES = { '1': 1, '2': 2, '3': 3, '5': 5, '10': 10 } as const
@@ -338,115 +331,156 @@ export function RiskControlView({ snapshot, veiled }: {
 }
 
 
+type Slice = { asset: string; value: number }
+
 /**
  * 多头敞口的构成。**只画正数**：空头是负的，饼画不了负数——那正是横条还留着的
  * 理由，两者回答的不是同一个问题（饼：钱压在哪几个东西上；横条：价格动一下
  * 账户净暴露多少，空头会抵掉现货）。
  *
- * 版式上第一版错在两处，重画时都改了：
+ * 画图交给 recharts，我们只管颜色、块里写什么、圈心写什么。手搓那版画得出环，
+ * 画不出指哪块哪块凸出来、跟手的提示框，以及移开之后干净地收回去——十几个标的时
+ * "指哪读哪"比在一堆小扇区里找标签快得多。
  *
- * - **标签写进块里**（代码在上、百分比在下，百分比是主角）。摆在外面就得配引导线，
- *   或者低头去图例里对号——而这几块本来就够宽，直接写进去最省事。
- *   块太窄写不下的（这里是 0.4% 的「其他」）在下面补一行，那是数据不是图例。
- * - **合计写在圈中间**。甜甜圈那个洞就是给它留的；第一版把它另起一行摆在图下面，
- *   中间空着一大片白，环也就只是个环。
- *
- * 环带特意加宽到 44：要装得下两行字。块之间留缝，读成四件东西而不是一个渐变的环。
+ * **入场动画关掉，改用 CSS。** recharts 的入场动画走 `requestAnimationFrame`
+ * （react-smooth），而 rAF 在**页面不可见时不发**：标签页在后台加载，扇区的角度
+ * 永远停在 0，整张图一块都不画——不是"没动画"，是空白。CSS 那条只写 `from`、
+ * 不写 `animation-fill-mode`，所以静止态就是最终态：动画跑不起来也只是没动效。
+ * 这和滚轮那次是同一条教训——别让动画成为"画不画得出来"的前提。
  */
-function Donut({ slices, total }: { slices: { asset: string; value: number }[]; total: number }) {
-  const CX = 120
-  const CY = 120
-  /** 环带中线的半径，标签也落在这条线上 */
-  const R = 84
-  const BAND = 44
-  const C = 2 * Math.PI * R
-  const GAP = 4
-
-  let cum = 0
-  const arcs = slices.map((slice, i) => {
-    const frac = total > 0 ? slice.value / total : 0
-    const start = cum
-    cum += frac
-    const mid = (start + frac / 2) * 2 * Math.PI - Math.PI / 2
-    return {
-      ...slice, frac, i,
-      len: Math.max(0, frac * C - GAP),
-      offset: -start * C,
-      lx: CX + Math.cos(mid) * R,
-      ly: CY + Math.sin(mid) * R,
-    }
-  })
-  // **9% 以下不往环带里写。** 门槛不是按"字挤不挤得下"定的，是按**相邻两个标签会不会
-  // 撞上**：标签落在弧中点，两个 9% 的块中点相距约 47px，而一个 `26.6%` 宽约 38px。
-  // 再小就会叠字。写不下的挪到下面列一行。
-  const tiny = arcs.filter((arc) => arc.frac < 0.09)
+function Donut({ slices, total }: { slices: Slice[]; total: number }) {
+  const [active, setActive] = useState<number | null>(null)
+  const tiny = slices.map((slice, i) => ({ ...slice, i }))
+    .filter((slice) => total > 0 && slice.value / total < 0.06)
 
   return (
-    <div className="shrink-0 sm:w-[268px]">
-      <svg className="w-full" viewBox="0 0 240 240">
-        <g transform={`rotate(-90 ${CX} ${CY})`}>
-          {arcs.map((arc) => (
-            <circle
-              cx={CX}
-              cy={CY}
-              fill="none"
-              key={arc.asset}
-              r={R}
-              stroke={arc.asset === '其他' ? 'var(--rule)' : sliceInk(arc.i)}
-              strokeDasharray={`${arc.len} ${C - arc.len}`}
-              strokeDashoffset={arc.offset}
-              strokeWidth={BAND}
+    <div className="shrink-0 sm:w-[276px]">
+      <div className="pie-in relative h-[248px]">
+        <ResponsiveContainer height="100%" width="100%">
+          <PieChart>
+            <Pie
+              activeIndex={active ?? undefined}
+              // 指到的那块往外长一点。这是唯一的"选中"信号，不另外改颜色——
+              // 颜色在这张图里已经表示大小了
+              activeShape={(props: SectorShape) => (
+                <Sector {...props} outerRadius={(props.outerRadius ?? 0) + 7} />
+              )}
+              data={slices}
+              dataKey="value"
+              endAngle={-270}
+              innerRadius={64}
+              isAnimationActive={false}
+              label={(props: SliceLabel) => renderLabel(props, total)}
+              labelLine={false}
+              nameKey="asset"
+              onMouseEnter={(_, index: number) => setActive(index)}
+              onMouseLeave={() => setActive(null)}
+              outerRadius={112}
+              paddingAngle={1.2}
+              startAngle={90}
+              stroke="none"
+            >
+              {slices.map((slice, i) => (
+                <Cell fill={sliceInk(i, slice.asset)} key={slice.asset} />
+              ))}
+            </Pie>
+            <Tooltip
+              animationDuration={140}
+              content={(props) => <SliceTip payload={props.payload} total={total} />}
             />
-          ))}
-        </g>
+          </PieChart>
+        </ResponsiveContainer>
 
-        {arcs.filter((arc) => arc.frac >= 0.09).map((arc) => (
-          <g key={arc.asset}>
-            {/* 代码和百分比同一个字色，层级只靠字号——底色从最深那档到最浅那档
-                跨度不小，再给代码调淡的话，压在深色块上的那几个就读不清了 */}
-            <text
-              className="fill-[var(--ink)] text-[9.5px]"
-              textAnchor="middle"
-              x={arc.lx}
-              y={arc.ly - 4}
-            >
-              {arc.asset}
-            </text>
-            <text
-              className="tnum fill-[var(--ink)] text-[14px] font-medium"
-              textAnchor="middle"
-              x={arc.lx}
-              y={arc.ly + 12}
-            >
-              {(arc.frac * 100).toFixed(1)}%
-            </text>
-          </g>
-        ))}
-
-        <text className="fill-[var(--ink-3)] text-[9.5px]" textAnchor="middle" x={CX} y={CY - 7}>
-          多头合计
-        </text>
-        <text className="tnum fill-[var(--ink)] text-[16px]" textAnchor="middle" x={CX} y={CY + 13}>
-          {money(total)}
-        </text>
-      </svg>
+        {/* 圈心：合计。SVG 里排文字要自己算基线，用一层绝对定位的 div 省事，
+            也顺带拿到和别处一样的字体度量 */}
+        <div className="pointer-events-none absolute inset-0 grid place-items-center">
+          <span className="tnum text-base text-ink">{money(total)}</span>
+        </div>
+      </div>
 
       {tiny.length > 0 && (
         <ul className="mt-1 space-y-1 border-t border-rule pt-2">
-          {tiny.map((arc) => (
-            <li className="flex items-baseline justify-between gap-3" key={arc.asset}>
+          {tiny.map((slice) => (
+            <li className="flex items-baseline justify-between gap-3" key={slice.asset}>
               <span className="flex items-center gap-2 text-xs text-ink-3">
                 <span
                   className="size-2 shrink-0 rounded-[2px]"
-                  style={{ background: arc.asset === '其他' ? 'var(--rule)' : sliceInk(arc.i) }}
+                  style={{ background: sliceInk(slice.i, slice.asset) }}
                 />
-                {arc.asset}
+                {slice.asset}
               </span>
-              <span className="tnum text-xs text-ink-3">{percent(arc.frac, 1)}</span>
+              <span className="tnum text-xs text-ink-3">
+                {money(slice.value)} · {percent(total > 0 ? slice.value / total : null, 1)}
+              </span>
             </li>
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+/** recharts 把 Sector 的几何都标成可选，这里只用得到外半径 */
+type SectorShape = { outerRadius?: number }
+
+/** 同上：渲染时一定都有，缺任何一个就不画标签 */
+type SliceLabel = {
+  cx?: number; cy?: number; midAngle?: number
+  innerRadius?: number; outerRadius?: number
+  index?: number; value?: number; name?: string | number
+}
+
+/**
+ * 块里那三行：代码、占比、金额。占比是主角（字号最大），金额跟在后面——
+ * 只给百分比的话"27.8% 到底是多少钱"还得回到右边的横条上去找。
+ *
+ * **6% 以下不写**：标签落在弧中点，两个 6% 的块中点相距约 55px，
+ * 而一行 `$8,662` 就有 44px，再小就叠字。写不下的挪到图下面列一行。
+ *
+ * 写不下时返回空的 `<g />` 而不是 `null`：recharts 会把返回值当元素接着处理。
+ */
+function renderLabel(props: SliceLabel, total: number) {
+  const { cx, cy, midAngle, innerRadius, outerRadius, value } = props
+  if (cx === undefined || cy === undefined || midAngle === undefined
+      || innerRadius === undefined || outerRadius === undefined || value === undefined) {
+    return <g />
+  }
+  const share = total > 0 ? value / total : 0
+  if (share < 0.06) return <g />
+  const rad = -(midAngle * Math.PI) / 180
+  const r = (innerRadius + outerRadius) / 2
+  const x = cx + Math.cos(rad) * r
+  const y = cy + Math.sin(rad) * r
+  // 字色不按名次换：色阶整条都压在离 --ink 足够远的一段里（浅色全偏亮、
+  // 深色全偏暗），一个 --ink 在两套主题、六个档位上都够对比
+  return (
+    <g>
+      <text fill="var(--ink)" fontSize={9.5} opacity={0.78} textAnchor="middle" x={x} y={y - 13}>
+        {props.name}
+      </text>
+      <text className="tnum" fill="var(--ink)" fontSize={15} fontWeight={500} textAnchor="middle" x={x} y={y + 4}>
+        {(share * 100).toFixed(1)}%
+      </text>
+      <text className="tnum" fill="var(--ink)" fontSize={9.5} opacity={0.78} textAnchor="middle" x={x} y={y + 18}>
+        {moneyCompact(value)}
+      </text>
+    </g>
+  )
+}
+
+function SliceTip({ payload, total }: {
+  payload?: readonly { name?: unknown; value?: unknown }[]
+  total: number
+}) {
+  const hit = payload?.[0]
+  if (!hit || typeof hit.value !== 'number') return null
+  const name = typeof hit.name === 'string' ? hit.name : ''
+  return (
+    <div className="rounded-[3px] border border-rule bg-sheet px-2.5 py-1.5 shadow-[var(--sheet-shadow)]">
+      <div className="text-xs text-ink">{name}</div>
+      <div className="tnum mt-0.5 text-xs text-ink-2">
+        {money(hit.value)} · {percent(total > 0 ? hit.value / total : null, 1)}
+      </div>
     </div>
   )
 }
