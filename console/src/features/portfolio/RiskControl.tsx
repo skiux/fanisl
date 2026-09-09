@@ -9,6 +9,24 @@ import { breakingDrop, shock } from '../../lib/stress'
 import { marginRatioRisk, riskBar, riskText } from '../../lib/risk'
 import type { PortfolioSnapshot } from '../../api/types'
 
+/** 饼图最多画这么多块，其余并进「其他」——再多就成了一圈碎片 */
+const PIE_SLICES = 6
+
+/**
+ * 一块饼的颜色。**按名次把色相摊开**，不用字母标记那套哈希色。
+ *
+ * 哈希色的好处是"同一个标的到哪儿都是同一个色"，可饼图要的恰恰相反：相邻两块
+ * 必须一眼分得开。六个色相哈希下来，四块大的很可能挤在同一段蓝里——第一版画出来
+ * 就是一圈深浅不一的蓝。名次摊开保证任意两块至少差二十来度，再叠一点明度递减。
+ *
+ * 色带仍然避开 gain / loss / accent（绿 155°、红 30°、黄铜 85°）：这一块旁边就是
+ * 带正负号的金额，一块偏红的扇区会被读成"亏了"。
+ */
+const sliceColor = (rank: number, count: number) => {
+  const hue = 192 + (count <= 1 ? 64 : (rank * 128) / (count - 1))
+  return `oklch(${(0.68 - rank * 0.028).toFixed(3)} 0.115 ${hue.toFixed(0)})`
+}
+
 const DROPS = { '10': 0.1, '20': 0.2, '30': 0.3, '50': 0.5 } as const
 const LEVERAGES = { '1': 1, '2': 2, '3': 3, '5': 5, '10': 10 } as const
 
@@ -53,6 +71,26 @@ export function RiskControlView({ snapshot, veiled }: {
   const hit = useMemo(() => shock(snapshot, DROPS[drop]), [snapshot, drop])
   const edge = useMemo(() => breakingDrop(snapshot), [snapshot])
   const edgeWithCash = useMemo(() => breakingDrop(snapshot, spare), [snapshot, spare])
+
+  // **饼只画多头**：现货 + 合约多头名义。空头是负的，饼画不了负数；稳定币是现金
+  // 不是敞口（`exposures` 已经把它排除了）。这和底下的横条不是同一个数——
+  // 横条是净敞口（空头抵掉现货），饼回答的是"钱压在哪几个东西上"。
+  const longs = rows
+    .map((row) => ({
+      asset: row.asset,
+      value: Math.max(0, row.spot_usd) + Math.max(0, row.perp_usd),
+    }))
+    .filter((row) => row.value > 0)
+    .sort((a, b) => b.value - a.value)
+  const longTotal = longs.reduce((sum, row) => sum + row.value, 0)
+  // 先按占比砍再按名次封顶：只封顶的话，0.2% 的 ETH 会自己占一块，
+  // 而它比旁边那个「其他」还小——一圈里挤着三块看不见的扇区
+  const shown = longs
+    .filter((row) => longTotal > 0 && row.value / longTotal >= 0.01)
+    .slice(0, PIE_SLICES)
+  const slices = [...shown]
+  const rest = longTotal - shown.reduce((sum, row) => sum + row.value, 0)
+  if (rest > longTotal * 0.001) slices.push({ asset: '其他', value: rest })
 
   const netExposure = rows.reduce((sum, row) => sum + row.net_usd, 0)
   // 灰尘不占行：这一页问的是"哪几个东西会伤到我"，$7 的 DOGE 不是答案，
@@ -118,7 +156,9 @@ export function RiskControlView({ snapshot, veiled }: {
           {rows.length === 0 ? (
             <p className="py-10 text-center text-sm text-ink-3">当前没有敞口。</p>
           ) : (
-            <ul className="divide-y divide-rule">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+            <Donut slices={slices} total={longTotal} />
+            <ul className="min-w-0 flex-1 divide-y divide-rule">
               {major.map((row) => (
                 <li className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 py-2.5" key={row.asset}>
                   <span className="flex items-center gap-2.5">
@@ -151,6 +191,7 @@ export function RiskControlView({ snapshot, veiled }: {
                 </li>
               )}
             </ul>
+            </div>
           )}
         </Module>
 
@@ -289,6 +330,75 @@ export function RiskControlView({ snapshot, veiled }: {
           </Module>
         </Stack>
       </ViewGrid>
+    </div>
+  )
+}
+
+
+/**
+ * 多头敞口的构成。**只画正数**：空头是负的，饼画不了负数——那正是横条还留着的
+ * 理由，两者回答的不是同一个问题（饼：钱压在哪几个东西上；横条：价格动一下
+ * 账户净暴露多少，空头会抵掉现货）。
+ *
+ * 手写 SVG 而不是引图表库：一个圆环用 `stroke-dasharray` 就是十行，
+ * 而图表库的默认样式（网格线、提示框、图例）全要推翻重来。
+ */
+function Donut({ slices, total }: { slices: { asset: string; value: number }[]; total: number }) {
+  const R = 38
+  const C = 2 * Math.PI * R
+  let offset = 0
+
+  return (
+    <div className="flex shrink-0 items-center gap-5 sm:w-[212px] sm:flex-col sm:items-stretch sm:gap-4">
+      <svg
+        aria-hidden="true"
+        className="size-[104px] shrink-0 -rotate-90 sm:mx-auto sm:size-[132px]"
+        viewBox="0 0 100 100"
+      >
+        {slices.map((slice, i) => {
+          const len = total > 0 ? (slice.value / total) * C : 0
+          const dash = `${len} ${C - len}`
+          const node = (
+            <circle
+              cx="50"
+              cy="50"
+              fill="none"
+              key={slice.asset}
+              r={R}
+              stroke={sliceColor(i, slices.length)}
+              strokeDasharray={dash}
+              strokeDashoffset={-offset}
+              // 细缝把相邻两块分开，不靠描边——描边在深色纸上会变成一圈亮线
+              strokeWidth={i === 0 ? 15 : 14}
+            />
+          )
+          offset += len
+          return node
+        })}
+      </svg>
+
+      <div className="min-w-0 flex-1">
+        {/* 这个合计和模块抬头那个「净敞口」不是同一个数：那个含空头（是负的），
+            这里只有多头。不写出来的话，会以为饼是照着抬头那个数分的。 */}
+        <div className="mb-2 flex items-baseline justify-between gap-3 border-b border-rule pb-1.5">
+          <span className="text-micro text-ink-3">多头合计</span>
+          <span className="tnum text-xs text-ink-2">{money(total)}</span>
+        </div>
+        <ul className="space-y-1.5">
+        {slices.map((slice, i) => (
+          <li className="flex items-baseline gap-2" key={slice.asset}>
+            <span
+              className="size-2 shrink-0 translate-y-px rounded-[2px]"
+              style={{ background: sliceColor(i, slices.length) }}
+            />
+            <span className="min-w-0 flex-1 truncate text-xs text-ink-2">{slice.asset}</span>
+            <span className="tnum shrink-0 text-xs text-ink-3">
+              {percent(total > 0 ? slice.value / total : null, 1)}
+            </span>
+          </li>
+        ))}
+        </ul>
+      </div>
     </div>
   )
 }
