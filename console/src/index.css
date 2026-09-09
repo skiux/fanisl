@@ -47,27 +47,16 @@
   --sheet-shadow: 0 1px 1px rgb(0 0 0 / 0.4), 0 18px 44px -20px rgb(0 0 0 / 0.7);
 }
 
-/* 饼图入场。**只写 `from`，不写 `animation-fill-mode`**——静止态就是最终态，
-   动画跑不起来（`prefers-reduced-motion`、后台标签页）也只是没动效，不会留下空白。
-   recharts 自带的入场动画走 requestAnimationFrame，而 rAF 在页面不可见时不发，
-   扇区角度会永远停在 0：那不是"没动画"，是一整张图都不画。 */
-@keyframes pie-in {
-  from { opacity: 0; transform: scale(0.94); }
-}
-.pie-in { animation: pie-in 420ms cubic-bezier(0.16, 1, 0.3, 1); }
+/* 饼图**没有任何动画**：不入场、不过渡，高亮就是一次瞬时切换。
+   为它来回折腾过四轮（recharts 自带动画、CSS 入场、扇区外推、opacity 过渡），
+   每一轮都带出新的毛病——最后一轮已经把闪烁的根因治掉了（改成几何命中测试），
+   但过渡本身也就没剩下什么价值：这是一张读数用的图，指哪亮哪，即时反而更跟手。
+   删干净之后，"渲染中途被截图/被观察到半透明状态"这类问题也一并没有了。
 
-/* 高亮一块饼：其余淡下去。**用 opacity，不用 fill-opacity。**
-   后者在这套渲染环境里设了不生效（连内联的都算成 1），CSS transform 同样被吃掉
-   （字面量 translate 也算成单位矩阵）——所以"往外推"那种效果这里做不出来、
-   也验不了，改用能确实过渡的 opacity。扇区变大那一下由 recharts 的 activeShape 做，
-   它换元素、补不了间，两者叠起来仍然读得连贯。 */
-/* 扇区自己**不收指针事件**：所有 hover / click 都走盖在上面那层命中层
+   扇区自己**不收指针事件**：所有 hover / click 都走盖在上面那层命中层
    （按极角判断落在哪一块）。逐块的 DOM 事件在块与块之间会先 leave 再 enter，
    中间空一帧；`paddingAngle` 的缝更是实打实的洞——转一圈就闪一路。 */
-.pie-slice {
-  pointer-events: none;
-  transition: opacity 170ms ease;
-}
+.pie-slice { pointer-events: none; }
 .pie-dim { opacity: 0.2; }
 
 /* **recharts 会给画布挂 tabindex，点一下浏览器就画一个蓝色焦点框。**
@@ -78,7 +67,7 @@
 .recharts-surface:focus,
 .recharts-sector:focus { outline: none; }
 
-.pie-label { pointer-events: none; transition: opacity 170ms ease; }
+.pie-label { pointer-events: none; }
 
 
 

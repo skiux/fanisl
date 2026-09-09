@@ -169,7 +169,8 @@ export function RiskControlView({ snapshot, veiled }: {
                       aria-pressed={pinned === row.asset}
                       className={cn(
                         'grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3',
-                        'rounded-[3px] px-1.5 py-2.5 text-left outline-none transition-colors duration-200',
+                        // 不加过渡：饼那边是瞬时切换，这一行再淡入淡出就对不上拍
+                        'rounded-[3px] px-1.5 py-2.5 text-left outline-none',
                         'hover:bg-sheet-2/70 focus-visible:outline focus-visible:outline-1',
                         'focus-visible:outline-offset-1 focus-visible:outline-accent',
                         on && 'bg-sheet-2',
@@ -192,7 +193,7 @@ export function RiskControlView({ snapshot, veiled }: {
                           两边都短。饼图做不到这件事——它画不了负数。 */}
                       <span className="relative block h-[5px] rounded-full bg-rule">
                         <span
-                          className={cn('absolute top-0 block h-full rounded-full transition-[width] duration-500',
+                          className={cn('absolute top-0 block h-full rounded-full',
                             row.net_usd >= 0 ? 'left-1/2 bg-ink-3' : 'right-1/2 bg-accent')}
                           style={{ width: `${(Math.abs(row.net_usd) / peak * 50).toFixed(1)}%` }}
                         />
@@ -278,7 +279,8 @@ export function RiskControlView({ snapshot, veiled }: {
             <div className="mt-5 flex items-center gap-3">
               <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-rule">
                 <span
-                  className={cn('block h-full rounded-full transition-[width] duration-700',
+                  // 条不做宽度过渡：数字是立刻变的，条却滑上大半秒，两者对不上
+                  className={cn('block h-full rounded-full',
                     riskBar(marginRatioRisk(hit.margin_ratio).tone))}
                   style={{ width: `${Math.min(100, hit.margin_ratio * 100).toFixed(1)}%` }}
                 />
@@ -576,7 +578,7 @@ function Donut({ slices, total, focus, onHover, onPin }: {
 
   return (
     <div className="min-w-0 shrink-0 lg:w-[540px]">
-      <div className="pie-in relative">
+      <div className="relative">
         <ResponsiveContainer aspect={BOX_W / BOX_H} width="100%">
           <PieChart margin={{ bottom: 0, left: 0, right: 0, top: 0 }}>
             <Pie
@@ -586,8 +588,9 @@ function Donut({ slices, total, focus, onHover, onPin }: {
               dataKey="value"
               endAngle={-270}
               innerRadius={R_IN}
-              // 入场动画走 rAF，页面不可见时不发，扇区会停在 0 度——**整张图都不画**。
-              // 入场交给 CSS（`.pie-in`），见 index.css。
+              // 这张图**没有任何动画**，见 index.css 的 .pie-slice。
+              // recharts 自带的入场动画还额外有个坑：它走 rAF，而 rAF 在页面不可见时
+              // 不发，扇区角度会永远停在 0——那不是"没动画"，是一整张图都不画。
               isAnimationActive={false}
               label={(props: SliceLabel) => renderLabel(props, placed, focus)}
               labelLine={false}
