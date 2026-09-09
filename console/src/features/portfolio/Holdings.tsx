@@ -1,18 +1,12 @@
 import { useMemo, useState } from 'react'
 import { CaretDown } from '@phosphor-icons/react'
 import { cn } from '../../lib/cn'
+import { Ticker } from '../../components/Ticker'
 import { amount, DUST_THRESHOLD_USD, money, percent, price } from '../../lib/format'
 import type { EarnPosition, SpotAsset } from '../../api/types'
+import type { CashRow } from '../../lib/holdings'
 
 const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_112px]'
-
-function Ticker({ asset }: { asset: string }) {
-  return (
-    <span className="grid size-7 shrink-0 place-items-center rounded-[6px] bg-sheet-2 font-mono text-[10px] font-medium tracking-tight text-ink-2">
-      {asset.slice(0, 3)}
-    </span>
-  )
-}
 
 /** 锁定原因不止一种，合并成"占用"会丢掉"为什么动不了" */
 function lockNote(item: SpotAsset) {
@@ -186,3 +180,46 @@ export function ParkedTable({ rows }: {
 }
 
 const PARKED_ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)]'
+
+
+const CASH_ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)]'
+
+/**
+ * 现金放在哪儿。**同一个币会同时出现在几行**（现货一行、理财一行、合约保证金
+ * 一行），所以这张表的主键是"币 + 在哪"，不是币。
+ *
+ * 「在哪」那一列不是装饰：合约钱包里的那几行是**保证金本身**，动它就等于动强平价；
+ * 理财里的那几行在生息但赎回要时间；现货里的才是随手能用的。
+ */
+export function CashTable({ rows }: { rows: CashRow[] }) {
+  return (
+    <>
+      <div className={cn(CASH_ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
+        <span>资产</span>
+        <span className="hidden sm:block">在哪</span>
+        <span className="hidden sm:block">年化</span>
+        <span className="text-right">价值</span>
+      </div>
+      <ul className="divide-y divide-rule">
+        {rows.map((row) => (
+          <li className={cn(CASH_ROW, 'py-3')} key={`${row.where}:${row.asset}`}>
+            <span className="flex min-w-0 items-center gap-2.5">
+              <Ticker asset={row.asset} size="sm" />
+              <span className="truncate text-sm text-ink">{row.asset}</span>
+              {/* 窄屏没有「在哪」那一列，位置跟在代码后面 */}
+              <span className="shrink-0 text-micro text-ink-3 sm:hidden">{row.where}</span>
+            </span>
+            <span className="hidden text-sm text-ink-2 sm:block">{row.where}</span>
+            <span className={cn('tnum hidden text-sm sm:block',
+              row.apr === null ? 'text-ink-3' : 'text-gain')}>
+              {row.apr === null ? '—' : percent(row.apr, 2)}
+            </span>
+            <span className="tnum text-right text-sm text-ink">
+              {row.value_usd === null ? '—' : money(row.value_usd)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}

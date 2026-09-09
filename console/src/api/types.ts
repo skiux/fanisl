@@ -271,6 +271,16 @@ export type PortfolioSnapshot = {
   base_currency: 'USD'
   sources: SourceState[]
   totals: PortfolioTotals | null
+  /**
+   * **哪些资产算"现金"**：按 1 美元计价，而且不算持仓。由后端给，前端不再自己
+   * 维护一份名单——这件事曾经在四个地方各写一份、四份还不一样。
+   *
+   * 少一个的后果：那个币会被拉日线，于是 ±0.03% 的报价噪声变成"今日盈亏"；
+   * 「合约中的现货持仓」把一笔保证金当成币仓列出来；最大单一敞口把它算成集中持仓。
+   * 名单里包含理财与合约的 1:1 包装（LDUSDT / BFUSD），不含欧元稳定币
+   * （EURI / AEUR 是稳定币但不是美元，按 1 美元计价直接算错）。
+   */
+  stable_assets: string[]
   wallets: WalletBucket[]
   spot: SpotAsset[]
   futures: FuturesAccount | null

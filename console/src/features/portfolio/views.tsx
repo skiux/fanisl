@@ -1,9 +1,10 @@
 import { cn } from '../../lib/cn'
-import { money, percent, signedMoney, SOURCE_LABEL, STABLE_ASSETS } from '../../lib/format'
+import { money, percent, signedMoney, SOURCE_LABEL } from '../../lib/format'
+import { cash } from '../../lib/holdings'
 import type { MarginAccount, PortfolioSnapshot } from '../../api/types'
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
 import { RealizedDays } from './RealizedDays'
-import { EarnTable, ParkedTable, SpotTable } from './Holdings'
+import { CashTable, EarnTable, ParkedTable, SpotTable } from './Holdings'
 import { PnlBreakdown } from './PnlBreakdown'
 
 /** 合约 income 与 userTrades 都只保留 90 天，这是接口硬限 */
@@ -142,6 +143,15 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
   const lockedEarn = snapshot.earn.filter((item) => item.kind === 'locked')
   const lockedValue = lockedEarn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
 
+  const stable = new Set(snapshot.stable_assets)
+  const cashRows = cash(snapshot)
+  const cashTotal = cashRows.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
+  const earning = cashRows.filter((row) => row.apr !== null)
+  const earningValue = earning.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
+  const cashApr = earningValue > 0
+    ? earning.reduce((sum, row) => sum + (row.value_usd ?? 0) * (row.apr ?? 0), 0) / earningValue
+    : null
+
   // 合约与全仓杠杆钱包里躺着的币。稳定币不列——那是保证金，不是"持仓"
   const parked = [
     ...(snapshot.futures?.assets ?? []).map((row) => ({
@@ -150,7 +160,7 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
     ...(snapshot.margin?.assets ?? []).map((row) => ({
       asset: row.asset, qty: row.net, value_usd: row.value_usd, where: '全仓杠杆',
     })),
-  ].filter((row) => !STABLE_ASSETS.has(row.asset) && row.qty > 0)
+  ].filter((row) => !stable.has(row.asset) && row.qty > 0)
    .sort((a, b) => (b.value_usd ?? 0) - (a.value_usd ?? 0))
   const parkedValue = parked.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
 
@@ -211,6 +221,41 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
             </dl>
           </Module>
         </Stack>
+
+        {/* **现金单独成一块。** 它不是「理财持仓」的缩略版，是另一刀：那张表按
+            产品列理财，这里按"钱在哪"横切整个账户——稳定币可以同时躺在现货、
+            理财里生息、和合约钱包里当保证金，而这三处原先分在三张表上，
+            "我一共有多少可动用的钱、其中多少已经压在保证金上"没人回答。
+            哪些算现金由后端给（`stable_assets`），前端不再自己维护名单。 */}
+        {cashRows.length > 0 && (
+          <Module
+            figure={money(cashTotal)}
+            note={`${cashRows.length} 项`}
+            span="lg:col-span-12"
+            title="现金"
+          >
+            <SplitBar
+              left={earningValue}
+              leftLabel="生息"
+              right={cashTotal - earningValue}
+              rightLabel="闲置"
+            />
+            <dl className="mb-5 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
+              <Figure label="生息部分" value={money(earningValue)} />
+              <Figure
+                label="加权年化"
+                tone={cashApr === null ? undefined : 'gain'}
+                value={cashApr === null ? '—' : percent(cashApr, 2)}
+              />
+              <Figure
+                label="占净值"
+                value={percent(snapshot.totals ? cashTotal / snapshot.totals.equity_usd : null, 1)}
+              />
+              <Figure label="闲置" value={money(cashTotal - earningValue)} />
+            </dl>
+            <CashTable rows={cashRows} />
+          </Module>
+        )}
 
         <Module
           figure={money(earnValue)}

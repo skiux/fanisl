@@ -359,7 +359,11 @@ function buildDaily(): DailyPnl[] {
   return out
 }
 
-const STABLE_FIXTURE = ['USDT', 'USDC', 'BUSD', 'FDUSD']
+/** 与后端 `common.STABLE_ASSETS` 同一份。真后端会把它随响应发过来 */
+export const STABLE_FIXTURE = [
+  'BFUSD', 'BUSD', 'DAI', 'FDUSD', 'LDUSDT', 'PYUSD',
+  'TUSD', 'USD1', 'USDC', 'USDD', 'USDE', 'USDP', 'USDT',
+]
 
 export function buildSnapshot(asOf: Date): PortfolioSnapshot {
   const iso = asOf.toISOString()
@@ -374,6 +378,7 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
       equity_usd: equity,
       gross_exposure_ratio: equity > 0 ? notional / equity : null,
     },
+    stable_assets: STABLE_FIXTURE,
     wallets, spot, futures, earn, margin, income, transfers,
     pnl: buildPnl(),
   }

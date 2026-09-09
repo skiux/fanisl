@@ -26,8 +26,11 @@ from __future__ import annotations
 
 from typing import Iterable
 
-# 计价币是这些时，成交价就是美元价（差几个基点，对逐日盈亏没有意义）
-USD_QUOTES = ("USDT", "USDC", "BUSD", "FDUSD", "TUSD", "USDP", "DAI")
+# 计价币是这些时，成交价就是美元价（差几个基点，对逐日盈亏没有意义）。
+# **定义在 common.py**，这里只是转出去给老调用方——同一份名单不该有第二处。
+# 注意它与 `STABLE_ASSETS` 不是一回事：这个回答"symbol 的右半边可能是什么"，
+# 那个回答"这笔资产算不算现金"，后者是前者的超集。
+from .common import USD_QUOTES  # noqa: F401 — 转出
 
 
 def split_symbol(symbol: str, quotes: Iterable[str] = USD_QUOTES) -> tuple[str, str] | None:

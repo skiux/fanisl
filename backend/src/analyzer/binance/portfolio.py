@@ -19,10 +19,11 @@ from typing import Any, Callable
 
 from .cache import SourceCache, SourceResult, fetch_all
 from .client import BinanceClient
-from .costbasis import USD_QUOTES, held_across_wallets, split_symbol
+from .costbasis import held_across_wallets, split_symbol
 from .dailypnl import collect_flows, daily_spot_pnl
 from .common import (
-    WALLET_KIND, dec, dec0, guard, ms_to_iso, price_map, usd_price, usd_value,
+    STABLE_ASSETS, WALLET_KIND, dec, dec0, guard, ms_to_iso, price_map,
+    usd_price, usd_value,
 )
 
 # 合约 income 与 userTrades 都只保留 90 天，这是接口的硬上限，不是选择。
@@ -146,7 +147,8 @@ def _cost_symbols(held: dict[str, float], prices: dict[str, float]) -> list[str]
     """
     out = []
     for asset, qty in held.items():
-        if qty <= 0 or asset in USD_QUOTES:
+        # 现金不回放也不拉日线：既省一次调用，也免得报价噪声变成盈亏
+        if qty <= 0 or asset in STABLE_ASSETS:
             continue
         pair = f"{asset}USDT"
         if pair in prices:
@@ -761,6 +763,10 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "base_currency": "USD",
         "sources": states,
         "totals": totals,
+        # **"哪些资产算现金"由后端说了算，前端不再自己维护一份名单。**
+        # 这件事原先在四个地方各写了一份、四份还不一样；少一个的后果见
+        # `common.STABLE_ASSETS` 的注释。排序只为让响应稳定、好 diff。
+        "stable_assets": sorted(STABLE_ASSETS),
         "wallets": wallets,
         "spot": spot,
         "futures": futures,

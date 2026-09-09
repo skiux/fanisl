@@ -62,8 +62,12 @@ export function price(value: number | null) {
   return `$${value.toLocaleString('en-US', { maximumSignificantDigits: 3 })}`
 }
 
-/** 稳定币不是"集中持仓"：算最大单一敞口时要排除，否则 USDT 永远是第一名 */
-export const STABLE_ASSETS = new Set(['USDT', 'USDC', 'FDUSD', 'BUSD', 'TUSD', 'DAI'])
+/*
+ * 这里原先有一份 `STABLE_ASSETS`。**已经删掉**：同一份名单当时在四个地方各写一份
+ * （后端两处、这里、示例数据），四份还不一样，少一个的后果见
+ * `backend/src/analyzer/binance/common.py` 的注释。
+ * 现在由后端随快照发过来（`snapshot.stable_assets`），前端只消费。
+ */
 
 /** USDT 计价的交易对拆回基础标的：NVDAUSDT → NVDA */
 export function baseOf(symbol: string) {

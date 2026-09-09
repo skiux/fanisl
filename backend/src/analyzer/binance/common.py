@@ -28,9 +28,33 @@ WALLET_KIND = {
     "Trading Bots": "trading_bots",
 }
 
-# 稳定币按 1 美元计价：它们没有自己的 USDT 交易对（USDTUSDT 不存在），
-# 不特判的话账户里最大的一块反而会变成"无报价"。
-_USD_PEGGED = {"USDT", "USDC", "BUSD", "FDUSD", "TUSD", "USDP", "DAI"}
+# 交易对里能当**计价币**出现的美元稳定币。只用来按后缀切 symbol
+# （`BNBUSDT` → BNB + USDT），所以只放真会出现在右半边的那几个。
+USD_QUOTES = ("USDT", "USDC", "BUSD", "FDUSD", "TUSD", "USDP", "DAI")
+
+# **算作"现金"的资产：按 1 美元计价，而且不算持仓。全站只有这一份。**
+#
+# 这件事原先在四个地方各写了一份、四份还不一样（common 7 个、costbasis 7 个、
+# 前端 6 个、示例数据 4 个）。少一个的后果按用途分两种：
+#
+#   - 少在**计价**上：稳定币没有自己的 USDT 对（USDTUSDT 不存在），
+#     不特判就成了"无报价"，账户里最大的一块反而算不进净值。
+#   - 少在**"算不算持仓"**上：它有 USDT 对（PYUSDUSDT 之类）就会被拉日线，
+#     于是 ±0.03% 的报价噪声被当成"今日盈亏"——一万美元每天凭空 ±$3；
+#     「合约中的现货持仓」也会把一笔保证金当成币仓列出来，
+#     最大单一敞口跟着把它算成集中持仓。
+#
+# 比 USD_QUOTES 多出来的两类都是这个账户真会碰到的：**别的美元稳定币**
+# （PYUSD / USD1 / USDD / USDE），以及**理财与合约的 1:1 包装**
+# （LDUSDT 是活期理财里的 USDT，BFUSD 是能当合约保证金的稳定币）。
+#
+# **欧元稳定币（EURI / AEUR）故意不在这里。** 它们是稳定币但不是美元，
+# 按 1 美元计价会直接算错；让它们走正常报价、算成一笔汇率敞口才是对的。
+STABLE_ASSETS = frozenset({
+    *USD_QUOTES,
+    "PYUSD", "USD1", "USDD", "USDE",
+    "LDUSDT", "BFUSD",
+})
 
 
 def dec(value: Any) -> float | None:
@@ -70,7 +94,7 @@ def price_map(rows: Any) -> dict[str, float]:
 
 def usd_price(asset: str, prices: dict[str, float]) -> float | None:
     """一个币的美元单价；找不到报价对返回 None（契约允许，界面显示"无报价"）。"""
-    if asset in _USD_PEGGED:
+    if asset in STABLE_ASSETS:
         return 1.0
     for quote in ("USDT", "USDC", "FDUSD", "BUSD"):
         got = prices.get(f"{asset}{quote}")

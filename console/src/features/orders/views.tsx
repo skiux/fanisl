@@ -216,12 +216,24 @@ function VenueBreakdown({ rows, notional, span }: {
  * 都问一遍再合并——上一版是替你挑了字母序第一个，于是这一节永远在讲某一个标的，
  * 而标题写着"委托历史"。选定一个交易对才收窄到那一个。
  */
+/**
+ * 显示区间。**与后端取回来的 90 天不是一回事**：后端一次把能取的都取回来（按
+ * orderId 翻页，不能只要最近几天），这里管的是这一屏摊开多少。
+ */
+const SPANS = { '7': 7, '30': 30, '90': 90 } as const
+type Span = keyof typeof SPANS
+
 export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
   snapshot: OrdersSnapshot
   veiled: boolean
   symbol: string
   onSelectSymbol: (next: string) => void
 }) {
+  // **默认 7 天。** 改成"不选交易对就是全部"之后，这一页一次要摊开十几个交易对的
+  // 九十天历史——真账户几百上千条，页面被拉成几千像素高，翻到底下那张
+  // 「成交明细」要滚很久。区间是这一页最该有的第一道闸。
+  const [span, setSpan] = useState<Span>('7')
+  const since = Date.now() - SPANS[span] * 86_400_000
   const q = snapshot.query
   const down = snapshot.sources.filter((source) => (
     (source.key === 'order_history' || source.key === 'trade_history') && source.status !== 'ok'
@@ -236,10 +248,12 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
       : `全部 · ${q.symbols.length} 个交易对`
   const picker = (
     <QueryPanel
+      onSelectSpan={setSpan}
       onSelectSymbol={onSelectSymbol}
       open={snapshot.open}
       query={q}
-      span="lg:col-span-5"
+      slot="lg:col-span-5"
+      span={span}
       symbol={symbol}
       symbols={snapshot.history_symbols}
     />
@@ -271,7 +285,8 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
     )
   }
 
-  const fills = snapshot.fills
+  const history = snapshot.history.filter((order) => Date.parse(order.created_at) >= since)
+  const fills = snapshot.fills.filter((fill) => Date.parse(fill.time) >= since)
   const traded = fills.reduce((sum, fill) => sum + fill.quote_qty, 0)
   // **手续费只能按 USD 求和。** 现货常用 BNB 抵扣、合约结在 USDT，把两种币的
   // 数量直接相加等于把 0.0008 个 BNB 当成 0.0008 美元；合并多个交易对之后
@@ -285,20 +300,22 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
         <Module
-          figure={String(snapshot.history.length)}
+          figure={String(history.length)}
           note={down.length > 0 ? '不含取不到的交易对' : scope}
           span="lg:col-span-7"
           title="委托历史"
         >
-          <HistoryTable orders={snapshot.history} showSymbol={merged} />
+          <HistoryTable orders={history} showSymbol={merged} />
         </Module>
 
         <Stack span="lg:col-span-5">
           <QueryPanel
+            onSelectSpan={setSpan}
             onSelectSymbol={onSelectSymbol}
             open={snapshot.open}
             query={q}
-            span=""
+            slot=""
+            span={span}
             symbol={symbol}
             symbols={snapshot.history_symbols}
           />
@@ -397,17 +414,20 @@ function symbolGroups(symbols: string[], open: Order[]): SelectGroup[] {
  * 查询条件本身就是这一页的内容。allOrders / myTrades 都必须传 symbol，
  * 单次区间还有上限——把这几条摆在明面上，好过让人以为这里是一条能一直翻的全量流水。
  */
-function QueryPanel({ symbol, symbols, open, query, span, onSelectSymbol }: {
+function QueryPanel({ symbol, symbols, open, query, slot, span, onSelectSpan, onSelectSymbol }: {
   symbol: string
   symbols: string[]
   /** 只为了在候选里标出哪些交易对正挂着单 */
   open: Order[]
   query: OrdersSnapshot['query']
-  span: string
+  /** 栅格占几栏。叫 slot 是因为 span 已经被"显示区间"占了 */
+  slot: string
+  span: Span
+  onSelectSpan: (next: Span) => void
   onSelectSymbol: (next: string) => void
 }) {
   return (
-    <Module span={span} title="查询范围">
+    <Module span={slot} title="查询范围">
       <div className="flex items-center gap-3">
         <span className="w-[56px] shrink-0 text-xs text-ink-2">交易对</span>
         <div className="min-w-0 flex-1">
@@ -422,9 +442,21 @@ function QueryPanel({ symbol, symbols, open, query, span, onSelectSymbol }: {
           />
         </div>
       </div>
+      {/* 区间是**这一屏摊开多少**，不是取回来多少：后端按 orderId 翻页，
+          取的时候没法只要最近几天。它和下面的「可回溯」是两件事。 */}
+      <div className="mt-3 flex items-center gap-3">
+        <span className="w-[56px] shrink-0 text-xs text-ink-2">区间</span>
+        <SegmentedControl
+          items={(Object.keys(SPANS) as Span[]).map((k) => ({ value: k, label: `${k} 天` }))}
+          label="显示区间"
+          onValueChange={onSelectSpan}
+          size="sm"
+          value={span}
+        />
+      </div>
       <dl className="mt-4 space-y-2.5 border-t border-rule pt-4">
         {([
-          ['区间', query ? `${query.from.slice(5, 10)} → ${query.to.slice(5, 10)}` : '—'],
+          ['取数范围', query ? `${query.from.slice(5, 10)} → ${query.to.slice(5, 10)}` : '—'],
           ['单次上限', query ? `${query.max_window_hours} 小时` : '—'],
           ['可回溯', query?.lookback_days ? `${query.lookback_days} 天` : '接口未声明'],
         ] as const).map(([label, value]) => (

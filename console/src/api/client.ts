@@ -181,7 +181,8 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
             key, status: 'unauthorized' as const, as_of: null,
             detail: 'API key 无读取权限，或调用 IP 不在白名单内',
           })),
-        totals: null, wallets: [], spot: [], futures: null, earn: [], margin: null,
+        totals: null, stable_assets: fx.STABLE_FIXTURE,
+        wallets: [], spot: [], futures: null, earn: [], margin: null,
         income: null, transfers: null, pnl: null,
       }
     }
@@ -194,6 +195,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         sources: (['wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers'] as const)
           .map((key) => fx.okSource(key, iso)),
         totals: { equity_usd: 0, gross_exposure_ratio: null },
+        stable_assets: fx.STABLE_FIXTURE,
         wallets: [], spot: [], futures: null, earn: [], margin: null,
         income: null, transfers: null, pnl: null,
       }

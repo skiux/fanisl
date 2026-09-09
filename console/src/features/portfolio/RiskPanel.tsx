@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Lightning } from '@phosphor-icons/react'
 import { compareBy, SortBy, type SortKey, type SortState } from '../../components/controls'
 import { Delta, Eyebrow } from '../../components/Primitives'
+import { Ticker } from '../../components/Ticker'
 import { cn } from '../../lib/cn'
 import { amount, baseOf, money, percent, price, signedMoney, signedPercent } from '../../lib/format'
 import {
@@ -73,7 +74,8 @@ function PositionRow({ position }: { position: FuturesPosition }) {
   return (
     <li className="py-4 first:pt-0">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <Ticker asset={baseOf(position.symbol)} />
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm text-ink">{baseOf(position.symbol)}</span>
             {/* 方向用中性色 + 箭头：绿/红在这个界面里只表示盈亏 */}

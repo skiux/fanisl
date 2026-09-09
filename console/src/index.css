@@ -47,6 +47,17 @@
   --sheet-shadow: 0 1px 1px rgb(0 0 0 / 0.4), 0 18px 44px -20px rgb(0 0 0 / 0.7);
 }
 
+/* 标的识别标记，见 components/Ticker.tsx。色相由组件按代码哈希传进来，
+   避开了 gain/loss/accent 三个被占用的色相。低饱和：它是索引，不是重点。 */
+.ticker {
+  background: oklch(0.93 0.045 var(--ticker-hue));
+  color: oklch(0.44 0.105 var(--ticker-hue));
+}
+.dark .ticker {
+  background: oklch(0.28 0.042 var(--ticker-hue));
+  color: oklch(0.82 0.085 var(--ticker-hue));
+}
+
 @theme inline {
   --color-desk: var(--desk);
   --color-sheet: var(--sheet);

@@ -153,6 +153,10 @@ const RAW_SPOT_HISTORY: RawOrder[] = [
   { venue: 'spot', symbol: 'BNBUSDT', side: 'buy', kind: 'limit', qty: 2.5, filled: 2.5, price: 641.2, tif: 'GTC', status: 'filled', ageMin: 8210 },
   { venue: 'spot', symbol: 'BNBUSDT', side: 'sell', kind: 'limit', qty: 1.2, price: 712, tif: 'GTC', status: 'canceled', ageMin: 4460, touchedMin: 4120 },
   { venue: 'spot', symbol: 'BNBUSDT', side: 'buy', kind: 'limit', qty: 1.7, filled: 1.7, price: 668.4, tif: 'GTC', status: 'filled', ageMin: 2015 },
+  // **有两条在 7 天以外**：默认区间是 7 天，全都落在窗口里的话，那个区间控件
+  // 在示例数据下怎么点都没反应，也就验不出它有没有真的在筛
+  { venue: 'spot', symbol: 'BNBUSDT', side: 'sell', kind: 'limit', qty: 0.8, filled: 0.8, price: 705, tif: 'GTC', status: 'filled', ageMin: 44 * 24 * 60 },
+  { venue: 'spot', symbol: 'BNBUSDT', side: 'buy', kind: 'limit', qty: 3.4, price: 512, tif: 'GTC', status: 'canceled', ageMin: 71 * 24 * 60, touchedMin: 70 * 24 * 60 },
 ]
 
 export function buildHistory(asOf: Date): Order[] {

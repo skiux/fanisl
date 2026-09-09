@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp } from '@phosphor-icons/react'
 import { cn } from '../../lib/cn'
+import { Ticker } from '../../components/Ticker'
 import {
   amount, money, ORDER_KIND_LABEL, ORDER_STATUS_LABEL, percent, price,
   baseOf, relativeTime, signedMoney, signedPercent, VENUE_LABEL,
@@ -35,7 +36,9 @@ function SideKind({ order }: { order: Order }) {
 
 function SymbolCell({ order }: { order: Order }) {
   return (
-    <div className="min-w-0">
+    <div className="flex min-w-0 items-center gap-2.5">
+      <Ticker asset={baseOf(order.symbol)} size="sm" />
+      <div className="min-w-0">
       <div className="flex items-center gap-2">
         <span className="truncate text-sm text-ink">{baseOf(order.symbol)}</span>
         <VenueTag venue={order.venue} />
@@ -46,6 +49,7 @@ function SymbolCell({ order }: { order: Order }) {
         )}
       </div>
       <div className="tnum truncate text-micro text-ink-3">{relativeTime(order.created_at)}</div>
+      </div>
     </div>
   )
 }
@@ -150,7 +154,7 @@ export function OpenOrderTable({ orders }: { orders: Order[] }) {
         <span className="text-right sm:text-left">名义</span>
         <span className="hidden sm:block">距触发</span>
       </div>
-      <ul className="divide-y divide-rule">
+      <ul className="scroll-y max-h-[32rem] divide-y divide-rule">
         {orders.map((order) => {
           const stop = order.stop_price ?? order.activate_price
           const target = stop ?? order.price
@@ -207,7 +211,10 @@ export function HistoryTable({ orders, showSymbol }: { orders: Order[]; showSymb
         <span className="hidden sm:block">数量</span>
         <span className="text-right sm:text-left">状态</span>
       </div>
-      <ul className="divide-y divide-rule">
+      {/* **封顶 + 自己滚。** 不封的话这张表有多少条就多高：默认视图合并了十几个
+          交易对，真账户几百条，页面被拉成几千像素，底下那张「成交明细」要滚很久
+          才见得到。表头留在框外，滚的时候不跟着走。 */}
+      <ul className="scroll-y max-h-[26rem] divide-y divide-rule">
         {orders.map((order) => (
           <li className={cn(HISTORY_ROW, 'py-3 transition-colors duration-200 hover:bg-sheet-2/45')} key={order.id}>
             <div className="min-w-0">
@@ -247,7 +254,7 @@ export function FillTable({ fills, showSymbol }: { fills: Fill[]; showSymbol?: b
         <span className="hidden sm:block">手续费</span>
         <span className="hidden sm:block">已实现</span>
       </div>
-      <ul className="divide-y divide-rule">
+      <ul className="scroll-y max-h-[26rem] divide-y divide-rule">
         {fills.map((fill) => (
           <li className={cn(FILL_ROW, 'py-3 transition-colors duration-200 hover:bg-sheet-2/45')} key={fill.id}>
             <div className="min-w-0">

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchPortfolio, readScenario, writeScenario, type Scenario } from '../../api/client'
 import { PortfolioError, type PortfolioSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
-import { baseOf, freshnessOf, relativeTime, STABLE_ASSETS } from '../../lib/format'
+import { freshnessOf, relativeTime } from '../../lib/format'
+import { exposures } from '../../lib/holdings'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { Masthead } from './Masthead'
 import { SectionTabs, type TabItem } from './SectionTabs'
@@ -10,17 +11,18 @@ import { PnlDetail, type PnlTopic } from './PnlDetail'
 import { SummaryStrip } from './SummaryStrip'
 import { EmptyState, ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from './states'
 import { HoldingsView, OverviewView, PerpRiskView } from './views'
+import { RiskControlView } from './RiskControl'
 
 type Phase =
   | { kind: 'loading' }
   | { kind: 'ready'; snapshot: PortfolioSnapshot }
   | { kind: 'failed'; message: string }
 
-export type ViewKey = 'overview' | 'holdings' | 'perp'
+export type ViewKey = 'overview' | 'holdings' | 'perp' | 'risk'
 
 // `#/assets/changes` 是删掉的那一节，落到这里会被 readView 退回 overview——
 // 它的内容（日历、合约收支、充提）现在全在 overview 上，退回去正好是同一份东西。
-const VIEW_KEYS: ViewKey[] = ['overview', 'holdings', 'perp']
+const VIEW_KEYS: ViewKey[] = ['overview', 'holdings', 'perp', 'risk']
 
 function readView(): ViewKey {
   const { section } = readRoute()
@@ -104,7 +106,11 @@ function buildTabs(futuresMissing: boolean): TabItem<ViewKey>[] {
     // 也有一份，同一张表在两个分节里各印一遍，剩下两块本来就和日历同一个问题。
     { key: 'overview', label: '总览' },
     { key: 'holdings', label: '持仓' },
-    { key: 'perp', label: '合约与风险', muted: futuresMissing },
+    // 「合约与风险」拆成两节：那一节原先既列仓位与保证金（现在是什么样），
+    // 又摆着风险读数（会怎样），两件事挤在一起谁也没说透。现在左边只讲仓位，
+    // 右边专管"再跌多少我出局"。
+    { key: 'perp', label: '合约', muted: futuresMissing },
+    { key: 'risk', label: '风险控制', muted: futuresMissing },
   ]
 }
 
@@ -158,19 +164,15 @@ function Loaded({ phase, view, onSelectView, onRetry }: {
   const futuresDown = snapshot.sources.find((source) => source.key === 'futures')?.status !== 'ok'
   const futuresMissing = futuresDown && snapshot.futures === null
 
-  // 最大单一敞口要把永续的名义算进来：这个账户的仓位都在合约上，
-  // 现货只剩保证金用的稳定币，只看现货会把 USDT 报成"最集中的持仓"。
+  // 最大单一敞口走 `lib/holdings` 的那一份，和「风险控制」页同源。
+  // 那里做了两件这里原先没做的事：**同一标的的现货与永续要相加**（原先各算各的，
+  // NVDA 现货和 NVDA 永续会被当成两笔），以及**空头带负号**（多空对锁时真实敞口
+  // 接近零，原先会报成两者里大的那个）。持有量也不只看现货钱包。
   const equity = snapshot.totals?.equity_usd ?? 0
-  const exposures = [
-    ...snapshot.spot
-      .filter((item) => !STABLE_ASSETS.has(item.asset) && item.value_usd !== null)
-      .map((item) => ({ asset: item.asset, value: item.value_usd as number })),
-    ...(snapshot.futures?.positions ?? [])
-      .map((position) => ({ asset: baseOf(position.symbol), value: position.notional_usd })),
-  ].sort((a, b) => b.value - a.value)
-  const biggest = exposures[0]
+  const ranked = exposures(snapshot, equity)
+  const biggest = ranked[0]
   const concentration = biggest && equity > 0
-    ? { asset: biggest.asset, share: biggest.value / equity }
+    ? { asset: biggest.asset, share: biggest.share }
     : null
 
   const shared = { snapshot, veiled, futuresMissing, concentration }
@@ -196,6 +198,7 @@ function Loaded({ phase, view, onSelectView, onRetry }: {
           {view === 'perp' && (
             <PerpRiskView futuresMissing={futuresMissing} snapshot={snapshot} veiled={veiled} />
           )}
+          {view === 'risk' && <RiskControlView snapshot={snapshot} veiled={veiled} />}
         </div>
       </div>
 

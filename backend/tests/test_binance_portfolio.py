@@ -41,13 +41,33 @@ def build(cache, *, fail=None, calls=None, force=True):
 
 def test_snapshot_shape_matches_contract(cache):
     snap = build(cache)
-    assert set(snap) == {"as_of", "base_currency", "sources", "totals", "wallets", "spot",
-                         "futures", "earn", "margin", "income", "transfers", "pnl"}
+    assert set(snap) == {"as_of", "base_currency", "sources", "totals", "stable_assets",
+                         "wallets", "spot", "futures", "earn", "margin", "income",
+                         "transfers", "pnl"}
     assert snap["base_currency"] == "USD"
     assert {s["key"] for s in snap["sources"]} == {
         "prices", "wallets", "spot", "futures", "earn", "margin",
         "income", "transfers"}
     assert all(s["status"] == "ok" for s in snap["sources"])
+
+
+def test_stablecoins_are_cash_not_a_position(cache):
+    """现金不参与"今天涨跌了多少"。
+
+    有 USDT 对的那几个（PYUSD / USD1 / USDE …）如果不算作现金，就会被拉日线，
+    于是 ±0.03% 的报价噪声变成"今日盈亏"——一万美元每天凭空 ±$3。
+    名单只有一份，随响应发给前端，省得两边各维护一套还不一样。
+    """
+    snap = build(cache)
+    stable = set(snap["stable_assets"])
+    assert {"USDT", "USDC", "FDUSD", "PYUSD", "USD1", "USDE"} <= stable
+    # 理财与合约的 1:1 包装也算现金：它们没有自己的交易对，不列进来就是"无报价"，
+    # 「合约中的现货持仓」会把一笔保证金当成币仓列出来
+    assert {"LDUSDT", "BFUSD"} <= stable
+    # 欧元稳定币**不在**里面：它是稳定币但不是美元，按 1 美元计价直接算错
+    assert "EURI" not in stable and "AEUR" not in stable
+
+    assert not [row for row in snap["pnl"]["spot_marks"] if row["asset"] in stable]
 
 
 def test_wallets_are_btc_denominated_and_nothing_is_dropped(cache):

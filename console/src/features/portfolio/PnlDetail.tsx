@@ -2,6 +2,7 @@ import { Dialog } from 'radix-ui'
 import { X } from '@phosphor-icons/react'
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
+import { Ticker } from '../../components/Ticker'
 import { amount, price, signedMoney, signedPercent } from '../../lib/format'
 import type { IncomeBreakdown, Pnl } from '../../api/types'
 
@@ -111,6 +112,7 @@ export function PnlDetail({ topic, pnl, onClose }: {
                           change === null ? '' : ` · ${signedPercent(change)}`}`}
                         key={row.asset}
                         label={row.asset}
+                        mark
                         value={row.today_usd}
                       />
                     )
@@ -156,14 +158,19 @@ function Part({ label, value, rows }: {
 }
 
 /** 明细的一行。`detail` 是中间那段可截断的补充（数量、价格、涨跌幅） */
-function Row({ label, detail, value }: {
+function Row({ label, detail, value, mark }: {
   label: string
   detail?: string
   value: number | null
+  /** 逐币那一档带标记；结算分类那一档没有标的，不给 */
+  mark?: boolean
 }) {
   return (
-    <li className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-3 py-1.5">
-      <span className="text-xs text-ink-2">{label}</span>
+    <li className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 py-1.5">
+      <span className="flex items-center gap-2">
+        {mark && <Ticker asset={label} size="sm" />}
+        <span className="text-xs text-ink-2">{label}</span>
+      </span>
       <span className="tnum truncate text-[11px] text-ink-3">{detail ?? ''}</span>
       <Amount blank="—" className="text-xs" value={value} />
     </li>

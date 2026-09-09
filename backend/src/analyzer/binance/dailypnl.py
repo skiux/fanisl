@@ -51,7 +51,8 @@ from datetime import date as Date, datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from .common import dec, dec0, ms_to_iso
-from .costbasis import USD_QUOTES, split_symbol
+from .common import STABLE_ASSETS, USD_QUOTES
+from .costbasis import split_symbol
 
 
 def _day(value: Any) -> str:
@@ -181,11 +182,13 @@ def daily_spot_pnl(held: dict[str, float], closes: dict[str, dict[str, float]],
 
     by_asset: dict[str, dict[str, list[dict]]] = {}
     for f in flows:
-        if f["asset"] in USD_QUOTES:
+        # 现金不是持仓：它没有涨跌可算，而且有 USDT 对的那几个（PYUSD 之类）
+        # 拉到日线之后，报价噪声会变成"今日盈亏"
+        if f["asset"] in STABLE_ASSETS:
             continue
         by_asset.setdefault(f["asset"], {}).setdefault(f["day"], []).append(f)
 
-    assets = {a for a, q in held.items() if a not in USD_QUOTES and q != 0} | set(by_asset)
+    assets = {a for a, q in held.items() if a not in STABLE_ASSETS and q != 0} | set(by_asset)
 
     # **没有币可算 ≠ 那天没赚没亏。** 起手全是 None，有币真的算出来才落成数字；
     # 行情整个取不到时（`cost_symbols` 为空、拿不到任何日线）就该是空，不是 0。
