@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Cell, Pie, PieChart } from 'recharts'
 import { cn } from '../../lib/cn'
 import { Figure, Module, Stack, ViewGrid } from '../../components/layout'
 import { SegmentedControl } from '../../components/controls'
@@ -407,19 +407,41 @@ export function RiskControlView({ snapshot, veiled }: {
 
 type Slice = { asset: string; value: number }
 
-/* --- 几何。一处定义，标签、引导线、命中层都读它 ------------------------- */
-// 环画得尽量大：外侧标签只有小块才用得上，为它们留的边距不该常年空着。
-// 85px 够写一行「其他 / 0.4% · $128」，再宽就是白占地方。
-const BOX_W = 540
-const BOX_H = 420
-const CX = 270
-const CY = 208
-const R_OUT = 185
-const R_IN = 104
-/** 环带中线：块里的标签落在这条线上 */
-const R_MID = (R_OUT + R_IN) / 2
-/** 占比到这个数才写得进块里；再小就走外侧标签 + 引导线 */
-const INSIDE_MIN = 0.08
+/* --- 几何 ---------------------------------------------------------------
+ *
+ * **全部按实测宽度算出来，不能写死。** recharts 会把 svg 的 `viewBox` 设成
+ * 它测到的**像素尺寸**（`0 0 309 240` 这种），不是我们给的设计稿尺寸——也就是说
+ * `cx` / `r` 这些数被当成像素用。上一版把它们写成常量（cx 270、r 185），
+ * 于是只有容器正好 540px 宽时才对：窄屏上环照旧画 370px 直径，直接溢出被裁掉，
+ * 圈心也跟着对不上环心。移动端整张图是坏的。
+ *
+ * 既然是像素坐标，字号就不再被缩放——写 19 就是 19px，窄屏上也一样大。
+ * 代价是**窄屏塞不下四行**，所以有紧凑模式：只留图标 + 占比，外侧标签整个不画
+ * （小块的明细在下面那张表里，一个都不少）。
+ */
+const NARROW = 460
+/** 宽屏要给外侧标签留边；紧凑模式不画外侧标签，留一点点就够 */
+const PAD_WIDE = 84
+const PAD_NARROW = 14
+
+type Geo = {
+  w: number; h: number; cx: number; cy: number
+  rOut: number; rIn: number; rMid: number
+  compact: boolean
+}
+
+function geometry(w: number): Geo {
+  const compact = w < NARROW
+  const pad = compact ? PAD_NARROW : PAD_WIDE
+  // 窄屏给个方一点的框（环大、上下不浪费）；宽屏留出左右写标签的地方
+  const h = compact ? Math.min(w, 380) : Math.round(w / 1.286)
+  const rOut = Math.max(56, Math.min((w - pad * 2) / 2, h / 2 - 10))
+  const rIn = rOut * (compact ? 0.56 : 0.55)
+  return { w, h, cx: w / 2, cy: h / 2, rOut, rIn, rMid: (rOut + rIn) / 2, compact }
+}
+
+/** 占比到这个数才写得进块里；再小宽屏走外侧标签，窄屏干脆不写 */
+const insideMin = (geo: Geo) => (geo.compact ? 0.10 : 0.08)
 /** 外侧标签之间的最小垂直间距，靠得太近就互相推开 */
 const LABEL_GAP = 28
 /** 引导线第一段：沿半径往外 */
@@ -444,7 +466,7 @@ type Placed = {
  * **推开这一步不能省。** 小块的弧中点常常挨得很近（0.2% 与 0.1% 差不到一度），
  * 标签直接叠在一起，等于没写。同一侧的按 y 排序，不足 `LABEL_GAP` 就往外挤。
  */
-function layout(slices: Slice[], total: number): Placed[] {
+function layout(slices: Slice[], total: number, geo: Geo): Placed[] {
   let cum = 0
   const placed: Placed[] = slices.map((slice, rank) => {
     const frac = total > 0 ? slice.value / total : 0
@@ -458,13 +480,13 @@ function layout(slices: Slice[], total: number): Placed[] {
     const side: 1 | -1 = cos >= 0 ? 1 : -1
     return {
       ...slice, frac, rank, rad, t0, t1: cum,
-      inside: frac >= INSIDE_MIN,
+      // 紧凑模式没有外侧标签这条路：写不进块里就干脆不写
+      inside: frac >= insideMin(geo),
       // 标签跟着弧走，**不钉到画布边**。钉到边（ECharts 的 alignTo: 'edge'）在
       // 块多的时候整齐，可这里常常只有一两个小块——一条横穿半张图的引导线牵到
-      // 角落里一个小标签，读着像掉出去的碎片。通行做法是"短径向 + 短横线"，
-      // 标签就落在弧边外一点。
-      lx: CX + cos * (R_OUT + LEAD_1) + side * LEAD_2,
-      ly: Math.min(BOX_H - 24, Math.max(24, CY + sin * (R_OUT + LEAD_1))),
+      // 角落里一个小标签，读着像掉出去的碎片。
+      lx: geo.cx + cos * (geo.rOut + LEAD_1) + side * LEAD_2,
+      ly: Math.min(geo.h - 24, Math.max(24, geo.cy + sin * (geo.rOut + LEAD_1))),
       side,
     }
   })
@@ -476,8 +498,7 @@ function layout(slices: Slice[], total: number): Placed[] {
       const gap = col[i].ly - col[i - 1].ly
       if (gap < LABEL_GAP) col[i].ly = col[i - 1].ly + LABEL_GAP
     }
-    // 挤出画布就整列往回顶
-    const over = (col.at(-1)?.ly ?? 0) - (BOX_H - 26)
+    const over = (col.at(-1)?.ly ?? 0) - (geo.h - 24)
     if (over > 0) for (const it of col) it.ly -= over
   }
   return placed
@@ -553,9 +574,25 @@ function Donut({ slices, total, focus, onHover, onPin }: {
   /** `null` = 点在空白处，取消钉住 */
   onPin: (asset: string | null) => void
 }) {
-  const placed = useMemo(() => layout(slices, total), [slices, total])
-  const shown = placed.find((slice) => slice.asset === focus) ?? null
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
   const [over, setOver] = useState(false)
+
+  // **自己量宽度，不用 `ResponsiveContainer`。** 尺寸要参与几何计算（半径、圈心、
+  // 标签位置、命中测试全都从它推出来），拿在手里才对得齐；ResponsiveContainer
+  // 只是把 svg 撑满，尺寸留在它自己肚子里。
+  useLayoutEffect(() => {
+    const el = boxRef.current
+    if (!el) return
+    setWidth(el.clientWidth)
+    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const geo = useMemo(() => geometry(width), [width])
+  const placed = useMemo(() => layout(slices, total, geo), [slices, total, geo])
+  const shown = placed.find((slice) => slice.asset === focus) ?? null
 
   /**
    * 指针落在哪一块。**几何判断，不靠 DOM 事件**——理由见上面的组件注释。
@@ -563,39 +600,38 @@ function Donut({ slices, total, focus, onHover, onPin }: {
    * 环从 12 点起顺时针铺，所以先把屏幕极角换成"从 12 点起转过了整圈的几分之几"
    * （屏幕坐标 y 朝下，`atan2` 在 12 点处是 −π/2，加回来正好从 0 起算），
    * 再拿它比每一块的起止。半径上给一点富余，指针在边缘抖一下不至于掉出去。
+   * 这里的坐标就是像素——recharts 的 viewBox 本来就等于像素尺寸，不用换算。
    */
   const hitTest = (event: { clientX: number; clientY: number; currentTarget: HTMLElement }) => {
     const box = event.currentTarget.getBoundingClientRect()
-    if (box.width <= 0) return null
-    const k = BOX_W / box.width
-    const dx = (event.clientX - box.left) * k - CX
-    const dy = (event.clientY - box.top) * k - CY
+    const dx = event.clientX - box.left - geo.cx
+    const dy = event.clientY - box.top - geo.cy
     const r = Math.hypot(dx, dy)
-    if (r < R_IN - 4 || r > R_OUT + 8) return null
+    if (r < geo.rIn - 4 || r > geo.rOut + 8) return null
     const t = ((Math.atan2(dy, dx) + Math.PI / 2) / (2 * Math.PI) + 1) % 1
     return placed.find((slice) => t >= slice.t0 && t < slice.t1)?.asset ?? null
   }
 
   return (
-    <div className="min-w-0 shrink-0 lg:w-[540px]">
-      <div className="relative">
-        <ResponsiveContainer aspect={BOX_W / BOX_H} width="100%">
-          <PieChart margin={{ bottom: 0, left: 0, right: 0, top: 0 }}>
+    <div className="min-w-0 flex-1">
+      <div className="relative" ref={boxRef} style={{ height: geo.h }}>
+        {width > 0 && (
+          <PieChart height={geo.h} width={geo.w}>
             <Pie
-              cx={CX}
-              cy={CY}
+              cx={geo.cx}
+              cy={geo.cy}
               data={slices}
               dataKey="value"
               endAngle={-270}
-              innerRadius={R_IN}
+              innerRadius={geo.rIn}
               // 这张图**没有任何动画**，见 index.css 的 .pie-slice。
               // recharts 自带的入场动画还额外有个坑：它走 rAF，而 rAF 在页面不可见时
               // 不发，扇区角度会永远停在 0——那不是"没动画"，是一整张图都不画。
               isAnimationActive={false}
-              label={(props: SliceLabel) => renderLabel(props, placed, focus)}
+              label={(props: SliceLabel) => renderLabel(props, placed, geo, focus)}
               labelLine={false}
               nameKey="asset"
-              outerRadius={R_OUT}
+              outerRadius={geo.rOut}
               paddingAngle={0.8}
               startAngle={90}
               stroke="none"
@@ -612,7 +648,7 @@ function Donut({ slices, total, focus, onHover, onPin }: {
               ))}
             </Pie>
           </PieChart>
-        </ResponsiveContainer>
+        )}
 
         {/*
           命中层：盖住整张图，按极角算指针落在哪一块。**所有指针交互都走这里**，
@@ -632,16 +668,12 @@ function Donut({ slices, total, focus, onHover, onPin }: {
         />
 
         {/* 圈心。SVG 里排文字要自己算基线，用一层绝对定位的 div 省事，
-            也顺带拿到和别处一样的字体度量。 */}
+            也顺带拿到和别处一样的字体度量。圈心就是环心（cy = h/2），
+            所以直接居中，不必再补偏移。 */}
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
           {/* **不靠 `key` 重挂载做淡入。** 转圈划过时那会每换一块重放一次淡入，
-              本身就是一种闪。内容直接换，动的只有环上的明暗。 */}
-          <div
-            className="flex flex-col items-center gap-0.5"
-            // 圈心的方框对齐环的中心；`aspect` 让容器高度跟着宽度走，
-            // 中心点因此永远在 CY/BOX_H 处
-            style={{ transform: `translateY(${((CY - BOX_H / 2) / BOX_H * 100).toFixed(2)}%)` }}
-          >
+              本身就是一种闪。内容直接换，环上的明暗也不做过渡。 */}
+          <div className="flex flex-col items-center gap-0.5">
             {shown === null ? (
               <span className="tnum text-lg text-ink">{money(total)}</span>
             ) : (
@@ -654,7 +686,6 @@ function Donut({ slices, total, focus, onHover, onPin }: {
           </div>
         </div>
       </div>
-
     </div>
   )
 }
@@ -663,13 +694,16 @@ function Donut({ slices, total, focus, onHover, onPin }: {
 type SliceLabel = { index?: number }
 
 /**
- * 一块的标签。大块写进环带里（图标 / 代码 / 占比 / 金额），小块写在外面、
- * 配一条两段的引导线。位置全部来自 `layout()`，不用 recharts 给的角度——
- * 外侧标签需要相互推开，那要一次性看到所有块才算得出来。
+ * 一块的标签。位置全部来自 `layout()`，不用 recharts 给的角度——外侧标签需要相互
+ * 推开，那要一次看到所有块才算得出来。
+ *
+ * **坐标与字号都是像素**（recharts 的 viewBox 等于像素尺寸），所以字不会随容器
+ * 缩放变小——反过来说，窄屏是真的塞不下四行，那时走紧凑：只留图标 + 占比，
+ * 外侧标签整个不画，小块的明细在下面那张表里。
  *
  * 写不下时返回空的 `<g />` 而不是 `null`：recharts 会把返回值当元素接着处理。
  */
-function renderLabel(props: SliceLabel, placed: Placed[], focus: string | null) {
+function renderLabel(props: SliceLabel, placed: Placed[], geo: Geo, focus: string | null) {
   const slice = props.index === undefined ? undefined : placed[props.index]
   if (!slice || slice.frac <= 0) return <g />
   const on = focus === null || focus === slice.asset
@@ -677,8 +711,20 @@ function renderLabel(props: SliceLabel, placed: Placed[], focus: string | null) 
   const sin = Math.sin(slice.rad)
 
   if (slice.inside) {
-    const x = CX + cos * R_MID
-    const y = CY + sin * R_MID
+    const x = geo.cx + cos * geo.rMid
+    const y = geo.cy + sin * geo.rMid
+    if (geo.compact) {
+      // 窄屏：图标 + 占比。金额与代码交给下面那张表——环带只有五十来像素，
+      // 硬塞四行只会挤成一团
+      return (
+        <g className="pie-label" style={{ opacity: on ? 1 : 0.22 }}>
+          <Mark asset={slice.asset} r={12} x={x} y={y - 15} />
+          <text className="tnum" fill="var(--ink)" fontSize={17} fontWeight={500} textAnchor="middle" x={x} y={y + 17}>
+            {(slice.frac * 100).toFixed(1)}%
+          </text>
+        </g>
+      )
+    }
     return (
       <g className="pie-label" style={{ opacity: on ? 1 : 0.22 }}>
         <Mark asset={slice.asset} r={12} x={x} y={y - 26} />
@@ -695,10 +741,13 @@ function renderLabel(props: SliceLabel, placed: Placed[], focus: string | null) 
     )
   }
 
+  // 紧凑模式不画外侧标签：那点地方放不下引导线，硬画就是一圈碎字
+  if (geo.compact) return <g />
+
   // 外侧：弧边 → 沿半径出去一小段 → 横向一小截，标签接在末端
-  const ax = CX + cos * (R_OUT + 2)
-  const ay = CY + sin * (R_OUT + 2)
-  const bx = CX + cos * (R_OUT + LEAD_1)
+  const ax = geo.cx + cos * (geo.rOut + 2)
+  const ay = geo.cy + sin * (geo.rOut + 2)
+  const bx = geo.cx + cos * (geo.rOut + LEAD_1)
   const by = slice.ly
   const tx = slice.lx
   return (
