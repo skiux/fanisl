@@ -13,18 +13,21 @@ import type { PortfolioSnapshot } from '../../api/types'
 const PIE_SLICES = 6
 
 /**
- * 一块饼的颜色。**按名次把色相摊开**，不用字母标记那套哈希色。
+ * 一块饼的底色。
  *
- * 哈希色的好处是"同一个标的到哪儿都是同一个色"，可饼图要的恰恰相反：相邻两块
- * 必须一眼分得开。六个色相哈希下来，四块大的很可能挤在同一段蓝里——第一版画出来
- * 就是一圈深浅不一的蓝。名次摊开保证任意两块至少差二十来度，再叠一点明度递减。
+ * **不按名次转色相。** 绿(155°)、红(30°)、黄铜(85°)在这套界面里已被盈亏与充提占死，
+ * 剩下 190–330 一段塞五个色相必然互相像——第一版就是把色相从 192° 摊到 320°，
+ * 画出来是一圈深浅不一的蓝，而 27.8 / 26.6 / 24.1 / 21.1 四块角度本来就几乎一样，
+ * 等于没画。
  *
- * 色带仍然避开 gain / loss / accent（绿 155°、红 30°、黄铜 85°）：这一块旁边就是
- * 带正负号的金额，一块偏红的扇区会被读成"亏了"。
+ * 现在色只负责**把相邻两块分开**，"哪块大"交给块里那个百分比去说——数字比角度和
+ * 色深都准。所以用同一个蓝灰调不同的墨量，而且**整条都调得偏淡**：
+ * 墨量拉满的话最深那块要配浅色字、最浅那块要配深色字，同一张图里两套字色，
+ * 深浅主题下还得各翻一次。淡底 + 统一的 `--ink` 字色，两个主题都不用特判。
  */
-const sliceColor = (rank: number, count: number) => {
-  const hue = 192 + (count <= 1 ? 64 : (rank * 128) / (count - 1))
-  return `oklch(${(0.68 - rank * 0.028).toFixed(3)} 0.115 ${hue.toFixed(0)})`
+const sliceInk = (rank: number) => {
+  const steps = [52, 40, 30, 22, 16, 12]
+  return `color-mix(in oklab, var(--pie-ink) ${steps[Math.min(rank, steps.length - 1)]}%, var(--sheet))`
 }
 
 const DROPS = { '10': 0.1, '20': 0.2, '30': 0.3, '50': 0.5 } as const
@@ -340,65 +343,110 @@ export function RiskControlView({ snapshot, veiled }: {
  * 理由，两者回答的不是同一个问题（饼：钱压在哪几个东西上；横条：价格动一下
  * 账户净暴露多少，空头会抵掉现货）。
  *
- * 手写 SVG 而不是引图表库：一个圆环用 `stroke-dasharray` 就是十行，
- * 而图表库的默认样式（网格线、提示框、图例）全要推翻重来。
+ * 版式上第一版错在两处，重画时都改了：
+ *
+ * - **标签写进块里**（代码在上、百分比在下，百分比是主角）。摆在外面就得配引导线，
+ *   或者低头去图例里对号——而这几块本来就够宽，直接写进去最省事。
+ *   块太窄写不下的（这里是 0.4% 的「其他」）在下面补一行，那是数据不是图例。
+ * - **合计写在圈中间**。甜甜圈那个洞就是给它留的；第一版把它另起一行摆在图下面，
+ *   中间空着一大片白，环也就只是个环。
+ *
+ * 环带特意加宽到 44：要装得下两行字。块之间留缝，读成四件东西而不是一个渐变的环。
  */
 function Donut({ slices, total }: { slices: { asset: string; value: number }[]; total: number }) {
-  const R = 38
+  const CX = 120
+  const CY = 120
+  /** 环带中线的半径，标签也落在这条线上 */
+  const R = 84
+  const BAND = 44
   const C = 2 * Math.PI * R
-  let offset = 0
+  const GAP = 4
+
+  let cum = 0
+  const arcs = slices.map((slice, i) => {
+    const frac = total > 0 ? slice.value / total : 0
+    const start = cum
+    cum += frac
+    const mid = (start + frac / 2) * 2 * Math.PI - Math.PI / 2
+    return {
+      ...slice, frac, i,
+      len: Math.max(0, frac * C - GAP),
+      offset: -start * C,
+      lx: CX + Math.cos(mid) * R,
+      ly: CY + Math.sin(mid) * R,
+    }
+  })
+  // **9% 以下不往环带里写。** 门槛不是按"字挤不挤得下"定的，是按**相邻两个标签会不会
+  // 撞上**：标签落在弧中点，两个 9% 的块中点相距约 47px，而一个 `26.6%` 宽约 38px。
+  // 再小就会叠字。写不下的挪到下面列一行。
+  const tiny = arcs.filter((arc) => arc.frac < 0.09)
 
   return (
-    <div className="flex shrink-0 items-center gap-5 sm:w-[212px] sm:flex-col sm:items-stretch sm:gap-4">
-      <svg
-        aria-hidden="true"
-        className="size-[104px] shrink-0 -rotate-90 sm:mx-auto sm:size-[132px]"
-        viewBox="0 0 100 100"
-      >
-        {slices.map((slice, i) => {
-          const len = total > 0 ? (slice.value / total) * C : 0
-          const dash = `${len} ${C - len}`
-          const node = (
+    <div className="shrink-0 sm:w-[268px]">
+      <svg className="w-full" viewBox="0 0 240 240">
+        <g transform={`rotate(-90 ${CX} ${CY})`}>
+          {arcs.map((arc) => (
             <circle
-              cx="50"
-              cy="50"
+              cx={CX}
+              cy={CY}
               fill="none"
-              key={slice.asset}
+              key={arc.asset}
               r={R}
-              stroke={sliceColor(i, slices.length)}
-              strokeDasharray={dash}
-              strokeDashoffset={-offset}
-              // 细缝把相邻两块分开，不靠描边——描边在深色纸上会变成一圈亮线
-              strokeWidth={i === 0 ? 15 : 14}
+              stroke={arc.asset === '其他' ? 'var(--rule)' : sliceInk(arc.i)}
+              strokeDasharray={`${arc.len} ${C - arc.len}`}
+              strokeDashoffset={arc.offset}
+              strokeWidth={BAND}
             />
-          )
-          offset += len
-          return node
-        })}
+          ))}
+        </g>
+
+        {arcs.filter((arc) => arc.frac >= 0.09).map((arc) => (
+          <g key={arc.asset}>
+            {/* 代码和百分比同一个字色，层级只靠字号——底色从最深那档到最浅那档
+                跨度不小，再给代码调淡的话，压在深色块上的那几个就读不清了 */}
+            <text
+              className="fill-[var(--ink)] text-[9.5px]"
+              textAnchor="middle"
+              x={arc.lx}
+              y={arc.ly - 4}
+            >
+              {arc.asset}
+            </text>
+            <text
+              className="tnum fill-[var(--ink)] text-[14px] font-medium"
+              textAnchor="middle"
+              x={arc.lx}
+              y={arc.ly + 12}
+            >
+              {(arc.frac * 100).toFixed(1)}%
+            </text>
+          </g>
+        ))}
+
+        <text className="fill-[var(--ink-3)] text-[9.5px]" textAnchor="middle" x={CX} y={CY - 7}>
+          多头合计
+        </text>
+        <text className="tnum fill-[var(--ink)] text-[16px]" textAnchor="middle" x={CX} y={CY + 13}>
+          {money(total)}
+        </text>
       </svg>
 
-      <div className="min-w-0 flex-1">
-        {/* 这个合计和模块抬头那个「净敞口」不是同一个数：那个含空头（是负的），
-            这里只有多头。不写出来的话，会以为饼是照着抬头那个数分的。 */}
-        <div className="mb-2 flex items-baseline justify-between gap-3 border-b border-rule pb-1.5">
-          <span className="text-micro text-ink-3">多头合计</span>
-          <span className="tnum text-xs text-ink-2">{money(total)}</span>
-        </div>
-        <ul className="space-y-1.5">
-        {slices.map((slice, i) => (
-          <li className="flex items-baseline gap-2" key={slice.asset}>
-            <span
-              className="size-2 shrink-0 translate-y-px rounded-[2px]"
-              style={{ background: sliceColor(i, slices.length) }}
-            />
-            <span className="min-w-0 flex-1 truncate text-xs text-ink-2">{slice.asset}</span>
-            <span className="tnum shrink-0 text-xs text-ink-3">
-              {percent(total > 0 ? slice.value / total : null, 1)}
-            </span>
-          </li>
-        ))}
+      {tiny.length > 0 && (
+        <ul className="mt-1 space-y-1 border-t border-rule pt-2">
+          {tiny.map((arc) => (
+            <li className="flex items-baseline justify-between gap-3" key={arc.asset}>
+              <span className="flex items-center gap-2 text-xs text-ink-3">
+                <span
+                  className="size-2 shrink-0 rounded-[2px]"
+                  style={{ background: arc.asset === '其他' ? 'var(--rule)' : sliceInk(arc.i) }}
+                />
+                {arc.asset}
+              </span>
+              <span className="tnum text-xs text-ink-3">{percent(arc.frac, 1)}</span>
+            </li>
+          ))}
         </ul>
-      </div>
+      )}
     </div>
   )
 }
