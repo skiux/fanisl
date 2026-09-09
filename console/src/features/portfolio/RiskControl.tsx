@@ -152,7 +152,7 @@ export function RiskControlView({ snapshot, veiled }: {
             <Donut
               focus={focus}
               onHover={setHover}
-              onPin={(asset) => setPinned((now) => (now === asset ? null : asset))}
+              onPin={(asset) => setPinned((now) => (asset === null || now === asset ? null : asset))}
               slices={slices}
               total={longTotal}
             />
@@ -427,6 +427,8 @@ const LEAD_2 = 20
 
 type Placed = {
   asset: string; value: number; frac: number; rank: number
+  /** 这一块在整圈里的起止位置，0 = 12 点、顺时针到 1。命中测试用 */
+  t0: number; t1: number
   /** 弧中点的方向（弧度，SVG 坐标系） */
   rad: number
   inside: boolean
@@ -444,6 +446,7 @@ function layout(slices: Slice[], total: number): Placed[] {
   let cum = 0
   const placed: Placed[] = slices.map((slice, rank) => {
     const frac = total > 0 ? slice.value / total : 0
+    const t0 = cum
     // recharts 从 12 点起顺时针走：中点角 = 90 − 360×(累计 + 一半)
     const midDeg = 90 - 360 * (cum + frac / 2)
     cum += frac
@@ -452,7 +455,7 @@ function layout(slices: Slice[], total: number): Placed[] {
     const sin = Math.sin(rad)
     const side: 1 | -1 = cos >= 0 ? 1 : -1
     return {
-      ...slice, frac, rank, rad,
+      ...slice, frac, rank, rad, t0, t1: cum,
       inside: frac >= INSIDE_MIN,
       // 标签跟着弧走，**不钉到画布边**。钉到边（ECharts 的 alignTo: 'edge'）在
       // 块多的时候整齐，可这里常常只有一两个小块——一条横穿半张图的引导线牵到
@@ -526,10 +529,16 @@ function Mark({ asset, x, y, r }: { asset: string; x: number; y: number; r: numb
  *   再没有下文——静止状态下有信息是缺的。现在**每一块都有标签**：大块写在环带里
  *   （图标 + 代码 + 占比 + 金额），小块走外侧标签配引导线，同一侧还会互相推开；
  *   折进「其他」的那几个在图底下逐个列出来。
- * - **不用 `activeShape`。** 它换的是元素，元素一换就有两个后果：CSS 过渡从头开始，
- *   以及 recharts 已知的 hover 抖动（快速进出时 mouseleave 不触发、
- *   或者进/出反复触发）——上一版"鼠标悬浮各种闪烁"就是这么来的。
- *   现在扇区元素始终稳定，高亮只改 class。
+ * - **不用 `activeShape`。** 它换的是元素，元素一换 CSS 过渡就从头开始。
+ * - **不用逐块的 DOM 事件（`onMouseEnter` / `onMouseLeave`），改成几何命中测试。**
+ *   这是"鼠标转圈就闪烁"的根治办法。用逐块事件时，从 A 划到 B 的顺序是
+ *   **先 A 的 leave、再 B 的 enter**，中间那一帧 focus 是空的——整圈亮回来又立刻
+ *   暗回去；而块之间还有 `paddingAngle` 的缝，扫过缝时确实谁都没命中，
+ *   于是转一圈闪一路。同一个毛病 Highcharts 报过（#9501），
+ *   而 Chart.js / ECharts 这类画布库天生没有：它们根本没有逐块的 DOM 元素，
+ *   只在整块画布的 `mousemove` 上做几何判断。
+ *   这里照搬那个做法——一层盖住整张图的透明层，按**极角**算指针落在哪一块。
+ *   A→B 是一次状态切换，中间不经过空值；缝也不再是洞。
  * - **recharts 会给画布挂 `tabindex`，点一下浏览器就画一个蓝框。** 它并不能用键盘
  *   操作，那个框是纯粹的误导；键盘走右边那张表（每行是真按钮）。
  *   蓝框在 index.css 里按 `.recharts-wrapper` 去掉。
@@ -539,10 +548,31 @@ function Donut({ slices, total, focus, onHover, onPin }: {
   total: number
   focus: string | null
   onHover: (asset: string | null) => void
-  onPin: (asset: string) => void
+  /** `null` = 点在空白处，取消钉住 */
+  onPin: (asset: string | null) => void
 }) {
   const placed = useMemo(() => layout(slices, total), [slices, total])
   const shown = placed.find((slice) => slice.asset === focus) ?? null
+  const [over, setOver] = useState(false)
+
+  /**
+   * 指针落在哪一块。**几何判断，不靠 DOM 事件**——理由见上面的组件注释。
+   *
+   * 环从 12 点起顺时针铺，所以先把屏幕极角换成"从 12 点起转过了整圈的几分之几"
+   * （屏幕坐标 y 朝下，`atan2` 在 12 点处是 −π/2，加回来正好从 0 起算），
+   * 再拿它比每一块的起止。半径上给一点富余，指针在边缘抖一下不至于掉出去。
+   */
+  const hitTest = (event: { clientX: number; clientY: number; currentTarget: HTMLElement }) => {
+    const box = event.currentTarget.getBoundingClientRect()
+    if (box.width <= 0) return null
+    const k = BOX_W / box.width
+    const dx = (event.clientX - box.left) * k - CX
+    const dy = (event.clientY - box.top) * k - CY
+    const r = Math.hypot(dx, dy)
+    if (r < R_IN - 4 || r > R_OUT + 8) return null
+    const t = ((Math.atan2(dy, dx) + Math.PI / 2) / (2 * Math.PI) + 1) % 1
+    return placed.find((slice) => t >= slice.t0 && t < slice.t1)?.asset ?? null
+  }
 
   return (
     <div className="min-w-0 shrink-0 lg:w-[540px]">
@@ -562,9 +592,6 @@ function Donut({ slices, total, focus, onHover, onPin }: {
               label={(props: SliceLabel) => renderLabel(props, placed, focus)}
               labelLine={false}
               nameKey="asset"
-              onClick={(_, index: number) => onPin(slices[index].asset)}
-              onMouseEnter={(_, index: number) => onHover(slices[index].asset)}
-              onMouseLeave={() => onHover(null)}
               outerRadius={R_OUT}
               paddingAngle={0.8}
               startAngle={90}
@@ -584,12 +611,30 @@ function Donut({ slices, total, focus, onHover, onPin }: {
           </PieChart>
         </ResponsiveContainer>
 
+        {/*
+          命中层：盖住整张图，按极角算指针落在哪一块。**所有指针交互都走这里**，
+          扇区自己 `pointer-events: none`（见 index.css）。
+          点空白处 = 取消钉住，比"再点一次同一块"更顺手。
+        */}
+        <div
+          className="absolute inset-0"
+          onClick={(event) => onPin(hitTest(event))}
+          onPointerLeave={() => { setOver(false); onHover(null) }}
+          onPointerMove={(event) => {
+            const asset = hitTest(event)
+            setOver(asset !== null)
+            onHover(asset)
+          }}
+          style={{ cursor: over ? 'pointer' : 'default' }}
+        />
+
         {/* 圈心。SVG 里排文字要自己算基线，用一层绝对定位的 div 省事，
-            也顺带拿到和别处一样的字体度量。`key` 变了就重放一次淡入。 */}
+            也顺带拿到和别处一样的字体度量。 */}
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
+          {/* **不靠 `key` 重挂载做淡入。** 转圈划过时那会每换一块重放一次淡入，
+              本身就是一种闪。内容直接换，动的只有环上的明暗。 */}
           <div
-            className="hub-swap flex flex-col items-center gap-0.5"
-            key={shown?.asset ?? '__total__'}
+            className="flex flex-col items-center gap-0.5"
             // 圈心的方框对齐环的中心；`aspect` 让容器高度跟着宽度走，
             // 中心点因此永远在 CY/BOX_H 处
             style={{ transform: `translateY(${((CY - BOX_H / 2) / BOX_H * 100).toFixed(2)}%)` }}

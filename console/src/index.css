@@ -61,9 +61,12 @@
    （字面量 translate 也算成单位矩阵）——所以"往外推"那种效果这里做不出来、
    也验不了，改用能确实过渡的 opacity。扇区变大那一下由 recharts 的 activeShape 做，
    它换元素、补不了间，两者叠起来仍然读得连贯。 */
+/* 扇区自己**不收指针事件**：所有 hover / click 都走盖在上面那层命中层
+   （按极角判断落在哪一块）。逐块的 DOM 事件在块与块之间会先 leave 再 enter，
+   中间空一帧；`paddingAngle` 的缝更是实打实的洞——转一圈就闪一路。 */
 .pie-slice {
-  cursor: pointer;
-  transition: opacity 220ms ease;
+  pointer-events: none;
+  transition: opacity 170ms ease;
 }
 .pie-dim { opacity: 0.2; }
 
@@ -75,13 +78,9 @@
 .recharts-surface:focus,
 .recharts-sector:focus { outline: none; }
 
-.pie-label { transition: opacity 200ms ease; }
+.pie-label { pointer-events: none; transition: opacity 170ms ease; }
 
-/* 圈心换内容时淡入。同样只写 `from`：动画跑不起来就是直接换，不会留下空白 */
-@keyframes hub-swap {
-  from { opacity: 0; transform: translateY(3px); }
-}
-.hub-swap { animation: hub-swap 180ms ease-out; }
+
 
 /* 饼图的色阶。**顺序色阶**：越大的块墨越重，色相同时从靛蓝挪向青蓝——
    明度与色相一起动，相邻两块比纯调明度分得开。
