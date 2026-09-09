@@ -66,6 +66,52 @@ function riskAssets(snapshot: PortfolioSnapshot): number {
     + sum(snapshot.margin?.assets ?? []) + sum(snapshot.futures?.assets ?? [])
 }
 
+/**
+ * 把仓位**整体缩放到指定的真实杠杆**（名义敞口 / 保证金余额），用来回答
+ * "如果我把仓位开到 2 倍，再跌 30% 会怎样"。
+ *
+ * 口径：**按现价重新建仓**——新仓位的开仓价就是当前标记价，所以未实现从 0 起算。
+ * 不是"把现有仓位乘个系数"：那样会把已有的浮盈浮亏一并放大，而那笔盈亏是过去
+ * 的价格走出来的，跟"我现在要开多大"没有关系，放大它只会让结果偏乐观或偏悲观。
+ *
+ * 维持保证金与起始保证金按名义等比缩放（两者都是 名义 × 比率）。
+ */
+export function resize(snapshot: PortfolioSnapshot, leverage: number): PortfolioSnapshot {
+  const f = snapshot.futures
+  if (!f || f.positions.length === 0 || f.total_margin_balance <= 0) return snapshot
+  const notional = f.positions.reduce((sum, p) => sum + p.notional_usd, 0)
+  if (notional <= 0) return snapshot
+  // 平掉旧仓等于把当前的未实现结算进钱包，所以新的钱包余额就是现在的**保证金余额**。
+  // 分母用它而不是 walletBalance，也正好和「合约」页上那个真实杠杆同一个口径。
+  const wallet = f.total_margin_balance
+  const scale = (leverage * wallet) / notional
+  return {
+    ...snapshot,
+    futures: {
+      ...f,
+      total_wallet_balance: wallet,
+      total_margin_balance: wallet,
+      total_initial_margin: f.total_initial_margin * scale,
+      total_maint_margin: f.total_maint_margin * scale,
+      total_unrealized_pnl: 0,
+      positions: f.positions.map((p) => ({
+        ...p,
+        position_amt: p.position_amt * scale,
+        notional_usd: p.notional_usd * scale,
+        // 按现价重建：开仓价 = 标记价，未实现归零
+        entry_price: p.mark_price,
+        unrealized_pnl_usd: 0,
+        initial_margin_usd: p.initial_margin_usd * scale,
+        maint_margin_usd: p.maint_margin_usd * scale,
+        // 强平价是交易所按旧仓位算的，缩放之后不再成立——**置空而不是照搬**。
+        // 全仓的判据本来就是账户保证金率，逐仓的那几个宁可不报。
+        liquidation_price: null,
+        liq_distance: null,
+      })),
+    },
+  }
+}
+
 export function shock(snapshot: PortfolioSnapshot, drop: number): Shock {
   const f = snapshot.futures
   const rows = legs(snapshot)

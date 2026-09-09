@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
-import { Cell, Pie, PieChart, ResponsiveContainer, Sector } from 'recharts'
+import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { cn } from '../../lib/cn'
 import { Figure, Module, Stack, ViewGrid } from '../../components/layout'
 import { SegmentedControl } from '../../components/controls'
-import { Ticker } from '../../components/Ticker'
+import { Ticker, tickerHue } from '../../components/Ticker'
+import { ICONS } from '../../components/icons'
 import {
   DUST_THRESHOLD_USD, money, moneyCompact, percent, signedMoney, signedPercent,
 } from '../../lib/format'
 import { cash, exposures } from '../../lib/holdings'
-import { breakingDrop, shock } from '../../lib/stress'
+import { breakingDrop, resize, shock } from '../../lib/stress'
 import { marginRatioRisk, riskBar, riskText } from '../../lib/risk'
 import type { PortfolioSnapshot } from '../../api/types'
 
@@ -25,6 +26,16 @@ const sliceInk = (rank: number, asset: string) =>
 
 const DROPS = { '10': 0.1, '20': 0.2, '30': 0.3, '50': 0.5 } as const
 const LEVERAGES = { '1': 1, '2': 2, '3': 3, '5': 5, '10': 10 } as const
+
+/**
+ * 压力测试用的仓位规模。`now` = 现在这套仓位；其余是"**如果把仓位开到 N 倍
+ * 真实杠杆**"——按现价重新建仓（见 `stress.resize`），再往下跌。
+ *
+ * 有这一档是因为"现在安全"回答不了"我打算加到 2 倍，那时候还安不安全"，
+ * 而后者才是要在加仓**之前**知道的。
+ */
+const SIZES = { now: null, '1': 1, '1.5': 1.5, '2': 2 } as const
+type SizeKey = keyof typeof SIZES
 
 /**
  * 风险控制。原先这些东西散在两处：总览的「风险仪表」是三个此刻的读数，
@@ -70,7 +81,13 @@ export function RiskControlView({ snapshot, veiled }: {
   const asMargin = sumWhere((where) => where === '合约保证金')
   const cashTotal = cashRows.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
 
-  const hit = useMemo(() => shock(snapshot, DROPS[drop]), [snapshot, drop])
+  const [size, setSize] = useState<SizeKey>('now')
+  // 先把仓位调到设定的规模，再施加下跌。两步分开，`resize` 与 `shock` 各自可测
+  const staged = useMemo(() => {
+    const target = SIZES[size]
+    return target === null ? snapshot : resize(snapshot, target)
+  }, [snapshot, size])
+  const hit = useMemo(() => shock(staged, DROPS[drop]), [staged, drop])
   const edge = useMemo(() => breakingDrop(snapshot), [snapshot])
   const edgeWithCash = useMemo(() => breakingDrop(snapshot, spare), [snapshot, spare])
 
@@ -91,7 +108,10 @@ export function RiskControlView({ snapshot, veiled }: {
     .filter((row) => longTotal > 0 && row.value / longTotal >= 0.01)
     .slice(0, PIE_SLICES)
   const slices = [...shown]
-  const rest = longTotal - shown.reduce((sum, row) => sum + row.value, 0)
+  // 折进「其他」的那几个：块上写不下，但**要在图底下逐个列出来**。
+  // 只给一行"其他 0.4%"等于把它们藏了——图不该靠 hover 才说得全。
+  const folded = longs.filter((row) => !shown.includes(row))
+  const rest = folded.reduce((sum, row) => sum + row.value, 0)
   if (rest > longTotal * 0.001) slices.push({ asset: '其他', value: rest })
 
   const netExposure = rows.reduce((sum, row) => sum + row.net_usd, 0)
@@ -121,46 +141,18 @@ export function RiskControlView({ snapshot, veiled }: {
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
         <Module
-          figure={edge === null ? '—' : percent(edge, 1)}
-          note="一起跌到这里开始强平"
-          span="lg:col-span-4"
-          title="临界跌幅"
-          tone={edge === null ? 'muted' : edge < 0.15 ? 'loss' : undefined}
-        >
-          {edge === null ? (
-            <p className="text-sm text-ink-3">当前的仓位组合不会因为普跌而强平。</p>
-          ) : (
-            <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-              <Figure label="现在" value={percent(edge, 1)} />
-              <Figure
-                label="补上现货现金后"
-                note={spare > 0 ? money(spare) : undefined}
-                value={edgeWithCash === null ? '不会强平' : percent(edgeWithCash, 1)}
-              />
-              <Figure
-                label="维持保证金"
-                value={snapshot.futures === null ? '—' : money(snapshot.futures.total_maint_margin)}
-              />
-              <Figure
-                label="保证金余额"
-                value={snapshot.futures === null ? '—' : money(snapshot.futures.total_margin_balance)}
-              />
-            </dl>
-          )}
-        </Module>
-
-        <Module
           figure={signedMoney(netExposure)}
           note={`净敞口 · ${rows.length} 个标的`}
-          span="lg:col-span-8"
+          span="lg:col-span-12"
           title="敞口分布"
         >
           {rows.length === 0 ? (
             <p className="py-10 text-center text-sm text-ink-3">当前没有敞口。</p>
           ) : (
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
             <Donut
               focus={focus}
+              folded={folded}
               onHover={setHover}
               onPin={(asset) => setPinned((now) => (now === asset ? null : asset))}
               slices={slices}
@@ -232,20 +224,36 @@ export function RiskControlView({ snapshot, veiled }: {
 
         <Module
           figure={hit.equity_usd === null ? '—' : money(hit.equity_usd)}
-          note={`跌 ${drop}% 之后的净值`}
+          note={size === 'now' ? `跌 ${drop}% 之后的净值` : `仓位 ${size}× · 跌 ${drop}% 之后的净值`}
           span="lg:col-span-8"
           title="压力测试"
           tone={hit.liquidated.length > 0 ? 'loss' : undefined}
         >
-          <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2">
-            <SegmentedControl
-              items={(Object.keys(DROPS) as (keyof typeof DROPS)[])
-                .map((k) => ({ value: k, label: `跌 ${k}%` }))}
-              label="下跌幅度"
-              onValueChange={setDrop}
-              size="sm"
-              value={drop}
-            />
+          <div className="mb-5 flex flex-col gap-2.5">
+            <div className="flex items-center gap-3">
+              <span className="w-[40px] shrink-0 text-xs text-ink-2">仓位</span>
+              <SegmentedControl
+                items={[
+                  { value: 'now' as SizeKey, label: '现在' },
+                  ...(['1', '1.5', '2'] as SizeKey[]).map((k) => ({ value: k, label: `${k}×` })),
+                ]}
+                label="仓位规模"
+                onValueChange={setSize}
+                size="sm"
+                value={size}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="w-[40px] shrink-0 text-xs text-ink-2">下跌</span>
+              <SegmentedControl
+                items={(Object.keys(DROPS) as (keyof typeof DROPS)[])
+                  .map((k) => ({ value: k, label: `${k}%` }))}
+                label="下跌幅度"
+                onValueChange={setDrop}
+                size="sm"
+                value={drop}
+              />
+            </div>
           </div>
 
           <dl className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
@@ -305,6 +313,35 @@ export function RiskControlView({ snapshot, veiled }: {
         </Module>
 
         <Stack span="lg:col-span-4">
+          <Module
+            figure={edge === null ? '—' : percent(edge, 1)}
+            note="一起跌到这里开始强平"
+            span=""
+            title="临界跌幅"
+            tone={edge === null ? 'muted' : edge < 0.15 ? 'loss' : undefined}
+          >
+            {edge === null ? (
+              <p className="text-sm text-ink-3">当前的仓位组合不会因为普跌而强平。</p>
+            ) : (
+              <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
+                <Figure label="现在" value={percent(edge, 1)} />
+                <Figure
+                  label="补上现货现金后"
+                  note={spare > 0 ? money(spare) : undefined}
+                  value={edgeWithCash === null ? '不会强平' : percent(edgeWithCash, 1)}
+                />
+                <Figure
+                  label="维持保证金"
+                  value={snapshot.futures === null ? '—' : money(snapshot.futures.total_maint_margin)}
+                />
+                <Figure
+                  label="保证金余额"
+                  value={snapshot.futures === null ? '—' : money(snapshot.futures.total_margin_balance)}
+                />
+              </dl>
+            )}
+          </Module>
+
           <Module
             figure={`${multiplier}×`}
             note="以这个杠杆还能开多少"
@@ -372,81 +409,170 @@ export function RiskControlView({ snapshot, veiled }: {
 
 type Slice = { asset: string; value: number }
 
+/* --- 几何。一处定义，标签、引导线、命中层都读它 ------------------------- */
+// 环画得尽量大：外侧标签只有小块才用得上，为它们留的边距不该常年空着。
+// 85px 够写一行「其他 / 0.4% · $128」，再宽就是白占地方。
+const BOX_W = 540
+const BOX_H = 420
+const CX = 270
+const CY = 208
+const R_OUT = 185
+const R_IN = 104
+/** 环带中线：块里的标签落在这条线上 */
+const R_MID = (R_OUT + R_IN) / 2
+/** 占比到这个数才写得进块里；再小就走外侧标签 + 引导线 */
+const INSIDE_MIN = 0.08
+/** 外侧标签之间的最小垂直间距，靠得太近就互相推开 */
+const LABEL_GAP = 30
+
+type Placed = {
+  asset: string; value: number; frac: number; rank: number
+  /** 弧中点的方向（弧度，SVG 坐标系） */
+  rad: number
+  inside: boolean
+  /** 外侧标签的落点 */
+  lx: number; ly: number; side: 1 | -1
+}
+
+/**
+ * 排版：算出每块的角度、决定标签在里还是在外，再把外侧标签上下推开。
+ *
+ * **推开这一步不能省。** 小块的弧中点常常挨得很近（0.2% 与 0.1% 差不到一度），
+ * 标签直接叠在一起，等于没写。同一侧的按 y 排序，不足 `LABEL_GAP` 就往外挤。
+ */
+function layout(slices: Slice[], total: number): Placed[] {
+  let cum = 0
+  const placed: Placed[] = slices.map((slice, rank) => {
+    const frac = total > 0 ? slice.value / total : 0
+    // recharts 从 12 点起顺时针走：中点角 = 90 − 360×(累计 + 一半)
+    const midDeg = 90 - 360 * (cum + frac / 2)
+    cum += frac
+    const rad = -(midDeg * Math.PI) / 180
+    const side: 1 | -1 = Math.cos(rad) >= 0 ? 1 : -1
+    return {
+      ...slice, frac, rank, rad,
+      inside: frac >= INSIDE_MIN,
+      lx: CX + side * (R_OUT + 30),
+      // 夹在画布里留一点余量：贴着上下边缘的标签读着像掉出去了
+      ly: Math.min(BOX_H - 26, Math.max(26, CY + Math.sin(rad) * (R_OUT + 18))),
+      side,
+    }
+  })
+
+  for (const side of [1, -1] as const) {
+    const col = placed.filter((it) => !it.inside && it.side === side)
+      .sort((a, b) => a.ly - b.ly)
+    for (let i = 1; i < col.length; i += 1) {
+      const gap = col[i].ly - col[i - 1].ly
+      if (gap < LABEL_GAP) col[i].ly = col[i - 1].ly + LABEL_GAP
+    }
+    // 挤出画布就整列往回顶
+    const over = (col.at(-1)?.ly ?? 0) - (BOX_H - 26)
+    if (over > 0) for (const it of col) it.ly -= over
+  }
+  return placed
+}
+
+/** 标的图标，SVG 版。没有图标的画成带色的字母圆片，和 `Ticker` 同一套色相 */
+function Mark({ asset, x, y, r }: { asset: string; x: number; y: number; r: number }) {
+  const file = ICONS[asset]
+  const id = `mk-${asset.replace(/[^A-Za-z0-9]/g, '')}`
+  if (!file) {
+    return (
+      <g>
+        <circle cx={x} cy={y} fill={`oklch(0.90 0.05 ${tickerHue(asset)})`} r={r} />
+        <text
+          fill={`oklch(0.42 0.10 ${tickerHue(asset)})`}
+          fontSize={r * 0.82}
+          textAnchor="middle"
+          x={x}
+          y={y + r * 0.3}
+        >
+          {asset.slice(0, 3)}
+        </text>
+      </g>
+    )
+  }
+  return (
+    <g>
+      <clipPath id={id}>
+        <circle cx={x} cy={y} r={r} />
+      </clipPath>
+      <image
+        clipPath={`url(#${id})`}
+        height={r * 2}
+        href={`${import.meta.env.BASE_URL}icons/${file}`}
+        width={r * 2}
+        x={x - r}
+        y={y - r}
+      />
+    </g>
+  )
+}
+
 /**
  * 多头敞口的构成。**只画正数**：空头是负的，饼画不了负数——那正是横条还留着的
  * 理由，两者回答的不是同一个问题（饼：钱压在哪几个东西上；横条：价格动一下
  * 账户净暴露多少，空头会抵掉现货）。
  *
- * 交互是这张图的一半，上一版几乎没有——只有 recharts 自带的"换个更大的扇区"
- * （元素被替换，所以是硬跳，没有过渡）加一个浮动提示框。这一版：
+ * 重做过三轮，前两轮的错都记在这里免得再犯：
  *
- * - **圈心跟着走。** 指到哪块，中间就换成那块的代码 / 金额 / 占比；移开回到合计。
- *   甜甜圈本来就有这个洞，用它比在旁边浮一个框好——视线不用离开图。
- *   有了它就不再需要 recharts 的 `Tooltip`，删了。
- * - **其余压暗，高亮那块往外推。** 两样都靠 CSS 过渡，所以**不能用 `activeShape`**：
- *   那个 prop 会把扇区换成另一个元素，元素一换就没有过渡可言。改成给每个 `Cell`
- *   一个稳定的 class 与 style，只改 `fill-opacity` 和 `transform`，浏览器自己补间。
- * - **和右边那张表双向联动**（见调用处）：指表里一行，饼上对应的块亮起来，反之亦然。
- * - **点一下钉住**。触屏没有 hover，不给点的话这张图在手机上等于静态图；
- *   桌面上也常要"挪开鼠标继续读"。再点一下取消。
+ * - **图不该靠 hover 才说得全。** 上一版只给四块写了标签，小块折进「其他」就
+ *   再没有下文——静止状态下有信息是缺的。现在**每一块都有标签**：大块写在环带里
+ *   （图标 + 代码 + 占比 + 金额），小块走外侧标签配引导线，同一侧还会互相推开；
+ *   折进「其他」的那几个在图底下逐个列出来。
+ * - **不用 `activeShape`。** 它换的是元素，元素一换就有两个后果：CSS 过渡从头开始，
+ *   以及 recharts 已知的 hover 抖动（快速进出时 mouseleave 不触发、
+ *   或者进/出反复触发）——上一版"鼠标悬浮各种闪烁"就是这么来的。
+ *   现在扇区元素始终稳定，高亮只改 class。
+ * - **recharts 会给画布挂 `tabindex`，点一下浏览器就画一个蓝框。** 它并不能用键盘
+ *   操作，那个框是纯粹的误导；键盘走右边那张表（每行是真按钮）。
+ *   蓝框在 index.css 里按 `.recharts-wrapper` 去掉。
  */
-function Donut({ slices, total, focus, onHover, onPin }: {
+function Donut({ slices, folded, total, focus, onHover, onPin }: {
   slices: Slice[]
+  folded: { asset: string; value: number }[]
   total: number
   focus: string | null
   onHover: (asset: string | null) => void
   onPin: (asset: string) => void
 }) {
-  // 占比在这里算一次：圈心、下面那份小块清单、以及"写不写得进块里"都要用它
-  const geo = useMemo(
-    () => slices.map((slice) => ({ ...slice, frac: total > 0 ? slice.value / total : 0 })),
-    [slices, total])
-
-  const shown = geo.find((slice) => slice.asset === focus) ?? null
-  const at = slices.findIndex((slice) => slice.asset === focus)
-  const focusIndex = at < 0 ? undefined : at
+  const placed = useMemo(() => layout(slices, total), [slices, total])
+  const shown = placed.find((slice) => slice.asset === focus) ?? null
 
   return (
-    <div className="shrink-0 sm:w-[276px]">
-      <div className="pie-in relative h-[248px]">
-        <ResponsiveContainer height="100%" width="100%">
-          <PieChart>
+    <div className="min-w-0 shrink-0 lg:w-[540px]">
+      <div className="pie-in relative">
+        <ResponsiveContainer aspect={BOX_W / BOX_H} width="100%">
+          <PieChart margin={{ bottom: 0, left: 0, right: 0, top: 0 }}>
             <Pie
-              // 指中那块半径长一截。这一下是**瞬时**的：它换的是扇区的 `d`，
-              // 补不了间。真正带过渡的是下面每块的 opacity——两者叠起来，
-              // 一块变亮变大、其余淡下去，读起来是连贯的。
-              activeIndex={focusIndex}
-              activeShape={(props: SectorShape) => (
-                <Sector {...props} outerRadius={(props.outerRadius ?? 0) + 8} />
-              )}
+              cx={CX}
+              cy={CY}
               data={slices}
               dataKey="value"
               endAngle={-270}
-              innerRadius={64}
-              // recharts 自己的入场动画走 rAF，页面不可见时不发，扇区会停在 0 度
-              // ——**整张图一块都不画**。入场交给 CSS（`.pie-in`），见 index.css。
+              innerRadius={R_IN}
+              // 入场动画走 rAF，页面不可见时不发，扇区会停在 0 度——**整张图都不画**。
+              // 入场交给 CSS（`.pie-in`），见 index.css。
               isAnimationActive={false}
-              label={(props: SliceLabel) => renderLabel(props, total, focus)}
+              label={(props: SliceLabel) => renderLabel(props, placed, focus)}
               labelLine={false}
               nameKey="asset"
               onClick={(_, index: number) => onPin(slices[index].asset)}
               onMouseEnter={(_, index: number) => onHover(slices[index].asset)}
               onMouseLeave={() => onHover(null)}
-              outerRadius={112}
-              paddingAngle={1.2}
+              outerRadius={R_OUT}
+              paddingAngle={0.8}
               startAngle={90}
               stroke="none"
             >
-              {geo.map((slice, i) => (
+              {placed.map((slice) => (
                 <Cell
-                  // **压暗只能走 class。** `Cell` 上的 `style` 与 `opacity` 都被
-                  // recharts 的 `filterProps` 过掉了，一个字节也到不了 path；
-                  // 而 `fill-opacity` 在这个渲染环境里设了不生效（连内联的都算成 1）。
-                  // 逐一试过之后，`className` + CSS 的 `opacity` 是唯一既能改、
-                  // 又能过渡的那条路。
+                  // 压暗只能走 class：`Cell` 上的 `style` 与 `opacity` 都会被
+                  // recharts 的 `filterProps` 过掉，一个字节到不了 path。
                   className={cn('pie-slice',
                     focus !== null && focus !== slice.asset && 'pie-dim')}
-                  fill={sliceInk(i, slice.asset)}
+                  fill={sliceInk(slice.rank, slice.asset)}
                   key={slice.asset}
                 />
               ))}
@@ -455,50 +581,47 @@ function Donut({ slices, total, focus, onHover, onPin }: {
         </ResponsiveContainer>
 
         {/* 圈心。SVG 里排文字要自己算基线，用一层绝对定位的 div 省事，
-            也顺带拿到和别处一样的字体度量。`key` 变了就重放一次淡入，
-            换内容时不至于"啪"地跳一下。 */}
+            也顺带拿到和别处一样的字体度量。`key` 变了就重放一次淡入。 */}
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
-          <div className="hub-swap text-center" key={shown?.asset ?? '__total__'}>
+          <div
+            className="hub-swap flex flex-col items-center gap-0.5"
+            key={shown?.asset ?? '__total__'}
+            // 圈心的方框对齐环的中心；`aspect` 让容器高度跟着宽度走，
+            // 中心点因此永远在 CY/BOX_H 处
+            style={{ transform: `translateY(${((CY - BOX_H / 2) / BOX_H * 100).toFixed(2)}%)` }}
+          >
             {shown === null ? (
-              <span className="tnum text-base text-ink">{money(total)}</span>
+              <span className="tnum text-lg text-ink">{money(total)}</span>
             ) : (
               <>
-                <div className="text-xs text-ink-2">{shown.asset}</div>
-                <div className="tnum text-base text-ink">{money(shown.value)}</div>
-                <div className="tnum text-xs text-ink-3">{percent(shown.frac, 1)}</div>
+                <Ticker asset={shown.asset} />
+                <span className="tnum text-lg text-ink">{money(shown.value)}</span>
+                <span className="tnum text-xs text-ink-3">{percent(shown.frac, 1)}</span>
               </>
             )}
           </div>
         </div>
       </div>
 
-      {geo.filter((slice) => slice.frac < 0.06).length > 0 && (
-        <ul className="mt-1 space-y-1 border-t border-rule pt-2">
-          {geo.filter((slice) => slice.frac < 0.06).map((slice) => (
-            <li key={slice.asset}>
-              <button
-                className={cn('flex w-full items-baseline justify-between gap-3 rounded-[3px]',
-                  'px-1 py-0.5 outline-none transition-colors duration-200 hover:bg-sheet-2/70',
-                  'focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent',
-                  focus === slice.asset && 'bg-sheet-2')}
-                onBlur={() => onHover(null)}
-                onClick={() => onPin(slice.asset)}
-                onFocus={() => onHover(slice.asset)}
-                onMouseEnter={() => onHover(slice.asset)}
-                onMouseLeave={() => onHover(null)}
-                type="button"
-              >
-                <span className="flex items-center gap-2 text-xs text-ink-3">
-                  <span
-                    className="size-2 shrink-0 rounded-[2px]"
-                    style={{ background: sliceInk(geo.indexOf(slice), slice.asset) }}
-                  />
-                  {slice.asset}
-                </span>
-                <span className="tnum text-xs text-ink-3">
-                  {money(slice.value)} · {percent(slice.frac, 1)}
-                </span>
-              </button>
+      {folded.length > 0 && (
+        <ul className="mt-2 space-y-1 border-t border-rule pt-2.5">
+          {/* 这几行是上面那块「其他」的明细。图上写不下，但不能因此不说——
+              一张要靠 hover 才说得全的图是不完整的。 */}
+          <li className="flex items-baseline justify-between gap-3 pb-1">
+            <span className="text-micro text-ink-3">其他 · 逐项</span>
+            <span className="tnum text-micro text-ink-3">
+              {money(folded.reduce((sum, row) => sum + row.value, 0))}
+            </span>
+          </li>
+          {folded.map((row) => (
+            <li className="flex items-baseline justify-between gap-3" key={row.asset}>
+              <span className="flex items-center gap-2 text-xs text-ink-3">
+                <span className="size-2 shrink-0 rounded-[2px] bg-rule-strong" />
+                {row.asset}
+              </span>
+              <span className="tnum text-xs text-ink-3">
+                {money(row.value)} · {percent(total > 0 ? row.value / total : null, 1)}
+              </span>
             </li>
           ))}
         </ul>
@@ -507,50 +630,75 @@ function Donut({ slices, total, focus, onHover, onPin }: {
   )
 }
 
-/** recharts 把 Sector 的几何都标成可选，这里只用得到外半径 */
-type SectorShape = { outerRadius?: number }
-
-/** 同上：渲染时一定都有；缺任何一个就不画标签 */
-type SliceLabel = {
-  cx?: number; cy?: number; midAngle?: number
-  innerRadius?: number; outerRadius?: number
-  index?: number; value?: number; name?: string | number
-}
+/** recharts 把这些都标成可选，渲染时一定都有；缺任何一个就不画标签 */
+type SliceLabel = { index?: number }
 
 /**
- * 块里那三行：代码、占比、金额。占比是主角（字号最大），金额跟在后面——
- * 只给百分比的话"27.8% 到底是多少钱"还得回到右边的横条上去找。
- *
- * **6% 以下不写**：标签落在弧中点，两个 6% 的块中点相距约 55px，
- * 而一行 `$8,662` 就有 44px，再小就叠字。写不下的挪到图下面列一行。
+ * 一块的标签。大块写进环带里（图标 / 代码 / 占比 / 金额），小块写在外面、
+ * 配一条两段的引导线。位置全部来自 `layout()`，不用 recharts 给的角度——
+ * 外侧标签需要相互推开，那要一次性看到所有块才算得出来。
  *
  * 写不下时返回空的 `<g />` 而不是 `null`：recharts 会把返回值当元素接着处理。
  */
-function renderLabel(props: SliceLabel, total: number, focus: string | null) {
-  const { cx, cy, midAngle, innerRadius, outerRadius, value, name } = props
-  if (cx === undefined || cy === undefined || midAngle === undefined
-      || innerRadius === undefined || outerRadius === undefined || value === undefined) {
-    return <g />
+function renderLabel(props: SliceLabel, placed: Placed[], focus: string | null) {
+  const slice = props.index === undefined ? undefined : placed[props.index]
+  if (!slice || slice.frac <= 0) return <g />
+  const on = focus === null || focus === slice.asset
+  const cos = Math.cos(slice.rad)
+  const sin = Math.sin(slice.rad)
+
+  if (slice.inside) {
+    const x = CX + cos * R_MID
+    const y = CY + sin * R_MID
+    return (
+      <g className="pie-label" style={{ opacity: on ? 1 : 0.22 }}>
+        <Mark asset={slice.asset} r={12} x={x} y={y - 26} />
+        <text fill="var(--ink-2)" fontSize={11} textAnchor="middle" x={x} y={y - 4}>
+          {slice.asset}
+        </text>
+        <text className="tnum" fill="var(--ink)" fontSize={19} fontWeight={500} textAnchor="middle" x={x} y={y + 16}>
+          {(slice.frac * 100).toFixed(1)}%
+        </text>
+        <text className="tnum" fill="var(--ink-2)" fontSize={10.5} textAnchor="middle" x={x} y={y + 31}>
+          {moneyCompact(slice.value)}
+        </text>
+      </g>
+    )
   }
-  const share = total > 0 ? value / total : 0
-  if (share < 0.06) return <g />
-  const rad = -(midAngle * Math.PI) / 180
-  const r = (innerRadius + outerRadius) / 2
-  const on = focus === null || focus === name
-  const x = cx + Math.cos(rad) * r
-  const y = cy + Math.sin(rad) * r
-  // 字色不按名次换：色阶整条都压在离 --ink 足够远的一段里（浅色全偏亮、
-  // 深色全偏暗），一个 --ink 在两套主题、六个档位上都够对比
+
+  // 外侧：弧边 → 拐点 → 横向一小段，标签贴在末端
+  const ax = CX + cos * (R_OUT + 2)
+  const ay = CY + sin * (R_OUT + 2)
+  const bx = CX + cos * (R_OUT + 16)
+  const by = slice.ly
+  const tx = slice.lx
   return (
-    <g className="pie-label" style={{ opacity: on ? 1 : 0.25 }}>
-      <text fill="var(--ink)" fontSize={9.5} opacity={0.85} textAnchor="middle" x={x} y={y - 13}>
-        {name}
+    <g className="pie-label" style={{ opacity: on ? 1 : 0.22 }}>
+      <polyline
+        fill="none"
+        points={`${ax},${ay} ${bx},${by} ${tx - slice.side * 20},${by}`}
+        stroke="var(--rule-strong)"
+        strokeWidth={1}
+      />
+      <Mark asset={slice.asset} r={7} x={tx - slice.side * 10} y={by} />
+      <text
+        fill="var(--ink-2)"
+        fontSize={10}
+        textAnchor={slice.side === 1 ? 'start' : 'end'}
+        x={tx + slice.side * 2}
+        y={by - 3}
+      >
+        {slice.asset}
       </text>
-      <text className="tnum" fill="var(--ink)" fontSize={15} fontWeight={500} textAnchor="middle" x={x} y={y + 4}>
-        {(share * 100).toFixed(1)}%
-      </text>
-      <text className="tnum" fill="var(--ink)" fontSize={9.5} opacity={0.85} textAnchor="middle" x={x} y={y + 18}>
-        {moneyCompact(value)}
+      <text
+        className="tnum"
+        fill="var(--ink-3)"
+        fontSize={9.5}
+        textAnchor={slice.side === 1 ? 'start' : 'end'}
+        x={tx + slice.side * 2}
+        y={by + 9}
+      >
+        {(slice.frac * 100).toFixed(1)}% · {moneyCompact(slice.value)}
       </text>
     </g>
   )

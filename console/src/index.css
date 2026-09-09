@@ -63,9 +63,18 @@
    它换元素、补不了间，两者叠起来仍然读得连贯。 */
 .pie-slice {
   cursor: pointer;
-  transition: opacity 200ms ease;
+  transition: opacity 220ms ease;
 }
-.pie-dim { opacity: 0.24; }
+.pie-dim { opacity: 0.2; }
+
+/* **recharts 会给画布挂 tabindex，点一下浏览器就画一个蓝色焦点框。**
+   那个框是误导：这张图并不能用键盘操作（键盘走右边那张表，每行是真按钮），
+   而蓝框看着像"选中了什么"。连同扇区上的 tabindex 一并去掉。 */
+.recharts-wrapper:focus,
+.recharts-wrapper :focus,
+.recharts-surface:focus,
+.recharts-sector:focus { outline: none; }
+
 .pie-label { transition: opacity 200ms ease; }
 
 /* 圈心换内容时淡入。同样只写 `from`：动画跑不起来就是直接换，不会留下空白 */
