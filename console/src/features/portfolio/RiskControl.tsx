@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Cell, Pie, PieChart, ResponsiveContainer, Sector, Tooltip } from 'recharts'
+import { Cell, Pie, PieChart, ResponsiveContainer, Sector } from 'recharts'
 import { cn } from '../../lib/cn'
 import { Figure, Module, Stack, ViewGrid } from '../../components/layout'
 import { SegmentedControl } from '../../components/controls'
@@ -50,6 +50,12 @@ export function RiskControlView({ snapshot, veiled }: {
 }) {
   const [drop, setDrop] = useState<keyof typeof DROPS>('30')
   const [lever, setLever] = useState<keyof typeof LEVERAGES>('3')
+  // **饼和右边那张表共用一个"正在看哪个标的"。** 两者是同一批标的的两种读法
+  // （饼是多头、表是净敞口），指着其中一个而另一个没反应，等于把它们当成两张图。
+  // `pinned` 给触屏和"想挪开鼠标继续读"用：没有 hover 的设备只能靠点。
+  const [hover, setHover] = useState<string | null>(null)
+  const [pinned, setPinned] = useState<string | null>(null)
+  const focus = hover ?? pinned
 
   const equity = snapshot.totals?.equity_usd ?? 0
   const rows = useMemo(() => exposures(snapshot, equity), [snapshot, equity])
@@ -153,33 +159,66 @@ export function RiskControlView({ snapshot, veiled }: {
             <p className="py-10 text-center text-sm text-ink-3">当前没有敞口。</p>
           ) : (
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-            <Donut slices={slices} total={longTotal} />
+            <Donut
+              focus={focus}
+              onHover={setHover}
+              onPin={(asset) => setPinned((now) => (now === asset ? null : asset))}
+              slices={slices}
+              total={longTotal}
+            />
             <ul className="min-w-0 flex-1 divide-y divide-rule">
-              {major.map((row) => (
-                <li className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 py-2.5" key={row.asset}>
-                  <span className="flex items-center gap-2.5">
-                    <Ticker asset={row.asset} size="sm" />
-                    <span className="w-[52px] shrink-0 truncate text-sm text-ink">{row.asset}</span>
-                  </span>
-                  {/* 零点在中间：空头往左、多头往右，多空对锁的标的一眼看得出
-                      两边都短。饼图做不到这件事——它画不了负数。 */}
-                  <span className="relative block h-[5px] rounded-full bg-rule">
-                    <span
-                      className={cn('absolute top-0 block h-full rounded-full transition-[width] duration-500',
-                        row.net_usd >= 0 ? 'left-1/2 bg-ink-3' : 'right-1/2 bg-accent')}
-                      style={{ width: `${(Math.abs(row.net_usd) / peak * 50).toFixed(1)}%` }}
-                    />
-                  </span>
-                  <span className="flex shrink-0 items-baseline gap-3">
-                    <span className="tnum w-[92px] text-right text-sm text-ink">
-                      {signedMoney(row.net_usd)}
-                    </span>
-                    <span className="tnum w-[44px] text-right text-xs text-ink-3">
-                      {percent(row.share, 1)}
-                    </span>
-                  </span>
-                </li>
-              ))}
+              {major.map((row) => {
+                const inPie = slices.some((slice) => slice.asset === row.asset)
+                const on = focus === row.asset
+                return (
+                  <li key={row.asset}>
+                    {/* 整行是个按钮：鼠标指上、键盘 Tab 到，饼那边同步亮起来。
+                        空头（MSTR 这种）在饼里没有块，指它只高亮这一行，
+                        不去把饼整个压暗——那会让人以为"这个标的不见了"。 */}
+                    <button
+                      aria-pressed={pinned === row.asset}
+                      className={cn(
+                        'grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3',
+                        'rounded-[3px] px-1.5 py-2.5 text-left outline-none transition-colors duration-200',
+                        'hover:bg-sheet-2/70 focus-visible:outline focus-visible:outline-1',
+                        'focus-visible:outline-offset-1 focus-visible:outline-accent',
+                        on && 'bg-sheet-2',
+                        focus !== null && !on && 'opacity-45',
+                      )}
+                      onBlur={() => setHover(null)}
+                      onClick={() => {
+                        if (inPie) setPinned((now) => (now === row.asset ? null : row.asset))
+                      }}
+                      onFocus={() => setHover(row.asset)}
+                      onMouseEnter={() => setHover(row.asset)}
+                      onMouseLeave={() => setHover(null)}
+                      type="button"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <Ticker asset={row.asset} size="sm" />
+                        <span className="w-[52px] shrink-0 truncate text-sm text-ink">{row.asset}</span>
+                      </span>
+                      {/* 零点在中间：空头往左、多头往右，多空对锁的标的一眼看得出
+                          两边都短。饼图做不到这件事——它画不了负数。 */}
+                      <span className="relative block h-[5px] rounded-full bg-rule">
+                        <span
+                          className={cn('absolute top-0 block h-full rounded-full transition-[width] duration-500',
+                            row.net_usd >= 0 ? 'left-1/2 bg-ink-3' : 'right-1/2 bg-accent')}
+                          style={{ width: `${(Math.abs(row.net_usd) / peak * 50).toFixed(1)}%` }}
+                        />
+                      </span>
+                      <span className="flex shrink-0 items-baseline gap-3">
+                        <span className="tnum w-[92px] text-right text-sm text-ink">
+                          {signedMoney(row.net_usd)}
+                        </span>
+                        <span className="tnum w-[44px] text-right text-xs text-ink-3">
+                          {percent(row.share, 1)}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
               {dust.length > 0 && (
                 <li className="flex items-baseline justify-between gap-3 py-2.5">
                   <span className="text-xs text-ink-3">{dust.length} 项灰尘敞口</span>
@@ -338,20 +377,34 @@ type Slice = { asset: string; value: number }
  * 理由，两者回答的不是同一个问题（饼：钱压在哪几个东西上；横条：价格动一下
  * 账户净暴露多少，空头会抵掉现货）。
  *
- * 画图交给 recharts，我们只管颜色、块里写什么、圈心写什么。手搓那版画得出环，
- * 画不出指哪块哪块凸出来、跟手的提示框，以及移开之后干净地收回去——十几个标的时
- * "指哪读哪"比在一堆小扇区里找标签快得多。
+ * 交互是这张图的一半，上一版几乎没有——只有 recharts 自带的"换个更大的扇区"
+ * （元素被替换，所以是硬跳，没有过渡）加一个浮动提示框。这一版：
  *
- * **入场动画关掉，改用 CSS。** recharts 的入场动画走 `requestAnimationFrame`
- * （react-smooth），而 rAF 在**页面不可见时不发**：标签页在后台加载，扇区的角度
- * 永远停在 0，整张图一块都不画——不是"没动画"，是空白。CSS 那条只写 `from`、
- * 不写 `animation-fill-mode`，所以静止态就是最终态：动画跑不起来也只是没动效。
- * 这和滚轮那次是同一条教训——别让动画成为"画不画得出来"的前提。
+ * - **圈心跟着走。** 指到哪块，中间就换成那块的代码 / 金额 / 占比；移开回到合计。
+ *   甜甜圈本来就有这个洞，用它比在旁边浮一个框好——视线不用离开图。
+ *   有了它就不再需要 recharts 的 `Tooltip`，删了。
+ * - **其余压暗，高亮那块往外推。** 两样都靠 CSS 过渡，所以**不能用 `activeShape`**：
+ *   那个 prop 会把扇区换成另一个元素，元素一换就没有过渡可言。改成给每个 `Cell`
+ *   一个稳定的 class 与 style，只改 `fill-opacity` 和 `transform`，浏览器自己补间。
+ * - **和右边那张表双向联动**（见调用处）：指表里一行，饼上对应的块亮起来，反之亦然。
+ * - **点一下钉住**。触屏没有 hover，不给点的话这张图在手机上等于静态图；
+ *   桌面上也常要"挪开鼠标继续读"。再点一下取消。
  */
-function Donut({ slices, total }: { slices: Slice[]; total: number }) {
-  const [active, setActive] = useState<number | null>(null)
-  const tiny = slices.map((slice, i) => ({ ...slice, i }))
-    .filter((slice) => total > 0 && slice.value / total < 0.06)
+function Donut({ slices, total, focus, onHover, onPin }: {
+  slices: Slice[]
+  total: number
+  focus: string | null
+  onHover: (asset: string | null) => void
+  onPin: (asset: string) => void
+}) {
+  // 占比在这里算一次：圈心、下面那份小块清单、以及"写不写得进块里"都要用它
+  const geo = useMemo(
+    () => slices.map((slice) => ({ ...slice, frac: total > 0 ? slice.value / total : 0 })),
+    [slices, total])
+
+  const shown = geo.find((slice) => slice.asset === focus) ?? null
+  const at = slices.findIndex((slice) => slice.asset === focus)
+  const focusIndex = at < 0 ? undefined : at
 
   return (
     <div className="shrink-0 sm:w-[276px]">
@@ -359,59 +412,93 @@ function Donut({ slices, total }: { slices: Slice[]; total: number }) {
         <ResponsiveContainer height="100%" width="100%">
           <PieChart>
             <Pie
-              activeIndex={active ?? undefined}
-              // 指到的那块往外长一点。这是唯一的"选中"信号，不另外改颜色——
-              // 颜色在这张图里已经表示大小了
+              // 指中那块半径长一截。这一下是**瞬时**的：它换的是扇区的 `d`，
+              // 补不了间。真正带过渡的是下面每块的 opacity——两者叠起来，
+              // 一块变亮变大、其余淡下去，读起来是连贯的。
+              activeIndex={focusIndex}
               activeShape={(props: SectorShape) => (
-                <Sector {...props} outerRadius={(props.outerRadius ?? 0) + 7} />
+                <Sector {...props} outerRadius={(props.outerRadius ?? 0) + 8} />
               )}
               data={slices}
               dataKey="value"
               endAngle={-270}
               innerRadius={64}
+              // recharts 自己的入场动画走 rAF，页面不可见时不发，扇区会停在 0 度
+              // ——**整张图一块都不画**。入场交给 CSS（`.pie-in`），见 index.css。
               isAnimationActive={false}
-              label={(props: SliceLabel) => renderLabel(props, total)}
+              label={(props: SliceLabel) => renderLabel(props, total, focus)}
               labelLine={false}
               nameKey="asset"
-              onMouseEnter={(_, index: number) => setActive(index)}
-              onMouseLeave={() => setActive(null)}
+              onClick={(_, index: number) => onPin(slices[index].asset)}
+              onMouseEnter={(_, index: number) => onHover(slices[index].asset)}
+              onMouseLeave={() => onHover(null)}
               outerRadius={112}
               paddingAngle={1.2}
               startAngle={90}
               stroke="none"
             >
-              {slices.map((slice, i) => (
-                <Cell fill={sliceInk(i, slice.asset)} key={slice.asset} />
+              {geo.map((slice, i) => (
+                <Cell
+                  // **压暗只能走 class。** `Cell` 上的 `style` 与 `opacity` 都被
+                  // recharts 的 `filterProps` 过掉了，一个字节也到不了 path；
+                  // 而 `fill-opacity` 在这个渲染环境里设了不生效（连内联的都算成 1）。
+                  // 逐一试过之后，`className` + CSS 的 `opacity` 是唯一既能改、
+                  // 又能过渡的那条路。
+                  className={cn('pie-slice',
+                    focus !== null && focus !== slice.asset && 'pie-dim')}
+                  fill={sliceInk(i, slice.asset)}
+                  key={slice.asset}
+                />
               ))}
             </Pie>
-            <Tooltip
-              animationDuration={140}
-              content={(props) => <SliceTip payload={props.payload} total={total} />}
-            />
           </PieChart>
         </ResponsiveContainer>
 
-        {/* 圈心：合计。SVG 里排文字要自己算基线，用一层绝对定位的 div 省事，
-            也顺带拿到和别处一样的字体度量 */}
+        {/* 圈心。SVG 里排文字要自己算基线，用一层绝对定位的 div 省事，
+            也顺带拿到和别处一样的字体度量。`key` 变了就重放一次淡入，
+            换内容时不至于"啪"地跳一下。 */}
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
-          <span className="tnum text-base text-ink">{money(total)}</span>
+          <div className="hub-swap text-center" key={shown?.asset ?? '__total__'}>
+            {shown === null ? (
+              <span className="tnum text-base text-ink">{money(total)}</span>
+            ) : (
+              <>
+                <div className="text-xs text-ink-2">{shown.asset}</div>
+                <div className="tnum text-base text-ink">{money(shown.value)}</div>
+                <div className="tnum text-xs text-ink-3">{percent(shown.frac, 1)}</div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {tiny.length > 0 && (
+      {geo.filter((slice) => slice.frac < 0.06).length > 0 && (
         <ul className="mt-1 space-y-1 border-t border-rule pt-2">
-          {tiny.map((slice) => (
-            <li className="flex items-baseline justify-between gap-3" key={slice.asset}>
-              <span className="flex items-center gap-2 text-xs text-ink-3">
-                <span
-                  className="size-2 shrink-0 rounded-[2px]"
-                  style={{ background: sliceInk(slice.i, slice.asset) }}
-                />
-                {slice.asset}
-              </span>
-              <span className="tnum text-xs text-ink-3">
-                {money(slice.value)} · {percent(total > 0 ? slice.value / total : null, 1)}
-              </span>
+          {geo.filter((slice) => slice.frac < 0.06).map((slice) => (
+            <li key={slice.asset}>
+              <button
+                className={cn('flex w-full items-baseline justify-between gap-3 rounded-[3px]',
+                  'px-1 py-0.5 outline-none transition-colors duration-200 hover:bg-sheet-2/70',
+                  'focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent',
+                  focus === slice.asset && 'bg-sheet-2')}
+                onBlur={() => onHover(null)}
+                onClick={() => onPin(slice.asset)}
+                onFocus={() => onHover(slice.asset)}
+                onMouseEnter={() => onHover(slice.asset)}
+                onMouseLeave={() => onHover(null)}
+                type="button"
+              >
+                <span className="flex items-center gap-2 text-xs text-ink-3">
+                  <span
+                    className="size-2 shrink-0 rounded-[2px]"
+                    style={{ background: sliceInk(geo.indexOf(slice), slice.asset) }}
+                  />
+                  {slice.asset}
+                </span>
+                <span className="tnum text-xs text-ink-3">
+                  {money(slice.value)} · {percent(slice.frac, 1)}
+                </span>
+              </button>
             </li>
           ))}
         </ul>
@@ -423,7 +510,7 @@ function Donut({ slices, total }: { slices: Slice[]; total: number }) {
 /** recharts 把 Sector 的几何都标成可选，这里只用得到外半径 */
 type SectorShape = { outerRadius?: number }
 
-/** 同上：渲染时一定都有，缺任何一个就不画标签 */
+/** 同上：渲染时一定都有；缺任何一个就不画标签 */
 type SliceLabel = {
   cx?: number; cy?: number; midAngle?: number
   innerRadius?: number; outerRadius?: number
@@ -439,8 +526,8 @@ type SliceLabel = {
  *
  * 写不下时返回空的 `<g />` 而不是 `null`：recharts 会把返回值当元素接着处理。
  */
-function renderLabel(props: SliceLabel, total: number) {
-  const { cx, cy, midAngle, innerRadius, outerRadius, value } = props
+function renderLabel(props: SliceLabel, total: number, focus: string | null) {
+  const { cx, cy, midAngle, innerRadius, outerRadius, value, name } = props
   if (cx === undefined || cy === undefined || midAngle === undefined
       || innerRadius === undefined || outerRadius === undefined || value === undefined) {
     return <g />
@@ -449,38 +536,22 @@ function renderLabel(props: SliceLabel, total: number) {
   if (share < 0.06) return <g />
   const rad = -(midAngle * Math.PI) / 180
   const r = (innerRadius + outerRadius) / 2
+  const on = focus === null || focus === name
   const x = cx + Math.cos(rad) * r
   const y = cy + Math.sin(rad) * r
   // 字色不按名次换：色阶整条都压在离 --ink 足够远的一段里（浅色全偏亮、
   // 深色全偏暗），一个 --ink 在两套主题、六个档位上都够对比
   return (
-    <g>
-      <text fill="var(--ink)" fontSize={9.5} opacity={0.78} textAnchor="middle" x={x} y={y - 13}>
-        {props.name}
+    <g className="pie-label" style={{ opacity: on ? 1 : 0.25 }}>
+      <text fill="var(--ink)" fontSize={9.5} opacity={0.85} textAnchor="middle" x={x} y={y - 13}>
+        {name}
       </text>
       <text className="tnum" fill="var(--ink)" fontSize={15} fontWeight={500} textAnchor="middle" x={x} y={y + 4}>
         {(share * 100).toFixed(1)}%
       </text>
-      <text className="tnum" fill="var(--ink)" fontSize={9.5} opacity={0.78} textAnchor="middle" x={x} y={y + 18}>
+      <text className="tnum" fill="var(--ink)" fontSize={9.5} opacity={0.85} textAnchor="middle" x={x} y={y + 18}>
         {moneyCompact(value)}
       </text>
     </g>
-  )
-}
-
-function SliceTip({ payload, total }: {
-  payload?: readonly { name?: unknown; value?: unknown }[]
-  total: number
-}) {
-  const hit = payload?.[0]
-  if (!hit || typeof hit.value !== 'number') return null
-  const name = typeof hit.name === 'string' ? hit.name : ''
-  return (
-    <div className="rounded-[3px] border border-rule bg-sheet px-2.5 py-1.5 shadow-[var(--sheet-shadow)]">
-      <div className="text-xs text-ink">{name}</div>
-      <div className="tnum mt-0.5 text-xs text-ink-2">
-        {money(hit.value)} · {percent(total > 0 ? hit.value / total : null, 1)}
-      </div>
-    </div>
   )
 }
