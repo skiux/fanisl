@@ -189,7 +189,14 @@ const STATUS_TONE: Record<string, string> = {
 
 const HISTORY_ROW = 'grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)]'
 
-export function HistoryTable({ orders }: { orders: Order[] }) {
+/**
+ * 委托历史。`showSymbol` 在**没有指定交易对**时打开——那一档是把候选里每个交易对
+ * 的历史合并起来的，不标交易对就读不出这一行是谁的。
+ *
+ * 标的挂在时间下面那行小字里，不另开一列：这张表在窄屏只剩两列，
+ * 再挤一列进去谁都放不下，而"哪个标的"和"多久以前"本来就是同一个位置的补充。
+ */
+export function HistoryTable({ orders, showSymbol }: { orders: Order[]; showSymbol?: boolean }) {
   if (orders.length === 0) return <Empty>这段区间里没有委托记录。</Empty>
   return (
     <>
@@ -205,7 +212,10 @@ export function HistoryTable({ orders }: { orders: Order[] }) {
           <li className={cn(HISTORY_ROW, 'py-3 transition-colors duration-200 hover:bg-sheet-2/45')} key={order.id}>
             <div className="min-w-0">
               <div className="tnum truncate text-sm text-ink-2">{order.created_at.slice(5, 16).replace('T', ' ')}</div>
-              <div className="truncate text-micro text-ink-3">{relativeTime(order.created_at)}</div>
+              <div className="truncate text-micro text-ink-3">
+                {showSymbol && <span className="text-ink-2">{baseOf(order.symbol)} · </span>}
+                {relativeTime(order.created_at)}
+              </div>
             </div>
             <div className="hidden sm:block"><SideKind order={order} /></div>
             <div className="tnum hidden truncate text-sm text-ink sm:block">
@@ -224,7 +234,7 @@ export function HistoryTable({ orders }: { orders: Order[] }) {
 
 const FILL_ROW = 'grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
 
-export function FillTable({ fills }: { fills: Fill[] }) {
+export function FillTable({ fills, showSymbol }: { fills: Fill[]; showSymbol?: boolean }) {
   if (fills.length === 0) return <Empty>这段区间里没有成交。</Empty>
   return (
     <>
@@ -240,8 +250,13 @@ export function FillTable({ fills }: { fills: Fill[] }) {
       <ul className="divide-y divide-rule">
         {fills.map((fill) => (
           <li className={cn(FILL_ROW, 'py-3 transition-colors duration-200 hover:bg-sheet-2/45')} key={fill.id}>
-            <div className="tnum min-w-0 truncate text-sm text-ink-2">
-              {fill.time.slice(5, 16).replace('T', ' ')}
+            <div className="min-w-0">
+              <div className="tnum truncate text-sm text-ink-2">
+                {fill.time.slice(5, 16).replace('T', ' ')}
+              </div>
+              {showSymbol && (
+                <div className="truncate text-micro text-ink-2">{baseOf(fill.symbol)}</div>
+              )}
             </div>
             <div className="hidden min-w-0 sm:block">
               <div className="text-sm text-ink">{fill.side === 'buy' ? '买入' : '卖出'}</div>
@@ -250,8 +265,11 @@ export function FillTable({ fills }: { fills: Fill[] }) {
             <div className="tnum hidden truncate text-sm text-ink sm:block">{price(fill.price)}</div>
             <div className="tnum hidden truncate text-sm text-ink-2 sm:block">{amount(fill.qty)}</div>
             <div className="tnum truncate text-right text-sm text-ink-2 sm:text-left">{money(fill.quote_qty)}</div>
+            {/* 手续费的单位是 `commission_asset`，不是美元——用 `amount` 而不是
+                `money`。BNB 抵扣那种一笔只有 0.0008 个，按金额格式印出来是
+                `0.00`，看着像没收费。 */}
             <div className="tnum hidden truncate text-sm text-loss sm:block">
-              −{money(fill.commission).slice(1)} <span className="text-micro text-ink-3">{fill.commission_asset}</span>
+              −{amount(fill.commission)} <span className="text-micro text-ink-3">{fill.commission_asset}</span>
             </div>
             <div className={cn('tnum hidden truncate text-sm sm:block',
               fill.realized_pnl === null || fill.realized_pnl === 0 ? 'text-ink-3'

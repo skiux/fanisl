@@ -380,8 +380,15 @@ export type Fill = {
   price: number
   qty: number
   quote_qty: number
+  /** 单位是 `commission_asset`，不是美元 */
   commission: number
   commission_asset: string
+  /**
+   * 上面那笔手续费的 USD 计价。**求和只能用这个**：现货常用 BNB 抵扣、合约结在
+   * USDT，把两种币的数量直接相加等于把 0.0008 个 BNB 当成 0.0008 美元。
+   * 换不出价时为 null，不拿 0 顶。
+   */
+  commission_usd: number | null
   /** 挂单成交（返佣/低费率）还是吃单成交 */
   is_maker: boolean
   /** 仅合约有；现货成交不结算盈亏 */
@@ -389,16 +396,29 @@ export type Fill = {
   time: string
 }
 
-/** 历史只能按交易对查，所以查询条件本身是数据的一部分，要能显示出来 */
+/**
+ * 历史只能按交易对查，所以查询条件本身是数据的一部分，要能显示出来。
+ *
+ * **默认是全部**：`symbol` 为 null 时，`symbols` 里的每一个都问过一遍再合并。
+ * `allOrders` / `myTrades` 的 symbol 必填是接口的限制，不是产品的形状——
+ * 上一版没选时后端按字母序挑了一个，于是这一节永远在讲某一个标的。
+ */
 export type HistoryQuery = {
-  symbol: string
-  venue: OrderVenue
+  /** null = 没有指定交易对，下面 `symbols` 里的全部合在一起 */
+  symbol: string | null
+  /** 本次实际查了哪几个交易对 */
+  symbols: string[]
+  /** 跨 venue 合并时为 null */
+  venue: OrderVenue | null
   /** 本次实际查询的区间 */
   from: string
   to: string
-  /** 该 venue 单次允许的最大区间（小时），界面上要写明 */
+  /**
+   * 单次允许的最大区间（小时）。多个交易对合在一起时取**最紧**的那一个——
+   * 能保证的只有交集，报最宽的等于替另一半打包票。
+   */
   max_window_hours: number
-  /** 该 venue 最多能回溯多少天；现货没有明确上限时为 null */
+  /** 最多能回溯多少天；现货没有明确上限，全是现货时为 null */
   lookback_days: number | null
 }
 

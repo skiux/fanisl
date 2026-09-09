@@ -38,6 +38,13 @@ const SETTLED_ROWS: { key: keyof IncomeBreakdown; label: string }[] = [
 /** 排序用的量级。算不出来的排最后，别让一排 `—` 占住开头 */
 const magnitude = (value: number | null) => (value === null ? -1 : Math.abs(value))
 
+/**
+ * 这个数印出来会不会是 `$0.00`。阈值就是 `signedMoney` 的进位边界（两位小数），
+ * 判 `=== 0` 不够：0.004 也印成 `+$0.00`，摆在那里同样只是占位。
+ * **`null` 不算**——取不到和是 0 是两回事，那一行要留着。
+ */
+const rounded = (value: number | null) => value !== null && Math.abs(value) < 0.005
+
 export function PnlDetail({ topic, pnl, onClose }: {
   topic: PnlTopic | null
   pnl: Pnl | null
@@ -45,17 +52,19 @@ export function PnlDetail({ topic, pnl, onClose }: {
 }) {
   if (topic === null) return null
 
-  // 逐币的涨跌，大的在前。算不出来的那几个照样列出来，值写 `取不到`——
-  // 底下再补一句"某某没有报价"是把表格已经说清的事又说一遍
+  // 逐币的涨跌，大的在前。**印出来是 $0.00 的不列**：灰尘币一天动不了一分钱，
+  // 十几行 `+$0.00` 会把真正动了的那几个挤下去。
+  // 算不出来的（`null`）照常列出来，值写 `取不到`——那不是 0，是另一回事，
+  // 而且底下再补一句"某某没有报价"是把表格已经说清的事又说一遍。
   const coins = [...(pnl?.spot_marks ?? [])]
-    .filter((row) => row.qty > 0)
+    .filter((row) => row.qty > 0 && !rounded(row.today_usd))
     .sort((a, b) => magnitude(b.today_usd) - magnitude(a.today_usd))
 
   const parts = pnl?.today.settled_parts ?? null
-  // 只列非零项。为零的分类摆在那里只是占位，"今天没有资金费"不需要单独说一行
+  // 同上：为零的分类摆在那里只是占位，"今天没有资金费"不需要单独说一行
   const settled = parts === null ? [] : SETTLED_ROWS
     .map((row) => ({ label: row.label, value: parts[row.key] }))
-    .filter((row) => Math.abs(row.value) >= 0.005)
+    .filter((row) => !rounded(row.value))
 
   return (
     <Dialog.Root onOpenChange={(open) => { if (!open) onClose() }} open>

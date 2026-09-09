@@ -154,6 +154,55 @@ def test_history_reaches_back_past_a_single_api_window(cache):
     assert spot["max_window_hours"] == 24 and spot["lookback_days"] is None
 
 
+def test_no_symbol_means_every_candidate_not_the_first_one(cache):
+    """不选交易对 = **全部**，不是"按字母序挑一个"。
+
+    上一版是 `picked = symbol or symbols[0]`：谁都没选的时候页面自己挑了 BNBUSDT，
+    于是「委托历史」这一节永远在讲某一个标的，而标题写着的是"委托历史"。
+    symbol 必填是 `allOrders` 的限制，不该变成产品的形状——逐个问完合并就是了。
+    """
+    snap = build(cache)
+    assert snap["history_symbols"] == ["BNBUSDT", "NVDAUSDT", "QQQUSDT"]
+
+    q = snap["query"]
+    assert q["symbol"] is None            # 没挑，也别装作挑了
+    assert q["symbols"] == ["BNBUSDT", "NVDAUSDT", "QQQUSDT"]
+    assert q["venue"] is None             # 跨 venue，没有单一答案
+
+    # 现货与合约的记录都在，且按时间倒序合在一起
+    assert [o["symbol"] for o in snap["history"]] == ["BNBUSDT", "NVDAUSDT", "NVDAUSDT"]
+    assert [f["symbol"] for f in snap["fills"]] == ["BNBUSDT", "NVDAUSDT", "NVDAUSDT"]
+    assert [o["created_at"] for o in snap["history"]] == sorted(
+        (o["created_at"] for o in snap["history"]), reverse=True)
+
+
+def test_mixed_venues_report_the_tightest_window(cache):
+    """多个交易对合在一起时，能保证的只有交集。
+
+    现货单次 24 小时、无回溯上限；合约 7 天、回溯 90 天。报成最宽的那个
+    （168 小时 / 无上限）等于替另一半打了包票。
+    """
+    q = build(cache)["query"]
+    assert q["max_window_hours"] == 24    # 现货那半边更紧
+    assert q["lookback_days"] == 90       # 合约那半边更紧
+    span = datetime.fromisoformat(q["to"]) - datetime.fromisoformat(q["from"])
+    assert span == timedelta(days=90)
+
+
+def test_one_symbol_failing_marks_the_whole_group(cache):
+    """合并的历史少了一截时，这一组不能报 ok。
+
+    界面据此才分得出"这个交易对没有记录"和"这一次没取到"。取到的那部分照常给，
+    别因为一个交易对挂了就把整页清空——451 常常只打在 fapi 上。
+    """
+    snap = build(cache, fail={"/fapi/v1/allOrders": 451})
+    states = {s["key"]: s for s in snap["sources"]}
+    assert states["order_history"]["status"] == "unreachable"
+    assert states["trade_history"]["status"] == "ok"      # 成交走另一个端点
+    # 现货那半边照常在
+    assert [o["symbol"] for o in snap["history"]] == ["BNBUSDT"]
+
+
 def test_venue_is_inferred_from_where_the_symbol_lives(cache):
     assert build(cache, symbol="NVDAUSDT")["query"]["venue"] == "usdm"
     assert build(cache, symbol="BNBUSDT")["query"]["venue"] == "spot"
@@ -177,6 +226,23 @@ def test_spot_fills_use_is_buyer_and_have_no_realized_pnl(cache):
     assert fill["side"] == "buy"                 # 由 isBuyer 推出
     assert fill["realized_pnl"] is None
     assert fill["commission_asset"] == "BNB"
+
+
+def test_commission_comes_with_its_usd_value(cache):
+    """手续费的单位是 `commissionAsset`，不是美元。
+
+    现货常用 BNB 抵扣、合约结在 USDT。合并多个交易对之后，界面要把一段区间的
+    手续费加起来——不换算就等于把 0.00075 个 BNB 当成 0.00075 美元，
+    少掉几百倍。这和 `_income` 那里是同一个坑。
+    """
+    spot = build(cache, symbol="BNBUSDT")["fills"][0]
+    assert spot["commission"] == pytest.approx(0.00075)
+    assert spot["commission_asset"] == "BNB"
+    assert spot["commission_usd"] == pytest.approx(0.00075 * 682.15)
+
+    fut = build(cache, symbol="NVDAUSDT")["fills"][-1]
+    assert fut["commission_asset"] == "USDT"
+    assert fut["commission_usd"] == pytest.approx(fut["commission"])
 
 
 # --- 降级 -----------------------------------------------------------------

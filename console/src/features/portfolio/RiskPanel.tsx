@@ -1,4 +1,6 @@
+import { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Lightning } from '@phosphor-icons/react'
+import { compareBy, SortBy, type SortKey, type SortState } from '../../components/controls'
 import { Delta, Eyebrow } from '../../components/Primitives'
 import { cn } from '../../lib/cn'
 import { amount, baseOf, money, percent, price, signedMoney, signedPercent } from '../../lib/format'
@@ -190,6 +192,32 @@ export function RiskGauges({ futures, margin, exposureRatio, concentration, unav
   )
 }
 
+/**
+ * 仓位的排序键。**每个键自带"要紧的在哪一头"**，见 `SortKey.initial`——
+ * 金额与盈亏是从大到小，而「距强平」是从近到远：那一列本来就是用来找最危险的
+ * 那个仓位的，给它 `desc` 等于把最安全的顶到最上面。
+ */
+type PositionSort = 'notional' | 'pnl' | 'liq' | 'leverage' | 'symbol'
+
+const POSITION_KEYS: SortKey<PositionSort>[] = [
+  { value: 'notional', label: '名义', initial: 'desc' },
+  { value: 'pnl', label: '未实现', initial: 'desc' },
+  { value: 'liq', label: '距强平', initial: 'asc' },
+  { value: 'leverage', label: '杠杆', initial: 'desc' },
+  { value: 'symbol', label: '标的', initial: 'asc' },
+]
+
+const POSITION_VALUE: Record<Exclude<PositionSort, 'symbol'>, (p: FuturesPosition) => number | null> = {
+  notional: (p) => p.notional_usd,
+  pnl: (p) => p.unrealized_pnl_usd,
+  liq: (p) => p.liq_distance,
+  leverage: (p) => p.leverage,
+}
+
+/**
+ * 守卫写在**挂载之前**，不是组件内部提前 return——里面有 `useState`/`useMemo`，
+ * 提前 return 会让 hook 顺序随数据变。这条在 `RealizedDays` 上造成过一次整页白屏。
+ */
 export function PositionsList({ futures, unavailable }: {
   futures: FuturesAccount | null
   unavailable: boolean
@@ -200,11 +228,39 @@ export function PositionsList({ futures, unavailable }: {
   if (!futures || futures.positions.length === 0) {
     return <p className="py-10 text-center text-sm text-ink-3">当前没有合约持仓。</p>
   }
+  return <SortedPositions positions={futures.positions} />
+}
+
+function SortedPositions({ positions }: { positions: FuturesPosition[] }) {
+  // 默认按名义从大到小。接口给的顺序是账户内部的次序，和"哪个仓位要紧"无关——
+  // 让最大的那笔排在第一行，比原样照抄有意义。
+  const [sort, setSort] = useState<SortState<PositionSort>>({ key: 'notional', direction: 'desc' })
+
+  const rows = useMemo(() => {
+    const out = [...positions]
+    if (sort.key === 'symbol') {
+      out.sort((a, b) => (sort.direction === 'asc' ? 1 : -1)
+        * baseOf(a.symbol).localeCompare(baseOf(b.symbol)))
+      return out
+    }
+    const pick = POSITION_VALUE[sort.key]
+    out.sort((a, b) => compareBy(pick(a), pick(b), sort.direction))
+    return out
+  }, [positions, sort])
+
   return (
-    <ul>
-      {futures.positions.map((position) => (
-        <PositionRow key={`${position.symbol}-${position.position_side}`} position={position} />
-      ))}
-    </ul>
+    <>
+      {/* 一个仓位的时候排序条是纯噪声：没有第二行可以换位置 */}
+      {positions.length > 1 && (
+        <div className="mb-1 border-b border-rule pb-2.5">
+          <SortBy keys={POSITION_KEYS} label="排序" onChange={setSort} value={sort} />
+        </div>
+      )}
+      <ul>
+        {rows.map((position) => (
+          <PositionRow key={`${position.symbol}-${position.position_side}`} position={position} />
+        ))}
+      </ul>
+    </>
   )
 }

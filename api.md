@@ -183,12 +183,27 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
 ### GET /orders
 Query：`symbol`、`venue`（`spot|usdm|margin`）、`force`。
 
-**当前挂单能一次拿全账户**，`open` 是完整的。**历史必须按交易对查**——`symbol` 省略时取
-`history_symbols` 的第一个，`venue` 按该符号在哪边有仓位/挂单推断。`query` 里带着本次
-实际的区间与该 venue 的接口上限（现货单次 ≤ 24 小时、合约 < 7 天、回溯 90 天）。
+**当前挂单能一次拿全账户**，`open` 是完整的。**历史必须按交易对查**（`allOrders` /
+`myTrades` 的 symbol 必填），但那是接口的限制，不该变成"替调用方挑了一个"：
+
+- **`symbol` 省略 = 全部**：`history_symbols` 里的每一个都问一遍，合并后按时间倒序。
+  `query.symbol` 是 `null`、`query.symbols` 列出实际问过哪几个、`query.venue` 是
+  `null`（跨 venue）。上一版是取候选的第一个，于是不带 symbol 拿到的永远是某一个
+  标的的历史，而字段名叫 `history`。
+- **`symbol` 指定 = 只问那一个**，`query.venue` 按该符号在哪边有仓位/挂单推断
+  （`venue` 参数可显式覆盖）。
+- `query.max_window_hours` / `lookback_days` 取**最紧**的那一个：多个交易对合在
+  一起时能保证的只有交集（现货单次 ≤ 24 小时、无回溯上限；合约 < 7 天、回溯 90 天）。
+- `order_history` / `trade_history` 两个来源状态是**整组**的：任何一个交易对没取到
+  就不是 `ok`，取到的那部分照常返回（451 常常只打 fapi，现货那半边还在）。
+- 代价是一次 2N 个请求（N = 候选数）。候选由持仓与余额界定，各自按来源缓存。
 
 `history_symbols` 是从「有挂单 + 有持仓 + 现货余额能配出的交易对」推的候选——
 Binance 没有"我交易过哪些对"的接口，做不到真正的全量。
+
+`fills[].commission` 的单位是 `commission_asset`（现货常用 BNB 抵扣、合约结在 USDT），
+**求和只能用 `commission_usd`**。把两种币的数量直接相加等于把 0.0008 个 BNB 当成
+0.0008 美元；合并多个交易对之后必然跨币种。换不出价时 `commission_usd` 是 `null`。
 
 ### GET /ledger
 Query：`days`（默认 7）、`force`。

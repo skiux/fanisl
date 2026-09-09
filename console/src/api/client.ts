@@ -315,11 +315,17 @@ export async function fetchOrders(
     throw new PortfolioError('network', '连不上 fanisl 后端（127.0.0.1:8000）')
   }
   const snapshot = scenarioOrders(scenario)
-  // 空 symbol = 还没选过，用后端自己挑的那个交易对
-  if (!symbol || !snapshot.query || snapshot.query.symbol === symbol) return snapshot
-  // 换交易对就是换一次 allOrders/myTrades 调用。示例数据只带了一个交易对的那一段，
-  // 其他交易对如实返回空区间，而不是把这一段的记录改个名字套上去。
-  return { ...snapshot, query: { ...snapshot.query, symbol }, history: [], fills: [] }
+  // **空 symbol = 全部**，不是"还没选过所以随便挑一个"：后端不选就把候选里的
+  // 每个交易对都问一遍再合并，mock 也照这个来，否则演的是一件不会发生的事。
+  if (!symbol || !snapshot.query) return snapshot
+  // 选定一个就是只发那一个交易对的 allOrders/myTrades。示例数据里没有记录的
+  // 交易对如实返回空区间，而不是把别人的记录改个名字套上去。
+  return {
+    ...snapshot,
+    query: ofx.buildQuery(new Date(snapshot.as_of ?? Date.now()), symbol),
+    history: snapshot.history.filter((order) => order.symbol === symbol),
+    fills: snapshot.fills.filter((fill) => fill.symbol === symbol),
+  }
 }
 
 /* --------------------------- 流水 --------------------------- */

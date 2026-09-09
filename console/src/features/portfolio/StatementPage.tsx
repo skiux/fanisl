@@ -9,16 +9,18 @@ import { SectionTabs, type TabItem } from './SectionTabs'
 import { PnlDetail, type PnlTopic } from './PnlDetail'
 import { SummaryStrip } from './SummaryStrip'
 import { EmptyState, ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from './states'
-import { ChangesView, HoldingsView, OverviewView, PerpRiskView } from './views'
+import { HoldingsView, OverviewView, PerpRiskView } from './views'
 
 type Phase =
   | { kind: 'loading' }
   | { kind: 'ready'; snapshot: PortfolioSnapshot }
   | { kind: 'failed'; message: string }
 
-export type ViewKey = 'overview' | 'changes' | 'holdings' | 'perp'
+export type ViewKey = 'overview' | 'holdings' | 'perp'
 
-const VIEW_KEYS: ViewKey[] = ['overview', 'changes', 'holdings', 'perp']
+// `#/assets/changes` 是删掉的那一节，落到这里会被 readView 退回 overview——
+// 它的内容（日历、合约收支、充提）现在全在 overview 上，退回去正好是同一份东西。
+const VIEW_KEYS: ViewKey[] = ['overview', 'holdings', 'perp']
 
 function readView(): ViewKey {
   const { section } = readRoute()
@@ -94,13 +96,13 @@ export function StatementPage() {
   )
 }
 
-function buildTabs(snapshot: PortfolioSnapshot, futuresMissing: boolean): TabItem<ViewKey>[] {
+function buildTabs(futuresMissing: boolean): TabItem<ViewKey>[] {
   return [
     // 短标签：导航要能一行放下，完整名称留在各视图的抬头里
-    // 四个分节。原先六个里，理财只有 3 项、风险只有 2 个读数，各自填不满一个视图
-    // （实测填充率 26% / 36%）——那是分节分错了，不是内容不够。合并进相邻的视图。
+    // 三个分节。一路从六个减下来：理财只有 3 项、风险只有 2 个读数，各自填不满
+    // 一个视图（实测填充率 26% / 36%）；最后去掉的是「盈亏」——它的日历在总览
+    // 也有一份，同一张表在两个分节里各印一遍，剩下两块本来就和日历同一个问题。
     { key: 'overview', label: '总览' },
-    { key: 'changes', label: '盈亏', muted: snapshot.pnl === null },
     { key: 'holdings', label: '持仓' },
     { key: 'perp', label: '合约与风险', muted: futuresMissing },
   ]
@@ -184,13 +186,12 @@ function Loaded({ phase, view, onSelectView, onRetry }: {
       <SummaryStrip onOpenDetail={setDetail} snapshot={snapshot} veiled={veiled} />
       <PnlDetail onClose={() => setDetail(null)} pnl={snapshot.pnl} topic={detail} />
 
-      <SectionTabs current={view} items={buildTabs(snapshot, futuresMissing)} onSelect={onSelectView} />
+      <SectionTabs current={view} items={buildTabs(futuresMissing)} onSelect={onSelectView} />
 
       {/* 明细区拿回整幅宽度；区域内部滚动，切换分节时页面高度不变 */}
       <div className="scroll-y min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8" key={view}>
         <div className="rise">
           {view === 'overview' && <OverviewView {...shared} onOpen={onSelectView} />}
-          {view === 'changes' && <ChangesView snapshot={snapshot} veiled={veiled} />}
           {view === 'holdings' && <HoldingsView snapshot={snapshot} veiled={veiled} />}
           {view === 'perp' && (
             <PerpRiskView futuresMissing={futuresMissing} snapshot={snapshot} veiled={veiled} />

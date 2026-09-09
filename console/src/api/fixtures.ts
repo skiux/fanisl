@@ -245,8 +245,14 @@ export const okSource = (key: SourceState['key'], asOf: string): SourceState => 
 })
 
 /** 昨日 UTC 收盘 = 现价 × 这个数。样例里让今天普涨一点，逐币那张表才有东西看 */
+/**
+ * 昨收 = 现价 × 这个比值。没登记的币当作"昨收取不到"（走 `null` 那条路）。
+ *
+ * **SOL 故意设成 1**：一天没动、今日涨跌恰好 $0.00。弹层里那一档"印出来是
+ * $0.00 就不列"需要有东西可以不列，不然这条路示例数据下一次也走不到。
+ */
 const PREV_CLOSE_RATIO: Record<string, number> = {
-  BNB: 0.982, ETH: 1.004, ARB: 0.961, SOL: 1.017, SHIB: 0.994, DOGE: 0.973,
+  BNB: 0.982, ETH: 1.004, ARB: 0.961, SOL: 1, SHIB: 0.994, DOGE: 0.973,
 }
 
 /**

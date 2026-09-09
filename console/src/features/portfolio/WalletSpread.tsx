@@ -20,7 +20,12 @@ export function WalletSpread({ wallets, veiled }: { wallets: WalletBucket[]; vei
         <span className="text-xs text-ink-3">{ranked.length} 个已启用</span>
       </div>
 
-      <ul className="mt-2.5 grid gap-x-8 gap-y-px sm:grid-cols-2 xl:grid-cols-1">
+      {/* 断点跟着**栅格**走，不跟着视口走：`lg` 以上 ViewGrid 才铺成 12 栏，
+          这一块从那时起只占 4 栏（1180px 视口下约 310px），两列每列就只剩 140px，
+          而一行要 300px——`xl:grid-cols-1` 把单列推迟到 1280px，
+          于是 1024–1280 这一段里金额和占比是叠在一起印的。
+          `lg` 以下模块横跨整幅版心，那时候两列才排得开。 */}
+      <ul className="mt-2.5 grid gap-x-8 gap-y-px sm:grid-cols-2 lg:grid-cols-1">
         {ranked.map((bucket) => {
           const missing = bucket.value_usd === null
           const share = missing || total <= 0 ? 0 : bucket.value_usd! / total

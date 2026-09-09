@@ -21,7 +21,7 @@ from typing import Any, Callable
 
 from .cache import SourceCache, SourceResult, fetch_all
 from .client import BinanceClient
-from .common import dec, dec0, guard, ms_to_iso, price_map, usd_price
+from .common import dec, dec0, guard, ms_to_iso, price_map, usd_price, usd_value
 
 MS_HOUR = 3_600_000
 
@@ -157,9 +157,19 @@ def _order_lists(payload: Any) -> list[dict]:
     return out
 
 
-def _fill(row: dict, venue: str) -> dict:
+def _fill(row: dict, venue: str, prices: dict[str, float]) -> dict:
+    """一笔成交。
+
+    **手续费要连着 USD 一起给。** `commission` 的单位是 `commissionAsset`，
+    现货常用 BNB 抵扣、合约结在 USDT，两者不是同一个单位。界面上要把一段区间的
+    手续费加起来（合并多个交易对之后必然跨币种），不换算就等于把 0.0017 个 BNB
+    当成 0.0017 美元——手续费会凭空少掉几百倍。这与 `_income` 那里是同一个坑。
+    换不出价就留 `None`，不拿 0 顶。
+    """
     qty = dec0(row.get("qty"))
     price = dec0(row.get("price"))
+    fee = dec0(row.get("commission"))
+    fee_asset = row.get("commissionAsset", "")
     return {
         "id": f"{venue}:t{row.get('id')}",
         "order_id": f"{venue}:{row.get('orderId')}",
@@ -170,8 +180,9 @@ def _fill(row: dict, venue: str) -> dict:
         "price": price,
         "qty": qty,
         "quote_qty": dec0(row.get("quoteQty")) or qty * price,
-        "commission": dec0(row.get("commission")),
-        "commission_asset": row.get("commissionAsset", ""),
+        "commission": fee,
+        "commission_asset": fee_asset,
+        "commission_usd": usd_value(fee_asset, fee, prices) if fee_asset else None,
         "is_maker": bool(row.get("maker", row.get("isMaker", False))),
         # 现货成交不结算盈亏，字段本身就没有
         "realized_pnl": dec(row.get("realizedPnl")) if "realizedPnl" in row else None,
@@ -261,47 +272,84 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
     futures_symbols |= {o["symbol"] for o in open_orders if o["venue"] == "usdm"}
     symbols = _history_symbols(open_orders, risk, payload("spot"), prices)
 
-    # --- 历史：必须先定交易对，窗口由该 venue 的接口上限决定 -----------------
-    picked = symbol or (symbols[0] if symbols else None)
-    query = history = fills = None
+    # --- 历史：接口必须按交易对问，但那不该变成"页面替你挑了一个" -----------
+    #
+    # 上一版是 `picked = symbol or symbols[0]`：谁都没选的时候，页面按字母序挑了
+    # 第一个交易对，于是「委托历史」这一节永远在讲某一个标的，而标题写着的是
+    # "委托历史"。**不选就是全部**：把候选里的每一个都问一遍再合并。
+    # `allOrders` / `myTrades` 的 symbol 必填是接口的限制，不是产品的形状。
+    #
+    # 代价是一次要发 2N 个请求（N = 候选交易对数）。可以接受的理由：候选本身由
+    # 持仓与余额界定（不是全市场），每个都按 `TTL["history"]` 缓存，
+    # 而现货成交那一半 `/portfolio` 本来就在按同样的粒度取。
+    targets = [symbol] if symbol else list(symbols)
+    venues = {s: (venue if (symbol and venue) else _venue_of(s, futures_symbols))
+              for s in targets}
+    query = None
+    history: list[dict] = []
+    fills: list[dict] = []
     history_states: list[dict] = []
-    if picked:
-        v = venue or _venue_of(picked, futures_symbols)
-        limits = WINDOW.get(v, WINDOW["spot"])
+
+    if targets:
         end_ms = int(now.timestamp() * 1000)
         # 按 id 翻页而不是按时间窗。时间窗最多 24 小时（现货）/ 7 天（合约），
         # 只取最近一个窗口的话，上次交易在窗口之前就是一片空白——这就是
         # "历史那里完全没有数据"。合约那边接口本身只留 90 天，走到头自然停。
-        start_ms = end_ms - (limits["lookback_days"] or 90) * MS_HOUR * 24
-        hist = fetch_all(cache, [
-            (f"orders.history:{v}:{picked}", TTL["history"],
-             lambda: client.orders_since(picked, venue=v)),
-            (f"orders.trades:{v}:{picked}", TTL["history"],
-             (lambda: client.futures_trades_since(picked)) if v == "usdm"
-             else (lambda: client.spot_trades_since(picked))),
-        ], force=force)
-        h_res = hist[f"orders.history:{v}:{picked}"]
-        t_res = hist[f"orders.trades:{v}:{picked}"]
-        reference = reference_of(picked, v == "usdm")
-        history = parse("order_history", lambda: sorted(
-            (_order(r, v, reference) for r in (h_res.payload or [])),
-            key=lambda o: o["created_at"] or "", reverse=True), fallback=[]) or []
-        fills = parse("trade_history", lambda: sorted(
-            (_fill(r, v) for r in (t_res.payload or [])),
-            key=lambda f: f["time"] or "", reverse=True), fallback=[]) or []
+        jobs: list[tuple[str, int, Callable[[], Any]]] = []
+        for sym in targets:
+            v = venues[sym]
+            # 默认参数绑定：闭包里直接用 `sym` 的话，循环结束后每个 lambda
+            # 拿到的都是最后一个交易对
+            jobs.append((f"orders.history:{v}:{sym}", TTL["history"],
+                         lambda s=sym, vv=v: client.orders_since(s, venue=vv)))
+            jobs.append((f"orders.trades:{v}:{sym}", TTL["history"],
+                         (lambda s=sym: client.futures_trades_since(s)) if v == "usdm"
+                         else (lambda s=sym: client.spot_trades_since(s))))
+        hist = fetch_all(cache, jobs, force=force)
+
+        def _orders() -> list[dict]:
+            out: list[dict] = []
+            for sym in targets:
+                v = venues[sym]
+                ref = reference_of(sym, v == "usdm")
+                got = hist[f"orders.history:{v}:{sym}"]
+                out.extend(_order(r, v, ref) for r in (got.payload or []))
+            return sorted(out, key=lambda o: o["created_at"] or "", reverse=True)
+
+        def _fills() -> list[dict]:
+            out: list[dict] = []
+            for sym in targets:
+                v = venues[sym]
+                got = hist[f"orders.trades:{v}:{sym}"]
+                out.extend(_fill(r, v, prices) for r in (got.payload or []))
+            return sorted(out, key=lambda f: f["time"] or "", reverse=True)
+
+        history = parse("order_history", _orders, fallback=[]) or []
+        fills = parse("trade_history", _fills, fallback=[]) or []
+
+        limits = [WINDOW.get(venues[s], WINDOW["spot"]) for s in targets]
+        # 多个交易对合在一起时，能保证的只有**交集**：窗口取最紧的那一个，
+        # 报成最宽的那个等于替另一半打了包票
+        looks = [x["lookback_days"] for x in limits if x["lookback_days"] is not None]
+        lookback = min(looks) if looks else None
+        start_ms = end_ms - (lookback or 90) * MS_HOUR * 24
         query = {
-            "symbol": picked, "venue": v,
+            # 没指定交易对时是 None，不是"碰巧第一个"——界面据此写「全部」
+            "symbol": symbol or None,
+            "symbols": targets,
+            "venue": venues[symbol] if symbol else None,
             "from": datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc).isoformat(),
             "to": now.isoformat(),
-            "max_window_hours": limits["max_hours"],
-            "lookback_days": limits["lookback_days"],
+            "max_window_hours": min(x["max_hours"] for x in limits),
+            "lookback_days": lookback,
         }
         history_states = [
-            {"key": "order_history", **_state(h_res)},
-            {"key": "trade_history", **_state(t_res)},
+            {"key": "order_history",
+             **_merge_states([hist[f"orders.history:{venues[s]}:{s}"] for s in targets])},
+            {"key": "trade_history",
+             **_merge_states([hist[f"orders.trades:{venues[s]}:{s}"] for s in targets])},
         ]
     else:
-        history, fills = [], []
         history_states = [{"key": "order_history", "status": "ok", "as_of": None,
                            "detail": "没有可查的交易对"},
                           {"key": "trade_history", "status": "ok", "as_of": None,
@@ -334,6 +382,20 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         "history": history,
         "fills": fills,
     }
+
+
+def _merge_states(results: list[SourceResult]) -> dict:
+    """一组按交易对分别取的结果，并成契约里的一个来源状态。
+
+    **只要有一个没取到，这一组就不是 ok。** 合并出来的历史少了一截，界面上分不出
+    是"那个交易对没有记录"还是"那一次没取到"——报 ok 就等于替它说了前者。
+    时刻取最旧的一个：整组的新鲜度由最旧的那份决定（同 `/portfolio` 的页面时刻）。
+    """
+    bad = next((r for r in results if r.status != "ok"), None)
+    stamps = [r.as_of for r in results if r.as_of]
+    return {"status": bad.status if bad else "ok",
+            "as_of": min(stamps).isoformat() if stamps else None,
+            "detail": bad.detail if bad else None}
 
 
 def _state(result: SourceResult) -> dict:

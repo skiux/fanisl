@@ -209,6 +209,13 @@ function VenueBreakdown({ rows, notional, span }: {
   )
 }
 
+/**
+ * 历史。**默认就是"我的历史"，不是"某一个交易对的历史"。**
+ *
+ * `allOrders` / `myTrades` 的 symbol 必填，所以后端不选交易对时会把候选里的每个
+ * 都问一遍再合并——上一版是替你挑了字母序第一个，于是这一节永远在讲某一个标的，
+ * 而标题写着"委托历史"。选定一个交易对才收窄到那一个。
+ */
 export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
   snapshot: OrdersSnapshot
   veiled: boolean
@@ -219,6 +226,14 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
   const down = snapshot.sources.filter((source) => (
     (source.key === 'order_history' || source.key === 'trade_history') && source.status !== 'ok'
   ))
+  // 合并视图下一个交易对挂掉不该把整页清空——451 常常只打在 fapi 上，
+  // 现货那半边照常取得到。同「挂单」那一页：有东西就给，缺的在模块的小注里说。
+  const blank = snapshot.history.length === 0 && snapshot.fills.length === 0
+  // 没有指定交易对 = 合并了多个，表里要标出每一行是谁的
+  const merged = q !== null && q.symbol === null
+  const scope = q === null ? '未选定交易对'
+    : q.symbol !== null ? `${baseOf(q.symbol)} · ${VENUE_LABEL[q.venue ?? 'spot']}`
+      : `全部 · ${q.symbols.length} 个交易对`
   const picker = (
     <QueryPanel
       onSelectSymbol={onSelectSymbol}
@@ -230,7 +245,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
     />
   )
 
-  if (down.length > 0) {
+  if (down.length > 0 && blank) {
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>
@@ -258,7 +273,11 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
 
   const fills = snapshot.fills
   const traded = fills.reduce((sum, fill) => sum + fill.quote_qty, 0)
-  const fees = fills.reduce((sum, fill) => sum + fill.commission, 0)
+  // **手续费只能按 USD 求和。** 现货常用 BNB 抵扣、合约结在 USDT，把两种币的
+  // 数量直接相加等于把 0.0008 个 BNB 当成 0.0008 美元；合并多个交易对之后
+  // 一定会跨币种。有一笔换不出价就整个报"取不到"，不拿少算的数冒充。
+  const fees = fills.some((fill) => fill.commission_usd === null) ? null
+    : fills.reduce((sum, fill) => sum + (fill.commission_usd ?? 0), 0)
   const makerQty = fills.filter((fill) => fill.is_maker).reduce((sum, fill) => sum + fill.quote_qty, 0)
   const realized = fills.reduce((sum, fill) => sum + (fill.realized_pnl ?? 0), 0)
 
@@ -267,11 +286,11 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
       <ViewGrid>
         <Module
           figure={String(snapshot.history.length)}
-          note={q ? `${baseOf(q.symbol)} · ${VENUE_LABEL[q.venue]}` : '未选定交易对'}
+          note={down.length > 0 ? '不含取不到的交易对' : scope}
           span="lg:col-span-7"
           title="委托历史"
         >
-          <HistoryTable orders={snapshot.history} />
+          <HistoryTable orders={snapshot.history} showSymbol={merged} />
         </Module>
 
         <Stack span="lg:col-span-5">
@@ -301,10 +320,14 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
                 <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
                   <Figure label="成交笔数" value={String(fills.length)} />
                   <Figure label="成交额" value={money(traded)} />
-                  <Figure label="手续费" tone="loss" value={signedMoney(-fees)} />
+                  <Figure
+                    label="手续费"
+                    tone="loss"
+                    value={fees === null ? '取不到' : signedMoney(-fees)}
+                  />
                   <Figure
                     label="费率"
-                    value={traded > 0 ? percent(fees / traded, 3) : '—'}
+                    value={fees !== null && traded > 0 ? percent(fees / traded, 3) : '—'}
                   />
                 </dl>
               </>
@@ -318,7 +341,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
           span="lg:col-span-12"
           title="成交明细"
         >
-          <FillTable fills={fills} />
+          <FillTable fills={fills} showSymbol={merged} />
         </Module>
       </ViewGrid>
     </div>
@@ -334,6 +357,9 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
  * 只有一组时不给分组标题：整份候选都是 USDT 计价的账户很常见，那行「USDT」
  * 什么也没区分。
  */
+/** 「全部」这一项的值。不能用空串——Radix Select 把空串当成"清空选择" */
+const ALL_SYMBOLS = '__all__'
+
 function symbolGroups(symbols: string[], open: Order[]): SelectGroup[] {
   const counts = new Map<string, number>()
   for (const order of open) counts.set(order.symbol, (counts.get(order.symbol) ?? 0) + 1)
@@ -357,7 +383,14 @@ function symbolGroups(symbols: string[], open: Order[]): SelectGroup[] {
     .map(([label, options]) => ({
       label, options: [...options].sort((a, b) => a.label.localeCompare(b.label)),
     }))
-  return groups.length === 1 ? groups.map((group) => ({ options: group.options })) : groups
+  // 只有一组时不画分组标题——整份候选都是 USDT 计价很常见，那行标题什么也没区分
+  const quotes: SelectGroup[] = groups.length === 1
+    ? groups.map((group) => ({ options: group.options })) : groups
+  // 「全部」单独一组：它不属于任何计价币，跟在某个标题下面读着像那一组里的一员
+  return [
+    { options: [{ value: ALL_SYMBOLS, label: '全部', suffix: ` ${symbols.length} 个` }] },
+    ...quotes,
+  ]
 }
 
 /**
@@ -382,9 +415,10 @@ function QueryPanel({ symbol, symbols, open, query, span, onSelectSymbol }: {
             disabled={symbols.length === 0}
             groups={symbolGroups(symbols, open)}
             label="交易对"
-            onValueChange={onSelectSymbol}
+            onValueChange={(next) => onSelectSymbol(next === ALL_SYMBOLS ? '' : next)}
             placeholder={symbols.length === 0 ? '没有可查的交易对' : '选择'}
-            value={symbol}
+            // 空串（还没选过）就是「全部」，两者是同一档，不是两种状态
+            value={symbol || ALL_SYMBOLS}
           />
         </div>
       </div>

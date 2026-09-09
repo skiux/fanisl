@@ -422,6 +422,15 @@ LEDGER_ROUTES = {
 }
 
 
+# 按 symbol 过滤的端点（见 handler）
+_BY_SYMBOL = {
+    "/fapi/v1/allOrders": FUT_ALL_ORDERS,
+    "/fapi/v1/userTrades": FUT_USER_TRADES,
+    "/api/v3/allOrders": SPOT_ALL_ORDERS,
+    "/api/v3/myTrades": SPOT_MY_TRADES,
+}
+
+
 def make_transport(*, fail: dict[str, int] | None = None, calls: list | None = None,
                    ledger: bool = False):
     """按路径分发的假 Binance。
@@ -445,6 +454,13 @@ def make_transport(*, fail: dict[str, int] | None = None, calls: list | None = N
         if path == "/api/v3/klines":
             return httpx.Response(200, json=_klines(
                 dict(request.url.params).get("symbol", "")))
+        # 历史四个端点按 symbol 过滤。**不过滤的话每个交易对都会回同一批行**，
+        # "不选交易对就把候选全问一遍"那条路会变成把同一份历史抄 N 遍，
+        # 测不出合并是不是真的按交易对分开取的。
+        if path in _BY_SYMBOL:
+            want = dict(request.url.params).get("symbol", "")
+            return httpx.Response(200, json=[row for row in _BY_SYMBOL[path]
+                                             if row.get("symbol") == want])
         if path == "/sapi/v1/asset/transfer":
             kind = dict(request.url.params).get("type", "")
             return httpx.Response(200, json=LEDGER_TRANSFERS.get(

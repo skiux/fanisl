@@ -144,9 +144,22 @@ const RAW_HISTORY: RawOrder[] = [
   { venue: 'usdm', symbol: HISTORY_SYMBOL, side: 'sell', kind: 'limit', qty: 12, filled: 8, price: 215, tif: 'GTC', status: 'canceled', ageMin: 3302, touchedMin: 3120 },
 ]
 
+/**
+ * 现货那一段。**样本必须跨两个 venue**：默认视图会把候选里的每个交易对都问一遍
+ * 再合并，只有合约记录的话，"合并"和"只查一个"在示例数据下长得一模一样，
+ * 表里那一列交易对也永远只有一个值。
+ */
+const RAW_SPOT_HISTORY: RawOrder[] = [
+  { venue: 'spot', symbol: 'BNBUSDT', side: 'buy', kind: 'limit', qty: 2.5, filled: 2.5, price: 641.2, tif: 'GTC', status: 'filled', ageMin: 8210 },
+  { venue: 'spot', symbol: 'BNBUSDT', side: 'sell', kind: 'limit', qty: 1.2, price: 712, tif: 'GTC', status: 'canceled', ageMin: 4460, touchedMin: 4120 },
+  { venue: 'spot', symbol: 'BNBUSDT', side: 'buy', kind: 'limit', qty: 1.7, filled: 1.7, price: 668.4, tif: 'GTC', status: 'filled', ageMin: 2015 },
+]
+
 export function buildHistory(asOf: Date): Order[] {
-  return RAW_HISTORY.map((row, index) => toOrder(row, index + 90, asOf))
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+  return [
+    ...RAW_HISTORY.map((row, index) => toOrder(row, index + 90, asOf)),
+    ...RAW_SPOT_HISTORY.map((row, index) => toOrder(row, index + 200, asOf)),
+  ].sort((a, b) => b.created_at.localeCompare(a.created_at))
 }
 
 /** U 本位费率：挂单 0.02%，吃单 0.04% */
@@ -172,8 +185,34 @@ export const NVDA_ENTRY_PRICE = (() => {
   return qty === 0 ? 0 : buys.reduce((sum, row) => sum + row.qty * row.price, 0) / qty
 })()
 
+/** 现货成交：没有已实现盈亏（现货成交不结算），手续费用 BNB 抵扣 */
+const RAW_SPOT_FILLS = [
+  { side: 'buy' as OrderSide, qty: 2.5, price: 641.2, maker: true, ageMin: 8210, orderIndex: 200 },
+  { side: 'buy' as OrderSide, qty: 1.7, price: 668.4, maker: false, ageMin: 2015, orderIndex: 202 },
+]
+
 export function buildFills(asOf: Date): Fill[] {
-  return RAW_FILLS.map((row, index) => {
+  const spot: Fill[] = RAW_SPOT_FILLS.map((row, index) => {
+    const quote = row.qty * row.price
+    return {
+      id: `spot:t${910_400 + index * 31}`,
+      order_id: `spot:${4_100_000 + row.orderIndex * 137}`,
+      venue: 'spot' as OrderVenue,
+      symbol: 'BNBUSDT',
+      side: row.side,
+      price: row.price,
+      qty: row.qty,
+      quote_qty: quote,
+      // 现货挂单 0.075%（BNB 抵扣后），吃单 0.1%
+      commission: (quote * (row.maker ? 0.00075 : 0.001)) / 682.15,
+      commission_asset: 'BNB',
+      commission_usd: quote * (row.maker ? 0.00075 : 0.001),
+      is_maker: row.maker,
+      realized_pnl: null,
+      time: iso(asOf, row.ageMin),
+    }
+  })
+  return [...spot, ...RAW_FILLS.map((row, index) => {
     const quote = row.qty * row.price
     return {
       id: `usdm:t${820_400 + index * 29}`,
@@ -186,12 +225,13 @@ export function buildFills(asOf: Date): Fill[] {
       quote_qty: quote,
       commission: quote * (row.maker ? FEE.maker : FEE.taker),
       commission_asset: 'USDT',
+      commission_usd: quote * (row.maker ? FEE.maker : FEE.taker),
       is_maker: row.maker,
       // 只有平仓的那一边结算盈亏；开仓成交的 realizedPnl 是 0
       realized_pnl: row.side === 'sell' ? (row.price - NVDA_ENTRY_PRICE) * row.qty : 0,
       time: iso(asOf, row.ageMin),
     }
-  }).sort((a, b) => b.time.localeCompare(a.time))
+  })].sort((a, b) => b.time.localeCompare(a.time))
 }
 
 /** 可查历史的交易对：有挂单的 + 有持仓的 + 现货余额能配出的 */
@@ -199,15 +239,29 @@ export const HISTORY_SYMBOLS = [
   'NVDAUSDT', 'QQQUSDT', 'XAUUSDT', 'MSTRUSDT', 'BNBUSDT',
 ]
 
-export function buildQuery(asOf: Date): HistoryQuery {
+/**
+ * `symbol` 为 null = 默认那一档：候选里的每个都问过一遍再合并，
+ * 窗口取最紧的一个（现货 24 小时最紧，合约 90 天回溯最紧）。
+ */
+export function buildQuery(asOf: Date, symbol: string | null = null): HistoryQuery {
+  // 回溯一律按 90 天算：现货接口没声明上限，后端也是拿 90 兜的底
+  const from = iso(asOf, 90 * 24 * 60)
+  if (symbol === null) {
+    return {
+      symbol: null, symbols: HISTORY_SYMBOLS, venue: null,
+      from, to: asOf.toISOString(),
+      // 混着现货与合约，两条限制各取最紧的一头
+      max_window_hours: 24,
+      lookback_days: 90,
+    }
+  }
+  const spot = symbol === 'BNBUSDT'
   return {
-    symbol: HISTORY_SYMBOL,
-    venue: 'usdm',
-    from: iso(asOf, 7 * 24 * 60),
-    to: asOf.toISOString(),
-    // /fapi/v1/allOrders：单次区间 < 7 天，最多回溯 90 天
-    max_window_hours: 7 * 24,
-    lookback_days: 90,
+    symbol, symbols: [symbol], venue: spot ? 'spot' : 'usdm',
+    from, to: asOf.toISOString(),
+    // /fapi/v1/allOrders：单次区间 < 7 天，最多回溯 90 天；现货单次 24 小时、无回溯上限
+    max_window_hours: spot ? 24 : 7 * 24,
+    lookback_days: spot ? null : 90,
   }
 }
 

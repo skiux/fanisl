@@ -13,13 +13,17 @@ import { SourceHealth } from './SourceHealth'
 import { WalletSpread } from './WalletSpread'
 
 /**
- * 总览。这一节只放别处没有的东西：
- *   走势（时间维度）、钱包分布（空间维度）、风险判断（越线与否）、取数可信度。
+ * 总览。四个分节里唯一的"整页"：日历（时间）、资产分布（空间）、合约收支
+ * （这 90 天的钱去哪了）、风险判断（越线与否），外加只在出问题时出现的取数状态。
  * 明细里的清单一律不在这里重复一份缩略版——那不是摘要，是把同一份内容印两遍。
  *
- * **「每日盈亏」不给跳转。** 它原先点标题跳到「盈亏」页，而那个动作和上面分节标签
- * 里的「盈亏」一模一样——同一个去处摆了两个入口，多出来的那个只会让人以为
- * 点开会看到别的东西。日历本身留着：这一节的时间维度就靠它。
+ * **原先「盈亏」是一个独立分节，已经并进来了。** 它只有三块：日历、合约收支、充提。
+ * 而日历在这一页也有一份——同一张表在两个分节里各印一遍，切过去只是换个位置再看
+ * 一次。剩下两块本来就属于"这段时间赚了多少"，和日历同一个问题，合在一页读起来
+ * 反而连贯：上面是逐天，下面是这 90 天按项拆开。
+ *
+ * **「每日盈亏」不给跳转箭头。** 箭头只在"点开有别的东西"时才给；日历点开就是它
+ * 自己，没有别的去处。
  */
 export function OverviewView({ snapshot, veiled, futuresMissing, concentration, onOpen }: {
   snapshot: PortfolioSnapshot
@@ -29,6 +33,8 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
   onOpen: (key: 'holdings' | 'perp') => void
 }) {
   const pnl = snapshot.pnl
+  const t = snapshot.transfers
+  const grossFlow = t ? Math.max(t.deposits_usd, t.withdrawals_usd, 1) : 1
   const okCount = snapshot.sources.filter((source) => source.status === 'ok').length
 
   return (
@@ -44,46 +50,6 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
           <WalletSpread veiled={false} wallets={snapshot.wallets} />
         </Module>
 
-        <Module
-          onOpen={() => onOpen('perp')}
-          span="lg:col-span-5"
-          title="风险仪表"
-        >
-          <RiskGauges
-            concentration={concentration}
-            exposureRatio={snapshot.totals?.gross_exposure_ratio ?? null}
-            futures={snapshot.futures}
-            margin={snapshot.margin}
-            unavailable={futuresMissing}
-          />
-        </Module>
-
-        {/* **只在出问题时出现。** 全绿时这一块是纯运维信息——和流水页那张
-            「取数窗口」端点表同一类，删了；但来源挂掉时它是有用的：页面上的数字
-            少了一块，得说清楚少的是哪一块。所以不按角色藏，按状态出。 */}
-        {okCount < snapshot.sources.length && (
-          <Module
-            figure={`${snapshot.sources.length - okCount} 项缺失`}
-            span="lg:col-span-7"
-            title="下面的数字不完整"
-            tone="muted"
-          >
-            <SourceHealth sources={snapshot.sources} />
-          </Module>
-        )}
-      </ViewGrid>
-    </div>
-  )
-}
-
-export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; veiled: boolean }) {
-  const t = snapshot.transfers
-  const pnl = snapshot.pnl
-  const grossFlow = t ? Math.max(t.deposits_usd, t.withdrawals_usd, 1) : 1
-
-  return (
-    <div className={cn(veiled && 'veiled')}>
-      <ViewGrid>
         {/* 四行同一个窗口、同一个来源，条形才可比——旧的「盈亏构成」把 1 天、
             此刻、全历史、90 天四种窗口混在一张表里画对比条，见 PnlBreakdown。
             现货那半边归日历（那里才有区间概念）。 */}
@@ -91,10 +57,23 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
           <PnlBreakdown pnl={pnl} />
         </Module>
 
-        {/* 原先这里还有一块「成本」，写着毛利 / 成本 / 成本占毛利 / 日均资金费——
-            全是左边那四个数换个排法算出来的（毛利 − 成本 恰好等于左边的合计），
-            同一屏说两遍。手续费与资金费在左边的条形上本来就一眼看得出占多少。 */}
         <Stack span="lg:col-span-4">
+          <Module
+            onOpen={() => onOpen('perp')}
+            span=""
+            title="风险仪表"
+          >
+            <RiskGauges
+              concentration={concentration}
+              exposureRatio={snapshot.totals?.gross_exposure_ratio ?? null}
+              futures={snapshot.futures}
+              margin={snapshot.margin}
+              unavailable={futuresMissing}
+            />
+          </Module>
+
+          {/* 充提不是盈亏，但"真实收益 = 期末 − 期初 − 净充提"要用到它，
+              所以它挨着合约收支放，而不是混进上面那张表里染成绿色。 */}
           <Module
             figure={t ? signedMoney(t.net_usd) : '—'}
             span=""
@@ -102,36 +81,43 @@ export function ChangesView({ snapshot, veiled }: { snapshot: PortfolioSnapshot;
             tone="accent"
           >
             {t ? (
-              <>
-                <ul className="space-y-3">
-                  {([
-                    ['充值', t.deposits_usd, t.deposit_count],
-                    ['提现', t.withdrawals_usd, t.withdrawal_count],
-                  ] as const).map(([label, value, count]) => (
-                    <li className="flex items-center gap-3" key={label}>
-                      <span className="w-[42px] shrink-0 text-xs text-ink-2">{label}</span>
-                      <span className="h-[3px] w-[96px] shrink-0 overflow-hidden rounded-full bg-rule">
-                        <span
-                          className="block h-full rounded-full bg-accent/70 transition-[width] duration-500"
-                          style={{ width: `${((value / grossFlow) * 100).toFixed(1)}%` }}
-                        />
-                      </span>
-                      <span className="tnum ml-auto whitespace-nowrap text-sm text-ink">{money(value)}</span>
-                      {/* 去掉"笔"之后这里剩个裸数字，读不出是什么。摘要条上有标签
-                          （"条件单 5"）不需要单位，这里没有，用 ×n 表示次数 */}
-                      <span className="tnum w-[36px] shrink-0 text-right text-xs text-ink-3">×{count}</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
+              <ul className="space-y-3">
+                {([
+                  ['充值', t.deposits_usd, t.deposit_count],
+                  ['提现', t.withdrawals_usd, t.withdrawal_count],
+                ] as const).map(([label, value, count]) => (
+                  <li className="flex items-center gap-3" key={label}>
+                    <span className="w-[42px] shrink-0 text-xs text-ink-2">{label}</span>
+                    <span className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-rule">
+                      <span
+                        className="block h-full rounded-full bg-accent/70 transition-[width] duration-500"
+                        style={{ width: `${((value / grossFlow) * 100).toFixed(1)}%` }}
+                      />
+                    </span>
+                    <span className="tnum whitespace-nowrap text-sm text-ink">{money(value)}</span>
+                    {/* 去掉"笔"之后这里剩个裸数字，读不出是什么。摘要条上有标签
+                        （"条件单 5"）不需要单位，这里没有，用 ×n 表示次数 */}
+                    <span className="tnum w-[30px] shrink-0 text-right text-xs text-ink-3">×{count}</span>
+                  </li>
+                ))}
+              </ul>
             ) : <p className="text-sm text-ink-3">充提记录取不到。</p>}
           </Module>
-
         </Stack>
 
-        <Module span="lg:col-span-12" title="每日盈亏">
-          <RealizedDays days={pnl?.daily ?? []} />
-        </Module>
+        {/* **只在出问题时出现。** 全绿时这一块是纯运维信息——和流水页那张
+            「取数窗口」端点表同一类，删了；但来源挂掉时它是有用的：页面上的数字
+            少了一块，得说清楚少的是哪一块。所以不按角色藏，按状态出。 */}
+        {okCount < snapshot.sources.length && (
+          <Module
+            figure={`${snapshot.sources.length - okCount} 项缺失`}
+            span="lg:col-span-12"
+            title="下面的数字不完整"
+            tone="muted"
+          >
+            <SourceHealth sources={snapshot.sources} />
+          </Module>
+        )}
       </ViewGrid>
     </div>
   )
