@@ -6,7 +6,7 @@ import { SegmentedControl } from '../../components/controls'
 import { Ticker, tickerHue } from '../../components/Ticker'
 import { ICONS } from '../../components/icons'
 import {
-  DUST_THRESHOLD_USD, money, moneyCompact, percent, signedMoney, signedPercent,
+  money, moneyCompact, percent, signedMoney, signedPercent,
 } from '../../lib/format'
 import { cash, exposures } from '../../lib/holdings'
 import { breakingDrop, resize, shock } from '../../lib/stress'
@@ -108,18 +108,17 @@ export function RiskControlView({ snapshot, veiled }: {
     .filter((row) => longTotal > 0 && row.value / longTotal >= 0.01)
     .slice(0, PIE_SLICES)
   const slices = [...shown]
-  // 折进「其他」的那几个：块上写不下，但**要在图底下逐个列出来**。
-  // 只给一行"其他 0.4%"等于把它们藏了——图不该靠 hover 才说得全。
-  const folded = longs.filter((row) => !shown.includes(row))
-  const rest = folded.reduce((sum, row) => sum + row.value, 0)
+  // 折进「其他」的那几个块上写不下，**去处是右边那张表**——它列全部标的，
+  // 一个都不折。图不该靠 hover 才说得全，也不该靠两处各抄一遍。
+  const rest = longs.filter((row) => !shown.includes(row))
+    .reduce((sum, row) => sum + row.value, 0)
   if (rest > longTotal * 0.001) slices.push({ asset: '其他', value: rest })
 
   const netExposure = rows.reduce((sum, row) => sum + row.net_usd, 0)
-  // 灰尘不占行：这一页问的是"哪几个东西会伤到我"，$7 的 DOGE 不是答案，
-  // 而十来行尘埃会把真正的几个大头挤到看不见
-  const major = rows.filter((row) => Math.abs(row.net_usd) >= DUST_THRESHOLD_USD)
-  const dust = rows.filter((row) => Math.abs(row.net_usd) < DUST_THRESHOLD_USD)
-  const dustValue = dust.reduce((sum, row) => sum + row.net_usd, 0)
+  // **这张表列全部标的，不折灰尘。** 饼上小块并进了「其他」，那几个的去处就只剩
+  // 这里；折起来等于两处都看不到。它同时也是饼的图例，行数与环高相当，
+  // 左右两栏因此高度相称——上一版右边七行、左边一个环加一张清单，右下角空一大片。
+  const major = rows
   const peak = Math.max(...major.map((row) => Math.abs(row.net_usd)), 1)
   const multiplier = LEVERAGES[lever]
 
@@ -152,7 +151,6 @@ export function RiskControlView({ snapshot, veiled }: {
             <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
             <Donut
               focus={focus}
-              folded={folded}
               onHover={setHover}
               onPin={(asset) => setPinned((now) => (now === asset ? null : asset))}
               slices={slices}
@@ -211,12 +209,6 @@ export function RiskControlView({ snapshot, veiled }: {
                   </li>
                 )
               })}
-              {dust.length > 0 && (
-                <li className="flex items-baseline justify-between gap-3 py-2.5">
-                  <span className="text-xs text-ink-3">{dust.length} 项灰尘敞口</span>
-                  <span className="tnum text-xs text-ink-3">{signedMoney(dustValue)}</span>
-                </li>
-              )}
             </ul>
             </div>
           )}
@@ -225,7 +217,7 @@ export function RiskControlView({ snapshot, veiled }: {
         <Module
           figure={hit.equity_usd === null ? '—' : money(hit.equity_usd)}
           note={size === 'now' ? `跌 ${drop}% 之后的净值` : `仓位 ${size}× · 跌 ${drop}% 之后的净值`}
-          span="lg:col-span-8"
+          span="lg:col-span-7"
           title="压力测试"
           tone={hit.liquidated.length > 0 ? 'loss' : undefined}
         >
@@ -298,6 +290,46 @@ export function RiskControlView({ snapshot, veiled }: {
             </div>
           )}
 
+          {/* 「以 N× 杠杆还能开多少」原本是独立一块，可它读的就是上面那个
+              「可用余额」——同一个压力情形的两种问法，分开摆等于把一次判断
+              拆成两块，右边还多出一个杠杆开关。并进来之后这一节自成一段。 */}
+          <div className="mt-6 border-t border-rule pt-5">
+            <div className="mb-4 flex items-baseline justify-between gap-4">
+              <span className="text-sm text-ink-2">
+                可开仓位 <span className="text-xs text-ink-3">以这个杠杆还能开多少</span>
+              </span>
+              <span className="tnum text-sm text-ink">{multiplier}×</span>
+            </div>
+          <div className="mb-5">
+            <SegmentedControl
+              items={(Object.keys(LEVERAGES) as (keyof typeof LEVERAGES)[])
+                .map((k) => ({ value: k, label: `${k}×` }))}
+              label="杠杆"
+              onValueChange={setLever}
+              size="sm"
+              value={lever}
+            />
+          </div>
+          <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
+            <Figure
+              label="现在"
+              value={snapshot.futures === null ? '—'
+                : money(Math.max(0, snapshot.futures.available_balance) * multiplier)}
+            />
+            <Figure
+              label={`跌 ${drop}% 之后`}
+              tone="loss"
+              value={hit.available_usd === null ? '—'
+                : money(Math.max(0, hit.available_usd) * multiplier)}
+            />
+            <Figure
+              label="可用余额"
+              value={snapshot.futures === null ? '—' : money(snapshot.futures.available_balance)}
+            />
+            <Figure label="现货现金" value={money(spare)} />
+          </dl>
+          </div>
+
           {hit.liquidated.length > 0 && (
             <ul className="mt-5 flex flex-wrap gap-2 border-t border-rule pt-4">
               {hit.liquidated.map((symbol) => (
@@ -312,7 +344,7 @@ export function RiskControlView({ snapshot, veiled }: {
           )}
         </Module>
 
-        <Stack span="lg:col-span-4">
+        <Stack span="lg:col-span-5">
           <Module
             figure={edge === null ? '—' : percent(edge, 1)}
             note="一起跌到这里开始强平"
@@ -340,42 +372,6 @@ export function RiskControlView({ snapshot, veiled }: {
                 />
               </dl>
             )}
-          </Module>
-
-          <Module
-            figure={`${multiplier}×`}
-            note="以这个杠杆还能开多少"
-            span=""
-            title="可开仓位"
-          >
-            <div className="mb-5">
-              <SegmentedControl
-                items={(Object.keys(LEVERAGES) as (keyof typeof LEVERAGES)[])
-                  .map((k) => ({ value: k, label: `${k}×` }))}
-                label="杠杆"
-                onValueChange={setLever}
-                size="sm"
-                value={lever}
-              />
-            </div>
-            <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-              <Figure
-                label="现在"
-                value={snapshot.futures === null ? '—'
-                  : money(Math.max(0, snapshot.futures.available_balance) * multiplier)}
-              />
-              <Figure
-                label={`跌 ${drop}% 之后`}
-                tone="loss"
-                value={hit.available_usd === null ? '—'
-                  : money(Math.max(0, hit.available_usd) * multiplier)}
-              />
-              <Figure
-                label="可用余额"
-                value={snapshot.futures === null ? '—' : money(snapshot.futures.available_balance)}
-              />
-              <Figure label="现货现金" value={money(spare)} />
-            </dl>
           </Module>
 
           {/* 逐行的现金明细在「持仓」页，这里只回答"还能补多少保证金"——
@@ -423,7 +419,11 @@ const R_MID = (R_OUT + R_IN) / 2
 /** 占比到这个数才写得进块里；再小就走外侧标签 + 引导线 */
 const INSIDE_MIN = 0.08
 /** 外侧标签之间的最小垂直间距，靠得太近就互相推开 */
-const LABEL_GAP = 30
+const LABEL_GAP = 28
+/** 引导线第一段：沿半径往外 */
+const LEAD_1 = 14
+/** 引导线第二段：横向一小截，标签接在末端 */
+const LEAD_2 = 20
 
 type Placed = {
   asset: string; value: number; frac: number; rank: number
@@ -448,13 +448,18 @@ function layout(slices: Slice[], total: number): Placed[] {
     const midDeg = 90 - 360 * (cum + frac / 2)
     cum += frac
     const rad = -(midDeg * Math.PI) / 180
-    const side: 1 | -1 = Math.cos(rad) >= 0 ? 1 : -1
+    const cos = Math.cos(rad)
+    const sin = Math.sin(rad)
+    const side: 1 | -1 = cos >= 0 ? 1 : -1
     return {
       ...slice, frac, rank, rad,
       inside: frac >= INSIDE_MIN,
-      lx: CX + side * (R_OUT + 30),
-      // 夹在画布里留一点余量：贴着上下边缘的标签读着像掉出去了
-      ly: Math.min(BOX_H - 26, Math.max(26, CY + Math.sin(rad) * (R_OUT + 18))),
+      // 标签跟着弧走，**不钉到画布边**。钉到边（ECharts 的 alignTo: 'edge'）在
+      // 块多的时候整齐，可这里常常只有一两个小块——一条横穿半张图的引导线牵到
+      // 角落里一个小标签，读着像掉出去的碎片。通行做法是"短径向 + 短横线"，
+      // 标签就落在弧边外一点。
+      lx: CX + cos * (R_OUT + LEAD_1) + side * LEAD_2,
+      ly: Math.min(BOX_H - 24, Math.max(24, CY + sin * (R_OUT + LEAD_1))),
       side,
     }
   })
@@ -529,9 +534,8 @@ function Mark({ asset, x, y, r }: { asset: string; x: number; y: number; r: numb
  *   操作，那个框是纯粹的误导；键盘走右边那张表（每行是真按钮）。
  *   蓝框在 index.css 里按 `.recharts-wrapper` 去掉。
  */
-function Donut({ slices, folded, total, focus, onHover, onPin }: {
+function Donut({ slices, total, focus, onHover, onPin }: {
   slices: Slice[]
-  folded: { asset: string; value: number }[]
   total: number
   focus: string | null
   onHover: (asset: string | null) => void
@@ -603,29 +607,6 @@ function Donut({ slices, folded, total, focus, onHover, onPin }: {
         </div>
       </div>
 
-      {folded.length > 0 && (
-        <ul className="mt-2 space-y-1 border-t border-rule pt-2.5">
-          {/* 这几行是上面那块「其他」的明细。图上写不下，但不能因此不说——
-              一张要靠 hover 才说得全的图是不完整的。 */}
-          <li className="flex items-baseline justify-between gap-3 pb-1">
-            <span className="text-micro text-ink-3">其他 · 逐项</span>
-            <span className="tnum text-micro text-ink-3">
-              {money(folded.reduce((sum, row) => sum + row.value, 0))}
-            </span>
-          </li>
-          {folded.map((row) => (
-            <li className="flex items-baseline justify-between gap-3" key={row.asset}>
-              <span className="flex items-center gap-2 text-xs text-ink-3">
-                <span className="size-2 shrink-0 rounded-[2px] bg-rule-strong" />
-                {row.asset}
-              </span>
-              <span className="tnum text-xs text-ink-3">
-                {money(row.value)} · {percent(total > 0 ? row.value / total : null, 1)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   )
 }
@@ -666,37 +647,37 @@ function renderLabel(props: SliceLabel, placed: Placed[], focus: string | null) 
     )
   }
 
-  // 外侧：弧边 → 拐点 → 横向一小段，标签贴在末端
+  // 外侧：弧边 → 沿半径出去一小段 → 横向一小截，标签接在末端
   const ax = CX + cos * (R_OUT + 2)
   const ay = CY + sin * (R_OUT + 2)
-  const bx = CX + cos * (R_OUT + 16)
+  const bx = CX + cos * (R_OUT + LEAD_1)
   const by = slice.ly
   const tx = slice.lx
   return (
     <g className="pie-label" style={{ opacity: on ? 1 : 0.22 }}>
       <polyline
         fill="none"
-        points={`${ax},${ay} ${bx},${by} ${tx - slice.side * 20},${by}`}
+        points={`${ax},${ay} ${bx},${by} ${tx},${by}`}
         stroke="var(--rule-strong)"
         strokeWidth={1}
       />
-      <Mark asset={slice.asset} r={7} x={tx - slice.side * 10} y={by} />
+      <Mark asset={slice.asset} r={7} x={tx + slice.side * 9} y={by} />
       <text
         fill="var(--ink-2)"
-        fontSize={10}
+        fontSize={10.5}
         textAnchor={slice.side === 1 ? 'start' : 'end'}
-        x={tx + slice.side * 2}
-        y={by - 3}
+        x={tx + slice.side * 20}
+        y={by - 2}
       >
         {slice.asset}
       </text>
       <text
         className="tnum"
         fill="var(--ink-3)"
-        fontSize={9.5}
+        fontSize={10}
         textAnchor={slice.side === 1 ? 'start' : 'end'}
-        x={tx + slice.side * 2}
-        y={by + 9}
+        x={tx + slice.side * 20}
+        y={by + 11}
       >
         {(slice.frac * 100).toFixed(1)}% · {moneyCompact(slice.value)}
       </text>
