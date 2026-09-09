@@ -1,12 +1,11 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Cell, Pie, PieChart } from 'recharts'
+import { useMemo, useState } from 'react'
 import { cn } from '../../lib/cn'
 import { Figure, Module, Stack, ViewGrid } from '../../components/layout'
+import { Donut, Swatch, type DonutSlice } from '../../components/Donut'
 import { SegmentedControl } from '../../components/controls'
-import { Ticker, tickerHue } from '../../components/Ticker'
-import { ICONS } from '../../components/icons'
+import { Ticker } from '../../components/Ticker'
 import {
-  money, moneyCompact, percent, signedMoney, signedPercent,
+  money, percent, signedMoney, signedPercent,
 } from '../../lib/format'
 import { cash, exposures } from '../../lib/holdings'
 import { breakingDrop, resize, shock } from '../../lib/stress'
@@ -107,13 +106,24 @@ export function RiskControlView({ snapshot, veiled }: {
   const shown = longs
     .filter((row) => longTotal > 0 && row.value / longTotal >= 0.01)
     .slice(0, PIE_SLICES)
-  const slices = [...shown]
+  const slices: DonutSlice[] = shown.map((row, i) => ({
+    key: row.asset, value: row.value, color: sliceInk(i, row.asset),
+  }))
   // 折进「其他」的那几个块上写不下，**去处是右边那张表**——它列全部标的，
   // 一个都不折。图不该靠 hover 才说得全，也不该靠两处各抄一遍。
   const rest = longs.filter((row) => !shown.includes(row))
     .reduce((sum, row) => sum + row.value, 0)
-  if (rest > longTotal * 0.001) slices.push({ asset: '其他', value: rest })
+  if (rest > longTotal * 0.001) {
+    slices.push({ key: '其他', value: rest, color: sliceInk(slices.length, '其他') })
+  }
+  // 表里靠色块和环对号：本身有一块的用自己的色，被并进「其他」的用「其他」的色。
+  // **不能留空**——留空就等于"这一行在图上找不到"，而它其实在，只是并进去了。
+  const other = slices.find((slice) => slice.key === '其他')?.color ?? null
+  const swatchOf = (asset: string) =>
+    slices.find((slice) => slice.key === asset)?.color
+    ?? (longs.some((row) => row.asset === asset) ? other : null)
 
+  const shownSlice = slices.find((slice) => slice.key === focus) ?? null
   const netExposure = rows.reduce((sum, row) => sum + row.net_usd, 0)
   // **这张表列全部标的，不折灰尘。** 饼上小块并进了「其他」，那几个的去处就只剩
   // 这里；折起来等于两处都看不到。它同时也是饼的图例，行数与环高相当，
@@ -149,16 +159,33 @@ export function RiskControlView({ snapshot, veiled }: {
             <p className="py-10 text-center text-sm text-ink-3">当前没有敞口。</p>
           ) : (
             <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
-            <Donut
-              focus={focus}
-              onHover={setHover}
-              onPin={(asset) => setPinned((now) => (asset === null || now === asset ? null : asset))}
-              slices={slices}
-              total={longTotal}
-            />
+            <div className="min-w-0 flex-1">
+              <Donut
+                focus={focus}
+                hub={(
+                  <div className="flex flex-col items-center gap-0.5">
+                    {shownSlice === null ? (
+                      <span className="tnum text-lg text-ink">{money(longTotal)}</span>
+                    ) : (
+                      <>
+                        <Ticker asset={shownSlice.key} />
+                        <span className="tnum text-lg text-ink">{money(shownSlice.value)}</span>
+                        <span className="tnum text-xs text-ink-3">
+                          {percent(longTotal > 0 ? shownSlice.value / longTotal : null, 1)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+                onFocus={setHover}
+                onPin={(asset) => setPinned((now) => (asset === null || now === asset ? null : asset))}
+                slices={slices}
+                total={longTotal}
+              />
+            </div>
             <ul className="min-w-0 flex-1 divide-y divide-rule">
               {major.map((row) => {
-                const inPie = slices.some((slice) => slice.asset === row.asset)
+                const inPie = slices.some((slice) => slice.key === row.asset)
                 const on = focus === row.asset
                 return (
                   <li key={row.asset}>
@@ -185,7 +212,11 @@ export function RiskControlView({ snapshot, veiled }: {
                       onMouseLeave={() => setHover(null)}
                       type="button"
                     >
-                      <span className="flex items-center gap-2.5">
+                      <span className="flex items-center gap-2">
+                        {/* 色块把这一行和环上的块对起来——这张表就是饼的图例 */}
+                        {swatchOf(row.asset)
+                          ? <Swatch color={swatchOf(row.asset) as string} />
+                          : <span className="size-2.5 shrink-0" />}
                         <Ticker asset={row.asset} size="sm" />
                         <span className="w-[52px] shrink-0 truncate text-sm text-ink">{row.asset}</span>
                       </span>
@@ -405,379 +436,3 @@ export function RiskControlView({ snapshot, veiled }: {
 }
 
 
-type Slice = { asset: string; value: number }
-
-/* --- 几何 ---------------------------------------------------------------
- *
- * **全部按实测宽度算出来，不能写死。** recharts 会把 svg 的 `viewBox` 设成
- * 它测到的**像素尺寸**（`0 0 309 240` 这种），不是我们给的设计稿尺寸——也就是说
- * `cx` / `r` 这些数被当成像素用。上一版把它们写成常量（cx 270、r 185），
- * 于是只有容器正好 540px 宽时才对：窄屏上环照旧画 370px 直径，直接溢出被裁掉，
- * 圈心也跟着对不上环心。移动端整张图是坏的。
- *
- * 既然是像素坐标，字号就不再被缩放——写 19 就是 19px，窄屏上也一样大。
- * 代价是**窄屏塞不下四行**，所以有紧凑模式：只留图标 + 占比，外侧标签整个不画
- * （小块的明细在下面那张表里，一个都不少）。
- */
-const NARROW = 460
-/** 宽屏要给外侧标签留边；紧凑模式不画外侧标签，留一点点就够 */
-const PAD_WIDE = 84
-const PAD_NARROW = 14
-
-type Geo = {
-  w: number; h: number; cx: number; cy: number
-  rOut: number; rIn: number; rMid: number
-  compact: boolean
-}
-
-function geometry(w: number): Geo {
-  const compact = w < NARROW
-  const pad = compact ? PAD_NARROW : PAD_WIDE
-  // 窄屏给个方一点的框（环大、上下不浪费）；宽屏留出左右写标签的地方
-  const h = compact ? Math.min(w, 380) : Math.round(w / 1.286)
-  const rOut = Math.max(56, Math.min((w - pad * 2) / 2, h / 2 - 10))
-  const rIn = rOut * (compact ? 0.56 : 0.55)
-  return { w, h, cx: w / 2, cy: h / 2, rOut, rIn, rMid: (rOut + rIn) / 2, compact }
-}
-
-/** 占比到这个数才写得进块里；再小宽屏走外侧标签，窄屏干脆不写 */
-const insideMin = (geo: Geo) => (geo.compact ? 0.10 : 0.08)
-/** 外侧标签之间的最小垂直间距，靠得太近就互相推开 */
-const LABEL_GAP = 28
-/** 引导线第一段：沿半径往外 */
-const LEAD_1 = 14
-/** 引导线第二段：横向一小截，标签接在末端 */
-const LEAD_2 = 20
-
-type Placed = {
-  asset: string; value: number; frac: number; rank: number
-  /** 这一块在整圈里的起止位置，0 = 12 点、顺时针到 1。命中测试用 */
-  t0: number; t1: number
-  /** 弧中点的方向（弧度，SVG 坐标系） */
-  rad: number
-  inside: boolean
-  /** 外侧标签的落点 */
-  lx: number; ly: number; side: 1 | -1
-}
-
-/**
- * 排版：算出每块的角度、决定标签在里还是在外，再把外侧标签上下推开。
- *
- * **推开这一步不能省。** 小块的弧中点常常挨得很近（0.2% 与 0.1% 差不到一度），
- * 标签直接叠在一起，等于没写。同一侧的按 y 排序，不足 `LABEL_GAP` 就往外挤。
- */
-function layout(slices: Slice[], total: number, geo: Geo): Placed[] {
-  let cum = 0
-  const placed: Placed[] = slices.map((slice, rank) => {
-    const frac = total > 0 ? slice.value / total : 0
-    const t0 = cum
-    // recharts 从 12 点起顺时针走：中点角 = 90 − 360×(累计 + 一半)
-    const midDeg = 90 - 360 * (cum + frac / 2)
-    cum += frac
-    const rad = -(midDeg * Math.PI) / 180
-    const cos = Math.cos(rad)
-    const sin = Math.sin(rad)
-    const side: 1 | -1 = cos >= 0 ? 1 : -1
-    return {
-      ...slice, frac, rank, rad, t0, t1: cum,
-      // 紧凑模式没有外侧标签这条路：写不进块里就干脆不写
-      inside: frac >= insideMin(geo),
-      // 标签跟着弧走，**不钉到画布边**。钉到边（ECharts 的 alignTo: 'edge'）在
-      // 块多的时候整齐，可这里常常只有一两个小块——一条横穿半张图的引导线牵到
-      // 角落里一个小标签，读着像掉出去的碎片。
-      lx: geo.cx + cos * (geo.rOut + LEAD_1) + side * LEAD_2,
-      ly: Math.min(geo.h - 24, Math.max(24, geo.cy + sin * (geo.rOut + LEAD_1))),
-      side,
-    }
-  })
-
-  for (const side of [1, -1] as const) {
-    const col = placed.filter((it) => !it.inside && it.side === side)
-      .sort((a, b) => a.ly - b.ly)
-    for (let i = 1; i < col.length; i += 1) {
-      const gap = col[i].ly - col[i - 1].ly
-      if (gap < LABEL_GAP) col[i].ly = col[i - 1].ly + LABEL_GAP
-    }
-    const over = (col.at(-1)?.ly ?? 0) - (geo.h - 24)
-    if (over > 0) for (const it of col) it.ly -= over
-  }
-  return placed
-}
-
-/** 标的图标，SVG 版。没有图标的画成带色的字母圆片，和 `Ticker` 同一套色相 */
-function Mark({ asset, x, y, r }: { asset: string; x: number; y: number; r: number }) {
-  const file = ICONS[asset]
-  const id = `mk-${asset.replace(/[^A-Za-z0-9]/g, '')}`
-  if (!file) {
-    return (
-      <g>
-        <circle cx={x} cy={y} fill={`oklch(0.90 0.05 ${tickerHue(asset)})`} r={r} />
-        <text
-          fill={`oklch(0.42 0.10 ${tickerHue(asset)})`}
-          fontSize={r * 0.82}
-          textAnchor="middle"
-          x={x}
-          y={y + r * 0.3}
-        >
-          {asset.slice(0, 3)}
-        </text>
-      </g>
-    )
-  }
-  return (
-    <g>
-      <clipPath id={id}>
-        <circle cx={x} cy={y} r={r} />
-      </clipPath>
-      <image
-        clipPath={`url(#${id})`}
-        height={r * 2}
-        href={`${import.meta.env.BASE_URL}icons/${file}`}
-        width={r * 2}
-        x={x - r}
-        y={y - r}
-      />
-    </g>
-  )
-}
-
-/**
- * 多头敞口的构成。**只画正数**：空头是负的，饼画不了负数——那正是横条还留着的
- * 理由，两者回答的不是同一个问题（饼：钱压在哪几个东西上；横条：价格动一下
- * 账户净暴露多少，空头会抵掉现货）。
- *
- * 重做过三轮，前两轮的错都记在这里免得再犯：
- *
- * - **图不该靠 hover 才说得全。** 上一版只给四块写了标签，小块折进「其他」就
- *   再没有下文——静止状态下有信息是缺的。现在**每一块都有标签**：大块写在环带里
- *   （图标 + 代码 + 占比 + 金额），小块走外侧标签配引导线，同一侧还会互相推开；
- *   折进「其他」的那几个在图底下逐个列出来。
- * - **不用 `activeShape`。** 它换的是元素，元素一换 CSS 过渡就从头开始。
- * - **不用逐块的 DOM 事件（`onMouseEnter` / `onMouseLeave`），改成几何命中测试。**
- *   这是"鼠标转圈就闪烁"的根治办法。用逐块事件时，从 A 划到 B 的顺序是
- *   **先 A 的 leave、再 B 的 enter**，中间那一帧 focus 是空的——整圈亮回来又立刻
- *   暗回去；而块之间还有 `paddingAngle` 的缝，扫过缝时确实谁都没命中，
- *   于是转一圈闪一路。同一个毛病 Highcharts 报过（#9501），
- *   而 Chart.js / ECharts 这类画布库天生没有：它们根本没有逐块的 DOM 元素，
- *   只在整块画布的 `mousemove` 上做几何判断。
- *   这里照搬那个做法——一层盖住整张图的透明层，按**极角**算指针落在哪一块。
- *   A→B 是一次状态切换，中间不经过空值；缝也不再是洞。
- * - **recharts 会给画布挂 `tabindex`，点一下浏览器就画一个蓝框。** 它并不能用键盘
- *   操作，那个框是纯粹的误导；键盘走右边那张表（每行是真按钮）。
- *   蓝框在 index.css 里按 `.recharts-wrapper` 去掉。
- */
-function Donut({ slices, total, focus, onHover, onPin }: {
-  slices: Slice[]
-  total: number
-  focus: string | null
-  onHover: (asset: string | null) => void
-  /** `null` = 点在空白处，取消钉住 */
-  onPin: (asset: string | null) => void
-}) {
-  const boxRef = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
-  const [over, setOver] = useState(false)
-
-  // **自己量宽度，不用 `ResponsiveContainer`。** 尺寸要参与几何计算（半径、圈心、
-  // 标签位置、命中测试全都从它推出来），拿在手里才对得齐；ResponsiveContainer
-  // 只是把 svg 撑满，尺寸留在它自己肚子里。
-  useLayoutEffect(() => {
-    const el = boxRef.current
-    if (!el) return
-    setWidth(el.clientWidth)
-    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  const geo = useMemo(() => geometry(width), [width])
-  const placed = useMemo(() => layout(slices, total, geo), [slices, total, geo])
-  const shown = placed.find((slice) => slice.asset === focus) ?? null
-
-  /**
-   * 指针落在哪一块。**几何判断，不靠 DOM 事件**——理由见上面的组件注释。
-   *
-   * 环从 12 点起顺时针铺，所以先把屏幕极角换成"从 12 点起转过了整圈的几分之几"
-   * （屏幕坐标 y 朝下，`atan2` 在 12 点处是 −π/2，加回来正好从 0 起算），
-   * 再拿它比每一块的起止。半径上给一点富余，指针在边缘抖一下不至于掉出去。
-   * 这里的坐标就是像素——recharts 的 viewBox 本来就等于像素尺寸，不用换算。
-   */
-  const hitTest = (event: { clientX: number; clientY: number; currentTarget: HTMLElement }) => {
-    const box = event.currentTarget.getBoundingClientRect()
-    const dx = event.clientX - box.left - geo.cx
-    const dy = event.clientY - box.top - geo.cy
-    const r = Math.hypot(dx, dy)
-    if (r < geo.rIn - 4 || r > geo.rOut + 8) return null
-    const t = ((Math.atan2(dy, dx) + Math.PI / 2) / (2 * Math.PI) + 1) % 1
-    return placed.find((slice) => t >= slice.t0 && t < slice.t1)?.asset ?? null
-  }
-
-  return (
-    <div className="min-w-0 flex-1">
-      <div className="relative" ref={boxRef} style={{ height: geo.h }}>
-        {width > 0 && (
-          <PieChart height={geo.h} width={geo.w}>
-            <Pie
-              cx={geo.cx}
-              cy={geo.cy}
-              data={slices}
-              dataKey="value"
-              endAngle={-270}
-              innerRadius={geo.rIn}
-              // 这张图**没有任何动画**，见 index.css 的 .pie-slice。
-              // recharts 自带的入场动画还额外有个坑：它走 rAF，而 rAF 在页面不可见时
-              // 不发，扇区角度会永远停在 0——那不是"没动画"，是一整张图都不画。
-              isAnimationActive={false}
-              label={(props: SliceLabel) => renderLabel(props, placed, geo, focus)}
-              labelLine={false}
-              nameKey="asset"
-              outerRadius={geo.rOut}
-              paddingAngle={0.8}
-              startAngle={90}
-              stroke="none"
-            >
-              {placed.map((slice) => (
-                <Cell
-                  // 压暗只能走 class：`Cell` 上的 `style` 与 `opacity` 都会被
-                  // recharts 的 `filterProps` 过掉，一个字节到不了 path。
-                  className={cn('pie-slice',
-                    focus !== null && focus !== slice.asset && 'pie-dim')}
-                  fill={sliceInk(slice.rank, slice.asset)}
-                  key={slice.asset}
-                />
-              ))}
-            </Pie>
-          </PieChart>
-        )}
-
-        {/*
-          命中层：盖住整张图，按极角算指针落在哪一块。**所有指针交互都走这里**，
-          扇区自己 `pointer-events: none`（见 index.css）。
-          点空白处 = 取消钉住，比"再点一次同一块"更顺手。
-        */}
-        <div
-          className="absolute inset-0"
-          onClick={(event) => onPin(hitTest(event))}
-          onPointerLeave={() => { setOver(false); onHover(null) }}
-          onPointerMove={(event) => {
-            const asset = hitTest(event)
-            setOver(asset !== null)
-            onHover(asset)
-          }}
-          style={{ cursor: over ? 'pointer' : 'default' }}
-        />
-
-        {/* 圈心。SVG 里排文字要自己算基线，用一层绝对定位的 div 省事，
-            也顺带拿到和别处一样的字体度量。圈心就是环心（cy = h/2），
-            所以直接居中，不必再补偏移。 */}
-        <div className="pointer-events-none absolute inset-0 grid place-items-center">
-          {/* **不靠 `key` 重挂载做淡入。** 转圈划过时那会每换一块重放一次淡入，
-              本身就是一种闪。内容直接换，环上的明暗也不做过渡。 */}
-          <div className="flex flex-col items-center gap-0.5">
-            {shown === null ? (
-              <span className="tnum text-lg text-ink">{money(total)}</span>
-            ) : (
-              <>
-                <Ticker asset={shown.asset} />
-                <span className="tnum text-lg text-ink">{money(shown.value)}</span>
-                <span className="tnum text-xs text-ink-3">{percent(shown.frac, 1)}</span>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/** recharts 把这些都标成可选，渲染时一定都有；缺任何一个就不画标签 */
-type SliceLabel = { index?: number }
-
-/**
- * 一块的标签。位置全部来自 `layout()`，不用 recharts 给的角度——外侧标签需要相互
- * 推开，那要一次看到所有块才算得出来。
- *
- * **坐标与字号都是像素**（recharts 的 viewBox 等于像素尺寸），所以字不会随容器
- * 缩放变小——反过来说，窄屏是真的塞不下四行，那时走紧凑：只留图标 + 占比，
- * 外侧标签整个不画，小块的明细在下面那张表里。
- *
- * 写不下时返回空的 `<g />` 而不是 `null`：recharts 会把返回值当元素接着处理。
- */
-function renderLabel(props: SliceLabel, placed: Placed[], geo: Geo, focus: string | null) {
-  const slice = props.index === undefined ? undefined : placed[props.index]
-  if (!slice || slice.frac <= 0) return <g />
-  const on = focus === null || focus === slice.asset
-  const cos = Math.cos(slice.rad)
-  const sin = Math.sin(slice.rad)
-
-  if (slice.inside) {
-    const x = geo.cx + cos * geo.rMid
-    const y = geo.cy + sin * geo.rMid
-    if (geo.compact) {
-      // 窄屏：图标 + 占比。金额与代码交给下面那张表——环带只有五十来像素，
-      // 硬塞四行只会挤成一团
-      return (
-        <g className="pie-label" style={{ opacity: on ? 1 : 0.22 }}>
-          <Mark asset={slice.asset} r={12} x={x} y={y - 15} />
-          <text className="tnum" fill="var(--ink)" fontSize={17} fontWeight={500} textAnchor="middle" x={x} y={y + 17}>
-            {(slice.frac * 100).toFixed(1)}%
-          </text>
-        </g>
-      )
-    }
-    return (
-      <g className="pie-label" style={{ opacity: on ? 1 : 0.22 }}>
-        <Mark asset={slice.asset} r={12} x={x} y={y - 26} />
-        <text fill="var(--ink-2)" fontSize={11} textAnchor="middle" x={x} y={y - 4}>
-          {slice.asset}
-        </text>
-        <text className="tnum" fill="var(--ink)" fontSize={19} fontWeight={500} textAnchor="middle" x={x} y={y + 16}>
-          {(slice.frac * 100).toFixed(1)}%
-        </text>
-        <text className="tnum" fill="var(--ink-2)" fontSize={10.5} textAnchor="middle" x={x} y={y + 31}>
-          {moneyCompact(slice.value)}
-        </text>
-      </g>
-    )
-  }
-
-  // 紧凑模式不画外侧标签：那点地方放不下引导线，硬画就是一圈碎字
-  if (geo.compact) return <g />
-
-  // 外侧：弧边 → 沿半径出去一小段 → 横向一小截，标签接在末端
-  const ax = geo.cx + cos * (geo.rOut + 2)
-  const ay = geo.cy + sin * (geo.rOut + 2)
-  const bx = geo.cx + cos * (geo.rOut + LEAD_1)
-  const by = slice.ly
-  const tx = slice.lx
-  return (
-    <g className="pie-label" style={{ opacity: on ? 1 : 0.22 }}>
-      <polyline
-        fill="none"
-        points={`${ax},${ay} ${bx},${by} ${tx},${by}`}
-        stroke="var(--rule-strong)"
-        strokeWidth={1}
-      />
-      <Mark asset={slice.asset} r={7} x={tx + slice.side * 9} y={by} />
-      <text
-        fill="var(--ink-2)"
-        fontSize={10.5}
-        textAnchor={slice.side === 1 ? 'start' : 'end'}
-        x={tx + slice.side * 20}
-        y={by - 2}
-      >
-        {slice.asset}
-      </text>
-      <text
-        className="tnum"
-        fill="var(--ink-3)"
-        fontSize={10}
-        textAnchor={slice.side === 1 ? 'start' : 'end'}
-        x={tx + slice.side * 20}
-        y={by + 11}
-      >
-        {(slice.frac * 100).toFixed(1)}% · {moneyCompact(slice.value)}
-      </text>
-    </g>
-  )
-}

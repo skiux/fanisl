@@ -47,26 +47,14 @@
   --sheet-shadow: 0 1px 1px rgb(0 0 0 / 0.4), 0 18px 44px -20px rgb(0 0 0 / 0.7);
 }
 
-/* 饼图**没有任何动画**：不入场、不过渡，高亮就是一次瞬时切换。
-   为它来回折腾过四轮（recharts 自带动画、CSS 入场、扇区外推、opacity 过渡），
-   每一轮都带出新的毛病——最后一轮已经把闪烁的根因治掉了（改成几何命中测试），
-   但过渡本身也就没剩下什么价值：这是一张读数用的图，指哪亮哪，即时反而更跟手。
-   删干净之后，"渲染中途被截图/被观察到半透明状态"这类问题也一并没有了。
+/* 环形图（components/Donut.tsx，自己画的 SVG，没有图表库）。
 
-   扇区自己**不收指针事件**：所有 hover / click 都走盖在上面那层命中层
-   （按极角判断落在哪一块）。逐块的 DOM 事件在块与块之间会先 leave 再 enter，
-   中间空一帧；`paddingAngle` 的缝更是实打实的洞——转一圈就闪一路。 */
-.pie-slice { pointer-events: none; }
-.pie-dim { opacity: 0.2; }
+   **没有任何动画**：不入场、不过渡，高亮是一次瞬时切换。为动效来回折腾过四轮，
+   每一轮都带出新的毛病；这是一张读数用的图，指哪亮哪，即时反而更跟手。
 
-/* **recharts 会给画布挂 tabindex，点一下浏览器就画一个蓝色焦点框。**
-   那个框是误导：这张图并不能用键盘操作（键盘走右边那张表，每行是真按钮），
-   而蓝框看着像"选中了什么"。连同扇区上的 tabindex 一并去掉。 */
-.recharts-wrapper:focus,
-.recharts-wrapper :focus,
-.recharts-surface:focus,
-.recharts-sector:focus { outline: none; }
-
+   扇区与标签都不收指针事件：hover / click 全走盖在上面那层命中层（按极角判断
+   落在哪一块）。逐块的事件在块与块之间会先 leave 再 enter，中间空一帧；
+   块之间的缝更是实打实的洞——转一圈就闪一路。 */
 .pie-label { pointer-events: none; }
 
 
