@@ -1,6 +1,22 @@
-# 知识引擎在途欠账
+# knowledge — active
 
-> 归属：知识引擎会话。最后核对 2026-09-10。
+知识引擎（`backend/fanisl/knowledge/` + `assets.py` + 语料）。
+席位说明见 `backend/fanisl/knowledge/AGENTS.md`。最后核对 2026-09-10。
+
+## Now
+（待该席位填）
+
+## Next
+按下面 1→5 的顺序，第 1 条今天就能做完。
+
+## Blocked on
+- 无
+
+## Requests in
+- **frontend 席位**：标的页为空多半是标的未登记（见下面第 1 条），不是前端问题
+
+---
+
 > 这些原本只活在会话记录里，被压缩掉两次；现在放这儿。
 
 ## 1. 标的登记缺口（可立刻做）
