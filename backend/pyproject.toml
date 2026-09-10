@@ -1,5 +1,5 @@
 [project]
-name = "analyzer"
+name = "fanisl"
 version = "0.1.0"
 description = "Claude-assisted crypto market analysis backend (conversational)"
 requires-python = ">=3.11"
@@ -41,8 +41,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/analyzer"]
+packages = ["fanisl"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["."]
 testpaths = ["tests"]

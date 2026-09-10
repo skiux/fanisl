@@ -110,7 +110,7 @@ restates（重申）/ refines（细化限定）/ **supersedes（修正取代—�
 2026-08-29 补入。**它不是知识引擎产出的对象，而是把散在各处的符号拼法收敛成一个实体**：
 同一个资产在库里有五种拼法——claim 的 `asset_symbol`(`XAUUSD`)、行情路由的
 canonical(`XAU/USD`)、日线表的 symbol、指标表的 symbol(`BTC/USDT`)、单元标签(`xauusd`)。
-登记表在 `backend/src/analyzer/assets.py`（97 个标的），字段：规范 id、中文名、类别、
+登记表在 `backend/fanisl/assets.py`（97 个标的），字段：规范 id、中文名、类别、
 别名、各命名空间的符号、易混标的。
 
 - **规范 id 用 `asset_symbol` 口径**：它是最大的命名空间，且不含斜杠——URL 安全。

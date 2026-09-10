@@ -2,7 +2,7 @@
 
 import time
 
-from analyzer.data.defillama_source import _parse_unlocks
+from fanisl.data.defillama_source import _parse_unlocks
 
 
 def _data(events, max_supply=1000.0):

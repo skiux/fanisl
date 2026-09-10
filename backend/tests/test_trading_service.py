@@ -4,9 +4,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from analyzer.trading.engine import TradingEngine
-from analyzer.trading.models import Adjustment, DeclineDecision, Review, TpTarget, TradePlan
-from analyzer.trading.service import TradingService
+from fanisl.trading.engine import TradingEngine
+from fanisl.trading.models import Adjustment, DeclineDecision, Review, TpTarget, TradePlan
+from fanisl.trading.service import TradingService
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ class FakeAgent:
         return {**self._entry, "inputs": {"ctx": 1}, "transcript": [{"role": "assistant", "content": "x"}]}
 
     def scan(self, symbols, max_candidates):
-        from analyzer.trading.models import ScanCandidate, ScanResult
+        from fanisl.trading.models import ScanCandidate, ScanResult
         self.last_universe = symbols
         cands = [ScanCandidate(symbol=s, reason="x") for s in self._scan[:max_candidates]]
         return {"result": ScanResult(candidates=cands), "digests": {}, "transcript": [], "skipped": []}
@@ -115,7 +115,7 @@ def test_mark_skips_when_flat_and_ticks_when_open(trading_store, acct):
 
 
 def test_scan_opens_candidate_and_respects_cap(trading_store, acct):
-    from analyzer.config import Settings
+    from fanisl.config import Settings
     price = {"v": 100.0}
     agent = FakeAgent(entry={"kind": "plan", "plan": _plan()}, scan=["ETH/USDT", "SOL/USDT"])
     st = Settings(trading_max_positions=1, trading_max_total_risk_pct=50.0)
@@ -130,7 +130,7 @@ def test_scan_opens_candidate_and_respects_cap(trading_store, acct):
 
 
 def test_open_trade_rejected_at_max_positions(trading_store, acct):
-    from analyzer.config import Settings
+    from fanisl.config import Settings
     price = {"v": 100.0}
     st = Settings(trading_max_positions=2, trading_max_same_direction=9, trading_max_total_risk_pct=90.0)
     svc = TradingService(trading_store, _engine(trading_store, price),
@@ -142,7 +142,7 @@ def test_open_trade_rejected_at_max_positions(trading_store, acct):
 
 
 def test_open_trade_rejected_same_direction_cap(trading_store, acct):
-    from analyzer.config import Settings
+    from fanisl.config import Settings
     price = {"v": 100.0}
     st = Settings(trading_max_positions=9, trading_max_same_direction=2, trading_max_total_risk_pct=90.0)
     svc = TradingService(trading_store, _engine(trading_store, price),
@@ -154,7 +154,7 @@ def test_open_trade_rejected_same_direction_cap(trading_store, acct):
 
 
 def test_open_trade_rejected_over_risk_budget(trading_store, acct):
-    from analyzer.config import Settings
+    from fanisl.config import Settings
     price = {"v": 100.0}
     # 每笔风险 1%（默认 risk_pct=1），总预算 1.5% → 第 2 笔就超
     st = Settings(trading_max_positions=9, trading_max_same_direction=9, trading_max_total_risk_pct=1.5)
@@ -174,7 +174,7 @@ def test_force_trade_flag_flows_to_agent(trading_store, acct):
 
 
 def test_verify_declines_judges_against_bias(trading_store, acct):
-    from analyzer.config import Settings
+    from fanisl.config import Settings
     price = {"v": 110.0}  # 现价比拒绝时(100)涨了 10%
     st = Settings(trading_decline_move_threshold_pct=0.5)
     svc = TradingService(trading_store, _engine(trading_store, price), FakeAgent(), settings=st)
@@ -191,7 +191,7 @@ def test_verify_declines_judges_against_bias(trading_store, acct):
 
 
 def test_sync_shadows_mirrors_entry(trading_store, acct):
-    from analyzer.config import AccountSpec, Settings
+    from fanisl.config import AccountSpec, Settings
     price = {"v": 100.0}
     shadow = trading_store.ensure_account(
         "main_shadow", initial_balance=1_000.0, max_leverage=10.0,
@@ -233,9 +233,9 @@ def test_manage_pending_applies_adjustment(trading_store, acct):
 
 # --- 评测台重定位：setup 探测 → 闸门 → 开仓 / 否决力 / 按 setup 评分 ---------
 
-from analyzer.trading import playbook
-from analyzer.trading.models import EventAnnotation, SetupGateDecision
-from analyzer.trading.playbook import BacktestPrior, SetupSignal, SetupSpec
+from fanisl.trading import playbook
+from fanisl.trading.models import EventAnnotation, SetupGateDecision
+from fanisl.trading.playbook import BacktestPrior, SetupSignal, SetupSpec
 
 
 class GateAgent(FakeAgent):
@@ -275,7 +275,7 @@ def fake_setup():
 
 
 def _svc(trading_store, price, agent, pool, **settings_over):
-    from analyzer.config import Settings
+    from fanisl.config import Settings
     kw = dict(trading_max_positions=9, trading_max_same_direction=9,
               trading_max_total_risk_pct=90.0)
     kw.update(settings_over)
@@ -401,7 +401,7 @@ def test_detect_gate_error_does_not_consume_cooldown(trading_store, acct, pool, 
 
 def test_manual_open_close_mirrors_user_trade(trading_store, acct, pool):
     # 手动镜像：用户实盘进场 → 引擎执行；手动平仓 → actor=user、结果照常核算
-    from analyzer.trading.models import ManualPlan
+    from fanisl.trading.models import ManualPlan
     price = {"v": 100.0}
     svc = _svc(trading_store, price, FakeAgent(), pool)
     mp = ManualPlan(symbol="CL", side="long", setup_key="eia_fade",

@@ -1,6 +1,6 @@
 # 数据改动同步清单（加/改一个 metric 要动哪里）
 
-重构后 metric 名有了**单一事实来源** `backend/src/analyzer/metrics.py`（登记表）。大部分下游
+重构后 metric 名有了**单一事实来源** `backend/fanisl/metrics.py`（登记表）。大部分下游
 （工具描述、前端目录、一致性）会自动同步。下面按场景列出**仍需手动改的地方**。
 忘了同步 → `tests/test_metrics.py` 会直接报错。
 

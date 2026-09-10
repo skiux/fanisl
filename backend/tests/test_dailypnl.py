@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from analyzer.binance.dailypnl import collect_flows, daily_spot_pnl, flow
+from fanisl.binance.dailypnl import collect_flows, daily_spot_pnl, flow
 
 NOW = datetime(2026, 9, 5, 12, tzinfo=timezone.utc)
 CLOSES = {"BNB": {"2026-09-02": 600.0, "2026-09-03": 610.0,

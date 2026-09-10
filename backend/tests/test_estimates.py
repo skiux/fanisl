@@ -5,8 +5,8 @@ import datetime as dt
 import pandas as pd
 import pytest
 
-from analyzer.knowledge import estimates
-from analyzer.knowledge.store import KnowledgeStore
+from fanisl.knowledge import estimates
+from fanisl.knowledge.store import KnowledgeStore
 
 
 @pytest.fixture
@@ -103,7 +103,7 @@ def test_default_period_is_next_fiscal_year_not_current(monkeypatch):
 def test_tracked_symbols_excludes_indices_futures_and_fx(kstore):
     """指数/期货/汇率没有卖方一致预期，放进去只会每天刷一屏 404。"""
     syms = estimates.tracked_symbols(kstore.pool)
-    from analyzer.knowledge.prices import SYMBOL_MAP
+    from fanisl.knowledge.prices import SYMBOL_MAP
     for s in syms:
         ticker = SYMBOL_MAP[s][0]
         assert not ticker.startswith("^") and "=" not in ticker, f"{s}→{ticker} 不该进来"

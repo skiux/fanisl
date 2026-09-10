@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
-from analyzer.knowledge.browser import browse_nodes_page, browse_units_page, verification_page, verification_summary
-from analyzer.knowledge.nodes import NodeStore
-from analyzer.knowledge.models import KnowledgeUnit
-from analyzer.knowledge.store import KnowledgeStore
+from fanisl.knowledge.browser import browse_nodes_page, browse_units_page, verification_page, verification_summary
+from fanisl.knowledge.nodes import NodeStore
+from fanisl.knowledge.models import KnowledgeUnit
+from fanisl.knowledge.store import KnowledgeStore
 
 
 def _concept(index: int) -> KnowledgeUnit:

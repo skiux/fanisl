@@ -1,6 +1,6 @@
 """MarketStore 读写单测（PG 测试库，store 夹具做隔离）。"""
 
-from analyzer.marketstore import GLOBAL, MarketStore, Sample
+from fanisl.marketstore import GLOBAL, MarketStore, Sample
 
 
 def test_samples_upsert_and_series(store):

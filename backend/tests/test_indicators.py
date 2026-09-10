@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from analyzer.indicators.compute import compute_indicators
+from fanisl.indicators.compute import compute_indicators
 
 
 def make_df(closes: list[float]) -> pd.DataFrame:

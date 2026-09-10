@@ -3,10 +3,10 @@
 import numpy as np
 import pandas as pd
 
-from analyzer.backfill import indicator_rows
-from analyzer.flatten import flatten_snapshot
-from analyzer.indicators.compute import indicator_series
-from analyzer.metrics import TF_BASES, all_metric_names, catalog, metric_vocab
+from fanisl.backfill import indicator_rows
+from fanisl.flatten import flatten_snapshot
+from fanisl.indicators.compute import indicator_series
+from fanisl.metrics import TF_BASES, all_metric_names, catalog, metric_vocab
 
 
 def _df(n=120):

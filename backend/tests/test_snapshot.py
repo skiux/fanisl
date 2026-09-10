@@ -1,6 +1,6 @@
-from analyzer.config import IndicatorThresholds
-from analyzer.indicators.compute import TFIndicators
-from analyzer.snapshot.builder import build_derivatives, build_timeframe_view
+from fanisl.config import IndicatorThresholds
+from fanisl.indicators.compute import TFIndicators
+from fanisl.snapshot.builder import build_derivatives, build_timeframe_view
 
 TH = IndicatorThresholds()
 

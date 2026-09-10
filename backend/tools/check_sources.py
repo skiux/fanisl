@@ -1,6 +1,6 @@
 """外部数据源体检：逐个访问、报成败与关键读数。部署后与怀疑"取不到数"时跑。
 
-用法：cd backend && PYTHONPATH=src .venv/bin/python tools/check_sources.py
+用法：cd backend && PYTHONPATH=. .venv/bin/python tools/check_sources.py
       加 --llm 会真调一次 Gemini（消耗额度），不加只验通道选择与取 token。
 """
 
@@ -25,7 +25,7 @@ def _run(name, fn, results):
 
 
 def check_yfinance():
-    from analyzer.knowledge.prices import fetch_yf
+    from fanisl.knowledge.prices import fetch_yf
     rows = fetch_yf("SPX", dt.date.today() - dt.timedelta(days=10))
     if not rows:
         raise RuntimeError("返回空（可能全被未收盘闸门丢掉，换个时段再试）")
@@ -33,25 +33,25 @@ def check_yfinance():
 
 
 def check_fred():
-    from analyzer.knowledge.prices import fetch_fred
+    from fanisl.knowledge.prices import fetch_fred
     rows = fetch_fred("DFEDTARU", dt.date.today() - dt.timedelta(days=30))
     return f"DFEDTARU {len(rows)} 条，末值 {rows[-1][4]}"
 
 
 def check_eps():
-    from analyzer.knowledge.estimates import fetch_eps_trend
+    from fanisl.knowledge.estimates import fetch_eps_trend
     d = fetch_eps_trend("GOOGL")
     return f"GOOGL +1y 前瞻 EPS {d['current']:.3f}（30 天前 {d['d30']:.3f}）"
 
 
 def check_youtube_list():
-    from analyzer.knowledge.sources import youtube
+    from fanisl.knowledge.sources import youtube
     v = youtube.list_videos("@andyleegogo", limit=3)
     return f"清单 {len(v)} 条，最新《{v[0]['title'][:24]}》"
 
 
 def check_youtube_meta():
-    from analyzer.knowledge.sources import youtube
+    from fanisl.knowledge.sources import youtube
     m = youtube.fetch_transcript("6nGA97LlfSA")
     return f"元数据 {m['published_at']:%Y-%m-%d} {m['duration_s']}s 字幕轨{'有' if m.get('transcript') else '无'}"
 
@@ -80,8 +80,8 @@ def check_llm_channel():
     （2026-08-19 在本机实测到，返回的正是服务器那六个默认 scope）。所以这里跟
     `llm._fetch_token` 走同一条判断：ADC 文件存在就是文件路径，不存在才是元数据。
     """
-    from analyzer.config import get_settings
-    from analyzer.knowledge.llm import _ADC_PATH, make_client
+    from fanisl.config import get_settings
+    from fanisl.knowledge.llm import _ADC_PATH, make_client
     c = make_client(get_settings())
     kind = type(c).__name__
     if kind != "VertexGeminiClient":
@@ -102,8 +102,8 @@ def check_llm_channel():
 def check_llm_call():
     import httpx
 
-    from analyzer.config import get_settings
-    from analyzer.knowledge.llm import make_client
+    from fanisl.config import get_settings
+    from fanisl.knowledge.llm import make_client
     c = make_client(get_settings())
     try:
         d = c.generate_json([{"text": "只回 JSON：{\"ok\": true}"}],
@@ -139,7 +139,7 @@ def check_keyframes():
     才 403。2026-08-19 实测就栽在这里——解析成功让人以为墙下去了，实际 529 帧一张没抓到。
     """
     import tempfile, pathlib as _p
-    from analyzer.knowledge.keyframes import grab
+    from fanisl.knowledge.keyframes import grab
     with tempfile.TemporaryDirectory() as d:
         frames = grab("6nGA97LlfSA", ["01:00"], max_height=720, out_root=_p.Path(d))
         if not frames:

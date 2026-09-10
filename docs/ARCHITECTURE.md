@@ -8,12 +8,12 @@
 **三个库，不要混**：`fanisl_knowledge`（知识引擎，13 表，无 TimescaleDB）·
 `fanisl`（行情时序，metric_samples hypertable；**timescaledb 是可选依赖**，扩展缺失时
 退化成普通表，开发机不装也能跑，只有 4 个用例会 skip）· `fanisl_trading`（评测台）。
-`analyzer.runtime` 在 import 时就打开全部三个池，少一个进程起不来。
+`fanisl.runtime` 在 import 时就打开全部三个池，少一个进程起不来。
 
 ```
 fanisl/
 ├── backend/      Python 后端（FastAPI + 数据管道 + 知识引擎 + 交易评测台）
-│   ├── src/analyzer/knowledge/   知识引擎（含 extraction-guide / merge-guide 两份冻结规范）
+│   ├── fanisl/knowledge/   知识引擎（含 extraction-guide / merge-guide 两份冻结规范）
 │   │                              + asset_view.py（按标的聚合的读模型，标的工作台的数据脊柱）
 │   │                              + reference.py（asset_profiles / news_items / asset_events 三表 + 刷新 CLI）
 │   │                              + news_triage.py（动态降噪：确定性规则 + LLM 判相关，只筛不判）
@@ -36,7 +36,7 @@ fanisl/
 
 ---
 
-## 后端 `backend/src/analyzer/`
+## 后端 `backend/fanisl/`
 
 ### 进程入口（3 车道，见 deploy/README）
 - `main.py` — FastAPI app，**只服务请求**（不起后台调度），可多 worker。所有 HTTP 路由。
@@ -46,7 +46,7 @@ fanisl/
   ②标的新闻天更 + 财报日历天更 + 动态降噪天更 + 公司资料周更。单实例。
 - `worker_trader.py` — 交易进程：快线程盯市(15s) + 慢线程（setup 探测→闸门 1h；scan 已默认关）。单实例。
 - `worker_base.py` — worker 公共设施：PG advisory lock 单实例守卫 + 信号驱动运行。
-- `backfill.py` — 一次性历史回填（`python -m analyzer.backfill`）。
+- `backfill.py` — 一次性历史回填（`python -m fanisl.backfill`）。
 - `migrate_sqlite.py` — 旧 SQLite → PG 一次性迁移。
 
 ### 组合根 / 配置
@@ -60,7 +60,7 @@ fanisl/
 `/auth/login`、`/auth/logout` 三条）。2~3 个成员 + 1 个管理员，**共用同一个 Binance
 只读账户**——用户系统解决的是"谁能看"，不是"看谁的"。
 口令用 stdlib scrypt（不引编译依赖）、会话 token 只存 sha256、CSRF 靠 SameSite=Lax。
-详见 [`auth/README.md`](../backend/src/analyzer/auth/README.md)。
+详见 [`auth/README.md`](../backend/fanisl/auth/README.md)。
 
 ### 资产台数据层 `binance/`（2026-09-02，盈亏口径 09-06 重做）
 给 `console/` 供数的三组接口：`/portfolio` `/orders` `/ledger`。
@@ -74,7 +74,7 @@ fanisl/
 而持有量按**跨钱包**统计让划转自动抵消。现货这一侧**没有任何相对成本的数**
 （未实现与已实现都要完整买入历史，那段历史补不齐），合约那半边直接用交易所给的
 `unRealizedProfit` / `REALIZED_PNL`。
-详见 [`binance/README.md`](../backend/src/analyzer/binance/README.md)。
+详见 [`binance/README.md`](../backend/fanisl/binance/README.md)。
 
 ### 数据层 `data/`（抽象 + 多源，加/换源只碰这里 + factory）
 - `base.py` — `MarketDataSource` 接口（OHLCV/ticker/衍生品/盘口）。

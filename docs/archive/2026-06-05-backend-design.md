@@ -51,7 +51,7 @@ raw 数字 → 阈值化语义标签，**同时保留真实数字**（让 Claude
 backend/
 ├── pyproject.toml            # uv 管理依赖
 ├── .env.example              # ANTHROPIC_API_KEY, EXCHANGE 等
-└── src/analyzer/
+└── fanisl/
     ├── main.py               # FastAPI app；POST /chat（非流式）
     ├── agent.py              # Claude 多轮 + 工具循环（含 prompt caching）
     ├── config.py             # pydantic-settings：key/默认值/指标阈值

@@ -1,6 +1,6 @@
 """Coinalyze 爆仓聚合的纯逻辑单测（合成 history，不联网）。"""
 
-from analyzer.data.coinalyze_source import _aggregate
+from fanisl.data.coinalyze_source import _aggregate
 
 
 def test_aggregate_sums_across_symbols_and_marks_side():

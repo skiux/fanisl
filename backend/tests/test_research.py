@@ -5,7 +5,7 @@
 
 from datetime import datetime, timedelta, timezone
 
-from analyzer.research import pit, stats
+from fanisl.research import pit, stats
 
 T0 = datetime(2026, 6, 1, tzinfo=timezone.utc)
 
@@ -77,7 +77,7 @@ def test_random_null_upper_separates_signal():
 
 def test_h4_oi_chg_no_lookahead():
     # OI 序列：t-3h=100, t=95（下降 5%）。oi_chg 只能用 ≤t 的点，符号必须为负（去杠杆）。
-    from analyzer.research.h4 import _asof_fresh, _oi_chg, OI_TOL
+    from fanisl.research.h4 import _asof_fresh, _oi_chg, OI_TOL
     oi = _pts((0, 100.0), (3, 95.0), (4, 200.0))   # +4h 处暴涨，但绝不能被 oi_chg(t=+3h) 看到
     t = T0 + timedelta(hours=3)
     chg = _oi_chg(oi, t)
@@ -92,7 +92,7 @@ def test_h4_oi_chg_no_lookahead():
 
 def test_h7_trail_no_lookahead():
     # 过去 7d 收益只能用 ≤t 的价：t=+7d 处 = price(t)/price(t-7d)-1，绝不看 t 之后
-    from analyzer.research import h7
+    from fanisl.research import h7
     pts = [(T0 + timedelta(days=d), 100.0 + d) for d in range(0, 9)]  # 每天 +1
     t = T0 + timedelta(days=7)            # price=107
     r = h7._trail(pts, t)                 # base = t-7d = T0(100) → 107/100-1
@@ -102,7 +102,7 @@ def test_h7_trail_no_lookahead():
 
 
 def test_h17_gate_and_pnl_pit():
-    from analyzer.research.h17 import _daily_closes, _sma_pit, _long_pnl, COST
+    from fanisl.research.h17 import _daily_closes, _sma_pit, _long_pnl, COST
     # 重采样:同一天多点取最晚
     pts = [(T0, 1.0), (T0 + timedelta(hours=3), 2.0), (T0 + timedelta(days=1), 3.0)]
     d = _daily_closes(pts)
@@ -119,7 +119,7 @@ def test_h17_gate_and_pnl_pit():
 
 def test_cot_publish_ts_no_lookahead():
     # COT report 周二 as-of → 入库必须偏移到周五发布时刻（+3天 21:00 UTC），否则 3 天未来函数
-    from analyzer.research.backfill_cot import _publish_ts
+    from fanisl.research.backfill_cot import _publish_ts
     ts = _publish_ts("2026-06-09")              # 2026-06-09 是周二
     parsed = datetime.fromisoformat(ts)
     assert parsed.year == 2026 and parsed.month == 6 and parsed.day == 12   # 周五
@@ -127,7 +127,7 @@ def test_cot_publish_ts_no_lookahead():
 
 
 def test_h8_pnl_direction():
-    from analyzer.research.h8 import _pnl, COST
+    from fanisl.research.h8 import _pnl, COST
     # 进场=信号后首根(+1d,100)，出场+28d(110，+10%)
     price = [(T0, 99.0), (T0 + timedelta(days=1), 100.0), (T0 + timedelta(days=29), 110.0)]
     long_pnl = _pnl(price, T0, "long", 28)
@@ -139,7 +139,7 @@ def test_h8_pnl_direction():
 def test_h9_drift_pnl_market_neutral():
     # 市场中性：个股 +10%、SPY +2% → 相对 +8%。long 取 +0.08−COST，short 取 −0.08−COST
     from datetime import date
-    from analyzer.research.h9 import _drift_pnl, COST
+    from fanisl.research.h9 import _drift_pnl, COST
     d0, d1 = date(2026, 1, 5), date(2026, 1, 6)
     px = [(datetime(2026, 1, 5, tzinfo=timezone.utc), 100.0),
           (datetime(2026, 1, 6, tzinfo=timezone.utc), 110.0)]
@@ -174,7 +174,7 @@ def test_bh_fdr():
 
 def test_h5_breakout_detection():
     # 构造：先 30h 横盘=100，第 31h 跳到 110（创新高=long），之后回落不再触发
-    from analyzer.research import h5
+    from fanisl.research import h5
     # 50h 横盘=100（满足 MIN_BARS=24 且跨度≥0.8·48h），第 50h 跳到 110（创新高=long）
     pts = [(T0 + timedelta(hours=h), 100.0) for h in range(50)]
     pts.append((T0 + timedelta(hours=50), 110.0))   # 突破
@@ -189,7 +189,7 @@ def test_h5_breakout_detection():
 
 def test_h3_pnl_direction_sign():
     # 价格 +1h 进场=100，+5h 出场=110（涨 10%）；fade 方向 sign 不能写反
-    from analyzer.research.h3 import _pnl, COST
+    from fanisl.research.h3 import _pnl, COST
     price = [(T0, 100.0), (T0 + timedelta(hours=1), 100.0), (T0 + timedelta(hours=5), 110.0)]
     long_pnl = _pnl(price, T0, "long", 4)      # 进场=first_after(T0)=+1h(100)，出场+4h=+5h(110)
     short_pnl = _pnl(price, T0, "short", 4)
@@ -201,7 +201,7 @@ def test_h3_pnl_direction_sign():
 
 def test_eia_publish_ts_wednesday_et_with_dst():
     # period 周五 → 次周三 10:30 ET；夏令 = 14:30Z，冬令 = 15:30Z（DST 由 zoneinfo 处理）
-    from analyzer.research.backfill_eia import _publish_ts
+    from fanisl.research.backfill_eia import _publish_ts
     summer = datetime.fromisoformat(_publish_ts("2026-06-26"))   # 夏令
     assert (summer.year, summer.month, summer.day) == (2026, 7, 1)   # 周三
     assert summer.utcoffset() == timedelta(0) and (summer.hour, summer.minute) == (14, 30)
@@ -212,7 +212,7 @@ def test_eia_publish_ts_wednesday_et_with_dst():
 
 def test_h18_entry_strictly_after_publish():
     # 无未来函数：进场必须是发布 ts 之后严格第一根日线（周三行在发布前=当日凌晨戳，不得用）
-    from analyzer.research.h18 import event_pnl, COST
+    from fanisl.research.h18 import event_pnl, COST
     pub = datetime(2026, 7, 1, 14, 30, tzinfo=timezone.utc)      # 周三 10:30 ET
     price = [
         (datetime(2026, 7, 1, tzinfo=timezone.utc), 90.0),       # 周三 00:00Z 行：发布前，禁用
@@ -231,7 +231,7 @@ def test_h18_entry_strictly_after_publish():
 def test_h18_seasonal_z_uses_prior_years_only():
     # 季节期望只用过去年份的同周样本：当年值再极端也不污染自己的期望
     from datetime import date
-    from analyzer.research.h18 import seasonal_z
+    from fanisl.research.h18 import seasonal_z
     events = []
     for yr in range(2019, 2025):                                 # 6 年历史，每年第 10/11 周
         for wk, dv in ((10, 1000.0), (11, 1000.0)):
@@ -258,7 +258,7 @@ def test_h18_seasonal_z_uses_prior_years_only():
 
 def test_h18_build_events_drops_gaps():
     # 相邻 period 间隔 >10 天（早年缺口）→ 该 Δ 不是标准周变动，丢弃
-    from analyzer.research.h18 import build_events, PUB_LAG
+    from fanisl.research.h18 import build_events, PUB_LAG
     def pub(period_iso):
         return datetime.fromisoformat(period_iso).replace(tzinfo=timezone.utc) + PUB_LAG
     series = [
@@ -276,7 +276,7 @@ def test_h18_build_events_drops_gaps():
 
 def test_h19_federal_holidays_observed():
     from datetime import date
-    from analyzer.research.h19 import federal_holidays
+    from fanisl.research.h19 import federal_holidays
     h26 = federal_holidays(2026)
     assert date(2026, 7, 3) in h26          # 2026-07-04 周六 → observed 周五 7/3
     assert date(2026, 1, 19) in h26         # MLK：1 月第 3 个周一
@@ -287,8 +287,8 @@ def test_h19_federal_holidays_observed():
 
 def test_h19_adjusted_publish_holiday_shift():
     # 实证锚点：2026-07-03 period（7/4 observed 周五在报告周内）→ 实际周四 2026-07-09 发布
-    from analyzer.research.backfill_eia import _publish_ts
-    from analyzer.research.h19 import adjusted_publish
+    from fanisl.research.backfill_eia import _publish_ts
+    from fanisl.research.h19 import adjusted_publish
     adj = adjusted_publish(datetime.fromisoformat(_publish_ts("2026-07-03")))
     assert (adj.year, adj.month, adj.day) == (2026, 7, 9)        # 周四
     assert (adj.hour, adj.minute) == (15, 0)                     # 11:00 ET 夏令 = 15:00Z
@@ -302,7 +302,7 @@ def test_h19_adjusted_publish_holiday_shift():
 
 
 def test_h19_intraday_entry_and_horizon():
-    from analyzer.research.h19 import intraday_ret
+    from fanisl.research.h19 import intraday_ret
     pub = datetime(2026, 7, 1, 14, 30, tzinfo=timezone.utc)
     hourly = [(datetime(2026, 7, 1, 13, 0, tzinfo=timezone.utc) + timedelta(hours=k), 100.0 + k)
               for k in range(12)]
@@ -320,7 +320,7 @@ def test_h19_intraday_entry_and_horizon():
 # --- H20：横截面资金费 carry --------------------------------------------------
 
 def test_h20_assign_legs_by_funding():
-    from analyzer.research.h20 import assign_legs
+    from fanisl.research.h20 import assign_legs
     f = {f"S{i}": v for i, v in enumerate([-0.30, -0.10, -0.05, 0.0, 0.01, 0.02,
                                            0.03, 0.04, 0.05, 0.06, 0.10, 0.20,
                                            -0.20, 0.30, -0.02, 0.15])}
@@ -330,7 +330,7 @@ def test_h20_assign_legs_by_funding():
 
 
 def test_h20_week_spread_carry_signs_and_cost():
-    from analyzer.research.h20 import week_spread, COST_SPREAD
+    from fanisl.research.h20 import week_spread, COST_SPREAD
     # long 名：价 +2%、费率负（carry_frac=-0.001）→ long 收 +0.001
     # short 名：价 -1%、费率正（carry_frac=+0.002）→ short 收 +0.002，价再赚 +1%
     pn = {"L": (0.02, -0.001), "S": (-0.01, 0.002)}
@@ -345,7 +345,7 @@ def test_h20_week_spread_carry_signs_and_cost():
 
 
 def test_h20_carry_sum_window_and_units():
-    from analyzer.research.h20 import carry_sum
+    from fanisl.research.h20 import carry_sum
     t0 = T0
     fund = [(T0, 0.10), (T0 + timedelta(days=1), 0.10),      # 0.10%/8h × 3 = 0.003/天
             (T0 + timedelta(days=7), -0.20),
@@ -356,8 +356,8 @@ def test_h20_carry_sum_window_and_units():
 
 def test_h20_universe_week_validity(pool):
     # 集成：造 16 个标的的最小数据 → 恰好成周；缺价格的标的被剔除后 <16 → 跳周
-    from analyzer.research import h20
-    from analyzer.marketstore import MarketStore
+    from fanisl.research import h20
+    from fanisl.marketstore import MarketStore
     store = MarketStore(pool)
     with pool.connection() as conn:
         conn.execute("DELETE FROM metric_samples WHERE metric IN ('funding_rate_1d')"
@@ -388,7 +388,7 @@ def test_h20_universe_week_validity(pool):
 # --- H21：宽 universe 资金费 carry（逐结算 + PIT 池 + 换手边数成本）-----------
 
 def test_h21_carry_sum_settlements_window():
-    from analyzer.research.h21 import carry_sum_settlements
+    from fanisl.research.h21 import carry_sum_settlements
     fund = [(T0, 0.0001), (T0 + timedelta(hours=8), -0.0002),
             (T0 + timedelta(days=7), 0.0004),          # 恰在窗右端，含
             (T0 + timedelta(days=7, hours=8), 9.9)]    # 窗外
@@ -397,7 +397,7 @@ def test_h21_carry_sum_settlements_window():
 
 
 def test_h21_sides_traded_accounting():
-    from analyzer.research.h21 import sides_traded
+    from fanisl.research.h21 import sides_traded
     legs0 = (["A", "B", "C", "D", "E", "F"], ["U", "V", "W", "X", "Y", "Z"])
     assert sides_traded(None, legs0) == 12             # 首周全建仓 12 边
     legs1 = (["A", "B", "C", "D", "E", "G"],           # long 换 1 名
@@ -408,8 +408,8 @@ def test_h21_sides_traded_accounting():
 
 def test_h21_pit_pool_maturity_and_delisting(pool):
     # PIT 池：历史 <90d 不入池；退市（结算停止）后自然出池
-    from analyzer.research import h21
-    from analyzer.marketstore import MarketStore
+    from fanisl.research import h21
+    from fanisl.marketstore import MarketStore
     store = MarketStore(pool)
     with pool.connection() as conn:
         conn.execute("DELETE FROM metric_samples WHERE metric IN ('um_funding_8h','um_close_1d')")
@@ -442,7 +442,7 @@ def test_h21_pit_pool_maturity_and_delisting(pool):
 # --- H22：EIA 过冲回归（fade，M1）--------------------------------------------
 
 def test_h22_entry_after_delay_and_gap_guard():
-    from analyzer.research.h22 import fade_ret
+    from fanisl.research.h22 import fade_ret
     pub = datetime(2026, 7, 1, 14, 30, tzinfo=timezone.utc)
     m1 = [(pub + timedelta(minutes=k), 100.0 + k * 0.01) for k in range(0, 500)]
     # 进场 = 发布+5min 后第一根收盘（=+5min 那根，100.05），+2h 出场 = +125min（101.25）
@@ -455,7 +455,7 @@ def test_h22_entry_after_delay_and_gap_guard():
 
 def test_h22_fade_direction_signs():
     # 語义核对：z>0（超预期累库）→ long。价格回升则 fade 赚钱
-    from analyzer.research.h22 import COST
+    from fanisl.research.h22 import COST
     sign = 1.0  # z>0 → long
     base = 0.01  # 进场后 6h 价格 +1%（过冲后回升）
     assert sign * base - COST > 0

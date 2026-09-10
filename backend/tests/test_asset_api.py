@@ -5,9 +5,9 @@
 
 import pytest
 
-from analyzer.knowledge.reference import ReferenceStore
-from analyzer.main import asset_detail, assets_index
-from analyzer.runtime import knowledge_store
+from fanisl.knowledge.reference import ReferenceStore
+from fanisl.main import asset_detail, assets_index
+from fanisl.runtime import knowledge_store
 from fastapi import HTTPException
 
 

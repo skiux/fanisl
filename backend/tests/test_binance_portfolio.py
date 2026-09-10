@@ -14,9 +14,9 @@ import re
 import httpx
 import pytest
 
-from analyzer.binance.cache import SourceCache
-from analyzer.binance.client import BinanceClient
-from analyzer.binance.portfolio import build_portfolio, _today_settled
+from fanisl.binance.cache import SourceCache
+from fanisl.binance.client import BinanceClient
+from fanisl.binance.portfolio import build_portfolio, _today_settled
 
 from binance_mock import BTC, NOW, PREV_CLOSE_RATIO, _day, make_transport
 
@@ -265,7 +265,7 @@ def test_as_of_reports_the_oldest_successful_source(cache):
 
 def test_margin_level_sentinel_becomes_null(cache):
     """无负债时 Binance 返回 999 这类哨兵值，照搬会在界面上显示成荒谬的风险率。"""
-    import analyzer.binance.portfolio as mod
+    import fanisl.binance.portfolio as mod
     assert mod._margin({"marginLevel": "999", "totalAssetOfBtc": "1",
                         "totalLiabilityOfBtc": "0", "totalNetAssetOfBtc": "1"},
                        BTC)["margin_level"] is None
@@ -501,7 +501,7 @@ def test_daily_realized_follows_the_passed_now_not_the_wall_clock(cache):
     `now`。两者跨过一次日切就对不上：2026-09-03 凌晨整套测试红了一次，因为 mock 的
     NOW 停在 09-02。真实运行时的表现更隐蔽——页面时刻是昨天、日历最后一格却是今天。
     """
-    from analyzer.binance.portfolio import build_portfolio
+    from fanisl.binance.portfolio import build_portfolio
     from binance_mock import make_transport
 
     other = NOW - timedelta(days=11)

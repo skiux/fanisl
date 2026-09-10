@@ -10,7 +10,7 @@
   - **前向采集**（collector，每 15min）：只对**加密 watchlist**（BTC/ETH/SOL/BNB/ZEC）+ 全市场
     GLOBAL 落库；`write_changed` 去重（值不变不重复写）。TradFi（股/商品/金属）**不进前向采集**，
     只在交易决策时按需取，**目前没有时间序列**。
-  - **历史回填**（`python -m analyzer.backfill`，一次性）：把过去的数据按各自时间戳灌进库。
+  - **历史回填**（`python -m fanisl.backfill`，一次性）：把过去的数据按各自时间戳灌进库。
 - **存储表**：行情/衍生品/情绪/链上的时序都在 `fanisl` 库的 `metric_samples`（scope/symbol/metric/ts/value
   的长表，TimescaleDB hypertable）；事件/催化剂在 `catalyst_items`（快照型，非时序）。
 - **回填深度图例**：✅已回填 ｜ 🟡端点本就给全历史·待回填(深，多年) ｜ 🟠源只留~30天·待回填(浅)
@@ -143,4 +143,4 @@
 - **无历史、只能前向攒** ❌：盘口微观结构、期权希腊值快照、社交（且当前无源）。
 - **完全缺失维度**：社交情绪、ETF 资金流、爆仓热力图、链上深度（交易所流向/MVRV/SOPR）。
 
-> 回填命令：`python -m analyzer.backfill`（幂等可重复）；深度由 `--limit` 控。
+> 回填命令：`python -m fanisl.backfill`（幂等可重复）；深度由 `--limit` 控。

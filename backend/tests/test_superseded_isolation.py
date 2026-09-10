@@ -11,8 +11,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from analyzer.knowledge.models import KnowledgeUnit
-from analyzer.knowledge.store import KnowledgeStore
+from fanisl.knowledge.models import KnowledgeUnit
+from fanisl.knowledge.store import KnowledgeStore
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ def test_superseded_still_reachable_when_asked_for_explicitly(two_versions):
 
 
 def test_weekly_report_increment_excludes_superseded(two_versions, tmp_path, monkeypatch):
-    import analyzer.knowledge.discovery as disc
+    import fanisl.knowledge.discovery as disc
 
     # weekly_report 会把 markdown 落到全局 REPORT_DIR——那是仓库里被追踪的
     # data_export/reports/，不改道的话跑一次测试就会用夹具数据覆盖掉真实周报。
@@ -72,7 +72,7 @@ def test_weekly_report_increment_excludes_superseded(two_versions, tmp_path, mon
 
 
 def test_keyframe_backfill_skips_superseded(two_versions):
-    from analyzer.knowledge.backfill_keyframes import _select_contents
+    from fanisl.knowledge.backfill_keyframes import _select_contents
 
     store, old_id, new_id = two_versions
     picked = {c["id"] for c in _select_contents(store, handle=None, content_id=None, limit=None)}
@@ -122,7 +122,7 @@ def two_runs(store):
 
 
 def test_overview_counts_only_the_active_run(two_runs):
-    from analyzer.knowledge.overview import overview_stats
+    from fanisl.knowledge.overview import overview_stats
 
     stats = overview_stats(two_runs.pool)
     assert stats["units"] == 1, "v1 的 3 条已被取代，概览不该把两版加在一起"
@@ -130,7 +130,7 @@ def test_overview_counts_only_the_active_run(two_runs):
 
 
 def test_unit_paging_counts_only_the_active_run(two_runs):
-    from analyzer.knowledge.browser import browse_units_page
+    from fanisl.knowledge.browser import browse_units_page
 
     page = browse_units_page(two_runs.pool, limit=50, offset=0)
     assert page["total"] == 1

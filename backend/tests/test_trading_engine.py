@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from analyzer.trading.engine import TradingEngine
-from analyzer.trading.models import Adjustment, TpTarget, TradePlan
+from fanisl.trading.engine import TradingEngine
+from fanisl.trading.models import Adjustment, TpTarget, TradePlan
 
 
 @pytest.fixture

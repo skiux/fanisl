@@ -2,9 +2,9 @@
 
 from datetime import datetime, timezone
 
-from analyzer.analytics import summarize_series
-from analyzer.marketstore import GLOBAL, Sample
-from analyzer.tools.history import get_metric_history
+from fanisl.analytics import summarize_series
+from fanisl.marketstore import GLOBAL, Sample
+from fanisl.tools.history import get_metric_history
 
 
 def _pts(values, start_h=0):

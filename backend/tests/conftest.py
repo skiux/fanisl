@@ -6,8 +6,8 @@
 
 import os
 
-# **测试永不读 .env 里的真实连接串。** analyzer.runtime 在模块级就开三个池，而
-# test_keyframe_api 这类只想要一个纯函数的用例会因为 import analyzer.main 把它带进来。
+# **测试永不读 .env 里的真实连接串。** fanisl.runtime 在模块级就开三个池，而
+# test_keyframe_api 这类只想要一个纯函数的用例会因为 import fanisl.main 把它带进来。
 # 2026-08-19 撞过：本机 .env 的知识库指向服务器隧道，隧道一断，整个测试会话在**收集阶段**
 # 就 PoolTimeout 失败，报错还落在一个声明"不碰真库"的文件上。
 #
@@ -16,7 +16,7 @@ import os
 # 它留的测试入口是 init_settings——直接构造 Settings(...) 传参，那一路优先级最高。
 # 这段必须在任何 analyzer 子模块被导入之前执行：runtime 里的 `from .config import
 # get_settings` 是在它自己被导入那一刻绑定的，晚于此处。
-import analyzer.config as _cfg  # noqa: E402
+import fanisl.config as _cfg  # noqa: E402
 
 _TEST_DB = os.environ.get("FANISL_TEST_CONNINFO", "dbname=fanisl_test")
 # **鉴权在测试里一律钉成开着。** 本机 .env 为了开发方便会写 AUTH_ENABLED=false，
@@ -34,14 +34,14 @@ from datetime import datetime, timezone
 import psycopg
 import pytest
 
-from analyzer.db import make_pool
-from analyzer.knowledge.models import KnowledgeUnit
-from analyzer.knowledge.nodes import NodeStore
-from analyzer.knowledge.store import KnowledgeStore
-from analyzer.marketstore import MarketStore
-from analyzer.storage import Storage
-from analyzer.trading.store import TradingStore
-from analyzer.models import (
+from fanisl.db import make_pool
+from fanisl.knowledge.models import KnowledgeUnit
+from fanisl.knowledge.nodes import NodeStore
+from fanisl.knowledge.store import KnowledgeStore
+from fanisl.marketstore import MarketStore
+from fanisl.storage import Storage
+from fanisl.trading.store import TradingStore
+from fanisl.models import (
     ChainTVL,
     Derivatives,
     FearGreed,
@@ -137,7 +137,7 @@ def conv_store(pool):
 @pytest.fixture
 def auth_store(pool):
     """隔离的 UserStore：建表后清空用户/会话/登录尝试。"""
-    from analyzer.auth.store import UserStore
+    from fanisl.auth.store import UserStore
 
     st = UserStore(pool)
     with pool.connection() as conn:

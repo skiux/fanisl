@@ -4,10 +4,10 @@ data→indicators→snapshot→tool 流水线（合成数据，不联网）。
 
 import pandas as pd
 
-from analyzer.agent import Agent, final_text
-from analyzer.config import Settings
-from analyzer.data.base import MarketDataSource
-from analyzer.data.instruments import Resolver
+from fanisl.agent import Agent, final_text
+from fanisl.config import Settings
+from fanisl.data.base import MarketDataSource
+from fanisl.data.instruments import Resolver
 
 
 class FakeSource(MarketDataSource):

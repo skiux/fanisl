@@ -1,6 +1,6 @@
 """关键帧取舍判据：帧能不能回答笔记回答不了的问题。"""
 
-from analyzer.knowledge.backfill_keyframes import worth_a_frame
+from fanisl.knowledge.backfill_keyframes import worth_a_frame
 
 
 # --- 图表/表格：折线形状、表格格子，文字装不下 ----------------------------

@@ -1,7 +1,7 @@
 import pytest
 
-from analyzer.data.base import SymbolNotFound
-from analyzer.data.instruments import Resolver, lookup
+from fanisl.data.base import SymbolNotFound
+from fanisl.data.instruments import Resolver, lookup
 
 
 class FakeSource:

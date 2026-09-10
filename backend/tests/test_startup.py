@@ -1,6 +1,6 @@
 """API 进程必须能起来——不管 Binance 凭据配成什么样。
 
-`analyzer.runtime` 是模块级单例，import 那一刻就建连接池、建客户端。所以**构造期的
+`fanisl.runtime` 是模块级单例，import 那一刻就建连接池、建客户端。所以**构造期的
 任何异常都等于全站 502**，而且 nginx 只会给一句 Bad Gateway，完全指不到原因。
 
 2026-09-02 线上真踩了一次：私钥用自己的账号建、chmod 600，服务以 fanisl 身份跑读不了
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-SRC = str(Path(__file__).resolve().parent.parent / "src")
+PKG_ROOT = str(Path(__file__).resolve().parent.parent)   # backend/，包在其下的 fanisl/
 
 # 各种能想到的配错方式。共同要求只有一条：**不许让进程起不来**。
 BROKEN_CONFIGS = [
@@ -36,12 +36,12 @@ BROKEN_CONFIGS = [
 _BOOT = """
 import sys
 sys.path.insert(0, {src!r})
-import analyzer.config as cfg
+import fanisl.config as cfg
 _s = cfg.Settings(_env_file=None, pg_conninfo={db!r}, pg_trading_conninfo={db!r},
                   pg_knowledge_conninfo={db!r}, **{overrides!r})
 cfg.get_settings = lambda: _s
-import analyzer.main            # 起不来就在这里抛
-print("BOOT_OK", analyzer.main.binance_client.credential_status)
+import fanisl.main            # 起不来就在这里抛
+print("BOOT_OK", fanisl.main.binance_client.credential_status)
 """
 
 
@@ -49,7 +49,7 @@ print("BOOT_OK", analyzer.main.binance_client.credential_status)
 def test_api_starts_regardless_of_binance_credentials(overrides, pool):
     db = os.environ.get("FANISL_TEST_CONNINFO", "dbname=fanisl_test")
     proc = subprocess.run(
-        [sys.executable, "-c", _BOOT.format(src=SRC, db=db, overrides=overrides)],
+        [sys.executable, "-c", _BOOT.format(src=PKG_ROOT, db=db, overrides=overrides)],
         capture_output=True, text=True, timeout=120,
         # 清掉可能劫持配置的 shell 变量，与项目其余部分保持一致
         env={k: v for k, v in os.environ.items()
@@ -69,7 +69,7 @@ def test_startup_banner_reports_credential_state(pool):
     db = os.environ.get("FANISL_TEST_CONNINFO", "dbname=fanisl_test")
     proc = subprocess.run(
         [sys.executable, "-c", _BOOT.format(
-            src=SRC, db=db,
+            src=PKG_ROOT, db=db,
             overrides={"BINANCE_API_KEY": "k",
                        "BINANCE_PRIVATE_KEY_PATH": "/definitely/not/here.pem"})],
         capture_output=True, text=True, timeout=120,

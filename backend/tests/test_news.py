@@ -1,11 +1,11 @@
 """多源新闻解析 + 聚合去重 单测（合成响应，不联网）。"""
 
-from analyzer.data.benzinga_source import _parse_benzinga
-from analyzer.data.catalysts import NewsProvider
-from analyzer.data.cryptocompare_source import _parse_news as parse_cc
-from analyzer.data.finnhub_source import _parse_finnhub
-from analyzer.data.news_aggregate import MultiNewsProvider
-from analyzer.data.newsapi_source import _parse_newsapi
+from fanisl.data.benzinga_source import _parse_benzinga
+from fanisl.data.catalysts import NewsProvider
+from fanisl.data.cryptocompare_source import _parse_news as parse_cc
+from fanisl.data.finnhub_source import _parse_finnhub
+from fanisl.data.news_aggregate import MultiNewsProvider
+from fanisl.data.newsapi_source import _parse_newsapi
 
 
 def test_parse_newsapi_enriched():

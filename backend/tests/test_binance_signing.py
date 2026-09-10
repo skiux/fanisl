@@ -15,8 +15,8 @@ from cryptography.hazmat.primitives.serialization import (
     BestAvailableEncryption, Encoding, NoEncryption, PrivateFormat,
 )
 
-from analyzer.binance.client import BinanceClient, CredentialsMissing
-from analyzer.binance.signing import KeyLoadError, build_signer
+from fanisl.binance.client import BinanceClient, CredentialsMissing
+from fanisl.binance.signing import KeyLoadError, build_signer
 
 
 def write_pem(tmp_path, key, passphrase: str = ""):
@@ -227,8 +227,8 @@ def test_bad_key_config_surfaces_as_unauthorized_at_call_time(tmp_path):
 
 def test_broken_key_config_still_lets_portfolio_render(tmp_path, pool):
     """整条链路：配错私钥时，资产接口照常返回，私有来源记 unauthorized。"""
-    from analyzer.binance.cache import SourceCache
-    from analyzer.binance.portfolio import build_portfolio
+    from fanisl.binance.cache import SourceCache
+    from fanisl.binance.portfolio import build_portfolio
     from binance_mock import NOW, make_transport
 
     with pool.connection() as conn:

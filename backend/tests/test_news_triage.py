@@ -6,8 +6,8 @@
 
 import pytest
 
-from analyzer.knowledge import news_triage as nt
-from analyzer.knowledge.reference import ReferenceStore
+from fanisl.knowledge import news_triage as nt
+from fanisl.knowledge.reference import ReferenceStore
 
 
 def verdict(title, *, asset="NVDA", source="Benzinga", names=("Nvidia",), cross=1):

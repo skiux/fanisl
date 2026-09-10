@@ -56,7 +56,7 @@ launchctl bootout gui/$(id -u)/com.fanisl.collector     # 停止并卸载
   best-effort 记 `ok=0` 后继续，不影响 knowledge 两个 job。这是另一件事，要修得换数据源。
 - **日志里没有 knowledge job 的细节**：`daily.run_daily` 用 `log.info`，而 `logging.basicConfig`
   只在 `daily.main()` 里调——从调度器进来时没有 handler，INFO 被丢弃。`prices.refresh` 的
-  `print` 能看到。要看完整过程就单独跑 `python -m analyzer.knowledge.daily`。
+  `print` 能看到。要看完整过程就单独跑 `python -m fanisl.knowledge.daily`。
 
 ## 计时口径
 

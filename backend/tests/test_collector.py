@@ -1,8 +1,8 @@
 """采集器单测：mock 工具函数，验证写库 + 运行日志（不联网）。"""
 
-from analyzer import collector
-from analyzer.config import Settings
-from analyzer.models import CatalystReport, MacroEvent
+from fanisl import collector
+from fanisl.config import Settings
+from fanisl.models import CatalystReport, MacroEvent
 
 
 def test_collect_market_writes_series(store, monkeypatch, make_snapshot):

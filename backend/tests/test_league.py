@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from analyzer.knowledge.league import base_rate, poisson_binomial_tail
+from fanisl.knowledge.league import base_rate, poisson_binomial_tail
 
 
 # --- Poisson-binomial ------------------------------------------------------

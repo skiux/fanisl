@@ -10,9 +10,9 @@ from datetime import datetime, timedelta, timezone
 import httpx
 import pytest
 
-from analyzer.binance.cache import SourceCache
-from analyzer.binance.client import BinanceClient
-from analyzer.binance.ledger import (
+from fanisl.binance.cache import SourceCache
+from fanisl.binance.client import BinanceClient
+from fanisl.binance.ledger import (
     LIMITED_BY, MAX_WINDOW_DAYS, TRANSFER_TYPES, WINDOWS, build_ledger,
 )
 
@@ -68,7 +68,7 @@ def test_window_cap_comes_from_the_tightest_source():
     端点清单本身**不出接口**（它曾作为 `windows` 字段返回、画成一张表，那是接口的
     构造，属于 README）。但上限得算对，所以在这里对着表验一遍。
     """
-    from analyzer.binance.ledger import LIMITED_BY, MAX_WINDOW_DAYS, WINDOWS
+    from fanisl.binance.ledger import LIMITED_BY, MAX_WINDOW_DAYS, WINDOWS
 
     capped = [w for w in WINDOWS if w["max_window_days"] is not None]
     assert MAX_WINDOW_DAYS == min(w["max_window_days"] for w in capped) == 30
@@ -202,7 +202,7 @@ def test_entry_ids_are_unique_even_without_a_natural_key(cache):
 
 def test_unique_id_pass_handles_real_collisions():
     """同一资产在同一时刻的两条派息就会撞——直接构造出来验去重本身。"""
-    from analyzer.binance.ledger import _ensure_unique_ids
+    from fanisl.binance.ledger import _ensure_unique_ids
 
     rows = [{"id": "earn_rewards:T:USDT"}, {"id": "earn_rewards:T:USDT"},
             {"id": "income:7001"}, {"id": "earn_rewards:T:USDT"}]

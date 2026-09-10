@@ -1,8 +1,8 @@
 """链上数据（Part 4）纯逻辑单测：解析 + builder（不联网）。"""
 
-from analyzer.data.blockchaininfo_source import _change_7d, _last
-from analyzer.data.defillama_source import _parse_chain_tvl, _parse_stablecoins
-from analyzer.snapshot.builder import build_onchain
+from fanisl.data.blockchaininfo_source import _change_7d, _last
+from fanisl.data.defillama_source import _parse_chain_tvl, _parse_stablecoins
+from fanisl.snapshot.builder import build_onchain
 
 
 def _peg(now, week, month):

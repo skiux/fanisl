@@ -1,7 +1,7 @@
 """Part 2 宏观(FRED) + 新闻(CryptoCompare) 纯逻辑单测（不联网）。"""
 
-from analyzer.data.cryptocompare_source import _parse_news
-from analyzer.data.fred_source import _build_calendar
+from fanisl.data.cryptocompare_source import _parse_news
+from fanisl.data.fred_source import _build_calendar
 
 
 def test_build_calendar_curates_dedupes_windows_excludes_fomc():

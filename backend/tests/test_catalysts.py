@@ -1,7 +1,7 @@
 """get_catalysts 编排单测：fake provider + 缺源 warning 行为（不联网）。"""
 
-from analyzer.data.catalysts import Catalysts, MacroCalendarProvider, UnlockProvider
-from analyzer.tools.catalysts import get_catalysts
+from fanisl.data.catalysts import Catalysts, MacroCalendarProvider, UnlockProvider
+from fanisl.tools.catalysts import get_catalysts
 
 
 class FakeUnlocks(UnlockProvider):

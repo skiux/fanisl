@@ -1,7 +1,7 @@
 """逐条验三个库的连接串，口令打码。部署时先跑它——runtime 同时开三个池，
 直接起会看不出是哪个库连不上。
 
-用法：cd backend && PYTHONPATH=src .venv/bin/python tools/check_db.py
+用法：cd backend && PYTHONPATH=. .venv/bin/python tools/check_db.py
 """
 
 import re
@@ -9,7 +9,7 @@ import sys
 
 import psycopg
 
-from analyzer.config import get_settings
+from fanisl.config import get_settings
 
 
 def main() -> int:

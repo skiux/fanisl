@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 
-from analyzer.trading.calc import (
+from fanisl.trading.calc import (
     apply_slippage,
     counterfactual_r,
     event_risk_factor,
@@ -16,7 +16,7 @@ from analyzer.trading.calc import (
     tp_reachable,
     validate_plan,
 )
-from analyzer.trading.models import TpTarget
+from fanisl.trading.models import TpTarget
 
 
 def test_position_size_from_risk():

@@ -52,4 +52,4 @@ e2e/                         Playwright 流程测试与视觉基线
 `/assets` 被当成 API 前缀会让前端 JS/CSS 被代理走、页面白屏。`vite.config.ts` 的 preview
 代理因此用正则键 `^/asset(/|$)` 而不是字符串前缀键。
 
-后端契约参考 [`../api.md`](../backend/api.md)，实现以 [`../backend/src/analyzer/main.py`](../backend/src/analyzer/main.py) 为准。测试使用确定性接口夹具，不替代联调环境对真实 PostgreSQL 数据和同源代理的终验。
+后端契约参考 [`../api.md`](../backend/api.md)，实现以 [`../backend/fanisl/main.py`](../backend/fanisl/main.py) 为准。测试使用确定性接口夹具，不替代联调环境对真实 PostgreSQL 数据和同源代理的终验。

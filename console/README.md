@@ -6,7 +6,7 @@
 ## 当前状态
 
 后端已接（`GET /portfolio` · `/orders` · `/ledger`，见
-`backend/src/analyzer/binance/README.md`）。全站需要登录，未登录只渲染登录页。
+`backend/fanisl/binance/README.md`）。全站需要登录，未登录只渲染登录页。
 
 `src/api/types.ts` 仍是前后端的契约锚点，字段按 Binance 实际接口对齐：
 
@@ -87,7 +87,7 @@ App → AuthGate → 三个页面
   建在 Radix 上（`RangePicker` 用 Popover、`Select` 用 Select），我们只画皮。
 - **界面上只有数字，没有小字。** 这条来回改了五轮才定下来，规则是：
   - **解释数字怎么算的删掉**——"现货按成本 · 合约按标记价"、"没有统一接口，合并而来"。
-    那是口径，属于本文件和 `backend/src/analyzer/binance/README.md`。
+    那是口径，属于本文件和 `backend/fanisl/binance/README.md`。
   - **把数字翻成一句判断的也删掉**——"安全"、"很近"、"不可用"。它读着像信息，
     其实是把 `4.5%` 换个说法再说一遍，而且只有三格里的一格常年有这句，
     整条摘要条就为它高出一行、还错了位。这类判断改用**颜色**：数字自己转金转红
@@ -328,7 +328,7 @@ items-start（容器）+ mt-2（每格内部，两档共用）
   相对成本的那套数整个删了，见上一节。
 
 算不出来的那天是 `null`，日历上留空——0 会被读成"这天没赚没亏"。
-口径与回滚方式见 `backend/src/analyzer/binance/dailypnl.py`。
+口径与回滚方式见 `backend/fanisl/binance/dailypnl.py`。
 
 ## 日历怎么画
 
@@ -526,7 +526,7 @@ items-start（容器）+ mt-2（每格内部，两档共用）
 
 "哪些资产算现金"**由后端给**（`snapshot.stable_assets`），前端不再维护名单——这件事
 原先在四个地方各写一份、四份还不一样，理由与后果见
-`backend/src/analyzer/binance/README.md`。
+`backend/fanisl/binance/README.md`。
 
 界面上因此多了两处：
 

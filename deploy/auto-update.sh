@@ -75,7 +75,7 @@ if changed "backend/"; then
     fi
     # 必须在 backend/ 下跑：runtime 模块级就建连接池，而 .env 是相对 backend/ 解析的，
     # 在别处 import 会拿默认连接串、连不上库超时 30 秒，看起来像"新代码坏了"。
-    if ! (cd "$REPO/backend" && PYTHONPATH=src .venv/bin/python -c "import analyzer.main"); then
+    if ! (cd "$REPO/backend" && PYTHONPATH=. .venv/bin/python -c "import fanisl.main"); then
         echo "新代码 import 失败"; rollback; exit 1
     fi
     restart

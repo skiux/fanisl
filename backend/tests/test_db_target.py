@@ -11,7 +11,7 @@ import pathlib
 
 import pytest
 
-from analyzer.db import describe_conninfo
+from fanisl.db import describe_conninfo
 
 
 def test_tunnel_is_not_local_even_though_the_host_is_127001():
@@ -42,7 +42,7 @@ def test_password_never_appears_in_the_description():
 
 def test_bootstrap_refuses_a_remote_database(monkeypatch, capsys):
     """建管理员这条命令会往 users 表写东西，默认不许对着远端跑。"""
-    from analyzer.auth import bootstrap
+    from fanisl.auth import bootstrap
 
     monkeypatch.setattr(bootstrap.settings, "pg_conninfo",
                         "host=127.0.0.1 port=5433 dbname=fanisl user=fanisl", raising=False)
@@ -57,7 +57,7 @@ class _PastTheGuard(Exception):
 
 def test_bootstrap_allows_remote_when_asked_explicitly(monkeypatch):
     """确实要对生产建账号时得说出来——挡住的是手滑，不是这条路本身。"""
-    from analyzer.auth import bootstrap
+    from fanisl.auth import bootstrap
 
     def boom(_username):
         raise _PastTheGuard
@@ -73,15 +73,15 @@ def test_bootstrap_allows_remote_when_asked_explicitly(monkeypatch):
 def test_service_entry_points_go_through_the_remote_guard():
     """**服务类**入口都要经过 runtime，也就都会被那道守卫拦住。
 
-    守卫写在 `analyzer.runtime` 的模块级，只要 import 它就自动有保护。
+    守卫写在 `fanisl.runtime` 的模块级，只要 import 它就自动有保护。
 
-    **这条测试不覆盖知识引擎那批 CLI**（`analyzer.knowledge.*`）：它们自己
+    **这条测试不覆盖知识引擎那批 CLI**（`fanisl.knowledge.*`）：它们自己
     `make_pool(get_settings().pg_knowledge_conninfo)`，从不 import runtime，
     因此绕过守卫——那是**有意的**，提取 / 归并本来就要经隧道写生产的知识库
     （见 deploy/README.md 的运行形态）。下面那条测试守的是另一件事：
     它们只碰知识库，碰不到账户数据。
     """
-    src = pathlib.Path(__file__).resolve().parents[1] / "src" / "analyzer"
+    src = pathlib.Path(__file__).resolve().parents[1] / "fanisl"
     entries = ["main.py", "worker_collector.py", "worker_trader.py", "backfill.py"]
     for name in entries:
         tree = ast.parse((src / name).read_text())
@@ -100,13 +100,13 @@ def test_service_entry_points_go_through_the_remote_guard():
 def test_knowledge_clis_touch_only_the_knowledge_database():
     """提取那条流程连的是生产，但它够不到账户数据。
 
-    `analyzer.knowledge.*` 里的 CLI 自建连接池、绕过远端守卫（有意的）。所以边界
+    `fanisl.knowledge.*` 里的 CLI 自建连接池、绕过远端守卫（有意的）。所以边界
     不能靠守卫，只能靠**它们只用 `pg_knowledge_conninfo`**：Binance 缓存、用户、
     会话都在 `pg_conninfo` 那个库里，两者不是同一个连接。
 
     这条测试守的就是这个边界——哪天有人在知识模块里顺手连了主库，这里会红。
     """
-    src = pathlib.Path(__file__).resolve().parents[1] / "src" / "analyzer" / "knowledge"
+    src = pathlib.Path(__file__).resolve().parents[1] / "fanisl" / "knowledge"
     for path in sorted(src.glob("*.py")):
         text = path.read_text()
         for bad in ("pg_conninfo", "pg_trading_conninfo", "binance_cache", "user_store"):

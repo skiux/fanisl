@@ -2,7 +2,7 @@
 
 import pytest
 
-from analyzer.main import _locator_seconds
+from fanisl.main import _locator_seconds
 
 
 # --- locator 解析：提取时是模型写的自由文本，解析不出来要给 None 而不是抛 ---
@@ -50,7 +50,7 @@ class _FakeStore:
 
 
 def _call(monkeypatch, store):
-    import analyzer.main as m
+    import fanisl.main as m
     monkeypatch.setattr(m, "knowledge_store", store)
     return m.knowledge_unit_keyframes(15)
 
@@ -91,7 +91,7 @@ def test_image_route_takes_an_id_not_a_path():
     import inspect
     import typing
 
-    from analyzer.main import knowledge_keyframe_image
+    from fanisl.main import knowledge_keyframe_image
 
     params = inspect.signature(knowledge_keyframe_image).parameters
     assert list(params) == ["keyframe_id"]

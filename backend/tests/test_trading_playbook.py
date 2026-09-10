@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from analyzer.trading import playbook
-from analyzer.trading.playbook import (
+from fanisl.trading import playbook
+from fanisl.trading.playbook import (
     BacktestPrior,
     SetupSpec,
     build_plan,

@@ -115,7 +115,7 @@ psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE DATABASE fanisl_trading OWNER f
 psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE DATABASE fanisl_knowledge OWNER fanisl;"
 ```
 
-> **三个库都必须存在。** `analyzer.runtime` 在 import 时就打开全部三个连接池
+> **三个库都必须存在。** `fanisl.runtime` 在 import 时就打开全部三个连接池
 > （`pool` / `trading_pool` / `knowledge_pool`），少一个 collector 起不来——哪怕你
 > 这一阶段只关心知识引擎。
 
@@ -410,11 +410,11 @@ python3 -m venv .venv
 > 且毫无迹象**。2026-08-21 排查发现服务器自部署起一直跑着旧代码，期间的多次修复一个都没生效，
 > 是从 traceback 里的 `.../site-packages/analyzer/...` 路径才看出来的。
 >
-> systemd unit 里另配了 `Environment=PYTHONPATH=/opt/fanisl/backend/src` 作冗余：两处任一
+> systemd unit 里另配了 `Environment=PYTHONPATH=/opt/fanisl/backend` 作冗余：两处任一
 > 被改回去，另一处仍兜得住。改完随时可验（应当打印 `src/` 下的路径，不是 site-packages）：
 >
 > ```bash
-> cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c "import analyzer, analyzer.knowledge.daily as d; print(analyzer.__file__); print(d.__file__)"
+> cd /opt/fanisl/backend && PYTHONPATH=. .venv/bin/python -c "import fanisl, fanisl.knowledge.daily as d; print(fanisl.__file__); print(d.__file__)"
 > ```
 
 ### 3.2 .env
@@ -473,9 +473,9 @@ gcloud projects add-iam-policy-binding <PROJECT_ID> \
 
 ```bash
 # ── 在【服务器】上跑 ──
-cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c "
-from analyzer.config import get_settings
-from analyzer.knowledge.llm import make_client
+cd /opt/fanisl/backend && PYTHONPATH=. .venv/bin/python -c "
+from fanisl.config import get_settings
+from fanisl.knowledge.llm import make_client
 c = make_client(get_settings())
 print(type(c).__name__, 'project=', getattr(c, 'project', None))
 print('token 前 12 位:', c._access_token()[:12], '…')"
@@ -503,10 +503,10 @@ print('token 前 12 位:', c._access_token()[:12], '…')"
 cd /opt/fanisl/backend
 
 # 1) 先逐条验连接串。runtime 会同时开三个池，直接起的话报错里看不出是哪个库
-PYTHONPATH=src .venv/bin/python tools/check_db.py
+PYTHONPATH=. .venv/bin/python tools/check_db.py
 
 # 2) 三条都通了再起 runtime（会真正建池并跑 schema init）
-PYTHONPATH=src .venv/bin/python -c "import analyzer.worker_collector, analyzer.runtime as rt; \
+PYTHONPATH=. .venv/bin/python -c "import fanisl.worker_collector, fanisl.runtime as rt; \
 print('pools ok', bool(rt.pool), bool(rt.trading_pool), bool(rt.knowledge_pool)); \
 rt.pool.close(); rt.trading_pool.close(); rt.knowledge_pool.close()"
 ```
@@ -537,7 +537,7 @@ journalctl -u fanisl-collector -f
 
 ```
 # /etc/systemd/system/fanisl-knowledge-daily.timer  → OnCalendar=*-*-* 21:00:00 UTC
-# 对应 .service 执行：PYTHONPATH=src .venv/bin/python -m analyzer.knowledge.daily
+# 对应 .service 执行：PYTHONPATH=. .venv/bin/python -m fanisl.knowledge.daily
 ```
 
 简单起见先用内置的，够用。
@@ -617,11 +617,11 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fani
 ```bash
 # ── 在【本机】上跑 ──
 # 经隧道打到服务器库
-python -m analyzer.knowledge.nodes export                 # 列未挂单元
-python -m analyzer.knowledge.import_units <file> --dry-run
-python -m analyzer.knowledge.nodes import <file>
-python -m analyzer.knowledge.nodes seed-singletons        # 默认只预览
-python -m analyzer.knowledge.nodes seed-singletons --commit
+python -m fanisl.knowledge.nodes export                 # 列未挂单元
+python -m fanisl.knowledge.import_units <file> --dry-run
+python -m fanisl.knowledge.nodes import <file>
+python -m fanisl.knowledge.nodes seed-singletons        # 默认只预览
+python -m fanisl.knowledge.nodes seed-singletons --commit
 ```
 
 `data_export/knowledge_units/*.json` 继续留在 repo 里——它们不是数据库的替代，是
@@ -637,7 +637,7 @@ python -m analyzer.knowledge.nodes seed-singletons --commit
 
 ```bash
 # ── 在【服务器】上跑 ──
-cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python tools/check_sources.py
+cd /opt/fanisl/backend && PYTHONPATH=. .venv/bin/python tools/check_sources.py
 # 加 --llm 会真调一次 Gemini（消耗额度），验证的是 generateContent 而不只是取 token
 ```
 
@@ -650,7 +650,7 @@ Gemini 通道选择与取 token；另外单列两项不计入结论的——提�
 
 ```bash
 # ── 在【服务器】上跑 ──
-cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python tools/check_ingest.py
+cd /opt/fanisl/backend && PYTHONPATH=. .venv/bin/python tools/check_ingest.py
 ```
 
 它读 collection_runs / metric_samples / daily_bars / eps_estimates / claim_scores / contents
@@ -682,8 +682,8 @@ cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python tools/check_ingest.py
 
 ```bash
 # ── 在【服务器】上跑 ──
-cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python \
-  -m analyzer.knowledge.backfill_transcripts @andyleegogo --since-days 7
+cd /opt/fanisl/backend && PYTHONPATH=. .venv/bin/python \
+  -m fanisl.knowledge.backfill_transcripts @andyleegogo --since-days 7
 ```
 
 跑通后按需挂 timer。
@@ -769,7 +769,7 @@ Node：Debian 13 自带的 `nodejs` 就是 20.19.2，正好满足两个前端 `e
 会真金白银烧额度的 `POST /chat`。现在全部关在门内，只剩 `/health`（自动更新脚本靠它
 判活）、`/auth/login`、`/auth/logout` 三条免登录。
 
-实现与设计取舍见 [`backend/src/analyzer/auth/README.md`](../backend/src/analyzer/auth/README.md)。
+实现与设计取舍见 [`backend/fanisl/auth/README.md`](../backend/fanisl/auth/README.md)。
 
 ### 先补 nginx 的 API 前缀（否则登录会显示 405）
 
@@ -840,7 +840,7 @@ index.html——人以为自己在资产台，其实一直在另一个应用里�
 ```bash
 # ── 在【服务器】上跑 ──
 cd /opt/fanisl/backend
-.venv/bin/python -m analyzer.auth.bootstrap alice     # 口令交互输入，不走命令行参数
+.venv/bin/python -m fanisl.auth.bootstrap alice     # 口令交互输入，不走命令行参数
 ```
 
 系统里没有用户时，**没有任何 HTTP 路径能建出管理员**——`/admin/users` 自己就要求管理员
@@ -865,8 +865,8 @@ sudo systemctl restart fanisl-api
 ```bash
 # ── 在【服务器】上跑 ──
 cd /opt/fanisl/backend && .venv/bin/python - <<'EOF'
-from analyzer.runtime import user_store
-from analyzer.auth.passwords import hash_password
+from fanisl.runtime import user_store
+from fanisl.auth.passwords import hash_password
 import getpass
 u = user_store.get_by_username(input("用户名: "))
 user_store.set_password(u["id"], hash_password(getpass.getpass("新口令: ")))
@@ -888,6 +888,22 @@ BINANCE_API_SECRET=...
 但贴到别处就挡不住了。
 
 ---
+
+### 首次更新到 fanisl 包名（一次性）
+
+包从 `backend/src/analyzer/` 挪到了 `backend/fanisl/`，dist 名也从 `analyzer` 改成 `fanisl`。
+`auto-update.sh` 会自动 `pip install -e` 装上新的，但**旧的 dist 元数据不会被自动卸掉**，
+它的路径钩子指向已经不存在的 `src/analyzer`。拉到这次改动之后，在服务器上跑一次：
+
+```
+/opt/fanisl/backend/.venv/bin/pip uninstall -y analyzer
+systemctl restart fanisl-api fanisl-collector
+```
+
+`pip list` 里只剩 `fanisl` 即为正常。两个 service 的 `Environment=PYTHONPATH` 也从
+`/opt/fanisl/backend/src` 改成了 `/opt/fanisl/backend`，随仓库更新自动生效，但
+**systemd unit 文件改动需要 `systemctl daemon-reload`**——auto-update.sh 不做这一步，
+所以这次要手动跑一次。
 
 ## 7. 持续更新
 
@@ -983,7 +999,7 @@ sudo journalctl -u fanisl-update.service -n 20 --output=cat    # 看这一轮做
 
 | 变了什么 | 它会做 |
 |---|---|
-| `backend/` | 验证 `import analyzer.main` → 重启 api 与 collector → 查 `/health`，任一步失败即回滚到上一个提交 |
+| `backend/` | 验证 `import fanisl.main` → 重启 api 与 collector → 查 `/health`，任一步失败即回滚到上一个提交 |
 | `backend/pyproject.toml` | 上面之前先 `pip install -e` |
 | `frontend/` 或 `console/` | 备份 `dist` → 重建；构建失败把 `dist` 换回旧版 |
 | 对应的 `package-lock.json` | 重建之前先 `npm ci` |
@@ -998,8 +1014,8 @@ sudo systemctl restart fanisl-collector fanisl-api
 # /opt/fanisl/backend/.venv/bin/pip install -e /opt/fanisl/backend
 
 # 确认跑的确实是新代码——路径必须落在 src/ 下
-cd /opt/fanisl/backend && PYTHONPATH=src .venv/bin/python -c \
-  "import analyzer; print(analyzer.__file__)"
+cd /opt/fanisl/backend && PYTHONPATH=. .venv/bin/python -c \
+  "import fanisl; print(fanisl.__file__)"
 curl -s -o /dev/null -w "health -> %{http_code}\n" http://127.0.0.1:8000/health
 
 # 前端改了才需要重建，各自只建自己那个。**必须用 fanisl 身份跑**，
@@ -1124,16 +1140,16 @@ gsutil rsync -r /opt/fanisl/backups gs://<bucket>/fanisl-backups
 1. `docker ps` 里 `fanisl-pg` 是 `Up`，且 `ss -lntp | grep 5432` 只绑 127.0.0.1
 2. 三个库都在：`psql -h 127.0.0.1 -U fanisl -l | grep fanisl`
 2b. `SHOW max_locks_per_transaction` = 512，`SHOW jit` = off（§1.1 调过参）
-2c. `import analyzer; print(analyzer.__file__)` 落在 `/opt/fanisl/backend/src/` 下，
+2c. `import fanisl; print(fanisl.__file__)` 落在 `/opt/fanisl/backend/` 下，
    **不是** `site-packages`（§3.1；否则 git pull 全是空操作）
 3. 12 张表行数与本机一致（§2.5）
 4. `timescaledb_information.jobs` 里没有 `policy_retention`（§2.6；job 1/3 是系统内建，保留）
 5. 冒烟自检打印 `pools ok True True True`（§3.2）
 6. `systemctl is-active fanisl-collector` = active，且 `journalctl` 里能看到
    `prices.refresh` 的输出
-7. 手动跑一次 `python -m analyzer.knowledge.daily`，`claim_scores` 有新增或
+7. 手动跑一次 `python -m fanisl.knowledge.daily`，`claim_scores` 有新增或
    打印"未到期"
-8. 本地隧道通：`python -m analyzer.knowledge.nodes export` 能列出服务器库的待挂单元
+8. 本地隧道通：`python -m fanisl.knowledge.nodes export` 能列出服务器库的待挂单元
 9. `systemctl list-timers fanisl-backup` 有下次触发时间；手动 `systemctl start fanisl-backup`
    能跑出三个 dump，`pg_restore -l` 能列出内容
 10. 维护命令不带 sudo 也能跑：`git -C /opt/fanisl pull`、`nano /opt/fanisl/backend/.env`

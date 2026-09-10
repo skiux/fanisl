@@ -11,11 +11,11 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from analyzer.auth import routes as auth_routes
-from analyzer.auth.passwords import hash_password, needs_rehash, verify_password
-from analyzer.auth.session import AuthMiddleware, client_ip, is_public
-from analyzer.auth.store import UserExists, normalize_username
-from analyzer.runtime import settings
+from fanisl.auth import routes as auth_routes
+from fanisl.auth.passwords import hash_password, needs_rehash, verify_password
+from fanisl.auth.session import AuthMiddleware, client_ip, is_public
+from fanisl.auth.store import UserExists, normalize_username
+from fanisl.runtime import settings
 
 ADMIN_PW = "admin-password-1"
 MEMBER_PW = "member-password-1"
@@ -25,7 +25,7 @@ MEMBER_PW = "member-password-1"
 def app(auth_store):
     """一个最小 app：一条受保护路由 + 一条公开路由 + 真正的鉴权中间件与路由组。
 
-    不用 analyzer.main：那个 app 会把 62 条业务路由和它们的依赖一起拖进来，
+    不用 fanisl.main：那个 app 会把 62 条业务路由和它们的依赖一起拖进来，
     而这里要验的只是"门"。门是同一扇——同样的中间件、同样的 store。
     """
     api = FastAPI()
@@ -426,7 +426,7 @@ def test_purge_helpers(auth_store, monkeypatch):
 # --- 真正的 app：逐条路由核对 ---------------------------------------------
 #
 # 上面那些用的是最小 app，验的是"门"本身。这一节验的是"门装在了整栋楼上"：
-# 把 analyzer.main 里注册的每一条路由都打一遍，逐条断言未登录时不可达。
+# 把 fanisl.main 里注册的每一条路由都打一遍，逐条断言未登录时不可达。
 # 将来有人新加路由、或不小心往白名单里塞东西，这里会红。
 
 def _sample_path(path: str) -> str:
@@ -464,14 +464,14 @@ def real_client():
     这一组要验的是路由与中间件，启动钩子里没有它们需要的东西（这个 app 的
     lifespan 只有关池那一句），所以不进上下文，什么也没少验。
     """
-    from analyzer.main import app as real_app
+    from fanisl.main import app as real_app
 
     yield TestClient(real_app, base_url="https://testserver")
 
 
 def test_route_walker_sees_included_routers():
     """守住上面那条递归：哪天 FastAPI 又换了内部表示，这里先红。"""
-    from analyzer.main import app as real_app
+    from fanisl.main import app as real_app
 
     paths = {r.path for r in _walk_routes(real_app.routes)}
     assert "/auth/login" in paths, "没走进 include_router，下面的全量断言会假通过"
@@ -480,7 +480,7 @@ def test_route_walker_sees_included_routers():
 
 
 def test_every_real_route_is_closed_without_login(real_client):
-    from analyzer.main import app as real_app
+    from fanisl.main import app as real_app
 
     checked = 0
     for route in _walk_routes(real_app.routes):
@@ -513,7 +513,7 @@ def test_chat_endpoints_are_closed(real_client):
 def test_real_app_login_flow_works(real_client, auth_store):
     """端到端过一遍真 app：登录 → 访问受保护接口 → 退出 → 再访问被拒。
 
-    上面的最小 app 验的是中间件；这条验的是它确实接在了 analyzer.main 上、
+    上面的最小 app 验的是中间件；这条验的是它确实接在了 fanisl.main 上、
     而且 include_router 的路由真的能响应。
     """
     auth_store.create_user("realadmin", hash_password(ADMIN_PW), role="admin")
@@ -609,7 +609,7 @@ def test_member_data_is_clipped_to_90_days_on_the_server(auth_store):
 
     前端把数字藏起来不算数：接口原样返回的话，任何人打开开发者工具都能看到全部历史。
     """
-    from analyzer.main import _clip_for_member, MEMBER_MAX_DAYS
+    from fanisl.main import _clip_for_member, MEMBER_MAX_DAYS
 
     class Req:
         class state:
@@ -633,7 +633,7 @@ def test_member_data_is_clipped_to_90_days_on_the_server(auth_store):
 
 
 def test_admin_data_is_not_clipped(auth_store):
-    from analyzer.main import _clip_for_member
+    from fanisl.main import _clip_for_member
 
     class Req:
         class state:

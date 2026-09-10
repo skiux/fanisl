@@ -1,11 +1,11 @@
 """摄取健康度：各数据源最新到哪、近 24h 进了多少、有没有停摆。
 
 **本脚本只读、不摄取。** 要真的去拉新内容，用：
-  python -m analyzer.knowledge.backfill_transcripts <handle> --since-days N   # 只拉某个信源
-  python -m analyzer.knowledge.daily                                          # 摄取 + 整套日维护
+  python -m fanisl.knowledge.backfill_transcripts <handle> --since-days N   # 只拉某个信源
+  python -m fanisl.knowledge.daily                                          # 摄取 + 整套日维护
 
 跑在有库的机器上（服务器，或本地接了隧道时）：
-  cd backend && PYTHONPATH=src .venv/bin/python tools/check_ingest.py
+  cd backend && PYTHONPATH=. .venv/bin/python tools/check_ingest.py
 
 本地跑时注意：隧道通常只转发知识库，市场库（PG_CONNINFO）指的是本机 dev 库。
 前两节读的是市场库，因此在本地会显示为空——那是库选错了，不是服务器上的采集停了。
@@ -15,8 +15,8 @@
 import datetime as dt
 import sys
 
-from analyzer.config import get_settings
-from analyzer.db import make_pool
+from fanisl.config import get_settings
+from fanisl.db import make_pool
 
 
 def _q(pool, sql):

@@ -136,7 +136,7 @@
 - `doc/project-structure.md`：assets.py 与 asset_view.py 入结构图。
 - `domain-model.md`：新增"标的"这个对象的定义与它与 claim/tag 的关系。
 - `PRODUCT.md` §5 IA 修订：标的抬为一级入口（见本文 §0 第 3 条）。
-- `backend/src/analyzer/assets.py` 模块 docstring 写清与 instruments.py 的分工。
+- `backend/fanisl/assets.py` 模块 docstring 写清与 instruments.py 的分工。
 
 ---
 

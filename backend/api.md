@@ -14,7 +14,7 @@
   （`HttpOnly` + `Secure` + `SameSite=Lax`），同源请求浏览器自动带上，前端不用管。
   未登录一律 `401 {"detail": "未登录或会话已过期"}`——**前端见到 401 就跳登录页**。
   免登录的只有三条：`GET /health`、`POST /auth/login`、`POST /auth/logout`。
-  详见 `backend/src/analyzer/auth/README.md`。
+  详见 `backend/fanisl/auth/README.md`。
 - **CORS**：线上两个前端与 API 同源，用不到 CORS。本机跨端口开发时要带 cookie，
   浏览器不允许 `Access-Control-Allow-Origin: *`，所以来源要逐个列进 `CORS_ORIGINS`。
 - **错误**：非 2xx 返回 `{"detail": "人类可读的中文原因"}`。常见：400 参数问题、404 不存在、
@@ -39,7 +39,7 @@
 
 ## 1.5 登录与用户
 
-完整说明见 `backend/src/analyzer/auth/README.md`，这里只列传输层。
+完整说明见 `backend/fanisl/auth/README.md`，这里只列传输层。
 
 ### POST /auth/login
 Body `{"username": str, "password": str}` → `{"user": {...}}`，并在响应里种
@@ -82,7 +82,7 @@ Body `{"username": str, "password": str}` → `{"user": {...}}`，并在响应�
 ## 1.8 资产台（Binance 只读）
 
 三组接口给 `console/` 供数。**形状的权威定义是 `console/src/api/types.ts`**，
-后端按它组装；实现与全部取舍见 `backend/src/analyzer/binance/README.md`。
+后端按它组装；实现与全部取舍见 `backend/fanisl/binance/README.md`。
 
 全员共用同一个 Binance 账户（凭据在服务器 `.env`，只开 Enable Reading）。
 
@@ -123,7 +123,7 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
 #### `pnl` —— 盈亏，按成交算，不由资产变化倒推
 
 这一块的口径是整份接口里最容易搞错的地方，2026-09 连着修过四轮，每一轮的错都写在
-`backend/src/analyzer/binance/README.md` 里。要点：
+`backend/fanisl/binance/README.md` 里。要点：
 
 - **不能用"期末 − 期初 − 净充提"。** `accountSnapshot` 只覆盖 SPOT / MARGIN / FUTURES
   三种钱包，理财、资金、币本位、期权都没有历史快照。拿它当期初、拿全部钱包当期末，
@@ -232,7 +232,7 @@ Binance **没有统一的流水接口**，`entries` 是八个端点合并的时�
 
 端点清单（路径、权重、单次上限、回溯天数、调用次数）**不再出现在响应里**：
 它曾作为 `windows` 字段返回、在界面上画成一张表，那是接口的构造，属于文档不属于页面。
-现在写在 `backend/src/analyzer/binance/README.md` 的接口清单一节，
+现在写在 `backend/fanisl/binance/README.md` 的接口清单一节，
 `ledger.py:WINDOWS` 是唯一权威。
 
 ---
@@ -469,7 +469,7 @@ ref_price_at_publish|null, created_at, scores:[{horizon_label, outcome, realized
 **只有 `status='active'` 的那一版进下游统计**。升版重提（v1→v2）后旧版单元一条不删（版本化
 重放），但若两版同时计入，联赛表、含糊率、抽查覆盖率都会把同一期内容数两遍——所以库层用
 部分唯一索引保证一条内容最多一个 active run。切换走 CLI
-`python -m analyzer.knowledge.import_units --activate <run_id>`（发现新版不如旧版就切回去）。
+`python -m fanisl.knowledge.import_units --activate <run_id>`（发现新版不如旧版就切回去）。
 
 前端注意：`/contents/{id}/units`、`/units`、`/tags`、`/scoreboard`、`/spot-checks` 等
 **返回的都只是生效版本**；要看历史版本得先从这里拿 run 列表。
@@ -620,7 +620,7 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
 
 标的的规范 id 用 claim 的 `asset_symbol` 口径（`XAUUSD` 而非 `XAU/USD`），不含斜杠、URL 安全。
 后端认别名（`XAU/USD` / `xauusd` / `GOLD` 都落到 `XAUUSD`），**返回的一律是规范 id**。
-登记表是 `backend/src/analyzer/assets.py`（身份）；`data/instruments.py` 管的是行情路由，两张表别混。
+登记表是 `backend/fanisl/assets.py`（身份）；`data/instruments.py` 管的是行情路由，两张表别混。
 
 统计口径与 `../docs/DOMAIN.md` §5 一致：`hit_rate = (hits + 0.5×partials) / scored`，
 `scored` 只含 hit/partial/miss；`condition_not_met` 等归 `unresolved`，**不进分母**。

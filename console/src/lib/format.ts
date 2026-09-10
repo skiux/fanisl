@@ -65,7 +65,7 @@ export function price(value: number | null) {
 /*
  * 这里原先有一份 `STABLE_ASSETS`。**已经删掉**：同一份名单当时在四个地方各写一份
  * （后端两处、这里、示例数据），四份还不一样，少一个的后果见
- * `backend/src/analyzer/binance/common.py` 的注释。
+ * `backend/fanisl/binance/common.py` 的注释。
  * 现在由后端随快照发过来（`snapshot.stable_assets`），前端只消费。
  */
 

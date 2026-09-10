@@ -2,7 +2,7 @@
 
 **项目主线是知识引擎**：持续学习、持续验证、持续沉淀投资知识，核心资产是知识库本身
 （定位与分期见 [`../docs/knowledge-engine-design.md`](../docs/knowledge-engine-design.md)，
-模块地图见 [`src/analyzer/knowledge/README.md`](src/analyzer/knowledge/README.md)）。
+模块地图见 [`fanisl/knowledge/README.md`](fanisl/knowledge/README.md)）。
 
 本 README 讲的是**承载它的后端**，另外两条线也跑在同一进程族里：
 - **行情采集**（本文下半部分）——多资产时间序列，为知识引擎的验证层提供时点价格；
@@ -26,8 +26,8 @@ uv sync                      # 用 uv
 cp ../deploy/.env.example .env
 
 # 3. 起服务
-uv run uvicorn analyzer.main:app --reload --app-dir src
-# 或：PYTHONPATH=src .venv/bin/uvicorn analyzer.main:app --reload
+uv run uvicorn fanisl.main:app --reload --app-dir src
+# 或：PYTHONPATH=. .venv/bin/uvicorn fanisl.main:app --reload
 ```
 
 打开 http://127.0.0.1:8000/docs 看接口。
@@ -67,13 +67,13 @@ PG_TRADING_CONNINFO=dbname=fanisl_dev_trading
 确实要用本地服务读生产（复现线上问题）时加 `FANISL_ALLOW_REMOTE_DB=1`。
 生产服务器不受影响：那边的 conninfo 没有 `port=`，走默认 5432，判定为本机。
 
-`python -m analyzer.auth.bootstrap` 同理，库指向远端时默认拒绝，要加 `--remote`。
+`python -m fanisl.auth.bootstrap` 同理，库指向远端时默认拒绝，要加 `--remote`。
 
 ## 接口
 
 **全站需要登录**（2026-09-02 起）。会话走 cookie，未登录一律 401；免登录的只有
 `/health`、`/auth/login`、`/auth/logout`。设计与运维见
-[`src/analyzer/auth/README.md`](src/analyzer/auth/README.md)。
+[`fanisl/auth/README.md`](fanisl/auth/README.md)。
 
 - `POST /auth/login` — `{"username": ..., "password": ...}` → 种 cookie
 - `POST /chat` — `{"message": "BTC 现在怎么看？", "conversation_id": null}` →
@@ -85,7 +85,7 @@ PG_TRADING_CONNINFO=dbname=fanisl_dev_trading
 ## 测试
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pytest    # 或：uv run pytest
+PYTHONPATH=. .venv/bin/python -m pytest    # 或：uv run pytest
 ```
 
 测试不联网：data→indicators→snapshot→tool 流水线用合成数据，Claude client 被 mock。
@@ -93,7 +93,7 @@ PYTHONPATH=src .venv/bin/python -m pytest    # 或：uv run pytest
 ## 结构
 
 ```
-src/analyzer/
+fanisl/
 ├── main.py          # FastAPI：/chat + 市场数据只读接口 + 采集器生命周期
 ├── agent.py         # Claude 工具循环（含 prompt caching）
 ├── config.py        # key / 默认值 / 指标阈值 / watchlist / 采集间隔

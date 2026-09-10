@@ -10,9 +10,9 @@ from datetime import datetime, timedelta, timezone
 import httpx
 import pytest
 
-from analyzer.binance.cache import SourceCache
-from analyzer.binance.client import BinanceClient
-from analyzer.binance.orders import build_orders
+from fanisl.binance.cache import SourceCache
+from fanisl.binance.client import BinanceClient
+from fanisl.binance.orders import build_orders
 
 from binance_mock import NOW, make_transport
 

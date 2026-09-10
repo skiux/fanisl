@@ -1,8 +1,8 @@
 """情绪与注意力（Part 3）纯逻辑单测：builder + 各源解析（不联网）。"""
 
-from analyzer.data.alternativeme_source import _bucket
-from analyzer.data.lunarcrush_source import _parse_social
-from analyzer.snapshot.builder import build_sentiment
+from fanisl.data.alternativeme_source import _bucket
+from fanisl.data.lunarcrush_source import _parse_social
+from fanisl.snapshot.builder import build_sentiment
 
 
 def test_build_sentiment_both_blocks():

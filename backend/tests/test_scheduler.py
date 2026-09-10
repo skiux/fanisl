@@ -3,7 +3,7 @@
 import threading
 import time
 
-from analyzer.scheduler import Scheduler
+from fanisl.scheduler import Scheduler
 
 
 def test_runs_immediately_and_stops():
@@ -40,7 +40,7 @@ def test_disabled_job_failure_does_not_crash():
 
 def test_uses_wall_clock_not_monotonic(monkeypatch):
     """睡眠期间 time.monotonic() 不走字（macOS 实测），到期判定必须看墙钟。"""
-    import analyzer.scheduler as sched_mod
+    import fanisl.scheduler as sched_mod
 
     wall = [1_000_000.0]
     monkeypatch.setattr(sched_mod.time, "time", lambda: wall[0])
@@ -60,7 +60,7 @@ def test_uses_wall_clock_not_monotonic(monkeypatch):
 
 def test_backward_clock_jump_does_not_starve_job(monkeypatch):
     """系统时钟被往回调时，next 不应被甩到远future 把任务饿死。"""
-    import analyzer.scheduler as sched_mod
+    import fanisl.scheduler as sched_mod
 
     wall = [1_000_000.0]
     monkeypatch.setattr(sched_mod.time, "time", lambda: wall[0])

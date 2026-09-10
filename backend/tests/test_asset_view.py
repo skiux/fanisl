@@ -1,7 +1,7 @@
 """按标的聚合的读模型 + "按标的取单元"过滤器。语料见 conftest 的 knowledge_corpus。"""
 
-from analyzer.knowledge import asset_view
-from analyzer.knowledge.browser import browse_units_page
+from fanisl.knowledge import asset_view
+from fanisl.knowledge.browser import browse_units_page
 
 from conftest import FUTURE_LADDER, FUTURE_LADDER_2
 

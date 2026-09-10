@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from analyzer.knowledge.reference import (
+from fanisl.knowledge.reference import (
     ReferenceStore, dedup_key, earnings_assets, ticker_assets,
 )
 

@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 
-from analyzer.knowledge.models import KnowledgeUnit
-from analyzer.knowledge.nodes import NodeStore
-from analyzer.knowledge.overview import overview_stats
-from analyzer.knowledge.store import KnowledgeStore
+from fanisl.knowledge.models import KnowledgeUnit
+from fanisl.knowledge.nodes import NodeStore
+from fanisl.knowledge.overview import overview_stats
+from fanisl.knowledge.store import KnowledgeStore
 
 
 def test_overview_is_not_capped_and_excludes_superseded_content(pool):

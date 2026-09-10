@@ -1,6 +1,6 @@
 """Deribit 期权聚合的纯逻辑单测（合成 book summary，不联网）。"""
 
-from analyzer.data.deribit_source import (
+from fanisl.data.deribit_source import (
     _iv_skew,
     _max_pain,
     _parse_instrument,

@@ -1,4 +1,4 @@
-"""标的登记表（analyzer.assets）的守护测试。
+"""标的登记表（fanisl.assets）的守护测试。
 
 两件事必须钉死：
 1. **日线采集范围不许被顺手改掉**——SYMBOL_MAP 现在派生自登记表，登记表多一行就等于
@@ -8,9 +8,9 @@
 
 import pytest
 
-from analyzer import assets
-from analyzer.data import instruments
-from analyzer.knowledge import prices
+from fanisl import assets
+from fanisl.data import instruments
+from fanisl.knowledge import prices
 
 # --- 冻结：daily_bars 的采集口径（2026-08-29 快照，85 个符号）------------------
 
@@ -125,7 +125,7 @@ def test_declared_instrument_links_point_at_real_routes():
 
 def test_metric_symbols_cover_the_collector_watchlist():
     """有全维度指标的标的 = 采集 watchlist。少一个，标的页的"数据覆盖"就会说谎。"""
-    from analyzer.config import Settings
+    from fanisl.config import Settings
 
     watchlist = set(Settings().watchlist)
     assert set(assets.metric_symbols().values()) == watchlist

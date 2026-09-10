@@ -1,5 +1,5 @@
-from analyzer.config import Settings
-from analyzer.data.factory import build_resolver
+from fanisl.config import Settings
+from fanisl.data.factory import build_resolver
 
 
 def test_build_resolver_routes_each_asset_class():

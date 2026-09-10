@@ -7,7 +7,7 @@
 
 import pytest
 
-from analyzer.binance.costbasis import held_across_wallets, split_symbol
+from fanisl.binance.costbasis import held_across_wallets, split_symbol
 
 
 def test_split_symbol_prefers_the_longest_quote():

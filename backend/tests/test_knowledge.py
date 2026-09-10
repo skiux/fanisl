@@ -6,9 +6,9 @@ import sys
 import pytest
 from datetime import datetime, timezone
 
-from analyzer.knowledge.models import ClaimPayload, KnowledgeUnit
-from analyzer.knowledge.nodes import NodeStore
-from analyzer.knowledge.store import KnowledgeStore
+from fanisl.knowledge.models import ClaimPayload, KnowledgeUnit
+from fanisl.knowledge.nodes import NodeStore
+from fanisl.knowledge.store import KnowledgeStore
 
 
 @pytest.fixture
@@ -152,7 +152,7 @@ def test_verification_views_keep_due_and_scored_records_distinct(kstore):
 # --- K3：单元导入（PendingBackend 入库端）------------------------------------
 
 def test_import_units_parse_and_quote_check():
-    from analyzer.knowledge.import_units import check_quotes, parse_units_doc
+    from fanisl.knowledge.import_units import check_quotes, parse_units_doc
     doc = {
         "content_id": 7, "extractor_version": "pending-v1", "model": "claude-session",
         "units": [
@@ -190,8 +190,8 @@ def _unit(payload_over: dict, *, uid=99999, ref=70.0, pub=datetime(2026, 7, 1, t
 
 def test_scorers_all_methods(pool, monkeypatch):
     import datetime as dt
-    from analyzer.knowledge import scorers
-    from analyzer.knowledge.prices import PriceStore
+    from fanisl.knowledge import scorers
+    from fanisl.knowledge.prices import PriceStore
     ps = PriceStore(pool)
     with pool.connection() as conn:
         conn.execute("DELETE FROM daily_bars WHERE symbol IN ('WTI','SPX')")
@@ -255,7 +255,7 @@ def _seed_units(kstore, n=3):
 
 
 def test_nodes_import_gates_and_lifecycle(kstore, pool):
-    from analyzer.knowledge.nodes import NodeStore
+    from fanisl.knowledge.nodes import NodeStore
     with pool.connection() as conn:
         conn.execute("DROP TABLE IF EXISTS node_attestations, knowledge_nodes CASCADE")
     ns = NodeStore(pool)
@@ -310,8 +310,8 @@ def test_nodes_import_gates_and_lifecycle(kstore, pool):
 # --- K6：发现层（关系边/harness 候选/周报/抽查）-------------------------------
 
 def test_discovery_layer(kstore, pool, tmp_path, monkeypatch):
-    from analyzer.knowledge import discovery, spotcheck
-    from analyzer.knowledge.nodes import NodeStore
+    from fanisl.knowledge import discovery, spotcheck
+    from fanisl.knowledge.nodes import NodeStore
     with pool.connection() as conn:
         conn.execute("DROP TABLE IF EXISTS node_relations, node_attestations, knowledge_nodes CASCADE")
         conn.execute("TRUNCATE spot_checks")
@@ -376,7 +376,7 @@ def test_discovery_layer(kstore, pool, tmp_path, monkeypatch):
 
 def test_gemini_request_assembly(monkeypatch):
     # 请求组装：file_data 传 URL、clip offset 进 video_metadata、response_schema 带上
-    from analyzer.knowledge import llm
+    from fanisl.knowledge import llm
     captured = {}
 
     class FakeResp:
@@ -405,7 +405,7 @@ def test_gemini_request_assembly(monkeypatch):
 
 
 def test_keyframes_ts_parse():
-    from analyzer.knowledge.keyframes import _to_seconds
+    from fanisl.knowledge.keyframes import _to_seconds
     assert _to_seconds("03:15") == 195
     assert _to_seconds("1:02:05") == 3725
     assert _to_seconds("90") == 90 and _to_seconds(90) == 90
@@ -413,7 +413,7 @@ def test_keyframes_ts_parse():
 
 def test_keyframes_cli_height_not_taken_as_timestamp(monkeypatch):
     """--height 的值曾被当成时间戳解析（IndexError），且 --height 对清晰度不起作用。"""
-    from analyzer.knowledge import keyframes
+    from fanisl.knowledge import keyframes
 
     seen = {}
     monkeypatch.setattr(keyframes, "grab", lambda vid, ts, **kw: seen.update(
@@ -427,7 +427,7 @@ def test_keyframes_cli_height_not_taken_as_timestamp(monkeypatch):
 
 def test_keyframes_format_selector_prefers_dash_video_track(monkeypatch):
     """混流 mp4 只有 640×360 的 fmt 18：选串必须先要 DASH 视频轨，否则清晰度封顶 360p。"""
-    from analyzer.knowledge import keyframes
+    from fanisl.knowledge import keyframes
 
     captured = {}
 
@@ -451,7 +451,7 @@ def test_keyframes_format_selector_prefers_dash_video_track(monkeypatch):
 
 
 def test_visual_notes_parse_from_l0():
-    from analyzer.knowledge.backfill_keyframes import visual_notes
+    from fanisl.knowledge.backfill_keyframes import visual_notes
 
     raw = ("正文若干\n\n## 视觉笔记（画面信息，带时间戳）\n"
            "- [00:08] (table) 盘面表现表格\n"
@@ -483,7 +483,7 @@ def test_keyframe_store_roundtrip(kstore):
 
 
 def test_keyframe_fill_gaps_only_touches_frameless_contents(kstore, monkeypatch):
-    from analyzer.knowledge import backfill_keyframes as bk
+    from fanisl.knowledge import backfill_keyframes as bk
 
     creator = kstore.ensure_creator("测试创作者")
     ids = []
@@ -506,7 +506,7 @@ def test_keyframe_fill_gaps_only_touches_frameless_contents(kstore, monkeypatch)
 
 def test_correct_canonical_keeps_an_audit_trail(kstore):
     """canonical 订正必须留痕：不留痕的静默改写，和它要修的那类问题是一回事。"""
-    from analyzer.knowledge.nodes import NodeStore
+    from fanisl.knowledge.nodes import NodeStore
 
     ns = NodeStore(kstore.pool)
     cid = kstore.ensure_creator("订正信源")
@@ -532,7 +532,7 @@ def test_correct_canonical_keeps_an_audit_trail(kstore):
 
 
 def test_correct_canonical_rejects_unknown_node(kstore):
-    from analyzer.knowledge.nodes import NodeStore
+    from fanisl.knowledge.nodes import NodeStore
 
     with pytest.raises(ValueError):
         NodeStore(kstore.pool).correct_canonical(999999, "x", "y")
@@ -544,7 +544,7 @@ def test_fetch_yf_drops_todays_incomplete_bar(monkeypatch):
 
     import pandas as pd
 
-    import analyzer.knowledge.prices as pricemod
+    import fanisl.knowledge.prices as pricemod
 
     today = dt.date.today()
     idx = pd.to_datetime([today - dt.timedelta(days=2), today - dt.timedelta(days=1), today])
@@ -576,7 +576,7 @@ def test_fetch_yf_uses_exchange_tz_not_local_date(monkeypatch):
 
     import pandas as pd
 
-    import analyzer.knowledge.prices as pricemod
+    import fanisl.knowledge.prices as pricemod
 
     class _T:
         def __init__(self, *_a, **_k): pass
@@ -629,7 +629,7 @@ def _concept_unit(text, tags):
 
 
 def test_seed_singletons_dry_run_writes_nothing(kstore):
-    from analyzer.knowledge.nodes import NodeStore
+    from fanisl.knowledge.nodes import NodeStore
 
     ns = NodeStore(kstore.pool)
     cid = kstore.ensure_creator("闸门信源")
@@ -647,7 +647,7 @@ def test_seed_singletons_dry_run_writes_nothing(kstore):
 
 def test_pending_singletons_surfaces_tag_nearest_existing_node(kstore):
     """真实场景：同一信源隔期重述同一命题，用词几乎全变，靠标签才捞得回来。"""
-    from analyzer.knowledge.nodes import NodeStore
+    from fanisl.knowledge.nodes import NodeStore
 
     ns = NodeStore(kstore.pool)
     cid = kstore.ensure_creator("重述信源")
@@ -678,7 +678,7 @@ def test_pending_singletons_surfaces_tag_nearest_existing_node(kstore):
 
 
 def test_pending_singletons_ignores_units_already_on_a_node(kstore):
-    from analyzer.knowledge.nodes import NodeStore
+    from fanisl.knowledge.nodes import NodeStore
 
     ns = NodeStore(kstore.pool)
     cid = kstore.ensure_creator("已挂信源")
@@ -699,7 +699,7 @@ def _vertex_client(monkeypatch, tmp_path, adc: dict | None):
     """构造 VertexGeminiClient，并把 ADC 路径指到临时目录（存在与否由 adc 决定）。"""
     import json as _json
 
-    import analyzer.knowledge.llm as llmmod
+    import fanisl.knowledge.llm as llmmod
 
     p = tmp_path / "application_default_credentials.json"
     if adc is not None:
@@ -760,7 +760,7 @@ def test_daily_ingests_all_three_sources_before_scoring(monkeypatch):
     2026-08-19 之前 daily 完全不碰摄取，三个频道的新内容全靠手动跑
     backfill_transcripts——漏跑就是永久缺口（视频删了 L0 就没了）。
     """
-    import analyzer.knowledge.daily as dailymod
+    import fanisl.knowledge.daily as dailymod
 
     order, ingested = [], []
     monkeypatch.setattr(dailymod.backfill_transcripts, "run",
@@ -785,7 +785,7 @@ def test_daily_ingests_all_three_sources_before_scoring(monkeypatch):
 
 def test_daily_continues_when_one_source_fails(monkeypatch):
     """单个信源摄取失败不能拖垮整轮日维护。"""
-    import analyzer.knowledge.daily as dailymod
+    import fanisl.knowledge.daily as dailymod
 
     seen = []
 
@@ -818,7 +818,7 @@ def test_ingest_window_covers_the_whole_gap(kstore):
     """
     import datetime as _dt
 
-    import analyzer.knowledge.daily as dailymod
+    import fanisl.knowledge.daily as dailymod
 
     cid = kstore.ensure_creator("窗口信源")
     kstore.ensure_handle(cid, "youtube", "@gaptest")
