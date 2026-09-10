@@ -13,7 +13,7 @@ from ..data.catalysts import Catalysts
 from ..data.derivatives import CryptoSentiment
 from ..data.instruments import Resolver, registered_symbols
 from ..marketstore import MarketStore
-from ..metrics import metric_vocab
+from ..collect.metrics import metric_vocab
 from ..models import GetCatalystsInput, GetMarketSnapshotInput, GetMetricHistoryInput
 from .catalysts import get_catalysts
 from .history import get_metric_history

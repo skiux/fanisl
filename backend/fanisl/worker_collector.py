@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from . import runtime as rt
-from .collector import collect_catalysts, collect_market
+from .collect.collector import collect_catalysts, collect_market
 from .knowledge.daily import run_daily as knowledge_daily
 from .knowledge.discovery import weekly_report as knowledge_weekly
 from .knowledge import news_triage

@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from fanisl.analytics import summarize_series
+from fanisl.collect.analytics import summarize_series
 from fanisl.marketstore import GLOBAL, Sample
 from fanisl.tools.history import get_metric_history
 

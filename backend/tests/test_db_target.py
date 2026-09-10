@@ -82,7 +82,7 @@ def test_service_entry_points_go_through_the_remote_guard():
     它们只碰知识库，碰不到账户数据。
     """
     src = pathlib.Path(__file__).resolve().parents[1] / "fanisl"
-    entries = ["main.py", "worker_collector.py", "worker_trader.py", "backfill.py"]
+    entries = ["main.py", "worker_collector.py", "worker_trader.py", "collect/backfill.py"]
     for name in entries:
         tree = ast.parse((src / name).read_text())
         hits = [

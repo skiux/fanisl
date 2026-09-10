@@ -11,7 +11,7 @@ from __future__ import annotations
 from bisect import bisect_left, bisect_right
 from datetime import datetime, timedelta
 
-from ..analytics import summarize_series
+from ..collect.analytics import summarize_series
 
 Point = tuple[datetime, float]
 

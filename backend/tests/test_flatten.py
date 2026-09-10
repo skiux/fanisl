@@ -1,6 +1,6 @@
 """flatten 纯函数单测：模型 → 入库行（不联网）。"""
 
-from fanisl.flatten import flatten_catalysts, flatten_snapshot
+from fanisl.collect.flatten import flatten_catalysts, flatten_snapshot
 from fanisl.models import (
     CatalystReport,
     MacroEvent,

@@ -12,7 +12,7 @@ H1 死时指明的缺口（爆仓数据几乎没有）已填上：
 | 指标 | 现状 | 来源 |
 |---|---|---|
 | **liq_long/short/total_1h（逐小时爆仓流，USD）** | **~180d, ~3600 桶/标的**（2025-12-16→今） | **新**：Coinalyze 聚合 30+ 所，`research/backfill_liq.py` 回填 |
-| price / atr_pct_1h（1h） | 加深到 ~182d（2025-12-14→今） | Binance 回填（`fanisl.backfill --tf 1h --limit 4400`） |
+| price / atr_pct_1h（1h） | 加深到 ~182d（2025-12-14→今） | Binance 回填（`fanisl.collect.backfill --tf 1h --limit 4400`） |
 
 BTC 逐小时总爆仓分布：中位 $184k，p90 $3.8M，**p98 $19.4M**，max $107M——p98 即真级联。
 universe：BTC/ETH/SOL/BNB/ZEC。**测试窗 ≈180 天，约 H1（70d）的 2.5 倍**，统计功效显著更好。

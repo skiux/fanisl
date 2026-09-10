@@ -39,7 +39,7 @@ from fanisl.knowledge.models import KnowledgeUnit
 from fanisl.knowledge.nodes import NodeStore
 from fanisl.knowledge.store import KnowledgeStore
 from fanisl.marketstore import MarketStore
-from fanisl.storage import Storage
+from fanisl.chat.storage import Storage
 from fanisl.trading.store import TradingStore
 from fanisl.models import (
     ChainTVL,

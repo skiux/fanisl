@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from fanisl.backfill import indicator_rows
+from fanisl.collect.backfill import indicator_rows
 
 
 def _df(n=300):

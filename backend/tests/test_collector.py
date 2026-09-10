@@ -1,6 +1,6 @@
 """采集器单测：mock 工具函数，验证写库 + 运行日志（不联网）。"""
 
-from fanisl import collector
+from fanisl.collect import collector
 from fanisl.config import Settings
 from fanisl.models import CatalystReport, MacroEvent
 

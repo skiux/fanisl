@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
-from .marketstore import GLOBAL, Sample
+from ..marketstore import GLOBAL, Sample
 from .metrics import TF_METRICS
-from .models import CatalystReport, MarketSnapshot
+from ..models import CatalystReport, MarketSnapshot
 
 
 def flatten_snapshot(snap: MarketSnapshot) -> list[Sample]:

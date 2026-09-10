@@ -10,7 +10,7 @@ import atexit
 import os
 import threading
 
-from .agent import Agent
+from .chat.agent import Agent
 from .auth.store import UserStore
 from .binance.cache import SourceCache
 from .binance.client import BinanceClient
@@ -18,7 +18,7 @@ from .config import get_settings
 from .data.factory import build_catalysts, build_crypto_sentiment, build_resolver
 from .db import describe_conninfo, make_pool
 from .marketstore import MarketStore
-from .storage import Storage
+from .chat.storage import Storage
 from .trading.engine import TradingEngine
 from .trading.service import TradingService
 from .trading.store import TradingStore

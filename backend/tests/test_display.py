@@ -1,4 +1,4 @@
-from fanisl.storage import display_messages
+from fanisl.chat.storage import display_messages
 
 
 def test_user_text_and_assistant_text():

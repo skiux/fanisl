@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-from .data.fred_source import FRED_SERIES
+from ..data.fred_source import FRED_SERIES
 
 # 前端格式化用的单位词汇：
 #   price=价位 | pct=百分比 | rate=极小费率 | ratio=倍率 | ratio01=0~1 分位

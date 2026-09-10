@@ -15,10 +15,10 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from . import assets as assets_registry
-from . import metrics as metrics_registry
+from .collect import metrics as metrics_registry
 from .auth import routes as auth_routes
 from .auth.session import AuthMiddleware
-from .agent import final_text
+from .chat.agent import final_text
 from .marketstore import GLOBAL
 from contextlib import asynccontextmanager
 
@@ -47,7 +47,7 @@ from .runtime import (
 from .knowledge import discovery, keyframes, league, spotcheck
 from .knowledge.browser import browse_nodes_page, browse_units_page, verification_page, verification_summary
 from .knowledge.overview import overview_stats
-from .storage import display_messages
+from .chat.storage import display_messages
 
 # 注意：API 进程**不起后台调度器**。采集/交易由独立的 collector / trader worker 进程跑
 # （见 worker_collector.py / worker_trader.py），所以 API 可以多 worker、独立部署重启。

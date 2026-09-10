@@ -3,7 +3,7 @@
 import math
 
 from fanisl.marketstore import GLOBAL, Sample
-from fanisl.validate import clean_samples
+from fanisl.collect.validate import clean_samples
 
 
 def _s(metric, value, symbol="BTC/USDT", scope="symbol"):

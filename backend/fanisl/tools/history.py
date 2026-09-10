@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from ..analytics import summarize_series
+from ..collect.analytics import summarize_series
 from ..marketstore import MarketStore
 
 _WINDOW_HOURS: dict[str, int | None] = {

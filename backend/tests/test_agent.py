@@ -4,7 +4,7 @@ data→indicators→snapshot→tool 流水线（合成数据，不联网）。
 
 import pandas as pd
 
-from fanisl.agent import Agent, final_text
+from fanisl.chat.agent import Agent, final_text
 from fanisl.config import Settings
 from fanisl.data.base import MarketDataSource
 from fanisl.data.instruments import Resolver

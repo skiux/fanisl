@@ -17,7 +17,7 @@ from ..data.catalysts import Catalysts
 from ..data.derivatives import CryptoSentiment
 from ..data.instruments import Resolver
 from ..marketstore import MarketStore
-from ..prompts import (
+from ..chat.prompts import (
     ENTRY_SYSTEM_PROMPT,
     GATE_SYSTEM_PROMPT,
     MANAGE_SYSTEM_PROMPT,

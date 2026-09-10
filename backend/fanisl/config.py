@@ -143,8 +143,6 @@ class Settings(BaseSettings):
     # 交易评测台：独立库（账户/计划/持仓/复盘/打分），与行情库分离
     pg_trading_conninfo: str = "dbname=fanisl_trading"
     pg_knowledge_conninfo: str = "dbname=fanisl_knowledge"  # 知识引擎（L0/L1/L2 独立库）
-    # 旧 SQLite 文件路径，仅供一次性数据迁移 migrate_sqlite 读取
-    db_path: str = "fanisl.db"
 
     # 数据采集（后台调度，写时间序列）
     # 高频采集(15min)只跑加密——Binance 实时、无频控；TradFi 分析走 Polygon/OANDA

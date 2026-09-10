@@ -4,8 +4,8 @@
 **立刻有纵深**。按每根历史 K 线算整条指标序列、按各自时间戳落库；funding / 恐惧贪婪取各自
 可得的历史。幂等（ON CONFLICT 覆盖），可重复跑。
 
-运行：`python -m fanisl.backfill`            # 默认 watchlist + 1w/1d/4h/1h
-      `python -m fanisl.backfill BTC/USDT ETH/USDT --tf 1d 4h --limit 1500`
+运行：`python -m fanisl.collect.backfill`            # 默认 watchlist + 1w/1d/4h/1h
+      `python -m fanisl.collect.backfill BTC/USDT ETH/USDT --tf 1d 4h --limit 1500`
 """
 
 from __future__ import annotations
@@ -14,9 +14,9 @@ import sys
 
 import pandas as pd
 
-from .data.instruments import Resolver
-from .indicators.compute import indicator_series
-from .marketstore import GLOBAL, MarketStore
+from ..data.instruments import Resolver
+from ..indicators.compute import indicator_series
+from ..marketstore import GLOBAL, MarketStore
 
 _BACKFILL_TFS = ["1w", "1d", "4h", "1h"]  # 默认回填周期（深度好、性价比高；日内留给前向采集）
 _DEFAULT_LIMIT = 1500
@@ -171,7 +171,7 @@ def run_backfill(symbols, timeframes, limit, store, resolver, sentiment, catalys
 
 
 def main() -> None:
-    from . import runtime as rt
+    from .. import runtime as rt
 
     args = [a for a in sys.argv[1:]]
     timeframes = list(_BACKFILL_TFS)

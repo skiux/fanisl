@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 
-from .marketstore import Sample
+from ..marketstore import Sample
 
 _PCT01 = (0.0, 1.0)        # 分位：0~1
 _NONNEG = (0.0, None)      # 非负量：金额 / 张数 / 笔数 / 波动率 / 价格

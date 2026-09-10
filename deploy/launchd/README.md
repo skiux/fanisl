@@ -8,7 +8,7 @@
 > - **collector 应当停掉**。服务器已接管知识引擎的日维护与周报；而本机 `.env` 的
 >   `PG_KNOWLEDGE_CONNINFO` 现在指向 SSH 隧道，本机 collector 一跑就变成**第二个写服务器库
 >   的进程**（隧道通时重复写、隧道断时刷错误日志）。它的 PG advisory lock 取在 `fanisl` 库上，
->   拦不住这种跨机重复。停：`launchctl bootout gui/$(id -u)/com.fanisl.collector`
+>   拦不住这种跨机重复。停：`launchctl bootout gui/$(id -u)/com.fanisl.collect.collector`
 > - **backup 备哪个库，看 `.env` 里的连接串。** 2026-09-04 起 `PG_CONNINFO` /
 >   `PG_TRADING_CONNINFO` 已改指本机开发库（见 backend/README.md「本地开发用隔离的库」），
 >   所以本机跑 backup 备的是本机库；只有 `PG_KNOWLEDGE_CONNINFO` 仍指隧道，
@@ -34,8 +34,8 @@
 ## 安装
 
 ```
-cp deploy/launchd/com.fanisl.collector.plist ~/Library/LaunchAgents/
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.fanisl.collector.plist
+cp deploy/launchd/com.fanisl.collect.collector.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.fanisl.collect.collector.plist
 ```
 
 `RunAtLoad` 登录即起，`KeepAlive` 崩了自动拉起（实测 kill -9 后由 launchd 重启）。
@@ -43,9 +43,9 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.fanisl.collector.pli
 ## 查看 / 停止
 
 ```
-launchctl print gui/$(id -u)/com.fanisl.collector | grep -E 'state|pid|last exit'
+launchctl print gui/$(id -u)/com.fanisl.collect.collector | grep -E 'state|pid|last exit'
 tail -f ~/Library/Logs/fanisl-collector.log
-launchctl bootout gui/$(id -u)/com.fanisl.collector     # 停止并卸载
+launchctl bootout gui/$(id -u)/com.fanisl.collect.collector     # 停止并卸载
 ```
 
 ## 几个已知行为，不是故障

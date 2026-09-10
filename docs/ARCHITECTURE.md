@@ -46,8 +46,7 @@ fanisl/
   ②标的新闻天更 + 财报日历天更 + 动态降噪天更 + 公司资料周更。单实例。
 - `worker_trader.py` — 交易进程：快线程盯市(15s) + 慢线程（setup 探测→闸门 1h；scan 已默认关）。单实例。
 - `worker_base.py` — worker 公共设施：PG advisory lock 单实例守卫 + 信号驱动运行。
-- `backfill.py` — 一次性历史回填（`python -m fanisl.backfill`）。
-- `migrate_sqlite.py` — 旧 SQLite → PG 一次性迁移。
+- `backfill.py` — 一次性历史回填（`python -m fanisl.collect.backfill`）。
 
 ### 组合根 / 配置
 - `runtime.py` — **共享对象装配**（pool/store/resolver/agent/trading_service/ACCOUNT_ID
