@@ -133,7 +133,7 @@
 
 ### P0-8 文档（与代码同批提交）  — 已完成：api.md §6 新增 · project-structure · domain-model 新增 asset 对象 · PRODUCT.md §5 IA 修订
 - `api.md`：新增 §7 标的，改 §5.2 的 symbol 语义。
-- `doc/project-structure.md`：assets.py 与 asset_view.py 入结构图。
+- `docs/project-structure.md`：assets.py 与 asset_view.py 入结构图。
 - `domain-model.md`：新增"标的"这个对象的定义与它与 claim/tag 的关系。
 - `PRODUCT.md` §5 IA 修订：标的抬为一级入口（见本文 §0 第 3 条）。
 - `backend/fanisl/assets.py` 模块 docstring 写清与 instruments.py 的分工。
@@ -277,7 +277,7 @@ Claude 中转 401「该令牌额度已用尽 RemainQuota = -264」。
 - 实测（真 key）：NVDA 资料 14 个指标齐全；6 个标的近 7 天抓到 257 条新闻并入库。
   后端测试 321 → **329 passed**；前端 25 → **27 passed**；e2e 30 → **35 passed**。
 
-**四个源的实测结论**（详见 `doc/data/data-gaps.md`，别再重试被否掉的两个）：
+**四个源的实测结论**（详见 `docs/data/data-gaps.md`，别再重试被否掉的两个）：
 Polygon 参考数据 ✅ 主源（顺带带出 CIK）· Finnhub profile2 ✅ 补 logo/IPO/国家（**市值单位是百万**）
 · Finnhub metric ✅ 挑 14 个 · Finnhub company-news ✅ 新闻主源
 · Benzinga 按 ticker ❌ 免费档返回 0 条 · NewsAPI 关键词兜底 ❌ 相关性太差（"gold price"
@@ -300,7 +300,7 @@ Polygon 参考数据 ✅ 主源（顺带带出 CIK）· Finnhub profile2 ✅ 补
 | P2-3 | 按标的的新闻源：Finnhub `/company-news`、Benzinga `tickers=`（现在写死了 `channels=Cryptocurrency`）、Polygon `/v2/reference/news` | 指数/金属/原油没有干净的 ticker 新闻，只能落回关键词检索，质量差一档，页面须标注口径 · 已完成（Finnhub company-news；Benzinga 与 NewsAPI 实测否掉） |
 | P2-4 | EDGAR 财报日入库（`fetch_8k_earnings_dates`，已有代码未接产品） | 无 key 无频控，最稳的一块 · **未做**：有意延后，CIK 已随资料入库，接的时候只差一张事件表 |
 | P2-5 | collector 新车道：按**知识库标的宇宙**迭代，不是 `settings.watchlist` 那 5 个加密对 | 70 个标的按日错峰，注意各源免费档频控 · 已完成（单独一条调度车道） |
-| P2-6 | 端点 + 前端接入 + `doc/data/data-gaps.md`、`doc/data/data-sync.md` 更新 | — · 已完成 |
+| P2-6 | 端点 + 前端接入 + `docs/data/data-gaps.md`、`docs/data/data-sync.md` 更新 | — · 已完成 |
 
 **非股票标的的约束**：XAUUSD / SPX / DXY / WTI / US10Y 没有"公司"，而它们恰好是库里
 排名最靠前的标的（前四名里三个是指数或金属）。身份区块必须能退化成

@@ -184,9 +184,9 @@ React + TS + Vite + Tailwind；Geist 字体、Phosphor 图标、zinc+emerald 调
 
 ---
 
-## 部署 `deploy/` 与文档 `doc/`
+## 部署 `deploy/` 与文档 `docs/`
 - `deploy/` — `fanisl-api/collector/trader.service`、`nginx-fanisl.conf`、`.env.example`、`README.md`(Debian13)。
-- `doc/` — `research-capstone`(研究收官) · `research-log`(23 个 H 裁决) · `phase*-prereg`(24 份预注册，不可改)
+- `docs/research/` — `research-capstone`(研究收官) · `research-log`(23 个 H 裁决) · `phase*-prereg`(24 份预注册，不可改)
   · `project-transformation`(蓝图，已执行完) · `trading-eval-repositioning`(评测台重定位) · `data-gaps`(源与缺口)
   · `data-inventory` · `trader-data` · `data-sync` · `data-upgrades` · `database`/`*-design`(历史) · 本文。
 

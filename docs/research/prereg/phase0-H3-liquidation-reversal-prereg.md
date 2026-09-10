@@ -103,7 +103,7 @@ universe：BTC/ETH/SOL/BNB/ZEC。**测试窗 ≈180 天，约 H1（70d）的 2.5
 1. 触发器：按 §C 在 liq_total_1h 上算 30d 时间加权分位 + 地板 + 占优 + 去重叠（复用 `pit.tw_percentile_at`/`dedup_by_gap`）。
 2. 方向 PnL：按 §D 用 `pit.first_after`/`value_at_or_after` 取进出场，算 net + risk-adj。
 3. 基线：随机择时零分布（复用 `stats.random_null_upper`，按 S 方向标签）+ bootstrap CI（`stats.bootstrap_ci`）。
-4. 裁决：按 §G 输出 PASS/FAIL + 结论，记入 `doc/research-log.md`。
+4. 裁决：按 §G 输出 PASS/FAIL + 结论，记入 `docs/research-log.md`。
 
 **北极星不变**：这一步把"爆仓级联会不会反转"从直觉变成一个能被 180d 数据杀死的、判据锁死的命题；
 而且补数据这件事本身已证明——缺口能靠手段补上（Coinalyze 聚合，180d 逐小时）。
