@@ -1,6 +1,6 @@
 """H17 回测:趋势×定位闸门——上升趋势(价>SMA200)中的负资金费 → 逼空/carry 做多,+3 日。
 
-预注册见 doc/phase3-H17-trend-gated-positioning-prereg.md。阈值锁死,**不调参**。
+预注册见 docs/research/prereg/phase3-H17-trend-gated-positioning-prereg.md。阈值锁死,**不调参**。
 与已死 H1 的区别:条件化(趋势闸门)、顺势 carry 机制(非均值回归)、+3d horizon、5 年资金费×23 标的带 holdout。
 判据③用**趋势内随机择时零分布**(同样 up 的日 bar 抽样),直接检验资金费的增量、排除趋势 beta 假阳。
 确定性、无 Claude。跑:`python -m analyzer.research.h17`

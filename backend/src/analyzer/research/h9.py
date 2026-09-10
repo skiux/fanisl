@@ -1,6 +1,6 @@
 """H9 回测：财报后漂移 PEAD（美股，市场中性），含真 holdout。
 
-预注册见 doc/phase3-H9-pead-prereg.md。阈值锁死，**不调参**。数据无 key：Yahoo 复权价 + EDGAR 备案日。
+预注册见 docs/research/prereg/phase3-H9-pead-prereg.md。阈值锁死，**不调参**。数据无 key：Yahoo 复权价 + EDGAR 备案日。
 surprise = 公告窗口相对 SPY 的市场调整 CAR（不需一致预期）；漂移 = 进场后 40 交易日的市场调整收益。
 复用 pit/stats + h3._mixed_null_upper。确定性、无 Claude。跑：`python -m analyzer.research.h9`
 """

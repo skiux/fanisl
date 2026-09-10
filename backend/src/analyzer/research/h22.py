@@ -1,6 +1,6 @@
 """H22 回测：EIA 发布过冲的盘中回归（fade surprise，M1 粒度）。
 
-预注册见 doc/phase3-H22-eia-overshoot-fade-prereg.md（含线索来源披露：假设形成于
+预注册见 docs/research/prereg/phase3-H22-eia-overshoot-fade-prereg.md（含线索来源披露：假设形成于
 H19 之后，PASS 也只算强候选、须过纸面前向）。判据锁死，**不调参**。
 surprise/假期规则逐字复用 h18/h19，仅改方向（fade）与执行粒度（M1，+5min 进场）。
 跑：`python -m analyzer.research.h22`

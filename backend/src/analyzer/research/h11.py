@@ -1,6 +1,6 @@
 """H11 回测：PEAD 精确版——8-K Item 2.02 精确盈利公告日 + 紧公告窗口。
 
-预注册见 doc/phase3-H11-pead-precise-prereg.md。新 H 编号（H9 用 10-Q 备案日粗代理 KILLED，
+预注册见 docs/research/prereg/phase3-H11-pead-precise-prereg.md。新 H 编号（H9 用 10-Q 备案日粗代理 KILLED，
 但 full 9/10 标的正、疑"代理太糙"）。H11 换精确公告日重测，不挪 H9 判据。
 复用 h9._drift_pnl（市场中性漂移）+ pit/stats + h3._mixed_null_upper。跑：`python -m analyzer.research.h11`
 """

@@ -1,6 +1,6 @@
 """H21 回测：宽 universe 资金费 carry（真实结算 + PIT universe + 真实换手成本）。
 
-预注册见 doc/phase3-H21-funding-carry-wide-prereg.md。判据锁死，**不调参**。
+预注册见 docs/research/prereg/phase3-H21-funding-carry-wide-prereg.md。判据锁死，**不调参**。
 H20 三个死因对症：bulk 逐次结算（carry 精确）、147 名含退市（修幸存者偏差 + 功效）、
 实测换手边数 × maker 成本。复用 h20 的 assign_legs / week_spread 形状。
 跑：`python -m analyzer.research.h21`

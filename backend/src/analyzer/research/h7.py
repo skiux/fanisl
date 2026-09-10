@@ -1,6 +1,6 @@
 """H7 回测：时间序列动量（TSMOM）长 horizon —— 检验拉长持有能否跨过 14bps 成本地板。
 
-预注册见 doc/phase3-H7-tsmom-longhorizon-prereg.md。主参数 L=H=7d，sign-only，**不调参**。
+预注册见 docs/research/prereg/phase3-H7-tsmom-longhorizon-prereg.md。主参数 L=H=7d，sign-only，**不调参**。
 来由：H1-H6 六连 KILLED，诊断="信号存在但 < 成本地板"；H7 试唯一未碰的维度——长 horizon 摊薄固定成本。
 PnL/零分布复用 H3。确定性、无 Claude。跑：`python -m analyzer.research.h7`
 """

@@ -1,4 +1,4 @@
-// 标的工作台的传输契约。字段以 api.md §6 为准，口径说明见 domain-model.md「asset」。
+// 标的工作台的传输契约。字段以 backend/api.md §6 为准，口径说明见 docs/DOMAIN.md「asset」。
 
 export type AssetClass =
   | 'index' | 'etf' | 'stock' | 'metal' | 'commodity' | 'crypto' | 'rate' | 'fx' | 'preipo'

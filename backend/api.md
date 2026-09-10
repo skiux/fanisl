@@ -4,7 +4,7 @@
 > 2026-08-29 标的工作台 +2 = 62 个；2026-09-02 登录与用户管理 +11、资产台 +3 = **76 个**）。
 > 服务：FastAPI，默认 `http://127.0.0.1:8000`（前端用 `VITE_API_BASE` 覆盖）。
 >
-> 配套文档：`PRODUCT.md`（产品定义/信息架构/用户旅程）· `domain-model.md`（知识引擎
+> 配套文档：`../docs/PRODUCT.md`（产品定义/信息架构/用户旅程）· `../docs/DOMAIN.md`（知识引擎
 > 领域模型与枚举中文标签 SSOT）。
 > 本文只管传输层：有哪些端点、参数与返回结构。
 
@@ -622,7 +622,7 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
 后端认别名（`XAU/USD` / `xauusd` / `GOLD` 都落到 `XAUUSD`），**返回的一律是规范 id**。
 登记表是 `backend/src/analyzer/assets.py`（身份）；`data/instruments.py` 管的是行情路由，两张表别混。
 
-统计口径与 `domain-model.md` §5 一致：`hit_rate = (hits + 0.5×partials) / scored`，
+统计口径与 `../docs/DOMAIN.md` §5 一致：`hit_rate = (hits + 0.5×partials) / scored`，
 `scored` 只含 hit/partial/miss；`condition_not_met` 等归 `unresolved`，**不进分母**。
 无样本时 `hit_rate` 为 `null`（不是 0）。**前端展示百分比必须带 n。**
 
@@ -700,7 +700,7 @@ BZ 实测 0 条知识单元、3 笔交易，只按知识单元筛它在工作台
   不会出现在这里，只有登记表里的标的才算；
 - `profile` 与 `news` **只对个股与 ETF**（73 个）。`coverage.has_company=false` 的标的
   （指数/贵金属/商品/利率/汇率）两块恒为 `null`/`[]`——**这是"没有公司这回事"，不是"我们没接"**，
-  前端据此隐藏这两节而不是渲染空面板。口径与实测结论见 `doc/data/data-gaps.md`；
+  前端据此隐藏这两节而不是渲染空面板。口径与实测结论见 `../docs/data/data-gaps.md`；
 - `news` 来自 `news_items`（**追加式、可回溯**，按 `(asset, url)` 去重，从不删旧条）；
   加密标的没有 ticker 新闻，回落到 `catalyst_items` 的最新一轮快照（语义不同，`id` 为 `null`）；
 - **默认不返回 `relevance='noise'` 的条目**（盘面流水、异动榜单、讲的是别家公司），
@@ -943,7 +943,7 @@ BZ 实测 0 条知识单元、3 笔交易，只按知识单元筛它在工作台
   "risk_pct": 0.5, "leverage": 2.0, "sl_atr_mult": 3.0, "sl_fallback_pct": 10.0,
   "tp_atr_mult": 6.0, "holding_hours": 168.0, "cooldown_hours": 168.0,
   "prior": {"n": 432, "hit_rate": 0.56, "avg_net_return": 0.0128, "ci_low": 0.0044,
-    "holding_hours": 168.0, "source": "doc/phase3-H7-tsmom-longhorizon-prereg.md",
+    "holding_hours": 168.0, "source": "docs/research/prereg/phase3-H7-tsmom-longhorizon-prereg.md",
     "regime_notes": "全样本 PASS 但两半检验不稳：上半（强下行趋势）+2.15%、下半（方向均衡）-0.27%。只在强趋势 regime 有效，震荡/反转期失效。candidate=仅纸面验证。"}
 }
 ```

@@ -1,6 +1,6 @@
 """H4 回测：爆仓级联 × OI 去杠杆 → 条件化反转（fade）。
 
-预注册见 doc/phase0-H4-cascade-oi-conditional-prereg.md。阈值全部来自预注册，**不在此调参**。
+预注册见 docs/research/prereg/phase0-H4-cascade-oi-conditional-prereg.md。阈值全部来自预注册，**不在此调参**。
 触发与 PnL 复用 H3（级联定义不变），新增 OI 条件把触发集一分为二：
   - DELEV（去杠杆，oi_chg<0）= 主裁决子集，假设 fade 成立；
   - RELEV（加仓，oi_chg>0）= 对照（探索，假设继续同向），不进主裁决。
@@ -177,7 +177,7 @@ def _print_sub(name: str, p: dict) -> None:
 
 def print_report(res: dict) -> None:
     print("=" * 84)
-    print("H4 回测：爆仓级联 × OI 去杠杆 → 4h fade  [预注册 doc/phase0-H4-...]")
+    print("H4 回测：爆仓级联 × OI 去杠杆 → 4h fade  [预注册 docs/research/prereg/phase0-H4-...]")
     print("=" * 84)
     print(f"{'标的':<10}{'级联触发':>8}{'OI缺':>6}{'DELEV多/空':>12}{'RELEV多/空':>12}")
     for r in res["per_symbol"]:

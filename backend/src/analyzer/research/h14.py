@@ -1,6 +1,6 @@
 """H14 回测：SUE-based PEAD 在小盘 universe——追 live edge（大盘 H13 holdout 衰减）。
 
-预注册见 doc/phase3-H14-smallcap-sue-pead-prereg.md。唯一相对 H13 改动 = universe（大盘→小盘 ~75）；
+预注册见 docs/research/prereg/phase3-H14-smallcap-sue-pead-prereg.md。唯一相对 H13 改动 = universe（大盘→小盘 ~75）；
 信号/时点/漂移/分桶/零分布/切分全沿用 H13。判据 ⑤ 升级为 **holdout 独立显著**（H13 教训）。
 跑：`python -m analyzer.research.h14`
 """

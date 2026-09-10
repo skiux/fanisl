@@ -1,6 +1,6 @@
 """H19 回测：EIA 库存 surprise → WTI **盘中**漂移（1h 粒度，H18 的粒度续问）。
 
-预注册见 doc/phase3-H19-eia-intraday-prereg.md。判据锁死，**不调参**。
+预注册见 docs/research/prereg/phase3-H19-eia-intraday-prereg.md。判据锁死，**不调参**。
 surprise 构造原样复用 h18（build_events/seasonal_z，唯一差异=执行粒度）。
 盘中版必须做假期顺延调整：合成周三戳 + 实际周四发布 = 在信号发布前进场（真未来函数）。
 跑：`python -m analyzer.research.h19`

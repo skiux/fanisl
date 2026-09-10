@@ -1,6 +1,6 @@
 """H12 回测：PEAD 横截面组合——按入场季度分桶平均，分散单股 idiosyncratic 方差。
 
-预注册见 doc/phase3-H12-pead-portfolio-prereg.md。承接 H11（精确公告日 PEAD 跨 regime 稳健 +1.3%、
+预注册见 docs/research/prereg/phase3-H12-pead-portfolio-prereg.md。承接 H11（精确公告日 PEAD 跨 regime 稳健 +1.3%、
 9/10 标的正，但栽在 40 日单股零分布太宽）。H12 扩 universe(~40 股) + 按季度分桶平均，正攻该噪声命门。
 事件信号沿用 H11，**不调参**。跑：`python -m analyzer.research.h12`
 """

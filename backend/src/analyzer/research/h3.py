@@ -1,6 +1,6 @@
 """H3 回测：爆仓级联 → 短时反转（symmetric fade，做多被爆方向）。
 
-预注册见 doc/phase0-H3-liquidation-reversal-prereg.md。阈值全部来自预注册，**不在此调参**。
+预注册见 docs/research/prereg/phase0-H3-liquidation-reversal-prereg.md。阈值全部来自预注册，**不在此调参**。
 复用 Phase 1 harness（pit / stats）。确定性、无 Claude。
 
 跑：`python -m analyzer.research.h3`
@@ -168,7 +168,7 @@ def _f(x, d=4):
 
 def print_report(res: dict) -> None:
     print("=" * 80)
-    print("H3 回测：爆仓级联 → 4h 反转（fade 被爆方向）  [预注册 doc/phase0-H3-...]")
+    print("H3 回测：爆仓级联 → 4h 反转（fade 被爆方向）  [预注册 docs/research/prereg/phase0-H3-...]")
     print("=" * 80)
     print(f"{'标的':<10}{'触发':>6}{'多/空':>9}{'净PnL均值':>12}{'命中':>8}")
     for r in res["per_symbol"]:

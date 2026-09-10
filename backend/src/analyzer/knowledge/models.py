@@ -1,6 +1,6 @@
 """知识引擎 L1 单元的 pydantic 模型（信封 + Claim/Method/Concept 载荷）。
 
-设计不变量（doc/knowledge-engine-design.md）：
+设计不变量（docs/knowledge-engine-design.md）：
 - Claim 的评分语义在**提取时刻冻结**（ScoringSpec），评分器只做机械执行；
 - 载荷进 JSONB（schema 演进不迁表），入库前必须过这里的校验；
 - verifiability A/B/C 必须带 scoring_spec，D（不可评）不允许带——含糊率本身是指标。

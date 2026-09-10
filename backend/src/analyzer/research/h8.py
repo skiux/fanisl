@@ -1,6 +1,6 @@
 """H8 回测：COT 管理基金持仓极值 → 反转（金/银/油），含真 holdout。
 
-预注册见 doc/phase3-H8-cot-positioning-prereg.md。阈值锁死，**不调参**。
+预注册见 docs/research/prereg/phase3-H8-cot-positioning-prereg.md。阈值锁死，**不调参**。
 多资产扩张第一个切片；第一次能做跨 regime holdout（COT+价回溯到 2006/2008）。
 复用 pit/stats，随机零分布复用 h3._mixed_null_upper。确定性、无 Claude。
 跑：`python -m analyzer.research.h8`

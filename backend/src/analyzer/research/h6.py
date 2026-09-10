@@ -1,6 +1,6 @@
 """H6 回测：小盘 1h RSI 极端 → 短时反转（fade），净 PnL 确认。
 
-预注册见 doc/phase3-H6-smallcap-rsi-reversion-prereg.md。阈值=教科书 70/30，**不调参**。
+预注册见 docs/research/prereg/phase3-H6-smallcap-rsi-reversion-prereg.md。阈值=教科书 70/30，**不调参**。
 来由：小盘 IC 筛浮出 rsi_1h@+4h 前向 IC -0.051、18/18 同号的干净反转候选；本文件把它转成净 PnL 检验。
 PnL/零分布复用 H3。确定性、无 Claude。跑：`python -m analyzer.research.h6`
 """

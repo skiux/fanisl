@@ -6,7 +6,7 @@
 - `SCALAR_METRICS` / 宏观：其余所有标量 metric 的元信息。
 - `catalog()`：给前端的完整目录；`flatten` 用 TF_METRICS 出名字；工具描述用 `metric_vocab()` 生成。
 
-**新增/改一个 metric 的同步清单见 doc/data-sync.md。** 一致性由 tests/test_metrics.py 守护。
+**新增/改一个 metric 的同步清单见 docs/data/data-sync.md。** 一致性由 tests/test_metrics.py 守护。
 """
 
 from __future__ import annotations

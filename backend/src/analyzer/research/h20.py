@@ -1,6 +1,6 @@
 """H20 回测：横截面资金费 carry（crypto 永续，市场中性，含资金费现金流）。
 
-预注册见 doc/phase3-H20-funding-carry-prereg.md。判据锁死，**不调参**。
+预注册见 docs/research/prereg/phase3-H20-funding-carry-prereg.md。判据锁死，**不调参**。
 H17 四格对照线索的正式检验：多最负费率 6 名 / 空最正 6 名，周度再平衡，
 收益 = 价差 + 两腿资金费净收入 − 28bps/周。复用 pit/stats。确定性、无 Claude。
 跑：`python -m analyzer.research.h20`

@@ -1,6 +1,6 @@
 """H10 回测：实际利率(10y TIPS)变动 → 黄金/白银 反向漂移，含真 holdout。
 
-预注册见 doc/phase3-H10-gold-realrate-prereg.md。阈值锁死，**不调参**。全新家族（宏观驱动）。
+预注册见 docs/research/prereg/phase3-H10-gold-realrate-prereg.md。阈值锁死，**不调参**。全新家族（宏观驱动）。
 信号 = 过去 30 天实际利率变动符号（反向）；前向 = 30 天金/银方向收益。复用 pit/stats + h3._mixed_null_upper。
 确定性、无 Claude。跑：`python -m analyzer.research.h10`
 """

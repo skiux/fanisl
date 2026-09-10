@@ -1,6 +1,6 @@
 """H18 回测：EIA 周度原油库存 surprise → WTI 发布后 +3 交易日漂移（事件研究）。
 
-预注册见 doc/phase3-H18-eia-inventory-prereg.md。判据锁死，**不调参**。
+预注册见 docs/research/prereg/phase3-H18-eia-inventory-prereg.md。判据锁死，**不调参**。
 消息面方向第一个切片；surprise = Δ库存 vs 季节性朴素期望（ISO 周 ±1 × 过去 5 年），
 z 阈值 1.0，方向 = 累库超预期 short / 去库超预期 long。
 复用 pit/stats，随机零分布复用 h3._mixed_null_upper。确定性、无 Claude。

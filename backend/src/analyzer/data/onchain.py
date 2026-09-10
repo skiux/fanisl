@@ -1,7 +1,7 @@
 """链上数据 provider 抽象（Part 4）。
 
 最正交的维度，但免费只够拿子集：稳定币供应、公链 TVL、网络使用度（均免费/无 key）。
-交易所流入流出、MVRV/SOPR/成本分布、巨鲸/聪明钱标签多为付费——见 doc/data-gaps.md。
+交易所流入流出、MVRV/SOPR/成本分布、巨鲸/聪明钱标签多为付费——见 docs/data/data-gaps.md。
 
 这些都是「快照增强」，挂在 CryptoSentiment bundle 上，由 get_market_snapshot best-effort 调用。
 """

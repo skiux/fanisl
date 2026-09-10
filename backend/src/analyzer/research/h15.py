@@ -2,7 +2,7 @@
 
 H14 用 SPY(大盘)对冲小盘 → 残留 size 因子（小盘 vs 大盘），2019-2026 小盘跑输把结果拖成负。
 H15 唯一改动 = 基准 SPY→IWM（小盘指数），正确对冲掉小盘市场，留下纯个股 PEAD。其余全沿用 H13/H14。
-预注册见 doc/phase3-H15-smallcap-sue-iwm-prereg.md。跑：`python -m analyzer.research.h15`
+预注册见 docs/research/prereg/phase3-H15-smallcap-sue-iwm-prereg.md。跑：`python -m analyzer.research.h15`
 """
 
 from __future__ import annotations

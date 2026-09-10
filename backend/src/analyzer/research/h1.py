@@ -1,6 +1,6 @@
 """H1 回测：资金费率极端负 → 4h 均值回归（做多）。
 
-预注册见 doc/phase0-H1-funding-reversion-prereg.md。所有阈值/判据来自预注册，**不在此调参**。
+预注册见 docs/research/prereg/phase0-H1-funding-reversion-prereg.md。所有阈值/判据来自预注册，**不在此调参**。
 确定性、无 Claude。既是 H1 的检验，也是 Phase 1 回测能力的验收用例。
 
 跑：`python -m analyzer.research.h1`
@@ -135,7 +135,7 @@ def _f(x, d=4):
 
 def print_report(res: dict) -> None:
     print("=" * 78)
-    print("H1 回测：资金费率极端负 → 4h 均值回归（做多）  [预注册 doc/phase0-H1-...]")
+    print("H1 回测：资金费率极端负 → 4h 均值回归（做多）  [预注册 docs/research/prereg/phase0-H1-...]")
     print("=" * 78)
     print(f"{'标的':<10}{'触发数':>7}{'无条件':>8}{'净均值S':>10}{'净均值U':>10}{'命中S':>8}{'命中U':>8}{'ATR中位':>9}")
     for r in res["per_symbol"]:

@@ -838,7 +838,7 @@ def asset_detail(asset_id: str) -> dict:
     return dossier
 
 
-# --- 研究档案（doc/ 内白名单文档的只读陈列）-------------------------------
+# --- 研究档案（docs/ 内白名单文档的只读陈列）-------------------------------
 
 _RESEARCH_DOCS = {
     "capstone": ("research/research-capstone.md", "研究收官：问题 / 方法 / 23 裁决 / 遗产"),
@@ -861,10 +861,10 @@ def research_doc(name: str) -> dict:
     if name not in _RESEARCH_DOCS:
         raise HTTPException(status_code=404, detail="文档不存在")
     rel, title = _RESEARCH_DOCS[name]
-    path = Path(__file__).resolve().parents[3] / "doc" / rel
+    path = Path(__file__).resolve().parents[3] / "docs" / rel
     if not path.exists():
-        raise HTTPException(status_code=404, detail=f"文件缺失：doc/{rel}")
-    return {"name": name, "title": title, "path": f"doc/{rel}", "content": path.read_text()}
+        raise HTTPException(status_code=404, detail=f"文件缺失：docs/{rel}")
+    return {"name": name, "title": title, "path": f"docs/{rel}", "content": path.read_text()}
 
 
 @app.get("/knowledge/scoreboard")

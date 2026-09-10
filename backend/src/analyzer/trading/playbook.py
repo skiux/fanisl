@@ -135,7 +135,7 @@ H7_TSMOM = SetupSpec(
     cooldown_hours=168.0,
     prior=BacktestPrior(
         n=432, hit_rate=0.56, avg_net_return=0.0128, ci_low=0.0044, holding_hours=168.0,
-        source="doc/phase3-H7-tsmom-longhorizon-prereg.md",
+        source="docs/research/prereg/phase3-H7-tsmom-longhorizon-prereg.md",
         regime_notes="全样本 PASS 但两半检验不稳：上半（强下行趋势）+2.15%、下半（方向均衡）-0.27%。"
                      "只在强趋势 regime 有效，震荡/反转期失效。candidate=仅纸面验证。",
     ),

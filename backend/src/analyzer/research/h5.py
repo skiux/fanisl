@@ -1,6 +1,6 @@
 """H5 回测：突破延续（time-series 动量）。
 
-预注册见 doc/phase0-H5-breakout-momentum-prereg.md。阈值全部来自预注册，**不在此调参**。
+预注册见 docs/research/prereg/phase0-H5-breakout-momentum-prereg.md。阈值全部来自预注册，**不在此调参**。
 第一次测反转家族的对立面（H1/H3/H4 全 KILLED）。只用 price，零新数据。PnL/零分布复用 H3。
 确定性、无 Claude。跑：`python -m analyzer.research.h5`
 """
@@ -136,7 +136,7 @@ def _f(x, d=4):
 
 def print_report(res: dict) -> None:
     print("=" * 80)
-    print("H5 回测：突破延续（48h 新高/低 → +24h 动量）  [预注册 doc/phase0-H5-...]")
+    print("H5 回测：突破延续（48h 新高/低 → +24h 动量）  [预注册 docs/research/prereg/phase0-H5-...]")
     print("=" * 80)
     print(f"{'标的':<10}{'触发':>6}{'多/空':>9}{'净PnL均值':>12}{'命中':>8}")
     for r in res["per_symbol"]:

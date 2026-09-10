@@ -199,7 +199,7 @@ extractor_version**：重放出来的评分结果与原来逐条相同。
 ## 8. Method / Concept 填写要点
 
 - Method：rules 尽量保留原始表述（数字、级别、条件原样）；claimed_performance 记录
-  不采信；overlap_with_killed 对照 H1-H22（防重杀尸体，见 doc/research/）；
+  不采信；overlap_with_killed 对照 H1-H22（防重杀尸体，见 docs/research/）；
   testability：A=现有/易得数据可回测，B=缺数据，C=规则本身不可机械化。
 - Concept：canonical_statement 用一句归一化中文（后续归并的抓手，措辞稳定重于文采）；
   经验规律/量化事实归 category=macro_framework（宏观类）或 market_structure（市场类），

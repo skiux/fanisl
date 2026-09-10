@@ -9,7 +9,7 @@ type AppHeaderProps = {
   onSearch: () => void
 }
 
-// 标的排在最前：日常使用的姿态是"我在看某个标的"，知识库是它背后的证据层（PRODUCT.md §5）。
+// 标的排在最前：日常使用的姿态是"我在看某个标的"，知识库是它背后的证据层（docs/PRODUCT.md §5）。
 const primaryItems = [
   { key: 'asset', label: '标的', href: '#/asset', enabled: true },
   { key: 'knowledge', label: '知识库', href: '#/knowledge', enabled: true },

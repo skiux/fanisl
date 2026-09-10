@@ -1,6 +1,6 @@
 """H13 回测：SUE-based PEAD——季节性随机游走 SUE（免费 XBRL EPS）替代公告反应符号。
 
-预注册见 doc/phase3-H13-sue-pead-prereg.md。唯一相对 H12 的改动 = 信号 sign(公告反应) → sign(SUE)，
+预注册见 docs/research/prereg/phase3-H13-sue-pead-prereg.md。唯一相对 H12 的改动 = 信号 sign(公告反应) → sign(SUE)，
 其余（8-K 时点、40 股、季度桶、40 日市场中性、随机符号零分布、holdout）全沿用 H12，做干净对照。
 复用 h12 的分桶/零分布机制。跑：`python -m analyzer.research.h13`
 """

@@ -1,6 +1,6 @@
 # knowledge/ — 知识引擎模块
 
-持续学习、持续验证、持续沉淀投资知识的引擎（定位与分期见 `doc/knowledge-engine-design.md`）。
+持续学习、持续验证、持续沉淀投资知识的引擎（定位与分期见 `docs/knowledge-engine-design.md`）。
 本 README 是模块地图：文件职责、数据流、常用命令。规范类文档同放本目录：
 
 - `extraction-guide.md` — L1 提取规范 **v2**（冻结；判断规则 + 期限映射 + 标签受控词表；v1→v2 改动见其 §11）
@@ -69,7 +69,7 @@ K6 起的发现与运营（周报 collector 每周自动跑，其余按需）：
 - 关系边（对立/互补，判据 merge-guide §6）：会话判边 JSON → `nodes import-relations <file>`；
 - 周报：`discovery weekly`（或 API /knowledge/weekly 现算）；
 - 抽查：每周 `spotcheck sample` 抽 10 条人工核忠实度，`spotcheck record` 录结论；
-- harness 候选：`discovery harness`（testability=A 的方法节点），立 H 仍走 doc/prereg 人工纪律。
+- harness 候选：`discovery harness`（testability=A 的方法节点），立 H 仍走 docs/research/prereg 人工纪律。
 评分 outcome：hit / miss / partial / condition_not_met / condition_unverifiable / unpriceable。
 **显著性口径（2026-08 改过，别沿用旧说法）**：零假设不是 50%，而是**各标的自身在该时段的
 无条件漂移**——语料里判断压倒性偏 up，而样本期本身是上行的，拿 50% 当基线等于把市场的

@@ -1,6 +1,6 @@
 """H16 回测:横截面相对强度动量(美股 12-1,月调仓,多前8/空后8,市场中性)。
 
-预注册见 doc/phase3-H16-xsection-momentum-prereg.md。参数锁死,**不调参**。
+预注册见 docs/research/prereg/phase3-H16-xsection-momentum-prereg.md。参数锁死,**不调参**。
 与已死的 TS 动量(H5/H5b/H7)本质不同:互相比 + 多空对冲(定义上剔除大盘 beta/regime)。
 判据③=随机选股零分布(保留每月真实横截面,只打乱选择),直接测"12-1 排序"的信息量。
 确定性、无 Claude。跑:`python -m analyzer.research.h16`
