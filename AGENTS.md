@@ -31,6 +31,14 @@ ownership is per file. Find your seat, then read that directory's `AGENTS.md`.
 | **frontend** | `frontend/**` |
 | **console** | `console/**`, `backend/fanisl/trading/**`, `backend/fanisl/binance/**` |
 | **base** | `backend/fanisl/` root, `collect/` `chat/` `data/` `auth/` `tools/`, `backend/api.md`, `shared/**`, `deploy/**` |
+| **analysis** | nothing — read-only |
+
+The **analysis** seat answers questions about markets and about what is in the
+corpus. It reads the databases and the docs and writes nothing: no code, no
+schema changes, no writes to any database, no commits. If answering a question
+would require a code change, say so and stop — that work belongs to another
+seat. Numbers in an answer must come from a query that was actually run, with
+the query shown.
 
 1. **A contract file has one owner, and the owner is the producer, not the
    consumer.** `backend/api.md` → base. `backend/fanisl/assets.py` → knowledge
@@ -46,7 +54,6 @@ ownership is per file. Find your seat, then read that directory's `AGENTS.md`.
 4. `shared/login/` and `docs/DOMAIN.md` are read by several seats. Changing
    them affects both frontends — say so in your report.
 
-Ask-questions / analysis sessions get read-only DB access and docs, not a seat.
 
 ## 3. How to work
 

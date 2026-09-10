@@ -11,6 +11,7 @@
 | [`PRODUCT.md`](PRODUCT.md) | 产品定义、信息架构、用户旅程、绝对不要做成什么样 |
 | [`DOMAIN.md`](DOMAIN.md) | 领域概念与枚举中文标签的 SSOT |
 | [`CONVENTIONS.md`](CONVENTIONS.md) | 语言、文档放哪、注释怎么写、冻结规范怎么改 |
+| [`OPERATIONS.md`](OPERATIONS.md) | **日常运营维护**：体检、更新、按症状排障、备份、定期事项 |
 | [`knowledge-engine-design.md`](knowledge-engine-design.md) | 知识引擎（当前主线）：定位 / 分层 / K0-K7 进度 |
 | [`trading-eval-repositioning.md`](trading-eval-repositioning.md) | 评测台现役形态 |
 
