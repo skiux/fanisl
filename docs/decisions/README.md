@@ -1,9 +1,17 @@
-# 技术决策记录（ADR）
+# Decision records (ADR)
 
-一条决策一份文件，编号递增，写完不改。判断错了不要改旧文件，
-**新写一条推翻它**，并在新文件里链回旧的——决策的历史本身有信息量。
+One decision per file, numbered sequentially, **never edited after the fact**.
+If a decision turns out to be wrong, do not rewrite the old file — write a new
+one that supersedes it and link back. The history of a decision carries
+information.
 
-格式：背景 → 决策 → 依据（有实测就贴实测）→ 后果与代价。
+Format: context → decision → evidence (include measurements where you have
+them) → consequences and costs.
 
-这些决策原本散在 docstring 与提交信息里，只有读到那个文件的人才看得见，
-2026-09-10 起集中到这里。
+The records themselves are written in Chinese: they quote measurements and
+incident details from the maintainer's own notes, and this file is the part an
+agent needs to follow.
+
+These decisions used to live in docstrings and commit messages, where only
+someone already reading that file would find them. Collected here from
+2026-09-10.

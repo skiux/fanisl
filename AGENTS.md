@@ -1,71 +1,88 @@
-# fanisl — 会话须知
+# fanisl — Agent Guide
 
-> 本文是每个会话开机第一眼要看的东西。Claude Code 与 Codex 都读它
-> （`CLAUDE.md` 是指向本文的符号链接，只此一份，别分叉）。
-> 详细约定见 [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)，结构见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
+> Read this first, every session. Both Claude Code and Codex read this file
+> (`CLAUDE.md` is a symlink to it — one source of truth, never fork it).
+> Conventions: [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md).
+> Structure: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-## 一、这个仓库是两个产品共用一个底座
+## 1. This repo is two products on one shared base
 
-不要按「前端 / 后端」理解这个仓库，那会把边界切错。
+Do **not** read this repo as "frontend + backend". That framing puts the
+boundaries in the wrong place.
 
-| | 后端 | 前端 | 线上位置 |
+| Product | Backend | Frontend | Served at |
 |---|---|---|---|
-| **知识引擎** | `backend/fanisl/knowledge/` | `frontend/` | `fanisl.skiuo.com/` |
-| **交易台** | `backend/fanisl/trading/` + `binance/` | `console/` | `fanisl.skiuo.com/console/` |
-| **共用底座** | `backend/fanisl/` 包根 + `collect/` `chat/` `data/` `auth/` `tools/` | `shared/` | — |
+| **Knowledge engine** | `backend/fanisl/knowledge/` | `frontend/` | `fanisl.skiuo.com/` |
+| **Trading console** | `backend/fanisl/trading/` + `binance/` | `console/` | `fanisl.skiuo.com/console/` |
+| **Shared base** | `backend/fanisl/` root + `collect/` `chat/` `data/` `auth/` `tools/` | `shared/` | — |
 
-`frontend/` 这个名字是历史遗留,**它不是「那个前端」,它是知识引擎的站点**。
-`console/` 是独立的交易台应用,两者只共用 `shared/login/` 一个登录页。
+`frontend/` is a legacy name. **It is not "the frontend" — it is the knowledge
+engine's site.** `console/` is a separate application. The only thing they share
+is the login page in `shared/login/`.
 
-## 二、会话归属
+## 2. Session ownership
 
-多个会话并行开发。**冲突按文件发生,不按功能发生**,所以归属按文件划:
+Multiple sessions work in parallel. **Conflicts happen per file, not per
+feature**, so ownership is assigned per file:
 
-| 会话 | 拥有（可改） | 交付 |
+| Session | Owns (may edit) | Delivers |
 |---|---|---|
-| **知识引擎** | `backend/fanisl/knowledge/**`、`backend/fanisl/assets.py`、`frontend/**`、`data_export/knowledge_units/`、`docs/research/**` | L0→L6 的正确性、站点 |
-| **交易台** | `backend/fanisl/trading/**`、`backend/fanisl/binance/**`、`console/**` | 账户、订单、风控 |
-| **底座与运维** | `backend/fanisl/` 包根、`collect/` `chat/` `data/` `auth/` `tools/`、`backend/api.md`、`shared/**`、`deploy/**` | 服务可用、合约稳定 |
+| **Knowledge engine** | `backend/fanisl/knowledge/**`, `backend/fanisl/assets.py`, `frontend/**`, `data_export/knowledge_units/`, `docs/research/**` | L0→L6 correctness, the site |
+| **Trading console** | `backend/fanisl/trading/**`, `backend/fanisl/binance/**`, `console/**` | accounts, orders, risk |
+| **Base & ops** | `backend/fanisl/` root, `collect/` `chat/` `data/` `auth/` `tools/`, `backend/api.md`, `shared/**`, `deploy/**` | service uptime, contract stability |
 
-三条规则：
+Three rules:
 
-1. **合约文件只有一个主人,主人是生产方不是消费方。**
-   `backend/api.md` 归底座会话;`backend/fanisl/assets.py` 归知识引擎
-   （它是标的登记表,而发现新标的的是提取管线,前端只是读方）。
-2. **跨界需求写进 `docs/plans/active/`,不直接改。** 曾经因为归属不清,
-   `assets.py` 被冻了一周多,十几个标的没登记、对应单元在标的页上不可见。
-3. **两份冻结规范由知识引擎会话维护**：`backend/fanisl/knowledge/extraction-guide.md`
-   与 `merge-guide.md`。改动必须升 `extractor_version` 并说明,别人不要动。
+1. **A contract file has exactly one owner, and the owner is the producer, not
+   the consumer.** `backend/api.md` belongs to the base session.
+   `backend/fanisl/assets.py` belongs to the knowledge engine — it is the asset
+   registry, and the extraction pipeline is what discovers new symbols; the
+   frontend only reads it.
+2. **Cross-boundary needs go into `docs/plans/active/`, not into a direct
+   edit.** Ownership ambiguity once froze `assets.py` for over a week; a dozen
+   symbols went unregistered and their units were invisible on asset pages.
+3. **The two frozen specs are maintained by the knowledge-engine session:**
+   `backend/fanisl/knowledge/extraction-guide.md` and `merge-guide.md`.
+   Changing either requires bumping `extractor_version` and saying why.
+   Other sessions must not touch them.
 
-「回答杂项问题 / 市场分析」那类会话不占代码席位——它要的是只读库权限和好文档。
+A "general questions / market analysis" session needs read-only DB access and
+good docs, not a code seat. Do not give it one.
 
-## 三、怎么跑
+## 3. How to run things
 
 ```bash
-# 后端（仓库根下）
+# Backend (from repo root)
 cd backend && source .venv/bin/activate
 PYTHONPATH=. uvicorn fanisl.main:app --reload      # API
-python -m pytest tests -q                          # 534 测试，改后端必跑
+python -m pytest tests -q                          # 534 tests — always run after backend changes
 
-# 两个前端
-cd frontend && npm run dev      # 知识引擎站点
-cd console  && npm run dev      # 交易台
-npm run test && npm run typecheck                   # 改前端必跑
+# The two frontends
+cd frontend && npm run dev      # knowledge engine site
+cd console  && npm run dev      # trading console
+npm run test && npm run typecheck                   # always run after frontend changes
 
-# 库连通性 / 摄取健康度（只读，不摄取）
+# Database connectivity / ingest health (read-only, does NOT ingest)
 cd backend && PYTHONPATH=. python tools/check_db.py
 cd backend && PYTHONPATH=. python tools/check_ingest.py
 ```
 
-**知识库是远端的**：本机三个库里只有 `PG_KNOWLEDGE_CONNINFO` 走 SSH 隧道连服务器
-（唯一真库）,`PG_CONNINFO` / `PG_TRADING_CONNINFO` 指向本机的空 dev 库。
-所以在本机跑 `check_ingest.py`,前两节显示为空是正常的,不代表服务器采集停了。
+**The knowledge database is remote.** Of the three databases, only
+`PG_KNOWLEDGE_CONNINFO` tunnels over SSH to the server (the single source of
+truth). `PG_CONNINFO` and `PG_TRADING_CONNINFO` point at empty local dev
+databases. So when `check_ingest.py` runs locally, its first two sections read
+the local market DB and show zeros — that is expected and does **not** mean
+collection has stopped on the server.
 
-## 四、几条容易踩的
+## 4. Things that bite
 
-- **服务器每 5 分钟自动拉 `origin/main` 并重启服务。** 推上去的东西会很快上线,
-  失败会自动回滚（`deploy/auto-update.sh`）。
-- **改了 systemd unit 要 `daemon-reload`**,auto-update 不做这一步。
-- **文档是交付物的一部分。** 改了行为就同步改文档;模块文档贴着实现放,
-  `docs/` 只放跨模块的。理由见 `docs/CONVENTIONS.md`。
-- **提取产出的 quote 必须逐字**,导入时机械校验 `quote ∈ 原文`,不过就整文件拒绝。
+- **The server pulls `origin/main` and restarts every 5 minutes.** Anything
+  pushed goes live quickly; failures roll back automatically
+  (`deploy/auto-update.sh`).
+- **Changing a systemd unit requires `daemon-reload`** — auto-update does not
+  do this step.
+- **Docs are part of the deliverable.** Change behaviour, change the docs in the
+  same commit. Module docs live next to the implementation; `docs/` holds only
+  cross-module material. Rationale in `docs/CONVENTIONS.md`.
+- **Extracted quotes must be verbatim.** Import mechanically checks
+  `quote ∈ source text` and rejects the whole file on any miss.

@@ -1,10 +1,15 @@
-# trading — 会话须知
+# trading — Agent Guide
 
-交易台的引擎、账本、剧本。**本目录与 `../binance/`、`console/` 归「交易台」会话。**
+Trading-console engine, ledger, and playbook. **This directory, `../binance/`,
+and `console/` are owned by the trading-console session.**
 
-- 数据落在 `PG_TRADING_CONNINFO` 那个库，与知识库、账户库都不是一回事。
-- `worker_trader.py`（包根）是独立进程入口，`deploy/fanisl-trader.service` 目前
-  **未在服务器启用**（见 `deploy/README.md`）——交易台前端读的是账本与持仓，
-  不依赖这个 worker 在跑。
-- 剧本里的 `source` 字段指向 `docs/research/prereg/` 下的预注册文档，阈值锁死不调参。
-- 改动后跑 `PYTHONPATH=. python -m pytest tests/test_trading_*.py tests/test_binance_*.py -q`。
+- Data lives in `PG_TRADING_CONNINFO` — a different database from both the
+  knowledge DB and the accounts DB.
+- `worker_trader.py` (package root) is a separate process entrypoint.
+  `deploy/fanisl-trader.service` is **not currently enabled on the server**
+  (see `deploy/README.md`); the console frontend reads the ledger and positions
+  and does not depend on that worker running.
+- The `source` field in playbook entries points at pre-registration documents
+  under `docs/research/prereg/`. Those thresholds are locked — do not tune them.
+- After any change:
+  `PYTHONPATH=. python -m pytest tests/test_trading_*.py tests/test_binance_*.py -q`

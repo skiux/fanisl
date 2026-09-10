@@ -1,37 +1,47 @@
-# backend — 会话须知
+# backend — Agent Guide
 
-Python 包在 `fanisl/`（没有 `src/` 层）。跑法与归属见仓库根的 `AGENTS.md`。
+The Python package lives in `fanisl/` (no `src/` layer). For how to run things
+and who owns what, see the repo-root `AGENTS.md`.
 
-## 布局
+## Layout
 
 ```
 fanisl/
-├── config.py db.py runtime.py models.py        共用底座：配置 / 连接 / 三池装配 / 模型
-├── marketstore.py                              时间序列与催化剂的存储层（被 23 处共读）
-├── assets.py                                   标的登记表（身份）——归知识引擎会话
-├── scheduler.py worker_base.py                 后台调度
-├── main.py                                     FastAPI app：/chat + 全部查询接口
-├── worker_collector.py worker_trader.py        两个进程入口（模块路径写死在 systemd，别挪）
-├── collect/    采集管线：metrics(SSOT) → collector → validate → flatten → 写库
-├── chat/       对话式分析：agent 工具循环 + prompts + 对话持久化
-├── data/       外部数据源适配器（yfinance / Polygon / OANDA / FRED / Coinalyze …）
-├── knowledge/  知识引擎 K0-K6 —— 见其 README 与两份冻结规范
-├── trading/    交易台的引擎、账本、剧本
-├── binance/    交易所对接：签名、订单、持仓、成本、日盈亏
-├── auth/       登录与会话（默认拒绝的 ASGI 中间件）
-├── research/   H1-H22 假设回测（已全部裁决，休眠；预注册在 docs/research/prereg/）
-├── indicators/ snapshot/ tools/                指标计算 / 快照组装 / Agent 工具
-└── tools/（仓库层 backend/tools/）             运维脚本：check_db / check_sources / check_ingest
+├── config.py db.py runtime.py models.py    shared base: settings / connections / pool wiring / models
+├── marketstore.py                          time-series + catalyst storage (read by 23 modules)
+├── assets.py                               asset registry (identity) — owned by the knowledge session
+├── scheduler.py worker_base.py             background scheduling
+├── main.py                                 FastAPI app: /chat plus all query endpoints
+├── worker_collector.py worker_trader.py    two process entrypoints
+│                                           (module paths are hardcoded in systemd — do not move)
+├── collect/    ingest pipeline: metrics(SSOT) → collector → validate → flatten → store
+├── chat/       conversational analysis: agent tool loop + prompts + conversation persistence
+├── data/       external data-source adapters (yfinance / Polygon / OANDA / FRED / Coinalyze …)
+├── knowledge/  knowledge engine K0-K6 — see its README and the two frozen specs
+├── trading/    trading-console engine, ledger, playbook
+├── binance/    exchange integration: signing, orders, positions, cost basis, daily PnL
+├── auth/       login and sessions (deny-by-default ASGI middleware)
+├── research/   H1-H22 hypothesis backtests (all adjudicated, dormant;
+│               pre-registrations in docs/research/prereg/)
+└── indicators/ snapshot/ tools/            indicator computation / snapshot assembly / agent tools
 ```
 
-## 硬规矩
+Ops scripts live one level up in `backend/tools/`: `check_db`, `check_sources`,
+`check_ingest`.
 
-- **三个库不是一回事**：账户对话 `PG_CONNINFO`、交易 `PG_TRADING_CONNINFO`、
-  知识 `PG_KNOWLEDGE_CONNINFO`。`runtime` 在模块级就把三个池都开了,所以
-  `.env` 少配一个,受影响的可能是看起来毫不相干的页面。
-- **入口必须经 `runtime`**：`test_db_target.py` 用 AST 检查 main / 两个 worker /
-  collect.backfill 都 import 了 runtime——那是写生产库的守卫。知识引擎的 CLI
-  有意绕过（提取要经隧道写生产知识库）,但它们碰不到账户数据。
-- **改 metric 要走 `collect/metrics.py`** 这个 SSOT,同步清单见
-  `docs/data/data-sync.md`,一致性由 `tests/test_metrics.py` 守。
-- 改动后跑 `PYTHONPATH=. python -m pytest tests -q`（534 条）。
+## Hard rules
+
+- **The three databases are not interchangeable:** accounts+conversations
+  (`PG_CONNINFO`), trading (`PG_TRADING_CONNINFO`), knowledge
+  (`PG_KNOWLEDGE_CONNINFO`). `runtime` opens all three pools at import time, so
+  a single missing entry in `.env` can break a page that looks entirely
+  unrelated.
+- **Entrypoints must go through `runtime`.** `test_db_target.py` uses AST to
+  verify that `main`, both workers, and `collect.backfill` import `runtime` —
+  that import is the production-database guard. The knowledge CLIs bypass it
+  deliberately (extraction writes to the production knowledge DB over the
+  tunnel), but they cannot reach account data.
+- **Metric changes go through `collect/metrics.py`**, which is the SSOT. The
+  propagation checklist is in `docs/data/data-sync.md`; consistency is enforced
+  by `tests/test_metrics.py`.
+- After any change: `PYTHONPATH=. python -m pytest tests -q` (534 tests).
