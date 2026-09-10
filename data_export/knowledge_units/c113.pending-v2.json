@@ -1,0 +1,766 @@
+{
+ "content_id": 113,
+ "extractor_version": "pending-v2",
+ "model": "claude-session",
+ "units": [
+  {
+   "kind": "claim",
+   "quote": "尤其是周五，因为大模型的行业利好，我们看半导体板块整体回暖，有一个想要向上突破的意愿。那我不觉得这是一个非常有效的突破信号。",
+   "locator": "00:15",
+   "ref_price": 519.86,
+   "tags": [
+    "soxx",
+    "semiconductor-cycle",
+    "price-action",
+    "ema-tunnel"
+   ],
+   "payload": {
+    "asset_text": "半导体 SOXX（作者判周五那根反弹不是有效突破信号；他给的有效性标准是七日 K 上收复 520-530 区域、尤其是七日隧道上轨 8EMA，当时报价接近 530，而且这根七日 K 的收线要跨越 CPI 数据）",
+    "asset_symbol": "SOXX",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "flat",
+    "magnitude": {
+     "zone_low": 520,
+     "zone_high": 530
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-09-15",
+      "2026-10-08",
+      "2026-12-07"
+     ],
+     "success_def": "阶梯各时点 SOXX 收盘 < 530 = hit（『没有有效突破』语义，需配 {mode: close_at_eval, level: 530, op: \"<\"}）。530 是作者自己给的有效性门槛（七日隧道上轨 8EMA），不是我方指定。ref 取 2026-09-04 收盘 519.86。首个阶梯点 09-15 已经跨过 09-11 的 CPI，符合他『收线要跨越 CPI 数据』的要求。他同时强调判据不在日线：『一天的走势不能说明什么问题』。"
+    }
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "现在宏观要大于行业。",
+   "locator": "00:46",
+   "tags": [
+    "macro-data",
+    "fed-policy",
+    "semiconductor-cycle"
+   ],
+   "payload": {
+    "canonical_statement": "当前阶段宏观因素的权重大于行业因素——即便有大模型这类行业利好，也要等它穿透宏观风险节点之后才作数。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "我觉得英伟达232、235这个位置应该很难一次性过去。",
+   "locator": "00:56",
+   "ref_price": 230.36,
+   "tags": [
+    "nvda",
+    "price-action",
+    "fibonacci",
+    "semiconductor-cycle"
+   ],
+   "payload": {
+    "asset_text": "英伟达 NVDA（作者判 232、235 这个位置很难一次性过去；技术依据是把 22 年 10 月起的 1、2 浪与 25 年 4 月起的 3、4 浪、26 年 3 月末的 5、6 浪三段都做斐波那契扩展，压力集中在 231-233）",
+    "asset_symbol": "NVDA",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "flat",
+    "magnitude": {
+     "resistance_low": 231,
+     "resistance_high": 235
+    },
+    "horizon": {
+     "type": "within_duration",
+     "duration_days": 21
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-09-29"
+     ],
+     "success_def": "2026-09-29（或此前最近交易日）NVDA 收盘 < 235 = hit（『阻力守住』语义，需在 scoring_overrides 配 {mode: close_at_eval, level: 235, op: \"<\"}，否则 sign 会按方向读反）。ref 取 2026-09-04 收盘 230.36——09-07 是劳动节休市，这是发布前最后一个美股收盘。原文期限词『接下来的这一两周』跨 §3 的 7 与 21 两档，取能覆盖全部所述区间的 21，与 c108 黄金那条同口径。视觉笔记 00:54 标『200-210 震荡』与正文的 231-233 不符，按 §5 不用作屏价。"
+    }
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "包括我们从资产端去看，VIX指数现在在一个极低的今年的年内新低的水平，这个呢应该是要有修正。",
+   "locator": "01:30",
+   "ref_price": 14.53,
+   "tags": [
+    "vix",
+    "price-action",
+    "risk-mgmt",
+    "psychology"
+   ],
+   "payload": {
+    "asset_text": "波动率指数 VIX（作者判它处在年内新低附近、应该要有修正，即向上反弹；总结段又重申『关注一下VIX指数接下来触底向上的一个可能』）",
+    "asset_symbol": "VIX",
+    "priceable": true,
+    "claim_class": "directional",
+    "direction": "up",
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-09-15",
+      "2026-10-08",
+      "2026-12-07"
+     ],
+     "success_def": "阶梯各时点 VIX 收盘 > 14.53（2026-09-04 收盘）= hit。校核：2026 年内 VIX 最低 14.25（08-14），09-03 为 14.32，发布前的 14.53 确实贴着年内低位，作者的事实陈述与行情一致。"
+    }
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "最近的机构也一直在教育市场去认识到为什么要加息。这是一个很微妙的变化。",
+   "locator": "02:31",
+   "tags": [
+    "fed-policy",
+    "psychology",
+    "market-structure"
+   ],
+   "payload": {
+    "canonical_statement": "机构口径出现了微妙的转向：从争论加不加息，变成在教育市场理解为什么要加息。作者把这种口径变化本身当作一个信号来读，而不是只读结论。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "加并不是紧缩周期的开始，而是以退为进。那为啥要以退为进呢？因为现在美联储的政策工具，对于长端的美债收益率它不好使了，钝化了。",
+   "locator": "02:39",
+   "tags": [
+    "fed-policy",
+    "bond-yields",
+    "macro-data"
+   ],
+   "payload": {
+    "asset_text": "美联储政策路径（作者判这次若加息不是紧缩周期的开始、而是以退为进：政策工具对长端收益率已经钝化，做一次预防式加息让长端松一松，为后面留出空间）。『紧缩周期』没有机械口径",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "event_outcome",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "最近机构呢也在聊这个长端的美债，TLT的问题，因为它已经从22年到现在它横了这么久了。你看它的横盘其实一定程度，一定程度上就说明了现在的政策工具啊，对于长端债的这个水平啊，它很难控制。",
+   "locator": "03:31",
+   "tags": [
+    "tlt",
+    "bond-yields",
+    "fed-policy",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "长端美债（TLT）从 2022 年横到现在这件事本身，就说明现行政策工具对长端利率水平很难控制——横盘不是没有信息，它是政策失效的证据。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那因此TLT呢可能也会在这次波动之后面临着一定的机会，我觉得这个角度是有道理的，我们可以关注一下。",
+   "locator": "03:53",
+   "ref_price": 82.21,
+   "tags": [
+    "tlt",
+    "bond-yields",
+    "fed-policy",
+    "positioning"
+   ],
+   "payload": {
+    "asset_text": "长债 ETF TLT（作者转述机构的角度并表示认同：加息制造一次波动之后，长端美债反而可能迎来配置窗口。措辞是『可能』『可以关注一下』，没有给方向的时点或幅度）",
+    "asset_symbol": "TLT",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "hedged",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "因为机构和大资金的思维呢和散户是不一样的。散户呢往往愿意去猜结果论对错，但是机构资金呢往往会去预防波动，制造波动，并且利用波动之后带来的一些好的位置，再去作长期的布局。我认为我们在当下的这个窗口里呢也应该这样考虑。",
+   "locator": "04:03",
+   "tags": [
+    "psychology",
+    "positioning",
+    "risk-mgmt",
+    "fed-policy"
+   ],
+   "payload": {
+    "name": "不猜结果，等波动之后的位置",
+    "summary": "散户猜结果论对错，机构预防波动、制造波动、再利用波动后的好位置做长期布局；高分歧窗口里应该学后者。",
+    "family": "positioning",
+    "rules": [
+     "高分歧事件（加不加息）不去预测结果",
+     "预设『不论结果如何，市场会有波动』，把波动本身当作要等的东西",
+     "波动之后出现的位置才是布局点，而不是在事件前押方向"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "第一个呢是美股质量因子，MOAT，这个ETF呢，短期呢，看到一个顶点。它的回调呢可能还没有结束。那事实也是如此的。和它相关的很多板块，还有个股呢，最近的一周时间里面是相对偏弱的。你看现在的微软，它就没有上去。我觉得和MOAT和质量风格的切换有一定的关系啊。",
+   "locator": "04:47",
+   "tags": [
+    "msft",
+    "rotation",
+    "market-structure",
+    "price-action"
+   ],
+   "payload": {
+    "canonical_statement": "上一期给的质量因子（MOAT）短期见顶、回调未结束这一判断，一周后得到了印证：与它相关的板块和个股整体偏弱，微软没有上去。风格切换是这批标的走弱的共同原因。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "第二个呢，是我们上一个视频讲到的现在的农业板块是一个结构性的主升浪，而且是月线级别的，它很慢，但是它确定性比较强。它的不断上涨，长期看呢是股市被压制的一个慢变量。但它可能不能马上起作用。比如你说它已经在涨了，然后马上就对应着股市的下跌，并不是的。",
+   "locator": "05:11",
+   "tags": [
+    "dba",
+    "rotation",
+    "inflation",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "农业的月线级别主升浪对股市是一个慢变量：确定性强但传导慢，不能指望它一涨股市就跌。把它当作长期压制因素，而不是择时信号。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那我们上一个视频聊完之后呢，其实农业板块还出现了一定的回调。我甚至认为呢，接下来会有一个加仓的机会，但是因为波动的问题，所以我可能会等得更深一点。",
+   "locator": "05:35",
+   "tags": [
+    "dba",
+    "positioning",
+    "risk-mgmt"
+   ],
+   "payload": {
+    "canonical_statement": "农业板块在上期之后出现回调，作者认为接下来会有加仓机会，但因为大盘波动未完，他会等得更深一点再动手。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "我们仍然可以在七日级别上去定性到底是弱市场还是强市场。在这个级别上我们明确的可以做隧道和我图中所示的这个黄色的区域作为一个非常重要的分水岭。而这个分水岭的得失呢，它绝对不是日线上的，一天的走势不能说明什么问题。我们要看到它在七日上向上突破，收复了520到530的这个区域。尤其是七日隧道的上轨，上轨也就是8 EMA。当前报价接近于530。这里如果收复，它必然要走一根强k，走一根强k，然后在下一根k线稍微回踩的时候，它会打开一个结构性的空间，否则呢，我认为现在还是一个偏短期的波动。",
+   "locator": "06:18",
+   "tags": [
+    "soxx",
+    "semiconductor-cycle",
+    "ema-tunnel",
+    "execution"
+   ],
+   "payload": {
+    "name": "半导体强弱定在七日级别，不在日线",
+    "summary": "用七日 K 的隧道与 520-530 黄色区域作分水岭；日线上的一天走势不作数，收复要走强 K 加下一根回踩才算打开结构性空间。",
+    "family": "trend",
+    "rules": [
+     "级别定在七日 K，不用日线——『一天的走势不能说明什么问题』",
+     "分水岭是 520 到 530 这个区域，不能只看 520；上轨是七日隧道的 8EMA，当时接近 530",
+     "收复的确认形态：先走一根强 K，下一根 K 稍微回踩仍守住，才算打开结构性空间",
+     "这根七日 K 的收线要跨越 CPI 数据，区域修复还需要放量事件验证",
+     "不满足以上条件则视为偏短期的波动，不追"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "SOXX 日线（可合成七日 K 与 8EMA）"
+    ],
+    "overlap_with_killed": [],
+    "testability": "A"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那我们再看今天的韩指，我们也注意一下这个7175左右，大概呢是2026年8月中旬的这个高点，它呢如果不能有效突破，那我们认为市场呢，它缺乏继续接棒向上去上行的这么一个动力。所以现在的动量因子呢，我们认为还没有回归。因为资金不太愿意追高。",
+   "locator": "07:03",
+   "ref_price": 6954.52,
+   "tags": [
+    "kospi",
+    "rotation",
+    "price-action",
+    "market-structure"
+   ],
+   "payload": {
+    "asset_text": "韩国综合指数 KOSPI（作者用 7175——2026 年 8 月中旬的高点——作为动量因子有没有回归的判据；不能有效突破就说明市场缺乏接棒上行的动力、资金不愿追高）",
+    "asset_symbol": "KOSPI",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "flat",
+    "magnitude": {
+     "resistance": 7175
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-09-15",
+      "2026-10-08",
+      "2026-12-07"
+     ],
+     "success_def": "阶梯各时点 KOSPI 收盘 < 7175 = hit（『突破不了』语义，需配 {mode: close_at_eval, level: 7175, op: \"<\"}）。ref 取 2026-09-08 收盘 6954.52——韩股周一不休市、且当日收盘（06:30 UTC）早于本期发布，与美股标的取 09-04 的口径不同是因为两地假期不同，各取各的 pit.asof。"
+    }
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "不过从估值和基本面的角度来说呢，很多个股又处在一个相对比较便宜的区间里面，所以你拿着它也没有什么问题。这样我个人的操作呢就比较偏向于该持有的优质个股持有，但是呢逢高我会减仓。",
+   "locator": "07:29",
+   "tags": [
+    "valuation",
+    "positioning",
+    "semiconductor-cycle",
+    "risk-mgmt"
+   ],
+   "payload": {
+    "canonical_statement": "估值便宜和位置不好可以同时成立：便宜到『拿着没问题』不等于『现在该加』。对应的操作是持有优质个股但逢高减仓，而不是二选一。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "英伟达如果不能在接下来的这一两周里继续向上兑现空间，出现一些技术性的修正，那么这一轮由大模型带来的行业利好可能呢传导一波，它会休息一下，宏观因素在后面的一两周里会占据主导，行业因素呢会稍微往后退一下。",
+   "locator": "09:47",
+   "tags": [
+    "nvda",
+    "semiconductor-cycle",
+    "macro-data",
+    "market-structure"
+   ],
+   "payload": {
+    "canonical_statement": "把英伟达当作行业利好能否继续传导的观测点：它若不能继续向上打开空间，这一轮大模型带来的行业利好就只传导一波便休息，主导权交回宏观因素。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "locator": "10:42",
+   "ref_price": 104.57,
+   "tags": [
+    "igv",
+    "software",
+    "price-action",
+    "fibonacci"
+   ],
+   "payload": {
+    "canonical_statement": "IGV 的上下两端都由波浪扩展定出来：上沿目标 116-117（挑战前高附近），下沿 100 是 A 浪起点 23 年 1 月、B 浪 25 年 10 月、C 点 2026 年 3 月 25 日扩展出的 38.2 分位，向下已确认过一次支撑。作者用同一把尺子同时给出目标与加仓位。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   },
+   "quote": "软件板块的话，在前面两周里呢，我认为它的目标位应该会去到116、117，会去挑战一下前高位置附近。"
+  },
+  {
+   "kind": "claim",
+   "quote": "所以IGV板块的话呢，我会把仓位再留一部分，当它波动到100左右的时候呢，再去打出去一部分。",
+   "locator": "11:29",
+   "ref_price": 104.57,
+   "tags": [
+    "igv",
+    "software",
+    "price-action",
+    "fibonacci"
+   ],
+   "payload": {
+    "asset_text": "软件 ETF IGV（作者预期它还会向下摆动到 100 附近，并把那里作为再打出一部分子弹的位置；100 是他用 A 浪起点 23 年 1 月、B 浪 25 年 10 月、C 点 2026 年 3 月 25 日做波浪扩展得到的 38.2 分位，向下已确认过一次支撑）",
+    "asset_symbol": "IGV",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "down",
+    "magnitude": {
+     "target": 100
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "target_touch",
+     "eval_ladder": [
+      "2026-09-15",
+      "2026-10-08",
+      "2026-12-07"
+     ],
+     "success_def": "期限内任一日最低价触及 100 = hit，不触及 = miss。ref 取 2026-09-04 收盘 104.57。校核：他说『上周市场回调其实给了一个买点，这个买点大概也就是在103左右，30日隧道位置附近』——库内 09-02 IGV 最低 102.60、收 103.42，与这句对得上。"
+    }
+   }
+  },
+  {
+   "kind": "method",
+   "locator": "12:06",
+   "tags": [
+    "igv",
+    "software",
+    "execution",
+    "positioning"
+   ],
+   "payload": {
+    "name": "再打子弹的前提：先形成箱体并确认隧道支撑",
+    "summary": "跌到目标位不等于可以动手——还要看它有没有走出箱体、并在八日或半月线隧道上确认支撑。",
+    "family": "trend",
+    "rules": [
+     "价格摆到目标位（IGV 100 左右）只是必要条件",
+     "还要向下摆动形成一个箱体",
+     "并且在八日或者半月线左右的隧道上确认一次支撑",
+     "两条都满足才认为这里能提供机会；因为整体敞口在控制，即便如此也只打出一部分而不是加满"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "IGV 日线（可合成八日/半月线隧道）"
+    ],
+    "overlap_with_killed": [],
+    "testability": "A"
+   },
+   "quote": "那接下来的话呢，如果再向下摆动形成一个箱体，并且去确认一个八日啊或者是半月线左右隧道的一个支撑，我觉得这里还能给提供机会。"
+  },
+  {
+   "kind": "claim",
+   "quote": "我们对于现在七巨头MAGS板块的这个走势的话呢，也是看前高左右的一个压制。大概呢就是25年的4月份拉起来的一段，然后下来二段，三段，四段，第五段，这里边还有一个子分型。这个分型走起来，我们看在70左右呢也会遇到压制。",
+   "locator": "12:28",
+   "ref_price": 69.44,
+   "tags": [
+    "mags",
+    "mag7",
+    "price-action",
+    "rotation"
+   ],
+   "payload": {
+    "asset_text": "七巨头 MAGS（作者判 70 左右遇到压制，位置取自 25 年 4 月起的五段浪加一个子分型；并说这与上周 MOAT 见顶向下回调的节奏一致）",
+    "asset_symbol": "MAGS",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "flat",
+    "magnitude": {
+     "resistance": 70
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-09-15",
+      "2026-10-08",
+      "2026-12-07"
+     ],
+     "success_def": "阶梯各时点 MAGS 收盘 < 70 = hit（『压制守住』语义，需配 {mode: close_at_eval, level: 70, op: \"<\"}）。ref 取 2026-09-04 收盘 69.44——发布时价格就贴在压制位下方 0.8%。"
+    }
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "就是现在缺乏整体上攻的一个氛围和流动性。它还要穿透宏观的风险节点。同时呢，我们看到从质量，以MOAT和MAGS为代表，向动量板块的过渡，还面临着中长期结构位置的一个考验。以及在择时上也不是一个非常完美的窗口。",
+   "locator": "13:02",
+   "tags": [
+    "mags",
+    "rotation",
+    "market-structure",
+    "semiconductor-cycle"
+   ],
+   "payload": {
+    "canonical_statement": "当前美股风格的三重约束：缺乏整体上攻的氛围与流动性、要穿透宏观风险节点、从质量（MOAT 与 MAGS 为代表）向动量的过渡还面临中长期结构位置的考验——三者叠加，择时窗口并不完美。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "在接下来的CPI和接下来的联储决议这个窗口期里边的话呢，我们应该是只减不增。",
+   "locator": "13:31",
+   "tags": [
+    "positioning",
+    "risk-mgmt",
+    "fed-policy",
+    "execution"
+   ],
+   "payload": {
+    "name": "宏观风险事件窗口内只减不增",
+    "summary": "CPI 与联储决议之间的窗口里不加仓，优质中长期仓位继续持有，逢高减。",
+    "family": "positioning",
+    "rules": [
+     "窗口定义：从 CPI 数据到美联储利率决议这段时间",
+     "窗口内只减不增——该持有的优质个股持有，但逢高减仓",
+     "MU、闪迪、LITE 这些有仓位的标的同样适用",
+     "留好一部分子弹，在市场向下波动的过程中逐步找低吸机会",
+     "同时降低预期，不要想快速拿到利润，也不要让中长期仓位受窄波动影响"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "作者未披露的实际持仓"
+    ],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "后面的话呢，我认为呢，像SoCo也好，或者说像特斯拉也好，是可以区别对待的一些个股。他们是有希望能够在大盘整体偏谨慎的情况下走出独立行情的。这个独立行情并不是说他们会多强，而是他的这种波段机会会一直存在。",
+   "locator": "14:03",
+   "tags": [
+    "tsla",
+    "crcl",
+    "price-action",
+    "execution"
+   ],
+   "payload": {
+    "canonical_statement": "『独立行情』要按波段机会而不是按强度来理解：CRCL 与特斯拉这类个股在大盘偏谨慎时也能走出独立行情，意思不是它们会多强，而是波段机会会一直存在。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "我个人反倒觉得特斯拉呢在当前的这个350左右呢，是一个高赔率的由弱反强的一个可以试错的点位。大概的价位呢应该是340到350区间。",
+   "locator": "14:47",
+   "ref_price": 354.08,
+   "tags": [
+    "tsla",
+    "price-action",
+    "positioning"
+   ],
+   "payload": {
+    "asset_text": "特斯拉 TSLA（作者判 340-350 是高赔率的由弱反强试错区；该区间取自 25 年 5 月 22 日至 6 月初的高点与 2026 年 4 月的低点反复确认出来的位置。他另说收复 350 是重要的动量信号、350 左右可作为中长期持有的新台阶）",
+    "asset_symbol": "TSLA",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "up",
+    "magnitude": {
+     "low": 340,
+     "high": 350
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-09-15",
+      "2026-10-08",
+      "2026-12-07"
+     ],
+     "success_def": "阶梯各时点 TSLA 收盘 >= 350 = hit（『新台阶守住』语义，需配 {mode: close_at_eval, level: 350, op: \">=\"}）。350 是作者自己给的台阶位，不是我方指定。ref 取 2026-09-04 收盘 354.08。原文的『中长期持有』不在 §3 映射表里（中期=60 与长期=365 都套得上），按 §0.6 不替他指定尺度，用 open_ended 的 +7/+30/+90 固定阶梯。"
+    }
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "我们反倒不如去看看我们经典的这个动量指标，动力指标，还有这个威廉的换手节拍器。这个节拍器呢，大家注意，它其实反映了市场在大周期上的一个抬升节奏。比如我们看第一根线是在2024年180左右绘制的，然后第二根水平线呢是在2025年的4月1号在220左右绘制的啊，我图中标记这个箭头。然后第三次的话呢，其实就是这一次下跌到300左右，在这儿确认的。",
+   "locator": "15:24",
+   "tags": [
+    "tsla",
+    "price-action",
+    "execution",
+    "market-structure"
+   ],
+   "payload": {
+    "name": "结构做复杂了就换动量指标：威廉换手节拍器画台阶",
+    "summary": "高波动波段里再拆浪型只会越拆越复杂，改用修改过的威廉指标当节奏线画到 K 线图上，每次多空充分换手形成一条水平线，成本价逐级抬升。",
+    "family": "trend",
+    "rules": [
+     "判断标准：如果结构越做越复杂，就不再做结构",
+     "改用动量/动力指标加修改过的威廉换手节拍器，作为节奏线绘制到 K 线图上",
+     "每一次多空充分换手之后形成一条水平线，水平线的成本价不断抬升即为台阶",
+     "特斯拉的三级台阶：2024 年 180 左右、2025 年 4 月 1 日 220 左右、这一次下跌到 300 左右确认",
+     "急跌后迅速拉回并收复关键位（350），是把跳空低开形成的空头动力反转成多头动力的信号"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "修改过的威廉指标参数未公开，外部无法复现"
+    ],
+    "overlap_with_killed": [],
+    "testability": "B"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "然后SoCo的话刚刚我们聊过，我们还是要围绕着90作为支撑，然后日隧道还是作为趋势的一个标准。向上呢继续去往上看一看。",
+   "locator": "16:59",
+   "ref_price": 102.05,
+   "tags": [
+    "crcl",
+    "price-action",
+    "ema-tunnel"
+   ],
+   "payload": {
+    "asset_text": "Circle CRCL（转录把 CRCL 写成了『SoCo』，视觉笔记 13:37 标明是 Circle Internet Group，首要目标区间 90-91）。作者判 90 是支撑、日隧道是趋势标准、向上继续看",
+    "asset_symbol": "CRCL",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "up",
+    "magnitude": {
+     "low": 90
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "range_hold",
+     "eval_ladder": [
+      "2026-09-15",
+      "2026-10-08",
+      "2026-12-07"
+     ],
+     "success_def": "期限内日收盘不破下沿 90 = hit；盘中破 90 但收盘收回 = partial；日收盘跌破 90 = miss。ref 取 2026-09-04 收盘 102.05。背景：他此前给的第一目标位是 90-91，回落后在日隧道附近获支撑，86-87 可加仓，一路拿到 100 左右。"
+    }
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "但是我不认为这次加息呢会把黄金再推向一个结构性的下跌。",
+   "locator": "17:22",
+   "ref_price": 4429.8,
+   "tags": [
+    "xauusd",
+    "fed-policy",
+    "risk-mgmt"
+   ],
+   "payload": {
+    "asset_text": "现货黄金 XAUUSD（作者判即使这次加息落地，也不会把黄金推向结构性下跌；『结构性下跌』没有给出可机械判定的幅度或位置口径，而且前提事件『这次加息』本身尚未发生）",
+    "asset_symbol": "XAUUSD",
+    "priceable": true,
+    "claim_class": "risk_warning",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": "如果这次加息发生",
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "因为在4300、4400左右，其实黄金已经计价了年内有一次甚至两次加息的这么一个水平了。所以它的一个公允的价值现在就是在4300到4400。计价了一到两次的加息。",
+   "locator": "17:28",
+   "ref_price": 4429.8,
+   "tags": [
+    "xauusd",
+    "price-action",
+    "fed-policy",
+    "inflation"
+   ],
+   "payload": {
+    "asset_text": "现货黄金 XAUUSD（作者判公允价值就在 4300-4400，这个位置已经计价了年内一到两次加息；短线偏震荡，4400 以下的成本可以接受、可持有一定比例穿越波动）",
+    "asset_symbol": "XAUUSD",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "range",
+    "magnitude": {
+     "low": 4300,
+     "high": 4400
+    },
+    "horizon": {
+     "type": "within_duration",
+     "duration_days": 7
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "range_hold",
+     "eval_ladder": [
+      "2026-09-15"
+     ],
+     "success_def": "期限内日收盘不破下沿 4300 = hit；盘中破 4300 但收盘收回 = partial；日收盘跌破 4300 = miss。原文期限词『短线上呢可能还是一个偏震荡的走势』按 §3 取 7 天。ref 取 2026-09-04 收盘 4429.80——注意发布时金价已经在他给的区间上沿之上。视觉笔记 01:55 标『约 4361』与库内 09-04 收盘不符，按 §5 不用作屏价。"
+    }
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "加息呢可能是为中长期的更好的宽松和降息的窗口打开一个政策空间。",
+   "locator": "18:05",
+   "tags": [
+    "fed-policy",
+    "bond-yields",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "把一次加息读成为中长期宽松腾挪空间的动作：短期制造波动，长期反而给某些资产的配置打开窗口。这与『加息=利空』的直觉相反。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  }
+ ]
+}

@@ -35,9 +35,9 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `backfill_transcripts.py` | 批量转录回填 CLI（幂等、限速、429/5xx 退避）：`python -m analyzer.knowledge.backfill_transcripts <handle> --since-days 60` |
 | `backfill_creator.py` | 单信源历史内容登记辅助 |
 | `import_units.py` | L1 单元导入 CLI（PendingBackend 的入库端）：JSON → pydantic 校验 + quote∈原文校验 → record_extraction；`--dry-run` 只验不写 |
-| `prices.py` | K4 价格层：daily_bars 表 + SYMBOL_MAP（85 符号 + 2 个 FRED 序列；期货代理现货者已注明）：`python -m analyzer.knowledge.prices`（幂等 upsert） |
+| `prices.py` | K4 价格层：daily_bars 表 + SYMBOL_MAP（90 符号 + 2 个 FRED 序列；期货代理现货者已注明）：`python -m analyzer.knowledge.prices`（幂等 upsert） |
 | `scorers.py` | K4 评分器：按冻结 ScoringSpec 到期机械评分（sign/target_touch/target_close/range_hold/relative_return + 条件解析），`python -m analyzer.knowledge.scorers [--dry-run]`（幂等）；口径细节见模块 docstring |
-| `scoring_overrides.json` | success_def 的机械化编译（71 条）：条件结构化/判界修正/组合定义，语义仲裁=success_def。主体是 pending-v1 存量；**对 v2 也适用的例外**是阶梯函数标的的比较符（extraction-guide §4）——ScoringSpec 没有承载比较符的字段，`>`/`>=`/`<`/`<=`/`==` 只能在此登记 |
+| `scoring_overrides.json` | success_def 的机械化编译（77 条）：条件结构化/判界修正/组合定义，语义仲裁=success_def。主体是 pending-v1 存量；**对 v2 也适用的例外**是阶梯函数标的的比较符（extraction-guide §4）——ScoringSpec 没有承载比较符的字段，`>`/`>=`/`<`/`<=`/`==` 只能在此登记 |
 | `nodes.py` | K5 归并层：knowledge_nodes/node_attestations 两表 + 生命周期重算 + CLI（export/import/seed-singletons/recompute/retire），判据见 merge-guide.md |
 | `estimates.py` | 盈利预期修正：eps_estimates 表 + yfinance eps_trend（0q/+1q/0y/+1y × current/7d/30d/60d/90d）；`estimates --screen` 出横截面。**每日快照不可回填**——yfinance 只给当天，断一天少一天 |
 | `league.py` | 联赛表的显著性口径：零假设取**各标的自身的无条件漂移**而非 50%，用泊松二项精确尾概率（各时点成功概率不等）；返回 excluded_hits/excluded_misses 以暴露排除偏差 |
@@ -82,10 +82,28 @@ beta 记成信源的技能。各时点成功概率不等，故用泊松二项精
 |---|---|
 | `backend/tools/check_db.py` | 逐条验三个库的连接串，口令打码。runtime 同时开三个池，直接起会看不出是哪个库连不上 |
 | `backend/tools/check_sources.py` | 外部数据源体检：yfinance / FRED / 盈利预期 / YouTube 清单与元数据 / Gemini 通道（`--llm` 真调一次）。提帧与 Binance 单列、不计入结论 |
-| `backend/tools/check_ingest.py` | 摄取健康度：各源最新到哪、近 N 天进了多少、评分是否在自动新增 |
+| `backend/tools/check_ingest.py` | 摄取健康度：各源最新到哪、近 N 天进了多少、评分是否在自动新增。**只读，不摄取**——要真的拉新内容用下面「手动摄取」那两条 |
 | `deploy/backup.sh` | 三库 pg_dump，连接串复用 `backend/.env` 的 `PG_*_CONNINFO`（不另立配置），各留最近 14 份 |
 | `deploy/pull-snapshot.sh` | **本机完整快照**（按需手动跑，不做定时——机器会休眠）：三库 pg_dump + 全部关键帧拉回本机。`KEYFRAME_ROOT` 从服务器 `.env` 读、不写死；用 tar 走 ssh 管道，服务器没装 rsync 也能跑 |
 | `deploy/auto-update.sh` | 服务器自动更新（`fanisl-update.timer` 每 5 分钟触发）：`origin/main` 有新提交就拉取、按需重建前端与重装依赖、验证 import 与健康检查后重启，失败回滚。取舍见 `deploy/README.md` §7 |
+
+## 手动摄取
+
+摄取由 collector 的 knowledge daily 班次自动跑，`knowledge_daily_interval_s` 默认 86400，
+所以**一期新内容最长可能等约 24 小时才入库**（服务器每次重启也会立刻补跑一轮，因为
+`Scheduler(run_immediately=True)`）。等不及就手动跑：
+
+```
+python -m analyzer.knowledge.backfill_transcripts @yttalkjun --since-days 4   # 只拉某个信源
+python -m analyzer.knowledge.daily                                            # 摄取 + 整套日维护
+```
+
+`backfill_transcripts` 幂等：URL 已入库的直接跳过，不重复付 Gemini。窗口按发布日截断，
+频道按新→旧列，遇到早于窗口的就停。
+
+**会员视频拿不到**：Gemini 读不了会员专属视频，会记一条 `失败：HTTP 403`（403 不重试，
+成本是每轮一次调用）。这是权限所致、不是故障；随着新的公开内容入库，缺口窗口收窄，
+那条会员视频会自然滑出窗口。
 
 ## 部署形态（2026-08-18 起）
 

@@ -1,7 +1,15 @@
 """摄取健康度：各数据源最新到哪、近 24h 进了多少、有没有停摆。
 
+**本脚本只读、不摄取。** 要真的去拉新内容，用：
+  python -m analyzer.knowledge.backfill_transcripts <handle> --since-days N   # 只拉某个信源
+  python -m analyzer.knowledge.daily                                          # 摄取 + 整套日维护
+
 跑在有库的机器上（服务器，或本地接了隧道时）：
   cd backend && PYTHONPATH=src .venv/bin/python tools/check_ingest.py
+
+本地跑时注意：隧道通常只转发知识库，市场库（PG_CONNINFO）指的是本机 dev 库。
+前两节读的是市场库，因此在本地会显示为空——那是库选错了，不是服务器上的采集停了。
+下面会在这种情况下明说。
 """
 
 import datetime as dt
@@ -14,6 +22,14 @@ from analyzer.db import make_pool
 def _q(pool, sql):
     with pool.connection() as c:
         return c.execute(sql).fetchall()
+
+
+def _same_target(a: str, b: str) -> bool:
+    """两个 conninfo 是否指向同一个库（只比 host/port/dbname，够用了）。"""
+    def key(ci):
+        kv = dict(p.split("=", 1) for p in ci.split() if "=" in p)
+        return (kv.get("host", ""), kv.get("port", ""), kv.get("dbname", ""))
+    return key(a) == key(b)
 
 
 def _age(ts):
@@ -32,7 +48,8 @@ def main() -> int:
     mkt = make_pool(s.pg_conninfo)
     kno = make_pool(s.pg_knowledge_conninfo)
     try:
-        print("采集调度（collection_runs）")
+        split = _same_target(s.pg_conninfo, s.pg_knowledge_conninfo) is False
+        print("采集调度（collection_runs）" + ("  ← 本机市场库" if split else ""))
         for r in _q(mkt, """SELECT job, max(started_at) AS last, count(*) AS n,
                                    count(*) FILTER (WHERE ok=0) AS failed
                             FROM collection_runs WHERE started_at > now() - interval '24 hours'
@@ -40,13 +57,16 @@ def main() -> int:
             print(f"  {r['job']:12s} 近 24h {r['n']:4d} 次，失败 {r['failed']:4d}，"
                   f"最后一次 {_age(r['last'])}")
 
-        print("\n行情时间序列（metric_samples）")
+        print("\n行情时间序列（metric_samples）" + ("  ← 本机市场库" if split else ""))
         for r in _q(mkt, """SELECT max(ts) AS last, count(*) AS n24,
                                    count(DISTINCT symbol) AS syms
                             FROM metric_samples WHERE ts > now() - interval '24 hours'"""):
             print(f"  近 24h {r['n24']} 条 / {r['syms']} 个标的，最新 {_age(r['last'])}")
         for r in _q(mkt, "SELECT count(*) AS total, min(ts)::date AS first FROM metric_samples"):
             print(f"  全量 {r['total']} 条，最早 {r['first']}")
+            if split and r["total"] == 0:
+                print("  以上两节为空：市场库与知识库不是同一个库，本机这个是空的 dev 库。"
+                      "服务器上的采集要在服务器上查。")
 
         print("\n知识引擎行情（daily_bars）")
         for r in _q(kno, """SELECT max(ts)::date AS last, count(DISTINCT symbol) AS syms,
