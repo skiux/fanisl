@@ -1,6 +1,6 @@
 # fanisl 项目结构（详解）
 
-更新于 2026-08-19。fanisl = **知识引擎（当前主线）** + 多资产时点数据平台
+更新于 2026-09-10。会话归属见仓库根 [`AGENTS.md`](../AGENTS.md)。fanisl = **知识引擎（当前主线）** + 多资产时点数据平台
 + 交易评测台（实盘镜像/setup 评 edge）+ 量化研究 harness（已收官，按需复用，
 见 [research-capstone.md](research/research-capstone.md)）。
 核心理念：**先把数据做对**。后端 FastAPI（3 进程）+ React/TS 前端 + PostgreSQL/TimescaleDB。
@@ -27,8 +27,17 @@ fanisl/
 │                 + pull-snapshot.sh（拉本机快照）
 ├── data_export/  提取产物（knowledge_units 的 JSON 是"人参与那一步"的凭据与重放日志）
 │                 + keyframes（gitignore）+ reports（周报，同为生成物，2026-08-28 起 gitignore）
-└── doc/          设计/数据文档
+└── docs/         跨模块文档：架构 / 产品 / 领域 / 约定 / 决策 / 计划 / 研究
 ```
+
+**包布局（2026-09-10 起）**：Python 包在 `backend/fanisl/`，没有 `src/` 层，
+包名也从遗留的 `analyzer` 改成了 `fanisl`。包根只留被到处共读的
+（config / db / runtime / models / marketstore / assets / scheduler / main + 两个 worker 入口），
+其余收进子包：`collect/`（采集管线）、`chat/`（对话式分析）、`knowledge/`、`trading/`、
+`binance/`、`auth/`、`data/`、`research/`。
+
+**每个主要目录下有 `AGENTS.md`**（`CLAUDE.md` 是指向它的符号链接），写该目录的归属、
+先读什么、硬规矩。多会话并行时按文件归属划边界，见根 `AGENTS.md`。
 
 **运行形态（2026-08-18 起）**：服务器（GCE 新加坡）跑无人值守的那半条——collector 的
 知识引擎日维护/周报、转录、API；服务器库是唯一真库。提取/归并/关系边/抽查仍在会话侧，

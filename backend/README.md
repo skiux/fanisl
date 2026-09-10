@@ -26,7 +26,7 @@ uv sync                      # 用 uv
 cp ../deploy/.env.example .env
 
 # 3. 起服务
-uv run uvicorn fanisl.main:app --reload --app-dir src
+uv run uvicorn fanisl.main:app --reload
 # 或：PYTHONPATH=. .venv/bin/uvicorn fanisl.main:app --reload
 ```
 
