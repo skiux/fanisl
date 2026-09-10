@@ -889,6 +889,16 @@ BINANCE_API_SECRET=...
 
 ---
 
+### auto-update.sh 会更新它自己
+
+`git merge` 用 rename 替换文件，而 bash 边读边执行、认的是打开时的 inode——
+脚本被更新之后，正在运行的那个进程会**继续跑旧版本**。2026-09-10 包改名那次就是
+这么失败的：旧版脚本拿旧的 `import analyzer.main` 去验新代码，必然失败、必然回滚，
+日志读起来像"新代码坏了"，实际是检查本身过期了。
+
+现在整个脚本体包在一对花括号里（末尾 `}` + `exit`），bash 必须读完全文才开始执行。
+**改这个脚本时别把花括号拆掉。**
+
 ### 首次更新到 fanisl 包名（一次性）
 
 包从 `backend/src/analyzer/` 挪到了 `backend/fanisl/`，dist 名也从 `analyzer` 改成 `fanisl`。
@@ -896,14 +906,24 @@ BINANCE_API_SECRET=...
 它的路径钩子指向已经不存在的 `src/analyzer`。拉到这次改动之后，在服务器上跑一次：
 
 ```
-/opt/fanisl/backend/.venv/bin/pip uninstall -y analyzer
-systemctl restart fanisl-api fanisl-collector
+/opt/fanisl/backend/.venv/bin/pip uninstall -y analyzer   # 若 pip list 里已只剩 fanisl 可跳过
+for u in fanisl-api fanisl-collector fanisl-trader; do
+    sudo install -m 644 /opt/fanisl/deploy/$u.service /etc/systemd/system/
+done
+sudo systemctl daemon-reload
+sudo systemctl restart fanisl-api fanisl-collector
 ```
 
-`pip list` 里只剩 `fanisl` 即为正常。两个 service 的 `Environment=PYTHONPATH` 也从
-`/opt/fanisl/backend/src` 改成了 `/opt/fanisl/backend`，随仓库更新自动生效，但
-**systemd unit 文件改动需要 `systemctl daemon-reload`**——auto-update.sh 不做这一步，
-所以这次要手动跑一次。
+**`systemd` 单元是复制品，不是软链——`git pull` 动不了 `/etc/systemd/system` 里那份。**
+2026-09-10 实际踩到：线上单元停在 08-21，既少了那次加的 `Environment=PYTHONPATH`，
+`ExecStart` 又还写着 `analyzer.*`，包改名后两个服务直接起不来（`is-active` 卡在
+`activating`，日志是 `ModuleNotFoundError: No module named 'analyzer'`）。
+只跑 `daemon-reload` 没有用，必须先 `install` 再 `daemon-reload`。
+
+auto-update.sh 现在每轮更新末尾会检测这种漂移并把上面这几条命令打出来，
+同时以非零码退出——让 `fanisl-update.service` 停在 `failed`，这个状态不修不会自己消失。
+脚本以 `fanisl` 身份运行、只有一条 restart 的窄 sudo 规则，装单元需要 root，
+所以它只报不代劳。
 
 ## 7. 持续更新
 

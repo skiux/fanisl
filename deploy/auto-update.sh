@@ -7,6 +7,13 @@
 # 立刻触发全部 job**，包括知识引擎日维护与周报，所以不能每次都重启）；某个前端变了才重建。
 set -uo pipefail
 
+# **整个脚本体包在这对花括号里，别拆。** 本脚本会更新它自己：git merge 用 rename 替换
+# 文件，而 bash 是边读边执行、且认的是打开时的 inode，于是 merge 之后它会继续跑旧版本。
+# 2026-09-10 就这么炸过：包从 analyzer 改名成 fanisl 那次，跑的是旧版的
+# `import analyzer.main` 检查去验新代码，必然失败、必然回滚，日志里看着像"新代码坏了"。
+# 花括号让 bash 先把整个复合命令解析完再执行，末尾的 exit 挡住任何残余字节。
+{
+
 REPO=/opt/fanisl
 BRANCH=main
 HEALTH=http://127.0.0.1:8000/health
@@ -102,4 +109,28 @@ for app in frontend console; do
     cd "$REPO" || exit 1
 done
 
+# systemd 单元是**复制品不是软链**，git pull 动不了 /etc/systemd/system 里那份。
+# 2026-09-10 发现线上单元停在 08-21，整整少了那次加进来的 Environment=PYTHONPATH；
+# 包改名那次又因为 ExecStart 还写着 analyzer.* 而起不来。脚本以 fanisl 身份跑、
+# 只有一条窄 sudo 规则（restart 两个服务），装单元需要 root，所以这里只检测不代劳。
+drifted=()
+for u in "${UNITS[@]}" fanisl-trader fanisl-update; do
+    [ -f "$REPO/deploy/$u.service" ] || continue
+    cmp -s "/etc/systemd/system/$u.service" "$REPO/deploy/$u.service" || drifted+=("$u")
+done
+
 echo "更新完成 -> ${NEW:0:7}"
+
+if [ ${#drifted[@]} -gt 0 ]; then
+    echo
+    echo "!! systemd 单元与仓库不一致：${drifted[*]}"
+    echo "!! 线上跑的仍是旧配置。需要人工执行（本脚本无权限）："
+    for u in "${drifted[@]}"; do
+        echo "     sudo install -m 644 $REPO/deploy/$u.service /etc/systemd/system/"
+    done
+    echo "     sudo systemctl daemon-reload && sudo systemctl restart ${UNITS[*]}"
+    exit 1     # 让 fanisl-update.service 停在 failed，这个状态不修就不会自己消失
+fi
+
+}
+exit
