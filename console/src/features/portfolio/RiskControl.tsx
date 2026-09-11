@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
 import { cn } from '../../lib/cn'
 import { Figure, Module, Stack, ViewGrid } from '../../components/layout'
-import { Donut, Swatch, type DonutSlice } from '../../components/Donut'
+import { ExposureDistribution } from './ExposureDistribution'
 import { SegmentedControl } from '../../components/controls'
-import { Ticker } from '../../components/Ticker'
 import {
   money, percent, signedMoney, signedPercent,
 } from '../../lib/format'
@@ -11,17 +10,6 @@ import { cash, exposures } from '../../lib/holdings'
 import { breakingDrop, resize, shock } from '../../lib/stress'
 import { marginRatioRisk, riskBar, riskText } from '../../lib/risk'
 import type { PortfolioSnapshot } from '../../api/types'
-
-/** 饼图最多画这么多块，其余并进「其他」——再多就成了一圈碎片 */
-const PIE_SLICES = 6
-
-/**
- * 一块饼的底色。顺序色阶，定义在 `index.css` 的 `--pie-1..6`（深浅两套方向相反，
- * 理由写在那里）。不给每块一个"自己的颜色"是因为能用的色相不够——绿、红、黄铜
- * 已被盈亏与充提占死；识别哪块是谁交给块里的代码与金额，色只管排序和分块。
- */
-const sliceInk = (rank: number, asset: string) =>
-  (asset === '其他' ? 'var(--rule-strong)' : `var(--pie-${Math.min(rank + 1, 6)})`)
 
 const DROPS = { '10': 0.1, '20': 0.2, '30': 0.3, '50': 0.5 } as const
 const LEVERAGES = { '1': 1, '2': 2, '3': 3, '5': 5, '10': 10 } as const
@@ -49,10 +37,7 @@ type SizeKey = keyof typeof SIZES
  *   压力测试   选一个跌幅，看净值 / 保证金率 / 可用余额 / 谁会被强平
  *   现金缓冲   还能往合约里补多少
  *
- * **敞口分布没做成饼图。** 饼图在两件事上不好用，而这两件恰好都是这里要做的：
- * 比较大小接近的扇区（角度差几度看不出来），以及处理长尾（十个小仓位挤成一圈碎片）。
- * 排序过的横条直接按长度比，小的排在后面也读得出来。更要紧的是**饼图画不了负数**，
- * 而这里的空头名义是负的——它抵掉同一标的的现货，那才是真实敞口。
+ * 敞口分布由 ExposureDistribution 展示：多头构成与带方向的净敞口分别保留。
  */
 export function RiskControlView({ snapshot, veiled }: {
   snapshot: PortfolioSnapshot
@@ -60,13 +45,6 @@ export function RiskControlView({ snapshot, veiled }: {
 }) {
   const [drop, setDrop] = useState<keyof typeof DROPS>('30')
   const [lever, setLever] = useState<keyof typeof LEVERAGES>('3')
-  // **饼和右边那张表共用一个"正在看哪个标的"。** 两者是同一批标的的两种读法
-  // （饼是多头、表是净敞口），指着其中一个而另一个没反应，等于把它们当成两张图。
-  // `pinned` 给触屏和"想挪开鼠标继续读"用：没有 hover 的设备只能靠点。
-  const [hover, setHover] = useState<string | null>(null)
-  const [pinned, setPinned] = useState<string | null>(null)
-  const focus = hover ?? pinned
-
   const equity = snapshot.totals?.equity_usd ?? 0
   const rows = useMemo(() => exposures(snapshot, equity), [snapshot, equity])
   const cashRows = useMemo(() => cash(snapshot), [snapshot])
@@ -90,46 +68,7 @@ export function RiskControlView({ snapshot, veiled }: {
   const edge = useMemo(() => breakingDrop(snapshot), [snapshot])
   const edgeWithCash = useMemo(() => breakingDrop(snapshot, spare), [snapshot, spare])
 
-  // **饼只画多头**：现货 + 合约多头名义。空头是负的，饼画不了负数；稳定币是现金
-  // 不是敞口（`exposures` 已经把它排除了）。这和底下的横条不是同一个数——
-  // 横条是净敞口（空头抵掉现货），饼回答的是"钱压在哪几个东西上"。
-  const longs = rows
-    .map((row) => ({
-      asset: row.asset,
-      value: Math.max(0, row.spot_usd) + Math.max(0, row.perp_usd),
-    }))
-    .filter((row) => row.value > 0)
-    .sort((a, b) => b.value - a.value)
-  const longTotal = longs.reduce((sum, row) => sum + row.value, 0)
-  // 先按占比砍再按名次封顶：只封顶的话，0.2% 的 ETH 会自己占一块，
-  // 而它比旁边那个「其他」还小——一圈里挤着三块看不见的扇区
-  const shown = longs
-    .filter((row) => longTotal > 0 && row.value / longTotal >= 0.01)
-    .slice(0, PIE_SLICES)
-  const slices: DonutSlice[] = shown.map((row, i) => ({
-    key: row.asset, value: row.value, color: sliceInk(i, row.asset),
-  }))
-  // 折进「其他」的那几个块上写不下，**去处是右边那张表**——它列全部标的，
-  // 一个都不折。图不该靠 hover 才说得全，也不该靠两处各抄一遍。
-  const rest = longs.filter((row) => !shown.includes(row))
-    .reduce((sum, row) => sum + row.value, 0)
-  if (rest > longTotal * 0.001) {
-    slices.push({ key: '其他', value: rest, color: sliceInk(slices.length, '其他') })
-  }
-  // 表里靠色块和环对号：本身有一块的用自己的色，被并进「其他」的用「其他」的色。
-  // **不能留空**——留空就等于"这一行在图上找不到"，而它其实在，只是并进去了。
-  const other = slices.find((slice) => slice.key === '其他')?.color ?? null
-  const swatchOf = (asset: string) =>
-    slices.find((slice) => slice.key === asset)?.color
-    ?? (longs.some((row) => row.asset === asset) ? other : null)
-
-  const shownSlice = slices.find((slice) => slice.key === focus) ?? null
   const netExposure = rows.reduce((sum, row) => sum + row.net_usd, 0)
-  // **这张表列全部标的，不折灰尘。** 饼上小块并进了「其他」，那几个的去处就只剩
-  // 这里；折起来等于两处都看不到。它同时也是饼的图例，行数与环高相当，
-  // 左右两栏因此高度相称——上一版右边七行、左边一个环加一张清单，右下角空一大片。
-  const major = rows
-  const peak = Math.max(...major.map((row) => Math.abs(row.net_usd)), 1)
   const multiplier = LEVERAGES[lever]
 
   if (snapshot.futures === null && rows.length === 0) {
@@ -158,91 +97,7 @@ export function RiskControlView({ snapshot, veiled }: {
           {rows.length === 0 ? (
             <p className="py-10 text-center text-sm text-ink-3">当前没有敞口。</p>
           ) : (
-            <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
-            <div className="min-w-0 flex-1">
-              <Donut
-                focus={focus}
-                hub={(
-                  <div className="flex flex-col items-center gap-0.5">
-                    {shownSlice === null ? (
-                      <span className="tnum text-lg text-ink">{money(longTotal)}</span>
-                    ) : (
-                      <>
-                        <Ticker asset={shownSlice.key} />
-                        <span className="tnum text-lg text-ink">{money(shownSlice.value)}</span>
-                        <span className="tnum text-xs text-ink-3">
-                          {percent(longTotal > 0 ? shownSlice.value / longTotal : null, 1)}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                )}
-                onFocus={setHover}
-                onPin={(asset) => setPinned((now) => (asset === null || now === asset ? null : asset))}
-                slices={slices}
-                total={longTotal}
-              />
-            </div>
-            <ul className="min-w-0 flex-1 divide-y divide-rule">
-              {major.map((row) => {
-                const inPie = slices.some((slice) => slice.key === row.asset)
-                const on = focus === row.asset
-                return (
-                  <li key={row.asset}>
-                    {/* 整行是个按钮：鼠标指上、键盘 Tab 到，饼那边同步亮起来。
-                        空头（MSTR 这种）在饼里没有块，指它只高亮这一行，
-                        不去把饼整个压暗——那会让人以为"这个标的不见了"。 */}
-                    <button
-                      aria-pressed={pinned === row.asset}
-                      className={cn(
-                        'grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3',
-                        // 不加过渡：饼那边是瞬时切换，这一行再淡入淡出就对不上拍
-                        'rounded-[3px] px-1.5 py-2.5 text-left outline-none',
-                        'hover:bg-sheet-2/70 focus-visible:outline focus-visible:outline-1',
-                        'focus-visible:outline-offset-1 focus-visible:outline-accent',
-                        on && 'bg-sheet-2',
-                        focus !== null && !on && 'opacity-45',
-                      )}
-                      onBlur={() => setHover(null)}
-                      onClick={() => {
-                        if (inPie) setPinned((now) => (now === row.asset ? null : row.asset))
-                      }}
-                      onFocus={() => setHover(row.asset)}
-                      onMouseEnter={() => setHover(row.asset)}
-                      onMouseLeave={() => setHover(null)}
-                      type="button"
-                    >
-                      <span className="flex items-center gap-2">
-                        {/* 色块把这一行和环上的块对起来——这张表就是饼的图例 */}
-                        {swatchOf(row.asset)
-                          ? <Swatch color={swatchOf(row.asset) as string} />
-                          : <span className="size-2.5 shrink-0" />}
-                        <Ticker asset={row.asset} size="sm" />
-                        <span className="w-[52px] shrink-0 truncate text-sm text-ink">{row.asset}</span>
-                      </span>
-                      {/* 零点在中间：空头往左、多头往右，多空对锁的标的一眼看得出
-                          两边都短。饼图做不到这件事——它画不了负数。 */}
-                      <span className="relative block h-[5px] rounded-full bg-rule">
-                        <span
-                          className={cn('absolute top-0 block h-full rounded-full',
-                            row.net_usd >= 0 ? 'left-1/2 bg-ink-3' : 'right-1/2 bg-accent')}
-                          style={{ width: `${(Math.abs(row.net_usd) / peak * 50).toFixed(1)}%` }}
-                        />
-                      </span>
-                      <span className="flex shrink-0 items-baseline gap-3">
-                        <span className="tnum w-[92px] text-right text-sm text-ink">
-                          {signedMoney(row.net_usd)}
-                        </span>
-                        <span className="tnum w-[44px] text-right text-xs text-ink-3">
-                          {percent(row.share, 1)}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-            </div>
+            <ExposureDistribution rows={rows} />
           )}
         </Module>
 

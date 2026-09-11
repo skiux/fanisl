@@ -47,43 +47,81 @@
   --sheet-shadow: 0 1px 1px rgb(0 0 0 / 0.4), 0 18px 44px -20px rgb(0 0 0 / 0.7);
 }
 
-/* 环形图（components/Donut.tsx，自己画的 SVG，没有图表库）。
+/* 运动只发生在指示弧和详情，扇区始终不变色、不压暗、不挪动。 */
+.donut-sector { cursor: pointer; outline: none; }
+.donut-sector:focus-visible { stroke: var(--ink); stroke-width: 1.5; }
+.donut-indicator {
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+.allocation-detail { animation: allocation-detail-in 280ms cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes allocation-detail-in {
+  from { opacity: 0; transform: translate3d(0, 5px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.allocation-reset { transition: opacity 200ms ease-out, transform 240ms cubic-bezier(0.22, 1, 0.36, 1); }
+.allocation-reset:active { transform: scale(0.96); }
+.allocation-row { position: relative; transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1); }
+.allocation-row:active { transform: scale(0.99); }
+.allocation-row::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 260ms ease-out;
+}
+.allocation-row[data-selected="true"]::before { opacity: 1; }
+.allocation-list { container: allocation / inline-size; }
+.allocation-scroll {
+  max-height: min(50dvh, 440px);
+  scrollbar-gutter: stable;
+  padding: 2px;
+}
+@media (min-width: 1024px) {
+  .allocation-chart { max-width: clamp(240px, calc(100dvh - 510px), 400px); }
+  /* 高度由左侧环图确定，列表内容再多也不能撑开这一行。 */
+  .allocation-list-body { position: absolute; inset: 0; }
+  .allocation-scroll { min-height: 0; max-height: none; flex: 1; }
+}
+@container allocation (max-width: 350px) {
+  .allocation-values { display: grid; justify-items: end; gap: 2px; }
+  .allocation-meta { gap: 8px; flex-wrap: wrap; }
+}
+@media (hover: hover) {
+  .allocation-row:hover::before { opacity: 1; }
+}
 
-   **没有任何动画**：不入场、不过渡，高亮是一次瞬时切换。为动效来回折腾过四轮，
-   每一轮都带出新的毛病；这是一张读数用的图，指哪亮哪，即时反而更跟手。
-
-   扇区与标签都不收指针事件：hover / click 全走盖在上面那层命中层（按极角判断
-   落在哪一块）。逐块的事件在块与块之间会先 leave 再 enter，中间空一帧；
-   块之间的缝更是实打实的洞——转一圈就闪一路。 */
-.pie-label { pointer-events: none; }
-
-
-
-/* 饼图的色阶。**顺序色阶**：越大的块墨越重，色相同时从靛蓝挪向青蓝——
-   明度与色相一起动，相邻两块比纯调明度分得开。
-
-   不给每块一个"自己的颜色"，是因为**能用的色相不够**：绿(155°)、红(30°)、
-   黄铜(85°) 在这套界面里已被盈亏与充提占死，剩下 190–330 一段塞五个色相必然
-   互相像。识别哪块是谁交给块里的代码与金额，色只管排序和分块。
-
-   深浅两套各写一遍而不是用 color-mix：**方向要反过来**。浅色纸上"墨重"是深，
-   深色纸上"墨重"是亮。另外整条都压在离 --ink 足够远的一段里（浅色全偏亮、
-   深色全偏暗），块里的字才能一律用 --ink，不必按名次换字色。 */
+/* 低饱和分类色不承担盈亏含义；字色在深浅主题中保持足够对比。 */
 :root {
-  --pie-1: oklch(0.735 0.100 268);
-  --pie-2: oklch(0.782 0.086 254);
-  --pie-3: oklch(0.826 0.072 240);
-  --pie-4: oklch(0.866 0.058 226);
-  --pie-5: oklch(0.900 0.044 212);
-  --pie-6: oklch(0.930 0.031 200);
+  --allocation-1: #a8b8e0;
+  --allocation-2: #afced7;
+  --allocation-3: #bcb0d0;
+  --allocation-4: #d1c7dd;
+  --allocation-5: #96bccb;
+  --allocation-6: #c5cbd2;
+  --allocation-7: #8fa8cf;
+  --allocation-8: #d1dce5;
+  --allocation-9: #bcc9eb;
+  --allocation-10: #b3b4c8;
+  --allocation-11: #c8dce0;
+  --allocation-12: #94aeb8;
 }
 .dark {
-  --pie-1: oklch(0.500 0.100 268);
-  --pie-2: oklch(0.445 0.088 254);
-  --pie-3: oklch(0.395 0.072 240);
-  --pie-4: oklch(0.350 0.058 226);
-  --pie-5: oklch(0.310 0.045 212);
-  --pie-6: oklch(0.275 0.033 200);
+  --allocation-1: #3d506f;
+  --allocation-2: #35545e;
+  --allocation-3: #524568;
+  --allocation-4: #60556e;
+  --allocation-5: #2d505f;
+  --allocation-6: #50535c;
+  --allocation-7: #304564;
+  --allocation-8: #546472;
+  --allocation-9: #4b5777;
+  --allocation-10: #47495e;
+  --allocation-11: #4b656b;
+  --allocation-12: #354e58;
 }
 
 /* 标的识别标记，见 components/Ticker.tsx。色相由组件按代码哈希传进来，
