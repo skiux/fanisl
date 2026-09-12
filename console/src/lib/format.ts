@@ -13,7 +13,7 @@ export function money(value: number | null | undefined) {
 }
 
 export function moneyCompact(value: number) {
-  return Math.abs(value) >= 10_000 ? usdCompact.format(value) : usd.format(value)
+  return Math.abs(value) >= 1000 ? usdCompact.format(value) : usd.format(value)
 }
 
 /** 带显式正负号：盈亏必须一眼看出方向，不能靠颜色单独承担 */

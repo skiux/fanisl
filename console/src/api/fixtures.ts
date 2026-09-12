@@ -1,5 +1,5 @@
 import { PRICE } from './prices'
-import { NVDA_ENTRY_PRICE, spotLockedByAsset } from './orders-fixtures'
+import { NVDA_ENTRY_PRICE, OPEN_POSITION_QTY, spotLockedByAsset } from './orders-fixtures'
 import type {
   DailyPnl, EarnPosition, FuturesAccount, FuturesPosition, Pnl,
   IncomeBreakdown, MarginAccount, PortfolioSnapshot, SourceState, SpotAsset,
@@ -10,21 +10,16 @@ import type {
 type RawSpot = { asset: string; free: number; freeze?: number; withdrawing?: number }
 
 /**
- * 现货账户。标的都在 U 本位永续上，现货这边只承担两件事：
- * USDT 作保证金与闲置资金，BNB 作手续费抵扣。剩下几笔是早年留下的小额，
- * 留着是因为真实账户里也一定有这种东西——灰尘折叠与"无报价"两条路径需要它们。
+ * 现货账户同时包含主要加密持仓与保证金。样例以十二个有效敞口检验真实的长尾分布；
+ * BETH 保留为无报价样本，但估值为 null，不进入敞口图。
  */
 const RAW_SPOT: RawSpot[] = [
   { asset: 'USDT', free: 12480.44, withdrawing: 500 },
-  { asset: 'BNB', free: 4.212 },
-  { asset: 'ETH', free: 0.0184 },
-  { asset: 'SOL', free: 0.1043 },
-  { asset: 'ARB', free: 26.4, freeze: 12 },
-  { asset: 'DOGE', free: 21.86 },
-  { asset: 'SHIB', free: 812400 },
-  { asset: 'LUNC', free: 44210 },
+  { asset: 'BNB', free: 1.5985 },
+  { asset: 'BTC', free: 0.1167974 },
+  { asset: 'ETH', free: 1.33644 },
+  { asset: 'SOL', free: 18.67265 },
   { asset: 'BETH', free: 0.0044 },
-  { asset: 'PAXG', free: 0.00071 },
 ]
 
 export const spot: SpotAsset[] = RAW_SPOT.map((row) => {
@@ -64,21 +59,36 @@ type RawPosition = {
 const RAW_POSITIONS: RawPosition[] = [
   {
     // 开仓均价来自成交记录的加权平均，不在这里另写一遍
-    base: 'NVDA', symbol: 'NVDAUSDT', position_amt: 38, entry_price: NVDA_ENTRY_PRICE,
+    base: 'NVDA', symbol: 'NVDAUSDT', position_amt: OPEN_POSITION_QTY.NVDA, entry_price: NVDA_ENTRY_PRICE,
     liquidation_price: 152.84, leverage: 3, isolated: false, mmr: 0.02, adl_quantile: 1,
   },
   {
-    base: 'QQQ', symbol: 'QQQUSDT', position_amt: 14, entry_price: 604.13,
+    base: 'QQQ', symbol: 'QQQUSDT', position_amt: OPEN_POSITION_QTY.QQQ, entry_price: 604.13,
     liquidation_price: 448.57, leverage: 3, isolated: false, mmr: 0.015, adl_quantile: 1,
   },
   {
-    base: 'XAU', symbol: 'XAUUSDT', position_amt: 1.8, entry_price: 4245.08,
+    base: 'XAU', symbol: 'XAUUSDT', position_amt: OPEN_POSITION_QTY.XAU, entry_price: 4245.08,
     liquidation_price: 3486.21, leverage: 5, isolated: false, mmr: 0.01, adl_quantile: 2,
   },
   {
-    // 空头：拿它对冲 AI/加密关联的 beta
-    base: 'MSTR', symbol: 'MSTRUSDT', position_amt: -9, entry_price: 368.24,
-    liquidation_price: 512.47, leverage: 2, isolated: true, mmr: 0.025, adl_quantile: 3,
+    base: 'AAPL', symbol: 'AAPLUSDT', position_amt: OPEN_POSITION_QTY.AAPL, entry_price: 268.4,
+    liquidation_price: 208.5, leverage: 3, isolated: false, mmr: 0.015, adl_quantile: 1,
+  },
+  {
+    base: 'MSFT', symbol: 'MSFTUSDT', position_amt: OPEN_POSITION_QTY.MSFT, entry_price: 620.1,
+    liquidation_price: 476.2, leverage: 3, isolated: false, mmr: 0.015, adl_quantile: 2,
+  },
+  {
+    base: 'TSLA', symbol: 'TSLAUSDT', position_amt: OPEN_POSITION_QTY.TSLA, entry_price: 360.2,
+    liquidation_price: 268.4, leverage: 3, isolated: false, mmr: 0.02, adl_quantile: 2,
+  },
+  {
+    base: 'AMZN', symbol: 'AMZNUSDT', position_amt: OPEN_POSITION_QTY.AMZN, entry_price: 260.3,
+    liquidation_price: 201.7, leverage: 3, isolated: false, mmr: 0.015, adl_quantile: 1,
+  },
+  {
+    base: 'MU', symbol: 'MUUSDT', position_amt: OPEN_POSITION_QTY.MU, entry_price: 190.2,
+    liquidation_price: 146.8, leverage: 3, isolated: false, mmr: 0.02, adl_quantile: 2,
   },
 ]
 
@@ -104,7 +114,7 @@ export const positions: FuturesPosition[] = RAW_POSITIONS.map((row) => {
   }
 })
 
-const FUTURES_WALLET = 9240.0
+const FUTURES_WALLET = 18_500
 
 export const futures: FuturesAccount = (() => {
   const upnl = positions.reduce((sum, p) => sum + p.unrealized_pnl_usd, 0)
@@ -252,7 +262,7 @@ export const okSource = (key: SourceState['key'], asOf: string): SourceState => 
  * $0.00 就不列"需要有东西可以不列，不然这条路示例数据下一次也走不到。
  */
 const PREV_CLOSE_RATIO: Record<string, number> = {
-  BNB: 0.982, ETH: 1.004, ARB: 0.961, SOL: 1, SHIB: 0.994, DOGE: 0.973,
+  BTC: 0.988, BNB: 0.982, ETH: 1.004, SOL: 1,
 }
 
 /**

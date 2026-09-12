@@ -30,23 +30,33 @@ type RawOrder = {
 }
 
 /**
- * 当前挂单。合约那几条全是给现有仓位配的止盈止损，与资产页的四笔永续持仓对得上；
- * 现货只有 BNB —— 这个账户的现货就只做 BNB。它们决定了资产页「挂单占用」的数字，
+ * 当前挂单。合约单是几笔主要仓位的止盈止损，数量与资产页对应仓位一致；
+ * 当前现货挂单只有 BNB。它们决定了资产页「挂单占用」的数字，
  * 见下面的 spotLockedByAsset。
  */
+export const OPEN_POSITION_QTY = {
+  NVDA: 45.78,
+  QQQ: 8.89,
+  XAU: 2.152,
+  AAPL: 10.916,
+  MSFT: 4.246,
+  TSLA: 6.551,
+  AMZN: 7.809,
+  MU: 10.165,
+} as const
+
 const RAW_OPEN: RawOrder[] = [
   { venue: 'spot', symbol: 'BNBUSDT', side: 'buy', kind: 'limit', qty: 3, filled: 1.2, price: 640, tif: 'GTC', status: 'partially_filled', ageMin: 2860, touchedMin: 412 },
   { venue: 'spot', symbol: 'BNBUSDT', side: 'sell', kind: 'limit_maker', qty: 2, price: 760, tif: 'GTC', list: 'oco-bnb-1', ageMin: 982 },
   { venue: 'spot', symbol: 'BNBUSDT', side: 'sell', kind: 'stop', qty: 2, stop: 620, price: 615, trigger: 'last', tif: 'GTC', list: 'oco-bnb-1', ageMin: 982 },
 
-  { venue: 'usdm', symbol: 'NVDAUSDT', side: 'sell', kind: 'limit', qty: 38, price: 242, tif: 'GTC', reduceOnly: true, positionSide: 'both', ageMin: 1424 },
-  { venue: 'usdm', symbol: 'QQQUSDT', side: 'sell', kind: 'limit', qty: 14, price: 648, tif: 'GTC', reduceOnly: true, positionSide: 'both', ageMin: 764 },
+  { venue: 'usdm', symbol: 'NVDAUSDT', side: 'sell', kind: 'limit', qty: OPEN_POSITION_QTY.NVDA, price: 242, tif: 'GTC', reduceOnly: true, positionSide: 'both', ageMin: 1424 },
+  { venue: 'usdm', symbol: 'QQQUSDT', side: 'sell', kind: 'limit', qty: OPEN_POSITION_QTY.QQQ, price: 648, tif: 'GTC', reduceOnly: true, positionSide: 'both', ageMin: 764 },
 
-  { venue: 'usdm', symbol: 'NVDAUSDT', side: 'sell', kind: 'stop_market', qty: 38, stop: 190, trigger: 'mark', closePosition: true, positionSide: 'both', ageMin: 4212 },
-  { venue: 'usdm', symbol: 'QQQUSDT', side: 'sell', kind: 'stop_market', qty: 14, stop: 572, trigger: 'mark', closePosition: true, positionSide: 'both', ageMin: 2641 },
-  { venue: 'usdm', symbol: 'XAUUSDT', side: 'sell', kind: 'trailing_stop_market', qty: 1.8, activate: 4300, callback: 0.015, trigger: 'mark', reduceOnly: true, positionSide: 'both', ageMin: 318 },
-  // 空头的止损是买入
-  { venue: 'usdm', symbol: 'MSTRUSDT', side: 'buy', kind: 'stop_market', qty: 9, stop: 372, trigger: 'mark', closePosition: true, positionSide: 'both', ageMin: 5921 },
+  { venue: 'usdm', symbol: 'NVDAUSDT', side: 'sell', kind: 'stop_market', qty: OPEN_POSITION_QTY.NVDA, stop: 190, trigger: 'mark', closePosition: true, positionSide: 'both', ageMin: 4212 },
+  { venue: 'usdm', symbol: 'QQQUSDT', side: 'sell', kind: 'stop_market', qty: OPEN_POSITION_QTY.QQQ, stop: 572, trigger: 'mark', closePosition: true, positionSide: 'both', ageMin: 2641 },
+  { venue: 'usdm', symbol: 'XAUUSDT', side: 'sell', kind: 'trailing_stop_market', qty: OPEN_POSITION_QTY.XAU, activate: 4300, callback: 0.015, trigger: 'mark', reduceOnly: true, positionSide: 'both', ageMin: 318 },
+  { venue: 'usdm', symbol: 'AAPLUSDT', side: 'sell', kind: 'stop_market', qty: OPEN_POSITION_QTY.AAPL, stop: 250, trigger: 'mark', closePosition: true, positionSide: 'both', ageMin: 5921 },
 
   { venue: 'margin', symbol: 'BNBUSDT', side: 'buy', kind: 'limit', qty: 1.5, price: 655, tif: 'GTC', ageMin: 8104 },
 ]
@@ -138,7 +148,7 @@ const RAW_HISTORY: RawOrder[] = [
   { venue: 'usdm', symbol: HISTORY_SYMBOL, side: 'buy', kind: 'limit', qty: 22, filled: 22, price: 203.8, tif: 'GTC', status: 'filled', ageMin: 9702 },
   { venue: 'usdm', symbol: HISTORY_SYMBOL, side: 'buy', kind: 'limit', qty: 16, filled: 16, price: 206.15, tif: 'GTC', status: 'filled', ageMin: 9695 },
   { venue: 'usdm', symbol: HISTORY_SYMBOL, side: 'sell', kind: 'limit', qty: 10, price: 228, tif: 'GTC', status: 'canceled', ageMin: 7204, touchedMin: 6980 },
-  { venue: 'usdm', symbol: HISTORY_SYMBOL, side: 'buy', kind: 'limit', qty: 8, filled: 8, price: 209.45, tif: 'GTC', status: 'filled', ageMin: 6103 },
+  { venue: 'usdm', symbol: HISTORY_SYMBOL, side: 'buy', kind: 'limit', qty: 15.78, filled: 15.78, price: 209.45, tif: 'GTC', status: 'filled', ageMin: 6103 },
   { venue: 'usdm', symbol: HISTORY_SYMBOL, side: 'sell', kind: 'limit', qty: 6, price: 221.5, tif: 'GTX', status: 'expired', ageMin: 5406 },
   { venue: 'usdm', symbol: HISTORY_SYMBOL, side: 'sell', kind: 'stop_market', qty: 38, stop: 192, trigger: 'mark', closePosition: true, status: 'canceled', ageMin: 4802, touchedMin: 4212 },
   { venue: 'usdm', symbol: HISTORY_SYMBOL, side: 'sell', kind: 'limit', qty: 12, filled: 8, price: 215, tif: 'GTC', status: 'canceled', ageMin: 3302, touchedMin: 3120 },
@@ -174,7 +184,7 @@ type RawFill = { side: OrderSide; qty: number; price: number; maker: boolean; ag
 const RAW_FILLS: RawFill[] = [
   { side: 'buy', qty: 22, price: 203.8, maker: true, ageMin: 9702, orderIndex: 0 },
   { side: 'buy', qty: 16, price: 206.15, maker: false, ageMin: 9695, orderIndex: 1 },
-  { side: 'buy', qty: 8, price: 209.45, maker: false, ageMin: 6103, orderIndex: 3 },
+  { side: 'buy', qty: 15.78, price: 209.45, maker: false, ageMin: 6103, orderIndex: 3 },
   { side: 'sell', qty: 5, price: 215.4, maker: false, ageMin: 3302, orderIndex: 6 },
   { side: 'sell', qty: 3, price: 216.8, maker: true, ageMin: 3120, orderIndex: 6 },
 ]
@@ -240,8 +250,11 @@ export function buildFills(asOf: Date): Fill[] {
 
 /** 可查历史的交易对：有挂单的 + 有持仓的 + 现货余额能配出的 */
 export const HISTORY_SYMBOLS = [
-  'NVDAUSDT', 'QQQUSDT', 'XAUUSDT', 'MSTRUSDT', 'BNBUSDT',
+  'NVDAUSDT', 'QQQUSDT', 'XAUUSDT', 'AAPLUSDT', 'MSFTUSDT',
+  'TSLAUSDT', 'AMZNUSDT', 'MUUSDT', 'BNBUSDT', 'BTCUSDT', 'ETHUSDT', 'SOLUSDT',
 ]
+
+const SPOT_HISTORY_SYMBOLS = new Set(['BNBUSDT', 'BTCUSDT', 'ETHUSDT', 'SOLUSDT'])
 
 /**
  * `symbol` 为 null = 默认那一档：候选里的每个都问过一遍再合并，
@@ -259,7 +272,7 @@ export function buildQuery(asOf: Date, symbol: string | null = null): HistoryQue
       lookback_days: 90,
     }
   }
-  const spot = symbol === 'BNBUSDT'
+  const spot = SPOT_HISTORY_SYMBOLS.has(symbol)
   return {
     symbol, symbols: [symbol], venue: spot ? 'spot' : 'usdm',
     from, to: asOf.toISOString(),

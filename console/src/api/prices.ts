@@ -5,12 +5,12 @@ import { baseOf } from '../lib/format'
  *
  * 这个账户的标的以美股 / 指数 ETF / 金属为主，走的是 Binance U 本位永续
  * （NVDAUSDT、QQQUSDT、XAUUSDT…，与 backend instruments.py 的 exec_symbol 一致）。
- * 现货只留 USDT（保证金）与 BNB（手续费抵扣），外加几笔历史残留的小额。
+ * 现货包含主要加密持仓与保证金；美股、ETF 与金属走 U 本位永续。
  */
 export const PRICE: Record<string, number | null> = {
   // 计价与手续费
   USDT: 1.0002, BNB: 682.15,
-  // 账户不持有 BTC，但 /sapi/v1/asset/wallet/balance 原生就是 BTC 计价，换算要用
+  // /sapi/v1/asset/wallet/balance 原生使用 BTC 计价，持仓与钱包换算共用这一价格
   BTC: 94180.22,
   // 永续标的：美股
   NVDA: 218.42, MSTR: 342.16, QQQ: 618.74, AAPL: 274.83, MSFT: 612.35,

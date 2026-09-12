@@ -1,21 +1,21 @@
 import { useRef, useState } from 'react'
-import { Donut, Swatch } from '../../components/Donut'
+import { AllocationMap, Swatch } from '../../components/AllocationMap'
 import { Ticker } from '../../components/Ticker'
 import { cn } from '../../lib/cn'
-import { allocationPercent } from '../../lib/donut'
+import { allocationPercent } from '../../lib/allocation'
 import { money, signedMoney } from '../../lib/format'
 import type { Exposure } from '../../lib/holdings'
 
 /** 颜色绑定代码而非排名；金额刷新导致重新排序时，资产仍保持自己的颜色。 */
 function assetColor(asset: string) {
-  let hash = 2166136261
-  for (const letter of asset) hash = Math.imul(hash ^ letter.charCodeAt(0), 16777619) >>> 0
-  return `var(--allocation-${hash % 12 + 1})`
+  let hash = 5381
+  for (const letter of asset) hash = ((hash << 5) + hash) ^ letter.charCodeAt(0)
+  return `oklch(var(--allocation-tone) 0.075 ${(hash >>> 0) % 360})`
 }
 
 const smallMoney = (value: number) => value > 0 && value < 0.005 ? '<$0.01' : money(value)
 
-/** 环图展示多头构成；列表同时保留净敞口及其占净值比例，分母分别标明。 */
+/** 面积图展示多头构成；列表同时保留净敞口及其占净值比例，分母分别标明。 */
 export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
   const [selection, setSelection] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -47,7 +47,7 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
     const box = list.getBoundingClientRect()
     const item = row.getBoundingClientRect()
     if (item.top >= box.top && item.bottom <= box.bottom) return
-    // 只滚动明细容器；scrollIntoView 会同时拖动外层页面和左侧环图。
+    // 只滚动明细容器；scrollIntoView 会同时拖动外层页面和左侧面积图。
     list.scrollTo({
       top: list.scrollTop + item.top - box.top - (list.clientHeight - item.height) / 2,
       behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
@@ -56,14 +56,17 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
 
   return (
     <div
-      className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-stretch lg:gap-10"
+      className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.9fr)] lg:items-stretch lg:gap-10"
       onKeyDown={(event) => {
         if (event.key === 'Escape') { event.preventDefault(); select(null) }
       }}
     >
       <div className="min-w-0">
-        <div className="mb-2 flex min-h-9 items-center justify-between gap-3 text-xs">
-          <span className="text-ink-2">多头构成 <span className="ml-1.5 tnum text-ink-3">{slices.length}</span></span>
+        <div className="mb-3 flex min-h-11 items-end justify-between gap-3 text-xs">
+          <div>
+            <div className="text-ink-2">多头构成 <span className="ml-1.5 tnum text-ink-3">{slices.length}</span></div>
+            <div className="tnum mt-1 text-sm font-medium" data-allocation-total>{money(total)}</div>
+          </div>
           <button
             aria-label="清除资产选择"
             className={cn('allocation-reset min-h-9 rounded-full border border-rule px-3 text-ink-2', !selected && 'pointer-events-none opacity-0')}
@@ -71,30 +74,16 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
             onClick={() => select(null)} type="button"
           >查看全部</button>
         </div>
-        <Donut
-          hub={(
-            <div aria-atomic="true" aria-live="polite">
-              <div className="allocation-detail flex min-w-0 flex-col items-center gap-1.5" key={selected?.asset ?? 'total'}>
-                {selected ? (
-                  <>
-                    <span className="flex items-center gap-1.5 text-sm font-medium"><Ticker asset={selected.asset} size="sm" />{selected.asset}</span>
-                    <span className="tnum max-w-full break-all text-lg tracking-tight">{smallMoney(selected.long)}</span>
-                    <span className="text-xs text-ink-2">多头 <span className="tnum">{total > 0 ? allocationPercent(selected.long / total) : '0%'}</span></span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-xs text-ink-3">{total > 0 ? '多头合计' : '暂无多头敞口'}</span>
-                    <span className="tnum max-w-full break-all text-lg tracking-tight">{money(total)}</span>
-                    <span className="text-xs text-ink-3">{slices.length} 个标的</span>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
+        <AllocationMap
+          items={slices}
           onSelect={selectFromChart}
           selected={selected?.asset ?? null}
-          slices={slices}
         />
+        <div aria-atomic="true" aria-live="polite" className="sr-only">
+          {selected
+            ? `${selected.asset}，多头 ${smallMoney(selected.long)}，${total > 0 ? allocationPercent(selected.long / total) : '0%'}`
+            : `${total > 0 ? '多头合计' : '暂无多头敞口'}，${money(total)}，${slices.length} 个标的`}
+        </div>
         <div className="mt-4 grid min-h-16 grid-cols-2 gap-4 border-t border-rule pt-4">
           <div>
             <div className="text-xs text-ink-3">{selected ? `${selected.asset} 净敞口` : '净敞口合计'}</div>
