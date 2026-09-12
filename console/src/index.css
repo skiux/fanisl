@@ -47,18 +47,20 @@
   --sheet-shadow: 0 1px 1px rgb(0 0 0 / 0.4), 0 18px 44px -20px rgb(0 0 0 / 0.7);
 }
 
-/* 扇区不变色、不压暗、不位移；选择只在内沿画短弧并更新圆心，外沿 100 格是百分比标尺。 */
+/* 扇区不变色、不压暗、不位移；选择用完整细描边和圆心信息反馈，外沿 100 格是百分比标尺。 */
 .allocation-wheel-bed { fill: var(--sheet-2); stroke: var(--rule); stroke-width: 1; }
 .allocation-sector { cursor: pointer; outline: none; }
 .allocation-sector:focus-visible { filter: drop-shadow(0 0 0.7px var(--ink)); }
-.allocation-sector-marker {
+.allocation-sector-outline {
   fill: none;
-  stroke: color-mix(in oklab, var(--ink) 68%, transparent);
+  stroke: color-mix(in oklab, var(--ink) 72%, transparent);
   stroke-dasharray: 1;
   stroke-linecap: round;
-  stroke-width: 1.8;
+  stroke-linejoin: round;
+  stroke-width: 1.35;
+  vector-effect: non-scaling-stroke;
   pointer-events: none;
-  animation: allocation-marker-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: allocation-outline-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .allocation-spoke-label { color: var(--ink); transform-origin: center; }
 .allocation-label-separator { opacity: 0.38; }
@@ -72,7 +74,7 @@
 .allocation-center-content {
   animation: allocation-center-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-@keyframes allocation-marker-in {
+@keyframes allocation-outline-in {
   from { opacity: 0; stroke-dashoffset: 1; }
   to { opacity: 1; stroke-dashoffset: 0; }
 }
@@ -82,14 +84,20 @@
 }
 .allocation-reset { transition: opacity 200ms ease-out, transform 240ms cubic-bezier(0.22, 1, 0.36, 1); }
 .allocation-reset:active { transform: scale(0.96); }
-.allocation-row { position: relative; transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1); }
+.allocation-row {
+  position: relative;
+  isolation: isolate;
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
 .allocation-row:active { transform: scale(0.99); }
 .allocation-row::before {
   content: "";
   position: absolute;
   inset: 0;
   border: 1px solid var(--rule-strong);
+  background: color-mix(in oklab, var(--sheet-2) 72%, transparent);
   border-radius: inherit;
+  z-index: -1;
   pointer-events: none;
   opacity: 0;
   transition: opacity 260ms ease-out;
@@ -97,9 +105,15 @@
 .allocation-row[data-selected="true"]::before { opacity: 1; }
 .stress-size-option {
   position: relative;
-  background: color-mix(in oklab, var(--sheet-2) 46%, transparent);
+  background: transparent;
   outline: none;
+  transition: background-color 180ms ease-out, box-shadow 220ms ease-out, transform 180ms ease-out;
 }
+.stress-size-option[data-selected="true"] {
+  background: var(--sheet-2);
+  box-shadow: 0 8px 20px -20px color-mix(in oklab, var(--ink) 38%, transparent);
+}
+.stress-size-option:disabled { cursor: not-allowed; opacity: 0.48; }
 .stress-size-option::after {
   content: "";
   position: absolute;
@@ -114,14 +128,15 @@
 .stress-size-option:focus-visible::after { opacity: 1; }
 .stress-size-dot { opacity: 0; transition: opacity 180ms ease-out; }
 .stress-size-option[data-selected="true"] .stress-size-dot { opacity: 1; }
+.open-capacity-card { background: color-mix(in oklab, var(--sheet-2) 48%, transparent); }
 .allocation-list { container: allocation / inline-size; }
 .allocation-scroll {
-  max-height: min(50dvh, 440px);
+  max-height: min(34dvh, 320px);
   scrollbar-gutter: stable;
   padding: 2px;
 }
 @media (min-width: 1024px) {
-  .allocation-chart { max-width: 680px; }
+  .allocation-chart { max-width: 480px; }
   /* 高度由左侧持仓轮确定，列表内容再多也不能撑开这一行。 */
   .allocation-list-body { position: absolute; inset: 0; }
   .allocation-scroll { min-height: 0; max-height: none; flex: 1; }
@@ -132,6 +147,7 @@
 }
 @media (hover: hover) {
   .allocation-row:hover::before { opacity: 1; }
+  .stress-size-option:hover { background: color-mix(in oklab, var(--sheet-2) 62%, transparent); }
 }
 
 /* 低饱和分类色不承担盈亏含义；色相按资产代码生成，深浅主题只切换明度。 */

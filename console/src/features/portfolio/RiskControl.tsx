@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { cn } from '../../lib/cn'
 import { Figure, Module, Stack, ViewGrid } from '../../components/layout'
 import { ExposureDistribution } from './ExposureDistribution'
@@ -14,6 +14,7 @@ import { marginRatioRisk, riskBar, riskText } from '../../lib/risk'
 import type { PortfolioSnapshot } from '../../api/types'
 
 const DROPS = { '10': 0.1, '20': 0.2, '30': 0.3, '50': 0.5 } as const
+const OPEN_LEVERAGES = [1, 2, 3, 5, 10] as const
 /**
  * 压力测试用的仓位规模。`now` = 现在这套仓位；其余是"**如果把仓位开到 N 倍
  * 真实杠杆**"——按现价重新建仓（见 `stress.resize`），再往下跌。
@@ -57,16 +58,23 @@ export function RiskControlView({ snapshot, veiled }: {
   const asMargin = sumWhere((where) => where === '合约保证金')
   const cashTotal = cashRows.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
 
+  const currentPosition = useMemo(() => positionSize(snapshot), [snapshot])
+  const canProjectPosition = currentPosition !== null && currentPosition > 0
+    && equity > 0 && (snapshot.futures?.total_margin_balance ?? 0) > 0
   const [size, setSize] = useState<SizeKey>('now')
+  const activeSize: SizeKey = canProjectPosition ? size : 'now'
+  useEffect(() => {
+    if (!canProjectPosition && size !== 'now') setSize('now')
+  }, [canProjectPosition, size])
   // 先把仓位调到设定的规模，再施加下跌。两步分开，`resize` 与 `shock` 各自可测
   const staged = useMemo(() => {
-    const target = SIZES[size]
+    const target = SIZES[activeSize]
     return target === null ? snapshot : resize(snapshot, target)
-  }, [snapshot, size])
+  }, [snapshot, activeSize])
   const hit = useMemo(() => shock(staged, DROPS[drop]), [staged, drop])
+  const availableBeforeDrop = staged.futures?.available_balance ?? null
   const edge = useMemo(() => breakingDrop(snapshot), [snapshot])
   const edgeWithCash = useMemo(() => breakingDrop(snapshot, spare), [snapshot, spare])
-  const currentPosition = useMemo(() => positionSize(snapshot), [snapshot])
   const sizeOptions = useMemo(() => ([
     {
       key: 'now' as SizeKey,
@@ -119,7 +127,7 @@ export function RiskControlView({ snapshot, veiled }: {
 
         <Module
           figure={hit.equity_usd === null ? '—' : money(hit.equity_usd)}
-          note={size === 'now' ? `跌 ${drop}% 之后的净值` : `仓位 ${size}× · 跌 ${drop}% 之后的净值`}
+          note={activeSize === 'now' ? `跌 ${drop}% 之后的净值` : `仓位 ${activeSize}× · 跌 ${drop}% 之后的净值`}
           span="lg:col-span-7"
           title="压力测试"
           tone={hit.liquidated.length > 0 ? 'loss' : undefined}
@@ -129,36 +137,67 @@ export function RiskControlView({ snapshot, veiled }: {
               <span className="text-xs text-ink-2">合约总仓位</span>
               <span className="text-[11px] text-ink-3">倍数以账户净值为基准</span>
             </div>
-            <div aria-label="仓位规模" className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup">
+            <div
+              aria-label="仓位规模"
+              className="grid grid-cols-2 gap-2 md:grid-cols-4"
+              onKeyDown={(event) => {
+                const keys = ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown', 'Home', 'End']
+                if (!keys.includes(event.key)) return
+                const options = [...event.currentTarget
+                  .querySelectorAll<HTMLButtonElement>('[role="radio"]:not(:disabled)')]
+                const index = options.indexOf(event.target as HTMLButtonElement)
+                if (index < 0) return
+                event.preventDefault()
+                const nextIndex = event.key === 'Home' ? 0
+                  : event.key === 'End' ? options.length - 1
+                    : (index + (event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1)
+                      + options.length) % options.length
+                const next = options[nextIndex]
+                next.focus()
+                setSize(next.dataset.size as SizeKey)
+              }}
+              role="radiogroup"
+            >
               {sizeOptions.map((option) => {
-                const on = size === option.key
+                const on = activeSize === option.key
                 const difference = option.difference
                 return (
                   <button
                     aria-checked={on}
                     className="stress-size-option min-w-0 rounded-xl border border-rule px-3 py-3 text-left"
                     data-selected={on}
+                    data-size={option.key}
+                    disabled={option.key !== 'now' && !canProjectPosition}
                     key={option.key}
                     onClick={() => setSize(option.key)}
                     role="radio"
+                    tabIndex={on ? 0 : -1}
                     type="button"
                   >
                     <span className="flex items-center justify-between gap-2 text-xs text-ink-2">
                       {option.label}
                       <span aria-hidden="true" className="stress-size-dot size-1.5 rounded-full bg-ink" />
                     </span>
-                    <span className="tnum mt-2 block truncate text-[15px] font-medium tracking-tight" title={option.notional === null ? undefined : money(option.notional)}>
+                    <span className="tnum mt-2 block text-sm font-medium tracking-tight">
                       {option.notional === null ? '—' : money(option.notional)}
                     </span>
-                    <span className="tnum mt-1.5 block truncate text-[11px] text-ink-3" title={difference === null ? undefined : money(Math.abs(difference))}>
+                    <span className="mt-2 block text-[10px] text-ink-3">
+                      {difference === null ? '当前杠杆 ' : difference >= 0 ? '还可开 ' : '已超出 '}
+                    </span>
+                    <span className="tnum mt-0.5 block text-[11px] text-ink-2">
                       {difference === null
                         ? (equity > 0 && currentPosition !== null ? `${(currentPosition / equity).toFixed(2)}× 净值` : '当前基准')
-                        : difference >= 0 ? `还可开 ${money(difference)}` : `已超出 ${money(-difference)}`}
+                        : money(Math.abs(difference))}
                     </span>
                   </button>
                 )
               })}
             </div>
+            {!canProjectPosition && (
+              <p className="mt-2 text-[11px] leading-relaxed text-ink-3">
+                当前没有合约仓位，无法推导目标仓位的标的分布；目标压力场景暂不可选。
+              </p>
+            )}
             <div className="mt-3 flex items-center gap-3">
               <span className="w-[40px] shrink-0 text-xs text-ink-2">下跌</span>
               <SegmentedControl
@@ -219,6 +258,40 @@ export function RiskControlView({ snapshot, veiled }: {
               </p>
             </div>
           )}
+
+          <div className="mt-5 border-t border-rule pt-4" data-open-capacity>
+            <div className="mb-3 flex items-baseline justify-between gap-4">
+              <span className="text-sm text-ink-2">剩余开仓能力</span>
+              <span className="text-[11px] text-ink-3">
+                {activeSize === 'now' ? '当前仓位' : `${activeSize}× 目标仓位`} · 可用余额 × 开仓杠杆
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
+              {OPEN_LEVERAGES.map((leverage) => (
+                <div
+                  className="open-capacity-card min-w-0 rounded-lg border border-rule px-2.5 py-2.5"
+                  data-open-leverage={leverage}
+                  key={leverage}
+                >
+                  <div className="tnum mb-2 text-xs font-medium text-ink">{leverage}×</div>
+                  <dl className="space-y-1.5">
+                    <div>
+                      <dt className="text-[10px] text-ink-3">下跌前</dt>
+                      <dd className="tnum mt-0.5 break-all text-[11px] text-ink-2">
+                        {availableBeforeDrop === null ? '—' : money(Math.max(0, availableBeforeDrop) * leverage)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] text-ink-3">跌 {drop}% 后</dt>
+                      <dd className="tnum mt-0.5 break-all text-[11px] text-ink">
+                        {hit.available_usd === null ? '—' : money(Math.max(0, hit.available_usd) * leverage)}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {hit.liquidated.length > 0 && (
             <ul className="mt-5 flex flex-wrap gap-2 border-t border-rule pt-4">
@@ -291,4 +364,3 @@ export function RiskControlView({ snapshot, veiled }: {
     </div>
   )
 }
-

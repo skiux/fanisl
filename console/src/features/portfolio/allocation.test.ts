@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildSnapshot } from '../../api/fixtures'
 import { exposures } from '../../lib/holdings'
 import { money } from '../../lib/format'
-import { positionSize, positionTarget } from '../../lib/stress'
+import { positionSize, positionTarget, shock } from '../../lib/stress'
 import { RiskControlView } from './RiskControl'
 import { ExposureDistribution } from './ExposureDistribution'
 
@@ -48,11 +48,49 @@ describe('敞口分布', () => {
     for (const [index, leverage] of [1, 1.5, 2].entries()) {
       const target = positionTarget(snapshot, leverage)
       expect(choices[index + 1].textContent).toContain(money(target.notional_usd!))
-      expect(choices[index + 1].textContent).toContain(`还可开 ${money(target.remaining_usd!)}`)
+      expect(choices[index + 1].textContent).toContain('还可开')
+      expect(choices[index + 1].textContent).toContain(money(target.remaining_usd!))
     }
     act(() => choices[3].click())
     expect(choices[3].getAttribute('aria-checked')).toBe('true')
     expect(host.textContent).toContain('仓位 2× · 跌 30% 之后的净值')
+  })
+
+  it('保留下跌前后按 1×、2×、3×、5×、10× 计算的可开仓位', () => {
+    render()
+    const capacity = host.querySelector<HTMLElement>('[data-open-capacity]')!
+    const afterDrop = shock(snapshot, 0.3).available_usd!
+    for (const leverage of [1, 2, 3, 5, 10]) {
+      const column = capacity.querySelector<HTMLElement>(`[data-open-leverage="${leverage}"]`)!
+      expect(column.textContent).toContain(`${leverage}×`)
+      expect(column.textContent).toContain(money(snapshot.futures!.available_balance * leverage))
+      expect(column.textContent).toContain(money(Math.max(0, afterDrop) * leverage))
+    }
+    expect([...capacity.querySelectorAll('dd')]
+      .every((value) => !value.classList.contains('truncate'))).toBe(true)
+  })
+
+  it('没有现有合约仓位时不伪造目标仓位压力结果', () => {
+    render({
+      ...snapshot,
+      futures: { ...snapshot.futures!, positions: [] },
+    })
+    const choices = [...host.querySelectorAll<HTMLButtonElement>('.stress-size-option')]
+    expect(choices[0].disabled).toBe(false)
+    expect(choices.slice(1).every((choice) => choice.disabled)).toBe(true)
+    expect(host.textContent).toContain('当前没有合约仓位，无法推导目标仓位的标的分布')
+  })
+
+  it('仓位规模支持方向键切换，并只保留当前项进入 Tab 顺序', () => {
+    render()
+    let choices = [...host.querySelectorAll<HTMLButtonElement>('.stress-size-option')]
+    expect(choices.map((choice) => choice.tabIndex)).toEqual([0, -1, -1, -1])
+    choices[0].focus()
+    act(() => choices[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })))
+    choices = [...host.querySelectorAll<HTMLButtonElement>('.stress-size-option')]
+    expect(choices[1].getAttribute('aria-checked')).toBe('true')
+    expect(document.activeElement).toBe(choices[1])
+    expect(choices.map((choice) => choice.tabIndex)).toEqual([-1, 0, -1, -1])
   })
 
   it('开发数据有十二个真实量级的标的，前三项合计约占多头的一半', () => {
@@ -154,7 +192,7 @@ describe('敞口分布', () => {
     }
   })
 
-  it('图形高度随容器与标的数量增长，不把十二项固定压进小区域', () => {
+  it('图形高度随标的数量增长，宽屏十二项仍控制在 420px 内', () => {
     width.mockReturnValue(640)
     const compact = [6000, 3000, 1000].map((value, index) => ({
       asset: `ASSET${index}`, spot_usd: value, perp_usd: 0,
@@ -165,7 +203,7 @@ describe('敞口分布', () => {
     render()
     const twelveItemHeight = Number.parseFloat(host.querySelector<HTMLElement>('.allocation-chart')!.style.height)
     expect(twelveItemHeight).toBeGreaterThan(threeItemHeight)
-    expect(twelveItemHeight).toBeLessThanOrEqual(640)
+    expect(twelveItemHeight).toBeLessThanOrEqual(420)
   })
 
   it('选择资产不压暗任何区域，重复点击与 Escape 都能取消选择', () => {
@@ -176,7 +214,7 @@ describe('敞口分布', () => {
       .find((node) => node.textContent?.includes('QQQ'))!
     act(() => button.click())
     expect(button.getAttribute('aria-pressed')).toBe('true')
-    expect(host.querySelectorAll('.allocation-sector-marker')).toHaveLength(1)
+    expect(host.querySelectorAll('.allocation-sector-outline')).toHaveLength(1)
     const center = host.querySelector<HTMLElement>('[data-allocation-center]')!
     expect(center.dataset.centerAsset).toBe('QQQ')
     expect(center.textContent).toContain('$5,500.60')
@@ -263,7 +301,7 @@ describe('敞口分布', () => {
     expect(Number(tile.dataset.end) - Number(tile.dataset.start)).toBeCloseTo(Math.PI * 2, 10)
     expect(tile.getAttribute('aria-label')).toContain('100.00%')
     act(() => tile.dispatchEvent(new MouseEvent('click', { bubbles: true })))
-    expect(host.querySelector('.allocation-sector-marker')!.getAttribute('d')!.match(/ A/g)).toHaveLength(2)
+    expect(host.querySelector('.allocation-sector-outline')!.getAttribute('d')!.match(/ A/g)).toHaveLength(4)
   })
 
   it.each([false, true])('选择图上小额资产只滚动明细容器，减少动态效果=%s', (reduced) => {

@@ -56,7 +56,7 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
 
   return (
     <div
-      className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.9fr)] lg:items-stretch lg:gap-10"
+      className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,1fr)] lg:items-stretch lg:gap-10"
       onKeyDown={(event) => {
         if (event.key === 'Escape') { event.preventDefault(); select(null) }
       }}

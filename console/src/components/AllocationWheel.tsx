@@ -12,7 +12,7 @@ export type { AllocationItem } from '../lib/allocation'
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
 
 function geometry(availableWidth: number, count: number) {
-  const ideal = clamp(380 + Math.min(count, 12) * 18, 380, 596)
+  const ideal = clamp(312 + Math.min(count, 12) * 9, 330, 420)
   const diameter = Math.min(availableWidth, ideal)
   const center = diameter / 2
   const outer = Math.max(1, center - 11)
@@ -72,16 +72,6 @@ function AssetMark({ asset, size }: { asset: string; size: number }) {
       } as CSSProperties}
     >{label}</span>
   )
-}
-
-function arcPath(center: number, radius: number, start: number, end: number) {
-  const point = (angle: number) => `${center + Math.cos(angle) * radius},${center + Math.sin(angle) * radius}`
-  if (end - start >= Math.PI * 2 - 1e-10) {
-    return `M${point(start)} A${radius},${radius} 0 1 1 ${point(start + Math.PI)}`
-      + ` A${radius},${radius} 0 1 1 ${point(end)}`
-  }
-  const large = end - start > Math.PI ? 1 : 0
-  return `M${point(start)} A${radius},${radius} 0 ${large} 1 ${point(end)}`
 }
 
 function SliceLabel({ slice, center, inner, outer, largeScale }: {
@@ -170,7 +160,7 @@ export function AllocationWheel({ items, selected, onSelect }: {
   const toggle = (key: string) => onSelect(selected === key ? null : key)
   return (
     <div
-      className="allocation-chart relative -translate-x-6 w-[calc(100%+48px)] max-w-[680px] sm:mx-auto sm:w-full sm:translate-x-0"
+      className="allocation-chart relative -translate-x-6 w-[calc(100%+48px)] max-w-[480px] sm:mx-auto sm:w-full sm:translate-x-0"
       ref={ref}
       style={{ height: geo.diameter }}
     >
@@ -200,15 +190,14 @@ export function AllocationWheel({ items, selected, onSelect }: {
         {slices.map((slice, index) => {
           const angle = slice.end - slice.start
           const gap = slices.length === 1 ? 0 : Math.min(0.0032, angle * 0.035)
-          const markerInset = slices.length === 1 ? 0
-            : Math.min(0.012, Math.max(0, (angle - gap * 2) * 0.18))
+          const path = ringPath(geo.center, geo.inner, geo.outer, slice.start + gap, slice.end - gap)
           return (
             <g key={slice.key}>
               <path
                 aria-label={`${slice.key}，${money(slice.value)}，${allocationPercent(slice.share)}`}
                 aria-pressed={selected === slice.key}
                 className="allocation-sector"
-                d={ringPath(geo.center, geo.inner, geo.outer, slice.start + gap, slice.end - gap)}
+                d={path}
                 data-end={slice.end}
                 data-selected={selected === slice.key}
                 data-share={slice.share}
@@ -225,15 +214,15 @@ export function AllocationWheel({ items, selected, onSelect }: {
                 role="button"
                 tabIndex={0}
               />
-              <SliceLabel center={geo.center} inner={geo.inner} largeScale={largeScale} outer={geo.outer} slice={slice} />
               {selected === slice.key && (
                 <path
                   aria-hidden="true"
-                  className="allocation-sector-marker"
-                  d={arcPath(geo.center, geo.inner + 7, slice.start + gap + markerInset, slice.end - gap - markerInset)}
+                  className="allocation-sector-outline"
+                  d={path}
                   pathLength={1}
                 />
               )}
+              <SliceLabel center={geo.center} inner={geo.inner} largeScale={largeScale} outer={geo.outer} slice={slice} />
               <title>{`${index + 1}. ${slice.key} ${allocationPercent(slice.share)}`}</title>
             </g>
           )
