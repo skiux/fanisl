@@ -1,16 +1,10 @@
 export type AllocationItem = { key: string; value: number; color: string }
 
-export type AllocationTile = AllocationItem & {
+export type AllocationSlice = AllocationItem & {
   share: number
-  x: number
-  y: number
-  width: number
-  height: number
+  start: number
+  end: number
 }
-
-type WeightedItem = AllocationItem & { area: number; share: number }
-type WeightedTile = WeightedItem & { x: number; y: number; width: number; height: number }
-type Rect = { x: number; y: number; width: number; height: number }
 
 /** 占比不把非零的小额四舍五入成 0%，也不把接近满仓的数提前写成 100%。 */
 export function allocationPercent(share: number) {
@@ -22,84 +16,33 @@ export function allocationPercent(share: number) {
   return `${sign}${(magnitude * 100).toFixed(magnitude < 0.01 || magnitude > 0.999 ? 2 : 1)}%`
 }
 
-function worstAspect(row: WeightedItem[], side: number) {
-  if (row.length === 0 || side <= 0) return Number.POSITIVE_INFINITY
-  const total = row.reduce((sum, item) => sum + item.area, 0)
-  const largest = Math.max(...row.map((item) => item.area))
-  const smallest = Math.min(...row.map((item) => item.area))
-  const sideSquared = side * side
-  const totalSquared = total * total
-  return Math.max(sideSquared * largest / totalSquared, totalSquared / (sideSquared * smallest))
-}
-
-function placeRow(row: WeightedItem[], remaining: Rect): { tiles: WeightedTile[]; rest: Rect } {
-  const area = row.reduce((sum, item) => sum + item.area, 0)
-  if (remaining.width >= remaining.height) {
-    const width = area / remaining.height
-    let y = remaining.y
-    const tiles = row.map((item, index) => {
-      const height = index === row.length - 1 ? remaining.y + remaining.height - y : item.area / width
-      const tile = { ...item, x: remaining.x, y, width, height }
-      y += height
-      return tile
-    })
-    return {
-      tiles,
-      rest: { x: remaining.x + width, y: remaining.y, width: Math.max(0, remaining.width - width), height: remaining.height },
-    }
-  }
-  const height = area / remaining.width
-  let x = remaining.x
-  const tiles = row.map((item, index) => {
-    const width = index === row.length - 1 ? remaining.x + remaining.width - x : item.area / height
-    const tile = { ...item, x, y: remaining.y, width, height }
-    x += width
-    return tile
-  })
-  return {
-    tiles,
-    rest: { x: remaining.x, y: remaining.y + height, width: remaining.width, height: Math.max(0, remaining.height - height) },
-  }
-}
-
-/**
- * 用面积而不是扇区角度表达多头占比。Squarified treemap 会尽量得到接近方形的区域，
- * 让窄屏上的小仓位仍有空间同时显示 logo、代码、金额和占比。
- */
-export function allocationTiles(items: AllocationItem[], width: number, height: number): AllocationTile[] {
+/** 扇区从十二点开始，按金额降序顺时针排列；最后一块强制闭合，避免浮点缝隙。 */
+export function allocationSlices(items: AllocationItem[]): AllocationSlice[] {
   const valid = items.filter((item) => Number.isFinite(item.value) && item.value > 0)
     .sort((a, b) => b.value - a.value || a.key.localeCompare(b.key))
   const total = valid.reduce((sum, item) => sum + item.value, 0)
-  if (total <= 0 || width <= 0 || height <= 0) return []
-  const weighted: WeightedItem[] = valid.map((item) => ({
-    ...item,
-    share: item.value / total,
-    area: item.value / total * width * height,
-  }))
-  const tiles: WeightedTile[] = []
-  let remaining: Rect = { x: 0, y: 0, width, height }
-  let row: WeightedItem[] = []
-  while (weighted.length > 0) {
-    const next = weighted[0]
-    const side = Math.min(remaining.width, remaining.height)
-    if (row.length === 0 || worstAspect([...row, next], side) <= worstAspect(row, side)) {
-      row.push(weighted.shift()!)
-      continue
-    }
-    const placed = placeRow(row, remaining)
-    tiles.push(...placed.tiles)
-    remaining = placed.rest
-    row = []
+  if (total <= 0) return []
+  let cursor = -Math.PI / 2
+  return valid.map((item, index) => {
+    const share = item.value / total
+    const start = cursor
+    cursor = index === valid.length - 1 ? Math.PI * 1.5 : cursor + share * Math.PI * 2
+    return { ...item, share, start, end: cursor }
+  })
+}
+
+const point = (center: number, radius: number, angle: number) =>
+  `${center + Math.cos(angle) * radius},${center + Math.sin(angle) * radius}`
+
+/** 满圈分成两个半圆，避免 SVG 把重合的起终点当成空路径。 */
+export function ringPath(center: number, inner: number, outer: number, start: number, end: number) {
+  if (end - start >= Math.PI * 2 - 1e-10) {
+    return `M${point(center, outer, start)} A${outer},${outer} 0 1 1 ${point(center, outer, start + Math.PI)}`
+      + ` A${outer},${outer} 0 1 1 ${point(center, outer, end)} Z`
+      + ` M${point(center, inner, start)} A${inner},${inner} 0 1 0 ${point(center, inner, start + Math.PI)}`
+      + ` A${inner},${inner} 0 1 0 ${point(center, inner, end)} Z`
   }
-  if (row.length > 0) tiles.push(...placeRow(row, remaining).tiles)
-  return tiles.map((tile) => ({
-    key: tile.key,
-    value: tile.value,
-    color: tile.color,
-    share: tile.share,
-    x: tile.x,
-    y: tile.y,
-    width: tile.width,
-    height: tile.height,
-  }))
+  const large = end - start > Math.PI ? 1 : 0
+  return `M${point(center, outer, start)} A${outer},${outer} 0 ${large} 1 ${point(center, outer, end)}`
+    + ` L${point(center, inner, end)} A${inner},${inner} 0 ${large} 0 ${point(center, inner, start)} Z`
 }

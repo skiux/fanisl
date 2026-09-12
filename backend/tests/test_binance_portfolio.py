@@ -107,6 +107,12 @@ def test_futures_positions_pull_mark_and_liq_from_position_risk(cache):
     assert nvda["liq_distance"] == pytest.approx((218.42 - 152.84) / 218.42)
     assert nvda["adl_quantile"] == 1
     assert nvda["position_amt"] == 38
+    assert nvda["maintenance_brackets"] == [
+        {"notional_floor_usd": 0.0, "notional_cap_usd": 15000.0,
+         "maint_margin_rate": 0.02, "maint_amount_usd": 0.0},
+        {"notional_floor_usd": 15000.0, "notional_cap_usd": 75000.0,
+         "maint_margin_rate": 0.025, "maint_amount_usd": 75.0},
+    ]
 
 
 def test_no_liquidation_price_means_no_distance(cache):

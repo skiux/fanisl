@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { AllocationMap, Swatch } from '../../components/AllocationMap'
+import { AllocationWheel, Swatch } from '../../components/AllocationWheel'
 import { Ticker } from '../../components/Ticker'
 import { cn } from '../../lib/cn'
 import { allocationPercent } from '../../lib/allocation'
@@ -15,7 +15,7 @@ function assetColor(asset: string) {
 
 const smallMoney = (value: number) => value > 0 && value < 0.005 ? '<$0.01' : money(value)
 
-/** 面积图展示多头构成；列表同时保留净敞口及其占净值比例，分母分别标明。 */
+/** 持仓轮展示多头构成；列表同时保留净敞口及其占净值比例，分母分别标明。 */
 export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
   const [selection, setSelection] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -47,7 +47,7 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
     const box = list.getBoundingClientRect()
     const item = row.getBoundingClientRect()
     if (item.top >= box.top && item.bottom <= box.bottom) return
-    // 只滚动明细容器；scrollIntoView 会同时拖动外层页面和左侧面积图。
+    // 只滚动明细容器；scrollIntoView 会同时拖动外层页面和左侧持仓轮。
     list.scrollTo({
       top: list.scrollTop + item.top - box.top - (list.clientHeight - item.height) / 2,
       behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
@@ -74,7 +74,7 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
             onClick={() => select(null)} type="button"
           >查看全部</button>
         </div>
-        <AllocationMap
+        <AllocationWheel
           items={slices}
           onSelect={selectFromChart}
           selected={selected?.asset ?? null}

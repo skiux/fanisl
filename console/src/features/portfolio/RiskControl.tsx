@@ -7,13 +7,13 @@ import {
   money, percent, signedMoney, signedPercent,
 } from '../../lib/format'
 import { cash, exposures } from '../../lib/holdings'
-import { breakingDrop, resize, shock } from '../../lib/stress'
+import {
+  breakingDrop, positionSize, positionTarget, resize, shock,
+} from '../../lib/stress'
 import { marginRatioRisk, riskBar, riskText } from '../../lib/risk'
 import type { PortfolioSnapshot } from '../../api/types'
 
 const DROPS = { '10': 0.1, '20': 0.2, '30': 0.3, '50': 0.5 } as const
-const LEVERAGES = { '1': 1, '2': 2, '3': 3, '5': 5, '10': 10 } as const
-
 /**
  * 压力测试用的仓位规模。`now` = 现在这套仓位；其余是"**如果把仓位开到 N 倍
  * 真实杠杆**"——按现价重新建仓（见 `stress.resize`），再往下跌。
@@ -44,7 +44,6 @@ export function RiskControlView({ snapshot, veiled }: {
   veiled: boolean
 }) {
   const [drop, setDrop] = useState<keyof typeof DROPS>('30')
-  const [lever, setLever] = useState<keyof typeof LEVERAGES>('3')
   const equity = snapshot.totals?.equity_usd ?? 0
   const rows = useMemo(() => exposures(snapshot, equity), [snapshot, equity])
   const cashRows = useMemo(() => cash(snapshot), [snapshot])
@@ -67,9 +66,26 @@ export function RiskControlView({ snapshot, veiled }: {
   const hit = useMemo(() => shock(staged, DROPS[drop]), [staged, drop])
   const edge = useMemo(() => breakingDrop(snapshot), [snapshot])
   const edgeWithCash = useMemo(() => breakingDrop(snapshot, spare), [snapshot, spare])
+  const currentPosition = useMemo(() => positionSize(snapshot), [snapshot])
+  const sizeOptions = useMemo(() => ([
+    {
+      key: 'now' as SizeKey,
+      label: '现在',
+      notional: currentPosition,
+      difference: null,
+    },
+    ...(['1', '1.5', '2'] as const).map((key) => {
+      const target = positionTarget(snapshot, SIZES[key])
+      return {
+        key,
+        label: `${key}×`,
+        notional: target.notional_usd,
+        difference: target.remaining_usd,
+      }
+    }),
+  ]), [snapshot, currentPosition])
 
   const netExposure = rows.reduce((sum, row) => sum + row.net_usd, 0)
-  const multiplier = LEVERAGES[lever]
 
   if (snapshot.futures === null && rows.length === 0) {
     return (
@@ -108,21 +124,42 @@ export function RiskControlView({ snapshot, veiled }: {
           title="压力测试"
           tone={hit.liquidated.length > 0 ? 'loss' : undefined}
         >
-          <div className="mb-5 flex flex-col gap-2.5">
-            <div className="flex items-center gap-3">
-              <span className="w-[40px] shrink-0 text-xs text-ink-2">仓位</span>
-              <SegmentedControl
-                items={[
-                  { value: 'now' as SizeKey, label: '现在' },
-                  ...(['1', '1.5', '2'] as SizeKey[]).map((k) => ({ value: k, label: `${k}×` })),
-                ]}
-                label="仓位规模"
-                onValueChange={setSize}
-                size="sm"
-                value={size}
-              />
+          <div className="mb-5">
+            <div className="mb-2.5 flex items-baseline justify-between gap-4">
+              <span className="text-xs text-ink-2">合约总仓位</span>
+              <span className="text-[11px] text-ink-3">倍数以账户净值为基准</span>
             </div>
-            <div className="flex items-center gap-3">
+            <div aria-label="仓位规模" className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup">
+              {sizeOptions.map((option) => {
+                const on = size === option.key
+                const difference = option.difference
+                return (
+                  <button
+                    aria-checked={on}
+                    className="stress-size-option min-w-0 rounded-xl border border-rule px-3 py-3 text-left"
+                    data-selected={on}
+                    key={option.key}
+                    onClick={() => setSize(option.key)}
+                    role="radio"
+                    type="button"
+                  >
+                    <span className="flex items-center justify-between gap-2 text-xs text-ink-2">
+                      {option.label}
+                      <span aria-hidden="true" className="stress-size-dot size-1.5 rounded-full bg-ink" />
+                    </span>
+                    <span className="tnum mt-2 block truncate text-[15px] font-medium tracking-tight" title={option.notional === null ? undefined : money(option.notional)}>
+                      {option.notional === null ? '—' : money(option.notional)}
+                    </span>
+                    <span className="tnum mt-1.5 block truncate text-[11px] text-ink-3" title={difference === null ? undefined : money(Math.abs(difference))}>
+                      {difference === null
+                        ? (equity > 0 && currentPosition !== null ? `${(currentPosition / equity).toFixed(2)}× 净值` : '当前基准')
+                        : difference >= 0 ? `还可开 ${money(difference)}` : `已超出 ${money(-difference)}`}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="mt-3 flex items-center gap-3">
               <span className="w-[40px] shrink-0 text-xs text-ink-2">下跌</span>
               <SegmentedControl
                 items={(Object.keys(DROPS) as (keyof typeof DROPS)[])
@@ -162,61 +199,26 @@ export function RiskControlView({ snapshot, veiled }: {
           </dl>
 
           {hit.margin_ratio !== null && (
-            <div className="mt-5 flex items-center gap-3">
-              <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-rule">
-                <span
-                  // 条不做宽度过渡：数字是立刻变的，条却滑上大半秒，两者对不上
-                  className={cn('block h-full rounded-full',
-                    riskBar(marginRatioRisk(hit.margin_ratio).tone))}
-                  style={{ width: `${Math.min(100, hit.margin_ratio * 100).toFixed(1)}%` }}
-                />
-              </span>
-              <span className={cn('tnum shrink-0 text-xs',
-                riskText(marginRatioRisk(hit.margin_ratio).tone))}>
-                {percent(hit.margin_ratio, 1)}
-              </span>
+            <div className="mt-5">
+              <div className="flex items-center gap-3">
+                <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-rule">
+                  <span
+                    // 条不做宽度过渡：数字是立刻变的，条却滑上大半秒，两者对不上
+                    className={cn('block h-full rounded-full',
+                      riskBar(marginRatioRisk(hit.margin_ratio).tone))}
+                    style={{ width: `${Math.min(100, hit.margin_ratio * 100).toFixed(1)}%` }}
+                  />
+                </span>
+                <span className={cn('tnum shrink-0 text-xs',
+                  riskText(marginRatioRisk(hit.margin_ratio).tone))}>
+                  {percent(hit.margin_ratio, 1)}
+                </span>
+              </div>
+              <p className="mt-2 text-[11px] text-ink-3">
+                维持保证金 ÷ 保证金余额 · {hit.margin_ratio_estimated ? '按当前有效比率估算' : '逐标的按档位重算'}
+              </p>
             </div>
           )}
-
-          {/* 「以 N× 杠杆还能开多少」原本是独立一块，可它读的就是上面那个
-              「可用余额」——同一个压力情形的两种问法，分开摆等于把一次判断
-              拆成两块，右边还多出一个杠杆开关。并进来之后这一节自成一段。 */}
-          <div className="mt-6 border-t border-rule pt-5">
-            <div className="mb-4 flex items-baseline justify-between gap-4">
-              <span className="text-sm text-ink-2">
-                可开仓位 <span className="text-xs text-ink-3">以这个杠杆还能开多少</span>
-              </span>
-              <span className="tnum text-sm text-ink">{multiplier}×</span>
-            </div>
-          <div className="mb-5">
-            <SegmentedControl
-              items={(Object.keys(LEVERAGES) as (keyof typeof LEVERAGES)[])
-                .map((k) => ({ value: k, label: `${k}×` }))}
-              label="杠杆"
-              onValueChange={setLever}
-              size="sm"
-              value={lever}
-            />
-          </div>
-          <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-            <Figure
-              label="现在"
-              value={snapshot.futures === null ? '—'
-                : money(Math.max(0, snapshot.futures.available_balance) * multiplier)}
-            />
-            <Figure
-              label={`跌 ${drop}% 之后`}
-              tone="loss"
-              value={hit.available_usd === null ? '—'
-                : money(Math.max(0, hit.available_usd) * multiplier)}
-            />
-            <Figure
-              label="可用余额"
-              value={snapshot.futures === null ? '—' : money(snapshot.futures.available_balance)}
-            />
-            <Figure label="现货现金" value={money(spare)} />
-          </dl>
-          </div>
 
           {hit.liquidated.length > 0 && (
             <ul className="mt-5 flex flex-wrap gap-2 border-t border-rule pt-4">
@@ -289,5 +291,4 @@ export function RiskControlView({ snapshot, veiled }: {
     </div>
   )
 }
-
 

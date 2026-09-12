@@ -73,6 +73,14 @@ export type SpotAsset = {
 
 export type PositionSide = 'long' | 'short' | 'both'
 
+export type MaintenanceBracket = {
+  notional_floor_usd: number
+  notional_cap_usd: number | null
+  maint_margin_rate: number
+  /** Binance 档位公式里的 cum：维持保证金 = 名义金额 × rate − cum。 */
+  maint_amount_usd: number
+}
+
 export type FuturesPosition = {
   symbol: string
   /** 双向持仓模式下同一 symbol 会有 LONG 与 SHORT 两条 */
@@ -89,6 +97,8 @@ export type FuturesPosition = {
   unrealized_pnl_usd: number
   initial_margin_usd: number
   maint_margin_usd: number
+  /** leverageBracket 的完整档位，压力测试跨档放大仓位时据此重算维持保证金。 */
+  maintenance_brackets: MaintenanceBracket[]
   /** 自动减仓排队分位 0–4，越高越先被减仓；取不到为 null */
   adl_quantile: number | null
 }

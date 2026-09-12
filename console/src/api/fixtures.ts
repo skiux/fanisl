@@ -110,6 +110,12 @@ export const positions: FuturesPosition[] = RAW_POSITIONS.map((row) => {
     unrealized_pnl_usd: (mark - row.entry_price) * row.position_amt,
     initial_margin_usd: notional / row.leverage,
     maint_margin_usd: notional * row.mmr,
+    maintenance_brackets: [{
+      notional_floor_usd: 0,
+      notional_cap_usd: null,
+      maint_margin_rate: row.mmr,
+      maint_amount_usd: 0,
+    }],
     adl_quantile: row.adl_quantile,
   }
 })

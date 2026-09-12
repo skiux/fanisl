@@ -124,6 +124,7 @@ IP 权重上限 **6000/分钟**。而：
 | `income` 里的 `TRANSFER` 不是损益 | 混进去净值仍对得上、盈亏全错 |
 | 策略单端点在 **sapi** 上，不在 fapi | fapi 451 时它照常可取——不是矛盾，是两个域名 |
 | `marginLevel` 无负债时返回 999 哨兵 | 照搬会显示成荒谬的风险率 |
+| `leverageBracket.notionalCoef` 只在账户档位被单独调整时出现 | 档位上下界与 `cum` 都要同倍缩放，否则压力测试跨错档 |
 
 ## 现金只有一份名单（`common.STABLE_ASSETS`）
 
@@ -369,6 +370,7 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | | `GET /fapi/v1/accountConfig` | 5 † | 30s | 双向持仓 / 联合保证金 |
 | | `GET /fapi/v2/positionRisk` | 5 | 30s | **标记价与强平价只有这里有** |
 | | `GET /fapi/v1/adlQuantile` | 5 | 30s | 自动减仓队列 |
+| | `GET /fapi/v1/leverageBracket` | 1 | 24h | 维持保证金分档；重新取数不穿透 |
 | `earn` | `GET /sapi/v1/simple-earn/flexible/position` | 150 | 300s | UID 限速 |
 | | `GET /sapi/v1/simple-earn/locked/position` | 150 | 300s | UID 限速 |
 | `margin` | `GET /sapi/v1/margin/account` | 10 | 60s | 全仓杠杆 |
@@ -397,7 +399,7 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 日快照（`accountSnapshot`，单次权重 2400）**已经不用了**：它只覆盖现货 / 全仓杠杆 /
 U 本位三种，理财、资金、币本位没有历史快照，拿它算盈亏会把钱包间划转算成损益。
 
-一次完整取数：SPOT 池约 **18 300**（提现一项就占 18 000），FAPI 池约 **50**。
+一次完整取数：SPOT 池约 **18 300**（提现一项就占 18 000），FAPI 池约 **51**。
 `withdrawals` 列在 `NEVER_FORCE` 里——"重新取数"穿不透它。
 
 ### 委托页 `/orders`

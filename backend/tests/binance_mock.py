@@ -133,13 +133,24 @@ FUT_CONFIG = {"dualSidePosition": False, "multiAssetsMargin": False, "feeTier": 
 FUT_RISK = [
     {"symbol": "NVDAUSDT", "positionSide": "BOTH", "markPrice": "218.42",
      "liquidationPrice": "152.84", "positionAmt": "38"},
-    # QQQ 没有强平价（全仓余额充足时 Binance 返回 "0"）→ 距强平走 bracket 兜底
+    # QQQ 没有强平价（全仓余额充足时 Binance 返回 "0"）→ 距强平留空
     {"symbol": "QQQUSDT", "positionSide": "BOTH", "markPrice": "618.74",
      "liquidationPrice": "0", "positionAmt": "14"},
 ]
 FUT_ADL = [{"symbol": "NVDAUSDT", "adlQuantile": {"BOTH": 1}},
            {"symbol": "QQQUSDT", "adlQuantile": {"BOTH": 2}}]
-BRACKETS = [{"symbol": "QQQUSDT", "brackets": [{"bracket": 1, "maintMarginRatio": 0.02}]}]
+BRACKETS = [
+    {"symbol": "NVDAUSDT", "notionalCoef": "1.5", "brackets": [
+        {"bracket": 1, "notionalFloor": "0", "notionalCap": "10000",
+         "maintMarginRatio": "0.02", "cum": "0"},
+        {"bracket": 2, "notionalFloor": "10000", "notionalCap": "50000",
+         "maintMarginRatio": "0.025", "cum": "50"},
+    ]},
+    {"symbol": "QQQUSDT", "brackets": [
+        {"bracket": 1, "notionalFloor": "0", "notionalCap": "50000",
+         "maintMarginRatio": "0.02", "cum": "0"},
+    ]},
+]
 
 EARN_FLEX = {"total": 1, "rows": [
     {"productId": "USDT001", "asset": "USDT", "totalAmount": "6500",

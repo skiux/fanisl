@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildSnapshot } from '../api/fixtures'
-import { breakingDrop, shock } from './stress'
+import { breakingDrop, positionSize, positionTarget, resize, shock } from './stress'
 
 const snap = buildSnapshot(new Date('2026-09-08T12:00:00Z'))
 
@@ -21,6 +21,25 @@ describe('shock', () => {
       .toBeCloseTo(f.total_maint_margin * 0.7 / hit.margin_balance!, 6)
   })
 
+  it('零冲击严格锚定交易所的账户总额与可用余额', () => {
+    const anchored = {
+      ...snap,
+      futures: {
+        ...snap.futures!,
+        total_margin_balance: snap.futures!.total_margin_balance + 17,
+        total_maint_margin: snap.futures!.total_maint_margin + 3,
+        total_initial_margin: snap.futures!.total_initial_margin + 11,
+        available_balance: snap.futures!.available_balance + 6,
+      },
+    }
+    const hit = shock(anchored, 0)
+    expect(hit.margin_balance).toBeCloseTo(anchored.futures.total_margin_balance, 8)
+    expect(hit.margin_ratio).toBeCloseTo(
+      anchored.futures.total_maint_margin / anchored.futures.total_margin_balance, 8,
+    )
+    expect(hit.available_usd).toBeCloseTo(anchored.futures.available_balance, 8)
+  })
+
   it('跌得越狠净值越低、保证金率越高', () => {
     const mild = shock(snap, 0.1)
     const harsh = shock(snap, 0.4)
@@ -35,6 +54,48 @@ describe('shock', () => {
     const cross = new Set(snap.futures!.positions
       .filter((p) => !p.isolated).map((p) => p.symbol))
     expect(shock(snap, 0.5).liquidated.filter((s) => cross.has(s))).toEqual([])
+  })
+})
+
+describe('仓位目标', () => {
+  it('现在是合约名义金额绝对值之和，目标倍数以账户净值为分母', () => {
+    const current = snap.futures!.positions.reduce((sum, position) =>
+      sum + Math.abs(position.notional_usd), 0)
+    expect(positionSize(snap)).toBeCloseTo(current, 8)
+    const target = positionTarget(snap, 1.5)
+    expect(target.notional_usd).toBeCloseTo(snap.totals!.equity_usd * 1.5, 8)
+    expect(target.remaining_usd).toBeCloseTo(target.notional_usd! - current, 8)
+  })
+
+  it('调整到 N× 后的总仓位与总览真实杠杆完全一致', () => {
+    const staged = resize(snap, 2)
+    expect(positionSize(staged)).toBeCloseTo(snap.totals!.equity_usd * 2, 6)
+    expect(staged.totals!.gross_exposure_ratio).toBe(2)
+  })
+
+  it('放大仓位跨档时按 rate × notional − cum 重算维持保证金', () => {
+    const only = snap.futures!.positions[0]
+    const one = {
+      ...snap,
+      futures: {
+        ...snap.futures!,
+        positions: [{
+          ...only,
+          notional_usd: 8_000,
+          maint_margin_usd: 160,
+          maintenance_brackets: [
+            { notional_floor_usd: 0, notional_cap_usd: 10_000, maint_margin_rate: 0.02, maint_amount_usd: 0 },
+            { notional_floor_usd: 10_000, notional_cap_usd: null, maint_margin_rate: 0.025, maint_amount_usd: 50 },
+          ],
+        }],
+        total_maint_margin: 160,
+        total_initial_margin: only.initial_margin_usd,
+      },
+      totals: { ...snap.totals!, equity_usd: 20_000 },
+    }
+    const staged = resize(one, 1)
+    expect(staged.futures!.positions[0].notional_usd).toBeCloseTo(20_000, 8)
+    expect(staged.futures!.total_maint_margin).toBeCloseTo(20_000 * 0.025 - 50, 8)
   })
 })
 

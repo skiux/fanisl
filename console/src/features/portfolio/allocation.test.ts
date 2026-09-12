@@ -3,6 +3,8 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildSnapshot } from '../../api/fixtures'
 import { exposures } from '../../lib/holdings'
+import { money } from '../../lib/format'
+import { positionSize, positionTarget } from '../../lib/stress'
 import { RiskControlView } from './RiskControl'
 import { ExposureDistribution } from './ExposureDistribution'
 
@@ -38,6 +40,21 @@ function render(data = snapshot) {
 }
 
 describe('敞口分布', () => {
+  it('压力测试同时给出现在与 1×、1.5×、2× 的总仓位和相对当前增量', () => {
+    render()
+    const choices = [...host.querySelectorAll<HTMLElement>('.stress-size-option')]
+    expect(choices).toHaveLength(4)
+    expect(choices[0].textContent).toContain(money(positionSize(snapshot)!))
+    for (const [index, leverage] of [1, 1.5, 2].entries()) {
+      const target = positionTarget(snapshot, leverage)
+      expect(choices[index + 1].textContent).toContain(money(target.notional_usd!))
+      expect(choices[index + 1].textContent).toContain(`还可开 ${money(target.remaining_usd!)}`)
+    }
+    act(() => choices[3].click())
+    expect(choices[3].getAttribute('aria-checked')).toBe('true')
+    expect(host.textContent).toContain('仓位 2× · 跌 30% 之后的净值')
+  })
+
   it('开发数据有十二个真实量级的标的，前三项合计约占多头的一半', () => {
     const rows = exposures(snapshot, snapshot.totals!.equity_usd)
       .map((row) => Math.max(0, (row.gross_usd + row.net_usd) / 2))
@@ -69,37 +86,28 @@ describe('敞口分布', () => {
       expect(label.textContent).toMatch(/\$/)
       expect(label.textContent).toMatch(/%/)
     }
+    // 正常样例最小仓位约 3.3%。信息沿半径排成两行后，移动端不应再退化成 5px 字。
+    expect(Math.min(...labels.map((label) => Number(label.dataset.labelFontSize)))).toBeGreaterThan(6.5)
   })
 
-  it.each([254, 340])('%ipx 下仓位极度集中时所有区域仍在图内且互不覆盖', (chartWidth) => {
+  it.each([254, 340])('%ipx 下仓位极度集中时所有扇区仍连续闭合且保留标签', (chartWidth) => {
     width.mockReturnValue(chartWidth)
     const values = [9850, 100, 25, 12, 6, 4, 2, 0.9, 0.1]
     act(() => root.render(createElement(ExposureDistribution, { rows: values.map((value, index) => ({
       asset: `ASSET${index}`, spot_usd: value, perp_usd: 0,
       net_usd: value, gross_usd: value, share: value / 10_000,
     })) })))
-    const map = host.querySelector<HTMLElement>('.allocation-map')!
-    const mapWidth = Number.parseFloat(map.style.width)
-    const mapHeight = Number.parseFloat(map.style.height)
-    const tiles = [...host.querySelectorAll<HTMLElement>('[data-slice]')].map((node) => ({
-      x: Number(node.dataset.tileX), y: Number(node.dataset.tileY),
-      width: Number(node.dataset.tileWidth), height: Number(node.dataset.tileHeight),
+    const wheel = host.querySelector<HTMLElement>('.allocation-wheel')!
+    const sectors = [...host.querySelectorAll<HTMLElement>('[data-slice]')].map((node) => ({
+      start: Number(node.dataset.start), end: Number(node.dataset.end),
     }))
-    expect(tiles).toHaveLength(values.length)
+    expect(Number(wheel.dataset.diameter)).toBe(chartWidth)
+    expect(sectors).toHaveLength(values.length)
     expect(host.querySelectorAll('[data-chart-label]')).toHaveLength(values.length)
-    for (let first = 0; first < tiles.length; first += 1) {
-      const tile = tiles[first]
-      expect(tile.x).toBeGreaterThanOrEqual(0)
-      expect(tile.y).toBeGreaterThanOrEqual(0)
-      expect(tile.x + tile.width).toBeLessThanOrEqual(mapWidth + 1e-8)
-      expect(tile.y + tile.height).toBeLessThanOrEqual(mapHeight + 1e-8)
-      for (let second = first + 1; second < tiles.length; second += 1) {
-        const other = tiles[second]
-        expect(tile.x + tile.width <= other.x + 1e-8
-          || other.x + other.width <= tile.x + 1e-8
-          || tile.y + tile.height <= other.y + 1e-8
-          || other.y + other.height <= tile.y + 1e-8).toBe(true)
-      }
+    expect(sectors[0].start).toBeCloseTo(-Math.PI / 2, 10)
+    expect(sectors.at(-1)!.end).toBeCloseTo(Math.PI * 1.5, 10)
+    for (let index = 1; index < sectors.length; index += 1) {
+      expect(sectors[index].start).toBeCloseTo(sectors[index - 1].end, 10)
     }
   })
 
@@ -115,7 +123,7 @@ describe('敞口分布', () => {
     expect(host.textContent).not.toContain('其他')
   })
 
-  it('宽屏面积图为十二个区域逐一显示 logo、代码、金额和占比', () => {
+  it('宽屏圆形图为十二个仓位逐一显示 logo、代码、金额和占比', () => {
     width.mockReturnValue(640)
     render()
     const labels = [...host.querySelectorAll<HTMLElement>('[data-chart-label]')]
@@ -124,8 +132,7 @@ describe('敞口分布', () => {
       expect(label.querySelector('img, [data-fallback-mark]')).not.toBeNull()
       expect(label.textContent).toMatch(/\$/)
       expect(label.textContent).toMatch(/%/)
-      expect(label.closest<HTMLElement>('[data-slice]')?.dataset.tileWidth).toBeDefined()
-      expect(label.closest<HTMLElement>('[data-slice]')?.dataset.tileHeight).toBeDefined()
+      expect(host.querySelector(`[data-slice="${label.dataset.chartLabel}"]`)?.getAttribute('data-share')).not.toBeNull()
     }
   })
 
@@ -161,6 +168,7 @@ describe('敞口分布', () => {
       .find((node) => node.textContent?.includes('QQQ'))!
     act(() => button.click())
     expect(button.getAttribute('aria-pressed')).toBe('true')
+    expect(host.querySelectorAll('.allocation-sector-marker')).toHaveLength(1)
     for (const tile of host.querySelectorAll<HTMLElement>('[data-slice]')) {
       expect(tile.style.background).toBe(original.get(tile.dataset.slice)!.background)
       expect(tile.style.opacity).toBe(original.get(tile.dataset.slice)!.opacity)
@@ -219,12 +227,7 @@ describe('敞口分布', () => {
     const tiny = { asset: 'LUNC', spot_usd: 0.001, perp_usd: 0, net_usd: 0.001, gross_usd: 0.001, share: 0.00001 }
     act(() => root.render(createElement(ExposureDistribution, { rows: [large, tiny] })))
     const tinyTile = host.querySelector<HTMLElement>('[data-slice="LUNC"]')!
-    const map = host.querySelector<HTMLElement>('.allocation-map')!
-    expect(Number.parseFloat(tinyTile.style.top) + Number.parseFloat(tinyTile.style.height))
-      .toBeLessThanOrEqual(Number.parseFloat(map.style.height) + 1e-8)
-    expect(Number.parseFloat(tinyTile.style.left) + Number.parseFloat(tinyTile.style.width))
-      .toBeLessThanOrEqual(Number.parseFloat(map.style.width) + 1e-8)
-    expect(Number.parseFloat(tinyTile.style.padding) * 2).toBeLessThanOrEqual(Number.parseFloat(tinyTile.style.height))
+    expect(Number(tinyTile.dataset.end) - Number(tinyTile.dataset.start)).toBeGreaterThan(0)
     const button = [...host.querySelectorAll('button')].find((node) => node.textContent?.includes('LUNC'))!
     act(() => button.click())
     expect(host.querySelector('[aria-live="polite"]')!.textContent).toContain('<0.01%')
@@ -233,20 +236,20 @@ describe('敞口分布', () => {
     expect(host.querySelector('[aria-pressed="true"][data-slice]')).toBeNull()
   })
 
-  it('键盘可以逐区域移动并选择，单资产占满整张面积图', () => {
+  it('键盘可以逐区域移动并选择，单资产占满整张持仓轮', () => {
     render()
     const sectors = [...host.querySelectorAll<HTMLButtonElement>('[data-slice]')]
     act(() => sectors[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })))
     expect(document.activeElement).toBe(sectors[1])
-    act(() => sectors[1].click())
+    act(() => sectors[1].dispatchEvent(new MouseEvent('click', { bubbles: true })))
     expect(sectors[1].getAttribute('aria-pressed')).toBe('true')
     const rows = [{ asset: 'BTC', spot_usd: 100, perp_usd: 0, net_usd: 100, gross_usd: 100, share: 1 }]
     act(() => root.render(createElement(ExposureDistribution, { rows })))
     const tile = host.querySelector<HTMLElement>('[data-slice]')!
-    const map = host.querySelector<HTMLElement>('.allocation-map')!
-    expect(Number(tile.dataset.tileWidth)).toBe(Number.parseFloat(map.style.width))
-    expect(Number(tile.dataset.tileHeight)).toBe(Number.parseFloat(map.style.height))
+    expect(Number(tile.dataset.end) - Number(tile.dataset.start)).toBeCloseTo(Math.PI * 2, 10)
     expect(tile.getAttribute('aria-label')).toContain('100.00%')
+    act(() => tile.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    expect(host.querySelector('.allocation-sector-marker')!.getAttribute('d')!.match(/ A/g)).toHaveLength(2)
   })
 
   it.each([false, true])('选择图上小额资产只滚动明细容器，减少动态效果=%s', (reduced) => {
@@ -277,18 +280,18 @@ describe('敞口分布', () => {
 
   it('快速改选只切换边界状态，不改变任何区域的颜色和几何', () => {
     render()
-    const before = new Map([...host.querySelectorAll<HTMLElement>('[data-slice]')].map((tile) => [
-      tile.dataset.slice,
-      [tile.style.left, tile.style.top, tile.style.width, tile.style.height, tile.style.background],
+    const before = new Map([...host.querySelectorAll<SVGPathElement>('[data-slice]')].map((sector) => [
+      sector.dataset.slice,
+      [sector.getAttribute('d'), sector.getAttribute('fill')],
     ]))
     for (const asset of ['NVDA', 'BNB']) {
       act(() => host.querySelector(`[data-slice="${asset}"]`)!.dispatchEvent(new MouseEvent('click', { bubbles: true })))
     }
     expect(host.querySelector('[data-slice="NVDA"]')!.getAttribute('data-selected')).toBe('false')
     expect(host.querySelector('[data-slice="BNB"]')!.getAttribute('data-selected')).toBe('true')
-    for (const tile of host.querySelectorAll<HTMLElement>('[data-slice]')) {
-      expect([tile.style.left, tile.style.top, tile.style.width, tile.style.height, tile.style.background])
-        .toEqual(before.get(tile.dataset.slice))
+    for (const sector of host.querySelectorAll<SVGPathElement>('[data-slice]')) {
+      expect([sector.getAttribute('d'), sector.getAttribute('fill')])
+        .toEqual(before.get(sector.dataset.slice))
     }
   })
 })

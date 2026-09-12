@@ -40,6 +40,7 @@ TTL = {
     "wallets": 60,
     "spot": 60,
     "futures": 30,
+    "brackets": 86_400,
     "earn": 300,
     "margin": 60,
     "income": 300,
@@ -171,6 +172,7 @@ def _jobs(client: BinanceClient, now: datetime) -> list[tuple[str, int, Callable
         ("futures.config", TTL["futures"], client.futures_account_config),
         ("futures.risk", TTL["futures"], client.futures_position_risk),
         ("futures.adl", TTL["futures"], client.futures_adl_quantile),
+        ("futures.brackets", TTL["brackets"], client.leverage_brackets),
         ("earn.flexible", TTL["earn"], client.earn_flexible_positions),
         ("earn.locked", TTL["earn"], client.earn_locked_positions),
         ("margin", TTL["margin"], client.margin_account),
@@ -197,14 +199,15 @@ LIVE_CADENCE = frozenset({"prices", "wallets", "spot", "futures", "earn", "margi
 # 贵到不该被"重新取数"穿透的来源。提现历史单次权重 18000（账户维度 10 次/秒），
 # 是所有端点里最贵的；成交历史要按 id 翻页，页数随成交笔数增长，而它只增不改，
 # 强刷没有意义。用户连点几下就能把权重预算打空，然后所有页面一起 429。
-NEVER_FORCE = frozenset({"transfers.withdrawals"})
+NEVER_FORCE = frozenset({"futures.brackets", "transfers.withdrawals"})
 
 # 契约里的八个来源，各自由哪些子调用支撑。primary 决定状态，extra 只在失败时补一句说明。
 _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
     "prices": ("prices", ()),
     "wallets": ("wallets", ()),
     "spot": ("spot", ()),
-    "futures": ("futures.account", ("futures.config", "futures.risk", "futures.adl")),
+    "futures": ("futures.account", ("futures.config", "futures.risk", "futures.adl",
+                                      "futures.brackets")),
     "earn": ("earn.flexible", ("earn.locked",)),
     "margin": ("margin", ()),
     "income": ("income", ()),
@@ -274,7 +277,7 @@ def _spot(rows: Any, prices: dict[str, float]) -> list[dict]:
     return out
 
 
-def _futures(account: Any, config: Any, risk: Any, adl: Any,
+def _futures(account: Any, config: Any, risk: Any, adl: Any, brackets: Any,
              prices: dict[str, float] | None = None) -> dict | None:
     if not isinstance(account, dict):
         return None
@@ -284,6 +287,25 @@ def _futures(account: Any, config: Any, risk: Any, adl: Any,
     for row in risk or []:
         risk_by[(row.get("symbol"), row.get("positionSide", "BOTH"))] = row
     adl_by = {r.get("symbol"): r.get("adlQuantile", {}) for r in adl or []}
+    brackets_by = {}
+    for row in brackets or []:
+        if not isinstance(row, dict):
+            continue
+        # notionalCoef 是账户被单独调整档位时的倍率。它移动每个档位边界；cum 也必须
+        # 同倍缩放，才能让 `notional × rate − cum` 在新边界两侧保持连续。
+        coef = dec(row.get("notionalCoef")) or 1.0
+        tiers = []
+        for tier in row.get("brackets", []):
+            if not isinstance(tier, dict):
+                continue
+            cap = dec(tier.get("notionalCap"))
+            tiers.append({
+                "notional_floor_usd": dec0(tier.get("notionalFloor")) * coef,
+                "notional_cap_usd": None if cap is None else cap * coef,
+                "maint_margin_rate": dec0(tier.get("maintMarginRatio")),
+                "maint_amount_usd": dec0(tier.get("cum")) * coef,
+            })
+        brackets_by[row.get("symbol", "")] = tiers
 
     positions = []
     for row in account.get("positions", []):
@@ -321,6 +343,7 @@ def _futures(account: Any, config: Any, risk: Any, adl: Any,
             "initial_margin_usd": dec0(row.get("positionInitialMargin")
                                        or row.get("initialMargin")),
             "maint_margin_usd": dec0(row.get("maintMargin")),
+            "maintenance_brackets": brackets_by.get(symbol, []),
             "adl_quantile": int(adl_q) if adl_q is not None else None,
         })
 
@@ -691,7 +714,8 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
     spot = block("spot", lambda: _spot(payload("spot"), prices), fallback=[]) or []
     futures = block("futures", lambda: _futures(
         payload("futures.account"), payload("futures.config"),
-        payload("futures.risk"), payload("futures.adl"), prices))
+        payload("futures.risk"), payload("futures.adl"),
+        payload("futures.brackets"), prices))
     earn = block("earn", lambda: _earn(payload("earn.flexible"),
                                        payload("earn.locked"), prices), fallback=[]) or []
     margin = block("margin", lambda: _margin(payload("margin"), btc_usd, prices))

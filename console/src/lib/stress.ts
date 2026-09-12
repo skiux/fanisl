@@ -1,4 +1,4 @@
-import type { PortfolioSnapshot } from '../api/types'
+import type { MaintenanceBracket, PortfolioSnapshot } from '../api/types'
 
 /**
  * 压力测试：**所有标的一起跌 d，账户会怎样。**
@@ -12,9 +12,8 @@ import type { PortfolioSnapshot } from '../api/types'
  * - 标记价一律 `mark × (1 − d)`。空头在下跌里是赚的，同一个公式自然带出来。
  * - 未实现从**开仓价重算**（`(新标记 − 开仓) × 数量`），不拿接口给的总额去加减：
  *   两者口径若差一点，减出来的 Δ 会把误差放大。
- * - 维持保证金与起始保证金**随名义等比缩放**：它们都是 名义 × 比率，同一个 d 下
- *   就是乘 `(1 − d)`。这里忽略了 leverageBracket 的档位跳变——名义变小只会往
- *   更低的档走、比率只会更松，所以这个估计是**偏保守的**，不会把危险说轻。
+ * - 起始保证金随名义等比缩放；维持保证金按每个标的的 leverageBracket 公式
+ *   `名义 × rate − cum` 重算。档位暂时取不到时才沿用当前有效维持保证金率。
  * - 保证金余额按 USDT 计价，不随行情变。联合保证金（用 BTC/BNB 当保证金）下这
  *   会低估亏损，那种账户 `futures.assets` 里会有非稳定币，界面上看得到。
  */
@@ -26,6 +25,8 @@ export type Shock = {
   margin_balance: number | null
   /** 维持保证金 / 保证金余额，到 1 就是强平线 */
   margin_ratio: number | null
+  /** 缺保证金档位或启用联合保证金时，投影只能按当前有效比率估算。 */
+  margin_ratio_estimated: boolean
   available_usd: number | null
   /**
    * 这一跌会被强平的**逐仓**仓位。
@@ -41,7 +42,8 @@ export type Shock = {
 
 type Leg = {
   symbol: string; amt: number; mark: number; entry: number
-  maint: number; initial: number; liq: number | null; isolated: boolean
+  notional: number; maint: number; initial: number; liq: number | null; isolated: boolean
+  brackets: MaintenanceBracket[]
 }
 
 function legs(snapshot: PortfolioSnapshot): Leg[] {
@@ -50,11 +52,46 @@ function legs(snapshot: PortfolioSnapshot): Leg[] {
     amt: p.position_amt,
     mark: p.mark_price,
     entry: p.entry_price,
+    notional: Math.abs(p.notional_usd),
     maint: p.maint_margin_usd,
     initial: p.initial_margin_usd,
     liq: p.liquidation_price,
     isolated: p.isolated,
+    brackets: p.maintenance_brackets ?? [],
   }))
+}
+
+function maintenanceAt(leg: Leg, notional: number) {
+  const brackets = leg.brackets
+  const tier = brackets.find((item) => notional >= item.notional_floor_usd
+    && (item.notional_cap_usd === null || notional <= item.notional_cap_usd))
+    ?? brackets.at(-1)
+  if (tier) return Math.max(0, notional * tier.maint_margin_rate - tier.maint_amount_usd)
+  return leg.notional > 0 ? leg.maint * notional / leg.notional : 0
+}
+
+/** 压力测试里的仓位统一指合约名义金额绝对值之和。 */
+export function positionSize(snapshot: PortfolioSnapshot) {
+  if (snapshot.futures === null) return null
+  return snapshot.futures.positions.reduce((sum, position) => sum + Math.abs(position.notional_usd), 0)
+}
+
+export type PositionTarget = {
+  leverage: number
+  notional_usd: number | null
+  remaining_usd: number | null
+}
+
+/** N× 与总览的真实杠杆同口径：合约总名义仓位 / 账户净值。 */
+export function positionTarget(snapshot: PortfolioSnapshot, leverage: number): PositionTarget {
+  const current = positionSize(snapshot)
+  const equity = snapshot.totals?.equity_usd ?? null
+  const target = equity !== null && equity > 0 ? equity * leverage : null
+  return {
+    leverage,
+    notional_usd: target,
+    remaining_usd: current === null || target === null ? null : target - current,
+  }
 }
 
 /** 会跟着行情一起跌的现货类持有（稳定币不动，所以不算） */
@@ -67,47 +104,65 @@ function riskAssets(snapshot: PortfolioSnapshot): number {
 }
 
 /**
- * 把仓位**整体缩放到指定的真实杠杆**（名义敞口 / 保证金余额），用来回答
+ * 把仓位**整体缩放到指定的真实杠杆**（名义敞口 / 账户净值），用来回答
  * "如果我把仓位开到 2 倍，再跌 30% 会怎样"。
  *
  * 口径：**按现价重新建仓**——新仓位的开仓价就是当前标记价，所以未实现从 0 起算。
  * 不是"把现有仓位乘个系数"：那样会把已有的浮盈浮亏一并放大，而那笔盈亏是过去
  * 的价格走出来的，跟"我现在要开多大"没有关系，放大它只会让结果偏乐观或偏悲观。
  *
- * 维持保证金与起始保证金按名义等比缩放（两者都是 名义 × 比率）。
+ * 起始保证金按名义等比缩放；维持保证金按 leverageBracket 的档位公式重算。
  */
 export function resize(snapshot: PortfolioSnapshot, leverage: number): PortfolioSnapshot {
   const f = snapshot.futures
-  if (!f || f.positions.length === 0 || f.total_margin_balance <= 0) return snapshot
-  const notional = f.positions.reduce((sum, p) => sum + p.notional_usd, 0)
+  const equity = snapshot.totals?.equity_usd ?? 0
+  if (!f || f.positions.length === 0 || f.total_margin_balance <= 0 || equity <= 0) return snapshot
+  const currentLegs = legs(snapshot)
+  const notional = currentLegs.reduce((sum, leg) => sum + leg.notional, 0)
   if (notional <= 0) return snapshot
   // 平掉旧仓等于把当前的未实现结算进钱包，所以新的钱包余额就是现在的**保证金余额**。
   // 分母用它而不是 walletBalance，也正好和「合约」页上那个真实杠杆同一个口径。
   const wallet = f.total_margin_balance
-  const scale = (leverage * wallet) / notional
+  const scale = (leverage * equity) / notional
+  const positions = f.positions.map((position, index) => {
+    const leg = currentLegs[index]
+    const nextNotional = leg.notional * scale
+    return {
+      ...position,
+      position_amt: position.position_amt * scale,
+      notional_usd: nextNotional,
+      // 按现价重建：开仓价 = 标记价，未实现归零
+      entry_price: position.mark_price,
+      unrealized_pnl_usd: 0,
+      initial_margin_usd: position.initial_margin_usd * scale,
+      maint_margin_usd: maintenanceAt(leg, nextNotional),
+      // 强平价是交易所按旧仓位算的，缩放之后不再成立——**置空而不是照搬**。
+      // 全仓的判据本来就是账户保证金率，逐仓的那几个宁可不报。
+      liquidation_price: null,
+      liq_distance: null,
+    }
+  })
+  const currentPositionInitial = f.positions.reduce((sum, position) => sum + position.initial_margin_usd, 0)
+  const currentPositionMaint = f.positions.reduce((sum, position) => sum + position.maint_margin_usd, 0)
+  const totalInitial = f.total_initial_margin - currentPositionInitial
+    + positions.reduce((sum, position) => sum + position.initial_margin_usd, 0)
+  const totalMaint = f.total_maint_margin - currentPositionMaint
+    + positions.reduce((sum, position) => sum + position.maint_margin_usd, 0)
+  const available = f.available_balance + f.total_initial_margin - totalInitial
   return {
     ...snapshot,
+    totals: snapshot.totals && { ...snapshot.totals, gross_exposure_ratio: leverage },
     futures: {
       ...f,
       total_wallet_balance: wallet,
       total_margin_balance: wallet,
-      total_initial_margin: f.total_initial_margin * scale,
-      total_maint_margin: f.total_maint_margin * scale,
+      total_initial_margin: totalInitial,
+      total_maint_margin: totalMaint,
       total_unrealized_pnl: 0,
-      positions: f.positions.map((p) => ({
-        ...p,
-        position_amt: p.position_amt * scale,
-        notional_usd: p.notional_usd * scale,
-        // 按现价重建：开仓价 = 标记价，未实现归零
-        entry_price: p.mark_price,
-        unrealized_pnl_usd: 0,
-        initial_margin_usd: p.initial_margin_usd * scale,
-        maint_margin_usd: p.maint_margin_usd * scale,
-        // 强平价是交易所按旧仓位算的，缩放之后不再成立——**置空而不是照搬**。
-        // 全仓的判据本来就是账户保证金率，逐仓的那几个宁可不报。
-        liquidation_price: null,
-        liq_distance: null,
-      })),
+      available_balance: available,
+      max_withdraw: Math.max(0, f.max_withdraw + f.total_initial_margin - totalInitial),
+      margin_ratio: wallet > 0 ? totalMaint / wallet : null,
+      positions,
     },
   }
 }
@@ -119,11 +174,14 @@ export function shock(snapshot: PortfolioSnapshot, drop: number): Shock {
 
   const base = rows.reduce((sum, p) => sum + (p.mark - p.entry) * p.amt, 0)
   const after = rows.reduce((sum, p) => sum + (p.mark * k - p.entry) * p.amt, 0)
-  const maint = rows.reduce((sum, p) => sum + p.maint, 0) * k
-  const initial = rows.reduce((sum, p) => sum + p.initial, 0) * k
+  const currentMaint = rows.reduce((sum, p) => sum + p.maint, 0)
+  const currentInitial = rows.reduce((sum, p) => sum + p.initial, 0)
+  const maint = (f?.total_maint_margin ?? 0) - currentMaint
+    + rows.reduce((sum, p) => sum + maintenanceAt(p, p.notional * k), 0)
+  const initial = (f?.total_initial_margin ?? 0) - currentInitial
+    + rows.reduce((sum, p) => sum + p.initial * k, 0)
 
-  const wallet = f?.total_wallet_balance ?? null
-  const balance = wallet === null ? null : wallet + after
+  const balance = f === null ? null : f.total_margin_balance + after - base
   const equity = snapshot.totals?.equity_usd ?? null
 
   return {
@@ -132,7 +190,10 @@ export function shock(snapshot: PortfolioSnapshot, drop: number): Shock {
     unrealized_usd: f === null ? null : after,
     margin_balance: balance,
     margin_ratio: balance === null ? null : balance <= 0 ? 1 : maint / balance,
-    available_usd: balance === null ? null : balance - initial,
+    margin_ratio_estimated: Boolean(f?.multi_assets_margin)
+      || rows.some((row) => row.brackets.length === 0),
+    available_usd: f === null ? null : f.available_balance + after - base
+      + f.total_initial_margin - initial,
     liquidated: rows
       .filter((p) => p.isolated && p.liq !== null
         && (p.amt >= 0 ? p.mark * k <= p.liq : p.mark * k >= p.liq))
@@ -157,6 +218,8 @@ export function breakingDrop(snapshot: PortfolioSnapshot, extraMargin = 0): numb
     futures: snapshot.futures && {
       ...snapshot.futures,
       total_wallet_balance: snapshot.futures.total_wallet_balance + extraMargin,
+      total_margin_balance: snapshot.futures.total_margin_balance + extraMargin,
+      available_balance: snapshot.futures.available_balance + extraMargin,
     },
   }
   const blown = (d: number) => {
