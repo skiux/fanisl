@@ -47,26 +47,38 @@
   --sheet-shadow: 0 1px 1px rgb(0 0 0 / 0.4), 0 18px 44px -20px rgb(0 0 0 / 0.7);
 }
 
-/* 扇区不变色、不压暗、不位移；选择只在内沿画一段短弧，外沿 100 格是百分比标尺。 */
+/* 扇区不变色、不压暗、不位移；选择只在内沿画短弧并更新圆心，外沿 100 格是百分比标尺。 */
 .allocation-wheel-bed { fill: var(--sheet-2); stroke: var(--rule); stroke-width: 1; }
 .allocation-sector { cursor: pointer; outline: none; }
-.allocation-sector:focus-visible { filter: drop-shadow(0 0 1px var(--ink)); }
+.allocation-sector:focus-visible { filter: drop-shadow(0 0 0.7px var(--ink)); }
 .allocation-sector-marker {
   fill: none;
-  stroke: color-mix(in oklab, var(--ink) 78%, transparent);
+  stroke: color-mix(in oklab, var(--ink) 68%, transparent);
   stroke-dasharray: 1;
   stroke-linecap: round;
-  stroke-width: 2.25;
+  stroke-width: 1.8;
   pointer-events: none;
-  animation: allocation-marker-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: allocation-marker-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .allocation-spoke-label { color: var(--ink); transform-origin: center; }
-.allocation-label-separator { opacity: 0.5; }
-.allocation-tick { stroke: color-mix(in oklab, var(--sheet) 66%, var(--ink)); stroke-width: 0.75; }
-.allocation-tick-major { stroke: color-mix(in oklab, var(--ink) 58%, var(--sheet)); stroke-width: 1.1; }
+.allocation-label-separator { opacity: 0.38; }
+.allocation-tick { stroke: color-mix(in oklab, var(--ink) 14%, var(--sheet)); stroke-width: 0.65; }
+.allocation-tick-major { stroke: color-mix(in oklab, var(--ink) 38%, var(--sheet)); stroke-width: 0.95; }
+.allocation-center {
+  background: color-mix(in oklab, var(--sheet) 84%, var(--sheet-2));
+  border: 1px solid color-mix(in oklab, var(--rule) 78%, transparent);
+  box-shadow: 0 8px 24px -22px color-mix(in oklab, var(--ink) 35%, transparent);
+}
+.allocation-center-content {
+  animation: allocation-center-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 @keyframes allocation-marker-in {
   from { opacity: 0; stroke-dashoffset: 1; }
   to { opacity: 1; stroke-dashoffset: 0; }
+}
+@keyframes allocation-center-in {
+  from { opacity: 0.35; transform: scale(0.975); }
+  to { opacity: 1; transform: none; }
 }
 .allocation-reset { transition: opacity 200ms ease-out, transform 240ms cubic-bezier(0.22, 1, 0.36, 1); }
 .allocation-reset:active { transform: scale(0.96); }

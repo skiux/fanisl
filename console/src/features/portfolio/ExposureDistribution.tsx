@@ -10,7 +10,7 @@ import type { Exposure } from '../../lib/holdings'
 function assetColor(asset: string) {
   let hash = 5381
   for (const letter of asset) hash = ((hash << 5) + hash) ^ letter.charCodeAt(0)
-  return `oklch(var(--allocation-tone) 0.075 ${(hash >>> 0) % 360})`
+  return `oklch(var(--allocation-tone) 0.058 ${(hash >>> 0) % 360})`
 }
 
 const smallMoney = (value: number) => value > 0 && value < 0.005 ? '<$0.01' : money(value)
@@ -69,7 +69,7 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
           </div>
           <button
             aria-label="清除资产选择"
-            className={cn('allocation-reset min-h-9 rounded-full border border-rule px-3 text-ink-2', !selected && 'pointer-events-none opacity-0')}
+            className={cn('allocation-reset min-h-9 rounded-full border border-rule bg-sheet-2/60 px-3 text-ink-2', !selected && 'pointer-events-none scale-[0.97] opacity-0')}
             disabled={!selected}
             onClick={() => select(null)} type="button"
           >查看全部</button>

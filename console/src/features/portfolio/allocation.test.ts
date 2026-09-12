@@ -136,14 +136,22 @@ describe('敞口分布', () => {
     }
   })
 
-  it('区域内整组信息的面积与仓位面积保持同一比例', () => {
+  it('中小扇区保持同一信息面积占比，大扇区按实际内容宽度收敛', () => {
     width.mockReturnValue(640)
     render()
-    const fontSizes = new Map([...host.querySelectorAll<HTMLElement>('[data-chart-label]')]
-      .map((label) => [label.dataset.chartLabel!, Number(label.dataset.labelFontSize)]))
-    const ratio = fontSizes.get('BTC')! / fontSizes.get('MU')!
-    expect(ratio).toBeCloseTo(Math.sqrt(11_000 / 1_999.96), 1)
-    expect(ratio).toBeGreaterThan(2)
+    const labels = new Map([...host.querySelectorAll<HTMLElement>('[data-chart-label]')]
+      .map((label) => [label.dataset.chartLabel!, label]))
+    const fontSize = (asset: string) => Number(labels.get(asset)!.dataset.labelFontSize)
+    expect(fontSize('QQQ') / fontSize('MU')).toBeCloseTo(Math.sqrt(5_500.6 / 1_999.96), 5)
+    expect(fontSize('BTC') / fontSize('NVDA')).toBeCloseTo(Math.sqrt(11_000 / 9_999.27), 5)
+    expect(fontSize('NVDA') / fontSize('XAU')).toBeCloseTo(Math.sqrt(9_999.27 / 8_996.48), 5)
+    for (const asset of ['BTC', 'NVDA', 'XAU']) {
+      const label = labels.get(asset)!
+      expect(Number(label.dataset.labelFontSize)).toBeLessThan(Number(label.dataset.labelProportionalSize))
+    }
+    for (const label of labels.values()) {
+      expect(Number(label.dataset.labelContentWidth)).toBeLessThanOrEqual(Number(label.dataset.labelRoom))
+    }
   })
 
   it('图形高度随容器与标的数量增长，不把十二项固定压进小区域', () => {
@@ -169,12 +177,18 @@ describe('敞口分布', () => {
     act(() => button.click())
     expect(button.getAttribute('aria-pressed')).toBe('true')
     expect(host.querySelectorAll('.allocation-sector-marker')).toHaveLength(1)
+    const center = host.querySelector<HTMLElement>('[data-allocation-center]')!
+    expect(center.dataset.centerAsset).toBe('QQQ')
+    expect(center.textContent).toContain('$5,500.60')
+    expect(center.textContent).toContain('9.2%')
     for (const tile of host.querySelectorAll<HTMLElement>('[data-slice]')) {
       expect(tile.style.background).toBe(original.get(tile.dataset.slice)!.background)
       expect(tile.style.opacity).toBe(original.get(tile.dataset.slice)!.opacity)
     }
     act(() => button.click())
     expect(button.getAttribute('aria-pressed')).toBe('false')
+    expect(center.dataset.centerAsset).toBe('')
+    expect(center.textContent).toContain('多头合计')
     act(() => button.click())
     act(() => button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
     expect(button.getAttribute('aria-pressed')).toBe('false')
