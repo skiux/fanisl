@@ -47,50 +47,58 @@
   --sheet-shadow: 0 1px 1px rgb(0 0 0 / 0.4), 0 18px 44px -20px rgb(0 0 0 / 0.7);
 }
 
-/* 扇区是连续材质面：靠外缘才显出稳定的资产识别色，中心保持安静。 */
-.allocation-wheel-bed { fill: var(--sheet-2); stroke: var(--rule); stroke-width: 1; }
+/* 圆环不铺底色；比例只由清晰的边界和 1% 刻度表达，品牌色留在小 Logo 内。 */
+.allocation-wheel-bed { fill: transparent; stroke: var(--rule-strong); stroke-width: 1; }
 .allocation-sector {
   cursor: pointer;
+  fill: transparent;
   outline: none;
-  stroke: var(--sheet);
-  stroke-width: 1.5;
+  stroke: color-mix(in oklab, var(--rule-strong) 82%, transparent);
+  stroke-width: 1.1;
   vector-effect: non-scaling-stroke;
 }
 .allocation-sector:focus-visible { stroke: var(--ink); stroke-width: 1.8; }
-.allocation-field-inner { stop-color: var(--sheet); }
-.allocation-field-middle { stop-opacity: 0.08; }
-.allocation-field-outer { stop-opacity: 0.28; }
-.allocation-sector-outline {
+.allocation-selection-cursor {
   fill: none;
-  stroke: color-mix(in oklab, var(--ink) 82%, transparent);
+  stroke: color-mix(in oklab, var(--ink) 76%, transparent);
+  stroke-dasharray: 0.035 0.965;
   stroke-linecap: round;
-  stroke-width: 1.8;
-  vector-effect: non-scaling-stroke;
+  stroke-width: 3;
+  opacity: 0;
   pointer-events: none;
-  animation: allocation-outline-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    opacity 160ms ease-out,
+    stroke-dashoffset 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  vector-effect: non-scaling-stroke;
 }
-.allocation-spoke-label { color: var(--ink); transform-origin: center; }
-.allocation-label-separator { opacity: 0.38; }
-.allocation-tick { stroke: color-mix(in oklab, var(--ink) 14%, var(--sheet)); stroke-width: 0.65; }
-.allocation-tick-major { stroke: color-mix(in oklab, var(--ink) 38%, var(--sheet)); stroke-width: 0.95; }
+.allocation-selection-cursor[data-active="true"] { opacity: 1; }
+.allocation-spoke-label {
+  color: var(--ink);
+  transform-origin: center;
+}
+.allocation-asset-mark { filter: drop-shadow(0 1px 1px rgb(28 28 24 / 0.18)); }
+.allocation-gold-asset-mark {
+  background: #a77b25;
+  box-shadow: 0 1px 2px rgb(28 28 24 / 0.18);
+  color: #fffdf7;
+  font-family: "Newsreader Variable", serif;
+  letter-spacing: -0.06em;
+}
+.allocation-label-separator { opacity: 0.4; }
+.allocation-tick { stroke: rgb(28 28 24 / 0.16); stroke-width: 0.65; }
+.allocation-tick-major { stroke: rgb(28 28 24 / 0.38); stroke-width: 0.95; }
 .allocation-center {
-  background: color-mix(in oklab, var(--sheet) 84%, var(--sheet-2));
-  border: 1px solid color-mix(in oklab, var(--rule) 78%, transparent);
-  box-shadow: 0 8px 24px -22px color-mix(in oklab, var(--ink) 35%, transparent);
+  background: color-mix(in oklab, var(--sheet) 94%, var(--sheet-2));
+  border: 1px solid color-mix(in oklab, var(--rule-strong) 58%, transparent);
+  box-shadow: 0 10px 28px -23px color-mix(in oklab, var(--ink) 42%, transparent);
 }
-.allocation-center-content {
-  animation: allocation-center-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.dark .allocation-field-middle { stop-opacity: 0.13; }
-.dark .allocation-field-outer { stop-opacity: 0.32; }
-@keyframes allocation-outline-in {
-  from { opacity: 0; stroke-dashoffset: 1; }
-  to { opacity: 1; stroke-dashoffset: 0; }
-}
-@keyframes allocation-center-in {
-  from { opacity: 0.35; transform: scale(0.975); }
-  to { opacity: 1; transform: none; }
-}
+.allocation-center-kicker { font-size: 0.9em; letter-spacing: 0.01em; }
+.allocation-center-value { font-size: 1.08em; letter-spacing: -0.035em; }
+.allocation-center-meta { font-size: 0.8em; }
+.dark .allocation-sector { stroke: color-mix(in oklab, var(--rule-strong) 86%, transparent); }
+.dark .allocation-asset-mark { filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.7)); }
+.dark .allocation-tick { stroke: rgb(255 255 255 / 0.17); }
+.dark .allocation-tick-major { stroke: rgb(255 255 255 / 0.4); }
 .allocation-reset { transition: opacity 200ms ease-out, transform 240ms cubic-bezier(0.22, 1, 0.36, 1); }
 .allocation-reset:active { transform: scale(0.96); }
 .allocation-row {

@@ -1,9 +1,11 @@
-import { useId, useLayoutEffect, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import {
-  allocationArc, allocationPercent, allocationSlices, ringPath, type AllocationItem, type AllocationSlice,
+  allocationPercent, allocationSlices, ringPath, type AllocationItem, type AllocationSlice,
 } from '../lib/allocation'
 import { cn } from '../lib/cn'
 import { money, moneyCompact } from '../lib/format'
+import { ICONS } from './icons'
+import { tickerHue } from './Ticker'
 
 export type { AllocationItem } from '../lib/allocation'
 
@@ -14,7 +16,7 @@ function geometry(availableWidth: number, count: number) {
   const diameter = Math.min(availableWidth, ideal)
   const center = diameter / 2
   const outer = Math.max(1, center - 11)
-  const inner = outer * 0.235
+  const inner = outer * 0.27
   return { diameter, center, outer, inner }
 }
 
@@ -25,14 +27,14 @@ function labelMetrics(slice: AllocationSlice, inner: number, outer: number) {
   const large = slice.share >= LARGE_SLICE_SHARE
   // 大扇区把标签通道向圆心多借一点空间，外缘仍留给百分比刻度。
   const middle = inner + thickness * (large ? 0.55 : 0.62)
-  const radialRoom = thickness * (large ? 0.88 : 0.78)
+  const radialRoom = thickness * (large ? 0.915 : 0.78)
   const arcRoom = Math.max(0, (slice.end - slice.start) * middle * 0.88)
   const compactValue = moneyCompact(slice.value)
   const percent = allocationPercent(slice.share)
   // 未受空间约束时，字号平方与仓位占比成正比；中小扇区因此保持相同的信息面积占比。
   // 大仓位还要受实际字符串宽度约束，避免 $11K · 18.3% 这类长数据越过环宽。
   const proportional = outer * Math.sqrt(slice.share) * 0.27
-  const codeLineEm = 1.34 + 0.28 + Math.max(1, slice.key.length) * 0.62
+  const codeLineEm = 1.42 + 0.28 + Math.max(1, slice.key.length) * 0.62
   const valueLineEm = (compactValue.length + percent.length + 1) * 0.6 * 0.91 + 0.96
   const contentEm = Math.max(codeLineEm, valueLineEm)
   const contentFit = radialRoom * 0.96 / contentEm
@@ -45,11 +47,56 @@ function labelMetrics(slice: AllocationSlice, inner: number, outer: number) {
     contentWidth: contentEm * fontSize,
     fontSize,
     height: fontSize * 2.35,
+    markSize: fontSize * 1.42,
     percent,
     proportional,
     radius: middle,
     width: radialRoom,
   }
+}
+
+function AssetMark({ asset, size }: { asset: string; size: number }) {
+  if (asset === 'XAU') {
+    return (
+      <span
+        aria-hidden="true"
+        className="allocation-gold-asset-mark grid shrink-0 place-items-center rounded-full font-semibold"
+        data-asset-mark={asset}
+        style={{ fontSize: size * 0.43, height: size, width: size }}
+      >
+        Au
+      </span>
+    )
+  }
+  const file = ICONS[asset]
+  if (file) {
+    return (
+      <img
+        alt=""
+        className="allocation-asset-mark shrink-0 rounded-full object-cover"
+        data-asset-mark={asset}
+        src={`${import.meta.env.BASE_URL}icons/${file}`}
+        style={{ height: size, width: size }}
+      />
+    )
+  }
+  const label = asset.slice(0, 4)
+  return (
+    <span
+      aria-hidden="true"
+      className="ticker grid shrink-0 place-items-center rounded-[28%] font-mono font-medium tracking-tight"
+      data-asset-mark={asset}
+      data-fallback-mark={asset}
+      style={{
+        '--ticker-hue': tickerHue(asset),
+        fontSize: size * (label.length > 3 ? 0.37 : 0.45),
+        height: size,
+        width: size,
+      } as CSSProperties}
+    >
+      {label}
+    </span>
+  )
 }
 
 function SliceLabel({ slice, center, inner, outer }: {
@@ -87,7 +134,10 @@ function SliceLabel({ slice, center, inner, outer }: {
           transform: `rotate(${readable}deg)`,
         }}
       >
-        <span className="font-semibold">{slice.key}</span>
+        <span className="flex items-center justify-center font-semibold" style={{ gap: metrics.fontSize * 0.28 }}>
+          <AssetMark asset={slice.key} size={metrics.markSize} />
+          <span>{slice.key}</span>
+        </span>
         <span className="tnum flex items-center whitespace-nowrap font-medium tracking-tight" style={{ fontSize: metrics.fontSize * 0.91, gap: metrics.fontSize * 0.48 }}>
           <span>{metrics.compactValue}</span>
           <span aria-hidden="true" className="allocation-label-separator">·</span>
@@ -122,18 +172,20 @@ export function AllocationWheel({ items, selected, onSelect }: {
 
   const geo = geometry(availableWidth, items.length)
   const slices = allocationSlices(items)
-  const paintedSlices = slices.map((slice, index) => {
+  const paintedSlices = slices.map((slice) => {
     const angle = slice.end - slice.start
     const gap = slices.length === 1 ? 0 : Math.min(0.0032, angle * 0.035)
     return {
       ...slice,
-      gradientId: `${id}-field-${index}`,
       path: ringPath(geo.center, geo.inner, geo.outer, slice.start + gap, slice.end - gap),
     }
   })
   const selectedSlice = slices.find((slice) => slice.key === selected) ?? null
+  const cursorProgress = selectedSlice
+    ? ((selectedSlice.start + selectedSlice.end) / 2 + Math.PI / 2) / (Math.PI * 2)
+    : 0
   const total = items.reduce((sum, item) => sum + item.value, 0)
-  const centerFontSize = clamp(geo.inner * 0.17, 8.5, 11.5)
+  const centerFontSize = clamp(geo.inner * 0.225, 10.5, 13.5)
   const toggle = (key: string) => onSelect(selected === key ? null : key)
   return (
     <div
@@ -163,32 +215,8 @@ export function AllocationWheel({ items, selected, onSelect }: {
         viewBox={`0 0 ${geo.diameter} ${geo.diameter}`}
       >
         <title id={`${id}-title`}>多头持仓轮，扇区角度与外沿刻度表示多头占比</title>
-        <defs>
-          {paintedSlices.map((slice) => {
-            const middle = (slice.start + slice.end) / 2
-            const innerX = geo.center + Math.cos(middle) * geo.inner
-            const innerY = geo.center + Math.sin(middle) * geo.inner
-            const outerX = geo.center + Math.cos(middle) * geo.outer
-            const outerY = geo.center + Math.sin(middle) * geo.outer
-            return (
-              <linearGradient
-                data-allocation-color={slice.color}
-                data-allocation-field={slice.key}
-                gradientUnits="userSpaceOnUse"
-                id={slice.gradientId}
-                key={slice.key}
-                x1={innerX} x2={outerX} y1={innerY} y2={outerY}
-              >
-                <stop className="allocation-field-inner" offset="0%" />
-                <stop className="allocation-field-middle" offset="68%" stopColor={slice.color} />
-                <stop className="allocation-field-outer" offset="100%" stopColor={slice.color} />
-              </linearGradient>
-            )
-          })}
-        </defs>
         <circle className="allocation-wheel-bed" cx={geo.center} cy={geo.center} r={geo.outer} />
         {paintedSlices.map((slice, index) => {
-          const angle = slice.end - slice.start
           return (
             <g key={slice.key}>
               <path
@@ -201,7 +229,6 @@ export function AllocationWheel({ items, selected, onSelect }: {
                 data-share={slice.share}
                 data-slice={slice.key}
                 data-start={slice.start}
-                fill={`url(#${slice.gradientId})`}
                 onClick={() => toggle(slice.key)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
@@ -212,24 +239,23 @@ export function AllocationWheel({ items, selected, onSelect }: {
                 role="button"
                 tabIndex={0}
               />
-              {selected === slice.key && (
-                <path
-                  aria-hidden="true"
-                  className="allocation-sector-outline"
-                  d={allocationArc(
-                    geo.center,
-                    geo.outer + 4,
-                    slice.start + (slices.length === 1 ? 0 : Math.min(0.018, angle * 0.08)),
-                    slice.end - (slices.length === 1 ? 0 : Math.min(0.018, angle * 0.08)),
-                  )}
-                  pathLength={1}
-                />
-              )}
               <SliceLabel center={geo.center} inner={geo.inner} outer={geo.outer} slice={slice} />
               <title>{`${index + 1}. ${slice.key} ${allocationPercent(slice.share)}`}</title>
             </g>
           )
         })}
+        <circle
+          aria-hidden="true"
+          className="allocation-selection-cursor"
+          cx={geo.center}
+          cy={geo.center}
+          data-active={Boolean(selectedSlice)}
+          data-selection-cursor
+          pathLength={1}
+          r={geo.inner + 7}
+          strokeDashoffset={-cursorProgress}
+          transform={`rotate(-90 ${geo.center} ${geo.center})`}
+        />
         {Array.from({ length: 100 }, (_, index) => {
           const angle = -Math.PI / 2 + index / 100 * Math.PI * 2
           const major = index % 5 === 0
@@ -251,23 +277,23 @@ export function AllocationWheel({ items, selected, onSelect }: {
         className="allocation-center pointer-events-none absolute left-1/2 top-1/2 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-center"
         data-allocation-center
         data-center-asset={selectedSlice?.key ?? ''}
+        data-center-diameter={geo.inner * 2 - 1}
         style={{ height: geo.inner * 2 - 1, width: geo.inner * 2 - 1 }}
       >
         <div
           className="allocation-center-content flex flex-col items-center justify-center"
-          key={selectedSlice?.key ?? 'total'}
           style={{ fontSize: centerFontSize, width: geo.inner * 1.58 }}
         >
           {selectedSlice ? (
             <>
-              <span className="font-semibold">{selectedSlice.key}</span>
-              <span className="tnum mt-[0.42em] font-medium leading-none text-ink">{money(selectedSlice.value)}</span>
-              <span className="tnum mt-[0.36em] leading-none text-ink-3">{allocationPercent(selectedSlice.share)}</span>
+              <span className="allocation-center-kicker font-semibold">{selectedSlice.key}</span>
+              <span className="allocation-center-value tnum mt-[0.38em] font-semibold leading-none text-ink">{money(selectedSlice.value)}</span>
+              <span className="allocation-center-meta tnum mt-[0.34em] leading-none text-ink-3">{allocationPercent(selectedSlice.share)}</span>
             </>
           ) : (
             <>
-              <span className="text-ink-3">多头合计</span>
-              <span className="tnum mt-[0.48em] font-medium leading-none text-ink">{money(total)}</span>
+              <span className="allocation-center-kicker text-ink-3">多头合计</span>
+              <span className="allocation-center-value tnum mt-[0.42em] font-semibold leading-none text-ink">{money(total)}</span>
             </>
           )}
         </div>
