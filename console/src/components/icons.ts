@@ -7,7 +7,7 @@ export const ICONS: Record<string, string> = {
   ADBE: 'ADBE.svg',
   ALGO: 'ALGO.svg',
   AMD: 'AMD.svg',
-  AMZN: 'AMZN.svg',
+  AMZN: 'AMZN.ico',
   ARB: 'ARB.png',
   ARM: 'ARM.svg',
   ATOM: 'ATOM.svg',

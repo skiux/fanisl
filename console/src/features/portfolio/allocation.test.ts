@@ -56,12 +56,12 @@ describe('敞口分布', () => {
     expect(host.textContent).toContain('仓位 2× · 跌 30% 之后的净值')
   })
 
-  it('保留下跌前后按 1×、2×、3×、5×、10× 计算的可开仓位', () => {
+  it('保留下跌前后按 1×、2×、3×、5× 计算的可开仓位', () => {
     render()
     const capacity = host.querySelector<HTMLElement>('[data-open-capacity]')!
     const current = positionSize(snapshot)
     const afterDrop = shock(snapshot, 0.3)
-    for (const leverage of [1, 2, 3, 5, 10]) {
+    for (const leverage of [1, 2, 3, 5]) {
       const column = capacity.querySelector<HTMLElement>(`[data-open-leverage="${leverage}"]`)!
       expect(column.textContent).toContain(`${leverage}×`)
       expect(column.textContent).toContain(money(openingCapacity(
@@ -73,6 +73,7 @@ describe('敞口分布', () => {
     }
     expect([...capacity.querySelectorAll('dd')]
       .every((value) => !value.classList.contains('truncate'))).toBe(true)
+    expect(capacity.querySelector('[data-open-leverage="10"]')).toBeNull()
   })
 
   it('没有现有合约仓位时不伪造目标仓位压力结果', () => {
@@ -133,9 +134,11 @@ describe('敞口分布', () => {
       const sector = host.querySelector<SVGPathElement>(`[data-slice="${asset}"]`)!
       expect(sector.getAttribute('fill')).toBeNull()
       if (asset === 'XAU') expect(mark!.textContent).toBe('Au')
-      else expect(mark!.getAttribute('src')).toMatch(new RegExp(`/icons/${asset}\\.(svg|png)$`))
+      else expect(mark!.getAttribute('src')).toMatch(new RegExp(`/icons/${asset}\\.(svg|png|ico)$`))
     }
     expect(host.querySelectorAll('[data-asset-mark]')).toHaveLength(12)
+    expect(host.querySelector('[data-chart-label="AMZN"] [data-asset-mark="AMZN"]')?.getAttribute('src'))
+      .toMatch(/\/icons\/AMZN\.ico$/)
     expect(host.querySelectorAll('linearGradient, filter, clipPath, [data-allocation-logo-background], .allocation-sector-bed')).toHaveLength(0)
     // 正常样例最小仓位约 3.3%。信息沿半径排成两行后，移动端不应再退化成 5px 字。
     expect(Math.min(...labels.map((label) => Number(label.dataset.labelFontSize)))).toBeGreaterThan(6.5)
@@ -225,6 +228,7 @@ describe('敞口分布', () => {
     const content = center.querySelector<HTMLElement>('.allocation-center-content')!
     expect(Number(center.dataset.centerDiameter)).toBeGreaterThan(84)
     expect(Number.parseFloat(content.style.fontSize)).toBeGreaterThanOrEqual(10.5)
+    expect(center.textContent).toBe('$59,995.85')
   })
 
   it('选择资产不压暗任何区域，重复点击与 Escape 都能取消选择', () => {
@@ -240,6 +244,8 @@ describe('敞口分布', () => {
     const qqqOffset = cursor.getAttribute('stroke-dashoffset')
     const center = host.querySelector<HTMLElement>('[data-allocation-center]')!
     expect(center.dataset.centerAsset).toBe('QQQ')
+    expect(center.querySelector('[data-asset-mark="QQQ"]')).not.toBeNull()
+    expect(center.textContent).not.toContain('QQQ')
     expect(center.textContent).toContain('$5,500.60')
     expect(center.textContent).toContain('9.2%')
     for (const tile of host.querySelectorAll<HTMLElement>('[data-slice]')) {
@@ -250,11 +256,27 @@ describe('敞口分布', () => {
     expect(button.getAttribute('aria-pressed')).toBe('false')
     expect(cursor.getAttribute('data-active')).toBe('false')
     expect(center.dataset.centerAsset).toBe('')
-    expect(center.textContent).toContain('多头合计')
+    expect(center.textContent).toBe('$59,995.85')
     act(() => button.click())
     act(() => button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
     expect(button.getAttribute('aria-pressed')).toBe('false')
     expect(qqqOffset).not.toBe('0')
+  })
+
+  it('选中资产后点击选择控件之外的区域会取消选择', () => {
+    render()
+    const qqq = host.querySelector<HTMLElement>('[data-slice="QQQ"]')!
+    act(() => qqq.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    expect(qqq.getAttribute('aria-pressed')).toBe('true')
+    act(() => document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })))
+    expect(qqq.getAttribute('aria-pressed')).toBe('false')
+    expect(host.querySelector('[data-selection-cursor]')!.getAttribute('data-active')).toBe('false')
+  })
+
+  it('临界跌幅直接说明阈值含义和安全方向', () => {
+    render()
+    expect(host.textContent).toContain('保证金率升至 100% 时开始强平')
+    expect(host.textContent).toContain('数值越高，缓冲越大')
   })
 
   it('只有空头时明确显示没有多头，空头明细仍可选择', () => {
@@ -357,7 +379,7 @@ describe('敞口分布', () => {
       sector.dataset.slice,
       [sector.getAttribute('d'), sector.getAttribute('fill')],
     ]))
-    const marks = [...host.querySelectorAll<HTMLElement>('[data-asset-mark]')]
+    const marks = [...host.querySelectorAll<HTMLElement>('[data-chart-label] [data-asset-mark]')]
       .map((mark) => [mark.dataset.assetMark, mark.tagName, mark.getAttribute('src'), mark.textContent])
     for (const asset of ['NVDA', 'BNB']) {
       act(() => host.querySelector(`[data-slice="${asset}"]`)!.dispatchEvent(new MouseEvent('click', { bubbles: true })))
@@ -368,7 +390,7 @@ describe('敞口分布', () => {
       expect([sector.getAttribute('d'), sector.getAttribute('fill')])
         .toEqual(before.get(sector.dataset.slice))
     }
-    expect([...host.querySelectorAll<HTMLElement>('[data-asset-mark]')]
+    expect([...host.querySelectorAll<HTMLElement>('[data-chart-label] [data-asset-mark]')]
       .map((mark) => [mark.dataset.assetMark, mark.tagName, mark.getAttribute('src'), mark.textContent]))
       .toEqual(marks)
   })

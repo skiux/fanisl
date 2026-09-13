@@ -14,7 +14,7 @@ import { marginRatioRisk, riskBar, riskText } from '../../lib/risk'
 import type { PortfolioSnapshot } from '../../api/types'
 
 const DROPS = { '10': 0.1, '20': 0.2, '30': 0.3, '50': 0.5 } as const
-const OPEN_LEVERAGES = [1, 2, 3, 5, 10] as const
+const OPEN_LEVERAGES = [1, 2, 3, 5] as const
 /**
  * 压力测试用的仓位规模。`now` = 现在这套仓位；其余是"**如果把仓位开到 N 倍
  * 真实杠杆**"——按现价重新建仓（见 `stress.resize`），再往下跌。
@@ -266,7 +266,7 @@ export function RiskControlView({ snapshot, veiled }: {
                 净值 × 目标总杠杆 − 当时合约仓位
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               {OPEN_LEVERAGES.map((leverage) => {
                 const before = openingCapacity(
                   staged.totals?.equity_usd ?? null, positionBeforeDrop, leverage,
@@ -316,30 +316,37 @@ export function RiskControlView({ snapshot, veiled }: {
         <Stack span="lg:col-span-5">
           <Module
             figure={edge === null ? '—' : percent(edge, 1)}
-            note="一起跌到这里开始强平"
+            note="保证金率升至 100% 的同步跌幅"
             span=""
             title="临界跌幅"
             tone={edge === null ? 'muted' : edge < 0.15 ? 'loss' : undefined}
           >
             {edge === null ? (
-              <p className="text-sm text-ink-3">当前的仓位组合不会因为普跌而强平。</p>
+              <p className="text-sm leading-relaxed text-ink-3">
+                在本模型覆盖的 99.5% 合约同步下跌内，保证金率没有触及 100%。
+              </p>
             ) : (
-              <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-                <Figure label="现在" value={percent(edge, 1)} />
-                <Figure
-                  label="补上现货现金后"
-                  note={spare > 0 ? money(spare) : undefined}
-                  value={edgeWithCash === null ? '不会强平' : percent(edgeWithCash, 1)}
-                />
-                <Figure
-                  label="维持保证金"
-                  value={snapshot.futures === null ? '—' : money(snapshot.futures.total_maint_margin)}
-                />
-                <Figure
-                  label="保证金余额"
-                  value={snapshot.futures === null ? '—' : money(snapshot.futures.total_margin_balance)}
-                />
-              </dl>
+              <>
+                <p className="mb-5 text-xs leading-relaxed text-ink-3">
+                  假设所有合约标记价同时下跌。保证金率升至 100% 时开始强平；数值越高，缓冲越大。
+                </p>
+                <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
+                  <Figure label="不补现金" value={percent(edge, 1)} />
+                  <Figure
+                    label="补上现货现金后"
+                    note={spare > 0 ? money(spare) : undefined}
+                    value={edgeWithCash === null ? '不会强平' : percent(edgeWithCash, 1)}
+                  />
+                  <Figure
+                    label="维持保证金"
+                    value={snapshot.futures === null ? '—' : money(snapshot.futures.total_maint_margin)}
+                  />
+                  <Figure
+                    label="保证金余额"
+                    value={snapshot.futures === null ? '—' : money(snapshot.futures.total_margin_balance)}
+                  />
+                </dl>
+              </>
             )}
           </Module>
 

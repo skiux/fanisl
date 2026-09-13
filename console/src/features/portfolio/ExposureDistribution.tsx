@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AllocationWheel, Swatch } from '../../components/AllocationWheel'
 import { Ticker } from '../../components/Ticker'
 import { cn } from '../../lib/cn'
@@ -53,6 +53,17 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
       behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
     })
   }
+  useEffect(() => {
+    const clearFromElsewhere = (event: PointerEvent) => {
+      const target = event.target
+      if (target instanceof Element && target.closest('[data-slice], [data-asset]')) return
+      const list = listRef.current
+      list?.scrollTo({ top: list.scrollTop, behavior: 'instant' })
+      setSelection(null)
+    }
+    document.addEventListener('pointerdown', clearFromElsewhere)
+    return () => document.removeEventListener('pointerdown', clearFromElsewhere)
+  }, [])
 
   return (
     <div

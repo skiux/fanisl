@@ -286,15 +286,14 @@ export function AllocationWheel({ items, selected, onSelect }: {
         >
           {selectedSlice ? (
             <>
-              <span className="allocation-center-kicker font-semibold">{selectedSlice.key}</span>
+              <span className="allocation-center-mark flex items-center justify-center" data-center-mark>
+                <AssetMark asset={selectedSlice.key} size={centerFontSize * 1.75} />
+              </span>
               <span className="allocation-center-value tnum mt-[0.38em] font-semibold leading-none text-ink">{money(selectedSlice.value)}</span>
               <span className="allocation-center-meta tnum mt-[0.34em] leading-none text-ink-3">{allocationPercent(selectedSlice.share)}</span>
             </>
           ) : (
-            <>
-              <span className="allocation-center-kicker text-ink-3">多头合计</span>
-              <span className="allocation-center-value tnum mt-[0.42em] font-semibold leading-none text-ink">{money(total)}</span>
-            </>
+            <span className="allocation-center-value tnum font-semibold leading-none text-ink">{money(total)}</span>
           )}
         </div>
       </div>
