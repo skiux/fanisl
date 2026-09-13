@@ -47,17 +47,24 @@
   --sheet-shadow: 0 1px 1px rgb(0 0 0 / 0.4), 0 18px 44px -20px rgb(0 0 0 / 0.7);
 }
 
-/* 扇区不变色、不压暗、不位移；选择用完整细描边和圆心信息反馈，外沿 100 格是百分比标尺。 */
+/* 扇区是连续材质面：靠外缘才显出稳定的资产识别色，中心保持安静。 */
 .allocation-wheel-bed { fill: var(--sheet-2); stroke: var(--rule); stroke-width: 1; }
-.allocation-sector { cursor: pointer; outline: none; }
-.allocation-sector:focus-visible { filter: drop-shadow(0 0 0.7px var(--ink)); }
+.allocation-sector {
+  cursor: pointer;
+  outline: none;
+  stroke: var(--sheet);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.allocation-sector:focus-visible { stroke: var(--ink); stroke-width: 1.8; }
+.allocation-field-inner { stop-color: var(--sheet); }
+.allocation-field-middle { stop-opacity: 0.08; }
+.allocation-field-outer { stop-opacity: 0.28; }
 .allocation-sector-outline {
   fill: none;
-  stroke: color-mix(in oklab, var(--ink) 72%, transparent);
-  stroke-dasharray: 1;
+  stroke: color-mix(in oklab, var(--ink) 82%, transparent);
   stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.35;
+  stroke-width: 1.8;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
   animation: allocation-outline-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -74,6 +81,8 @@
 .allocation-center-content {
   animation: allocation-center-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+.dark .allocation-field-middle { stop-opacity: 0.13; }
+.dark .allocation-field-outer { stop-opacity: 0.32; }
 @keyframes allocation-outline-in {
   from { opacity: 0; stroke-dashoffset: 1; }
   to { opacity: 1; stroke-dashoffset: 0; }

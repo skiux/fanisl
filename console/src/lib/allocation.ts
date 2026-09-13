@@ -34,6 +34,16 @@ export function allocationSlices(items: AllocationItem[]): AllocationSlice[] {
 const point = (center: number, radius: number, angle: number) =>
   `${center + Math.cos(angle) * radius},${center + Math.sin(angle) * radius}`
 
+/** 选择态只画扇区外沿，不再用一圈描边把整块扇区框成按钮。 */
+export function allocationArc(center: number, radius: number, start: number, end: number) {
+  if (end - start >= Math.PI * 2 - 1e-10) {
+    return `M${point(center, radius, start)} A${radius},${radius} 0 1 1 ${point(center, radius, start + Math.PI)}`
+      + ` A${radius},${radius} 0 1 1 ${point(center, radius, end)}`
+  }
+  const large = end - start > Math.PI ? 1 : 0
+  return `M${point(center, radius, start)} A${radius},${radius} 0 ${large} 1 ${point(center, radius, end)}`
+}
+
 /** 满圈分成两个半圆，避免 SVG 把重合的起终点当成空路径。 */
 export function ringPath(center: number, inner: number, outer: number, start: number, end: number) {
   if (end - start >= Math.PI * 2 - 1e-10) {

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildSnapshot } from '../../api/fixtures'
 import { exposures } from '../../lib/holdings'
 import { money } from '../../lib/format'
-import { positionSize, positionTarget, shock } from '../../lib/stress'
+import { openingCapacity, positionSize, positionTarget, shock } from '../../lib/stress'
 import { RiskControlView } from './RiskControl'
 import { ExposureDistribution } from './ExposureDistribution'
 
@@ -59,12 +59,17 @@ describe('敞口分布', () => {
   it('保留下跌前后按 1×、2×、3×、5×、10× 计算的可开仓位', () => {
     render()
     const capacity = host.querySelector<HTMLElement>('[data-open-capacity]')!
-    const afterDrop = shock(snapshot, 0.3).available_usd!
+    const current = positionSize(snapshot)
+    const afterDrop = shock(snapshot, 0.3)
     for (const leverage of [1, 2, 3, 5, 10]) {
       const column = capacity.querySelector<HTMLElement>(`[data-open-leverage="${leverage}"]`)!
       expect(column.textContent).toContain(`${leverage}×`)
-      expect(column.textContent).toContain(money(snapshot.futures!.available_balance * leverage))
-      expect(column.textContent).toContain(money(Math.max(0, afterDrop) * leverage))
+      expect(column.textContent).toContain(money(openingCapacity(
+        snapshot.totals!.equity_usd, current, leverage,
+      )!))
+      expect(column.textContent).toContain(money(openingCapacity(
+        afterDrop.equity_usd, afterDrop.position_usd, leverage,
+      )!))
     }
     expect([...capacity.querySelectorAll('dd')]
       .every((value) => !value.classList.contains('truncate'))).toBe(true)
@@ -115,15 +120,21 @@ describe('敞口分布', () => {
     expect(host.textContent).not.toContain('其他')
   })
 
-  it('340px 的十二个区域都同时显示 logo、代码、金额和占比', () => {
+  it('340px 的十二个区域都使用连续渐变背景，并显示代码、金额和占比', () => {
     render()
     const labels = [...host.querySelectorAll<HTMLElement>('[data-chart-label]')]
     expect(labels).toHaveLength(12)
     for (const label of labels) {
-      expect(label.querySelector('img, [data-fallback-mark]')).not.toBeNull()
+      const asset = label.dataset.chartLabel!
+      expect(label.querySelector('img, [data-fallback-mark]')).toBeNull()
       expect(label.textContent).toMatch(/\$/)
       expect(label.textContent).toMatch(/%/)
+      const sector = host.querySelector<SVGPathElement>(`[data-slice="${asset}"]`)!
+      expect(sector.getAttribute('fill')).toMatch(/^url\(/)
+      const field = host.querySelector(`[data-allocation-field="${asset}"]`)!
+      expect(field.querySelectorAll('stop')).toHaveLength(3)
     }
+    expect(host.querySelector('svg image, svg mask, [data-allocation-texture]')).toBeNull()
     // 正常样例最小仓位约 3.3%。信息沿半径排成两行后，移动端不应再退化成 5px 字。
     expect(Math.min(...labels.map((label) => Number(label.dataset.labelFontSize)))).toBeGreaterThan(6.5)
   })
@@ -161,28 +172,29 @@ describe('敞口分布', () => {
     expect(host.textContent).not.toContain('其他')
   })
 
-  it('宽屏圆形图为十二个仓位逐一显示 logo、代码、金额和占比', () => {
+  it('宽屏圆形图为十二个仓位逐一显示连续背景、代码、金额和占比', () => {
     width.mockReturnValue(640)
     render()
     const labels = [...host.querySelectorAll<HTMLElement>('[data-chart-label]')]
     expect(labels).toHaveLength(12)
     for (const label of labels) {
-      expect(label.querySelector('img, [data-fallback-mark]')).not.toBeNull()
+      expect(label.querySelector('img, [data-fallback-mark]')).toBeNull()
       expect(label.textContent).toMatch(/\$/)
       expect(label.textContent).toMatch(/%/)
       expect(host.querySelector(`[data-slice="${label.dataset.chartLabel}"]`)?.getAttribute('data-share')).not.toBeNull()
+      expect(host.querySelector(`[data-allocation-field="${label.dataset.chartLabel}"]`)).not.toBeNull()
     }
   })
 
-  it('中小扇区保持同一信息面积占比，大扇区按实际内容宽度收敛', () => {
+  it('中小扇区保持同一信息面积占比，大扇区平滑收敛且不越过可用宽度', () => {
     width.mockReturnValue(640)
     render()
     const labels = new Map([...host.querySelectorAll<HTMLElement>('[data-chart-label]')]
       .map((label) => [label.dataset.chartLabel!, label]))
     const fontSize = (asset: string) => Number(labels.get(asset)!.dataset.labelFontSize)
     expect(fontSize('QQQ') / fontSize('MU')).toBeCloseTo(Math.sqrt(5_500.6 / 1_999.96), 5)
-    expect(fontSize('BTC') / fontSize('NVDA')).toBeCloseTo(Math.sqrt(11_000 / 9_999.27), 5)
-    expect(fontSize('NVDA') / fontSize('XAU')).toBeCloseTo(Math.sqrt(9_999.27 / 8_996.48), 5)
+    expect(fontSize('BTC')).toBeGreaterThan(fontSize('NVDA'))
+    expect(fontSize('NVDA')).toBeGreaterThan(fontSize('XAU'))
     for (const asset of ['BTC', 'NVDA', 'XAU']) {
       const label = labels.get(asset)!
       expect(Number(label.dataset.labelFontSize)).toBeLessThan(Number(label.dataset.labelProportionalSize))
@@ -257,13 +269,13 @@ describe('敞口分布', () => {
     act(() => root.render(createElement(ExposureDistribution, { rows })))
     expect(host.querySelectorAll('[data-slice]')).toHaveLength(20)
     expect(host.querySelectorAll('.allocation-row')).toHaveLength(20)
-    const colors = new Map([...host.querySelectorAll<HTMLElement>('[data-slice]')]
-      .map((el) => [el.dataset.slice, el.style.background]))
+    const colors = new Map([...host.querySelectorAll<HTMLElement>('[data-allocation-field]')]
+      .map((el) => [el.dataset.allocationField, el.dataset.allocationColor]))
     act(() => root.render(createElement(ExposureDistribution, { rows: rows.map((row) => ({
       ...row, net_usd: 22 - row.net_usd, gross_usd: 22 - row.gross_usd,
     })) })))
-    for (const el of host.querySelectorAll<HTMLElement>('[data-slice]')) {
-      expect(el.style.background).toBe(colors.get(el.dataset.slice))
+    for (const el of host.querySelectorAll<HTMLElement>('[data-allocation-field]')) {
+      expect(el.dataset.allocationColor).toBe(colors.get(el.dataset.allocationField))
     }
   })
 
@@ -301,7 +313,7 @@ describe('敞口分布', () => {
     expect(Number(tile.dataset.end) - Number(tile.dataset.start)).toBeCloseTo(Math.PI * 2, 10)
     expect(tile.getAttribute('aria-label')).toContain('100.00%')
     act(() => tile.dispatchEvent(new MouseEvent('click', { bubbles: true })))
-    expect(host.querySelector('.allocation-sector-outline')!.getAttribute('d')!.match(/ A/g)).toHaveLength(4)
+    expect(host.querySelector('.allocation-sector-outline')!.getAttribute('d')!.match(/ A/g)).toHaveLength(2)
   })
 
   it.each([false, true])('选择图上小额资产只滚动明细容器，减少动态效果=%s', (reduced) => {

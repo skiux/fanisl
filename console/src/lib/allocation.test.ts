@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allocationPercent, allocationSlices, ringPath } from './allocation'
+import { allocationArc, allocationPercent, allocationSlices, ringPath } from './allocation'
 
 describe('allocationSlices', () => {
   it('每个扇区角度严格对应金额占比，全部扇区闭合为一整圈', () => {
@@ -30,6 +30,11 @@ describe('allocationSlices', () => {
     const path = ringPath(100, 30, 90, -Math.PI / 2, Math.PI * 1.5)
     expect(path.match(/ A/g)).toHaveLength(4)
     expect(path).not.toContain('NaN')
+  })
+
+  it('选择指示弧在单资产满圈时仍保持为完整圆周', () => {
+    expect(allocationArc(100, 90, -Math.PI / 2, Math.PI * 1.5).match(/ A/g)).toHaveLength(2)
+    expect(allocationArc(100, 90, -Math.PI / 2, 0).match(/ A/g)).toHaveLength(1)
   })
 })
 

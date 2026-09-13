@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildSnapshot } from '../api/fixtures'
-import { breakingDrop, positionSize, positionTarget, resize, shock } from './stress'
+import { breakingDrop, openingCapacity, positionSize, positionTarget, resize, shock } from './stress'
 
 const snap = buildSnapshot(new Date('2026-09-08T12:00:00Z'))
 
@@ -47,6 +47,11 @@ describe('shock', () => {
     expect(harsh.margin_ratio!).toBeGreaterThan(mild.margin_ratio!)
   })
 
+  it('压力后的现有仓位按新价格重算，而不是继续沿用下跌前名义', () => {
+    const hit = shock(snap, 0.3)
+    expect(hit.position_usd).toBeCloseTo(positionSize(snap)! * 0.7, 8)
+  })
+
   it('只报逐仓的强平，全仓交给保证金率', () => {
     // 全仓的 liquidationPrice 是"别的都不动"算出来的，普跌时那个价不成立。
     // 两套判据混着报会自相矛盾：屏幕上出现过"保证金率 8.6% 安全"底下挂着
@@ -65,6 +70,18 @@ describe('仓位目标', () => {
     const target = positionTarget(snap, 1.5)
     expect(target.notional_usd).toBeCloseTo(snap.totals!.equity_usd * 1.5, 8)
     expect(target.remaining_usd).toBeCloseTo(target.notional_usd! - current, 8)
+  })
+
+  it('剩余开仓能力等于目标总杠杆仓位减去当时已有仓位', () => {
+    const current = positionSize(snap)!
+    expect(openingCapacity(snap.totals!.equity_usd, current, 1))
+      .toBeCloseTo(snap.totals!.equity_usd - current, 8)
+
+    const hit = shock(snap, 0.3)
+    expect(openingCapacity(hit.equity_usd, hit.position_usd, 2))
+      .toBeCloseTo(hit.equity_usd! * 2 - hit.position_usd!, 8)
+    expect(openingCapacity(100, 150, 1)).toBe(0)
+    expect(openingCapacity(null, current, 1)).toBeNull()
   })
 
   it('调整到 N× 后的总仓位与总览真实杠杆完全一致', () => {

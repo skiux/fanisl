@@ -21,6 +21,8 @@ export type Shock = {
   drop: number
   /** 冲击之后的净值 */
   equity_usd: number | null
+  /** 冲击之后按新标记价计算的合约总名义仓位 */
+  position_usd: number | null
   unrealized_usd: number | null
   margin_balance: number | null
   /** 维持保证金 / 保证金余额，到 1 就是强平线 */
@@ -92,6 +94,13 @@ export function positionTarget(snapshot: PortfolioSnapshot, leverage: number): P
     notional_usd: target,
     remaining_usd: current === null || target === null ? null : target - current,
   }
+}
+
+/** 在给定净值和现有合约仓位下，把总仓位开到 N× 还剩多少名义额度。 */
+export function openingCapacity(equity: number | null, position: number | null, leverage: number) {
+  if (equity === null || position === null || !Number.isFinite(equity)
+    || !Number.isFinite(position) || !Number.isFinite(leverage) || leverage <= 0) return null
+  return Math.max(0, equity * leverage - position)
 }
 
 /** 会跟着行情一起跌的现货类持有（稳定币不动，所以不算） */
@@ -187,6 +196,7 @@ export function shock(snapshot: PortfolioSnapshot, drop: number): Shock {
   return {
     drop,
     equity_usd: equity === null ? null : equity - drop * riskAssets(snapshot) + (after - base),
+    position_usd: f === null ? null : rows.reduce((sum, position) => sum + position.notional * k, 0),
     unrealized_usd: f === null ? null : after,
     margin_balance: balance,
     margin_ratio: balance === null ? null : balance <= 0 ? 1 : maint / balance,

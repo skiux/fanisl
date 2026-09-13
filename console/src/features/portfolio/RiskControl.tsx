@@ -8,7 +8,7 @@ import {
 } from '../../lib/format'
 import { cash, exposures } from '../../lib/holdings'
 import {
-  breakingDrop, positionSize, positionTarget, resize, shock,
+  breakingDrop, openingCapacity, positionSize, positionTarget, resize, shock,
 } from '../../lib/stress'
 import { marginRatioRisk, riskBar, riskText } from '../../lib/risk'
 import type { PortfolioSnapshot } from '../../api/types'
@@ -72,7 +72,7 @@ export function RiskControlView({ snapshot, veiled }: {
     return target === null ? snapshot : resize(snapshot, target)
   }, [snapshot, activeSize])
   const hit = useMemo(() => shock(staged, DROPS[drop]), [staged, drop])
-  const availableBeforeDrop = staged.futures?.available_balance ?? null
+  const positionBeforeDrop = useMemo(() => positionSize(staged), [staged])
   const edge = useMemo(() => breakingDrop(snapshot), [snapshot])
   const edgeWithCash = useMemo(() => breakingDrop(snapshot, spare), [snapshot, spare])
   const sizeOptions = useMemo(() => ([
@@ -263,33 +263,39 @@ export function RiskControlView({ snapshot, veiled }: {
             <div className="mb-3 flex items-baseline justify-between gap-4">
               <span className="text-sm text-ink-2">剩余开仓能力</span>
               <span className="text-[11px] text-ink-3">
-                {activeSize === 'now' ? '当前仓位' : `${activeSize}× 目标仓位`} · 可用余额 × 开仓杠杆
+                净值 × 目标总杠杆 − 当时合约仓位
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
-              {OPEN_LEVERAGES.map((leverage) => (
-                <div
-                  className="open-capacity-card min-w-0 rounded-lg border border-rule px-2.5 py-2.5"
-                  data-open-leverage={leverage}
-                  key={leverage}
-                >
-                  <div className="tnum mb-2 text-xs font-medium text-ink">{leverage}×</div>
-                  <dl className="space-y-1.5">
-                    <div>
-                      <dt className="text-[10px] text-ink-3">下跌前</dt>
-                      <dd className="tnum mt-0.5 break-all text-[11px] text-ink-2">
-                        {availableBeforeDrop === null ? '—' : money(Math.max(0, availableBeforeDrop) * leverage)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-[10px] text-ink-3">跌 {drop}% 后</dt>
-                      <dd className="tnum mt-0.5 break-all text-[11px] text-ink">
-                        {hit.available_usd === null ? '—' : money(Math.max(0, hit.available_usd) * leverage)}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              ))}
+              {OPEN_LEVERAGES.map((leverage) => {
+                const before = openingCapacity(
+                  staged.totals?.equity_usd ?? null, positionBeforeDrop, leverage,
+                )
+                const after = openingCapacity(hit.equity_usd, hit.position_usd, leverage)
+                return (
+                  <div
+                    className="open-capacity-card min-w-0 rounded-lg border border-rule px-2.5 py-2.5"
+                    data-open-leverage={leverage}
+                    key={leverage}
+                  >
+                    <div className="tnum mb-2 text-xs font-medium text-ink">{leverage}×</div>
+                    <dl className="space-y-1.5">
+                      <div>
+                        <dt className="text-[10px] text-ink-3">下跌前可开</dt>
+                        <dd className="tnum mt-0.5 break-all text-[11px] text-ink-2">
+                          {before === null ? '—' : money(before)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[10px] text-ink-3">跌 {drop}% 后可开</dt>
+                        <dd className="tnum mt-0.5 break-all text-[11px] text-ink">
+                          {after === null ? '—' : money(after)}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                )
+              })}
             </div>
           </div>
 
