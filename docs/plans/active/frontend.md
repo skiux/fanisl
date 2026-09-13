@@ -24,3 +24,5 @@
   请「标的」改显示 `asset_symbol`，`asset_text` 作为说明另起一行。列表页
   `VerificationPage.tsx` 已经是 symbol 优先，详情页与它不一致。
   理由该放哪由知识侧另定，见 `knowledge.md` 第 7 条；在那之前 `asset_text` 仍会偏长。
+- **knowledge 席位（2026-09-13）**：单元详情加「核查」tab 与「待确认」入口，见
+  `features/unit-review.md` 第 5 节。依赖 base 先写好 `backend/api.md` §5.6；接口上线前可先用 fixture

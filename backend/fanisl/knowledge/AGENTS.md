@@ -30,6 +30,38 @@ meaning. Read them as-is.
   operators for step-function series) are registered in
   `scoring_overrides.json`; `success_def` remains the semantic arbiter.
 
+## Processing unit reviews
+
+Users flag units from the site (the 核查 tab in a unit's dossier). Each flag is a row
+in `unit_reviews` with status `open`, and the open ones are this seat's queue.
+Answers go through `python -m fanisl.knowledge.review` only — there is no HTTP path
+for them, by design.
+
+For each open review:
+
+1. `review show <id>` — the user's messages, the unit, its scores, prior amendments.
+2. **Re-read the source passage** around the quote in `contents.raw`, then judge
+   against the frozen spec. Not against the user's framing, and not against your
+   memory of how the unit was extracted. The user may be right; the spec may be
+   right against the user. Say which, and cite the passage.
+3. If the unit is wrong, fix it with
+   `review amend <unit_id> --review <id> --reason …`. An amendment re-runs payload
+   validation and the quote-in-source check, is stored with before and after, and
+   is refused on scoring fields once the unit has scores.
+4. Answer with `review answer <id> --outcome …`:
+   - `fixed` requires an amendment on this review, plus `--root-cause` (why the
+     error happened) and `--sweep` (which similar units you checked, and what you
+     found). The store rejects the answer without all three.
+   - `no_change` must cite the passage and the rule that support the original.
+   - `needs_info` must state exactly what is missing.
+5. If the cause is systematic — a spec gap, a pattern that recurs across units —
+   write it in `--followup` and add it to `docs/plans/active/knowledge.md`.
+   Fixing only the unit the user happened to see is the failure this workflow
+   exists to prevent.
+
+Do not record flagged units in `spot_checks`. That table is the §10 random sample;
+user-selected units would bias its faithfulness rate.
+
 ## Common commands
 
 ```bash
@@ -38,6 +70,7 @@ python -m fanisl.knowledge.backfill_transcripts @yttalkjun --since-days 4   # in
 python -m fanisl.knowledge.import_units <file.json> --dry-run               # validate only
 python -m fanisl.knowledge.scorers --freeze-refs
 python -m fanisl.knowledge.spotcheck sample 10
+python -m fanisl.knowledge.review list                                      # open reviews = this seat's queue
 ```
 
 Ingestion runs automatically in the collector's daily job (24-hour interval), so

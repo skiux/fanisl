@@ -4,13 +4,14 @@
 席位说明见 `backend/fanisl/knowledge/AGENTS.md`。最后核对 2026-09-13。
 
 ## Now
-（待该席位填）
+单元核查（`features/unit-review.md`）：知识侧已完成——三张表、store 方法、`review` CLI、测试、文档。
+上线后处理站上提交的核查，纪律见 `backend/fanisl/knowledge/AGENTS.md`「Processing unit reviews」。
 
 ## Next
 按下面编号排列。**第 6 条的结构问题建议最先做**——一条坏单元能让之后的全部 claim 停评。
 
 ## Blocked on
-- 无
+- 单元核查的站上入口：等 base 出接口（`backend/api.md` §5.6），再等 frontend 出面板
 
 ## Requests in
 - **frontend 席位**：标的页为空多半是标的未登记（见下面第 1 条），不是前端问题

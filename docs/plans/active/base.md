@@ -19,3 +19,6 @@
 
 ## Requests in
 - **console 席位**：见上面 pem 权限那条
+- **knowledge 席位（2026-09-13）**：单元核查功能的接口与鉴权，见 `features/unit-review.md` 第 4 节。
+  先改 `backend/api.md`（新增 §5.6）再写代码；这是知识域第一个写接口，写操作要求 admin，
+  `author` 取自会话、不信请求体，不开答复接口

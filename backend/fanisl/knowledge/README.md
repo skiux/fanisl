@@ -27,7 +27,7 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | 文件 | 职责 |
 |---|---|
 | `models.py` | L1 单元 pydantic 模型（**schema SSOT**）：KnowledgeUnit 信封 + Claim/Method/Concept 载荷 + ScoringSpec，入库前强校验 |
-| `store.py` | 持久化（独立库 `fanisl_knowledge`，13 表，schema 分散在各模块内嵌）：L0 追加式、(content_id, extractor_version) 唯一、版本化重放 |
+| `store.py` | 持久化（独立库 `fanisl_knowledge`，各模块的表结构写在自己的 `_SCHEMA` 里）：L0 追加式、(content_id, extractor_version) 唯一、版本化重放；单元核查三表 `unit_reviews` / `unit_review_messages` / `unit_amendments` 也在这里 |
 | `register.py` | 信源登记 CLI：`python -m fanisl.knowledge.register <名称> <平台> <handle>` |
 | `sources/youtube.py` | yt-dlp 封装：频道清单、元数据（+字幕白捡；三个已登记频道实测都取不到可用字幕轨）、cookies 注入 |
 | `llm.py` | GeminiClient：URL 直读转录（transcript + 带时间戳视觉笔记）、clip 二次细读（start/end offset）、`render_l0_text` L0 排版约定 |
@@ -46,6 +46,7 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `daily.py` | 每日维护封装（**自动摄取三个信源**→行情→盈利预期→评分→节点状态→补齐缺帧，best-effort）：`python -m fanisl.knowledge.daily`；已挂 collector 调度（knowledge_daily_interval_s，默认 86400s）。**摄取窗口按缺口算**：每源回看"最新一期距今多少天"（`ingest_since_days`，库里没有该源时回看 30 天），固定窗口在断更/断网后会漏掉中间几期 |
 | `discovery.py` | K6 发现层：harness 候选（testability=A 的 method 节点，`discovery harness`）+ 周报生成（`discovery weekly [--days 7]`，落 data_export/reports/，collector 每周自动跑） |
 | `spotcheck.py` | K6 抽查队列（spot_checks 启用）：`spotcheck sample [n]` 随机抽未查单元 / `spotcheck record <unit_id> <verdict> [note]` / `spotcheck stats` |
+| `review.py` | 单元核查的知识席位端：站上用户在单元详情里提意见（HTTP 接口归 base 席位），知识席位用 `review list / show / amend / answer` 处理。**答复只走这里**，网站写不了。见下方「单元核查」 |
 | `keyframes.py` | 提帧（ffmpeg 对直链输入级 seek，不下载全片）：`keyframes <video_id> <MM:SS…> [--height 1080]`。客户端梯队 android_vr→tv→ios→web_safari→web，逐个试到解析出流，用了哪个记进 `source`。墙会来回动，当前状态见下方"提帧的墙" |
 | `backfill_keyframes.py` | 视觉笔记时间戳 → 关键帧回填/记账（幂等）：`backfill_keyframes [--handle @x] [--content-id N] [--height 1080] [--dry-run]`；`grab_for_content()` 同时挂在摄取链上（transcribe_video / backfill_transcripts 内 best-effort 调用，失败不影响 L0） |
 
@@ -75,6 +76,35 @@ K6 起的发现与运营（周报 collector 每周自动跑，其余按需）：
 无条件漂移**——语料里判断压倒性偏 up，而样本期本身是上行的，拿 50% 当基线等于把市场的
 beta 记成信源的技能。各时点成功概率不等，故用泊松二项精确尾概率而非普通二项（见 `league.py`）。
 仅 sign 类有基线，其余类型仍无（联赛表已注明）。
+
+## 单元核查（站上意见 → 知识席位答复）
+
+用户在站上单元详情的「核查」tab 里提意见，落到 `unit_reviews`，状态 `open`——这是知识席位的待办。
+
+```
+python -m fanisl.knowledge.review list                       # open 的核查（知识席位待办）
+python -m fanisl.knowledge.review show <review_id>           # 用户意见 + 单元 + 评分记录 + 修改记录
+python -m fanisl.knowledge.review amend <unit_id> --review <review_id> --reason "…" \
+    [--payload-file new_payload.json] [--quote "…"] [--tags a,b]
+python -m fanisl.knowledge.review answer <review_id> --outcome fixed|no_change|needs_info \
+    --body "…" [--root-cause "…"] [--sweep "…"] [--followup "…"]
+```
+
+状态：`open`（待知识席位答复）→ `answered`（待用户确认）→ `closed`；用户在 `answered` 或
+`closed` 上回复会重新打开。代码里强制的几道闸：
+
+- **`outcome=fixed` 必须先有挂在这条核查下的修改记录**，且 `--root-cause`（为什么会错）
+  与 `--sweep`（同类单元查了哪些、结果如何）必填——只修用户恰好看见的那一条不算完。
+- **`amend` 与导入走同一套校验**：pydantic 重验载荷、quote 须逐字出自原文；
+  改前 / 改后 / 原因写进 `unit_amendments`。
+- **已有评分记录的单元不许改评分相关字段**（verifiability / scoring_spec / asset_symbol /
+  direction / magnitude / horizon / condition_*）——历史评分会对不上单元，真要改就升版重提。
+- 答复没有 HTTP 接口，站上无法以知识席位的身份发言。
+
+**不写 `spot_checks`**：那是 §10 的随机抽样，用户挑出来的单元混进去会让忠实率失去随机性。
+**不回写 `data_export/knowledge_units/*.json`**：JSON 是入库那一刻的快照，修改的真相在
+`unit_amendments`；同版本重复导入会被拒，修改不会被冲掉。
+功能全貌与各席位分工见 `docs/plans/active/features/unit-review.md`。
 
 ## 运维脚本（部署后新增）
 
@@ -183,4 +213,4 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fani
 ## 测试
 
 `backend/tests/test_knowledge.py`（payload 校验闸门、store 往返与重放、Gemini 请求组装、
-import 解析）。跑法：`cd backend && PYTHONPATH=. .venv/bin/python -m pytest tests/test_knowledge.py`。
+import 解析）；`backend/tests/test_unit_review.py`（核查状态流转、答复闸门、修改留痕与评分字段保护）。跑法：`cd backend && PYTHONPATH=. .venv/bin/python -m pytest tests/test_knowledge.py`。

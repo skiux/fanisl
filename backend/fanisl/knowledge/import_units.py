@@ -26,11 +26,7 @@ from .. import assets
 from ..config import get_settings
 from ..db import make_pool
 from .models import KnowledgeUnit
-from .store import KnowledgeStore
-
-
-def _squash(s: str) -> str:
-    return re.sub(r"\s+", "", s)
+from .store import KnowledgeStore, quote_in_source
 
 
 def parse_units_doc(doc: dict) -> tuple[int, str, str | None, list[KnowledgeUnit], dict[int, float]]:
@@ -55,9 +51,11 @@ def parse_units_doc(doc: dict) -> tuple[int, str, str | None, list[KnowledgeUnit
 
 
 def check_quotes(raw: str, units: list[KnowledgeUnit]) -> list[int]:
-    """quote 必须逐字出自原文（空白归一后子串）。返回未命中的下标。"""
-    hay = _squash(raw)
-    return [i for i, u in enumerate(units) if _squash(u.quote) not in hay]
+    """quote 必须逐字出自原文（空白归一后子串）。返回未命中的下标。
+
+    规则本体在 store.quote_in_source，单元修改（amend_unit）走的是同一条。
+    """
+    return [i for i, u in enumerate(units) if not quote_in_source(raw, u.quote)]
 
 
 def check_vocabulary(store: KnowledgeStore, units: list[KnowledgeUnit]) -> list[str]:
