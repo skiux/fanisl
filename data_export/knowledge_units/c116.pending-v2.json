@@ -1,0 +1,672 @@
+{
+ "content_id": 116,
+ "extractor_version": "pending-v2",
+ "model": "claude-session",
+ "units": [
+  {
+   "kind": "concept",
+   "quote": "周四整个市场非常的恐慌，恐慌的点不是在标普下跌 0.6%，不是在 VIX 上升了 8.4，不是在原油上升了 7.3%。恐慌的点是在两年期的美债收益率上升了 15 个基点。我看到社交媒体上有人聊 15 个基点单日的这个涨幅，历史长河去看是 5 个 Sigma 的走势，也就是小于 1% 的这种概率。",
+   "locator": "00:00",
+   "tags": [
+    "bond-yields",
+    "fed-policy",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "2026-09-10 的恐慌点在两年期美债收益率单日上升 15 个基点，而不是标普 −0.6%、VIX +8.4、原油 +7.3%（作者口述）；社交媒体上有人称单日 15bp 是 5 个标准差的走势（作者转述）。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "当然一部分的原因，我认为也是和原油有关系，特别是短期美债收益率的上涨和原油的上涨是比较相关的。原油直接上涨了 7.3%，美伊之间的这个战争似乎有了一些升级。",
+   "locator": "01:27",
+   "tags": [
+    "bond-yields",
+    "oil-supply",
+    "wti"
+   ],
+   "payload": {
+    "canonical_statement": "作者认为短期美债收益率的上涨与原油上涨比较相关——当日原油上涨与美伊战事升级同步。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "市场参与度这边，按照彭博这边的一个结果去看，纳指 20 均线 27%，罗素 2000 20 均线 25%，标普 500 20 均线 17%，已经是在一个相当低的位置。",
+   "locator": "02:12",
+   "tags": [
+    "spx",
+    "market-breadth"
+   ],
+   "payload": {
+    "canonical_statement": "2026-09-10 彭博口径的参与度：纳指成分股站上 20 日均线 27%、罗素 2000 为 25%、标普 500 为 17%，已处在相当低的位置。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "你打开 TradingView，你输入 S5TW，你就可以看到标普 500 20 均线的这个参与度。比如说在周四一个收盘是 20.87，就代表有 21%——标普 500 里面有 21% 的公司，现在的价格是在它的 20 均线以上。对吧？那这一个指数越高，就代表整个市场的参与度越高，代表整个市场越乐观；那这个指数越低，就代表什么？市场越悲观。",
+   "locator": "02:31",
+   "tags": [
+    "spx",
+    "market-breadth"
+   ],
+   "payload": {
+    "name": "用 TradingView 的 S5TW 看标普 500 参与度",
+    "summary": "S5TW 是标普 500 成分股站上 20 日均线的比例；越高越乐观，越低越悲观。",
+    "family": "other",
+    "rules": [
+     "TradingView 输入 S5TW",
+     "读数即站上 20 日均线的成分股比例：20.87 表示约 21% 的公司价格在 20 日均线以上",
+     "读数越高代表参与度越高、市场越乐观；越低越悲观"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "TradingView S5TW（我方未采集）"
+    ],
+    "overlap_with_killed": [],
+    "testability": "B"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "第一个时间点就是在今年的 3 月份，可以看到最低的时候，参与度跌到了 10%。上一个时间点，也就是一年之前的 3 月底的时候，当时是关税，那今年的话是战争。当时关税是非常非常的悲观，当时 20 均线的参与度跌到了 2%。",
+   "locator": "02:57",
+   "tags": [
+    "spx",
+    "market-breadth",
+    "psychology"
+   ],
+   "payload": {
+    "canonical_statement": "标普 500 的 20 日均线参与度过去两次低点：2025 年 3 月底关税冲击时跌到 2%，2026 年 3 月战争时跌到 10%。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "无论看哪一组，你不可能得到一个精确的答案。你不可能得到这一次的下跌到底是在 15% 会停下来，还是 10% 会停下来，还是会去到 2%，你没办法做出这个判断的。均线本身永远是一个模糊正确。",
+   "locator": "03:33",
+   "tags": [
+    "market-breadth",
+    "psychology"
+   ],
+   "payload": {
+    "canonical_statement": "参与度只能告诉你处在什么阶段，告诉不了下跌会停在哪——停在 15%、10% 还是 2% 事先判断不了，均线类指标永远是『模糊正确』。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "那我的计划是：如果跌到 15%，或者说指数如果在明天周五跌 2% 的话，我的计划可能会把我所有的现金仓位全部打出去。至于放在哪些标底上面，我还不知道。那么完全取决于在周五的市场哪些标底跌得比较厉害，哪些标底让我觉得会有一个 Risk Reward 在那边。",
+   "locator": "04:12",
+   "tags": [
+    "spx",
+    "market-breadth",
+    "position-sizing"
+   ],
+   "payload": {
+    "name": "参与度或指数跌幅触发，一次打出全部现金",
+    "summary": "标普 500 的 20 日均线参与度跌到 15%，或指数在 CPI 当天跌 2%，就把全部现金投入；投向当天跌得多、风险回报合适的标的。",
+    "family": "positioning",
+    "rules": [
+     "触发一：标普 500 成分股站上 20 日均线的比例跌到 15%（这是参与度读数，不是价格）",
+     "触发二：指数在 CPI 公布当天（9-11 周五）跌 2%",
+     "任一触发，把所有现金仓位打出去",
+     "投到哪些标的事先不定，看当天哪些跌得多、哪些有风险回报"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "S5TW 或彭博的参与度日频序列（我方未采集）"
+    ],
+    "overlap_with_killed": [],
+    "testability": "B"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "我只知道 21% 的这个参与度，你可以拉一条横线去看看。在过去一年的时间里面，只有两个时间段是比 21% 要低的。一个就是今年的 3 月份，另外一个是 25 年的 3 月份。所以我知道现在是处在一个比较低的一个位置，那我只需要做好这个准备，如果继续往下跌，我会怎么去做。",
+   "locator": "04:52",
+   "tags": [
+    "spx",
+    "market-breadth",
+    "positioning"
+   ],
+   "payload": {
+    "canonical_statement": "标普 500 的 20 日均线参与度 21% 在过去一年里只有两段更低：2026 年 3 月与 2025 年 3 月。作者据此判断当前位置偏低，要做的是预先想好继续下跌时怎么做。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那么我可以做的是：如果明天 CPI 数据好于市场的预期，那在那么悲观的一个市场下，我相信股市大概率情况下是会上涨。",
+   "locator": "05:36",
+   "tags": [
+    "spx",
+    "inflation",
+    "macro-data"
+   ],
+   "payload": {
+    "asset_text": "标普 500（作者判：9-11 的 CPI 若好于预期，在悲观情绪下大概率上涨；前置条件是 CPI 与一致预期之差，行情数据判定不了）",
+    "asset_symbol": "SPX",
+    "priceable": true,
+    "claim_class": "directional",
+    "direction": "up",
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2026-09-11"
+    },
+    "condition_text": "如果明天 CPI 数据好于市场的预期",
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   },
+   "ref_price": 7591.7
+  },
+  {
+   "kind": "method",
+   "quote": "那如果好于市场的预期出现上涨，我有没有准备好？我会不会踏空？这是我要做第一个准备。\n\n第二个准备：如果差于市场的预期出现下跌，就像我前面举的例子，比如下跌 2%，那我有无做好加仓的这个准备。那还是说对于有些人来说，觉得 2% 的、觉得通胀数据如果不好，然后下跌 2% 需要去进行减仓，那也可以。那么我们要做好这个准备。应对各种情况，不同的情况发生，我们知道这种情况如果发生，我们会怎么去做。这比去猜 CPI 数据到底是好于预期或者差于预期来得更加的重要。",
+   "locator": "05:44",
+   "tags": [
+    "macro-data",
+    "risk-mgmt",
+    "positioning"
+   ],
+   "payload": {
+    "name": "不猜数据结果，按两个方向各备一套动作",
+    "summary": "重大数据公布前不押结果，事先想清楚上涨和下跌各自怎么做，比猜数据好坏更重要。",
+    "family": "event",
+    "rules": [
+     "比起猜 CPI 好于还是差于预期，事先想清楚每种情况怎么做更重要",
+     "准备一：数据好于预期、市场上涨，自己会不会踏空",
+     "准备二：数据差于预期、比如指数跌 2%，是加仓还是减仓，事先定好——两种选择都可以",
+     "哪种情况发生就执行哪一套"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "甚至于当市场真的非常悲观的时候，一组比较差的数据也不代表市场会下跌。那这很多时候和我们，比如说前段时间在 7 月份、6 月份的时候，美光的财报，美光财报好吗？非常的好，但是美光财报非常好的财报发完之后仍然下跌。那所以会出现 Sell the news，或者会出现坏消息砸不下去，是一个道理。因为市场已经提前去对于这一个好消息或者坏消息已经提前定价了。那所以我一直强调，我在很久之前我就和大家说，不用去猜 CPI 的数据到底如何，因为你即使猜对了 CPI 数据这个结果，你也不一定能够猜对股市到底是往哪一个方向去走。",
+   "locator": "06:14",
+   "tags": [
+    "macro-data",
+    "psychology",
+    "inflation"
+   ],
+   "payload": {
+    "canonical_statement": "市场非常悲观时差数据也不一定导致下跌——美光 6、7 月财报很好却仍然下跌：好消息坏消息都已提前定价，所以会出现 sell the news 或坏消息砸不下去。因此猜对 CPI 数据也不一定猜对股市方向。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "周四的一个收盘 VIX 是在 18。相对来说不是一个非常高的位置。我认为在正常情况下这种下跌在 20 以上吧，20 左右或者 20 以上，你可以看到，基本上在 20 左右或者 20 以上是短线内的一个加仓点。如果有一些事件进来的话，可能会更加的高。那比如说今年的 3 月份的时候，最高的时候 VIX 去到了 30 以上。",
+   "locator": "07:03",
+   "tags": [
+    "vix",
+    "psychology",
+    "position-sizing"
+   ],
+   "payload": {
+    "name": "VIX 到 20 左右或以上作为短线加仓参考",
+    "summary": "VIX 18 不算高；正常回调里 20 左右或以上是短线加仓点，有事件冲击时会更高。",
+    "family": "positioning",
+    "rules": [
+     "VIX 在 18 附近：不算高，不作为加仓信号",
+     "正常回调中 VIX 到 20 左右或以上：短线加仓点",
+     "有事件冲击时阈值要上调——今年 3 月战争期间 VIX 超过 30"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "VIX 日线"
+    ],
+    "overlap_with_killed": [],
+    "testability": "A"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "比如说基本面、宏观和技术面，如果出现一个共振的话，那是增加了我们赚钱的这个概率。所以也是一样，市场的参与度和 VIX，如果出现共振的话，那会增加我们赚钱的这个概率。如果没有出现共振，那我们要知道哪一个指标本身对于我们来说这个参考意义可能会更大一些。",
+   "locator": "07:49",
+   "tags": [
+    "market-breadth",
+    "vix",
+    "psychology"
+   ],
+   "payload": {
+    "canonical_statement": "不同维度的指标共振时胜率更高：基本面、宏观、技术面如此，参与度与 VIX 也如此；不共振时要判断哪个指标对自己更有参考意义。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "locator": "10:03",
+   "ref_price": 3.75,
+   "quote": "所以市场现在已经来到了——你看我这边圈出来的——2027 年的 9 月 15 日。从现在开始，市场定价加息 3.5 次。并且 9 月份，也就是下一周美联储会议加息的这个概率来到了 72.5%。\n\n那现在债市市场的这个定价，从我个人一个判断去出发的话，我认为债市市场可能稍微悲观了一些。我可以理解，整个这一个加息周期里面加息三次我是可以理解。我认为也合理，因为本身我其实对于包括接下去的一段时间，我对于通胀其实没有那么的乐观，那因为在大科技资本开支这样砸下去的情况下，如果股市不糟糕的情况下，我不认为通胀会放回到以前 2% 这种水平。但是与此同时，我也不认为我们会进入一个非常长的一个加息周期里面。那加息这个次数，我认为比较合理的就是在两次到三次左右。",
+   "tags": [
+    "dfedtaru",
+    "fed-policy",
+    "bond-yields"
+   ],
+   "payload": {
+    "asset_text": "联邦基金目标利率上限（作者判这轮加息合理是 2 到 3 次，债市定价到 2027-09-15 的 3.5 次偏悲观）",
+    "asset_symbol": "DFEDTARU",
+    "priceable": true,
+    "claim_class": "event_outcome",
+    "direction": null,
+    "magnitude": {
+     "high": 4.5,
+     "max_hikes": 3
+    },
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2027-09-15"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "C",
+    "scoring_spec": {
+     "method": "range_hold",
+     "eval_ladder": [
+      "2027-09-15"
+     ],
+     "success_def": "从发布次日至 2027-09-15，FRED DFEDTARU 每日值始终 ≤ 4.50 = hit（发布时 3.75，加 3 次各 25bp 为 4.50）；任一日 > 4.50 = miss。日期与『市场定价加息 3.5 次』都在 quote 内；作者判『比较合理的就是在两次到三次左右』，同期稍后又明说『3.5 次的一个预期，我是认为过于悲观了』。取整段期间而不只看到期日，是为了不让『加四次再降一次』判成 hit。『次数 → bp』按每次 25bp 换算系我方指定，故记 C 而非 A，与 c104 #1264 一致。上界取等号算 hit——评分器 high_only 用严格 >，magnitude.high 即可，无需 override。"
+    }
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "所以我认为，我们不应该去假设那么今年是不会加息的。我认为加息本身应该是一个大概率的情况，应该是一个正常的状态下。我们也不应该去假设这一次是不会加息。",
+   "locator": "10:51",
+   "tags": [
+    "dfedtaru",
+    "fed-policy",
+    "inflation"
+   ],
+   "payload": {
+    "asset_text": "联邦基金目标利率上限（作者判今年加息是大概率，不应假设不加息）",
+    "asset_symbol": "DFEDTARU",
+    "priceable": true,
+    "claim_class": "event_outcome",
+    "direction": "up",
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2026-12-31"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-12-31"
+     ],
+     "success_def": "2026-12-31（或此前最近一个有数据的日期）FRED DFEDTARU > 3.75（发布时的政策利率上限）= hit，即年底前至少加息一次。DFEDTARU 是阶梯序列，『没变动』必须判 miss，故 scoring_overrides 配 {mode: close_at_eval, level: 3.75, op: \">\"}（§4 严格号）。期限按 §3 取原文『今年』→ 当年 12-31，记 B。同段另有『这一次』（下周会议）的说法；取较宽的『今年』不会高估他——下周加息同样满足本条。"
+    }
+   },
+   "ref_price": 3.75
+  },
+  {
+   "kind": "concept",
+   "quote": "那第二点和第三点，模型公司的上市吸血、大科技的融资加上第三点的这个加息，这两点一定是利空股市的。我们可以把它理解为一个 Headwind。\n\n第一点：AI，包括 AI 的这个落地。它是利好股市。那第二点和第三点对于股市这个影响在哪？影响是在 PE，影响在这个 Multiple 上面，在这个估值上面。市场里面流动性比较高，对于同一个的一个标底，同样赚钱能力的这个标底，就自然会给出。一个比较高的估值。\n\n然后第一点影响的是什么？反过来也是一样。那市场在吸血的过程里，就不会给出一个非常高的估值在那边。第一点影响的就是 EPS。",
+   "locator": "11:53",
+   "tags": [
+    "ai-capex",
+    "ipo-supply",
+    "capital-raise",
+    "fed-policy",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "作者把当前市场归结为三股力量：AI 落地利好股市、作用在 EPS 上；模型公司上市与大科技融资『吸血』、加息，两者利空股市、作用在 PE 上——流动性高时同样赚钱能力的标的会给更高估值。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那所以，接下去我认为比较长的一段时间我们将看到的是 PE 和 EPS 之间的一个掰手腕。就是看谁到底谁能够占据这一个上风。\n\n即使 EPS、就即使 PE 出现下降，因为因为整个市场吸血的一个行为，如果 EPS 这个增速还是非常的好，甚至于在加速的话，整个价格还是可以出现上涨。因为最终价格就是等于 PE 乘以 EPS。",
+   "locator": "12:36",
+   "tags": [
+    "valuation",
+    "ai-capex"
+   ],
+   "payload": {
+    "canonical_statement": "作者预期接下来较长一段时间是 PE 与 EPS 的角力：即使吸血行为让 PE 下降，只要 EPS 增速够高甚至加速，价格仍可上涨，因为价格 = PE × EPS。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "当然你说像，从 18，比如我们拿 Sox 来举例子，从 19 倍的 PE 能够说回到个 23、24 倍合理吗？这个当然合理。你说回到原来的在 29 倍、30 倍合理吗？我短期之内我是绝对不会这么去看的。",
+   "locator": "13:44",
+   "tags": [
+    "soxx",
+    "semiconductor-cycle",
+    "valuation"
+   ],
+   "payload": {
+    "asset_text": "半导体 SOX 的 forward PE（作者判回到 23-24 倍合理，短期绝不看回 29-30 倍；magnitude 装的是市盈率不是价格）",
+    "asset_symbol": "SOXX",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": {
+     "forward_pe_reasonable_low": 23,
+     "forward_pe_reasonable_high": 24,
+     "forward_pe_rejected_low": 29,
+     "forward_pe_rejected_high": 30
+    },
+    "horizon": {
+     "type": "within_duration",
+     "duration_days": 7
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   },
+   "ref_price": 517.43
+  },
+  {
+   "kind": "concept",
+   "quote": "这一个资产转移的过程，比如像 2021 年，有很多的垃圾公司上市，上市之后对于市场抽取的这个行为，结果 22 年因为加息，进入了一波熊市。所以我其实对于第二点是非常的敏感。但是，我们现在和 21 年和 22 年不一样。因为整个 AI 的落地非常好。所以我仍然认为，第一条 AI 还是一个主逻辑线。",
+   "locator": "14:36",
+   "tags": [
+    "ipo-supply",
+    "capital-raise",
+    "ai-capex",
+    "psychology"
+   ],
+   "payload": {
+    "canonical_statement": "大量上市是从二级市场抽走资金的财富转移——2021 年大批垃圾公司上市，2022 年叠加加息进入熊市。作者对这一条最敏感，但认为现在 AI 落地很好、与 2021-22 年不同，AI 仍是主线。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "她们归类于三个因素：一个是 Tariff，那一个就是关税，然后一个是伊朗、美伊之间的这个战争，第三个就是 AI spending。\n\n在 Tariff 在关税这一块，主要影响到的是核心商品。\n\n然后美伊战争主要影响到的是油价。\n\nAI 这个 spending 呢，主要影响是 Computer software and accessories。",
+   "locator": "15:17",
+   "tags": [
+    "inflation",
+    "macro-data",
+    "ai-capex",
+    "oil-supply"
+   ],
+   "payload": {
+    "canonical_statement": "彭博归纳当前推高 CPI 的三个因素：关税主要影响核心商品，美伊战争主要影响油价，AI 支出主要影响 computer software and accessories（作者转述）。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "但是呢，PCE 在 5 月份的时候，美联储内部有一份报告聊到了，PCE 里面的这个 software、computer software and accessory 有一些统计学上的一个错误，就是她是直接拿 CPI 的数据给借过来了。\n\n但实际上 PCE 里面所做的这个统计是有误的，是高估了这一块对于 PCE 通胀的这个影响。所以在 9 月份的数据里面，她会进行修正的。修正完之后，举个例子：比如你去看 7 月份核心 PCE 同比增速 3.3%，修正完之后会往下修，会修正到 3% 左右。",
+   "locator": "16:22",
+   "tags": [
+    "inflation",
+    "macro-data",
+    "fed-policy"
+   ],
+   "payload": {
+    "asset_text": "美国核心 PCE 的修订（作者转述美联储内部报告：computer software 分项直接借用 CPI、高估了通胀，9 月数据会修正；他举例 7 月核心 PCE 同比 3.3% 会下修到 3% 左右）",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "event_outcome",
+    "direction": "down",
+    "magnitude": {
+     "core_pce_yoy_jul_before": 3.3,
+     "core_pce_yoy_jul_after": 3.0
+    },
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2026-09-30"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "所以在 PCE 里面，我去抓了三个现在增速比较高的，一个就是这边和 AI、和 AI 花费有关系的相关的一个指标本身。Software、computer software and accessory，这是第一个，增速也非常的高，是 30% 吧，20%、30% 以上。第二个比较高的就是 Portfolio management，是和股市是相关的。股市走得越好，这个通胀数据就越高。某种程度，股市和通胀之间形成了一个联动。股市越好，通胀越高。所以，这中间是有相关性的。第三个就是能源，那能源价格，我们看核心通胀，能源价格是去掉了，但是能源价格会影响到机票价格。而机票价格是在核心服务通胀里面。机票价格同比增速 20% 以上。所以这三个，是现在核心 PCE 里面最高的增速。",
+   "locator": "17:19",
+   "tags": [
+    "inflation",
+    "macro-data",
+    "ai-capex"
+   ],
+   "payload": {
+    "canonical_statement": "作者拆出核心 PCE 里增速最高的三项：computer software and accessories（与 AI 开支相关，20%-30% 以上）、portfolio management（随股市上涨而升，20% 以上）、机票（能源虽被剔除，但通过机票进入核心服务通胀，20% 以上）——股市与通胀因此形成联动。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "加息本身应该不会是油价下跌，油价是和战争是有关系的。所以机票的价格也不会下跌。那第二个加息本身，也不会使得 AI 的增速放缓，AI 的花费并不会因为你加一次息、加两次息而出现任何的放缓，所以 Memory 的这个价格该涨还是涨。那第三块，就是有一些争议性了。股市的一个上涨，如果你真的加息加得非常积极、非常的鹰派，股市是有可能会回调。那短暂股市的这个回调，是有利于你把 Portfolio management 这一块的增速放缓。",
+   "locator": "18:13",
+   "tags": [
+    "fed-policy",
+    "inflation",
+    "ai-capex",
+    "memory-storage"
+   ],
+   "payload": {
+    "canonical_statement": "加息压不下核心 PCE 里最高的两项：机票跟着油价、油价跟着战争；AI 开支不会因加一两次息放缓，存储价格照涨。唯一可能被加息压下的是 portfolio management——要激进加息让股市回调才行。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "在刚刚过去的这个季度，RPO 的这个环比体量增加了 26 个 Billion。26 个 Billion 环比。她们一共是 600 多个 Billion，6000 多亿，所以 200 多的这个增速的话，还行，不是非常的高。但是，多数的这些增速、RPO 的这个订单全部是带资进场。也就是这一部分的 RPO 的订单去满足的话，Oracle 自己不需要拿现金出来。还是需要花资本开支，但是自己不需要拿现金出来，因为她们的客户都是带资进场，或者带芯片进场。",
+   "locator": "19:18",
+   "tags": [
+    "orcl",
+    "datacenter-financing",
+    "ai-capex"
+   ],
+   "payload": {
+    "canonical_statement": "甲骨文本季 RPO 环比增加 260 亿美元（总量 6000 多亿），增幅不算高；但多数新订单是客户带资或带芯片进场，满足这些订单仍要资本开支，却不需要甲骨文自己出现金（作者转述财报）。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "第二点。20 个 Billion 的这个不是增速，是增发已经在第一季度完成了。这一点让我有点意外，就是她们在刚刚过去的这个季度里面，已经把她们的增发已经完成了。那这一点还挺好的，因为她们现在已经进入了 27 财年了。所以在接下去的 27 财年、接下去的三个季度里面，就起码不会进行任何的增发了，就公司本身不会成为股票的一个卖家。",
+   "locator": "19:47",
+   "tags": [
+    "orcl",
+    "capital-raise"
+   ],
+   "payload": {
+    "canonical_statement": "甲骨文 200 亿美元增发已在 2027 财年第一季度完成——作者据此推断接下来三个季度不会再增发，公司不会成为自家股票的卖方。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "第三点：一季度续的 GPU 的这个租赁价格，价格上涨 20%。说实话看到这一点我我们也不应该感到意外，因为近接下去的一段时间一直在聊，GPU 的这个租赁的一个价格一直在上涨，所以新的订单我也一直在聊，新的订单你在续订单的话这个价格比以前还要好。四年以上的 GPU 的这个订单在原来的这个订单到期之后再续的话，比原来这个订单价格还要高，还高了 20%。那这说明了什么？这其实就无非说明了当下 AI 的这个变现非常好。",
+   "locator": "20:10",
+   "tags": [
+    "orcl",
+    "compute-pricing",
+    "gpu-depreciation"
+   ],
+   "payload": {
+    "canonical_statement": "甲骨文一季度续约的 GPU 租赁价格上涨 20%：『四年以上的 GPU 订单』到期后再续，价格比原订单还高 20%——作者读作当下 AI 变现非常好。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "现在不是了，现在是电，主要的 Constraint 就是在电这一块。那新墨西哥用的是 BE，就 Bloom Energy，使用的是电池。所以对于环境这一块的影响其实相对来说是最小的，那她们现在需要在环境这一块拿到一个 Permit、拿到一个许可证。所以她们现在在申请这一个许可证，她们的一个期待是这个许可证应该不会有太多的一些问题。\n\nWisconsin 的这个项目，使用的是电网。\n\n所以，现在对于整个数据中心的一个建造过程里面，Constraint 在哪？Bottleneck 在哪？一个是电。第二个就是数据中心里面的一些 Component。",
+   "locator": "20:59",
+   "tags": [
+    "orcl",
+    "be",
+    "power-demand"
+   ],
+   "payload": {
+    "canonical_statement": "甲骨文称数据中心建设的主要约束已转到电力与组件：新墨西哥项目用 Bloom Energy（BE）的方案、环境影响小、正在申请环境许可，Wisconsin 项目用电网（作者转述）。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "所以 Oracle 这家公司，我认为市场对于她们的这个担心、对于她们融资风险的这个担心，我认为应该已经在身后了。",
+   "locator": "21:36",
+   "tags": [
+    "orcl",
+    "datacenter-financing",
+    "capital-raise"
+   ],
+   "payload": {
+    "asset_text": "甲骨文 ORCL（作者判市场对它融资风险的担心已经过去：新订单让客户带资进场，200 亿增发已完成）",
+    "asset_symbol": "ORCL",
+    "priceable": true,
+    "claim_class": "risk_warning",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   },
+   "ref_price": 152.94
+  },
+  {
+   "kind": "concept",
+   "quote": "和 AI 相关的、Freemium MAU 月活数已经达到了 100 Million。同比增速 70%，环比增速是增加了 1000 万。然后模型、现在的模式就是免费的月活。这一部分客户全部是免费的。所以她们现在的一个模式就是和以前一样，先吸引来一些免费的客户，未来再变现，现在还不着急去变现。所以未来的一路径就是先积累这个免费的月活，然后到了变现，最后会、最后会反映到她们一个 ARR 里面。\n\n第二点和 AI 相关的：AI First ARR 现达到了 6.5 亿美元、650 Million。同比增速 150%。那市场为什么没有那么的兴奋？是因为你去看她们总共的营收是多少，26、27 个 Billion，200 多亿美元你去和 0.6 个 Billion 去做这个对比。所以现在 AI 相关的营收，还是只占到了 Adobe 营收的 3% 都不到。",
+   "locator": "22:17",
+   "tags": [
+    "adbe",
+    "software",
+    "ai-agent"
+   ],
+   "payload": {
+    "canonical_statement": "Adobe 的 AI 数据：Freemium 月活 1 亿（同比 +70%，环比增加 1000 万），先积累免费用户再变现；AI First ARR 6.5 亿美元（同比 +150%），但只占总营收（约 260-270 亿）的不到 3%，所以市场不兴奋。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "所以 Adobe 做一个总结的话，去从一个比较高的一个角度：AI 有没有破坏 Adobe？现在据没有看到。没有丝毫没有看到任何 AI 对于 Adobe 的这个破坏。当然我说，最低端的那些客户、个人用户这一块，确实是破坏了。所以她们改变方向了。那所以，她们改变了派发的方式，现在大模型全部变成她们派发的方式。这一部分客户，既然你在流失，我就不收你钱了。",
+   "locator": "23:22",
+   "tags": [
+    "adbe",
+    "software",
+    "ai-agent"
+   ],
+   "payload": {
+    "canonical_statement": "作者判至今没有看到 AI 对 Adobe 的破坏；被破坏的只有最低端的个人用户，Adobe 的应对是对这部分改为免费、经大模型分发。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "Operating、首先看 Operating profit，运营利润的增速是多少？2026 财年的前三个季度，12%、6% 和 8%。但是，你看她 EPS 这个增速是多少。19%、18% 和 15%。就刚刚过去的这个季度。运营利润增速才 8%，但是 EPS 的增速她到了 15%。这 7% 的增速哪里来的？7% 的增速哪里来？全部是靠回购来的。也就是 EPS 的这一个 S，S 的这个体量变小了。",
+   "locator": "24:56",
+   "tags": [
+    "adbe",
+    "valuation",
+    "balance-sheet"
+   ],
+   "payload": {
+    "canonical_statement": "回购对 EPS 增速的贡献可以直接拆出来：Adobe 2026 财年前三季运营利润增速 12%、6%、8%，EPS 增速却是 19%、18%、15%——最近一季 8% 与 15% 之间那 7 个点，作者归因为回购缩小了股本。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "PE 的话，就静态市盈率是 10.5 倍。那未来的三年，可以看到 10.2 倍、9 倍、8 倍。包括 Price to Cash Flow，就从现金流这个角度去看，因为她们也不需要融资的。就现金流非常好，所以也会有回购嘛。Price to Cash Flow，9 倍都不到。未来三年的话，9.5 倍、8.4 倍和 7.6 倍。",
+   "locator": "25:47",
+   "tags": [
+    "adbe",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "Adobe 估值：静态 PE 10.5 倍，未来三年 10.2、9、8 倍；市现率不到 9 倍，未来三年 9.5、8.4、7.6 倍；现金流好、无需融资、持续回购（作者口述）。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "而从估值这个角度去看，仍然是和我当时开始买入 Adobe 时候估值是一样的。就是差不多在 10 倍左右。那除非它的一个估值继续变得便宜，那再变到了一个 9 倍或者再变到 8 倍的时候，那我会愿意去加仓的。对吧？因为基本面本身完全没有任何的变化，只是因为她估值变便宜了。",
+   "locator": "26:22",
+   "tags": [
+    "adbe",
+    "valuation",
+    "position-sizing"
+   ],
+   "payload": {
+    "name": "估值再便宜一档才加仓：Adobe 到 9 倍或 8 倍",
+    "summary": "买入时约 10 倍 PE，现在仍在 10 倍附近，不加仓；基本面不变而估值降到 9 倍或 8 倍时加仓。",
+    "family": "other",
+    "rules": [
+     "当前约 10 倍 PE，与买入时相同，不加仓",
+     "基本面不变、估值降到 9 倍或 8 倍时加仓——理由只是更便宜了"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "ADBE 行情与 forward PE（ADBE 未登记）"
+    ],
+    "overlap_with_killed": [],
+    "testability": "B"
+   }
+  }
+ ]
+}

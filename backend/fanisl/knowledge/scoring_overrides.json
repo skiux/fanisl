@@ -452,5 +452,21 @@
   "mode": "close_at_eval",
   "level": 3.75,
   "op": ">="
+ },
+ "1264": {
+  "note": "修机器配置与冻结的 success_def 不一致：success_def 写『上限 4.25%』，magnitude 却只有 {max_hikes: 2}，range_hold 读不到上界、评分器抛 ValueError（2026-09-13 实测）。补上界，语义不变",
+  "level_high": 4.25
+ },
+ "1548": {
+  "note": "'今年加息'=2026-12-31 政策利率上限>3.75。阶梯序列，『没变动』须判 miss，用严格号（§4）",
+  "mode": "close_at_eval",
+  "level": 3.75,
+  "op": ">"
+ },
+ "1576": {
+  "note": "'下周 9-16 会议加息'=2026-09-18 政策利率上限>3.75。阶梯序列，『没变动』须判 miss，用严格号（§4）",
+  "mode": "close_at_eval",
+  "level": 3.75,
+  "op": ">"
  }
 }

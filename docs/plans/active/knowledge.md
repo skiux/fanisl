@@ -1,13 +1,13 @@
 # knowledge — active
 
 知识引擎（`backend/fanisl/knowledge/` + `assets.py` + 语料）。
-席位说明见 `backend/fanisl/knowledge/AGENTS.md`。最后核对 2026-09-10。
+席位说明见 `backend/fanisl/knowledge/AGENTS.md`。最后核对 2026-09-13。
 
 ## Now
 （待该席位填）
 
 ## Next
-按下面 1→5 的顺序，第 1 条今天就能做完。
+按下面编号排列。**第 6 条的结构问题建议最先做**——一条坏单元能让之后的全部 claim 停评。
 
 ## Blocked on
 - 无
@@ -38,8 +38,8 @@ PICK、IWD、USMV、GUNR、URA、SETM、CRDO、PANW、DELL、XLP。
 
 ## 2. 抽查欠账
 
-§10 要求每批提取抽满 20%。**按批次是结清的**（最近三批分别 21%、21%、20.9%），
-但历史存量欠着：累计 97/1479 = **6.6%**，v1 时期那 798 条尤其稀。
+§10 要求每批提取抽满 20%。**按批次是结清的**（最近四批分别 21%、21%、20.9%、20.6%），
+但历史存量欠着：累计 110/1542 = **7.1%**，v1 时期那 798 条尤其稀。
 
 ## 3. 待补的两条规范条款
 
@@ -67,3 +67,31 @@ PICK、IWD、USMV、GUNR、URA、SETM、CRDO、PANW、DELL、XLP。
 2. **文档数字断言** —— `90 符号`、`77 条 overrides` 这类数写进测试，
    代码变了文档不改就红。设计文档里曾长期写着 39 和 103
 3. **quote 自足性** —— 见上面第 3 条，需先改规范
+
+## 6. 评分器：一条坏单元会让之后全部停评
+
+2026-09-13 发现。触发点已修，结构问题没修。
+
+- **#1264（c104，C 级，12-31 到期）原本评不了分。** `success_def` 写「上限 4.25%」，
+  `magnitude` 却只有 `{max_hikes: 2}`，`range_hold` 读不到上界。用 09-11 的真实行情调
+  `score_unit_at` 实测，抛 `ValueError: 双边 magnitude 需显式 bounds override`。
+  已在 `scoring_overrides.json` 补 `level_high: 4.25`——语义不变，只是让机器配置对齐
+  已冻结的 `success_def`；复测判 hit。
+- **结构问题（未修）：** `scorers.run()` 只有外层 `try/finally`，没有逐条的异常隔离。
+  单元按 id 升序评，#1264 一旦到期就每天重试、每天抛错，id 比它大的所有 claim 从那天起
+  全部停评，除了日志里一行异常没有别的迹象。修法：循环体内逐条 `try/except`，
+  失败记成一条结果并继续。
+- **同类预防：** A/B/C 的 spec 能不能被评分器解析，应该在导入时就验，而不是到期那天才发现。
+
+## 7. `asset_text` 被当成理由栏，前端把它显示成「标的」
+
+- `models.py` 对它的定义是「原文的资产表述」，v2 实际把定级理由都塞了进去。
+  实测（active claim）：全库 v2 共 253 条，平均 51 字、超 40 字 133 条、含 § 编号 12 条；
+  c113-c115 平均 101 字。c116-c117 去掉了 § 编号，但仍平均 58 字——**长度问题没解决**。
+- 根因：D 级没有 `scoring_spec`，也就没有 `success_def` 可放「为什么判 D」，理由只能挤进
+  `asset_text`。
+- 前端 `EvidenceDossier` 与 `VerificationDossier` 的「标的」字段取
+  `asset_text ?? asset_symbol`，所以单元详情里「标的」一栏显示整段推理（用户 2026-09-13
+  截图 #1518）。
+- 要两个席位一起定：知识侧给理由一个单独的去处，前端侧「标的」显示 `asset_symbol`、
+  理由另起一行。已在 `frontend.md` 的 Requests in 留言。
