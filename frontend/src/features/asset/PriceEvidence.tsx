@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
-import type { AssetEvent, OpenClaim, PriceWindow, SettledClaim, SettledOutcome } from './types'
-
-const outcomeMarks: Record<SettledOutcome, string> = {
-  hit: '✓', partial: '½', miss: '×',
-  condition_not_met: '○', condition_unverifiable: '?', unpriceable: '—', pending: '…',
-}
+import { outcomeMarks } from '../../shared/domain/labels'
+import type { AssetEvent, OpenClaim, PriceWindow, SettledClaim } from './types'
 
 const WINDOW_DAYS = 180        // 回看窗口
 const FUTURE_DAYS = 120        // 未来区最多画到多远（再远的到期日只进"未到期"分节）

@@ -1,85 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
+import {
+  claimClassLabels, directionLabels, gradeText, labelOf, outcomeLabels, outcomeMarks,
+  realizedLabels, scoringMethodLabels, stanceLabels,
+} from '../../shared/domain/labels'
 import EvidenceDossier from '../knowledge/EvidenceDossier'
 import type {
   DueVerification,
   VerificationDetail,
-  VerificationOutcome,
   VerificationPriceWindow,
 } from './types'
-
-const outcomeLabels: Record<VerificationOutcome, string> = {
-  hit: '命中',
-  partial: '部分命中',
-  miss: '未命中',
-  condition_not_met: '条件未触发',
-  condition_unverifiable: '条件不可验',
-  unpriceable: '无法取价',
-  pending: '等待确认',
-}
-
-const outcomeMarks: Record<VerificationOutcome, string> = {
-  hit: '✓',
-  partial: '½',
-  miss: '×',
-  condition_not_met: '○',
-  condition_unverifiable: '?',
-  unpriceable: '—',
-  pending: '…',
-}
-
-const claimClassLabels: Record<string, string> = {
-  price_target: '价位判断',
-  directional: '方向判断',
-  relative: '相对强弱',
-  event_outcome: '事件结果',
-  timing: '时点判断',
-  risk_warning: '风险警示',
-}
-
-const directionLabels: Record<string, string> = {
-  up: '↑ 上行',
-  down: '↓ 下行',
-  flat: '→ 横向',
-  range: '↔ 区间',
-  vol_up: '波动上升',
-  vol_down: '波动下降',
-}
-
-const verifiabilityLabels: Record<string, string> = {
-  A: 'A级 · 全自动可评',
-  B: 'B级 · 我方评分阶梯',
-  C: 'C级 · 按约定条件评',
-  D: 'D级 · 不可机械评',
-}
-
-const stanceLabels: Record<string, string> = {
-  explicit: '明确表述',
-  hedged: '对冲表述',
-  speculative: '试探表述',
-}
-
-const methodLabels: Record<string, string> = {
-  sign: '方向符号',
-  target_touch: '目标触及',
-  target_close: '到期收盘',
-  range_hold: '区间保持',
-  relative_return: '相对收益',
-}
-
-const metricLabels: Record<string, string> = {
-  ref: '发布参考',
-  eval_close: '到期收盘',
-  asset_ret: '标的收益',
-  bench_ret: '基准收益',
-  excess_ret: '超额收益',
-  relative_ret: '相对收益',
-  high: '区间最高',
-  low: '区间最低',
-  target: '判定目标',
-  ladder: '评分阶梯',
-  condition: '条件观测',
-}
 
 type LoadState = 'loading' | 'loaded' | 'error'
 type PriceState = 'idle' | 'loading' | 'loaded' | 'error'
@@ -130,13 +60,17 @@ function FrozenContract({ payload, scorerVersion }: { payload: Record<string, un
     <section className="frozen-contract">
       <header><div><p>冻结判据</p><span>发布时确定，到期后不重新解释</span></div><b>SCORING CONTRACT</b></header>
       <div className="frozen-facts">
-        <ClaimFact label="标的" value={asText(payload.asset_text) ?? asText(payload.asset_symbol)} />
-        <ClaimFact label="判断类型" value={claimClassLabels[asText(payload.claim_class) ?? ''] ?? asText(payload.claim_class)} />
-        <ClaimFact label="方向" value={directionLabels[asText(payload.direction) ?? ''] ?? asText(payload.direction)} />
-        <ClaimFact label="可验证性" value={verifiabilityLabels[asText(payload.verifiability) ?? ''] ?? asText(payload.verifiability)} />
-        <ClaimFact label="承诺度" value={stanceLabels[asText(payload.stance_strength) ?? ''] ?? asText(payload.stance_strength)} />
-        <ClaimFact label="评分方法" value={methodLabels[asText(scoring?.method) ?? ''] ?? asText(scoring?.method)} />
+        <ClaimFact label="标的" value={asText(payload.asset_symbol) ?? '未规范化'} />
+        <ClaimFact label="判断类型" value={labelOf(claimClassLabels, payload.claim_class)} />
+        <ClaimFact label="方向" value={labelOf(directionLabels, payload.direction)} />
+        <ClaimFact label="可验证性" value={gradeText(payload.verifiability)} />
+        <ClaimFact label="承诺度" value={labelOf(stanceLabels, payload.stance_strength)} />
+        <ClaimFact label="评分方法" value={labelOf(scoringMethodLabels, scoring?.method)} />
       </div>
+      {/* 「标的」只放规范符号。asset_text 在 v2 里装的是定级理由（平均 51 字），另起一行完整给出 */}
+      {asText(payload.asset_text) && asText(payload.asset_text) !== asText(payload.asset_symbol) && (
+        <div className="frozen-asset-note"><span>标的说明</span><p>{asText(payload.asset_text)}</p></div>
+      )}
       {asText(payload.condition_text) && (
         <div className="frozen-condition"><span>前置条件</span><p>{asText(payload.condition_text)}</p><b>{payload.condition_observable ? '可机械观察' : '不可机械观察'}</b></div>
       )}
@@ -276,7 +210,7 @@ function VerificationDossier({ onOpenUnit, scoreId }: { onOpenUnit: (unitId: num
         <section className="verdict-evidence-pane">
           <section className="realized-evidence">
             <header><div><p>实测结果</p><span>评分器落库字段，不做事后修饰</span></div><b>{outcomeLabels[detail.outcome]}</b></header>
-            {realized.length > 0 ? <dl>{realized.map(([key, value]) => <div key={key}><dt>{metricLabels[key] ?? key}</dt><dd>{formatMetric(key, value)}</dd></div>)}</dl> : <p className="realized-empty">该判定没有返回数值型实测字段。</p>}
+            {realized.length > 0 ? <dl>{realized.map(([key, value]) => <div key={key}><dt>{realizedLabels[key] ?? key}</dt><dd>{formatMetric(key, value)}</dd></div>)}</dl> : <p className="realized-empty">该判定没有返回数值型实测字段。</p>}
           </section>
           <VerificationPriceEvidence detail={detail} />
           <section className="verdict-source">
@@ -292,7 +226,7 @@ function VerificationDossier({ onOpenUnit, scoreId }: { onOpenUnit: (unitId: num
 }
 
 function DueDossier({ item, onOpenUnit }: { item: DueVerification; onOpenUnit: (unitId: number) => void }) {
-  const asset = asText(item.payload.asset_text) ?? asText(item.payload.asset_symbol)
+  const asset = asText(item.payload.asset_symbol)
   return (
     <article className="verification-dossier due-dossier outcome-due">
       <header className="verdict-record-lead">

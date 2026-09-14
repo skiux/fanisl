@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import PriceEvidence from './PriceEvidence'
 import {
-  asNumber, asRecord, asText, count, countdown, directionLabels, formatDate,
-  industryLabel, kindLabels, outcomeLabels, outcomeMarks, pct, rateDisplay, ratio,
+  asNumber, asRecord, asText, count, countdown, directionLabels, formatDate, gradeText,
+  industryLabel, kindLabels, outcomeLabels, outcomeMarks, pct, rateDisplay, ratio, relationLabels,
   sessionLabels, sideLabels, signedPct, stanceLabels, statusLabels, tradeOutcomeLabels,
-  tradeStatusLabels, usd, verifiabilityLabels,
+  tradeStatusLabels, usd,
 } from './format'
 import type { AssetDossierData, AssetEvent, OpenClaim, SettledClaim } from './types'
 
@@ -104,8 +104,8 @@ function ClaimFacts({ payload }: { payload: Record<string, unknown> }) {
   }
   const stance = asText(payload.stance_strength)
   if (stance) facts.push(['承诺度', stanceLabels[stance] ?? stance])
-  const grade = asText(payload.verifiability)
-  if (grade) facts.push(['可验证性', `${grade} · ${verifiabilityLabels[grade] ?? ''}`])
+  const grade = gradeText(payload.verifiability)
+  if (grade) facts.push(['可验证性', grade])
   const condition = asText(payload.condition_text)
   if (condition) facts.push(['前置条件', condition])
   if (facts.length === 0) return null
@@ -228,7 +228,7 @@ function Disagreements({ dossier }: { dossier: AssetDossierData }) {
         <div className="asset-tension-relations">
           {relations.map((relation) => (
             <article key={relation.id} data-relation={relation.relation}>
-              <span>{relation.relation === 'conflicts' ? '对立' : '关联'}</span>
+              <span>{relationLabels[relation.relation]}</span>
               <div>
                 <a href={`#/knowledge?node=${relation.a_node}`}>
                   <b>{relation.a_title}</b><i>{statusLabels[relation.a_status] ?? relation.a_status}</i>

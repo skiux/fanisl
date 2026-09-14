@@ -1607,6 +1607,46 @@ button.library-status {
   display: none;
 }
 
+/* 761–1180px：导航链接还排在顶栏里，但放不下"搜索知识 ⌘K"。
+   2026-09-14 量过（1440 以下逐档）：不带「待确认」时 761–900px 顶栏右侧已溢出 37–96px、搜索按钮被挤成
+   竖排四个字（高 82px）；带上「待确认」一直坏到 1180px。搜索收成与窄屏相同的图标按钮，链接间距收紧 */
+@media (min-width: 761px) and (max-width: 1180px) {
+  /* `1fr auto 1fr` 把剩余宽度左右均分：品牌那半边空着，右侧按钮那半边不够（768px 实测与导航间距 0、
+     961px 实测 2px 而品牌一侧空着 123px）。这一档改成导航占中间弹性列、在品牌与右侧按钮之间居中 */
+  .spatial-nav {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 12px;
+  }
+
+  .spatial-nav nav {
+    justify-content: center;
+  }
+
+  .spatial-nav nav a,
+  .spatial-nav nav span {
+    padding: 9px 10px;
+  }
+
+  .search-trigger {
+    justify-content: center;
+    width: 36px;
+    min-height: 36px;
+    padding: 0;
+  }
+
+  .search-trigger em,
+  .search-trigger kbd {
+    display: none;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 960px) {
+  .spatial-nav nav a,
+  .spatial-nav nav span {
+    padding: 9px 7px;
+  }
+}
+
 .chapter-rail {
   position: absolute;
   z-index: 80;

@@ -1079,6 +1079,21 @@
 .frozen-condition b { color: #7a7153; font-size: .6875rem; }
 .frozen-condition p { margin: 0; font-size: .8125rem; line-height: 1.55; }
 
+/* 标的说明：v2 的 asset_text 装的是定级理由，可能上百字——不塞进格子，另起一段完整给出 */
+.frozen-asset-note {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 12px;
+  align-items: start;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-left: 3px solid rgba(123, 131, 121, .32);
+  background: rgba(236, 234, 224, .42);
+}
+
+.frozen-asset-note span { color: #7b8379; font-size: .6875rem; }
+.frozen-asset-note p { margin: 0; font-size: .8125rem; line-height: 1.55; }
+
 .frozen-definition {
   margin-top: 18px;
   padding: 17px 18px;
@@ -1329,7 +1344,8 @@
   .verdict-quote blockquote { font-size: 20px; }
   .verdict-quote footer { align-items: flex-start; flex-direction: column; gap: 7px; }
   .frozen-facts { grid-template-columns: 1fr; }
-  .frozen-condition { grid-template-columns: 1fr; }
+  .frozen-condition,
+  .frozen-asset-note { grid-template-columns: 1fr; }
   .realized-evidence dl { grid-template-columns: repeat(2, 1fr); }
   .due-protocol li span { display: block; }
   .due-protocol li small { display: block; margin-top: 5px; }

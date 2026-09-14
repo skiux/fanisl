@@ -1,94 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
+import {
+  categoryLabels, claimClassLabels, directionLabels, familyLabels, gradeText, kindLabels, labelOf,
+  outcomeLabels, realizedLabels, scoringMethodLabels, stanceLabels, testabilityLabels,
+} from '../../shared/domain/labels'
 import { nextTabIndex } from '../../shared/interaction/tabs'
 import { useModalFocus } from '../../shared/interaction/useModalFocus'
+import UnitReviews from './UnitReviews'
+import type { EvidenceView } from './evidence-views'
+import { announceReviewsChanged, fetchUnitReviews, unclosedCount, type UnitReview } from './reviews'
 import type {
   KnowledgeContentDetail,
-  KnowledgeKind,
   KnowledgePriceWindow,
   KnowledgeUnitDetail,
   UnitScore,
 } from './types'
 import './evidence-dossier.css'
-
-const kindLabels: Record<KnowledgeKind, string> = {
-  claim: '判断',
-  method: '方法',
-  concept: '认知',
-}
-
-const outcomeLabels: Record<string, string> = {
-  hit: '命中',
-  partial: '部分',
-  miss: '未中',
-  condition_not_met: '条件未触发',
-  condition_unverifiable: '条件不可验',
-  unpriceable: '无价格',
-  pending: '待复核',
-}
-
-const claimClassLabels: Record<string, string> = {
-  price_target: '价位判断',
-  directional: '方向判断',
-  relative: '相对强弱',
-  event_outcome: '事件结果',
-  timing: '时点判断',
-  risk_warning: '风险警示',
-}
-
-const directionLabels: Record<string, string> = {
-  up: '↑',
-  down: '↓',
-  flat: '→',
-  range: '↔',
-  vol_up: '波动↑',
-  vol_down: '波动↓',
-}
-
-const verifiabilityLabels: Record<string, string> = {
-  A: 'A级 · 全自动',
-  B: 'B级 · 我方阶梯',
-  C: 'C级 · 带条件',
-  D: 'D级 · 不可评',
-}
-
-const stanceLabels: Record<string, string> = {
-  explicit: '明确',
-  hedged: '对冲表述',
-  speculative: '试探表述',
-}
-
-const familyLabels: Record<string, string> = {
-  trend: '趋势',
-  reversion: '回归',
-  carry: '套息',
-  event: '事件',
-  flow: '资金流',
-  positioning: '仓位',
-  other: '其他',
-}
-
-const categoryLabels: Record<string, string> = {
-  risk_mgmt: '风险管理',
-  psychology: '心理',
-  market_structure: '市场结构',
-  regime: '市场环境',
-  execution: '执行',
-  macro_framework: '宏观框架',
-  other: '其他',
-}
-
-const realizedLabels: Record<string, string> = {
-  ref: '参考价',
-  eval_close: '到期收盘',
-  asset_ret: '标的收益',
-  bench_ret: '基准收益',
-  relative_ret: '相对收益',
-  target: '目标价',
-  high: '区间最高',
-  low: '区间最低',
-  ladder: '评分日期',
-}
 
 type LoadState = 'loading' | 'loaded' | 'error'
 type ContentState = 'idle' | 'loading' | 'loaded' | 'error'
@@ -189,13 +116,21 @@ function ClaimContract({ unit }: { unit: KnowledgeUnitDetail }) {
       </header>
 
       <div className="contract-facts">
-        <Fact label="标的" value={asText(payload.asset_text) ?? asText(payload.asset_symbol)} />
-        <Fact label="判断类型" value={claimClassLabels[asText(payload.claim_class) ?? ''] ?? asText(payload.claim_class)} />
-        <Fact label="方向" value={directionLabels[asText(payload.direction) ?? ''] ?? asText(payload.direction)} />
+        <Fact label="标的" value={asText(payload.asset_symbol) ?? '未规范化'} />
+        <Fact label="判断类型" value={labelOf(claimClassLabels, payload.claim_class)} />
+        <Fact label="方向" value={labelOf(directionLabels, payload.direction)} />
         <Fact label="期限" value={describeHorizon(payload.horizon)} />
-        <Fact label="承诺度" value={stanceLabels[asText(payload.stance_strength) ?? ''] ?? asText(payload.stance_strength)} />
-        <Fact label="可验证性" value={verifiabilityLabels[asText(payload.verifiability) ?? ''] ?? asText(payload.verifiability)} />
+        <Fact label="承诺度" value={labelOf(stanceLabels, payload.stance_strength)} />
+        <Fact label="可验证性" value={gradeText(payload.verifiability)} />
       </div>
+
+      {/* 「标的」只放规范符号。asset_text 在 v2 里装的是定级理由（平均 51 字），另起一行完整给出 */}
+      {asText(payload.asset_text) && asText(payload.asset_text) !== asText(payload.asset_symbol) && (
+        <div className="contract-asset-note">
+          <span>标的说明</span>
+          <p>{asText(payload.asset_text)}</p>
+        </div>
+      )}
 
       {asText(payload.condition_text) && (
         <div className="contract-condition">
@@ -210,7 +145,7 @@ function ClaimContract({ unit }: { unit: KnowledgeUnitDetail }) {
           <span>成功定义</span>
           <blockquote>{asText(scoring.success_def) ?? '未写入成功判据。'}</blockquote>
           <footer>
-            <b>{asText(scoring.method) ?? '评分方法未声明'}</b>
+            <b>{labelOf(scoringMethodLabels, scoring.method) ?? '评分方法未声明'}</b>
             {asText(scoring.benchmark) && <em>基准 {asText(scoring.benchmark)}</em>}
           </footer>
           {ladder.length > 0 && (
@@ -252,8 +187,8 @@ function MethodStructure({ unit }: { unit: KnowledgeUnitDetail }) {
       </header>
 
       <div className="contract-facts">
-        <Fact label="方法族" value={familyLabels[asText(payload.family) ?? ''] ?? asText(payload.family)} />
-        <Fact label="可测试性" value={asText(payload.testability) ? `${asText(payload.testability)}级` : null} />
+        <Fact label="方法族" value={labelOf(familyLabels, payload.family)} />
+        <Fact label="可测试性" value={asText(payload.testability) && `${asText(payload.testability)}级 · ${labelOf(testabilityLabels, payload.testability)}`} />
       </div>
 
       {asText(payload.summary) && <p className="method-summary">{asText(payload.summary)}</p>}
@@ -297,7 +232,7 @@ function ConceptStructure({ unit }: { unit: KnowledgeUnitDetail }) {
       </header>
 
       <div className="contract-facts">
-        <Fact label="框架类型" value={categoryLabels[asText(payload.category) ?? ''] ?? asText(payload.category)} />
+        <Fact label="框架类型" value={labelOf(categoryLabels, payload.category)} />
         <Fact label="立场" value={asText(payload.stance) === 'reject' ? '否定' : asText(payload.stance) === 'assert' ? '主张' : asText(payload.stance)} />
         <Fact label="适用环境" value={asText(payload.regime_qualifier)} />
       </div>
@@ -626,6 +561,8 @@ function DossierSkeleton() {
 function EvidenceDossier({
   backLabel = '返回知识节点',
   embedded = false,
+  focusReviewId = null,
+  initialView = 'structure',
   onClose,
   parentLabel = 'NODE',
   parentTitle,
@@ -633,6 +570,10 @@ function EvidenceDossier({
 }: {
   backLabel?: string
   embedded?: boolean
+  /** 从「待确认」进来时滚到那一条核查。 */
+  focusReviewId?: number | null
+  /** 打开时落在哪个 tab；换单元时回到它。 */
+  initialView?: EvidenceView
   onClose: () => void
   parentLabel?: string
   parentTitle: string
@@ -641,7 +582,19 @@ function EvidenceDossier({
   const [unit, setUnit] = useState<KnowledgeUnitDetail | null>(null)
   const [state, setState] = useState<LoadState>('loading')
   const [requestKey, setRequestKey] = useState(0)
-  const [activeView, setActiveView] = useState<'structure' | 'verdict' | 'source'>('structure')
+  const [activeView, setActiveView] = useState<EvidenceView>(initialView)
+  const [reviewRequest, setReviewRequest] = useState(0)
+  // 核查记录连同"属于哪个单元、哪一次请求"一起存：换了单元或点了重试，旧数据自然作废、显示读取中，
+  // 不必在 effect 里先同步清空一遍
+  const [reviewData, setReviewData] = useState<{
+    unitId: number
+    request: number
+    reviews: UnitReview[] | null
+    state: LoadState
+  } | null>(null)
+  const reviewsCurrent = reviewData !== null && reviewData.unitId === unitId && reviewData.request === reviewRequest
+  const reviews = reviewsCurrent && reviewData ? reviewData.reviews : null
+  const reviewState: LoadState = reviewsCurrent && reviewData ? reviewData.state : 'loading'
   const bodyRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const dossierRef = useRef<HTMLElement>(null)
@@ -666,9 +619,42 @@ function EvidenceDossier({
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: 0 })
-    setActiveView('structure')
+    setActiveView(initialView)
     if (!embedded) closeRef.current?.focus({ preventScroll: true })
-  }, [embedded, unitId])
+  }, [embedded, initialView, unitId])
+
+  // tab 上要显示未关闭的核查数，所以打开单元就取，不等点进「核查」
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchUnitReviews(unitId, controller.signal)
+      .then((payload) => setReviewData({ unitId, request: reviewRequest, reviews: payload, state: 'loaded' }))
+      .catch(() => {
+        if (!controller.signal.aborted) setReviewData({ unitId, request: reviewRequest, reviews: null, state: 'error' })
+      })
+    return () => controller.abort()
+  }, [reviewRequest, unitId])
+
+  const handleReviewChanged = (next: UnitReview) => {
+    // 先把接口返回的那一条换进列表（新提交的放最前），再静默重取一次与服务端对齐
+    const merge = (list: UnitReview[]) => (list.some((item) => item.id === next.id)
+      ? list.map((item) => (item.id === next.id ? next : item))
+      : [next, ...list])
+    setReviewData((data) => ({
+      unitId: next.unit_id,
+      request: reviewRequest,
+      reviews: merge(data !== null && data.unitId === next.unit_id ? data.reviews ?? [] : []),
+      state: 'loaded',
+    }))
+    announceReviewsChanged()
+    fetchUnitReviews(next.unit_id)
+      // 重取回来时用户可能已经换了单元：只写回同一个单元
+      .then((payload) => setReviewData((data) => (data !== null && data.unitId === next.unit_id
+        ? { ...data, reviews: payload, state: 'loaded' }
+        : data)))
+      .catch(() => { /* 本地已换上接口返回的那条，重取失败不打扰 */ })
+  }
+
+  const openReviews = reviews ? unclosedCount(reviews) : 0
 
   return (
     <section
@@ -749,7 +735,27 @@ function EvidenceDossier({
                     ['structure', '结构化结论', '01'],
                     ['verdict', '市场裁决', '02'],
                     ['source', '原文上下文', '03'],
-                  ] as const).map(([value, label, count]) => <button aria-controls={`unit-${unitId}-panel-${value}`} aria-selected={activeView === value} id={`unit-${unitId}-tab-${value}`} key={value} onClick={() => setActiveView(value)} role="tab" tabIndex={activeView === value ? 0 : -1} type="button"><span>{label}</span><b>{count}</b></button>)}
+                    ['review', '核查', '04'],
+                  ] as const).map(([value, label, ordinal]) => {
+                    // 有未关闭的核查时，序号位换成计数；没有就与其余 tab 一样只是序号
+                    const count = value === 'review' && openReviews > 0 ? openReviews : null
+                    return (
+                      <button
+                        aria-controls={`unit-${unitId}-panel-${value}`}
+                        aria-label={count ? `${label}，${count} 条未关闭` : undefined}
+                        aria-selected={activeView === value}
+                        id={`unit-${unitId}-tab-${value}`}
+                        key={value}
+                        onClick={() => setActiveView(value)}
+                        role="tab"
+                        tabIndex={activeView === value ? 0 : -1}
+                        type="button"
+                      >
+                        <span>{label}</span>
+                        {count ? <b className="dossier-tab-count">{count}</b> : <b>{ordinal}</b>}
+                      </button>
+                    )
+                  })}
                 </nav>
                 <div aria-labelledby={`unit-${unitId}-tab-${activeView}`} className="dossier-section-content" id={`unit-${unitId}-panel-${activeView}`} role="tabpanel" tabIndex={0}>
                   {activeView === 'structure' && <div className="dossier-view dossier-structure-view">
@@ -759,6 +765,18 @@ function EvidenceDossier({
                   </div>}
                   {activeView === 'verdict' && <div className="dossier-view dossier-verdict-view">{unit.kind === 'claim' && <PriceEvidence unit={unit} />}<ScoreSection unit={unit} /></div>}
                   {activeView === 'source' && <div className="dossier-view dossier-source-view"><ContentGateway key={unit.id} unit={unit} /></div>}
+                  {activeView === 'review' && (
+                    <div className="dossier-view dossier-review-view">
+                      <UnitReviews
+                        focusReviewId={focusReviewId}
+                        onChanged={handleReviewChanged}
+                        onRetry={() => setReviewRequest((value) => value + 1)}
+                        reviews={reviews}
+                        state={reviewState}
+                        unitId={unit.id}
+                      />
+                    </div>
+                  )}
                 </div>
               </section>
             </div>

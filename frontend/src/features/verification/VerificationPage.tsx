@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
 import { isVerificationPage, isVerificationSummary } from '../../shared/api/contracts'
+import { outcomeLabels, outcomeMarks } from '../../shared/domain/labels'
 import AppHeader from '../../shared/navigation/AppHeader'
 import { VerificationReader } from './VerificationDossier'
 import type {
   DueVerification,
   ScoredVerification,
-  VerificationOutcome,
   VerificationPageData,
   VerificationSummary,
 } from './types'
@@ -42,26 +42,6 @@ const queueDescriptions: Record<QueueView, string> = {
   due: '判据已经冻结、尚未到达执行日期。这里展示未来要发生的验证工作。',
   watch: '条件没有触发或结果仍待确认。继续保留语境，不把观察状态误写成错误。',
   unavailable: '价格或条件无法机械核验。异常被保留为知识质量信号，不用空白掩盖。',
-}
-
-const outcomeLabels: Record<VerificationOutcome, string> = {
-  hit: '命中',
-  partial: '部分命中',
-  miss: '未命中',
-  condition_not_met: '条件未触发',
-  condition_unverifiable: '条件不可验',
-  unpriceable: '无法取价',
-  pending: '等待确认',
-}
-
-const outcomeMarks: Record<VerificationOutcome, string> = {
-  hit: '✓',
-  partial: '½',
-  miss: '×',
-  condition_not_met: '○',
-  condition_unverifiable: '?',
-  unpriceable: '—',
-  pending: '…',
 }
 
 function readRecordRoute(): RecordRoute {
@@ -375,7 +355,7 @@ function VerificationPage() {
             {nearestDue.map((item) => (
               <button key={itemKey(item)} onClick={() => openRecord(item)} type="button">
                 <time>{formatDate(item.horizon_label)}</time>
-                <span>{asText(item.payload.asset_symbol) ?? asText(item.payload.asset_text) ?? '未标定标的'}</span>
+                <span>{asText(item.payload.asset_symbol) ?? '未标定标的'}</span>
                 <strong>{item.quote}</strong>
                 <b aria-hidden="true">↗</b>
               </button>
@@ -449,7 +429,8 @@ function VerificationPage() {
                   {sectionGroups.map((group, index) => {
                     const item = group.primary
                     const scored = isScored(item)
-                    const asset = asText(item.payload.asset_symbol) ?? asText(item.payload.asset_text)
+                    // 只认规范符号：v2 的 asset_text 装的是定级理由，平均 51 字，放在这里读不成标的
+                    const asset = asText(item.payload.asset_symbol)
                     return (
                       <article className={`verification-record-row ${scored ? `outcome-${item.outcome}` : 'outcome-due'}`} key={group.key}>
                         <button className="verification-record-main" onClick={() => openRecord(item)} type="button">

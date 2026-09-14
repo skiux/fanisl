@@ -43,10 +43,19 @@ FANISL_LIVE_TEST=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5192 \
 src/
 ├── App.tsx                  首页空间叙事与真实知识搜索
 ├── Root.tsx                 hash 路由、按路由拆包与故障边界
-├── features/                标的、知识、验证、发现、档案工作区
-└── shared/                  API 契约、导航与交互基础设施
-e2e/                         Playwright 流程测试与视觉基线
+├── features/                标的、知识（含单元核查）、验证、发现、档案工作区
+└── shared/                  API 契约、枚举中文标签（domain/labels.ts）、导航与交互基础设施
+e2e/                         Playwright 流程测试与视觉基线；api-fixture.ts 是全部接口的夹具
 ```
+
+枚举的中文标签只写在 `src/shared/domain/labels.ts`，`labels.test.ts` 逐条对照
+`docs/DOMAIN.md` §4 与 `backend/api.md` §5.6——文档改了标签没跟，测试会红。
+
+单元核查的写接口（提交、回复、关闭）**不要对本机 API 点**：`backend/.env` 的知识库连的是生产隧道。
+这几个接口的状态流转与错误码在 `e2e/api-fixture.ts` 里按契约实现，`e2e/unit-review.spec.ts` 用它验。
+
+e2e 的时钟钉在 `FIXTURE_NOW`（`e2e/api-fixture.ts`）。夹具里的日期都从它推，不要用 `Date.now()`，
+否则截图基线里的"21 天后"之类的日期每天都在变。
 
 标的工作台的后端前缀是**单数 `/asset`**：Vite 把构建产物放在 `/assets/index-*.js`，
 `/assets` 被当成 API 前缀会让前端 JS/CSS 被代理走、页面白屏。`vite.config.ts` 的 preview

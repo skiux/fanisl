@@ -141,13 +141,22 @@
 
 按 `frontend/AGENTS.md`：开 dev server 看页面、截图确认，再报告完成。
 
+**落地（2026-09-14）**：
+- 面板在 `frontend/src/features/knowledge/UnitReviews.tsx`，调用与类型在 `reviews.ts`。
+  tab 计数在打开单元时就取，不等点进「核查」。
+- 待确认入口放在**顶栏**（`shared/navigation/ReviewInbox.tsx`），不放知识库里：日常入口是标的页，
+  答复要在每天都会经过的地方露头。只对 admin 显示，没有待确认时整个入口不渲染。
+- 直达链接 `#/knowledge?unit={id}&view=evidence&tab=review&review={id}`，落在那条核查上。
+- 成员（member）能看核查与答复，不给提交、回复、关闭的按钮；后端 403 仍是真正的闸，界面上一律显示
+  "需要管理员权限"。
+
 ## 6. 交接顺序与验收
 
 | 步 | 席位 | 做什么 | 完成标志 |
 |---|---|---|---|
 | 1 | knowledge | 表、store 方法、CLI、测试、文档 | **已完成** |
 | 2 | base | api.md §5.6 → 接口 → 鉴权 → 测试 → 推送 | `pytest` 全绿，线上 `/health` 200 |
-| 3 | frontend | 核查 tab + 待确认入口 | `npm run test && npm run typecheck`，截图 |
+| 3 | frontend | 核查 tab + 待确认入口 | `npm run test && npm run typecheck`，截图 · **已完成**（2026-09-14，夹具验收；真接口待 base 推送上线后看一次） |
 | 4 | 用户 | 在站上对一条真实单元提交核查 | `review list` 能看到 |
 | 5 | knowledge | `review show` → 需要时 `amend` → `answer` | 站上显示答复与修改记录，用户可关闭 |
 

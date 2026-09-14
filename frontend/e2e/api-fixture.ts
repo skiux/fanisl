@@ -1,5 +1,10 @@
 import type { Page, Route } from '@playwright/test'
 
+// 夹具里的"今天"。页面按浏览器时钟算倒计时、"今天起的到期"，夹具按它造到期日——两边必须是同一个时刻。
+// 原先到期日取 Node 的 Date.now()、页面取真实时钟，标的工作台那张截图基线里的日期每天都在变，天天失败。
+// mockApi 会把页面时钟钉在这里（只钉 Date，计时器照常走）。
+export const FIXTURE_NOW = new Date('2026-09-01T04:00:00Z')
+
 const creator = {
   id: 1, name: '测试信源', lang: 'zh', focus: null, notes: null, active: true,
   created_at: '2026-08-01T00:00:00Z',
@@ -93,7 +98,7 @@ const assetIndex = {
   ],
 }
 
-const upcomingHorizon = new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10)
+const upcomingHorizon = new Date(FIXTURE_NOW.getTime() + 21 * 86400000).toISOString().slice(0, 10)
 
 const assetDossier = {
   asset: 'SOXX',
@@ -176,7 +181,8 @@ function responseFor(url: URL): unknown {
     }
   }
   if (path === '/knowledge/units') return [unit]
-  if (path === '/knowledge/units/1') return unit
+  const unitPath = path.match(/^\/knowledge\/units\/(\d+)$/)
+  if (unitPath) return allUnits.find((item) => item.id === Number(unitPath[1])) ?? null
   if (path === '/knowledge/tags') return [{ tag: 'semiconductor', n: 1, n_claims: 1, n_methods: 0, n_concepts: 0 }]
   if (path === '/knowledge/nodes-page') return { items: [node], total: 1, offset: 0, limit: 200, has_more: false }
   if (path === '/knowledge/nodes/1') return { ...node, attestations: [{ relation: 'restates', note: null, unit_id: 1, kind: 'claim', quote: unit.quote, locator: unit.locator, published_at: unit.published_at, tags: unit.tags, payload: unit.payload, creator: creator.name, content_id: 1, content_title: content.title, scores: [] }], relations: [] }
@@ -221,7 +227,185 @@ function responseFor(url: URL): unknown {
   return null
 }
 
-async function fulfill(route: Route) {
+// ---- 单元核查（backend/api.md §5.6）----
+// 这几条是写接口，本机 API 连的是生产隧道，联调只能在夹具里做。夹具按契约实现状态流转与错误码，
+// 每个用例一份独立的状态，互不影响。
+
+type FixtureResolution = { outcome: string; root_cause: string | null; sweep: string | null; followup: string | null }
+type FixtureMessage = {
+  id: number; role: 'reviewer' | 'extractor'; author: string; body: string; created_at: string
+  resolution: FixtureResolution | null
+}
+type FixtureSnapshot = { quote: string; payload: Record<string, unknown>; tags: string[] }
+export type FixtureReview = {
+  id: number; unit_id: number; category: string; status: 'open' | 'answered' | 'closed'
+  created_by: string; created_at: string; updated_at: string; closed_at: string | null
+  messages: FixtureMessage[]
+  amendments: Array<{
+    id: number; unit_id: number; reason: string; author: string; created_at: string
+    changed: string[]; before: FixtureSnapshot; after: FixtureSnapshot
+  }>
+}
+
+/** 单元 1 上一条已答复（改过单元）、一条已关闭（维持原判）。 */
+export function seedReviews(): FixtureReview[] {
+  return [
+    {
+      id: 12, unit_id: 1, category: 'asset', status: 'answered', created_by: 'tester',
+      created_at: '2026-08-30T02:00:00Z', updated_at: '2026-08-31T09:30:00Z', closed_at: null,
+      messages: [
+        {
+          id: 30, role: 'reviewer', author: 'tester', created_at: '2026-08-30T02:00:00Z', resolution: null,
+          body: '「标的」一栏显示的是整段定级理由，读不成标的。',
+        },
+        {
+          id: 31, role: 'extractor', author: 'claude-session', created_at: '2026-08-31T09:30:00Z',
+          body: '确认有误：asset_text 按规范是原文的资产表述，定级理由不该放在这里。',
+          resolution: {
+            outcome: 'fixed',
+            root_cause: 'v2 的 D 级判断没有 success_def，定级理由只能挤进 asset_text。',
+            sweep: '查了 c113–c117 的 253 条 v2 判断，另有 12 条同类，已逐条改回。',
+            followup: null,
+          },
+        },
+      ],
+      amendments: [{
+        id: 4, unit_id: 1, reason: 'asset_text 恢复为原文表述', author: 'claude-session',
+        created_at: '2026-08-31T09:29:00Z', changed: ['payload.asset_text'],
+        before: { quote: unit.quote, payload: { ...unit.payload, asset_text: '半导体（按 §0.6 不替他指定阈值）' }, tags: unit.tags },
+        after: { quote: unit.quote, payload: unit.payload, tags: unit.tags },
+      }],
+    },
+    {
+      id: 9, unit_id: 1, category: 'quote', status: 'closed', created_by: 'tester',
+      created_at: '2026-08-20T02:00:00Z', updated_at: '2026-08-22T02:00:00Z', closed_at: '2026-08-22T02:00:00Z',
+      messages: [
+        {
+          id: 20, role: 'reviewer', author: 'tester', created_at: '2026-08-20T02:00:00Z', resolution: null,
+          body: '引文像是截掉了后半句。',
+        },
+        {
+          id: 21, role: 'extractor', author: 'claude-session', created_at: '2026-08-21T02:00:00Z',
+          body: '维持原判：后半句转到了另一个话题，与这条判断无关。',
+          resolution: { outcome: 'no_change', root_cause: null, sweep: null, followup: null },
+        },
+      ],
+      amendments: [],
+    },
+  ]
+}
+
+type ReviewState = {
+  reviews: FixtureReview[]
+  forbidWrites: boolean
+  role: string
+  username: string
+  nextId: number
+  nextMessageId: number
+  tick: number
+}
+
+const REVIEW_CATEGORIES = ['quote', 'grade', 'scoring', 'asset', 'statement', 'other']
+
+function bodyError(body: unknown) {
+  if (typeof body !== 'string' || !body.trim()) return 'body 不能为空'
+  if (body.trim().length > 4000) return 'body 不能超过 4000 字'
+  return null
+}
+
+async function handleReviews(route: Route, url: URL, state: ReviewState): Promise<boolean> {
+  const path = url.pathname
+  const unitReviews = path.match(/^\/knowledge\/units\/(\d+)\/reviews$/)
+  const reviewAction = path.match(/^\/knowledge\/reviews\/(\d+)\/(messages|close)$/)
+  if (!unitReviews && !reviewAction && path !== '/knowledge/reviews') return false
+
+  const request = route.request()
+  const reply = (payload: unknown, status = 200) => route.fulfill({ json: payload, status })
+  const newestFirst = (items: FixtureReview[]) => [...items].sort((a, b) => b.id - a.id)
+  // 角色判定先于请求体校验，与后端一致
+  if (request.method() === 'POST' && (state.forbidWrites || state.role !== 'admin')) {
+    await reply({ detail: '需要管理员权限' }, 403)
+    return true
+  }
+  const now = new Date(FIXTURE_NOW.getTime() + (state.tick += 1) * 60_000).toISOString()
+
+  if (path === '/knowledge/reviews') {
+    const status = url.searchParams.get('status')
+    const rows = state.reviews
+      .filter((review) => !status || review.status === status)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .map(({ messages, amendments, ...review }) => {
+        void amendments
+        const target = allUnits.find((item) => item.id === review.unit_id) ?? unit
+        return {
+          ...review, kind: target.kind, content_id: target.content_id, quote: target.quote.slice(0, 80),
+          verifiability: target.payload.verifiability ?? null, creator: target.creator,
+          n_messages: messages.length, last_message: messages.at(-1)?.body.slice(0, 120) ?? null,
+        }
+      })
+    await reply(rows)
+    return true
+  }
+
+  if (unitReviews) {
+    const unitId = Number(unitReviews[1])
+    if (request.method() === 'GET') {
+      await reply(newestFirst(state.reviews.filter((review) => review.unit_id === unitId)))
+      return true
+    }
+    const payload = request.postDataJSON() as { category?: string; body?: string }
+    if (!REVIEW_CATEGORIES.includes(payload.category ?? '')) {
+      await reply({ detail: `category 须为 ${REVIEW_CATEGORIES.join('/')}` }, 400)
+      return true
+    }
+    const invalid = bodyError(payload.body)
+    if (invalid) {
+      await reply({ detail: invalid }, 400)
+      return true
+    }
+    if (!allUnits.some((item) => item.id === unitId)) {
+      await reply({ detail: `单元 ${unitId} 不存在` }, 404)
+      return true
+    }
+    const review: FixtureReview = {
+      id: state.nextId++, unit_id: unitId, category: payload.category ?? 'other', status: 'open',
+      created_by: state.username, created_at: now, updated_at: now, closed_at: null,
+      messages: [{ id: state.nextMessageId++, role: 'reviewer', author: state.username, body: (payload.body ?? '').trim(), created_at: now, resolution: null }],
+      amendments: [],
+    }
+    state.reviews.push(review)
+    await reply(review, 201)
+    return true
+  }
+
+  const review = state.reviews.find((item) => item.id === Number(reviewAction?.[1]))
+  if (!review) {
+    await reply({ detail: `核查 ${reviewAction?.[1]} 不存在` }, 404)
+    return true
+  }
+  if (reviewAction?.[2] === 'messages') {
+    const payload = request.postDataJSON() as { body?: string }
+    const invalid = bodyError(payload.body)
+    if (invalid) {
+      await reply({ detail: invalid }, 400)
+      return true
+    }
+    review.messages.push({ id: state.nextMessageId++, role: 'reviewer', author: state.username, body: (payload.body ?? '').trim(), created_at: now, resolution: null })
+    // 任何状态下回复都会置回 open
+    Object.assign(review, { status: 'open', closed_at: null, updated_at: now })
+    await reply(review)
+    return true
+  }
+  if (review.status === 'closed') {
+    await reply({ detail: `核查 ${review.id} 已经关闭` }, 409)
+    return true
+  }
+  Object.assign(review, { status: 'closed', closed_at: now, updated_at: now })
+  await reply(review)
+  return true
+}
+
+async function fulfill(route: Route, state: ReviewState) {
   const url = new URL(route.request().url())
   // `/assets/*` 是 Vite 的构建产物，绝不能被当成 API——所以是精确匹配，不是前缀匹配。
   const isAsset = url.pathname === '/asset' || url.pathname.startsWith('/asset/')
@@ -229,6 +413,7 @@ async function fulfill(route: Route) {
     await route.fallback()
     return
   }
+  if (await handleReviews(route, url, state)) return
   // 后续页故意慢：滚动触发的翻页必须在“用户还在继续滚”的窗口内仍然完成。
   if (url.pathname === '/knowledge/units-page' && Number(url.searchParams.get('offset') ?? 0) > 0) {
     await new Promise((resolve) => setTimeout(resolve, 1_000))
@@ -259,7 +444,25 @@ export async function mockAuth(page: Page, user: unknown = SESSION_USER) {
   })
 }
 
-export async function mockApi(page: Page, userOverrides?: Record<string, unknown>) {
-  await mockAuth(page, userOverrides ? { ...SESSION_USER, ...userOverrides } : SESSION_USER)
-  await page.route(/\/knowledge\/|\/research\/|\/asset(\/|$)/, fulfill)
+type MockOptions = {
+  /** 核查的初始数据，默认 seedReviews()。 */
+  reviews?: FixtureReview[]
+  /** 模拟会话里的角色已过期：界面按管理员渲染，写接口却回 403。 */
+  forbidWrites?: boolean
+}
+
+export async function mockApi(page: Page, userOverrides?: Record<string, unknown>, options: MockOptions = {}) {
+  const user = userOverrides ? { ...SESSION_USER, ...userOverrides } : SESSION_USER
+  await page.clock.setFixedTime(FIXTURE_NOW)
+  await mockAuth(page, user)
+  const state: ReviewState = {
+    reviews: options.reviews ?? seedReviews(),
+    forbidWrites: options.forbidWrites ?? false,
+    role: user.role,
+    username: user.username,
+    nextId: 100,
+    nextMessageId: 1000,
+    tick: 0,
+  }
+  await page.route(/\/knowledge\/|\/research\/|\/asset(\/|$)/, (route) => fulfill(route, state))
 }

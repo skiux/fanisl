@@ -5,19 +5,24 @@
 `console/`. Shared code is limited to `shared/login/`.
 
 **This is its own seat.** You own `frontend/**` and nothing else. The knowledge
-seat owns the backend and the corpus; you consume its API. If you need an API
-change, write it into `docs/plans/active/frontend.md` — do not edit
-`backend/api.md` or anything under `backend/`.
+seat owns the corpus and `backend/fanisl/knowledge/`; the base seat owns
+`backend/api.md` and `backend/fanisl/main.py`. You consume the API. If you need
+an API change, write the request into `docs/plans/active/base.md` — do not edit
+anything under `backend/`.
 
 ## Features
 
 `archive` (research archive) · `asset` (asset workbench) · `discovery` ·
-`knowledge` (L0/L1 browsing) · `verification` (scoring, source league table)
+`knowledge` (L0/L1 browsing, unit dossier, unit reviews) · `verification`
+(verdict log and verdict dossiers)
 
 ## Sources of truth
 
 - API contract: `../backend/api.md` — read it, do not guess field shapes
-- Domain concepts and the Chinese labels for enums: `../docs/DOMAIN.md`
+- Domain concepts and the Chinese labels for enums: `../docs/DOMAIN.md`.
+  In this app the labels live only in `src/shared/domain/labels.ts`;
+  `labels.test.ts` checks them line by line against `DOMAIN.md` §4 and
+  `api.md` §5.6. Do not define label maps inside components
 - Product definition, information architecture, and the explicit
   "never build it like this" list: `../docs/PRODUCT.md`
 - `../shared/` is included by both apps' tsconfigs — editing it also changes
@@ -43,3 +48,20 @@ and only then report. "Should look right" is not a result.
 
 If a visual change is hard to pin down, build the smallest isolated version
 first — one component, one state — and confirm that before wiring it in.
+
+## Things that bite
+
+- **The local API writes to production.** `backend/.env` points the knowledge
+  database at the SSH tunnel to the server. Never call the unit-review write
+  endpoints (`POST /knowledge/units/{id}/reviews`,
+  `/knowledge/reviews/{id}/messages`, `/knowledge/reviews/{id}/close`) against
+  `:8000`, including by clicking through the page. Exercise them through
+  `e2e/api-fixture.ts`, which implements the `api.md` §5.6 state machine.
+- **Deep links into a unit** are
+  `#/knowledge?unit={id}&view=evidence[&tab=structure|verdict|source|review][&review={id}]`.
+  The unit does not have to be on the loaded page of the list. Do not fall back
+  to the first row: that once silently replaced every old unit linked from the
+  asset page with the newest one.
+- **e2e runs on a fixed clock** (`FIXTURE_NOW` in `e2e/api-fixture.ts`). Derive
+  fixture dates from it, never from `Date.now()`, or screenshot baselines drift
+  every day.

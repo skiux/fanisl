@@ -1,6 +1,8 @@
 // 标的页共用的取值与格式化。命中率的展示纪律见 docs/DOMAIN.md §5：**永远带 n**，
 // 没样本时显示「未验证」而不是 0%，n 小于 SMALL_SAMPLE 时视觉降权。
 
+import { claimClassLabels, directionLabels } from '../../shared/domain/labels'
+
 /** 低于这个样本量**不印百分比，改印计数**。
  *
  *  "100% n=9"（美光）与"100% n=1"（Meta）都是真数字，但读者一眼拿到的是错的印象——
@@ -66,36 +68,11 @@ export function classRank(value: string | null) {
   return index === -1 ? CLASS_ORDER.length : index
 }
 
-export const kindLabels: Record<string, string> = { claim: '判断', method: '方法', concept: '认知' }
-
-export const statusLabels: Record<string, string> = {
-  active: '活跃', corroborated: '多源佐证', verified: '已验证',
-  contested: '存在争议', retired: '已退役',
-}
-
-export const outcomeLabels: Record<string, string> = {
-  hit: '命中', partial: '部分命中', miss: '未命中',
-  condition_not_met: '条件未触发', condition_unverifiable: '条件不可验',
-  unpriceable: '无法取价', pending: '等待确认',
-}
-
-export const outcomeMarks: Record<string, string> = {
-  hit: '✓', partial: '½', miss: '×',
-  condition_not_met: '○', condition_unverifiable: '?', unpriceable: '—', pending: '…',
-}
-
-export const directionLabels: Record<string, string> = {
-  up: '看涨 ↑', down: '看跌 ↓', flat: '走平 →', range: '区间 ↔',
-  vol_up: '波动放大', vol_down: '波动收敛',
-}
-
-export const stanceLabels: Record<string, string> = {
-  explicit: '明确', hedged: '对冲表述', speculative: '试探表述',
-}
-
-export const verifiabilityLabels: Record<string, string> = {
-  A: '全自动可评', B: '我方阶梯', C: '带条件', D: '不可评',
-}
+// 枚举标签只在 shared/domain/labels.ts 写一份（对照 docs/DOMAIN.md §4），这里转出给标的页各组件。
+export {
+  claimClassLabels, directionLabels, gradeText, kindLabels, nodeStatusLabels as statusLabels,
+  outcomeLabels, outcomeMarks, relationLabels, stanceLabels, tradeOutcomeLabels, tradeStatusLabels,
+} from '../../shared/domain/labels'
 
 /** 大额美元：按中文习惯用万亿/亿，不用 B/T——这一页其余数字也都是中文口径。 */
 export function usd(value: number | null | undefined) {
@@ -124,12 +101,6 @@ export function pct(value: number | undefined, digits = 1) {
 export const sessionLabels: Record<string, string> = {
   bmo: '盘前', amc: '盘后', dmh: '盘中',
 }
-
-export const tradeStatusLabels: Record<string, string> = {
-  planned: '挂单', open: '持仓', closed: '已平', cancelled: '已撤',
-}
-
-export const tradeOutcomeLabels: Record<string, string> = { win: '盈', loss: '亏' }
 
 export const sideLabels: Record<string, string> = { long: '多', short: '空' }
 
@@ -229,9 +200,4 @@ export function claimHeadline(payload: Record<string, unknown>): string {
   const condition = asText(payload.condition_text)
   if (condition) bits.push(`条件：${condition.slice(0, 18)}`)
   return bits.join(' · ')
-}
-
-export const claimClassLabels: Record<string, string> = {
-  price_target: '价位判断', directional: '方向判断', relative: '相对强弱',
-  event_outcome: '事件结果', timing: '时点判断', risk_warning: '风险警示',
 }

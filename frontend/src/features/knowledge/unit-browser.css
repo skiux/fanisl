@@ -205,17 +205,27 @@
   outline-offset: 3px;
 }
 
+/* 筛选栏只有 210px（1100px 以下 175px）："120 个全库单元"与"L1 EVIDENCE"排一行放不下，
+   原先两边各自断行、叠成"120 个全库单 / 元"。改成放不下就整段换行，词不拆开 */
 .unit-filter-rail > footer {
   display: flex;
   min-height: 55px;
   flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-content: center;
   align-items: center;
   justify-content: space-between;
+  gap: 2px 10px;
   margin-top: auto;
-  padding: 0 17px;
+  padding: 8px 17px;
   border-top: 1px solid var(--library-line-soft);
   color: #6e786e;
   font-size: var(--text-meta);
+}
+
+.unit-filter-rail > footer span,
+.unit-filter-rail > footer b {
+  white-space: nowrap;
 }
 
 .unit-filter-rail > footer b {

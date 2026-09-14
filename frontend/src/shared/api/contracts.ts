@@ -1,4 +1,5 @@
 import type { AssetDossierData, AssetIndex } from '../../features/asset/types'
+import type { ReviewQueueItem, UnitReview } from '../../features/knowledge/reviews'
 import type { KnowledgeNodePage, KnowledgeOverview, KnowledgeUnitPage } from '../../features/knowledge/types'
 import type { VerificationPageData, VerificationSummary } from '../../features/verification/types'
 
@@ -74,4 +75,31 @@ export function isAssetDossier(value: unknown): value is AssetDossierData {
     .every((key) => Array.isArray(value[key]))
     && Array.isArray((value.disagreements as Record<string, unknown>).relations)
     && Array.isArray((value.disagreements as Record<string, unknown>).evolution)
+}
+
+/** 核查对象：对话串与修改记录必须是数组，差异画法依赖 changed / before / after 的形状。 */
+export function isUnitReview(value: unknown): value is UnitReview {
+  if (!record(value) || !finiteNumber(value.id) || !finiteNumber(value.unit_id)) return false
+  if (typeof value.status !== 'string' || typeof value.category !== 'string') return false
+  if (!Array.isArray(value.messages) || !Array.isArray(value.amendments)) return false
+  return value.messages.every((message: unknown) => record(message)
+      && typeof message.role === 'string'
+      && typeof message.body === 'string'
+      && (message.resolution === null || message.resolution === undefined || record(message.resolution)))
+    && value.amendments.every((amendment: unknown) => record(amendment)
+      && Array.isArray(amendment.changed)
+      && record(amendment.before)
+      && record(amendment.after))
+}
+
+export function isUnitReviewList(value: unknown): value is UnitReview[] {
+  return Array.isArray(value) && value.every(isUnitReview)
+}
+
+export function isReviewQueue(value: unknown): value is ReviewQueueItem[] {
+  return Array.isArray(value) && value.every((item: unknown) => record(item)
+    && finiteNumber(item.id)
+    && finiteNumber(item.unit_id)
+    && typeof item.status === 'string'
+    && typeof item.quote === 'string')
 }

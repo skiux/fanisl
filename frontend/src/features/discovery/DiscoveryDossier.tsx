@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
+import {
+  attestationLabels, familyLabels, kindLabels, nodeStatusLabels as statusLabels, outcomeText,
+} from '../../shared/domain/labels'
 import EvidenceDossier from '../knowledge/EvidenceDossier'
 import type {
   KnowledgeNodeDetail,
   NodeAttestation,
-  NodeStatus,
 } from '../knowledge/types'
 import type {
   DiscoveryConsensusNode,
@@ -13,37 +15,6 @@ import type {
 } from './types'
 
 type LoadState = 'loading' | 'loaded' | 'error'
-
-const kindLabels = {
-  claim: '判断',
-  method: '方法',
-  concept: '认知',
-} as const
-
-const statusLabels: Record<NodeStatus, string> = {
-  active: '活跃',
-  corroborated: '多源佐证',
-  verified: '已验证',
-  contested: '存在争议',
-  retired: '已退役',
-}
-
-const attestationLabels = {
-  restates: '重申',
-  refines: '细化',
-  supersedes: '修正',
-  contradicts: '反驳',
-} as const
-
-const outcomeLabels: Record<string, string> = {
-  hit: '✓ 命中',
-  partial: '½ 部分',
-  miss: '✗ 未中',
-  condition_not_met: '条件未触发',
-  condition_unverifiable: '条件不可验',
-  unpriceable: '无价格',
-  pending: '待复核',
-}
 
 function relationSummary(relation: DiscoveryRelation) {
   const prefix = relation.note.match(/^对立命题（([^）]+)）：/u)?.[1] ?? ''
@@ -113,7 +84,7 @@ function NodeEvidenceTrail({
           {attestation.scores.length > 0
             ? attestation.scores.map((score) => (
                 <span className={`outcome-${score.outcome}`} key={`${score.id}-${score.horizon_label}`}>
-                  {outcomeLabels[score.outcome] ?? score.outcome} · {score.horizon_label}
+                  {outcomeText(score.outcome)} · {score.horizon_label}
                 </span>
               ))
             : <span>评分待到期</span>}
@@ -449,7 +420,7 @@ export function HarnessDossier({ candidate }: { candidate: HarnessCandidate }) {
         <p>可回测不等于已经成立</p>
       </header>
       <section className="harness-lead">
-        <span>{payload.family ?? 'other'} / TESTABILITY A</span>
+        <span>{familyLabels[payload.family ?? 'other'] ?? payload.family} / TESTABILITY A</span>
         <h2>{candidate.title}</h2>
         <p>{payload.summary ?? candidate.canonical}</p>
       </section>

@@ -113,7 +113,7 @@ test('asset desk leads with what has not settled yet', async ({ page }) => {
   await expect(page.getByRole('heading', { name: '先看还有什么没兑现' })).toBeVisible()
   await expect(page.getByText('接下来要交卷')).toBeVisible()
   // 到期项给结构化一行 + 判据，不给口语原句
-  await expect(page.getByText('看涨 ↑')).toBeVisible()
+  await expect(page.getByRole('region', { name: '接下来要交卷' }).getByText('↑', { exact: true })).toBeVisible()
   const rail = page.getByRole('complementary', { name: '标的列表' })
   await expect(rail.getByText('未验证')).toBeVisible()
   await expect(page.getByText('0%')).toHaveCount(0)

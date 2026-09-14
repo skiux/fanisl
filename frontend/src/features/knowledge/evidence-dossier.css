@@ -368,6 +368,26 @@
   font-weight: 650;
 }
 
+/* 标的说明：v2 的 asset_text 装的是定级理由，可能上百字——不塞进上面的格子，另起一段完整给出 */
+.contract-asset-note {
+  margin-top: 14px;
+  padding: 11px 14px;
+  border-left: 2px solid rgba(91, 105, 91, .28);
+  background: rgba(250, 248, 241, .45);
+}
+
+.contract-asset-note > span {
+  color: #7b847b;
+  font-size: var(--text-meta);
+}
+
+.contract-asset-note > p {
+  margin: 5px 0 0;
+  color: #4a564b;
+  font-size: var(--text-meta);
+  line-height: 1.62;
+}
+
 .success-definition {
   margin-top: 15px;
 }
@@ -1282,7 +1302,7 @@
 
 .dossier-section-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border-bottom: 1px solid var(--library-line);
 }
 
@@ -1323,6 +1343,26 @@
 .dossier-section-tabs b {
   color: #8a9289;
   font: 600 var(--text-caption) ui-monospace, monospace;
+}
+
+.dossier-section-tabs button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 核查 tab 的计数：只在有未关闭的核查时出现，占序号的位置 */
+.dossier-section-tabs b.dossier-tab-count {
+  box-sizing: border-box;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 99px;
+  color: #fff;
+  background: #a86e5b;
+  font: 650 var(--text-caption)/19px ui-monospace, monospace;
+  text-align: center;
 }
 
 .dossier-section-content {
@@ -1386,6 +1426,29 @@
 
   .unit-analysis-workspace {
     min-height: 520px;
+  }
+}
+
+/* 四个 tab 在 390px 的抽屉里一排放不下（实测截成"结构化…""原文上…"），排成两行两列，标签保持完整 */
+@media (max-width: 600px) {
+  .unit-analysis-workspace {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .dossier-section-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dossier-section-tabs button {
+    min-height: 46px;
+  }
+
+  .dossier-section-tabs button:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .dossier-section-tabs button:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--library-line-soft);
   }
 }
 

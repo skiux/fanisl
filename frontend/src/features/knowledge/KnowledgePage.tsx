@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
 import { isKnowledgeNodePage, isKnowledgeUnitPage } from '../../shared/api/contracts'
+import {
+  attestationLabels, categoryLabels, contentStatusLabels, directionLabels, kindLabels,
+  nodeStatusLabels as statusLabels, outcomeLabels, relationLabels,
+} from '../../shared/domain/labels'
 import { nextTabIndex } from '../../shared/interaction/tabs'
 import { useModalFocus } from '../../shared/interaction/useModalFocus'
 import AppHeader from '../../shared/navigation/AppHeader'
 import EvidenceDossier from './EvidenceDossier'
+import { EVIDENCE_VIEWS, type EvidenceView } from './evidence-views'
 import UnitBrowser from './UnitBrowser'
 import { previewNodes } from './preview'
 import { previewSourceBundles, previewSourceContents } from './source-preview'
 import { creatorInitial, youtubeThumbnail } from './video'
 import type {
-  AttestationRelation,
   KnowledgeContentDetail,
   KnowledgeContentSummary,
   KnowledgeContentUnit,
@@ -20,57 +24,10 @@ import type {
   KnowledgeNodeDetail,
   KnowledgeNodePage,
   KnowledgeUnitPage,
-  NodeRelationKind,
-  NodeStatus,
   UnitScore,
 } from './types'
 import './knowledge.css'
 import './source-workspace.css'
-
-const kindLabels: Record<KnowledgeKind, string> = {
-  claim: '判断',
-  method: '方法',
-  concept: '认知',
-}
-
-const statusLabels: Record<NodeStatus, string> = {
-  active: '活跃',
-  corroborated: '多源佐证',
-  verified: '已验证',
-  contested: '存在争议',
-  retired: '已退役',
-}
-
-const attestationLabels: Record<AttestationRelation, string> = {
-  restates: '重申',
-  refines: '细化',
-  supersedes: '修正',
-  contradicts: '反驳',
-}
-
-const relationLabels: Record<NodeRelationKind, string> = {
-  conflicts: '对立命题',
-  relates: '互补关联',
-}
-
-const outcomeLabels: Record<string, string> = {
-  hit: '命中',
-  partial: '部分',
-  miss: '未中',
-  condition_not_met: '条件未触发',
-  condition_unverifiable: '条件不可验',
-  unpriceable: '无价格',
-  pending: '待复核',
-}
-
-const directionLabels: Record<string, string> = {
-  up: '↑ 看多',
-  down: '↓ 看空',
-  flat: '→ 持平',
-  range: '↔ 区间',
-  vol_up: '波动上升',
-  vol_down: '波动下降',
-}
 
 const platformLabels: Record<string, string> = {
   youtube: 'YouTube',
@@ -96,6 +53,8 @@ type HashState = {
   nodeId: number | null
   peekNodeId: number | null
   query: string
+  reviewId: number | null
+  tab: EvidenceView | null
   unitId: number | null
   view: KnowledgeView
 }
@@ -113,11 +72,14 @@ function readHashState(): HashState {
   const peekNodeId = contentId ? positiveId(params.get('peekNode')) : null
   const unitId = positiveId(params.get('unit'))
   const requestedView = params.get('view')
+  const requestedTab = params.get('tab')
   return {
     contentId,
     nodeId,
     peekNodeId,
     query: params.get('q')?.trim() ?? '',
+    reviewId: positiveId(params.get('review')),
+    tab: EVIDENCE_VIEWS.includes(requestedTab as EvidenceView) ? requestedTab as EvidenceView : null,
     unitId,
     view: contentId ? 'sources' : nodeId ? 'nodes' : requestedView === 'nodes'
       ? 'nodes'
@@ -125,6 +87,11 @@ function readHashState(): HashState {
         ? 'evidence'
         : 'sources',
   }
+}
+
+// 深链到一条单元时，窄屏要直接打开阅读抽屉——否则落地看到的是列表，那条单元藏在关着的抽屉里
+function narrowScreen() {
+  return window.matchMedia('(max-width: 900px)').matches
 }
 
 function formatDate(value: string | null | undefined, withYear = false) {
@@ -176,7 +143,8 @@ function unitStatement(unit: KnowledgeContentUnit) {
   if (unit.kind === 'method') {
     return asText(unit.payload.name) ?? asText(unit.payload.summary) ?? '已提取为一条研究方法'
   }
-  const asset = asText(unit.payload.asset_text) ?? asText(unit.payload.asset_symbol) ?? '市场判断'
+  // 只认规范符号：v2 的 asset_text 装的是定级理由，做标题读不成标的
+  const asset = asText(unit.payload.asset_symbol) ?? '市场判断'
   const direction = asText(unit.payload.direction)
   return direction ? `${asset} · ${directionLabels[direction] ?? direction}` : asset
 }
@@ -198,7 +166,7 @@ function unitFacts(unit: KnowledgeContentUnit) {
   }
   return [
     asText(unit.payload.regime_qualifier),
-    asText(unit.payload.category),
+    categoryLabels[asText(unit.payload.category) ?? ''] ?? asText(unit.payload.category),
   ].filter((item): item is string => Boolean(item))
 }
 
@@ -253,22 +221,22 @@ function KnowledgeTrace({ node }: { node: KnowledgeNode }) {
 }
 
 function KnowledgePage() {
-  const initialRef = useRef(readHashState())
+  const [initial] = useState(readHashState)
   const contentCacheRef = useRef(new Map<number, ContentBundle>())
   const nodeCacheRef = useRef(new Map<number, KnowledgeNodeDetail>())
   const contextTriggerRef = useRef<HTMLElement | null>(null)
   const evidenceTriggerRef = useRef<HTMLElement | null>(null)
-  const [view, setView] = useState<KnowledgeView>(initialRef.current.view)
+  const [view, setView] = useState<KnowledgeView>(initial.view)
   const [contents, setContents] = useState<KnowledgeContentSummary[]>([])
   const [nodes, setNodes] = useState<KnowledgeNode[]>([])
   const [creators, setCreators] = useState<KnowledgeCreator[]>([])
   const [loadMode, setLoadMode] = useState<LoadMode>('loading')
-  const [contentId, setContentId] = useState<number | null>(initialRef.current.contentId)
+  const [contentId, setContentId] = useState<number | null>(initial.contentId)
   const [contentPayload, setContentPayload] = useState<ContentBundle | null>(null)
   const [contentMode, setContentMode] = useState<ReaderMode>('idle')
   const [contentRequestKey, setContentRequestKey] = useState(0)
-  const [nodeId, setNodeId] = useState<number | null>(initialRef.current.nodeId)
-  const [peekNodeId, setPeekNodeId] = useState<number | null>(initialRef.current.peekNodeId)
+  const [nodeId, setNodeId] = useState<number | null>(initial.nodeId)
+  const [peekNodeId, setPeekNodeId] = useState<number | null>(initial.peekNodeId)
   const [nodeDetail, setNodeDetail] = useState<KnowledgeNodeDetail | null>(null)
   const [nodeMode, setNodeMode] = useState<ReaderMode>('idle')
   const [nodeRequestKey, setNodeRequestKey] = useState(0)
@@ -282,9 +250,12 @@ function KnowledgePage() {
   const [unitsLoaded, setUnitsLoaded] = useState(false)
   const [unitMode, setUnitMode] = useState<LoadMode>('loading')
   const [unitFiltersOpen, setUnitFiltersOpen] = useState(false)
-  const [unitReaderOpen, setUnitReaderOpen] = useState(false)
-  const [selectedUnitId, setSelectedUnitId] = useState<number | null>(initialRef.current.unitId)
-  const [routeQuery, setRouteQuery] = useState(initialRef.current.query)
+  const [unitReaderOpen, setUnitReaderOpen] = useState(() => initial.view === 'evidence' && initial.unitId !== null && narrowScreen())
+  const [selectedUnitId, setSelectedUnitId] = useState<number | null>(initial.unitId)
+  const [routeQuery, setRouteQuery] = useState(initial.query)
+  // 地址栏点名的单元与 tab（「待确认」与标的页从这里进来）。与 selectedUnitId 分开：用户在列表里点了
+  // 别的单元，选中项会变，但"链接要打开哪个 tab、滚到哪条核查"只对点名的那一条生效
+  const [linked, setLinked] = useState({ unitId: initial.unitId, tab: initial.tab, reviewId: initial.reviewId })
   const [unitFocusKey, setUnitFocusKey] = useState(view === 'evidence' ? 1 : 0)
 
   useEffect(() => {
@@ -427,6 +398,8 @@ function KnowledgePage() {
       setPeekNodeId(next.peekNodeId)
       setRouteQuery(next.query)
       setSelectedUnitId(next.unitId)
+      setLinked({ unitId: next.unitId, tab: next.tab, reviewId: next.reviewId })
+      setUnitReaderOpen(next.view === 'evidence' && next.unitId !== null && narrowScreen())
       setEvidenceUnitId(null)
       setEvidenceParentTitle(null)
     }
@@ -445,6 +418,7 @@ function KnowledgePage() {
     setUnitFiltersOpen(false)
     setRouteQuery('')
     setSelectedUnitId(null)
+    setLinked({ unitId: null, tab: null, reviewId: null })
     window.history.pushState(null, '', next === 'sources' ? '#/knowledge' : `#/knowledge?view=${next}`)
     window.scrollTo({ top: 0, left: 0 })
     if (next === 'evidence') setUnitFocusKey((value) => value + 1)
@@ -589,6 +563,8 @@ function KnowledgePage() {
         <main className="source-document-stage">
           <button className="reader-back" onClick={closeReader} type="button">← 返回原始内容</button>
           <SourceDocument
+            // 换一期内容就换一份组件状态（tab 回到原文、筛选回到全部），不在 effect 里逐个重置
+            key={selectedContent.id}
             bundle={contentPayload}
             content={selectedContent}
             isPreview={contentMode === 'preview'}
@@ -683,6 +659,9 @@ function KnowledgePage() {
               initialQuery={routeQuery}
               initialPage={units}
               isPreview={unitMode === 'preview'}
+              linkedReviewId={linked.reviewId}
+              linkedTab={linked.tab}
+              linkedUnitId={linked.unitId}
               onCloseFilters={() => setUnitFiltersOpen(false)}
               onCloseReader={() => setUnitReaderOpen(false)}
               onOpenFilters={() => setUnitFiltersOpen(true)}
@@ -905,11 +884,6 @@ function SourceDocument({
   const raw = bundle ? splitRaw(bundle.detail.raw) : null
 
   useEffect(() => {
-    setActiveView('original')
-    setKind('all')
-  }, [content.id])
-
-  useEffect(() => {
     viewScrollRef.current?.scrollTo({ top: 0 })
   }, [activeView, kind])
 
@@ -927,7 +901,7 @@ function SourceDocument({
         </div>
         <div className="source-workspace-title">
           <h1>{content.title}</h1>
-          <p>{content.creator} · {formatDate(content.published_at, true)} · {content.status === 'extracted' ? '已完成提取' : '等待提取'}</p>
+          <p>{content.creator} · {formatDate(content.published_at, true)} · {contentStatusLabels[content.status] ?? content.status}</p>
         </div>
         {content.url && <a className="source-external-link" href={content.url} rel="noreferrer" target="_blank">打开原始视频 ↗</a>}
       </header>
@@ -1110,13 +1084,13 @@ function NodeLibrary({
   visibleNodes: KnowledgeNode[]
 }) {
   const pageSize = 6
-  const [page, setPage] = useState(0)
+  // 页码跟着筛选条件走，条件一变就回第一页。条件与页码存在一起比，不在 effect 里再 setState 一次
+  const filterKey = `${kind}:${query}`
+  const [pageState, setPageState] = useState({ filterKey, page: 0 })
+  const page = pageState.filterKey === filterKey ? pageState.page : 0
+  const setPage = (update: (current: number) => number) => setPageState({ filterKey, page: update(page) })
   const pageCount = Math.max(1, Math.ceil(visibleNodes.length / pageSize))
   const pageNodes = visibleNodes.slice(page * pageSize, (page + 1) * pageSize)
-
-  useEffect(() => {
-    setPage(0)
-  }, [kind, query])
 
   return (
     <main className="node-library-stage">
@@ -1181,13 +1155,15 @@ function NodeContextPreview({
   onRetry: () => void
   standalone?: boolean
 }) {
-  const [activeView, setActiveView] = useState<NodePeekView>('overview')
+  // 换节点回到「归并说明」。视图与节点 id 存在一起，换了节点自然失效；不能用 key 重挂，那会打断焦点管理
+  const [viewState, setViewState] = useState<{ nodeId: number; view: NodePeekView }>({ nodeId: node.id, view: 'overview' })
+  const activeView = viewState.nodeId === node.id ? viewState.view : 'overview'
+  const setActiveView = (next: NodePeekView) => setViewState({ nodeId: node.id, view: next })
   const dialogRef = useRef<HTMLElement>(null)
   const resolvedDetail = detail?.id === node.id ? detail : null
   const scoreCount = node.hit + node.partial + node.miss
   const hitRate = scoreCount ? Math.round(((node.hit + node.partial * .5) / scoreCount) * 100) : null
 
-  useEffect(() => setActiveView('overview'), [node.id])
   useModalFocus(dialogRef, !standalone && !obscured, onClose)
 
   return (

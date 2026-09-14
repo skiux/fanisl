@@ -60,11 +60,12 @@ describe('asset formatting', () => {
   })
 
   it('判断压成可扫的一行：标的往哪、过哪个数', () => {
-    expect(claimHeadline({ direction: 'up', magnitude: { target: 250 } })).toBe('看涨 ↑ · 目标 250')
+    // 方向用 DOMAIN.md §4 的符号（up=↑），与单元档案、判定档案同一个说法
+    expect(claimHeadline({ direction: 'up', magnitude: { target: 250 } })).toBe('↑ · 目标 250')
     expect(claimHeadline({ direction: 'range', magnitude: { low: 4000, high: 4700 } }))
-      .toBe('区间 ↔ · 下界 4000 · 上界 4700')
+      .toBe('↔ · 下界 4000 · 上界 4700')
     expect(claimHeadline({ claim_class: 'relative' })).toBe('相对强弱')
     expect(claimHeadline({ direction: 'down', condition_text: '若跌破 150 则继续看空' }))
-      .toBe('看跌 ↓ · 条件：若跌破 150 则继续看空')
+      .toBe('↓ · 条件：若跌破 150 则继续看空')
   })
 })

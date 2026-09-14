@@ -3,7 +3,9 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { apiJson } from '../../shared/api/client'
 import { isKnowledgeUnitPage } from '../../shared/api/contracts'
+import { kindLabels } from '../../shared/domain/labels'
 import EvidenceDossier from './EvidenceDossier'
+import type { EvidenceView } from './evidence-views'
 import type {
   KnowledgeCreator,
   KnowledgeKind,
@@ -12,12 +14,6 @@ import type {
   KnowledgeUnitSummary,
 } from './types'
 import './unit-browser.css'
-
-const kindLabels: Record<KnowledgeKind, string> = {
-  claim: '判断',
-  method: '方法',
-  concept: '认知',
-}
 
 type KindFilter = 'all' | KnowledgeKind
 type SearchState = 'idle' | 'loading' | 'loaded' | 'error'
@@ -40,6 +36,9 @@ function UnitBrowser({
   initialQuery,
   initialPage,
   isPreview,
+  linkedReviewId,
+  linkedTab,
+  linkedUnitId,
   onCloseFilters,
   onCloseReader,
   onOpenFilters,
@@ -53,6 +52,10 @@ function UnitBrowser({
   initialQuery: string
   initialPage: KnowledgeUnitPage | null
   isPreview: boolean
+  /** 地址栏点名的单元：只对它套用链接里的 tab 与核查定位。 */
+  linkedReviewId: number | null
+  linkedTab: EvidenceView | null
+  linkedUnitId: number | null
   onCloseFilters: () => void
   onCloseReader: () => void
   onOpenFilters: () => void
@@ -182,9 +185,11 @@ function UnitBrowser({
   useEffect(() => () => loadMoreAbortRef.current?.abort(), [])
 
   const visibleUnits = units
-  const selectedUnit = visibleUnits.find((unit) => unit.id === selectedUnitId)
-    ?? visibleUnits[0]
-    ?? null
+  const listedSelection = visibleUnits.find((unit) => unit.id === selectedUnitId) ?? null
+  // 地址栏点名的单元不一定在已加载的那一页里（按发布时间倒序、每页 100 条）。无筛选时照样打开它。
+  // 之前这里直接退回列表第一条：标的页点进来的旧判断会被悄悄换成最新的一条（实测 unit=32 打开的是 1596）
+  const readerUnitId = listedSelection?.id
+    ?? (selectedUnitId !== null && !hasRemoteFilters ? selectedUnitId : visibleUnits[0]?.id ?? null)
 
   const kindCounts = {
     all: initialPage?.total ?? 0,
@@ -417,7 +422,7 @@ function UnitBrowser({
                 return (
                   <button
                     aria-posinset={virtualRow.index + 1}
-                    aria-pressed={selectedUnit?.id === unit.id}
+                    aria-pressed={readerUnitId === unit.id}
                     aria-setsize={page?.total}
                     className={`unit-row kind-${unit.kind}`}
                     data-index={virtualRow.index}
@@ -466,13 +471,15 @@ function UnitBrowser({
         <button className="unit-reader-close" onClick={onCloseReader} type="button">
           <span>返回单元索引</span><b>×</b>
         </button>
-        {selectedUnit && (
+        {readerUnitId !== null && (
           <EvidenceDossier
             embedded
+            focusReviewId={readerUnitId === linkedUnitId ? linkedReviewId : null}
+            initialView={readerUnitId === linkedUnitId ? linkedTab ?? undefined : undefined}
             onClose={onCloseReader}
             parentLabel="UNIT"
-            parentTitle={selectedUnit.quote}
-            unitId={selectedUnit.id}
+            parentTitle={listedSelection?.quote ?? `#${readerUnitId}`}
+            unitId={readerUnitId}
           />
         )}
       </aside>

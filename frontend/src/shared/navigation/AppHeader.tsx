@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import AccountMenu from '../auth/AccountMenu'
+import ReviewInbox from './ReviewInbox'
 
 export type PrimaryRoute = 'asset' | 'knowledge' | 'verification' | 'discovery' | 'evaluation' | 'chat' | 'archive' | 'console'
 
@@ -82,6 +83,7 @@ function AppHeader({ current, onHomeClick, onSearch }: AppHeaderProps) {
         </div>
       </nav>
       <div className="nav-actions">
+        <ReviewInbox />
         <AccountMenu />
         <button aria-label="搜索知识" className="search-trigger" onClick={onSearch} type="button">
           <span>⌕</span><em>搜索知识</em><kbd>⌘K</kbd>

@@ -5,14 +5,9 @@ import type { KnowledgeOverview, KnowledgeUnitSummary } from './features/knowled
 import { chapters, getActiveChapter } from './journey'
 import { apiJson } from './shared/api/client'
 import { isKnowledgeOverview } from './shared/api/contracts'
+import { kindLabels } from './shared/domain/labels'
 import { useModalFocus } from './shared/interaction/useModalFocus'
 import AppHeader from './shared/navigation/AppHeader'
-
-const kindLabels = {
-  claim: '判断',
-  method: '方法',
-  concept: '认知',
-} as const
 
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches)

@@ -1,7 +1,8 @@
 import { API_BASE_URL } from '../config/env'
 
 type ApiErrorPayload = {
-  detail?: string
+  /** 业务错误是一句中文；FastAPI 请求体校验失败（422）时是字段错误列表。 */
+  detail?: string | Array<{ msg?: unknown; loc?: unknown }>
 }
 
 export type ApiRequestInit = RequestInit & {
@@ -45,8 +46,15 @@ async function readError(response: Response, path: string): Promise<string> {
   if (response.headers.get('content-type')?.includes('application/json')) {
     try {
       const payload = (await response.json()) as ApiErrorPayload
-      if (payload.detail) {
+      if (typeof payload.detail === 'string' && payload.detail) {
         return payload.detail
+      }
+      // 422 的 detail 是数组，原样交给 Error 会显示成 "[object Object]"
+      if (Array.isArray(payload.detail)) {
+        const messages = payload.detail
+          .map((item) => item?.msg)
+          .filter((msg): msg is string => typeof msg === 'string' && msg.length > 0)
+        if (messages.length) return `请求内容不符合接口约定：${messages.join('；')}`
       }
     } catch {
       // Fall through to the HTTP status when a proxy returns malformed JSON.

@@ -1,0 +1,225 @@
+/* 顶栏里的「待确认」。只在有待确认的核查时出现，所以用一点暖色让它被看见。 */
+
+.review-inbox {
+  position: relative;
+}
+
+.review-inbox-trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 5px 0 11px;
+  border: 1px solid rgba(168, 110, 91, .3);
+  border-radius: 99px;
+  color: #7a4c3d;
+  background: rgba(235, 211, 199, .45);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--nav-shortcut-size, .8125rem);
+  white-space: nowrap;
+  transition: background .18s ease, border-color .18s ease;
+}
+
+.review-inbox-trigger:hover,
+.review-inbox-trigger[aria-expanded="true"] {
+  border-color: rgba(168, 110, 91, .55);
+  background: rgba(235, 211, 199, .72);
+}
+
+.review-inbox-trigger:focus-visible {
+  outline: 2px solid #a86e5b;
+  outline-offset: 2px;
+}
+
+.review-inbox-trigger b {
+  box-sizing: border-box;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 99px;
+  color: #fff;
+  background: #a86e5b;
+  font: 650 .75rem/20px ui-monospace, monospace;
+  text-align: center;
+}
+
+.review-inbox-panel {
+  position: absolute;
+  z-index: 200;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 340px;
+  max-height: min(460px, calc(100vh - 110px));
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 1px 2px rgba(37, 45, 38, .05), 0 14px 34px -18px rgba(37, 45, 38, .35);
+}
+
+.review-inbox-panel > header {
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line);
+}
+
+.review-inbox-panel > header b {
+  display: block;
+  color: var(--ink);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.review-inbox-panel > header span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: .75rem;
+}
+
+.review-inbox-panel ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-inbox-panel li + li {
+  border-top: 1px solid var(--line);
+}
+
+.review-inbox-panel a {
+  display: block;
+  padding: 10px 13px;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background .15s ease;
+}
+
+.review-inbox-panel a:hover,
+.review-inbox-panel a:focus-visible {
+  outline: none;
+  background: var(--paper-deep);
+}
+
+.review-inbox-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.review-inbox-meta b {
+  flex: 0 0 auto;
+  color: #7a4c3d;
+  font-size: .75rem;
+  font-weight: 650;
+}
+
+.review-inbox-meta i {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: .75rem;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-inbox-meta time {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: #8a9289;
+  font: .75rem ui-monospace, monospace;
+}
+
+.review-inbox-panel strong {
+  display: block;
+  margin-top: 5px;
+  font-size: var(--text-caption);
+  font-weight: 560;
+  line-height: 1.5;
+}
+
+.review-inbox-panel p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: .75rem;
+  line-height: 1.5;
+}
+
+/* 1181–1260px 搜索按钮恢复成"搜索知识 ⌘K"，再加上带字的「待确认」就挤满（1181px 实测导航与右侧间距 0、
+   搜索按钮被挤高）。只在有待确认时把搜索收成图标，没有时这一档照常显示全称 */
+@media (min-width: 1181px) and (max-width: 1260px) {
+  .nav-actions:has(.review-inbox) .search-trigger {
+    justify-content: center;
+    width: 36px;
+    min-height: 36px;
+    padding: 0;
+  }
+
+  .nav-actions:has(.review-inbox) .search-trigger em,
+  .nav-actions:has(.review-inbox) .search-trigger kbd {
+    display: none;
+  }
+}
+
+/* 761–960px 导航链接仍排在顶栏里，横向最紧：只留计数（量过：带字时这一段顶栏溢出 56–195px） */
+@media (min-width: 761px) and (max-width: 960px) {
+  /* 只收紧计数加进来之后这一排的间距：761–768px 实测导航与右侧按钮之间只剩 0px */
+  .nav-actions:has(.review-inbox) {
+    gap: 8px;
+  }
+
+  .review-inbox-trigger {
+    padding: 0 4px;
+  }
+
+  .review-inbox-trigger span {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  /* 面板改挂在整条顶栏下（与导航下拉同一个位置），否则从按钮往左展开 340px 会溢出屏幕 */
+  .review-inbox {
+    position: static;
+  }
+
+  /* 只剩一个数字的圆点看不出是什么，"待确认"三个字留着；为此把这一排的间距收一点 */
+  .nav-actions:has(.review-inbox) {
+    gap: 10px;
+  }
+
+  .review-inbox-trigger {
+    gap: 5px;
+    min-height: 28px;
+    padding: 0 4px 0 9px;
+    font-size: .75rem;
+  }
+
+  .review-inbox-trigger b {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    line-height: 18px;
+  }
+
+  .review-inbox-panel {
+    top: 61px;
+    right: 0;
+    left: 0;
+    width: auto;
+  }
+}
+
+/* 再窄三个字就放不下：390px 实测"待确认"贴住了左边的 FANISL（间距 0），只留计数 */
+@media (max-width: 400px) {
+  .review-inbox-trigger {
+    padding: 0 3px;
+    border: 0;
+    background: transparent;
+  }
+
+  .review-inbox-trigger span {
+    display: none;
+  }
+}

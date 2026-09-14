@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
+import { familyLabels } from '../../shared/domain/labels'
 import { useModalFocus } from '../../shared/interaction/useModalFocus'
 import AppHeader from '../../shared/navigation/AppHeader'
 import type { KnowledgeNodeDetail } from '../knowledge/types'
@@ -47,16 +48,6 @@ const viewLabels: Record<DiscoveryView, string> = {
   relations: '关系场',
   consensus: '共识',
   harness: '研究候选',
-}
-
-const familyLabels: Record<string, string> = {
-  trend: '趋势',
-  reversion: '均值回归',
-  carry: '套息',
-  event: '事件',
-  flow: '资金流',
-  positioning: '仓位',
-  other: '其他',
 }
 
 function parseNumber(value: string | null) {

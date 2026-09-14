@@ -174,7 +174,7 @@ describe('工作台首页', () => {
     await screen.findByText('接下来要交卷')
 
     expect(screen.getByText('12')).toBeTruthy()              // 21 天内到期
-    expect(screen.getByText('看涨 ↑ · 目标 250')).toBeTruthy()  // 到期项给结构化一行
+    expect(screen.getByText('↑ · 目标 250')).toBeTruthy()  // 到期项给结构化一行
     expect(screen.getByText('黄金到不了')).toBeTruthy()          // 裁决项仍给原句
   })
 
@@ -421,7 +421,7 @@ describe('标的档案', () => {
     window.location.hash = ''
     render(<AssetPage />)
     await screen.findByText('接下来要交卷')
-    expect(screen.getByText('看涨 ↑ · 目标 250')).toBeTruthy()
+    expect(screen.getByText('↑ · 目标 250')).toBeTruthy()
     expect(screen.getByText(/到期收盘高于发布参考价即命中/)).toBeTruthy()
     expect(screen.queryByText('半导体还有一段')).toBeNull()
   })

@@ -66,4 +66,15 @@ describe('nginx 没代理时的报错', () => {
       message: '用户名或口令不正确',
     })
   })
+
+  it('422 的字段错误列表拼成一句话，而不是 [object Object]', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ detail: [{ loc: ['body', 'category'], msg: 'Field required', type: 'missing' }] }),
+      { status: 422, headers: { 'content-type': 'application/json' } })))
+
+    await expect(apiJson('/knowledge/units/1/reviews', { method: 'POST' })).rejects.toMatchObject({
+      status: 422,
+      message: '请求内容不符合接口约定：Field required',
+    })
+  })
 })
