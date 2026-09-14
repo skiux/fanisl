@@ -4,21 +4,48 @@
 `backend/api.md`、`shared/**`、`deploy/**`）。
 
 ## Now
-（待该席位填）
+- **单元核查接口**（`features/unit-review.md` 第 4 节）：`api.md` §5.6、五个接口、鉴权与测试
+  已完成，**已提交（2026-09-14）、未推送**。推送即上线（auto-update 5 分钟内拉取），frontend 要等上线后才能
+  对真接口联调。同一批里还有 auto-update、调度器、库守卫、websocket 鉴权、回填几处修复
 
 ## Next
-- **服务器上 `binance-ed25519.pem` 权限**：API 启动时 `Permission denied`，
-  修法：`sudo chown fanisl:fanisl /opt/fanisl/backend/binance-ed25519.pem && sudo chmod 600 ...`
-- **文档数字断言**：把 `90 符号`、`77 条 overrides` 这类数写进测试。
-  设计文档曾长期写着 39 与 103，没有任何机制会发现
-- `docs/data/` 六份停在 2026-07-13，与现状（90 符号、eps_estimates、daily_bars）
-  可能已经脱节，引用前先核
+1. **`main.py` 按产品拆 router**：70 条路由里 knowledge 36（含 `/asset` `/research`）、
+   trading 16、binance 3，base 自己 15；8 月以来 21 次提交来自各条线。仿 `auth/routes.py`
+   拆成各自的 `APIRouter` 模块、main 只做装配，文件归属就与席位对齐。会碰到另外两个席位
+   正在改的代码，先约好时间窗口
+2. **`write_changed` 与 `/watchlist` 的查询代价没测过**：两者都对 `GLOBAL` 做跨全部 chunk 的
+   `DISTINCT ON`（08-18 时 3945 个 chunk）。先在服务器上测，再决定改不改：
+   `EXPLAIN (ANALYZE, BUFFERS) SELECT DISTINCT ON (metric) metric, ts, value FROM metric_samples WHERE symbol = 'GLOBAL' ORDER BY metric, ts DESC;`
+3. **服务器上 `binance-ed25519.pem` 权限**：API 启动时 `Permission denied`。要 SSH 上去执行
+   `sudo chown fanisl:fanisl /opt/fanisl/backend/binance-ed25519.pem && sudo chmod 600 …`
+4. **备份的 systemd 单元不在仓库里**：只写在 `deploy/README.md` §8 的 heredoc 里，漂移检测
+   管不到。先从服务器取回线上那份再入库，否则一入库就报漂移
+5. auto-update 与 sudoers 只重启 api、collector。trader 哪天启用，后端更新不会重启它
+6. `docs/data/` 六份停在 2026-07-13，与现状（90 符号、eps_estimates、daily_bars）
+   可能已经脱节，引用前先核
 
 ## Blocked on
-- 无
+- **等用户定：成员的写权限。** 中间件只判断登录与否：member 能调会花 Claude 额度的 `/chat`、
+  `/trading/open|scan|detect`，能改强制交易开关、手动开平仓、撤单；`conversations` 表没有
+  归属列，所有人的对话互相可见、可改名、可删除。单元核查的写接口已按 admin 做
+- **等用户定：席位表没覆盖的文件。** 下面这些已知过期，因为无主，本席位没改：
+  - `backend/README.md`：结构图仍把 `agent.py` `storage.py` `flatten.py` `collector.py` 列在包根；
+    写"当前加密=OKX"，实为 Binance
+  - `docs/ARCHITECTURE.md`：同样漏了 `collect/` `chat/` 前缀；存储一节写"两个库"；标的数写 97，
+    `len(assets.all_assets())` 实测 102
+  - `docs/README.md`：写"60 端点"，实为 81（`api.md` 里的数已由 `tests/test_api_doc.py` 核对）
+  - 根 `AGENTS.md`："534 passed"，测试一加就漂（本批之后已不是这个数），建议改成"全部通过"
+  - `backend/.env.example`：停在 SQLite 时代（有 `DB_PATH`，没有 PG / AUTH / BINANCE），
+    而 `backend/README.md` 指的是 `deploy/.env.example`，建议删掉
+  - 同样无主：`backend/fanisl/indicators/` `snapshot/` `research/`、`backend/tests/`、
+    `backend/pyproject.toml`、`backend/AGENTS.md`，以及 `docs/` 顶层、`docs/data/`、
+    `docs/decisions/`。席位表里的 `tools/` 分不清是 `backend/tools/` 还是 `backend/fanisl/tools/`
 
 ## Requests in
-- **console 席位**：见上面 pem 权限那条
-- **knowledge 席位（2026-09-13）**：单元核查功能的接口与鉴权，见 `features/unit-review.md` 第 4 节。
-  先改 `backend/api.md`（新增 §5.6）再写代码；这是知识域第一个写接口，写操作要求 admin，
-  `author` 取自会话、不信请求体，不开答复接口
+- **console 席位**：pem 权限，见 Next 第 3 条
+- **knowledge 席位（2026-09-13）**：单元核查接口，见 Now
+- **frontend 席位（2026-09-13，不急）**：`GET /knowledge/relations` 的每条边请带上两侧节点的
+  `hit / partial / miss / n_creators / n_contents`（`/knowledge/nodes` 的行里已有这几个字段）。
+  发现页简报为挑"重点发现"，现在要逐条取两侧节点详情：9 条对立边 = 18 次请求，本机经隧道实测
+  最后一个 6.8s 才返回（`/relations` 本身 0.39s）；生产上往返短得多，没测（线上要登录）。
+  字段加上后前端改为只用关系边一次请求。"同源/跨源"用 note 前缀就能判，不需要另加字段

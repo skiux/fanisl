@@ -6,8 +6,11 @@
 
 from __future__ import annotations
 
+import os
 import sys
 
+import psycopg
+from psycopg.conninfo import conninfo_to_dict
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
@@ -39,15 +42,22 @@ def describe_conninfo(conninfo: str) -> tuple[str, bool]:
     - 开发机上是 `host=127.0.0.1 port=5433 ...`，那是通到生产的 SSH 隧道 → **不是本机**
 
     两者的 host 都是 127.0.0.1，所以光看主机分不出来，必须连端口一起看。
+
+    **解析照 libpq 的规则来，不自己按空格切。** 原先手写的切分只认 `key=value`，
+    2026-09-13 实测三种合法写法都被判成本机、守卫形同虚设：URI `postgresql://…@127.0.0.1:5433/…`、
+    等号两边带空格的 `port = 5433`、只写 `hostaddr=`。连接串里没写的项 libpq 会去读
+    PGHOSTADDR / PGHOST / PGPORT 环境变量，这里跟着读；`hostaddr` 与 `host` 都有时真正连的是
+    前者。解析不了、或列了多个主机的一律按远端算——守卫宁可误拦，不可放行。
     """
-    fields = {}
-    for part in conninfo.split():
-        key, _, value = part.partition("=")
-        if value:
-            fields[key.strip()] = value.strip()
-    host = fields.get("host", "")
-    port = fields.get("port", "5432")
-    name = fields.get("dbname", "?")
+    try:
+        fields = conninfo_to_dict(conninfo)
+    except psycopg.ProgrammingError:
+        return "（无法解析的连接串）", False
+    env = os.environ.get
+    host = fields.get("hostaddr") or env("PGHOSTADDR") or fields.get("host") or env("PGHOST") or ""
+    port = str(fields.get("port") or env("PGPORT") or "5432")
+    name = fields.get("dbname") or env("PGDATABASE") or "?"
     where = f"{host}:{port}" if host else "本机 socket"
-    local = port == "5432" and host in ("", "127.0.0.1", "localhost", "::1", "/tmp")
+    local = port == "5432" and "," not in host and (
+        host in ("", "localhost", "::1") or host.startswith(("127.", "/")))
     return f"{name}@{where}", local

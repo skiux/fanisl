@@ -1,7 +1,8 @@
 # fanisl 后端 API 文档
 
 > 面向前端的完整接口契约。以运行中后端实测采样为准（2026-07-18 首版 50 个端点；2026-08-28 复核实际 60 个；
-> 2026-08-29 标的工作台 +2 = 62 个；2026-09-02 登录与用户管理 +11、资产台 +3 = **76 个**）。
+> 2026-08-29 标的工作台 +2 = 62 个；2026-09-02 登录与用户管理 +11、资产台 +3 = 76 个；
+> 2026-09-13 单元核查 +5 = **81 个**）。总数与每条路由的路径由 `tests/test_api_doc.py` 对着路由表核对。
 > 服务：FastAPI，默认 `http://127.0.0.1:8000`（前端用 `VITE_API_BASE` 覆盖）。
 >
 > 配套文档：`../docs/PRODUCT.md`（产品定义/信息架构/用户旅程）· `../docs/DOMAIN.md`（知识引擎
@@ -17,13 +18,15 @@
   详见 `backend/fanisl/auth/README.md`。
 - **CORS**：线上两个前端与 API 同源，用不到 CORS。本机跨端口开发时要带 cookie，
   浏览器不允许 `Access-Control-Allow-Origin: *`，所以来源要逐个列进 `CORS_ORIGINS`。
-- **错误**：非 2xx 返回 `{"detail": "人类可读的中文原因"}`。常见：400 参数问题、404 不存在、
-  409 状态冲突（如撤已成交的单）、502 Claude API 错误（同步调 Claude 的端点）。
+- **错误**：非 2xx 返回 `{"detail": "人类可读的中文原因"}`。常见：400 参数问题、403 需要管理员
+  （§5.6 的写接口）、404 不存在、409 状态冲突（如撤已成交的单、关闭已关闭的核查）、
+  502 Claude API 错误（同步调 Claude 的端点）。请求体结构不对（缺字段、类型错）是 FastAPI 的
+  422，此时 `detail` 是字段错误列表而不是字符串。
 - **时间**：一律 ISO 8601 带时区（如 `2026-07-12T20:00:00+08:00`）；日线日期为 `YYYY-MM-DD`。
 - **耗时端点**：标注 ⏳ 的端点同步调用 Claude，可能 10s~2min，前端须给等待态与失败重试。
 - **列表分页**：无游标分页，一律 `limit` 截断（各端点有默认与上限）。
-- **数据刷新**：市场/知识数据由 collector 进程后台写库，API 只读；前端轮询即可
-  （知识引擎数据日更，30-60s 轮询足够；价格条可 5-10s）。
+- **数据刷新**：市场/知识数据由 collector 进程后台写库，API 不写这两类数据（唯一例外是 §5.6
+  单元核查的三个写接口）；前端轮询即可（知识引擎数据日更，30-60s 轮询足够；价格条可 5-10s）。
 
 ---
 
@@ -586,7 +589,7 @@ creator, content_id, content_title, content_url, published_at, node_id?, node_ti
 #### GET /knowledge/prices?symbol=XAUUSD&since=2026-06-01&until=
 claim 证据图的日线窗口：`{symbol, note(代理口径说明，如"COMEX 金期货近月代理现货"),
 bars:[{ts:"YYYY-MM-DD", open, high, low, close}]}`。
-symbol 用 claim 的 asset_symbol 口径（NDX/SPX/SOXX/XAUUSD/WTI/DFEDTARU 等 39 个）。
+symbol 用 claim 的 asset_symbol 口径（NDX/SPX/SOXX/XAUUSD/WTI/DFEDTARU 等；完整清单是 `knowledge/prices.py` 的 `SYMBOL_MAP` 与 `FRED_SERIES`）。
 用途：在图上标 ref_price、判界（magnitude.low/high/target）、eval_ladder 时点与 outcome。
 
 ### 5.5 发现与运营
@@ -605,6 +608,76 @@ markdown 可直接渲染；summary 供结构化展示。
 #### GET /knowledge/spot-checks
 抽查覆盖：`{total, checked, faithful, unfaithful, unclear,
 recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，API 只读）。
+
+### 5.6 单元核查
+
+用户在单元详情里对一条提取提出异议（quote 断章取义、分级判错、评分规格不对……），知识席位
+用 CLI 审查并答复，需要时修改单元、写清为什么会错。流程与取舍见
+`../docs/plans/active/features/unit-review.md`，知识席位的处理纪律见 `fanisl/knowledge/AGENTS.md`。
+
+**这是知识域唯一的写接口组**，规则与本章其余只读端点不同：
+
+- **三个 POST 要求 `role=admin`**，member → `403 {"detail":"需要管理员权限"}`。核查会驱动知识席位
+  修改生产库里的单元，v1 只让管理员提交。角色判定先于请求体校验：member 发一个缺字段的请求，
+  拿到的也是 403。
+- **作者一律取自登录会话**（`user.username`）。请求体里带 `author` / `created_by` / `role` 会被
+  忽略，不报错。本机 `AUTH_ENABLED=false` 时作者是 `(auth-disabled)`。
+- **没有答复接口。** `role=extractor` 的消息只能由知识席位的 CLI 写入
+  （`python -m fanisl.knowledge.review answer`），站上没有任何途径以知识席位身份发言。
+- 取值校验只在 store 一处（`fanisl/knowledge/store.py`），接口层不另写一份：取值不合法 → 400、
+  对象不存在 → 404、当前状态不允许 → 409，`detail` 是中文原因，可直接显示。请求体缺字段或类型
+  不对由 FastAPI 在更前面拦下 → 422（`detail` 是字段错误列表）。
+
+**枚举**：
+
+| 字段 | 值 → 中文标签 |
+|---|---|
+| `category` | `quote` 原句 · `grade` 分级 · `scoring` 评分规格 · `asset` 标的与标签 · `statement` 结论表述 · `other` 其他 |
+| `status` | `open` 待知识席位答复 · `answered` 待你确认 · `closed` 已关闭 |
+| `messages[].role` | `reviewer` 你（站上用户）· `extractor` 知识席位 |
+| `resolution.outcome` | `fixed` 已修改 · `no_change` 维持原判 · `needs_info` 需要你补充 |
+
+**状态流转**：提交 → `open` →（知识席位答复）→ `answered` →（关闭）→ `closed`。在 `answered` 或
+`closed` 上回复会重新打开成 `open`；`open` 的也可以直接关闭（撤回意见）。
+
+**review 对象**（三个 POST 的返回值，也是 `GET /knowledge/units/{id}/reviews` 的元素）：
+```
+{id, unit_id, category, status, created_by, created_at, updated_at, closed_at|null,
+ messages: [{id, role, author, body, created_at,
+             resolution: null | {outcome, root_cause|null, sweep|null, followup|null}}],
+ amendments: [{id, unit_id, reason, author, created_at,
+               changed: ["quote" | "tags" | "payload.<键>", ...],
+               before: {quote, payload, tags}, after: {quote, payload, tags}}]}
+```
+- `messages` 按时间升序；`resolution` 只出现在 `role=extractor` 的消息上，reviewer 的恒为 `null`。
+- `outcome=fixed` 的答复**一定**带 `root_cause` 与 `sweep`，且这条核查下至少有一条 `amendments`
+  ——store 强制，缺一样知识席位就答复不出去。这几项是这个功能的价值所在，**原样展示，不要折叠成
+  一句话**。
+- `amendments[].changed` 是改动字段清单，`before` / `after` 是改前改后的全量，前端据此画差异。
+
+#### GET /knowledge/units/{id}/reviews
+该单元的全部核查，**新的在前**：`[review...]`。没有核查时是 `[]`；单元不存在也是 `[]`，不报 404。
+
+#### POST /knowledge/units/{id}/reviews 🔑
+提交核查。Body `{"category": str, "body": str}` → **201** + review（`status=open`，`messages` 里一条
+`role=reviewer`，`created_by` 与这条消息的 `author` 都是当前登录用户）。
+`category` 不在枚举里、`body` 去掉首尾空白后为空或超过 4000 字 → 400；单元不存在 → 404。
+
+#### POST /knowledge/reviews/{id}/messages 🔑
+补充说明，或回复知识席位的答复。Body `{"body": str}` → 200 + review。**任何状态下回复都会把核查
+置回 `open`**（`closed_at` 清空），回到知识席位的待办。`body` 为空或超长 → 400；核查不存在 → 404。
+
+#### POST /knowledge/reviews/{id}/close 🔑
+关闭核查（认可答复，或撤回意见）。无 body → 200 + review（`status=closed`，`closed_at` 有值）。
+已经关闭 → 409；核查不存在 → 404。
+
+#### GET /knowledge/reviews?status=&limit=100
+核查队列，按最近更新倒序，**不带对话全文**：`[{id, unit_id, category, status, created_by,
+created_at, updated_at, closed_at, kind, content_id, quote(前 80 字), verifiability|null, creator,
+n_messages, last_message(前 120 字)}]`。`status` 省略为全部；`open` 是知识席位的待办，**`answered`
+是用户的待确认**（站上「待确认」入口用它）；其他取值 → 400。`limit` 上限 500。
+
+🔑 = 需要 `role=admin`，否则 403。
 
 ---
 
@@ -642,7 +715,7 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
 | `news` | 新闻覆盖：`news_items` 走 `{asset, n, latest}`；加密标的回落到 catalyst_items 的 `{kind, symbol, n, fetched_at}`。没有则 `null` |
 | `profile_at` | 公司资料的抓取时刻，没抓过则 `null` |
 
-默认返回**库里真有知识单元、或评测台交易过**的标的（当前 75 个）。后一条是必要的：
+默认返回**库里真有知识单元、或评测台交易过**的标的。后一条是必要的：
 BZ 实测 0 条知识单元、3 笔交易，只按知识单元筛它在工作台里无处可达。
 `include_empty=true` 再把登记表其余部分带上，计数全 0、`hit_rate` 为 `null`。
 
@@ -698,7 +771,7 @@ BZ 实测 0 条知识单元、3 笔交易，只按知识单元筛它在工作台
   这是"信源在这个标的上改过什么口"的载体；
 - `related_assets` 来自同一条单元里的共现，不是人工维护的关联表；主题标签（ai-capex 等）
   不会出现在这里，只有登记表里的标的才算；
-- `profile` 与 `news` **只对个股与 ETF**（73 个）。`coverage.has_company=false` 的标的
+- `profile` 与 `news` **只对个股与 ETF**。`coverage.has_company=false` 的标的
   （指数/贵金属/商品/利率/汇率）两块恒为 `null`/`[]`——**这是"没有公司这回事"，不是"我们没接"**，
   前端据此隐藏这两节而不是渲染空面板。口径与实测结论见 `../docs/data/data-gaps.md`；
 - `news` 来自 `news_items`（**追加式、可回溯**，按 `(asset, url)` 去重，从不删旧条）；
@@ -742,6 +815,8 @@ BZ 实测 0 条知识单元、3 笔交易，只按知识单元筛它在工作台
 | GET /knowledge/relations | 仅 6 条边（conflicts 1） | 页面为增长设计，但当下逐条完整呈现 |
 | GET /knowledge/nodes | 多数节点无评分聚合（hit/miss=0） | 无评分时不显示 0%，显示"未验证" |
 | GET /knowledge/weekly | 现算，1-2s | 骨架；markdown 直接渲染 |
+| POST /knowledge/units/{id}/reviews 等三个核查写接口 | member 账号一律 403 | 显示「需要管理员权限」；可以不给非管理员显示提交入口，但真正的限制在接口侧 |
+| GET /knowledge/reviews?status=answered | 多数时候是 `[]` | 「待确认」入口不显示角标，不要显示 0 |
 | GET /asset | 长尾标的普遍 `units<10`、`scored=0`、`hit_rate:null` | 不显示 0%，显示"未验证"；n<10 视觉降权 |
 | GET /asset/{id} | 指数/金属/利率的 `profile` 恒 `null`、`news` 恒 `[]`（`has_company=false`） | 隐藏这两节；覆盖条写明"没有公司这回事"，不是"未接入" |
 | GET /asset/{id} | 美股只有日线，`coverage.metrics` 为 `null`（高频指标只覆盖 5 个加密对） | 覆盖条如实标注，不要拿别的凑 |

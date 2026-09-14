@@ -44,3 +44,33 @@ def test_no_price_when_flag_off():
 
 def test_too_short_returns_empty():
     assert indicator_rows("BTC/USDT", "1d", _df(20), with_price=True) == []
+
+
+def test_backfill_global_writes_every_fred_series():
+    """全市场那一段只在配了 FRED key 时才跑，且排在逐标的回填全部写完之后。
+
+    包分组（2026-09-10）时这里的相对导入漏改，还是 `.data.fred_source`，指向并不存在的
+    `fanisl.collect.data`——测试一直是绿的，真跑回填才会在最后一步 ModuleNotFoundError。
+    """
+    from fanisl.collect.backfill import backfill_global
+    from fanisl.data.fred_source import FRED_SERIES
+
+    class Store:
+        def __init__(self):
+            self.rows = []
+
+        def write_history(self, rows):
+            self.rows.extend(rows)
+            return len(rows)
+
+    class Macro:  # 只要有 fetch_series_history 就会走宏观分支；不联网
+        def fetch_series_history(self, series_id, units):
+            return [{"ts": "2026-01-01T00:00:00+00:00", "value": 1.0}]
+
+    class Catalysts:
+        macro = Macro()
+
+    store = Store()
+    assert backfill_global(store, sentiment=None, catalysts=Catalysts()) == len(FRED_SERIES)
+    assert {r[2] for r in store.rows} == {metric for _sid, metric, _units in FRED_SERIES}
+    assert all(r[:2] == ("global", "GLOBAL") for r in store.rows)

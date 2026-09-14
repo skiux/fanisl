@@ -35,7 +35,21 @@ def test_disabled_job_failure_does_not_crash():
     sch = Scheduler([("boom", 0, lambda: 1 / 0)], tick_s=0.02)
     sch.start()
     time.sleep(0.1)
-    sch.stop()  # 不应抛异常（job 失败被吞）
+    sch.stop()  # 不应抛异常（job 失败不外抛）
+
+
+def test_job_failure_is_reported_not_swallowed(capsys):
+    """失败不能拖垮调度线程，但必须在 stderr 留下 job 名与 traceback。
+
+    这里原先是静默的 `pass`：周报、参考数据刷新这类自己不兜底的 job 抛出来的异常
+    一个字都不留（2026-09-13 本机复现：stdout 与 stderr 都是空的）。
+    """
+    sch = Scheduler([("weekly_report", 3600, lambda: 1 / 0)], tick_s=0.02)
+    sch.start()
+    time.sleep(0.1)
+    sch.stop()
+    err = capsys.readouterr().err
+    assert "weekly_report" in err and "ZeroDivisionError" in err
 
 
 def test_uses_wall_clock_not_monotonic(monkeypatch):

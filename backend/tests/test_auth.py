@@ -25,7 +25,7 @@ MEMBER_PW = "member-password-1"
 def app(auth_store):
     """一个最小 app：一条受保护路由 + 一条公开路由 + 真正的鉴权中间件与路由组。
 
-    不用 fanisl.main：那个 app 会把 62 条业务路由和它们的依赖一起拖进来，
+    不用 fanisl.main：那个 app 会把几十条业务路由和它们的依赖一起拖进来，
     而这里要验的只是"门"。门是同一扇——同样的中间件、同样的 store。
     """
     api = FastAPI()
@@ -97,6 +97,33 @@ def test_new_routes_are_protected_by_default(app, client, admin):
     assert client.get("/some-route-added-later").status_code == 401
     login(client, "root", ADMIN_PW)
     assert client.get("/some-route-added-later").status_code == 200
+
+
+def test_websocket_routes_are_closed_without_login_too(app, client, admin):
+    """默认拒绝同样覆盖 websocket。中间件原先只看 http scope、websocket 原样放行——
+    眼下没有 websocket 路由所以没出事，加第一条的那天就是一个没人发现的口子。"""
+    from starlette.websockets import WebSocket, WebSocketDisconnect
+
+    reached = []
+
+    @app.websocket("/ws-added-later")
+    async def ws(websocket: WebSocket):
+        reached.append(True)
+        await websocket.accept()
+        await websocket.send_text(websocket.state.user["username"])
+        await websocket.close()
+
+    with pytest.raises(WebSocketDisconnect) as closed:
+        with client.websocket_connect("/ws-added-later"):
+            pass
+    # 光看 1008 不够：FastAPI 自己的参数校验失败也回 1008。要确认是中间件关的、没进 handler
+    assert closed.value.code == 1008 and reached == []
+
+    # cookie 显式放进握手请求头，不依赖 TestClient 的 cookie jar 对 ws:// 怎么处理 Secure 标记
+    token = login(client, "root", ADMIN_PW).cookies.get(settings.auth_cookie_name)
+    with client.websocket_connect("/ws-added-later",
+                                  headers={"cookie": f"{settings.auth_cookie_name}={token}"}) as conn:
+        assert conn.receive_text() == "root"
 
 
 def test_auth_can_be_disabled_for_emergency(auth_store):

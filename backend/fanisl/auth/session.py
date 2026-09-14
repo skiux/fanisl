@@ -3,7 +3,7 @@
 **为什么是中间件而不是每条路由挂 Depends**：这个 app 现在有 60+ 条路由，还会继续加。
 靠"记得给新路由加一个依赖"来保证安全，等于把安全性寄托在不会忘这件事上——忘一次就是
 一个洞，而且是静默的。中间件是**默认拒绝**：新加的路由自动受保护，要放行必须显式写进
-白名单，方向反过来了。
+白名单，方向反过来了。http 与 websocket 都过这道门。
 
 **为什么是纯 ASGI 而不是 BaseHTTPMiddleware**：这个 app 有 SSE（`/chat/stream`）。
 BaseHTTPMiddleware 会把响应包进 anyio 的任务组里，历史上与流式响应/客户端断连有过一堆
@@ -21,6 +21,7 @@ from datetime import timedelta
 import anyio
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.websockets import WebSocketClose
 
 from .store import UserStore
 
@@ -41,7 +42,7 @@ DISABLED_USER = {
 }
 
 # 未登录也必须可达的路径。清单**只有三条**，加之前先想清楚为什么。
-#   /health       探针。auto-update.sh 重启后靠它判断服务活没活（deploy/auto-update.sh:60），
+#   /health       探针。auto-update.sh 重启后靠它判断服务活没活（见该脚本的健康检查），
 #                 挡了它自动更新会把每次正常部署都判成失败并回滚。
 #   /auth/login   登录本身。
 #   /auth/logout  退出。做成公开是为了幂等——会话已经失效时再点一次退出不该报错。
@@ -87,7 +88,10 @@ class AuthMiddleware:
         self.enabled = enabled
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        # 只有 lifespan 这类非请求 scope 原样放行。websocket 与 http 一样要过门：这里原先
+        # 只拦 http，眼下没有 websocket 路由所以没出事，但加第一条的那天就是一个不在
+        # "默认拒绝"之内、测试也发现不了的口子。
+        if scope["type"] not in ("http", "websocket"):
             await self.app(scope, receive, send)
             return
 
@@ -96,9 +100,9 @@ class AuthMiddleware:
             await self.app(scope, receive, send)
             return
 
-        path = scope.get("path", "")
-        # CORS 预检不带 cookie，拦了它浏览器连真正的请求都发不出去
-        if scope.get("method") == "OPTIONS" or is_public(path):
+        # 白名单与 CORS 预检只对 http 有意义。预检不带 cookie，拦了它浏览器连真正的请求都发不出去
+        if scope["type"] == "http" and (scope.get("method") == "OPTIONS"
+                                        or is_public(scope.get("path", ""))):
             await self.app(scope, receive, send)
             return
 
@@ -109,8 +113,12 @@ class AuthMiddleware:
                 lambda: self.store.resolve_session(token, idle_ttl=self.idle_ttl))
 
         if user is None:
-            response = JSONResponse({"detail": "未登录或会话已过期"}, status_code=401)
-            await response(scope, receive, send)
+            if scope["type"] == "websocket":
+                # 握手阶段直接关：连接不会建立，服务端对握手请求回 403
+                await WebSocketClose(code=1008)(scope, receive, send)
+            else:
+                response = JSONResponse({"detail": "未登录或会话已过期"}, status_code=401)
+                await response(scope, receive, send)
             return
 
         scope.setdefault("state", {})["user"] = user

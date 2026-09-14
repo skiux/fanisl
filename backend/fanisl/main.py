@@ -9,7 +9,7 @@ import json
 import re
 
 import anthropic
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
@@ -47,6 +47,7 @@ from .runtime import (
 from .knowledge import discovery, keyframes, league, spotcheck
 from .knowledge.browser import browse_nodes_page, browse_units_page, verification_page, verification_summary
 from .knowledge.overview import overview_stats
+from .knowledge.store import ReviewConflict
 from .chat.storage import display_messages
 
 # 注意：API 进程**不起后台调度器**。采集/交易由独立的 collector / trader worker 进程跑
@@ -650,6 +651,75 @@ def knowledge_prices(symbol: str, since: str, until: str | None = None) -> dict:
     elif symbol in FRED_SERIES:
         note = FRED_SERIES[symbol]
     return {"symbol": symbol, "note": note, "bars": rows}
+
+
+# --- 单元核查（知识域唯一的写接口组，契约见 api.md §5.6）---------------------------
+#
+# 取值校验与状态流转都在 knowledge/store.py，这里不另写一份——store 是唯一口径。接口层只管三件事：
+# ① 写接口要求管理员：核查会驱动知识席位修改生产库里的单元，v1 只让管理员提交；
+# ② 作者取自登录会话：请求模型里没有 author 字段，请求体带了也被丢弃；
+# ③ 按 store 的约定映射异常：ValueError→400，LookupError→404，ReviewConflict→409。
+# **不开答复接口**：role=extractor 的消息只能由知识席位的 CLI（knowledge/review.py）写入。
+
+
+class ReviewCreateRequest(BaseModel):
+    category: str
+    body: str
+
+
+class ReviewMessageRequest(BaseModel):
+    body: str
+
+
+def _review_call(fn):
+    try:
+        return fn()
+    except ReviewConflict as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except (KeyError, IndexError):
+        # 它们也是 LookupError 的子类，但出现在这里是代码缺陷，不是"查无此物"——
+        # 映射成 404 会把 bug 伪装成正常结果。照常抛出，落成 500。
+        raise
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.get("/knowledge/units/{unit_id}/reviews")
+def knowledge_unit_reviews(unit_id: int) -> list[dict]:
+    """某单元的全部核查，新的在前，每条带对话与修改记录。单元不存在时是空列表。"""
+    return knowledge_store.reviews_for_unit(unit_id)
+
+
+@app.post("/knowledge/units/{unit_id}/reviews", status_code=201)
+def knowledge_create_review(unit_id: int, req: ReviewCreateRequest,
+                            user: dict = Depends(auth_routes.require_admin)) -> dict:
+    """提交核查（管理员）。created_by 取自会话。"""
+    return _review_call(lambda: knowledge_store.create_review(
+        unit_id, category=req.category, body=req.body, author=user["username"]))
+
+
+@app.post("/knowledge/reviews/{review_id}/messages")
+def knowledge_reply_review(review_id: int, req: ReviewMessageRequest,
+                           user: dict = Depends(auth_routes.require_admin)) -> dict:
+    """补充或回复（管理员）。任何状态下回复都会重新打开，回到知识席位的待办。"""
+    return _review_call(lambda: knowledge_store.add_review_message(
+        review_id, body=req.body, author=user["username"]))
+
+
+@app.post("/knowledge/reviews/{review_id}/close")
+def knowledge_close_review(review_id: int,
+                           _admin: dict = Depends(auth_routes.require_admin)) -> dict:
+    """关闭核查（管理员）：认可答复，或撤回意见。已经关闭的再关 → 409。"""
+    return _review_call(lambda: knowledge_store.close_review(review_id))
+
+
+@app.get("/knowledge/reviews")
+def knowledge_reviews(status: str | None = None, limit: int = 100) -> list[dict]:
+    """核查队列，按最近更新倒序。status=open 是知识席位的待办，answered 是用户的待确认。"""
+    return _review_call(lambda: knowledge_store.list_reviews(
+        status=status, limit=min(max(limit, 1), 500)))
 
 
 # --- 标的工作台（按资产标的组织的决策视图）---------------------------------

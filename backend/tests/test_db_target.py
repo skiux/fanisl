@@ -14,6 +14,13 @@ import pytest
 from fanisl.db import describe_conninfo
 
 
+@pytest.fixture(autouse=True)
+def _no_libpq_env(monkeypatch):
+    """连接串没写的项 libpq 会用 PG* 环境变量补上，判定也跟着读——先清掉，结果才确定。"""
+    for var in ("PGHOST", "PGHOSTADDR", "PGPORT", "PGDATABASE"):
+        monkeypatch.delenv(var, raising=False)
+
+
 def test_tunnel_is_not_local_even_though_the_host_is_127001():
     """两者的 host 都是 127.0.0.1，只有端口能分开——光看主机会把隧道当成本机。"""
     _, local = describe_conninfo("host=127.0.0.1 port=5433 dbname=fanisl user=fanisl")
@@ -24,8 +31,34 @@ def test_tunnel_is_not_local_even_though_the_host_is_127001():
 
 
 def test_unix_socket_and_plain_dbname_are_local():
-    for conninfo in ("dbname=fanisl_dev", "host=localhost dbname=x", "host=::1 dbname=x"):
+    for conninfo in ("dbname=fanisl_dev", "host=localhost dbname=x", "host=::1 dbname=x",
+                     "host=/var/run/postgresql dbname=x"):
         assert describe_conninfo(conninfo)[1] is True, conninfo
+
+
+def test_other_valid_spellings_of_the_tunnel_are_not_local():
+    """libpq 认的写法不止空格分隔的 `key=value`。原先手写的切分把下面前三种都判成了本机
+    （2026-09-13 实测），守卫形同虚设。"""
+    for conninfo in ("postgresql://fanisl:secret@127.0.0.1:5433/fanisl",
+                     "host=127.0.0.1 port = 5433 dbname=fanisl",
+                     "hostaddr=10.0.0.5 dbname=fanisl",
+                     "host=127.0.0.1 hostaddr=10.0.0.5 dbname=fanisl",   # 两者都有时连的是 hostaddr
+                     "host=127.0.0.1,db.example.com dbname=fanisl"):
+        assert describe_conninfo(conninfo)[1] is False, conninfo
+    text, _ = describe_conninfo("postgresql://fanisl:secret@127.0.0.1:5433/fanisl")
+    assert text == "fanisl@127.0.0.1:5433"
+
+
+def test_environment_fills_in_what_the_conninfo_leaves_out(monkeypatch):
+    """`dbname=fanisl` 单看像本机；环境里有 PGPORT=5433 时 libpq 连的其实是隧道。"""
+    monkeypatch.setenv("PGHOST", "127.0.0.1")
+    monkeypatch.setenv("PGPORT", "5433")
+    assert describe_conninfo("dbname=fanisl") == ("fanisl@127.0.0.1:5433", False)
+
+
+def test_unparseable_conninfo_counts_as_remote():
+    """解析不了就拦下：守卫宁可误拦，不可放行。"""
+    assert describe_conninfo("this is = not valid ==")[1] is False
 
 
 def test_remote_host_is_not_local():

@@ -150,7 +150,7 @@ def backfill_global(store: MarketStore, sentiment, catalysts) -> int:
         print(f"  GLOBAL       stablecoin_total {len(rows):6d} 行")
     macro = getattr(catalysts, "macro", None) if catalysts else None
     if macro is not None and hasattr(macro, "fetch_series_history"):
-        from .data.fred_source import FRED_SERIES
+        from ..data.fred_source import FRED_SERIES
         for sid, metric, units in FRED_SERIES:
             rows = [("global", GLOBAL, metric, h["ts"], h["value"])
                     for h in macro.fetch_series_history(sid, units)]

@@ -11,7 +11,7 @@
                                           CORSMiddleware      ← 最外层
                                           AuthMiddleware      ← 默认拒绝
                                                      │
-                                             62 条业务路由
+                                             全部业务路由
 ```
 
 三张表落在主库 `fanisl`（与对话表同池）：
@@ -25,9 +25,10 @@
 ## 五个不是随手定的决定
 
 **① 中间件，不是每条路由挂 `Depends`。**
-现在 65 条路由，还会加。靠"记得给新路由加依赖"来保证安全，等于把安全性押在不会忘上——
+路由有几十条，还会继续加。靠"记得给新路由加依赖"来保证安全，等于把安全性押在不会忘上——
 忘一次就是一个洞，而且没人会发现。中间件是**默认拒绝**：新路由自动受保护，要放行必须
 显式写进白名单，方向反过来了。白名单只有三条，见 `session.py`。
+websocket 同样过这道门：未登录时在握手阶段就关掉，服务端回 403。
 
 **② 纯 ASGI 中间件，不是 `BaseHTTPMiddleware`。**
 这个 app 有 SSE（`/chat/stream`）。`BaseHTTPMiddleware` 把响应包进 anyio 任务组，
@@ -69,6 +70,11 @@ Lax 的语义是：跨站的**顶层 GET 导航**会带 cookie，跨站的 POST/
 | DELETE | `/admin/users/{id}` | 🔑 删用户 |
 
 🔑 = 需要 `role=admin`，否则 403。
+
+**业务路由里的角色判定**：单元核查的三个写接口（`backend/api.md` §5.6）要求管理员，用的是同一个
+`routes.require_admin`，在 `main.py` 里作 FastAPI 依赖，先于请求体校验执行。资产台三组接口的
+`force=true` 只对管理员生效，member 传了会被忽略。其余业务路由只要求登录——成员能不能调
+会花 Claude 额度或改评测台状态的接口，还没有定，见 `docs/plans/active/base.md`。
 
 **会连带踢会话的操作**：改口令、重置口令、停用、改角色。理由是同一条——权限或凭据变了，
 旧 cookie 就不该继续作数。改显示名不踢。
@@ -120,14 +126,14 @@ token 的散列不出 `list_sessions`。
 | `AUTH_IDLE_DAYS` | `14` | 闲置多久算过期 |
 | `AUTH_MAX_FAIL_USER` / `AUTH_MAX_FAIL_IP` | `5` / `20` | 限速阈值 |
 | `AUTH_MIN_PASSWORD_LEN` | `10` | 口令最短长度 |
-| `CORS_ORIGINS` | 两个本机开发端口 | 带 cookie 的跨源请求不允许 `*`，必须列具体来源。线上同源，这项只对本机开发有意义 |
+| `CORS_ORIGINS` | 本机开发端口 5173 / 5174 / 5175 | 带 cookie 的跨源请求不允许 `*`，必须列具体来源。线上同源，这项只对本机开发有意义 |
 
 ## 测试
 
 `backend/tests/test_auth.py`。分两层：
 
 - **门本身**：用一个最小 app（一条受保护路由 + 真正的中间件），验登录、限速、
-  会话失效、角色、各种 409 边界。
+  会话失效、角色、各种 409 边界，以及 websocket 握手同样被拦。
 - **门装在了整栋楼上**：`test_every_real_route_is_closed_without_login` 把
   `fanisl.main` 里注册的**每一条**路由都打一遍，逐条断言未登录不可达。
   这条测试递归走进 `include_router`——FastAPI 0.141 不再把子路由摊平进 `app.routes`，

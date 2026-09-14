@@ -1,6 +1,6 @@
 """极简后台调度：一个守护线程按各 job 的 interval 到点触发。无新依赖、无 shell 脚本。
 
-job 自身负责 best-effort 与日志（collector 已做）；这里只管"到点就调"。
+job 自身负责 best-effort；逃出 job 的异常由这里打到 stderr（job 名 + traceback）后照常继续。
 启动时立即跑一遍（让前端马上有数据），之后按 interval 周期跑；shutdown 时停止。
 
 **计时用墙钟而不是 time.monotonic()**：macOS 上 time.monotonic() 走 mach_absolute_time()，
@@ -12,8 +12,10 @@ job 自身负责 best-effort 与日志（collector 已做）；这里只管"到�
 
 from __future__ import annotations
 
+import sys
 import threading
 import time
+import traceback
 from typing import Callable
 
 
@@ -48,8 +50,13 @@ class Scheduler:
                 if now >= j["next"]:
                     try:
                         j["fn"]()
-                    except Exception:  # noqa: BLE001 — job 内部已记日志，调度不崩
-                        pass
+                    except Exception:  # noqa: BLE001 — 单个 job 失败不能拖垮调度线程
+                        # 但必须留下痕迹。这里原先是 `pass`，理由是"job 内部已记日志"，实际只有
+                        # 一部分 job 自带兜底：周报、参考数据刷新、会话清理都没有，逃出来的异常
+                        # （库连不上、代码缺陷）一个字不留（2026-09-13 本机复现），停摆只能从
+                        # "数据没更新"倒推。
+                        print(f"[scheduler] job {j['name']} 失败：", file=sys.stderr, flush=True)
+                        traceback.print_exc()
                     j["next"] = time.time() + j["interval"]
                 elif j["next"] - now > j["interval"]:
                     # 墙钟被往回调过，next 被甩到了太远的将来——拉回一个 interval 内，

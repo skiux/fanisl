@@ -3,8 +3,8 @@
 分两组：
 - `/auth/*` — 任何登录用户对自己做的事（登录、退出、看自己是谁、改自己的口令、
   管自己的会话）。
-- `/admin/users*` — 只有管理员能做的事。角色判定在 `_require_admin` 里，
-  不散在各个 handler。
+- `/admin/users*` — 只有管理员能做的事。角色判定在模块级的 `require_admin` 里，
+  不散在各个 handler；`main.py` 里知识域的写接口用的也是它。
 
 **用户名不存在与口令错误返回同一个错误**，且都要走一次口令散列——否则响应时间的差异
 就是一个可用的用户名枚举信道。
@@ -64,6 +64,18 @@ def current_user(request: Request) -> dict:
     return user
 
 
+def require_admin(request: Request) -> dict:
+    """需要管理员的操作只用这一个判定：取不到会话 401，不是管理员 403。返回当前用户。
+
+    handler 里直接调，或当 FastAPI 依赖用（`Depends(require_admin)`）。后者在请求体字段
+    校验之前执行，member 发来缺字段的请求拿到的是 403，而不是一条 422。
+    """
+    user = current_user(request)
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+    return user
+
+
 def build_router(store: UserStore, settings: Settings) -> APIRouter:
     router = APIRouter()
 
@@ -72,12 +84,6 @@ def build_router(store: UserStore, settings: Settings) -> APIRouter:
             raise HTTPException(
                 status_code=400,
                 detail=f"口令至少 {settings.auth_min_password_len} 位")
-
-    def _require_admin(request: Request) -> dict:
-        user = current_user(request)
-        if user["role"] != "admin":
-            raise HTTPException(status_code=403, detail="需要管理员权限")
-        return user
 
     def _set_cookie(response: Response, token: str) -> None:
         response.set_cookie(
@@ -169,12 +175,12 @@ def build_router(store: UserStore, settings: Settings) -> APIRouter:
 
     @router.get("/admin/users")
     def list_users(request: Request) -> list[dict]:
-        _require_admin(request)
+        require_admin(request)
         return [_public(u) for u in store.list_users()]
 
     @router.post("/admin/users", status_code=201)
     def create_user(req: CreateUserRequest, request: Request) -> dict:
-        _require_admin(request)
+        require_admin(request)
         if req.role not in ROLES:
             raise HTTPException(status_code=400, detail=f"角色只能是 {' / '.join(ROLES)}")
         _check_password_policy(req.password)
@@ -191,7 +197,7 @@ def build_router(store: UserStore, settings: Settings) -> APIRouter:
 
     @router.patch("/admin/users/{user_id}")
     def update_user(user_id: int, req: UpdateUserRequest, request: Request) -> dict:
-        admin = _require_admin(request)
+        admin = require_admin(request)
         target = store.get(user_id)
         if target is None:
             raise HTTPException(status_code=404, detail="用户不存在")
@@ -224,7 +230,7 @@ def build_router(store: UserStore, settings: Settings) -> APIRouter:
 
     @router.post("/admin/users/{user_id}/password")
     def reset_password(user_id: int, req: ResetPasswordRequest, request: Request) -> dict:
-        _require_admin(request)
+        require_admin(request)
         if store.get(user_id) is None:
             raise HTTPException(status_code=404, detail="用户不存在")
         _check_password_policy(req.new_password)
@@ -234,7 +240,7 @@ def build_router(store: UserStore, settings: Settings) -> APIRouter:
 
     @router.delete("/admin/users/{user_id}")
     def delete_user(user_id: int, request: Request) -> dict:
-        admin = _require_admin(request)
+        admin = require_admin(request)
         target = store.get(user_id)
         if target is None:
             raise HTTPException(status_code=404, detail="用户不存在")

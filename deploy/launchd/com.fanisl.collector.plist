@@ -19,7 +19,7 @@
     <array>
         <string>/Users/enin/fanisl/backend/.venv/bin/python</string>
         <string>-m</string>
-        <string>analyzer.worker_collector</string>
+        <string>fanisl.worker_collector</string>
     </array>
 
     <key>WorkingDirectory</key>
@@ -27,9 +27,9 @@
 
     <key>EnvironmentVariables</key>
     <dict>
-        <!-- 包在 src/ 下，不是安装态；.env 由 config.get_settings 按 cwd 读 -->
+        <!-- 包在 backend/fanisl/（2026-09-10 起没有 src/ 层），不是安装态；.env 由 config.get_settings 按 cwd 读 -->
         <key>PYTHONPATH</key>
-        <string>/Users/enin/fanisl/backend/src</string>
+        <string>/Users/enin/fanisl/backend</string>
         <key>PYTHONUNBUFFERED</key>
         <string>1</string>
     </dict>

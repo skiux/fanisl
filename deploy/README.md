@@ -13,7 +13,7 @@
 > **TimescaleDB 在服务器上装着，但代码里是可选依赖**（2026-08-28）。`metric_samples` 建
 > hypertable 失败时自动退化成普通表——无分块、无压缩、无 retention，读写照常，只打一条
 > warning。所以开发机不必装 timescaledb（homebrew-core 里也没有，要 `brew tap timescale/tap`），
-> 全套测试 288 通过、只 skip 掉 4 个用例需要的 hypertable。
+> 测试照跑，只 skip 掉用到 hypertable 的那几个用例。
 >
 > 实现上有个坑值得记：`create_hypertable` 必须**另开一个事务**。和建表放在同一个事务里的话，
 > 扩展缺失时它报错会中止整个事务，捕获异常也救不回来——`_SCHEMA` 建的表被一并回滚，
@@ -240,7 +240,7 @@ psql -h 127.0.0.1 -U fanisl -tAc "SHOW max_locks_per_transaction" postgres   # �
 psql -h 127.0.0.1 -U fanisl -d postgres -c "CREATE DATABASE fanisl OWNER fanisl;"
 psql -h 127.0.0.1 -U fanisl -d fanisl -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
 
-# 2) 建表并转成 hypertable。等价于 marketstore 的 init（见 marketstore.py:16 与 :88，全幂等），
+# 2) 建表并转成 hypertable。等价于 marketstore 的 init（见 marketstore.py 的 _SCHEMA 与 _ensure_timescale，全幂等），
 #    这里直接写 SQL，免得本节被迫依赖 §3 的 venv 与 .env 先装好
 psql -h 127.0.0.1 -U fanisl -d fanisl <<'SQL'
 CREATE TABLE IF NOT EXISTS metric_samples (
@@ -329,7 +329,7 @@ psql -h 127.0.0.1 -U fanisl -tAF'|' -c \
 | 1000 | `policy_compression` | `metric_samples` | 应用注册的压缩策略，**应当存在** |
 
 `.env` 里 `RETENTION_DAYS` 保持 0（默认值）。代码这一侧本来就是防御性的：`retention_days=0`
-时不但不注册策略，还会**主动移除**历史上注册过的（`marketstore.py:118` 的
+时不但不注册策略，还会**主动移除**历史上注册过的（`marketstore._ensure_timescale` 里的
 `remove_retention_policy`）。所以这一节是复核，不是机制本身——真正要守住的是别把
 `RETENTION_DAYS` 配成非 0。
 
@@ -406,12 +406,12 @@ python3 -m venv .venv
 ```
 
 > **必须是 `-e`（可编辑安装）。** 不带 `-e` 会把代码拷进 `site-packages`，之后 `git pull`
-> 更新的是 `src/`，而服务跑的仍是安装当天那份快照——**`git pull` + `restart` 变成空操作，
+> 更新的是 `backend/fanisl/`，而服务跑的仍是安装当天那份快照——**`git pull` + `restart` 变成空操作，
 > 且毫无迹象**。2026-08-21 排查发现服务器自部署起一直跑着旧代码，期间的多次修复一个都没生效，
 > 是从 traceback 里的 `.../site-packages/analyzer/...` 路径才看出来的。
 >
 > systemd unit 里另配了 `Environment=PYTHONPATH=/opt/fanisl/backend` 作冗余：两处任一
-> 被改回去，另一处仍兜得住。改完随时可验（应当打印 `src/` 下的路径，不是 site-packages）：
+> 被改回去，另一处仍兜得住。改完随时可验（应当打印 `/opt/fanisl/backend/fanisl/` 下的路径，不是 site-packages）：
 >
 > ```bash
 > cd /opt/fanisl/backend && PYTHONPATH=. .venv/bin/python -c "import fanisl, fanisl.knowledge.daily as d; print(fanisl.__file__); print(d.__file__)"
@@ -920,8 +920,10 @@ sudo systemctl restart fanisl-api fanisl-collector
 `activating`，日志是 `ModuleNotFoundError: No module named 'analyzer'`）。
 只跑 `daemon-reload` 没有用，必须先 `install` 再 `daemon-reload`。
 
-auto-update.sh 现在每轮更新末尾会检测这种漂移并把上面这几条命令打出来，
-同时以非零码退出——让 `fanisl-update.service` 停在 `failed`，这个状态不修不会自己消失。
+auto-update.sh **每一轮**都检测这种漂移（不论有没有新提交；没装进 `/etc/systemd/system`
+的单元不查），发现就把上面这几条命令打出来并以非零码退出——让 `fanisl-update.service`
+停在 `failed`，不修就一直挂着。2026-09-13 之前只在"有新提交的那一轮"检测：下一轮没有
+新提交、正常退出，`failed` 就被冲掉了，漂移却还在。
 脚本以 `fanisl` 身份运行、只有一条 restart 的窄 sudo 规则，装单元需要 root，
 所以它只报不代劳。
 
@@ -955,8 +957,10 @@ sudo systemctl daemon-reload && sudo systemctl enable --now fanisl-update.timer
 | 只在 `package-lock.json` 变了才 `npm ci` | 否则每次都清空重装 node_modules |
 | import 自检在 `backend/` 目录下跑 | `runtime` 模块级就建连接池，而 `.env` 相对 `backend/` 解析。在别处 import 会拿默认连接串、`PoolTimeout` 超时 30 秒，报出来像"新代码坏了" |
 | 后端先验证再重启，失败即回滚 | 坏提交会在无人值守时把 API 打掉，而 GCP 控制台已经进不去、只剩 SSH 一条路 |
+| 依赖安装或 import 自检失败时，回滚不重启服务 | 这两步失败时服务还跑着旧代码。原先回滚无条件重启，collector 每次重启都会把全部 job 重跑一遍 |
+| 回滚过的提交记在 `.git/fanisl-update-failed`，`origin/main` 还停在它身上就不再重试 | 否则坏提交每 5 分钟就是一轮合并→验证失败→回滚。推上新提交会自动重试；要强制重试同一个提交，删掉这个文件 |
 | 前端构建前备份 `dist` | vite 默认 `emptyOutDir`，构建失败会把站点停在半份产物上 |
-| 工作区脏就跳过并报出来 | 不静默丢弃改动。生成物已按下面那条规则移出版本控制，正常不会脏 |
+| 工作区脏就跳过、非零退出 | 不静默丢弃改动，也让 `failed` 挂着直到有人处理。生成物已按下面那条规则移出版本控制，正常不会脏 |
 | `flock` 单实例 | 构建慢，5 分钟的定时器可能在上一轮没跑完时又触发 |
 
 **怎么查看拉取情况**（这是排查的第一站）：
@@ -1019,7 +1023,7 @@ sudo journalctl -u fanisl-update.service -n 20 --output=cat    # 看这一轮做
 
 | 变了什么 | 它会做 |
 |---|---|
-| `backend/` | 验证 `import fanisl.main` → 重启 api 与 collector → 查 `/health`，任一步失败即回滚到上一个提交 |
+| `backend/` | 验证 `import fanisl.main` → 重启 api 与 collector → 查 `/health`，任一步失败即回滚到上一个提交，并记下失败的提交（见上面的取舍表） |
 | `backend/pyproject.toml` | 上面之前先 `pip install -e` |
 | `frontend/` 或 `console/` | 备份 `dist` → 重建；构建失败把 `dist` 换回旧版 |
 | 对应的 `package-lock.json` | 重建之前先 `npm ci` |
@@ -1033,7 +1037,7 @@ sudo systemctl restart fanisl-collector fanisl-api
 # 依赖有变（pyproject 改过）时才需要重装：
 # /opt/fanisl/backend/.venv/bin/pip install -e /opt/fanisl/backend
 
-# 确认跑的确实是新代码——路径必须落在 src/ 下
+# 确认跑的确实是新代码——路径必须落在 /opt/fanisl/backend/fanisl/ 下，不是 site-packages
 cd /opt/fanisl/backend && PYTHONPATH=. .venv/bin/python -c \
   "import fanisl; print(fanisl.__file__)"
 curl -s -o /dev/null -w "health -> %{http_code}\n" http://127.0.0.1:8000/health
