@@ -7,14 +7,14 @@
 
 ## Key 类型
 
-Binance 支持三种，官方把 **HMAC 标为 deprecated**、推荐 **Ed25519**。三种都支持，
+Binance 支持三种，并推荐 **Ed25519**；HMAC 当前仍受支持。三种都支持，
 按配置自动判型（`signing.py`），换类型只改 `.env`。启动时打印 `[fanisl] binance key 类型=…`。
 
 | 类型 | 配置 | 签名 |
 |---|---|---|
 | Ed25519（推荐） | `BINANCE_PRIVATE_KEY_PATH` | PureEdDSA → base64 |
 | RSA | 同上 | PKCS#1 v1.5 + SHA-256 → base64 |
-| HMAC（deprecated） | `BINANCE_API_SECRET` | HMAC-SHA256 → hex |
+| HMAC | `BINANCE_API_SECRET` | HMAC-SHA256 → hex |
 
 非对称的好处对这个场景是实的：**私钥不出服务器**，Binance 只存公钥，所以交易所侧
 即使出事也伪造不了你的请求。对只读 key 而言泄露的后果本来就有限，但成本也只是多跑一条
@@ -113,7 +113,9 @@ IP 权重上限 **6000/分钟**。而：
 
 | 坑 | 后果 |
 |---|---|
-| `/fapi/v2/account` **没有**标记价、强平价、ADL 分位 | 在 `positionRisk` 与 `adlQuantile` 上。少了它们"距强平多远"无从算起 |
+| `/fapi/v3/account` **没有**标记价、强平价、ADL 分位 | 在 `positionRisk` 与 `adlQuantile` 上。少了它们"距强平多远"无从算起 |
+| TP/SL/追踪止损已迁到 `/fapi/v1/openAlgoOrders` | 只查普通 `openOrders` 会漏掉账户已有的保护单 |
+| TradFi 股息调整记为 `SPECIAL_FUNDING_FEE` | 它属于资金费；归到 other 或丢弃都会把损益算错 |
 | 合约要读 `origType` 而不是 `type` | 条件单触发后 `type` 变 MARKET，止盈单会显示成"市价单" |
 | 现货 `STOP_LOSS` 是止损**市价**，`STOP_LOSS_LIMIT` 才是限价 | 两个名字很容易读反 |
 | `orderListId = -1` 表示不属于任何 OCO 组 | 照搬会变成一个假的组号 |
@@ -238,7 +240,7 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
 （`asset: "BNB", income: "-0.012"`）。不看 asset 直接相加等于把 0.012 个 BNB
 当成 0.012 美元，手续费凭空少几十倍。已按币种换算，换不出价的单独计数不当 0 吞。
 
-**③ 划进合约 / 杠杆 / 理财的币要算进持有量。** `/fapi/v2/account` 的 `assets` 数组、
+**③ 划进合约 / 杠杆 / 理财的币要算进持有量。** `/fapi/v3/account` 的 `assets` 数组、
 `/sapi/v1/margin/account` 的 `userAssets` 原先整段没读。持有量按"账户一共有多少"
 算，不认钱包，否则划走的部分会显示成卖掉了。合约那边用 `walletBalance` 而不是
 `marginBalance`——后者含浮盈，那是仓位的钱不是多出来的币。
@@ -313,8 +315,9 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
 ## 委托页的硬边界
 
 **当前挂单能一次拿全账户**（`openOrders` 的 symbol 可省，现货 weight 80 / 合约 40）；
-**历史只能按交易对逐个问**（`allOrders`/`myTrades` 的 symbol 必填，现货单次 ≤ 24 小时、
-合约 < 7 天、回溯 90 天）。
+**历史的边界不同**：现货 `allOrders`/`myTrades` 与合约 `userTrades` 仍需 symbol；
+合约 `allOrders` 已允许省略 symbol，但每次仍只能查小于 7 天，所以全账户 90 天历史
+按时间切窗合并。
 
 而 Binance **没有"我交易过哪些对"的接口**，只能从「有挂单 + 有持仓 + 现货余额能配出的
 交易对」推一份候选。做不到真正的全量，这一点界面上也说明白。
@@ -364,11 +367,11 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | 来源 | 端点 | 权重 | 缓存 | 说明 |
 |---|---|---:|---:|---|
 | `prices` | `GET /api/v3/ticker/price` | 4 | 30s | 全市场报价，不签名 |
-| `wallets` | `GET /sapi/v1/asset/wallet/balance` | 60 | 60s | **BTC 计价**，要乘 BTCUSDT |
+| `wallets` | `GET /sapi/v1/asset/wallet/balance?needBalanceDetail=true` | 60 | 60s | **BTC 计价**，并保留逐资产明细 |
 | `spot` | `POST /sapi/v3/asset/getUserAsset` | 5 | 60s | POST 但是只读 |
-| `futures` | `GET /fapi/v2/account` | 5 † | 30s | 保证金与未实现盈亏 |
+| `futures` | `GET /fapi/v3/account` | 5 † | 30s | 保证金与未实现盈亏 |
 | | `GET /fapi/v1/accountConfig` | 5 † | 30s | 双向持仓 / 联合保证金 |
-| | `GET /fapi/v2/positionRisk` | 5 | 30s | **标记价与强平价只有这里有** |
+| | `GET /fapi/v3/positionRisk` | 5 | 30s | **标记价与强平价只有这里有** |
 | | `GET /fapi/v1/adlQuantile` | 5 | 30s | 自动减仓队列 |
 | | `GET /fapi/v1/leverageBracket` | 1 | 24h | 维持保证金分档；重新取数不穿透 |
 | `earn` | `GET /sapi/v1/simple-earn/flexible/position` | 150 | 300s | UID 限速 |
@@ -409,15 +412,15 @@ U 本位三种，理财、资金、币本位没有历史快照，拿它算盈亏
 | 现货挂单 | `GET /api/v3/openOrders` | 6 †（不带 symbol 时 **80** †） | 30s | — |
 | OCO | `GET /api/v3/openOrderList` | 6 † | 60s | — |
 | 合约挂单 | `GET /fapi/v1/openOrders` | **40**（不带 symbol） | 30s | — |
+| 合约条件单 | `GET /fapi/v1/openAlgoOrders` | **40**（不带 symbol） | 30s | TP/SL/追踪止损 |
 | 杠杆挂单 | `GET /sapi/v1/margin/openOrders` | 10 | 30s | — |
 | 策略单 | `GET /sapi/v1/algo/futures/openOrders` | 1 | 300s | — |
 | 现货历史 | `GET /api/v3/allOrders` | 20 † / symbol | 300s | **24 小时** |
-| 合约历史 | `GET /fapi/v1/allOrders` | 5 † / symbol | 300s | **7 天**，只回溯 90 天 |
+| 合约历史 | `GET /fapi/v1/allOrders` | 5 / 时间窗 | 300s | symbol 可省，单窗 **< 7 天**，只回溯 90 天 |
 | 成交 | `GET /api/v3/myTrades` · `/fapi/v1/userTrades` | 20 † / 5 † | 300s | 同上 |
 
-历史类端点**必须传 symbol**，所以是按标的扇出——持仓越多调用次数越多。
-而且**必须按 id 翻页，不能按时间窗**：`startTime`/`endTime` 的间隔上限是 24 小时
-（现货）/ 7 天（合约），只取最近一个窗口的话，上次交易在窗口之前就是一片空白。
+现货历史与成交、合约成交仍按标的扇出。合约委托历史使用省略 symbol 的全账户查询，
+按小于 7 天的时间窗覆盖 90 天；现货历史按 id 翻页，避免只看最近 24 小时。
 
 ### 流水页 `/ledger`
 

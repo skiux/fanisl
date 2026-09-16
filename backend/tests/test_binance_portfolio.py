@@ -144,6 +144,17 @@ def test_income_excludes_transfers(cache):
     assert snap["income"]["other"] == 0.0        # 5000 的 TRANSFER 没被算进任何一项
 
 
+def test_tradfi_dividend_funding_is_counted_as_funding(cache):
+    """TradFi 永续的 SPECIAL_FUNDING_FEE 是资金费，不能落进 other 或从流水消失。"""
+    from fanisl.binance.portfolio import _income
+
+    rows = [{"incomeType": "SPECIAL_FUNDING_FEE", "income": "-12.50",
+             "asset": "USDT", "time": int(NOW.timestamp() * 1000)}]
+    got = _income(rows, {})
+    assert got["funding_fee"] == pytest.approx(-12.5)
+    assert got["other"] == 0.0
+
+
 def test_today_settled_is_broken_down_and_adds_up(cache):
     """「今日盈亏」点开要看得出当日结算是资金费还是手续费，不是只有一个合计。
 
@@ -306,7 +317,7 @@ def test_force_does_not_punch_through_expensive_sources(cache):
     again = [p for p in calls[first:] if not p.endswith("/time")]
     assert "/sapi/v1/accountSnapshot" not in again
     assert "/fapi/v1/leverageBracket" not in again
-    assert "/fapi/v2/account" in again      # 便宜的来源照常强刷
+    assert "/fapi/v3/account" in again      # 便宜的来源照常强刷
 
 
 def test_page_as_of_ignores_daily_cadence_sources(cache):
@@ -358,7 +369,7 @@ def test_malformed_response_degrades_one_block_not_the_whole_page(cache):
     base = make_transport()
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/fapi/v2/account":
+        if request.url.path == "/fapi/v3/account":
             # positions 从对象数组变成字符串数组
             return httpx.Response(200, json={"totalWalletBalance": "1",
                                              "positions": ["oops"]})

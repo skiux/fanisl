@@ -3,8 +3,8 @@
 这一页的结构被接口的一条硬边界决定：
 
     **当前挂单能一次拿全账户**   openOrders 的 symbol 可省（现货 weight 80、合约 40）
-    **历史只能按交易对逐个问**   allOrders / myTrades 的 symbol 必填，
-                                 现货单次区间 ≤ 24 小时，合约 < 7 天、回溯 90 天
+    **历史的边界不同**           现货 allOrders / myTrades 与合约 userTrades 要 symbol；
+                                 合约 allOrders 已可省 symbol，但单次区间仍 < 7 天
 
 所以「挂单」是完整的，「历史」必须先选交易对，并且把窗口上限如实报给前端——
 那不是脚注，是这一页能给出什么的边界。
@@ -140,6 +140,52 @@ def _algo_orders(payload: Any, reference_of: Callable[[str], float | None]) -> l
     return out
 
 
+def _conditional_orders(payload: Any,
+                        reference_of: Callable[[str], float | None]) -> list[dict]:
+    """2025-12 后由 USD-M Algo Service 承载的 TP/SL/追踪止损。"""
+    out = []
+    for row in payload or []:
+        symbol = row.get("symbol", "")
+        reference = reference_of(symbol)
+        price = dec(row.get("price"))
+        if price is not None and price <= 0:
+            price = None
+        trigger = dec(row.get("triggerPrice"))
+        if trigger is not None and trigger <= 0:
+            trigger = None
+        activate = dec(row.get("activatePrice"))
+        if activate is not None and activate <= 0:
+            activate = None
+        qty = dec0(row.get("quantity"))
+        level = price or trigger or activate or reference
+        callback = dec(row.get("callbackRate") or row.get("priceRate"))
+        if callback is not None:
+            callback /= 100
+        out.append({
+            "id": f"usdm:algo-{row.get('algoId')}",
+            "venue": "usdm", "symbol": symbol,
+            "side": _SIDE.get(row.get("side", ""), "buy"),
+            "kind": _FUT_KIND.get(row.get("orderType", ""), "limit"),
+            "status": "new" if row.get("algoStatus") in ("NEW", "WORKING") else "canceled",
+            "price": price, "stop_price": trigger,
+            "trigger_by": {"MARK_PRICE": "mark", "CONTRACT_PRICE": "last"}.get(
+                row.get("workingType", "")),
+            "callback_rate": callback, "activate_price": activate,
+            "orig_qty": qty, "executed_qty": 0.0,
+            "notional_usd": None if level is None else qty * level,
+            "time_in_force": row.get("timeInForce") or None,
+            "good_till_date": (ms_to_iso(row.get("goodTillDate"))
+                               if dec0(row.get("goodTillDate")) > 0 else None),
+            "reduce_only": bool(row.get("reduceOnly", False)),
+            "close_position": bool(row.get("closePosition", False)),
+            "position_side": _POSITION_SIDE.get(row.get("positionSide", "")),
+            "order_list_id": None, "reference_price": reference,
+            "created_at": ms_to_iso(row.get("createTime")),
+            "updated_at": ms_to_iso(row.get("updateTime") or row.get("createTime")),
+        })
+    return out
+
+
 def _order_lists(payload: Any) -> list[dict]:
     out = []
     for row in payload or []:
@@ -227,6 +273,7 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         ("futures.risk", TTL["risk"], client.futures_position_risk),
         ("orders.spot_open", TTL["open"], client.spot_open_orders),
         ("orders.futures_open", TTL["open"], client.futures_open_orders),
+        ("orders.conditional_open", TTL["open"], client.futures_open_algo_orders),
         ("orders.margin_open", TTL["open"], client.margin_open_orders),
         ("orders.lists", TTL["lists"], client.spot_open_order_lists),
         ("orders.algo", TTL["algo"], client.algo_open_orders),
@@ -266,6 +313,9 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         open_orders.extend(rows)
     open_orders.extend(parse("algo_open", lambda: _algo_orders(
         payload("orders.algo"), lambda sym: reference_of(sym, True)), fallback=[]) or [])
+    open_orders.extend(parse("conditional_open", lambda: _conditional_orders(
+        payload("orders.conditional_open"), lambda sym: reference_of(sym, True)),
+        fallback=[]) or [])
     open_orders.sort(key=lambda o: o["created_at"] or "", reverse=True)
 
     futures_symbols = {r.get("symbol") for r in risk}
@@ -296,24 +346,37 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         # 只取最近一个窗口的话，上次交易在窗口之前就是一片空白——这就是
         # "历史那里完全没有数据"。合约那边接口本身只留 90 天，走到头自然停。
         jobs: list[tuple[str, int, Callable[[], Any]]] = []
+        global_futures_key = "orders.history:usdm:all"
         for sym in targets:
             v = venues[sym]
             # 默认参数绑定：闭包里直接用 `sym` 的话，循环结束后每个 lambda
             # 拿到的都是最后一个交易对
-            jobs.append((f"orders.history:{v}:{sym}", TTL["history"],
-                         lambda s=sym, vv=v: client.orders_since(s, venue=vv)))
+            if symbol or v != "usdm":
+                jobs.append((f"orders.history:{v}:{sym}", TTL["history"],
+                             lambda s=sym, vv=v: client.orders_since(s, venue=vv)))
             jobs.append((f"orders.trades:{v}:{sym}", TTL["history"],
                          (lambda s=sym: client.futures_trades_since(s)) if v == "usdm"
                          else (lambda s=sym: client.spot_trades_since(s))))
+        if not symbol:
+            global_start_ms = end_ms - WINDOW["usdm"]["lookback_days"] * 24 * MS_HOUR
+            jobs.append((global_futures_key, TTL["history"],
+                         lambda: client.futures_all_orders_all_symbols(
+                             start_ms=global_start_ms, end_ms=end_ms)))
         hist = fetch_all(cache, jobs, force=force)
 
         def _orders() -> list[dict]:
             out: list[dict] = []
             for sym in targets:
                 v = venues[sym]
+                if not symbol and v == "usdm":
+                    continue
                 ref = reference_of(sym, v == "usdm")
                 got = hist[f"orders.history:{v}:{sym}"]
                 out.extend(_order(r, v, ref) for r in (got.payload or []))
+            if not symbol:
+                got = hist[global_futures_key]
+                out.extend(_order(r, "usdm", reference_of(r.get("symbol", ""), True))
+                           for r in (got.payload or []))
             return sorted(out, key=lambda o: o["created_at"] or "", reverse=True)
 
         def _fills() -> list[dict]:
@@ -343,9 +406,12 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
             "max_window_hours": min(x["max_hours"] for x in limits),
             "lookback_days": lookback,
         }
+        history_results = [hist[f"orders.history:{venues[s]}:{s}"] for s in targets
+                           if symbol or venues[s] != "usdm"]
+        if not symbol:
+            history_results.append(hist[global_futures_key])
         history_states = [
-            {"key": "order_history",
-             **_merge_states([hist[f"orders.history:{venues[s]}:{s}"] for s in targets])},
+            {"key": "order_history", **_merge_states(history_results)},
             {"key": "trade_history",
              **_merge_states([hist[f"orders.trades:{venues[s]}:{s}"] for s in targets])},
         ]
@@ -358,6 +424,7 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
     states = [
         {"key": "spot_open", **_state(results["orders.spot_open"])},
         {"key": "futures_open", **_state(results["orders.futures_open"])},
+        {"key": "conditional_open", **_state(results["orders.conditional_open"])},
         {"key": "margin_open", **_state(results["orders.margin_open"])},
         {"key": "order_lists", **_state(results["orders.lists"])},
         {"key": "algo_open", **_state(results["orders.algo"])},

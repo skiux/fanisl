@@ -1,6 +1,6 @@
 """Binance 请求签名：HMAC / Ed25519 / RSA 三种 key 类型。
 
-官方把 **HMAC 标为 deprecated**，推荐 Ed25519（密钥更小、签名更快、私钥不出本机）。
+官方支持 HMAC、Ed25519 与 RSA，并推荐 Ed25519（密钥更小、签名更快、私钥不出本机）。
 这里三种都支持，按配置自动判型——换 key 类型只改 `.env`，代码不用动。
 
 两处**不一样、写错了就恒 401** 的地方：
@@ -28,7 +28,7 @@ class Signer(Protocol):
 
 
 class HmacSigner:
-    """对称密钥。官方已标 deprecated，但存量 key 仍然可用。"""
+    """对称密钥。当前仍受官方支持。"""
 
     kind = "HMAC"
 

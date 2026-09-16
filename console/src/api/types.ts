@@ -5,7 +5,7 @@
  * 数据来源对照：
  *   wallets    GET  /sapi/v1/asset/wallet/balance          六个钱包的分布
  *   spot       POST /sapi/v3/asset/getUserAsset            现货逐币（四种锁定态）
- *   futures    GET  /fapi/v2/account + /fapi/v1/accountConfig
+ *   futures    GET  /fapi/v3/account + /fapi/v1/accountConfig
  *   brackets   GET  /fapi/v1/leverageBracket               维持保证金档位→真实强平边际
  *   earn       GET  /sapi/v1/simple-earn/{flexible,locked}/position
  *   margin     GET  /sapi/v1/margin/account                marginLevel
@@ -22,6 +22,7 @@ export type SourceKey =
   | 'earn' | 'margin' | 'income' | 'transfers'
   // 委托页
   | 'spot_open' | 'futures_open' | 'margin_open' | 'order_lists' | 'algo_open'
+  | 'conditional_open'
   | 'order_history' | 'trade_history'
   // 流水页
   | 'deposits' | 'withdrawals' | 'wallet_transfers' | 'earn_rewards'
@@ -317,8 +318,9 @@ export class PortfolioError extends Error {
  *   futures_open   GET /fapi/v1/openOrders       symbol 可省 → 全账户；weight 1 / 省略时 40
  *   margin_open    GET /sapi/v1/margin/openOrders 全仓可省 symbol
  *   algo_open      GET /sapi/v1/algo/futures/openOrders  TWAP/VP 策略单
+ *   conditional_open GET /fapi/v1/openAlgoOrders         TP/SL/追踪止损
  *   order_history  GET /api/v3/allOrders   symbol 必填，区间 ≤ 24 小时
- *                  GET /fapi/v1/allOrders  symbol 必填，区间 < 7 天，回溯 90 天
+ *                  GET /fapi/v1/allOrders  symbol 可省，区间 < 7 天，回溯 90 天
  *   trade_history  GET /api/v3/myTrades    symbol 必填，区间 ≤ 24 小时
  *                  GET /fapi/v1/userTrades symbol 必填，区间 < 7 天，回溯 90 天
  *

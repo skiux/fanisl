@@ -54,9 +54,8 @@ def held_across_wallets(spot: list[dict], futures: dict | None,
     持有量一点没变，只是换了个地方待着。只看现货余额的话，划走的那部分会显示成
     "卖掉了"——而实际上一笔成交都没发生。
 
-    资金钱包不在这里：`/sapi/v1/asset/wallet/balance` 只给 BTC 估值，没有逐币明细，
-    要另开 `/sapi/v1/asset/get-funding-asset`。缺它的后果是资金钱包里的币算不进
-    持有量，`summarize` 会照 `held` 报数——所以调用方拿不到就别传，宁可用重放的数量。
+    资金钱包不在这里。`wallet/balance?needBalanceDetail=true` 现在能给逐资产明细，
+    但调用方还需先把各钱包明细规范化，才能安全并入这里。
     """
     out: dict[str, float] = {}
 

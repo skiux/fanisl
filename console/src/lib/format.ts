@@ -167,6 +167,7 @@ export const SOURCE_LABEL: Record<string, string> = {
   transfers: '充提记录',
   spot_open: '现货挂单',
   futures_open: '合约挂单',
+  conditional_open: '合约条件单',
   margin_open: '杠杆挂单',
   order_lists: 'OCO 组',
   algo_open: '策略单',

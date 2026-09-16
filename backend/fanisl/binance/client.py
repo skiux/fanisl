@@ -208,7 +208,8 @@ class BinanceClient:
     # --- 只读端点（按域名分组，路径与官方文档一字不差）----------------------
 
     def wallet_balance(self) -> Any:
-        return self.signed_get(SPOT_BASE, "/sapi/v1/asset/wallet/balance")
+        return self.signed_get(SPOT_BASE, "/sapi/v1/asset/wallet/balance",
+                               {"needBalanceDetail": "true"})
 
     def user_asset(self) -> Any:
         # 官方文档标的是 POST（虽然语义是查询）；签名方式与 GET 相同
@@ -216,7 +217,7 @@ class BinanceClient:
                                  {"needBtcValuation": "true"})
 
     def futures_account(self) -> Any:
-        return self.signed_get(FAPI_BASE, "/fapi/v2/account")
+        return self.signed_get(FAPI_BASE, "/fapi/v3/account")
 
     def futures_account_config(self) -> Any:
         return self.signed_get(FAPI_BASE, "/fapi/v1/accountConfig")
@@ -224,11 +225,11 @@ class BinanceClient:
     def futures_position_risk(self) -> Any:
         """标记价、强平价、真实杠杆。
 
-        **`/fapi/v2/account` 里没有这三样**——它给的是保证金与未实现盈亏，
+        **`/fapi/v3/account` 里没有这三样**——它给的是保证金与未实现盈亏，
         markPrice / liquidationPrice 只在 positionRisk 上。少了它，"距强平还有多远"
         这一列就无从算起，而那是这一页最该看的数。
         """
-        return self.signed_get(FAPI_BASE, "/fapi/v2/positionRisk")
+        return self.signed_get(FAPI_BASE, "/fapi/v3/positionRisk")
 
     def futures_adl_quantile(self) -> Any:
         """自动减仓排队分位（0–4）。也不在 account 里，单独一个端点。"""
@@ -273,6 +274,11 @@ class BinanceClient:
     def futures_open_orders(self) -> Any:
         return self.signed_get(FAPI_BASE, "/fapi/v1/openOrders")
 
+    def futures_open_algo_orders(self) -> Any:
+        """Algo Service 中尚未触发的 USD-M TP/SL/追踪止损。"""
+        return self.signed_get(FAPI_BASE, "/fapi/v1/openAlgoOrders",
+                               {"algoType": "CONDITIONAL"})
+
     def margin_open_orders(self) -> Any:
         return self.signed_get(SPOT_BASE, "/sapi/v1/margin/openOrders")
 
@@ -288,11 +294,25 @@ class BinanceClient:
                                {"symbol": symbol, "startTime": start_ms,
                                 "endTime": end_ms, "limit": limit})
 
-    def futures_all_orders(self, symbol: str, *, start_ms: int, end_ms: int,
+    def futures_all_orders(self, symbol: str | None, *, start_ms: int, end_ms: int,
                            limit: int = 500) -> Any:
         return self.signed_get(FAPI_BASE, "/fapi/v1/allOrders",
                                {"symbol": symbol, "startTime": start_ms,
                                 "endTime": end_ms, "limit": limit})
+
+    def futures_all_orders_all_symbols(self, *, start_ms: int, end_ms: int,
+                                       limit: int = 1000) -> list[dict]:
+        """全账户 USD-M 委托历史，按接口要求切成小于 7 天的时间窗。"""
+        window_ms = 7 * 24 * 60 * 60 * 1000 - 1
+        out: dict[str, dict] = {}
+        cursor = start_ms
+        while cursor <= end_ms:
+            until = min(cursor + window_ms, end_ms)
+            page = self.futures_all_orders(None, start_ms=cursor, end_ms=until, limit=limit)
+            for row in page or []:
+                out[str(row.get("orderId"))] = row
+            cursor = until + 1
+        return list(out.values())
 
     def spot_my_trades(self, symbol: str, *, start_ms: int, end_ms: int,
                        limit: int = 500) -> Any:

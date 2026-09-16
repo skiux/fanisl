@@ -53,6 +53,7 @@ _TRANSFER_WALLET = {
 
 _INCOME_KIND = {
     "REALIZED_PNL": "realized_pnl", "FUNDING_FEE": "funding_fee",
+    "SPECIAL_FUNDING_FEE": "funding_fee",
     "COMMISSION": "commission", "INSURANCE_CLEAR": "insurance_clear",
     "REFERRAL_KICKBACK": "referral_kickback", "COMMISSION_REBATE": "referral_kickback",
 }

@@ -46,6 +46,7 @@ def test_snapshot_shape_and_sources(cache):
                          "query", "history", "fills"}
     assert {s["key"] for s in snap["sources"]} == {
         "spot_open", "futures_open", "margin_open", "order_lists", "algo_open",
+        "conditional_open",
         "order_history", "trade_history"}
     assert all(s["status"] == "ok" for s in snap["sources"])
 
@@ -54,7 +55,7 @@ def test_all_three_venues_land_in_one_list(cache):
     snap = build(cache)
     venues = {o["venue"] for o in snap["open"]}
     assert venues == {"spot", "usdm", "margin"}
-    assert len(snap["open"]) == 4 + 3 + 1 + 1     # 现货4 合约3 杠杆1 策略单1
+    assert len(snap["open"]) == 4 + 3 + 1 + 1 + 2  # 另含两张新 Algo Service 条件单
 
 
 # --- 最容易读错的几处 ------------------------------------------------------
@@ -127,6 +128,21 @@ def test_algo_orders_are_not_silently_dropped(cache):
     assert order["orig_qty"] == 10 and order["executed_qty"] == 2
 
 
+def test_current_futures_conditional_orders_are_not_silently_dropped(cache):
+    """2025-12 起 TP/SL/追踪止损迁到 Algo Service，普通 openOrders 已不完整。"""
+    orders = by_id(build(cache))
+    take_profit = orders["usdm:algo-990001"]
+    assert take_profit["kind"] == "take_profit_market"
+    assert take_profit["stop_price"] == 260.0
+    assert take_profit["close_position"] is True
+    assert take_profit["trigger_by"] == "mark"
+
+    trailing = orders["usdm:algo-990002"]
+    assert trailing["kind"] == "trailing_stop_market"
+    assert trailing["activate_price"] == 640.0
+    assert trailing["callback_rate"] == pytest.approx(0.018)
+
+
 # --- 历史：接口逼出来的形状 ------------------------------------------------
 
 def test_history_symbols_come_from_orders_positions_and_balances(cache):
@@ -174,6 +190,28 @@ def test_no_symbol_means_every_candidate_not_the_first_one(cache):
     assert [f["symbol"] for f in snap["fills"]] == ["BNBUSDT", "NVDAUSDT", "NVDAUSDT"]
     assert [o["created_at"] for o in snap["history"]] == sorted(
         (o["created_at"] for o in snap["history"]), reverse=True)
+
+
+def test_default_futures_order_history_uses_the_account_wide_query(cache):
+    """allOrders 的 symbol 已可省略；全账户查询不会漏掉当前余额推不出的旧标的。"""
+    seen: list[tuple[str, dict[str, str]]] = []
+    base = make_transport()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/fapi/v1/allOrders":
+            seen.append((request.url.path, dict(request.url.params)))
+        return base.handler(request)
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        build_orders(client, cache, force=True, now=NOW)
+    finally:
+        client.close()
+
+    assert len(seen) > 1                    # 90 天按每段小于 7 天切窗
+    assert all("symbol" not in params for _, params in seen)
+    assert all("startTime" in params and "endTime" in params for _, params in seen)
 
 
 def test_mixed_venues_report_the_tightest_window(cache):

@@ -137,6 +137,18 @@ def test_income_transfer_rows_never_become_ledger_income(cache):
     assert all(e["group"] == "income" for e in got["realized_pnl"])
 
 
+def test_tradfi_dividend_funding_stays_in_the_ledger():
+    from fanisl.binance.ledger import _income
+
+    rows = [{"symbol": "NVDAUSDT", "incomeType": "SPECIAL_FUNDING_FEE",
+             "income": "-4.25", "asset": "USDT", "tranId": 7010,
+             "time": int(NOW.timestamp() * 1000)}]
+    got = _income(rows, {})
+    assert len(got) == 1
+    assert got[0]["kind"] == "funding_fee"
+    assert got[0]["amount"] == pytest.approx(-4.25)
+
+
 def test_pending_deposit_is_excluded(cache):
     got = kinds(build(cache))
     assert len(got["deposit"]) == 1

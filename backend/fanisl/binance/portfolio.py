@@ -447,6 +447,7 @@ def _margin(payload: Any, btc_usd: float | None,
 _INCOME_FIELD = {
     "REALIZED_PNL": "realized_pnl",
     "FUNDING_FEE": "funding_fee",
+    "SPECIAL_FUNDING_FEE": "funding_fee",
     "COMMISSION": "commission",
     "INSURANCE_CLEAR": "insurance_clear",
     "REFERRAL_KICKBACK": "referral_kickback",

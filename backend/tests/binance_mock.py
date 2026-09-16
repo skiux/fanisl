@@ -85,7 +85,9 @@ PRICES = [
 ]
 
 WALLETS = [
-    {"activate": True, "balance": "0.30", "walletName": "Spot"},
+    {"activate": True, "balance": "0.30", "walletName": "Spot",
+     "assetBalances": [{"asset": "USDT", "free": "100", "locked": "0",
+                        "freeze": "0", "withdrawing": "0", "btcValuation": "0.001"}]},
     {"activate": True, "balance": "0.09", "walletName": "USDⓈ-M Futures"},
     {"activate": True, "balance": "0.02", "walletName": "Earn"},
     {"activate": False, "balance": "0", "walletName": "Isolated Margin"},
@@ -195,9 +197,9 @@ ROUTES = {
     "/api/v3/ticker/price": PRICES,
     "/sapi/v1/asset/wallet/balance": WALLETS,
     "/sapi/v3/asset/getUserAsset": USER_ASSET,
-    "/fapi/v2/account": FUT_ACCOUNT,
+    "/fapi/v3/account": FUT_ACCOUNT,
     "/fapi/v1/accountConfig": FUT_CONFIG,
-    "/fapi/v2/positionRisk": FUT_RISK,
+    "/fapi/v3/positionRisk": FUT_RISK,
     "/fapi/v1/adlQuantile": FUT_ADL,
     "/fapi/v1/leverageBracket": BRACKETS,
     "/sapi/v1/simple-earn/flexible/position": EARN_FLEX,
@@ -291,6 +293,27 @@ ALGO_OPEN = {"total": 1, "orders": [
      "bookTime": int((NOW - timedelta(hours=2)).timestamp() * 1000),
      "endTime": int((NOW + timedelta(hours=2)).timestamp() * 1000)}]}
 
+CONDITIONAL_OPEN = [
+    {"algoId": 990001, "clientAlgoId": "tp-nvda", "algoType": "CONDITIONAL",
+     "orderType": "TAKE_PROFIT_MARKET", "symbol": "NVDAUSDT", "side": "SELL",
+     "positionSide": "BOTH", "timeInForce": "GTC", "quantity": "38",
+     "algoStatus": "NEW", "actualOrderId": "", "actualPrice": "0",
+     "triggerPrice": "260.00", "price": "0", "workingType": "MARK_PRICE",
+     "closePosition": True, "reduceOnly": False,
+     "createTime": int((NOW - timedelta(days=3)).timestamp() * 1000),
+     "updateTime": int((NOW - timedelta(days=3)).timestamp() * 1000),
+     "triggerTime": 0, "goodTillDate": 0},
+    {"algoId": 990002, "clientAlgoId": "trail-qqq", "algoType": "CONDITIONAL",
+     "orderType": "TRAILING_STOP_MARKET", "symbol": "QQQUSDT", "side": "SELL",
+     "positionSide": "BOTH", "timeInForce": "GTC", "quantity": "14",
+     "algoStatus": "NEW", "actualOrderId": "", "actualPrice": "0",
+     "triggerPrice": "0", "price": "0", "activatePrice": "640.00",
+     "callbackRate": "1.8", "workingType": "MARK_PRICE", "closePosition": False,
+     "reduceOnly": True, "createTime": int((NOW - timedelta(hours=12)).timestamp() * 1000),
+     "updateTime": int((NOW - timedelta(hours=12)).timestamp() * 1000),
+     "triggerTime": 0, "goodTillDate": 0},
+]
+
 FUT_ALL_ORDERS = [
     {"orderId": 5100001, "symbol": "NVDAUSDT", "status": "FILLED", "price": "205.60",
      "avgPrice": "205.60", "origQty": "38", "executedQty": "38", "timeInForce": "GTC",
@@ -339,6 +362,7 @@ ROUTES.update({
     "/sapi/v1/margin/openOrders": MARGIN_OPEN,
     "/api/v3/openOrderList": ORDER_LISTS,
     "/sapi/v1/algo/futures/openOrders": ALGO_OPEN,
+    "/fapi/v1/openAlgoOrders": CONDITIONAL_OPEN,
     "/fapi/v1/allOrders": FUT_ALL_ORDERS,
     "/fapi/v1/userTrades": FUT_USER_TRADES,
     "/api/v3/allOrders": SPOT_ALL_ORDERS,
@@ -470,6 +494,8 @@ def make_transport(*, fail: dict[str, int] | None = None, calls: list | None = N
         # 测不出合并是不是真的按交易对分开取的。
         if path in _BY_SYMBOL:
             want = dict(request.url.params).get("symbol", "")
+            if path == "/fapi/v1/allOrders" and not want:
+                return httpx.Response(200, json=_BY_SYMBOL[path])
             return httpx.Response(200, json=[row for row in _BY_SYMBOL[path]
                                              if row.get("symbol") == want])
         if path == "/sapi/v1/asset/transfer":
