@@ -97,6 +97,8 @@ function toOrder(row: RawOrder, index: number, asOf: Date): Order {
     id: `${row.venue}:${4_100_000 + index * 137}`,
     venue: row.venue,
     symbol: row.symbol,
+    quote_asset: null,
+    trading_session: null,
     side: row.side,
     kind: row.kind,
     status: row.status ?? 'new',
@@ -283,7 +285,8 @@ export function buildQuery(asOf: Date, symbol: string | null = null): HistoryQue
 }
 
 export const ORDER_SOURCE_KEYS = [
-  'spot_open', 'futures_open', 'margin_open', 'order_lists', 'algo_open',
+  'spot_open', 'futures_open', 'margin_open', 'equity_market', 'equity_open',
+  'order_lists', 'algo_open', 'conditional_open',
   'order_history', 'trade_history',
 ] as const
 

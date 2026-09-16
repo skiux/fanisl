@@ -63,6 +63,20 @@ function AdlPips({ quantile }: { quantile: number | null }) {
   )
 }
 
+const SESSION_LABEL: Record<string, string> = {
+  REGULAR: '常规时段',
+  PRE_MARKET: '盘前',
+  POST_MARKET: '盘后',
+  OVERNIGHT: '隔夜',
+  CLOSED: '休市',
+}
+
+const SYMBOL_ADL_LABEL: Record<string, string> = {
+  low: '标的 ADL 低',
+  medium: '标的 ADL 中',
+  high: '标的 ADL 高',
+}
+
 function PositionRow({ position }: { position: FuturesPosition }) {
   const long = position.position_amt >= 0
   const pnlPct = position.initial_margin_usd > 0
@@ -88,12 +102,22 @@ function PositionRow({ position }: { position: FuturesPosition }) {
               {long ? 'Long' : 'Short'}
             </span>
             <AdlPips quantile={position.adl_quantile} />
+            {position.tradfi && (
+              <span className="rounded-[4px] border border-rule px-1.5 py-px text-[9.5px] text-ink-3">
+                TradFi{position.market_session ? ` · ${SESSION_LABEL[position.market_session] ?? position.market_session}` : ''}
+              </span>
+            )}
           </div>
           <div className="tnum mt-1 text-xs text-ink-3">
             {/* 持仓数量：方向已经由上面的 Long/Short 表达，这里给绝对值 */}
             {/* 标的代码上面那行已经有了，这里只给数量 */}
             <span className="text-ink-2">{amount(Math.abs(position.position_amt))}</span>
             {' · '}{position.leverage}× · {position.isolated ? '逐仓' : '全仓'} · {money(position.notional_usd)}
+            {position.symbol_adl_risk && (
+              <> · <span className={position.symbol_adl_risk === 'high' ? 'text-loss' : ''}>
+                {SYMBOL_ADL_LABEL[position.symbol_adl_risk] ?? `标的 ADL ${position.symbol_adl_risk}`}
+              </span></>
+            )}
           </div>
         </div>
         <div className="shrink-0 text-right">

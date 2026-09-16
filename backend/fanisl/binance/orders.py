@@ -30,6 +30,8 @@ WINDOW = {
     "spot":   {"max_hours": 24,      "lookback_days": None},
     "usdm":   {"max_hours": 7 * 24,  "lookback_days": 90},
     "margin": {"max_hours": 24,      "lookback_days": None},
+    # 股票接口要求起止时间，但当前文档没有声明最大窗口或历史保留上限。
+    "equity": {"max_hours": 90 * 24, "lookback_days": None},
 }
 
 TTL = {"open": 30, "lists": 60, "algo": 300, "history": 300, "prices": 30, "risk": 30}
@@ -81,6 +83,8 @@ def _order(row: dict, venue: str, reference: float | None) -> dict:
         "id": f"{venue}:{row.get('orderId')}",
         "venue": venue,
         "symbol": row.get("symbol", ""),
+        "quote_asset": None,
+        "trading_session": None,
         "side": _SIDE.get(row.get("side", ""), "buy"),
         "kind": kind,
         "status": _STATUS.get(row.get("status", ""), "new"),
@@ -122,6 +126,7 @@ def _algo_orders(payload: Any, reference_of: Callable[[str], float | None]) -> l
         out.append({
             "id": f"usdm:algo-{row.get('algoId')}",
             "venue": "usdm", "symbol": symbol,
+            "quote_asset": None, "trading_session": None,
             "side": _SIDE.get(row.get("side", ""), "buy"),
             "kind": "twap" if row.get("algoType") == "TWAP" else "vp",
             "status": "new" if row.get("algoStatus") == "WORKING" else "canceled",
@@ -164,6 +169,7 @@ def _conditional_orders(payload: Any,
         out.append({
             "id": f"usdm:algo-{row.get('algoId')}",
             "venue": "usdm", "symbol": symbol,
+            "quote_asset": None, "trading_session": None,
             "side": _SIDE.get(row.get("side", ""), "buy"),
             "kind": _FUT_KIND.get(row.get("orderType", ""), "limit"),
             "status": "new" if row.get("algoStatus") in ("NEW", "WORKING") else "canceled",
@@ -184,6 +190,56 @@ def _conditional_orders(payload: Any,
             "updated_at": ms_to_iso(row.get("updateTime") or row.get("createTime")),
         })
     return out
+
+
+def _equity_order(row: dict, reference: float | None) -> dict:
+    """Standalone Stocks Trading 委托；代码是 AAPL，不是 AAPLUSDT。"""
+    price = dec(row.get("limitPrice")) or dec(row.get("avgFilledPrice"))
+    qty_raw = dec(row.get("qty"))
+    executed = dec0(row.get("filledQty"))
+    orig = qty_raw if qty_raw is not None else executed
+    requested_notional = dec(row.get("notional"))
+    filled_total = dec0(row.get("filledTotal"))
+    if requested_notional is not None:
+        remaining_notional = max(requested_notional - filled_total, 0.0)
+    else:
+        remaining_notional = None if price is None else max(orig - executed, 0.0) * price
+    session = {"RTH": "rth", "EXTENDED": "extended", "24H": "24h"}.get(
+        row.get("session", ""))
+    return {
+        "id": f"equity:{row.get('orderId')}", "venue": "equity",
+        "symbol": row.get("symbol", ""), "quote_asset": row.get("quote") or None,
+        "trading_session": session,
+        "side": _SIDE.get(row.get("side", ""), "buy"),
+        "kind": _SPOT_KIND.get(row.get("orderType", ""), "limit"),
+        "status": _STATUS.get(row.get("status", ""),
+                              "new" if row.get("status") == "ACCEPTED" else "new"),
+        "price": price, "stop_price": None, "trigger_by": None,
+        "callback_rate": None, "activate_price": None,
+        "orig_qty": orig, "executed_qty": executed, "notional_usd": remaining_notional,
+        "time_in_force": None, "good_till_date": None,
+        "reduce_only": False, "close_position": False, "position_side": None,
+        "order_list_id": None, "reference_price": reference,
+        "created_at": ms_to_iso(row.get("createdAt")),
+        "updated_at": ms_to_iso(row.get("updatedAt") or row.get("createdAt")),
+    }
+
+
+def _equity_fill(row: dict) -> dict:
+    qty = dec0(row.get("qty"))
+    execution_price = dec0(row.get("price"))
+    return {
+        "id": f"equity:t{row.get('executionId')}",
+        "order_id": f"equity:{row.get('orderId')}",
+        "venue": "equity", "symbol": row.get("symbol", ""),
+        "side": _SIDE.get(row.get("side", ""), "buy"),
+        "price": execution_price, "qty": qty,
+        "quote_qty": dec0(row.get("total")) or qty * execution_price,
+        # 股票成交历史没有逐笔手续费和 maker 字段；空值比伪造 0/false 更准确。
+        "commission": None, "commission_asset": row.get("quote") or "",
+        "commission_usd": None, "is_maker": None, "realized_pnl": None,
+        "time": ms_to_iso(row.get("executionAt")),
+    }
 
 
 def _order_lists(payload: Any) -> list[dict]:
@@ -274,6 +330,8 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         ("orders.spot_open", TTL["open"], client.spot_open_orders),
         ("orders.futures_open", TTL["open"], client.futures_open_orders),
         ("orders.conditional_open", TTL["open"], client.futures_open_algo_orders),
+        ("orders.equity_market", TTL["history"], client.equity_exchange_info),
+        ("orders.equity_open", TTL["open"], client.equity_open_orders),
         ("orders.margin_open", TTL["open"], client.margin_open_orders),
         ("orders.lists", TTL["lists"], client.spot_open_order_lists),
         ("orders.algo", TTL["algo"], client.algo_open_orders),
@@ -316,10 +374,17 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
     open_orders.extend(parse("conditional_open", lambda: _conditional_orders(
         payload("orders.conditional_open"), lambda sym: reference_of(sym, True)),
         fallback=[]) or [])
+    open_orders.extend(parse("equity_open", lambda: [
+        _equity_order(row, dec(row.get("limitPrice")) or dec(row.get("avgFilledPrice")))
+        for row in payload("orders.equity_open") or []], fallback=[]) or [])
     open_orders.sort(key=lambda o: o["created_at"] or "", reverse=True)
 
     futures_symbols = {r.get("symbol") for r in risk}
     futures_symbols |= {o["symbol"] for o in open_orders if o["venue"] == "usdm"}
+    market_payload = payload("orders.equity_market")
+    equity_symbols = {row.get("symbol") for row in (
+        market_payload.get("symbols", []) if isinstance(market_payload, dict) else [])}
+    equity_symbols |= {o["symbol"] for o in open_orders if o["venue"] == "equity"}
     symbols = _history_symbols(open_orders, risk, payload("spot"), prices)
 
     # --- 历史：接口必须按交易对问，但那不该变成"页面替你挑了一个" -----------
@@ -333,7 +398,8 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
     # 持仓与余额界定（不是全市场），每个都按 `TTL["history"]` 缓存，
     # 而现货成交那一半 `/portfolio` 本来就在按同样的粒度取。
     targets = [symbol] if symbol else list(symbols)
-    venues = {s: (venue if (symbol and venue) else _venue_of(s, futures_symbols))
+    venues = {s: (venue if (symbol and venue) else
+                   ("equity" if s in equity_symbols else _venue_of(s, futures_symbols)))
               for s in targets}
     query = None
     history: list[dict] = []
@@ -347,8 +413,12 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         # "历史那里完全没有数据"。合约那边接口本身只留 90 天，走到头自然停。
         jobs: list[tuple[str, int, Callable[[], Any]]] = []
         global_futures_key = "orders.history:usdm:all"
+        equity_history_key = "orders.history:equity"
+        equity_trades_key = "orders.trades:equity"
         for sym in targets:
             v = venues[sym]
+            if v == "equity":
+                continue
             # 默认参数绑定：闭包里直接用 `sym` 的话，循环结束后每个 lambda
             # 拿到的都是最后一个交易对
             if symbol or v != "usdm":
@@ -362,12 +432,25 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
             jobs.append((global_futures_key, TTL["history"],
                          lambda: client.futures_all_orders_all_symbols(
                              start_ms=global_start_ms, end_ms=end_ms)))
+        if not symbol or venues.get(symbol) == "equity":
+            equity_start_ms = end_ms - 90 * 24 * MS_HOUR
+            equity_filter = symbol if symbol and venues.get(symbol) == "equity" else None
+            jobs.extend([
+                (equity_history_key, TTL["history"],
+                 lambda s=equity_filter: client.equity_order_history(
+                     start_ms=equity_start_ms, end_ms=end_ms, symbol=s)),
+                (equity_trades_key, TTL["history"],
+                 lambda s=equity_filter: client.equity_trade_history(
+                     start_ms=equity_start_ms, end_ms=end_ms, symbol=s)),
+            ])
         hist = fetch_all(cache, jobs, force=force)
 
         def _orders() -> list[dict]:
             out: list[dict] = []
             for sym in targets:
                 v = venues[sym]
+                if v == "equity":
+                    continue
                 if not symbol and v == "usdm":
                     continue
                 ref = reference_of(sym, v == "usdm")
@@ -377,20 +460,32 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
                 got = hist[global_futures_key]
                 out.extend(_order(r, "usdm", reference_of(r.get("symbol", ""), True))
                            for r in (got.payload or []))
+            if not symbol or venues.get(symbol) == "equity":
+                got = hist[equity_history_key]
+                out.extend(_equity_order(r, dec(r.get("avgFilledPrice"))
+                                         or dec(r.get("limitPrice")))
+                           for r in (got.payload or []))
             return sorted(out, key=lambda o: o["created_at"] or "", reverse=True)
 
         def _fills() -> list[dict]:
             out: list[dict] = []
             for sym in targets:
                 v = venues[sym]
+                if v == "equity":
+                    continue
                 got = hist[f"orders.trades:{v}:{sym}"]
                 out.extend(_fill(r, v, prices) for r in (got.payload or []))
+            if not symbol or venues.get(symbol) == "equity":
+                got = hist[equity_trades_key]
+                out.extend(_equity_fill(r) for r in (got.payload or []))
             return sorted(out, key=lambda f: f["time"] or "", reverse=True)
 
         history = parse("order_history", _orders, fallback=[]) or []
         fills = parse("trade_history", _fills, fallback=[]) or []
 
         limits = [WINDOW.get(venues[s], WINDOW["spot"]) for s in targets]
+        if not symbol and "equity" not in venues.values():
+            limits.append(WINDOW["equity"])
         # 多个交易对合在一起时，能保证的只有**交集**：窗口取最紧的那一个，
         # 报成最宽的那个等于替另一半打了包票
         looks = [x["lookback_days"] for x in limits if x["lookback_days"] is not None]
@@ -407,13 +502,18 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
             "lookback_days": lookback,
         }
         history_results = [hist[f"orders.history:{venues[s]}:{s}"] for s in targets
-                           if symbol or venues[s] != "usdm"]
+                           if venues[s] != "equity" and (symbol or venues[s] != "usdm")]
         if not symbol:
             history_results.append(hist[global_futures_key])
+        if not symbol or venues.get(symbol) == "equity":
+            history_results.append(hist[equity_history_key])
+        trade_results = [hist[f"orders.trades:{venues[s]}:{s}"] for s in targets
+                         if venues[s] != "equity"]
+        if not symbol or venues.get(symbol) == "equity":
+            trade_results.append(hist[equity_trades_key])
         history_states = [
             {"key": "order_history", **_merge_states(history_results)},
-            {"key": "trade_history",
-             **_merge_states([hist[f"orders.trades:{venues[s]}:{s}"] for s in targets])},
+            {"key": "trade_history", **_merge_states(trade_results)},
         ]
     else:
         history_states = [{"key": "order_history", "status": "ok", "as_of": None,
@@ -425,6 +525,8 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         {"key": "spot_open", **_state(results["orders.spot_open"])},
         {"key": "futures_open", **_state(results["orders.futures_open"])},
         {"key": "conditional_open", **_state(results["orders.conditional_open"])},
+        {"key": "equity_market", **_state(results["orders.equity_market"])},
+        {"key": "equity_open", **_state(results["orders.equity_open"])},
         {"key": "margin_open", **_state(results["orders.margin_open"])},
         {"key": "order_lists", **_state(results["orders.lists"])},
         {"key": "algo_open", **_state(results["orders.algo"])},
@@ -444,7 +546,8 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         "open": open_orders,
         "order_lists": parse("order_lists",
                              lambda: _order_lists(payload("orders.lists")), fallback=[]) or [],
-        "history_symbols": symbols,
+        "history_symbols": sorted(set(symbols)
+                                  | {o["symbol"] for o in history if o["symbol"]}),
         "query": query,
         "history": history,
         "fills": fills,

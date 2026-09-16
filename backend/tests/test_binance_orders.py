@@ -46,7 +46,7 @@ def test_snapshot_shape_and_sources(cache):
                          "query", "history", "fills"}
     assert {s["key"] for s in snap["sources"]} == {
         "spot_open", "futures_open", "margin_open", "order_lists", "algo_open",
-        "conditional_open",
+        "conditional_open", "equity_market", "equity_open",
         "order_history", "trade_history"}
     assert all(s["status"] == "ok" for s in snap["sources"])
 
@@ -54,8 +54,8 @@ def test_snapshot_shape_and_sources(cache):
 def test_all_three_venues_land_in_one_list(cache):
     snap = build(cache)
     venues = {o["venue"] for o in snap["open"]}
-    assert venues == {"spot", "usdm", "margin"}
-    assert len(snap["open"]) == 4 + 3 + 1 + 1 + 2  # 另含两张新 Algo Service 条件单
+    assert venues == {"spot", "usdm", "margin", "equity"}
+    assert len(snap["open"]) == 4 + 3 + 1 + 1 + 2 + 1
 
 
 # --- 最容易读错的几处 ------------------------------------------------------
@@ -143,6 +143,26 @@ def test_current_futures_conditional_orders_are_not_silently_dropped(cache):
     assert trailing["callback_rate"] == pytest.approx(0.018)
 
 
+def test_standalone_equity_orders_keep_stock_specific_fields(cache):
+    order = by_id(build(cache))["equity:eq-open-aapl"]
+    assert order["symbol"] == "AAPL" and order["venue"] == "equity"
+    assert order["kind"] == "limit" and order["status"] == "partially_filled"
+    assert order["quote_asset"] == "USDC"
+    assert order["trading_session"] == "rth"
+    assert order["notional_usd"] == pytest.approx(2 * 230)
+
+
+def test_equity_history_and_fills_are_in_the_default_history(cache):
+    snap = build(cache)
+    assert "AAPL" in snap["history_symbols"]
+    order = next(row for row in snap["history"] if row["id"] == "equity:eq-history-nvda")
+    fill = next(row for row in snap["fills"] if row["id"] == "equity:teq-fill-nvda")
+    assert order["notional_usd"] == 0.0       # 已全部成交，不再占用名义
+    assert fill["quote_qty"] == 1000.0
+    assert fill["commission"] is None         # 成交接口不提供逐笔手续费
+    assert fill["commission_usd"] is None
+
+
 # --- 历史：接口逼出来的形状 ------------------------------------------------
 
 def test_history_symbols_come_from_orders_positions_and_balances(cache):
@@ -178,16 +198,16 @@ def test_no_symbol_means_every_candidate_not_the_first_one(cache):
     symbol 必填是 `allOrders` 的限制，不该变成产品的形状——逐个问完合并就是了。
     """
     snap = build(cache)
-    assert snap["history_symbols"] == ["BNBUSDT", "NVDAUSDT", "QQQUSDT"]
+    assert snap["history_symbols"] == ["AAPL", "BNBUSDT", "NVDA", "NVDAUSDT", "QQQUSDT"]
 
     q = snap["query"]
     assert q["symbol"] is None            # 没挑，也别装作挑了
-    assert q["symbols"] == ["BNBUSDT", "NVDAUSDT", "QQQUSDT"]
+    assert q["symbols"] == ["AAPL", "BNBUSDT", "NVDAUSDT", "QQQUSDT"]
     assert q["venue"] is None             # 跨 venue，没有单一答案
 
     # 现货与合约的记录都在，且按时间倒序合在一起
-    assert [o["symbol"] for o in snap["history"]] == ["BNBUSDT", "NVDAUSDT", "NVDAUSDT"]
-    assert [f["symbol"] for f in snap["fills"]] == ["BNBUSDT", "NVDAUSDT", "NVDAUSDT"]
+    assert [o["symbol"] for o in snap["history"]] == ["BNBUSDT", "NVDAUSDT", "NVDAUSDT", "NVDA"]
+    assert [f["symbol"] for f in snap["fills"]] == ["BNBUSDT", "NVDAUSDT", "NVDAUSDT", "NVDA"]
     assert [o["created_at"] for o in snap["history"]] == sorted(
         (o["created_at"] for o in snap["history"]), reverse=True)
 
@@ -238,7 +258,7 @@ def test_one_symbol_failing_marks_the_whole_group(cache):
     assert states["order_history"]["status"] == "unreachable"
     assert states["trade_history"]["status"] == "ok"      # 成交走另一个端点
     # 现货那半边照常在
-    assert [o["symbol"] for o in snap["history"]] == ["BNBUSDT"]
+    assert [o["symbol"] for o in snap["history"]] == ["BNBUSDT", "NVDA"]
 
 
 def test_venue_is_inferred_from_where_the_symbol_lives(cache):
@@ -323,6 +343,7 @@ def test_no_symbols_means_no_query_not_a_fake_one(cache):
     snap = build(cache, fail={"/api/v3/openOrders": 451, "/fapi": 451,
                               "/sapi/v1/margin/openOrders": 451,
                               "/sapi/v1/algo": 451,
+                              "/sapi/v1/equity": 451,
                               "/sapi/v3/asset/getUserAsset": 451})
     assert snap["history_symbols"] == []
     assert snap["query"] is None

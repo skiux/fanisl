@@ -13,13 +13,14 @@ import { FillTable, gapOf, HistoryTable, OpenOrderTable } from './OrderTables'
 
 export const isConditional = (order: Order) => CONDITIONAL_KINDS.has(order.kind)
 
-const VENUES: OrderVenue[] = ['spot', 'usdm', 'margin']
+const VENUES: OrderVenue[] = ['spot', 'usdm', 'margin', 'equity']
 
 
 const VENUE_SOURCE: Record<OrderVenue, SourceKey> = {
   spot: 'spot_open',
   usdm: 'futures_open',
   margin: 'margin_open',
+  equity: 'equity_open',
 }
 
 export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veiled: boolean }) {

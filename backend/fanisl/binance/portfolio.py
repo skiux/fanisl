@@ -40,7 +40,9 @@ TTL = {
     "wallets": 60,
     "spot": 60,
     "futures": 30,
+    "futures_metadata": 1800,
     "brackets": 86_400,
+    "stocks": 21_600,
     "earn": 300,
     "margin": 60,
     "income": 300,
@@ -172,7 +174,11 @@ def _jobs(client: BinanceClient, now: datetime) -> list[tuple[str, int, Callable
         ("futures.config", TTL["futures"], client.futures_account_config),
         ("futures.risk", TTL["futures"], client.futures_position_risk),
         ("futures.adl", TTL["futures"], client.futures_adl_quantile),
+        ("futures.symbol_adl", TTL["futures_metadata"], client.futures_symbol_adl_risk),
+        ("futures.exchange_info", TTL["futures_metadata"], client.futures_exchange_info),
+        ("futures.schedule", TTL["futures_metadata"], client.futures_trading_schedule),
         ("futures.brackets", TTL["brackets"], client.leverage_brackets),
+        ("equity.tokenized", TTL["stocks"], client.equity_tokenized_assets),
         ("earn.flexible", TTL["earn"], client.earn_flexible_positions),
         ("earn.locked", TTL["earn"], client.earn_locked_positions),
         ("margin", TTL["margin"], client.margin_account),
@@ -207,7 +213,9 @@ _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
     "wallets": ("wallets", ()),
     "spot": ("spot", ()),
     "futures": ("futures.account", ("futures.config", "futures.risk", "futures.adl",
-                                      "futures.brackets")),
+                                      "futures.symbol_adl", "futures.exchange_info",
+                                      "futures.schedule", "futures.brackets")),
+    "stocks": ("equity.tokenized", ("wallets",)),
     "earn": ("earn.flexible", ("earn.locked",)),
     "margin": ("margin", ()),
     "income": ("income", ()),
@@ -258,6 +266,59 @@ def _wallets(rows: Any, btc_usd: float | None) -> list[dict]:
     return out
 
 
+def _stocks(wallet_rows: Any, tokenized_rows: Any, btc_usd: float | None) -> dict:
+    """把资金钱包中的代币化股票资产映射回真实股票代码。
+
+    Stocks Trading 当前没有账户持仓查询端点，所以这里只展示钱包详情中可以证实的
+    代币化资产；不能从成交历史倒推独立股票持仓，因为转入、转出和公司行动会让结果
+    静默失真。
+    """
+    mappings = {
+        str(row.get("assetCode", "")): row
+        for row in tokenized_rows or []
+        if isinstance(row, dict) and row.get("assetCode") and row.get("underlyingEquitySymbol")
+    }
+    assets = []
+    for wallet in wallet_rows or []:
+        if not isinstance(wallet, dict):
+            continue
+        wallet_name = str(wallet.get("walletName", ""))
+        wallet_kind = WALLET_KIND.get(
+            wallet_name, wallet_name.lower().replace(" ", "_").replace("-", "_"))
+        for balance in wallet.get("assetBalances", []) or []:
+            if not isinstance(balance, dict):
+                continue
+            asset_code = str(balance.get("asset", ""))
+            mapping = mappings.get(asset_code)
+            if mapping is None:
+                continue
+            qty = sum(dec0(balance.get(key)) for key in
+                      ("free", "locked", "freeze", "withdrawing"))
+            if qty <= 0:
+                continue
+            multiplier = dec(mapping.get("multiplier"))
+            btc_value = dec(balance.get("btcValuation"))
+            assets.append({
+                "asset_code": asset_code,
+                "name": str(mapping.get("assetName", "")),
+                "symbol": str(mapping.get("underlyingEquitySymbol", "")),
+                "qty": qty,
+                "multiplier": multiplier,
+                "underlying_qty": None if multiplier is None else qty * multiplier,
+                "value_usd": None if btc_value is None or btc_usd is None else btc_value * btc_usd,
+                "wallet": wallet_kind,
+            })
+    assets.sort(key=lambda row: row["value_usd"] if row["value_usd"] is not None else -1,
+                reverse=True)
+    return {
+        "standalone_positions_available": False,
+        "coverage_detail": (
+            "Binance Stocks Trading 当前未提供持仓查询端点；这里仅列出钱包详情中可验证的代币化股票资产。"
+        ),
+        "tokenized_assets": assets,
+    }
+
+
 def _spot(rows: Any, prices: dict[str, float]) -> list[dict]:
     out = []
     for row in rows or []:
@@ -277,8 +338,29 @@ def _spot(rows: Any, prices: dict[str, float]) -> list[dict]:
     return out
 
 
+_TRADFI_UNDERLYING_TYPES = frozenset({
+    "EQUITY", "COMMODITY", "KR_EQUITY", "HK_EQUITY", "CN_EQUITY",
+})
+
+
+def _schedule_session(schedule: Any, underlying_type: str | None, now_ms: int) -> str | None:
+    if not underlying_type or not isinstance(schedule, dict):
+        return None
+    market = schedule.get("marketSchedules", {}).get(underlying_type, {})
+    sessions = market.get("sessions", []) if isinstance(market, dict) else []
+    for session in sessions:
+        if not isinstance(session, dict):
+            continue
+        start, end = dec(session.get("startTime")), dec(session.get("endTime"))
+        if start is not None and end is not None and start <= now_ms < end:
+            return str(session.get("type") or "") or None
+    return "CLOSED" if sessions else None
+
+
 def _futures(account: Any, config: Any, risk: Any, adl: Any, brackets: Any,
-             prices: dict[str, float] | None = None) -> dict | None:
+             exchange_info: Any = None, schedule: Any = None, symbol_adl: Any = None,
+             prices: dict[str, float] | None = None,
+             now: datetime | None = None) -> dict | None:
     if not isinstance(account, dict):
         return None
 
@@ -287,6 +369,18 @@ def _futures(account: Any, config: Any, risk: Any, adl: Any, brackets: Any,
     for row in risk or []:
         risk_by[(row.get("symbol"), row.get("positionSide", "BOTH"))] = row
     adl_by = {r.get("symbol"): r.get("adlQuantile", {}) for r in adl or []}
+    metadata_by = {
+        row.get("symbol"): row
+        for row in (exchange_info or {}).get("symbols", [])
+        if isinstance(row, dict) and row.get("symbol")
+    } if isinstance(exchange_info, dict) else {}
+    symbol_adl_rows = symbol_adl.get("symbols", []) if isinstance(symbol_adl, dict) else symbol_adl
+    symbol_adl_by = {
+        row.get("symbol"): row.get("adlRisk")
+        for row in symbol_adl_rows or []
+        if isinstance(row, dict) and row.get("symbol")
+    }
+    now_ms = int((now or datetime.now(timezone.utc)).timestamp() * 1000)
     brackets_by = {}
     for row in brackets or []:
         if not isinstance(row, dict):
@@ -328,6 +422,11 @@ def _futures(account: Any, config: Any, risk: Any, adl: Any, brackets: Any,
         adl_q = quantile.get(side) if isinstance(quantile, dict) else None
         if adl_q is None and isinstance(quantile, dict):
             adl_q = quantile.get("BOTH")
+        metadata = metadata_by.get(symbol, {})
+        underlying_type = metadata.get("underlyingType")
+        underlying_subtypes = metadata.get("underlyingSubType")
+        if not isinstance(underlying_subtypes, list):
+            underlying_subtypes = []
         positions.append({
             "symbol": symbol,
             "position_side": {"BOTH": "both", "LONG": "long", "SHORT": "short"}.get(side, "both"),
@@ -345,6 +444,11 @@ def _futures(account: Any, config: Any, risk: Any, adl: Any, brackets: Any,
             "maint_margin_usd": dec0(row.get("maintMargin")),
             "maintenance_brackets": brackets_by.get(symbol, []),
             "adl_quantile": int(adl_q) if adl_q is not None else None,
+            "tradfi": underlying_type in _TRADFI_UNDERLYING_TYPES,
+            "underlying_type": underlying_type,
+            "underlying_subtypes": [str(value) for value in underlying_subtypes],
+            "market_session": _schedule_session(schedule, underlying_type, now_ms),
+            "symbol_adl_risk": symbol_adl_by.get(symbol),
         })
 
     margin_balance = dec0(account.get("totalMarginBalance"))
@@ -716,7 +820,14 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
     futures = block("futures", lambda: _futures(
         payload("futures.account"), payload("futures.config"),
         payload("futures.risk"), payload("futures.adl"),
-        payload("futures.brackets"), prices))
+        payload("futures.brackets"), payload("futures.exchange_info"),
+        payload("futures.schedule"), payload("futures.symbol_adl"), prices, now))
+    stocks = block("stocks", lambda: _stocks(
+        payload("wallets"), payload("equity.tokenized"), btc_usd), fallback={
+            "standalone_positions_available": False,
+            "coverage_detail": "Binance Stocks Trading 当前未提供持仓查询端点。",
+            "tokenized_assets": [],
+        })
     earn = block("earn", lambda: _earn(payload("earn.flexible"),
                                        payload("earn.locked"), prices), fallback=[]) or []
     margin = block("margin", lambda: _margin(payload("margin"), btc_usd, prices))
@@ -794,6 +905,7 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "stable_assets": sorted(STABLE_ASSETS),
         "wallets": wallets,
         "spot": spot,
+        "stocks": stocks,
         "futures": futures,
         "earn": earn,
         "margin": margin,

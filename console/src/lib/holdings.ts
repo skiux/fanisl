@@ -30,6 +30,7 @@ export type Exposure = {
 
 export function exposures(snapshot: PortfolioSnapshot, equity: number): Exposure[] {
   const stable = new Set(snapshot.stable_assets)
+  const tokenizedCodes = new Set(snapshot.stocks.tokenized_assets.map((row) => row.asset_code))
   const byAsset = new Map<string, { spot: number; perp: number; gross: number }>()
   const add = (asset: string, spot: number, perp: number) => {
     if (!asset || stable.has(asset)) return
@@ -40,7 +41,10 @@ export function exposures(snapshot: PortfolioSnapshot, equity: number): Exposure
     byAsset.set(asset, hit)
   }
 
-  for (const row of snapshot.spot) add(row.asset, row.value_usd ?? 0, 0)
+  for (const row of snapshot.spot) {
+    if (!tokenizedCodes.has(row.asset)) add(row.asset, row.value_usd ?? 0, 0)
+  }
+  for (const row of snapshot.stocks.tokenized_assets) add(row.symbol, row.value_usd ?? 0, 0)
   for (const row of snapshot.earn) add(row.asset, row.value_usd ?? 0, 0)
   for (const row of snapshot.margin?.assets ?? []) add(row.asset, row.value_usd ?? 0, 0)
   for (const row of snapshot.futures?.assets ?? []) add(row.asset, row.value_usd ?? 0, 0)

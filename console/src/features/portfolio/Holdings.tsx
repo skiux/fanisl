@@ -3,7 +3,7 @@ import { CaretDown } from '@phosphor-icons/react'
 import { cn } from '../../lib/cn'
 import { Ticker } from '../../components/Ticker'
 import { amount, DUST_THRESHOLD_USD, money, percent, price } from '../../lib/format'
-import type { EarnPosition, SpotAsset } from '../../api/types'
+import type { EarnPosition, SpotAsset, TokenizedStockAsset } from '../../api/types'
 import type { CashRow } from '../../lib/holdings'
 
 const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_112px]'
@@ -137,6 +137,41 @@ export function EarnTable({ earn }: { earn: EarnPosition[] }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+const STOCK_ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)]'
+
+export function TokenizedStocksTable({ rows }: { rows: TokenizedStockAsset[] }) {
+  return (
+    <>
+      <div className={cn(STOCK_ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
+        <span>股票</span>
+        <span className="hidden sm:block">钱包资产</span>
+        <span className="hidden sm:block">对应股数</span>
+        <span className="text-right">价值</span>
+      </div>
+      <ul className="divide-y divide-rule">
+        {rows.map((row) => (
+          <li className={cn(STOCK_ROW, 'py-3')} key={`${row.wallet}:${row.asset_code}`}>
+            <span className="flex min-w-0 items-center gap-2.5">
+              <Ticker asset={row.symbol} />
+              <span className="min-w-0">
+                <span className="block text-sm text-ink">{row.symbol}</span>
+                <span className="block truncate text-micro text-ink-3">{row.name}</span>
+              </span>
+            </span>
+            <span className="tnum hidden text-sm text-ink-2 sm:block">{row.asset_code}</span>
+            <span className="tnum hidden text-sm text-ink-2 sm:block">
+              {row.underlying_qty === null ? '—' : amount(row.underlying_qty)}
+            </span>
+            <span className="tnum text-right text-sm text-ink">
+              {row.value_usd === null ? '—' : money(row.value_usd)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }
 

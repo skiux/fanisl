@@ -108,7 +108,7 @@ describe('敞口分布', () => {
     expect(rows).toHaveLength(12)
     expect(rows.slice(0, 3).reduce((sum, value) => sum + value, 0) / total).toBeCloseTo(0.5, 2)
     render()
-    expect(host.querySelector('[data-allocation-total]')!.textContent).toBe('$59,995.85')
+    expect(host.querySelector('[data-allocation-total]')!.textContent).toBe('$60,455.85')
   })
 
   it('所有有多头金额的资产都保留独立区域，包括不足 1% 的小额资产', () => {
@@ -228,7 +228,7 @@ describe('敞口分布', () => {
     const content = center.querySelector<HTMLElement>('.allocation-center-content')!
     expect(Number(center.dataset.centerDiameter)).toBeGreaterThan(84)
     expect(Number.parseFloat(content.style.fontSize)).toBeGreaterThanOrEqual(10.5)
-    expect(center.textContent).toBe('$59,995.85')
+    expect(center.textContent).toBe('$60,455.85')
   })
 
   it('选择资产不压暗任何区域，重复点击与 Escape 都能取消选择', () => {
@@ -247,7 +247,7 @@ describe('敞口分布', () => {
     expect(center.querySelector('[data-asset-mark="QQQ"]')).not.toBeNull()
     expect(center.textContent).not.toContain('QQQ')
     expect(center.textContent).toContain('$5,500.60')
-    expect(center.textContent).toContain('9.2%')
+    expect(center.textContent).toContain('9.1%')
     for (const tile of host.querySelectorAll<HTMLElement>('[data-slice]')) {
       expect(tile.style.background).toBe(original.get(tile.dataset.slice)!.background)
       expect(tile.style.opacity).toBe(original.get(tile.dataset.slice)!.opacity)
@@ -256,7 +256,7 @@ describe('敞口分布', () => {
     expect(button.getAttribute('aria-pressed')).toBe('false')
     expect(cursor.getAttribute('data-active')).toBe('false')
     expect(center.dataset.centerAsset).toBe('')
-    expect(center.textContent).toBe('$59,995.85')
+    expect(center.textContent).toBe('$60,455.85')
     act(() => button.click())
     act(() => button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
     expect(button.getAttribute('aria-pressed')).toBe('false')
@@ -285,7 +285,8 @@ describe('敞口分布', () => {
       symbol: 'MSTRUSDT', position_amt: -9, notional_usd: 3079.44,
     }
     render({
-      ...snapshot, spot: [], earn: [], margin: null,
+      ...snapshot, spot: [], stocks: { ...snapshot.stocks, tokenized_assets: [] },
+      earn: [], margin: null,
       futures: { ...snapshot.futures!, assets: [], positions: [short] },
     })
     expect(host.textContent).toContain('暂无多头敞口')

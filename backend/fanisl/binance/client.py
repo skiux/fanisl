@@ -196,6 +196,25 @@ class BinanceClient:
 
         raise _map_error(resp.status_code, code, msg, path)
 
+    def public_get(self, base: str, path: str, params: dict[str, Any] | None = None,
+                   *, api_key: bool = False) -> Any:
+        """不签名的行情读取；部分 MARKET_DATA 端点仍要求 API key 头。"""
+        if api_key and not self.api_key:
+            raise CredentialsMissing()
+        headers = {"X-MBX-APIKEY": self.api_key} if api_key else None
+        try:
+            resp = self._http.get(base + path, params={
+                k: v for k, v in (params or {}).items() if v is not None
+            }, headers=headers)
+        except httpx.HTTPError as e:
+            raise BinanceError("unreachable", f"网络错误: {e}") from e
+        self._record_weight(resp)
+        if resp.status_code == 200:
+            # 股票报价在停牌、退市或未知代码时会返回空 body。
+            return resp.json() if resp.content else None
+        code, msg = _error_body(resp)
+        raise _map_error(resp.status_code, code, msg, path)
+
     def _record_weight(self, resp: httpx.Response) -> None:
         for key, value in resp.headers.items():
             lowered = key.lower()
@@ -279,6 +298,9 @@ class BinanceClient:
         return self.signed_get(FAPI_BASE, "/fapi/v1/openAlgoOrders",
                                {"algoType": "CONDITIONAL"})
 
+    def equity_open_orders(self) -> Any:
+        return self.signed_get(SPOT_BASE, "/sapi/v1/equity/order/open-orders")
+
     def margin_open_orders(self) -> Any:
         return self.signed_get(SPOT_BASE, "/sapi/v1/margin/openOrders")
 
@@ -313,6 +335,34 @@ class BinanceClient:
                 out[str(row.get("orderId"))] = row
             cursor = until + 1
         return list(out.values())
+
+    def equity_order_history(self, *, start_ms: int, end_ms: int,
+                             symbol: str | None = None, size: int = 100,
+                             max_pages: int = 100) -> list[dict]:
+        return self._equity_history("/sapi/v1/equity/order/history",
+                                    start_ms=start_ms, end_ms=end_ms, symbol=symbol,
+                                    size=size, max_pages=max_pages)
+
+    def equity_trade_history(self, *, start_ms: int, end_ms: int,
+                             symbol: str | None = None, size: int = 100,
+                             max_pages: int = 100) -> list[dict]:
+        return self._equity_history("/sapi/v1/equity/trade/history",
+                                    start_ms=start_ms, end_ms=end_ms, symbol=symbol,
+                                    size=size, max_pages=max_pages)
+
+    def _equity_history(self, path: str, *, start_ms: int, end_ms: int,
+                        symbol: str | None, size: int, max_pages: int) -> list[dict]:
+        out: list[dict] = []
+        for current in range(1, max_pages + 1):
+            payload = self.signed_get(SPOT_BASE, path,
+                                      {"startTime": start_ms, "endTime": end_ms,
+                                       "symbol": symbol, "current": current, "size": size})
+            rows = payload.get("rows", []) if isinstance(payload, dict) else []
+            out.extend(row for row in rows if isinstance(row, dict))
+            total = int(payload.get("total", len(out))) if isinstance(payload, dict) else len(out)
+            if not rows or len(out) >= total or len(rows) < size:
+                break
+        return out
 
     def spot_my_trades(self, symbol: str, *, start_ms: int, end_ms: int,
                        limit: int = 500) -> Any:
@@ -420,6 +470,27 @@ class BinanceClient:
     def dust_log(self, *, start_ms: int, end_ms: int) -> Any:
         return self.signed_get(SPOT_BASE, "/sapi/v1/asset/dribblet",
                                {"startTime": start_ms, "endTime": end_ms})
+
+    def equity_exchange_info(self, symbol: str | None = None) -> Any:
+        return self.public_get(SPOT_BASE, "/sapi/v1/equity/market/exchangeInfo",
+                               {"symbol": symbol}, api_key=True)
+
+    def equity_tokenized_assets(self) -> Any:
+        return self.public_get(SPOT_BASE, "/sapi/v1/equity/market/tokenized-assets",
+                               api_key=True)
+
+    def equity_quote(self, symbol: str) -> Any:
+        return self.public_get(SPOT_BASE, "/sapi/v1/equity/market/quote",
+                               {"symbol": symbol}, api_key=True)
+
+    def futures_exchange_info(self) -> Any:
+        return self.public_get(FAPI_BASE, "/fapi/v1/exchangeInfo")
+
+    def futures_trading_schedule(self) -> Any:
+        return self.public_get(FAPI_BASE, "/fapi/v1/tradingSchedule")
+
+    def futures_symbol_adl_risk(self) -> Any:
+        return self.public_get(FAPI_BASE, "/fapi/v1/symbolAdlRisk")
 
     def klines(self, symbol: str, interval: str = "1d", limit: int = 31) -> Any:
         """日线收盘。公开端点、不签名、权重 2。

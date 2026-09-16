@@ -29,6 +29,9 @@ function SideKind({ order }: { order: Order }) {
       <div className="truncate text-micro text-ink-3">
         {ORDER_KIND_LABEL[order.kind] ?? order.kind}
         {order.time_in_force && order.time_in_force !== 'GTC' && ` · ${order.time_in_force}`}
+        {order.trading_session && ` · ${{
+          rth: '常规', extended: '盘前后', '24h': '24H',
+        }[order.trading_session]}`}
       </div>
     </div>
   )
@@ -267,7 +270,9 @@ export function FillTable({ fills, showSymbol }: { fills: Fill[]; showSymbol?: b
             </div>
             <div className="hidden min-w-0 sm:block">
               <div className="text-sm text-ink">{fill.side === 'buy' ? '买入' : '卖出'}</div>
-              <div className="text-micro text-ink-3">{fill.is_maker ? '挂单' : '吃单'}</div>
+              <div className="text-micro text-ink-3">
+                {fill.is_maker === null ? '成交' : fill.is_maker ? '挂单' : '吃单'}
+              </div>
             </div>
             <div className="tnum hidden truncate text-sm text-ink sm:block">{price(fill.price)}</div>
             <div className="tnum hidden truncate text-sm text-ink-2 sm:block">{amount(fill.qty)}</div>
@@ -276,7 +281,9 @@ export function FillTable({ fills, showSymbol }: { fills: Fill[]; showSymbol?: b
                 `money`。BNB 抵扣那种一笔只有 0.0008 个，按金额格式印出来是
                 `0.00`，看着像没收费。 */}
             <div className="tnum hidden truncate text-sm text-loss sm:block">
-              −{amount(fill.commission)} <span className="text-micro text-ink-3">{fill.commission_asset}</span>
+              {fill.commission === null ? '—' : <>
+                −{amount(fill.commission)} <span className="text-micro text-ink-3">{fill.commission_asset}</span>
+              </>}
             </div>
             <div className={cn('tnum hidden truncate text-sm sm:block',
               fill.realized_pnl === null || fill.realized_pnl === 0 ? 'text-ink-3'

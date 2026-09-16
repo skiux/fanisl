@@ -43,11 +43,11 @@ def test_snapshot_shape_matches_contract(cache):
     snap = build(cache)
     assert set(snap) == {"as_of", "base_currency", "sources", "totals", "stable_assets",
                          "wallets", "spot", "futures", "earn", "margin", "income",
-                         "transfers", "pnl"}
+                         "transfers", "stocks", "pnl"}
     assert snap["base_currency"] == "USD"
     assert {s["key"] for s in snap["sources"]} == {
         "prices", "wallets", "spot", "futures", "earn", "margin",
-        "income", "transfers"}
+        "income", "transfers", "stocks"}
     assert all(s["status"] == "ok" for s in snap["sources"])
 
 
@@ -80,6 +80,23 @@ def test_wallets_are_btc_denominated_and_nothing_is_dropped(cache):
     assert kinds["isolated_margin"]["activate"] is False
 
 
+def test_tokenized_stock_wallet_assets_map_to_the_underlying_equity(cache):
+    """钱包里的 AAPLB 不是一个独立公司，必须按官方映射显示为 AAPL 敞口。"""
+    stocks = build(cache)["stocks"]
+    assert stocks["standalone_positions_available"] is False
+    assert "未提供持仓查询端点" in stocks["coverage_detail"]
+    assert stocks["tokenized_assets"] == [{
+        "asset_code": "AAPLB",
+        "name": "Apple Inc. Tokenized Stock",
+        "symbol": "AAPL",
+        "qty": 2.0,
+        "multiplier": 1.0,
+        "underlying_qty": 2.0,
+        "value_usd": pytest.approx(0.004 * BTC),
+        "wallet": "spot",
+    }]
+
+
 def test_equity_excludes_deactivated_wallets(cache):
     snap = build(cache)
     active = sum(w["value_usd"] for w in snap["wallets"] if w["activate"])
@@ -106,6 +123,17 @@ def test_futures_positions_pull_mark_and_liq_from_position_risk(cache):
     assert nvda["liquidation_price"] == 152.84
     assert nvda["liq_distance"] == pytest.approx((218.42 - 152.84) / 218.42)
     assert nvda["adl_quantile"] == 1
+
+
+def test_tradfi_positions_use_exchange_metadata_schedule_and_symbol_adl(cache):
+    snap = build(cache)
+    by_symbol = {p["symbol"]: p for p in snap["futures"]["positions"]}
+    nvda = by_symbol["NVDAUSDT"]
+    assert nvda["tradfi"] is True
+    assert nvda["underlying_type"] == "EQUITY"
+    assert nvda["underlying_subtypes"] == ["US_EQUITY"]
+    assert nvda["market_session"] == "REGULAR"
+    assert nvda["symbol_adl_risk"] == "medium"
     assert nvda["position_amt"] == 38
     assert nvda["maintenance_brackets"] == [
         {"notional_floor_usd": 0.0, "notional_cap_usd": 15000.0,

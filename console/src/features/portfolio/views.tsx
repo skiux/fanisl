@@ -4,7 +4,7 @@ import { cash } from '../../lib/holdings'
 import type { MarginAccount, PortfolioSnapshot } from '../../api/types'
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
 import { RealizedDays } from './RealizedDays'
-import { CashTable, EarnTable, ParkedTable, SpotTable } from './Holdings'
+import { CashTable, EarnTable, ParkedTable, SpotTable, TokenizedStocksTable } from './Holdings'
 import { PnlBreakdown } from './PnlBreakdown'
 
 /** 合约 income 与 userTrades 都只保留 90 天，这是接口硬限 */
@@ -132,6 +132,8 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
   const frozen = at((item) => item.freeze)
   const withdrawing = at((item) => item.withdrawing)
   const unpriced = snapshot.spot.filter((item) => item.value_usd === null).length
+  const tokenizedStocks = snapshot.stocks.tokenized_assets
+  const tokenizedValue = tokenizedStocks.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
 
   const earnValue = snapshot.earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
   const rewards = snapshot.earn.reduce((sum, item) => sum + (item.cumulative_rewards_usd ?? 0), 0)
@@ -221,6 +223,20 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
             </dl>
           </Module>
         </Stack>
+
+        {tokenizedStocks.length > 0 && (
+          <Module
+            figure={money(tokenizedValue)}
+            note={`${tokenizedStocks.length} 项 · 钱包可验证`}
+            span="lg:col-span-12"
+            title="代币化股票"
+          >
+            <TokenizedStocksTable rows={tokenizedStocks} />
+            <p className="mt-3 border-t border-rule pt-3 text-xs leading-relaxed text-ink-3">
+              {snapshot.stocks.coverage_detail}
+            </p>
+          </Module>
+        )}
 
         {/* **现金单独成一块。** 它不是「理财持仓」的缩略版，是另一刀：那张表按
             产品列理财，这里按"钱在哪"横切整个账户——稳定币可以同时躺在现货、

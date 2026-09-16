@@ -5,6 +5,23 @@
 
 全员共用同一个 Binance 账户，凭据在服务器 `.env`，权限只开 Enable Reading。
 
+## 两类“股票”不是同一个产品
+
+Binance 2026 的文档里同时存在两条股票相关路径，接口与账户语义不同：
+
+- **Stocks Trading** 走 `/sapi/v1/equity/*`，代码是 `AAPL` 这类裸 ticker，委托默认以
+  USDC 计价，并带 `RTH` / `EXTENDED` / `24H` 交易时段。它有挂单、委托历史和逐笔成交，
+  但当前 Account 文档只有签署免责声明的写接口，**没有独立股票持仓查询端点**。因此
+  `/orders` 展示完整可读记录，`/portfolio` 不从成交历史反推持仓。
+- **TradFi Perps** 仍是 USDⓈ-M Futures，走 `/fapi/*`，代码如 `NVDAUSDT`。它继续使用
+  合约保证金、强平价与 ADL 逻辑；`exchangeInfo` 的 `underlyingType` / `underlyingSubType`
+  用来识别 TradFi，`tradingSchedule` 给出当前市场时段，`symbolAdlRisk` 给出标的级 ADL
+  风险。
+
+钱包详情中的 `AAPLB` 之类代币化资产是第三种形态。它们通过
+`/sapi/v1/equity/market/tokenized-assets` 映射回 `AAPL`，作为可验证的股票敞口进入持仓；
+不与独立 Stocks Trading 的未知持仓混为一谈。
+
 ## Key 类型
 
 Binance 支持三种，并推荐 **Ed25519**；HMAC 当前仍受支持。三种都支持，
@@ -33,8 +50,8 @@ cache.py      按来源的 TTL 缓存 + 降级语义
 common.py     字符串数值解析、计价、钱包名映射
 costbasis.py  交易对拆分 + **跨钱包持有量**（成本基础引擎已删，见文件头）
 dailypnl.py   **逐日盈亏**：进出清单 → 历史持仓量 → 每天赚了多少   ← 口径核心
-portfolio.py  /portfolio  资产快照（12 个端点 + 逐交易对的日线与成交）
-orders.py     /orders     委托（8 个端点）
+portfolio.py  /portfolio  资产快照（含代币化股票与 TradFi 元数据）
+orders.py     /orders     委托（现货 / 杠杆 / U 本位 / Stocks Trading）
 ledger.py     /ledger     流水（8 个端点，20 次调用）
 ```
 
@@ -114,6 +131,9 @@ IP 权重上限 **6000/分钟**。而：
 | 坑 | 后果 |
 |---|---|
 | `/fapi/v3/account` **没有**标记价、强平价、ADL 分位 | 在 `positionRisk` 与 `adlQuantile` 上。少了它们"距强平多远"无从算起 |
+| Stocks Trading 的 Account 文档没有持仓 GET | 只能展示挂单、历史、成交与钱包中可验证的代币化资产；不能用成交净额伪造持仓 |
+| Stocks Trading 行情要求 API key 但不要求签名 | 当公开端点调用会 401；当 USER_DATA 调用会多余地签名 |
+| TradFi Perps 仍属于 USDⓈ-M | 不能按裸股票账户处理；保证金、强平与资金费仍走 fapi |
 | TP/SL/追踪止损已迁到 `/fapi/v1/openAlgoOrders` | 只查普通 `openOrders` 会漏掉账户已有的保护单 |
 | TradFi 股息调整记为 `SPECIAL_FUNDING_FEE` | 它属于资金费；归到 other 或丢弃都会把损益算错 |
 | 合约要读 `origType` 而不是 `type` | 条件单触发后 `type` 变 MARKET，止盈单会显示成"市价单" |
@@ -373,7 +393,11 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | | `GET /fapi/v1/accountConfig` | 5 † | 30s | 双向持仓 / 联合保证金 |
 | | `GET /fapi/v3/positionRisk` | 5 | 30s | **标记价与强平价只有这里有** |
 | | `GET /fapi/v1/adlQuantile` | 5 | 30s | 自动减仓队列 |
+| | `GET /fapi/v1/symbolAdlRisk` | 1 | 1800s | 标的级 ADL 风险，官方每 30 分钟更新 |
+| | `GET /fapi/v1/exchangeInfo` | 1 | 1800s | TradFi 分类与合约元数据 |
+| | `GET /fapi/v1/tradingSchedule` | 5 | 1800s | TradFi 各市场前后一周交易时段 |
 | | `GET /fapi/v1/leverageBracket` | 1 | 24h | 维持保证金分档；重新取数不穿透 |
+| `stocks` | `GET /sapi/v1/equity/market/tokenized-assets` | 1 | 6h | `AAPLB` 等钱包资产映射到股票代码；API key、不签名 |
 | `earn` | `GET /sapi/v1/simple-earn/flexible/position` | 150 | 300s | UID 限速 |
 | | `GET /sapi/v1/simple-earn/locked/position` | 150 | 300s | UID 限速 |
 | `margin` | `GET /sapi/v1/margin/account` | 10 | 60s | 全仓杠杆 |
@@ -415,12 +439,17 @@ U 本位三种，理财、资金、币本位没有历史快照，拿它算盈亏
 | 合约条件单 | `GET /fapi/v1/openAlgoOrders` | **40**（不带 symbol） | 30s | TP/SL/追踪止损 |
 | 杠杆挂单 | `GET /sapi/v1/margin/openOrders` | 10 | 30s | — |
 | 策略单 | `GET /sapi/v1/algo/futures/openOrders` | 1 | 300s | — |
+| 股票挂单 | `GET /sapi/v1/equity/order/open-orders` | 1 | 30s | 全部未完成委托；裸 ticker、USDC、股票时段 |
 | 现货历史 | `GET /api/v3/allOrders` | 20 † / symbol | 300s | **24 小时** |
 | 合约历史 | `GET /fapi/v1/allOrders` | 5 / 时间窗 | 300s | symbol 可省，单窗 **< 7 天**，只回溯 90 天 |
+| 股票历史 | `GET /sapi/v1/equity/order/history` | 1 / 页 | 300s | 起止时间必填，symbol 可省，最多 100 条/页 |
 | 成交 | `GET /api/v3/myTrades` · `/fapi/v1/userTrades` | 20 † / 5 † | 300s | 同上 |
+| 股票成交 | `GET /sapi/v1/equity/trade/history` | 1 / 页 | 300s | 逐笔成交；当前响应不含 maker 与逐笔手续费 |
 
 现货历史与成交、合约成交仍按标的扇出。合约委托历史使用省略 symbol 的全账户查询，
-按小于 7 天的时间窗覆盖 90 天；现货历史按 id 翻页，避免只看最近 24 小时。
+按小于 7 天的时间窗覆盖 90 天；现货历史按 id 翻页，避免只看最近 24 小时。股票委托与
+成交使用全账户分页查询，不需要从余额猜 ticker；其响应没有提供的 maker / 逐笔手续费
+保持 `null`。
 
 ### 流水页 `/ledger`
 

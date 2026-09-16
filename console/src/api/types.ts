@@ -18,11 +18,11 @@ export type SourceKey =
   // 行情是**公开端点**，不需要凭据。它单独成一个来源：没配 key 时它照常正常，
   // 而其余全部 unauthorized——界面据此能分清"网络/凭据问题"与"确实没有资产"。
   | 'prices'
-  | 'wallets' | 'spot' | 'futures'
+  | 'wallets' | 'spot' | 'stocks' | 'futures'
   | 'earn' | 'margin' | 'income' | 'transfers'
   // 委托页
   | 'spot_open' | 'futures_open' | 'margin_open' | 'order_lists' | 'algo_open'
-  | 'conditional_open'
+  | 'conditional_open' | 'equity_market' | 'equity_open'
   | 'order_history' | 'trade_history'
   // 流水页
   | 'deposits' | 'withdrawals' | 'wallet_transfers' | 'earn_rewards'
@@ -72,6 +72,27 @@ export type SpotAsset = {
   value_usd: number | null
 }
 
+export type TokenizedStockAsset = {
+  /** Binance 钱包资产代码，例如 AAPLB。 */
+  asset_code: string
+  name: string
+  /** 官方 tokenized-assets 映射的股票代码，例如 AAPL。 */
+  symbol: string
+  qty: number
+  multiplier: number | null
+  underlying_qty: number | null
+  value_usd: number | null
+  wallet: WalletKind
+}
+
+export type StocksAccount = {
+  /** Stocks Trading 目前没有可读取持仓的账户端点。 */
+  standalone_positions_available: false
+  coverage_detail: string
+  /** 钱包详情中可验证、并由官方映射回股票代码的代币化股票。 */
+  tokenized_assets: TokenizedStockAsset[]
+}
+
 export type PositionSide = 'long' | 'short' | 'both'
 
 export type MaintenanceBracket = {
@@ -102,6 +123,13 @@ export type FuturesPosition = {
   maintenance_brackets: MaintenanceBracket[]
   /** 自动减仓排队分位 0–4，越高越先被减仓；取不到为 null */
   adl_quantile: number | null
+  /** exchangeInfo 给出的 TradFi 产品分类与交易时段。 */
+  tradfi: boolean
+  underlying_type: string | null
+  underlying_subtypes: string[]
+  market_session: string | null
+  /** 交易所按标的发布的 ADL 风险等级，与上面的账户排队分位不同。 */
+  symbol_adl_risk: string | null
 }
 
 export type FuturesAccount = {
@@ -294,6 +322,7 @@ export type PortfolioSnapshot = {
   stable_assets: string[]
   wallets: WalletBucket[]
   spot: SpotAsset[]
+  stocks: StocksAccount
   futures: FuturesAccount | null
   earn: EarnPosition[]
   margin: MarginAccount | null
@@ -329,7 +358,7 @@ export class PortfolioError extends Error {
  * 上限写在界面上，而不是假装能给出一条无限流水。
  * ------------------------------------------------------------------ */
 
-export type OrderVenue = 'spot' | 'usdm' | 'margin'
+export type OrderVenue = 'spot' | 'usdm' | 'margin' | 'equity'
 
 export type OrderSide = 'buy' | 'sell'
 
@@ -352,6 +381,10 @@ export type Order = {
   id: string
   venue: OrderVenue
   symbol: string
+  /** 股票交易原生为 USDC；其他账户当前不单独暴露计价币。 */
+  quote_asset: string | null
+  /** Stocks Trading 的交易时段；其他 venue 为 null。 */
+  trading_session: 'rth' | 'extended' | '24h' | null
   side: OrderSide
   kind: OrderKind
   status: OrderStatus
@@ -403,7 +436,7 @@ export type Fill = {
   qty: number
   quote_qty: number
   /** 单位是 `commission_asset`，不是美元 */
-  commission: number
+  commission: number | null
   commission_asset: string
   /**
    * 上面那笔手续费的 USD 计价。**求和只能用这个**：现货常用 BNB 抵扣、合约结在
@@ -412,7 +445,7 @@ export type Fill = {
    */
   commission_usd: number | null
   /** 挂单成交（返佣/低费率）还是吃单成交 */
-  is_maker: boolean
+  is_maker: boolean | null
   /** 仅合约有；现货成交不结算盈亏 */
   realized_pnl: number | null
   time: string

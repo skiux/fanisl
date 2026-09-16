@@ -176,13 +176,17 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
       return {
         as_of: iso,
         base_currency: 'USD',
-        sources: (['wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers'] as const)
+        sources: (['wallets', 'spot', 'stocks', 'futures', 'earn', 'margin', 'income', 'transfers'] as const)
           .map((key) => ({
             key, status: 'unauthorized' as const, as_of: null,
             detail: 'API key 无读取权限，或调用 IP 不在白名单内',
           })),
         totals: null, stable_assets: fx.STABLE_FIXTURE,
-        wallets: [], spot: [], futures: null, earn: [], margin: null,
+        wallets: [], spot: [], stocks: {
+          standalone_positions_available: false,
+          coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点。',
+          tokenized_assets: [],
+        }, futures: null, earn: [], margin: null,
         income: null, transfers: null, pnl: null,
       }
     }
@@ -192,11 +196,15 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
       return {
         as_of: iso,
         base_currency: 'USD',
-        sources: (['wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers'] as const)
+        sources: (['wallets', 'spot', 'stocks', 'futures', 'earn', 'margin', 'income', 'transfers'] as const)
           .map((key) => fx.okSource(key, iso)),
         totals: { equity_usd: 0, gross_exposure_ratio: null },
         stable_assets: fx.STABLE_FIXTURE,
-        wallets: [], spot: [], futures: null, earn: [], margin: null,
+        wallets: [], spot: [], stocks: {
+          standalone_positions_available: false,
+          coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点。',
+          tokenized_assets: [],
+        }, futures: null, earn: [], margin: null,
         income: null, transfers: null, pnl: null,
       }
     }
@@ -230,7 +238,9 @@ export async function fetchPortfolio(
 /* --------------------------- 委托 --------------------------- */
 
 /** 451 打在 fapi 上会带走合约挂单，以及按合约交易对查的历史与成交 */
-const FAPI_ORDER_SOURCES: SourceKey[] = ['futures_open', 'algo_open', 'order_history', 'trade_history']
+const FAPI_ORDER_SOURCES: SourceKey[] = [
+  'futures_open', 'conditional_open', 'algo_open', 'order_history', 'trade_history',
+]
 
 function emptyOrders(asOf: string | null, status: SourceStatus, detail: string | null): OrdersSnapshot {
   return {

@@ -87,7 +87,9 @@ PRICES = [
 WALLETS = [
     {"activate": True, "balance": "0.30", "walletName": "Spot",
      "assetBalances": [{"asset": "USDT", "free": "100", "locked": "0",
-                        "freeze": "0", "withdrawing": "0", "btcValuation": "0.001"}]},
+                        "freeze": "0", "withdrawing": "0", "btcValuation": "0.001"},
+                       {"asset": "AAPLB", "free": "2", "locked": "0",
+                        "freeze": "0", "withdrawing": "0", "btcValuation": "0.004"}]},
     {"activate": True, "balance": "0.09", "walletName": "USDⓈ-M Futures"},
     {"activate": True, "balance": "0.02", "walletName": "Earn"},
     {"activate": False, "balance": "0", "walletName": "Isolated Margin"},
@@ -141,6 +143,22 @@ FUT_RISK = [
 ]
 FUT_ADL = [{"symbol": "NVDAUSDT", "adlQuantile": {"BOTH": 1}},
            {"symbol": "QQQUSDT", "adlQuantile": {"BOTH": 2}}]
+FUT_SYMBOL_ADL = [
+    {"symbol": "NVDAUSDT", "adlRisk": "medium", "updateTime": int(NOW.timestamp() * 1000)},
+    {"symbol": "QQQUSDT", "adlRisk": "low", "updateTime": int(NOW.timestamp() * 1000)},
+]
+FUT_EXCHANGE_INFO = {"timezone": "UTC", "symbols": [
+    {"symbol": "NVDAUSDT", "baseAsset": "NVDA", "quoteAsset": "USDT",
+     "underlyingType": "EQUITY", "underlyingSubType": ["US_EQUITY"]},
+    {"symbol": "QQQUSDT", "baseAsset": "QQQ", "quoteAsset": "USDT",
+     "underlyingType": "EQUITY", "underlyingSubType": ["US_EQUITY", "ETF"]},
+]}
+FUT_TRADING_SCHEDULE = {"updateTime": int(NOW.timestamp() * 1000), "marketSchedules": {
+    "EQUITY": {"sessions": [
+        {"startTime": int((NOW - timedelta(hours=2)).timestamp() * 1000),
+         "endTime": int((NOW + timedelta(hours=6)).timestamp() * 1000), "type": "REGULAR"},
+    ]},
+}}
 BRACKETS = [
     {"symbol": "NVDAUSDT", "notionalCoef": "1.5", "brackets": [
         {"bracket": 1, "notionalFloor": "0", "notionalCap": "10000",
@@ -201,6 +219,9 @@ ROUTES = {
     "/fapi/v1/accountConfig": FUT_CONFIG,
     "/fapi/v3/positionRisk": FUT_RISK,
     "/fapi/v1/adlQuantile": FUT_ADL,
+    "/fapi/v1/symbolAdlRisk": FUT_SYMBOL_ADL,
+    "/fapi/v1/exchangeInfo": FUT_EXCHANGE_INFO,
+    "/fapi/v1/tradingSchedule": FUT_TRADING_SCHEDULE,
     "/fapi/v1/leverageBracket": BRACKETS,
     "/sapi/v1/simple-earn/flexible/position": EARN_FLEX,
     "/sapi/v1/simple-earn/locked/position": EARN_LOCKED,
@@ -314,6 +335,39 @@ CONDITIONAL_OPEN = [
      "triggerTime": 0, "goodTillDate": 0},
 ]
 
+EQUITY_EXCHANGE_INFO = {"timezone": "UTC", "symbols": [
+    {"symbol": "AAPL", "tradability": "BUY_SELL", "overnightSupported": True,
+     "fractionable": True, "fractionableEh": False, "extendedSession": True},
+    {"symbol": "NVDA", "tradability": "BUY_SELL", "overnightSupported": True,
+     "fractionable": True, "fractionableEh": True, "extendedSession": True},
+]}
+EQUITY_TOKENIZED = [
+    {"assetCode": "AAPLB", "assetName": "Apple Inc. Tokenized Stock",
+     "underlyingEquitySymbol": "AAPL", "multiplier": "1", "multiplierValid": True},
+]
+EQUITY_OPEN = [
+    {"orderId": "eq-open-aapl", "symbol": "AAPL", "quote": "USDC", "side": "BUY",
+     "orderType": "LIMIT", "limitPrice": "230.00", "avgFilledPrice": None,
+     "qty": "3", "notional": None, "filledQty": "1", "filledTotal": None,
+     "fee": "0.10", "session": "RTH", "status": "PARTIALLY_FILLED",
+     "createdAt": int((NOW - timedelta(hours=4)).timestamp() * 1000),
+     "updatedAt": int((NOW - timedelta(hours=2)).timestamp() * 1000)},
+]
+EQUITY_HISTORY = {"total": 1, "page": 1, "size": 100, "rows": [
+    {"orderId": "eq-history-nvda", "symbol": "NVDA", "quote": "USDC", "side": "BUY",
+     "orderType": "MARKET", "limitPrice": None, "avgFilledPrice": "215.25",
+     "qty": None, "notional": "1000", "filledQty": "4.6457607", "filledTotal": "1000",
+     "fee": "0.20", "session": None, "status": "FILLED",
+     "createdAt": int((NOW - timedelta(days=6)).timestamp() * 1000),
+     "updatedAt": int((NOW - timedelta(days=6)).timestamp() * 1000)},
+]}
+EQUITY_TRADES = {"total": 1, "page": 1, "size": 100, "rows": [
+    {"executionId": "eq-fill-nvda", "orderId": "eq-history-nvda", "symbol": "NVDA",
+     "quote": "USDC", "side": "BUY", "orderType": "MARKET", "price": "215.25",
+     "qty": "4.6457607", "total": "1000", "executionAt": int((NOW - timedelta(days=6)).timestamp() * 1000),
+     "updatedAt": int((NOW - timedelta(days=6)).timestamp() * 1000)},
+]}
+
 FUT_ALL_ORDERS = [
     {"orderId": 5100001, "symbol": "NVDAUSDT", "status": "FILLED", "price": "205.60",
      "avgPrice": "205.60", "origQty": "38", "executedQty": "38", "timeInForce": "GTC",
@@ -363,6 +417,14 @@ ROUTES.update({
     "/api/v3/openOrderList": ORDER_LISTS,
     "/sapi/v1/algo/futures/openOrders": ALGO_OPEN,
     "/fapi/v1/openAlgoOrders": CONDITIONAL_OPEN,
+    "/sapi/v1/equity/market/exchangeInfo": EQUITY_EXCHANGE_INFO,
+    "/sapi/v1/equity/market/tokenized-assets": EQUITY_TOKENIZED,
+    "/sapi/v1/equity/market/quote": {"symbol": "AAPL", "bidPrice": "229.90",
+                                               "askPrice": "230.10", "bidSize": 20,
+                                               "askSize": 18},
+    "/sapi/v1/equity/order/open-orders": EQUITY_OPEN,
+    "/sapi/v1/equity/order/history": EQUITY_HISTORY,
+    "/sapi/v1/equity/trade/history": EQUITY_TRADES,
     "/fapi/v1/allOrders": FUT_ALL_ORDERS,
     "/fapi/v1/userTrades": FUT_USER_TRADES,
     "/api/v3/allOrders": SPOT_ALL_ORDERS,

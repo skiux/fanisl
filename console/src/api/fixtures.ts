@@ -3,7 +3,7 @@ import { NVDA_ENTRY_PRICE, OPEN_POSITION_QTY, spotLockedByAsset } from './orders
 import type {
   DailyPnl, EarnPosition, FuturesAccount, FuturesPosition, Pnl,
   IncomeBreakdown, MarginAccount, PortfolioSnapshot, SourceState, SpotAsset,
-  Transfers, WalletBucket,
+  StocksAccount, Transfers, WalletBucket,
 } from './types'
 
 /** locked（挂单占用）不在这里写死，由委托 fixture 反推，两页的数对得上 */
@@ -117,8 +117,28 @@ export const positions: FuturesPosition[] = RAW_POSITIONS.map((row) => {
       maint_amount_usd: 0,
     }],
     adl_quantile: row.adl_quantile,
+    tradfi: true,
+    underlying_type: row.base === 'XAU' ? 'COMMODITY' : 'EQUITY',
+    underlying_subtypes: row.base === 'XAU' ? ['PRECIOUS_METAL'] : ['US_EQUITY'],
+    market_session: 'REGULAR',
+    symbol_adl_risk: row.adl_quantile !== null && row.adl_quantile >= 2 ? 'medium' : 'low',
   }
 })
+
+export const stocks: StocksAccount = {
+  standalone_positions_available: false,
+  coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点；这里仅列出钱包详情中可验证的代币化股票资产。',
+  tokenized_assets: [{
+    asset_code: 'AAPLB',
+    name: 'Apple Inc. Tokenized Stock',
+    symbol: 'AAPL',
+    qty: 2,
+    multiplier: 1,
+    underlying_qty: 2,
+    value_usd: 460,
+    wallet: 'spot',
+  }],
+}
 
 const FUTURES_WALLET = 18_500
 
@@ -206,6 +226,7 @@ const FUNDING_WALLET = 1842.3
 
 export const wallets: WalletBucket[] = (() => {
   const spotValue = spot.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
+    + stocks.tokenized_assets.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
   const earnValue = earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
   const bucket = (kind: WalletBucket['kind'], value: number, activate = true): WalletBucket => ({
     kind, value_usd: value, btc_valuation: value / (PRICE.BTC as number), activate,
@@ -388,14 +409,14 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
     as_of: iso,
     base_currency: 'USD',
     sources: ([
-      'wallets', 'spot', 'futures', 'earn', 'margin', 'income', 'transfers',
+      'wallets', 'spot', 'stocks', 'futures', 'earn', 'margin', 'income', 'transfers',
     ] as const).map((key) => okSource(key, iso)),
     totals: {
       equity_usd: equity,
       gross_exposure_ratio: equity > 0 ? notional / equity : null,
     },
     stable_assets: STABLE_FIXTURE,
-    wallets, spot, futures, earn, margin, income, transfers,
+    wallets, spot, stocks, futures, earn, margin, income, transfers,
     pnl: buildPnl(),
   }
 }

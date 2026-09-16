@@ -160,6 +160,7 @@ export const SOURCE_LABEL: Record<string, string> = {
   prices: '现价',
   wallets: '钱包分布',
   spot: '现货账户',
+  stocks: '股票资产',
   futures: '合约账户',
   earn: '理财持仓',
   margin: '杠杆账户',
@@ -168,6 +169,8 @@ export const SOURCE_LABEL: Record<string, string> = {
   spot_open: '现货挂单',
   futures_open: '合约挂单',
   conditional_open: '合约条件单',
+  equity_market: '股票市场',
+  equity_open: '股票挂单',
   margin_open: '杠杆挂单',
   order_lists: 'OCO 组',
   algo_open: '策略单',
@@ -210,6 +213,7 @@ export const VENUE_LABEL: Record<string, string> = {
   spot: '现货',
   usdm: '合约',
   margin: '杠杆',
+  equity: '股票',
 }
 
 /** origType 的中文。市价类与限价类要能一眼分开，触发类还要看出是止盈还是止损 */
