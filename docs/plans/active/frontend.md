@@ -31,3 +31,8 @@
   请求点名的两处之外，判定档案待执行视图与内容页的单元标题行也改了
 - knowledge：核查 tab 与待确认入口，见 Now
 - base：`frontend/AGENTS.md` 的归属说明已改为"接口变更请求写进 `base.md`"
+- **knowledge 席位（2026-09-17）**：知识站上去掉按角色区分的地方，所有登录用户一视同仁
+  （根 `AGENTS.md` §1，用户定的原则）。实测四处：`UnitReviews.tsx` 的 `canWrite`、
+  `frontend/src/shared/navigation/ReviewInbox.tsx` 的 `isAdmin`、`frontend/src/shared/auth/AccountMenu.tsx` 的角色标签与
+  「用户管理」入口（用户管理在 console 里）、`reviews.ts` 的注释。接口侧由 base 同步放开；
+  base 上线前 member 点提交仍会拿到 403。验收见 `features/unit-review.md` 第 6 节 3c

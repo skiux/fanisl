@@ -20,6 +20,11 @@ the wrong place.
 engine's site.** `console/` is a separate application. They share only
 `shared/login/`.
 
+**Roles (`admin` / `member`) are a console concept.** They decide what the
+console shows: members see 90 days of PnL, and only admins force a refetch or
+manage users. The knowledge site treats every logged-in user the same. Do not
+add role checks to `/knowledge/*`, `/asset`, `/research/*`, or `frontend/`.
+
 ## 2. Session ownership
 
 Sessions run in parallel. **Conflicts happen per file, not per feature**, so
@@ -34,25 +39,39 @@ ownership is per file. Find your seat, then read that directory's `AGENTS.md`.
 | **analysis** | nothing — read-only |
 
 The **analysis** seat answers questions about markets and about what is in the
-corpus. It reads the databases and the docs and writes nothing: no code, no
-schema changes, no writes to any database, no commits. If answering a question
-would require a code change, say so and stop — that work belongs to another
-seat. Numbers in an answer must come from a query that was actually run, with
-the query shown.
+corpus. Its job is judgment: give a view, say how confident you are, and say
+what would change your mind. It owns no files, so it makes no code, schema, or
+database changes. Everything else is open to it: read-only queries of any
+complexity, scratch scripts and files outside the repo, public data from the
+web. Keep three kinds of statement apart: numbers measured from our data (list
+the queries at the end), inferences drawn from them, and background market
+knowledge (say how current it is). When the data or code you need does not
+exist, answer with what is available, then add a request to the owning seat's
+`docs/plans/active/<seat>.md`. Do not stop at "this needs a code change".
 
 1. **A contract file has one owner, and the owner is the producer, not the
    consumer.** `backend/api.md` → base. `backend/fanisl/assets.py` → knowledge
    (it is the asset registry; the extraction pipeline discovers new symbols,
    the frontend only reads it).
-2. **Do not edit outside your seat.** Write the request into
+2. **Do not edit code or contracts outside your seat.** Write the request into
    `docs/plans/active/<seat>.md` instead. Ownership ambiguity once froze
    `assets.py` for over a week; a dozen symbols went unregistered and their
-   units were silently invisible on asset pages.
+   units were silently invisible on asset pages. Plain factual corrections to
+   docs anywhere (a stale number, a broken link, a wrong path) are fine: make
+   them and mention them in your report.
 3. **The two frozen specs belong to the knowledge seat:**
    `knowledge/extraction-guide.md`, `merge-guide.md`. Changing either requires
    bumping `extractor_version` and saying why.
 4. `shared/login/` and `docs/DOMAIN.md` are read by several seats. Changing
    them affects both frontends — say so in your report.
+5. **Repo-wide guides** (`AGENTS.md`, `docs/CONVENTIONS.md`,
+   `docs/OPERATIONS.md`) change when the user asks, by whichever seat is asked.
+
+**Ownership limits writes, not thinking.** Every seat may read any file, run
+read-only queries, write scratch scripts outside the repo, try things locally,
+and state an opinion. If a rule seems to block the useful answer, name the rule
+and give the answer you would give without it; the user decides. Quietly
+returning less is the failure mode these rules must not produce.
 
 
 ## 3. How to work
@@ -69,7 +88,8 @@ means remove one nesting level, not "make `src` the package name".
 "might conflict" — go run something. Claims like "flat layout risks namespace
 collisions" turned out to be **0 collisions** when actually measured. This
 codebase's docstrings are full of measurements ("52% awake over 9.2 days");
-match that standard.
+match that standard. This applies to facts. Judgment and hypotheses are
+welcome: label them as such rather than leaving them out.
 
 **Verify before you claim.** Never write "done", "fixed", or "works" for
 something you have not run. Paste the real output, not a paraphrase of it. If
@@ -77,7 +97,7 @@ it failed, say so with the output. The bar per seat:
 
 | Seat | Done means |
 |---|---|
-| backend / knowledge | `PYTHONPATH=. python -m pytest tests -q` — 534 passed |
+| backend / knowledge | `PYTHONPATH=. python -m pytest tests -q` — all pass |
 | frontend / console | `npm run test && npm run typecheck`, **plus you looked at the page** |
 | docs | every markdown link resolves |
 | server | `/health` 200 **and** the actual page loads |
@@ -111,7 +131,7 @@ long gap. Several incidents here came from acting on a half-read file.
 # Backend (from repo root)
 cd backend && source .venv/bin/activate
 PYTHONPATH=. uvicorn fanisl.main:app --reload      # API on :8000
-python -m pytest tests -q                          # 534 tests
+python -m pytest tests -q                          # all must pass
 
 # Frontends
 cd frontend && npm run dev      # knowledge engine site, :5173

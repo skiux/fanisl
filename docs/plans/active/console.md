@@ -20,6 +20,10 @@
   （最后几个提交：`7e3d46d` 饼图自绘 SVG、`f00b04d` 风险控制页重排）
 - `fanisl-trader.service` 在服务器上未启用，交易 worker 是休眠的；
   前端读的是账本与持仓，不依赖它
+- **（knowledge 席位 2026-09-17 记，供参考）正股的成本、逐日盈亏若要补，行情从哪来**：Binance
+  股票没有 REST 日线（`binance/README.md` 已写明）。知识库 `daily_bars` 有美股日收盘（yfinance），
+  但只覆盖语料里出现过的 90 个符号——实测 NVDA、AAPL、TSLA 在，SOXL 不在——而且在另一个产品的库里。
+  要用它得 base 出跨库接口、knowledge 扩 `SYMBOL_MAP`，属于跨产品决定，动手前先问用户
 
 ## Blocked on
 - 无

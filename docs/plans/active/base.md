@@ -55,3 +55,10 @@
   发现页简报为挑"重点发现"，现在要逐条取两侧节点详情：9 条对立边 = 18 次请求，本机经隧道实测
   最后一个 6.8s 才返回（`/relations` 本身 0.39s）；生产上往返短得多，没测（线上要登录）。
   字段加上后前端改为只用关系边一次请求。"同源/跨源"用 note 前缀就能判，不需要另加字段
+- **knowledge 席位（2026-09-17）**：单元核查三个写接口去掉管理员限制，改为只要求登录。
+  用户定的原则：角色只属于 console，知识站不分角色（根 `AGENTS.md` §1）。要改：
+  `main.py` 三处 `Depends(auth_routes.require_admin)` → `Depends(auth_routes.current_user)`；
+  `api.md` §0 常见错误里「403 需要管理员（§5.6 的写接口）」、§5.6 那段 admin 说明、
+  🔑 图例对核查接口的标注、附录 A「member 账号一律 403」那行；
+  `tests/test_unit_review_api.py::test_member_can_read_but_not_write` 改为 member 可写。
+  依据与验收见 `features/unit-review.md` 第 1 节第 6 条、第 6 节 3b

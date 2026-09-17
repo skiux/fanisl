@@ -1,6 +1,6 @@
 # 单元核查：站上提意见 → 知识席位答复、修改、复盘
 
-立于 2026-09-13。**知识席位的部分已完成**，等 base 与 frontend。
+立于 2026-09-13。知识、base、frontend 三方已落地（2026-09-14）。**2026-09-17 取消写操作的管理员限制**（第 1 节第 6 条），base 与 frontend 各有一处要改，见第 6 节。
 
 ## 0. 要解决的事
 
@@ -22,6 +22,10 @@
    pydantic 载荷校验、quote 须逐字出自原文。**已有评分记录的单元不许改评分相关字段**——
    评分器只认冻结的 spec，改了之后历史评分对不上单元。
 5. **v1 只做单元粒度。** 对整期内容"漏提了什么"的意见不在这一版。
+6. **写操作只要求登录，不分角色**（2026-09-17 改）。原先"v1 只让管理员提交"的规定撤销：
+   角色只属于 console，知识站对所有登录用户一视同仁（根 `AGENTS.md` §1）。
+   第 2 条不受影响——答复只走 CLI 是身份问题不是角色问题，站上任何账号都不能以知识席位发言。
+   v1 不做"只能关闭自己提的核查"：目前实际只有一位用户在提。
 
 ## 2. 数据模型（已建，`backend/fanisl/knowledge/store.py`）
 
@@ -100,23 +104,22 @@
 | 方法 | 路径 | 调用 | 权限 |
 |---|---|---|---|
 | GET | `/knowledge/units/{unit_id}/reviews` | `knowledge_store.reviews_for_unit(unit_id)` | 登录 |
-| POST | `/knowledge/units/{unit_id}/reviews`，体 `{category, body}` | `create_review(...)` | **admin** |
-| POST | `/knowledge/reviews/{review_id}/messages`，体 `{body}` | `add_review_message(...)` | **admin** |
-| POST | `/knowledge/reviews/{review_id}/close` | `close_review(review_id)` | **admin** |
+| POST | `/knowledge/units/{unit_id}/reviews`，体 `{category, body}` | `create_review(...)` | 登录 |
+| POST | `/knowledge/reviews/{review_id}/messages`，体 `{body}` | `add_review_message(...)` | 登录 |
+| POST | `/knowledge/reviews/{review_id}/close` | `close_review(review_id)` | 登录 |
 | GET | `/knowledge/reviews?status=&limit=` | `list_reviews(status=, limit=)` | 登录 |
 
 鉴权要点：
 
 - **`author` 一律取 `request.state.user["username"]`，请求体里即使带了也忽略。**
-- 写接口要求 `role=admin`，否则 403。`main.py` 已有 `_is_admin(request)`，
-  `auth/routes.py` 已有 `current_user(request)`（取不到就 401）。
-  理由：核查会驱动知识席位修改生产库里的单元，v1 只让管理员提交。
+- 写接口只要求登录：`Depends(auth_routes.current_user)`（取不到就 401）。
+  2026-09-17 之前要求 admin，已取消，理由见第 1 节第 6 条。
 - 写接口必须是 POST。会话 cookie 是 `SameSite=Lax`，跨站 POST 不会带 cookie，
   这就是现有的 CSRF 防线；**不要为了方便开 GET 形式的写操作**。
 - **不要开答复接口。** `role=extractor` 的消息只能由 CLI 写入。
-- 本机 `AUTH_ENABLED=false` 时注入的 `DISABLED_USER` 是 admin，写接口可以直接测。
+- 本机 `AUTH_ENABLED=false` 时注入 `DISABLED_USER`，写接口可以直接测。
 
-要有的接口测试：未登录 401、member 403、admin 成功且 `created_by` 取自会话而非请求体、
+要有的接口测试：未登录 401、member 与 admin 都能写且 `created_by` 取自会话而非请求体、
 三类异常分别映射 400 / 404 / 409。
 
 ## 5. 给 frontend 的请求
@@ -137,30 +140,33 @@
 5. **待确认入口**：知识席位答复后用户要能发现。用 `GET /knowledge/reviews?status=answered`
    做一个最小入口（位置由 frontend 定），点进去打开对应单元的核查 tab。没有它，
    用户只能逐个单元去翻，这个闭环就断了。
-6. **错误**：400 / 404 / 409 显示接口的 `detail`；403 显示"需要管理员权限"。
+6. **错误**：400 / 404 / 409 显示接口的 `detail`；401 按全站约定跳登录页。
 
 按 `frontend/AGENTS.md`：开 dev server 看页面、截图确认，再报告完成。
 
 **落地（2026-09-14）**：
 - 面板在 `frontend/src/features/knowledge/UnitReviews.tsx`，调用与类型在 `reviews.ts`。
   tab 计数在打开单元时就取，不等点进「核查」。
-- 待确认入口放在**顶栏**（`shared/navigation/ReviewInbox.tsx`），不放知识库里：日常入口是标的页，
+- 待确认入口放在**顶栏**（`frontend/src/shared/navigation/ReviewInbox.tsx`），不放知识库里：日常入口是标的页，
   答复要在每天都会经过的地方露头。只对 admin 显示，没有待确认时整个入口不渲染。
 - 直达链接 `#/knowledge?unit={id}&view=evidence&tab=review&review={id}`，落在那条核查上。
 - 成员（member）能看核查与答复，不给提交、回复、关闭的按钮；后端 403 仍是真正的闸，界面上一律显示
   "需要管理员权限"。
+- **以上两处按角色区分的做法在 2026-09-17 取消**（第 1 节第 6 条）：入口与按钮对所有登录用户开放。
 
 ## 6. 交接顺序与验收
 
 | 步 | 席位 | 做什么 | 完成标志 |
 |---|---|---|---|
 | 1 | knowledge | 表、store 方法、CLI、测试、文档 | **已完成** |
-| 2 | base | api.md §5.6 → 接口 → 鉴权 → 测试 → 推送 | `pytest` 全绿，线上 `/health` 200 |
+| 2 | base | api.md §5.6 → 接口 → 鉴权 → 测试 → 推送 | `pytest` 全绿，线上 `/health` 200 · **已完成**（`da1f14d`） |
 | 3 | frontend | 核查 tab + 待确认入口 | `npm run test && npm run typecheck`，截图 · **已完成**（2026-09-14，夹具验收；真接口待 base 推送上线后看一次） |
+| 3b | base | 三个写接口改为只要求登录；api.md 与测试同步（见 `base.md` Requests in） | member 可写；未登录仍 401 |
+| 3c | frontend | 去掉知识站上按角色区分的入口、按钮与账号菜单项（见 `frontend.md` Requests in） | member 账号能看到并使用提交、回复、关闭，截图 |
 | 4 | 用户 | 在站上对一条真实单元提交核查 | `review list` 能看到 |
 | 5 | knowledge | `review show` → 需要时 `amend` → `answer` | 站上显示答复与修改记录，用户可关闭 |
 
-整体验收：member 账号写接口 403；未登录 401；站上没有任何途径写出 `extractor` 消息；
+整体验收：任何登录账号都能提交、回复、关闭；未登录 401；站上没有任何途径写出 `extractor` 消息；
 `outcome=fixed` 的答复都能在站上看到对应的修改记录。
 
 ## 7. 不在 v1
