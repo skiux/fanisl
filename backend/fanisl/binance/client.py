@@ -383,20 +383,6 @@ class BinanceClient:
                                {"symbol": symbol, "startTime": start_ms,
                                 "endTime": end_ms, "limit": limit})
 
-    def futures_all_orders_all_symbols(self, *, start_ms: int, end_ms: int,
-                                       limit: int = 1000) -> list[dict]:
-        """全账户 USD-M 委托历史，按接口要求切成小于 7 天的时间窗。"""
-        window_ms = 7 * 24 * 60 * 60 * 1000 - 1
-        out: dict[str, dict] = {}
-        cursor = start_ms
-        while cursor <= end_ms:
-            until = min(cursor + window_ms, end_ms)
-            page = self.futures_all_orders(None, start_ms=cursor, end_ms=until, limit=limit)
-            for row in page or []:
-                out[str(row.get("orderId"))] = row
-            cursor = until + 1
-        return list(out.values())
-
     def equity_order_history(self, *, start_ms: int, end_ms: int,
                              symbol: str | None = None, size: int = 100,
                              max_pages: int = 100) -> list[dict]:

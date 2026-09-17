@@ -3,11 +3,15 @@
 这一页的结构被接口的一条硬边界决定：
 
     **当前挂单能一次拿全账户**   openOrders 的 symbol 可省（现货 weight 80、合约 40）
-    **历史的边界不同**           现货 allOrders / myTrades 与合约 userTrades 要 symbol；
-                                 合约 allOrders 已可省 symbol，但单次区间仍 < 7 天
+    **历史要按交易对问**         现货 allOrders / myTrades 与合约 userTrades 要 symbol；
+                                 股票委托与成交不要 symbol，一次拿全账户
 
-所以「挂单」是完整的，「历史」必须先选交易对，并且把窗口上限如实报给前端——
-那不是脚注，是这一页能给出什么的边界。
+所以「挂单」是完整的，「历史」是把候选交易对逐个问完再合并，并且把窗口上限如实
+报给前端——那不是脚注，是这一页能给出什么的边界。
+
+合约 allOrders 的 symbol 自 2026-08-25（官方 SDK 17.2.1）起可省，这里**不用**那个
+全账户查询：2026-09-17 线上「全部」里合约委托一条都没有，而逐个交易对查都在。
+那次请求是报错还是返回空没有留下记录，原因未查明，逐个问是已经验证过的那条路。
 
 一个读错就会全错的细节：**合约要读 `origType` 而不是 `type`**。条件单触发之后
 `type` 会变成 MARKET，只看它的话，一张止盈市价单在成交那一刻会变成"市价单"，
@@ -34,7 +38,11 @@ WINDOW = {
     "equity": {"max_hours": 90 * 24, "lookback_days": None},
 }
 
-TTL = {"open": 30, "lists": 60, "algo": 300, "history": 300, "prices": 30, "risk": 30}
+TTL = {"open": 30, "lists": 60, "algo": 300, "history": 300, "prices": 30, "risk": 30,
+       "income": 300}
+
+# 候选交易对从合约收支里找、股票历史往回取，都是 90 天：income 接口只留 90 天
+LOOKBACK_DAYS = 90
 
 # 现货：STOP_LOSS 是止损**市价**，STOP_LOSS_LIMIT 才是止损限价。这两个名字很容易读反。
 _SPOT_KIND = {
@@ -292,46 +300,78 @@ def _fill(row: dict, venue: str, prices: dict[str, float]) -> dict:
     }
 
 
-def _history_symbols(open_orders: list[dict], positions: Any, spot: Any,
-                     prices: dict[str, float]) -> list[str]:
-    """能查历史的交易对候选。
+def _history_candidates(open_orders: list[dict], positions: Any, income: Any,
+                        equity_rows: list[dict], spot: Any,
+                        prices: dict[str, float]) -> dict[str, str]:
+    """能查历史的交易对 → 它在哪个 venue。
 
-    allOrders 必须传 symbol，而 Binance 没有"我交易过哪些对"的接口。只能从
-    **有挂单 + 有持仓 + 现货余额能配出的交易对**推一份候选——做不到真正的全量，
-    这一点在界面上也要说明白。
+    现货 allOrders / myTrades 与合约 userTrades 必须按交易对问，而 Binance 没有
+    "我交易过哪些对"的接口，只能从手里的线索推：挂单、持仓、**合约收支**、
+    **股票委托**、现货余额。做不到真正的全量，这一点在界面上也要说明白。
+
+    合约收支与股票委托是 2026-09-17 加的：
+    - 合约的每笔成交都有 COMMISSION、持仓期间有 FUNDING_FEE，平掉的仓位能从 90 天
+      income 里找回来。原先只看当前持仓，平仓之后它的历史就不在「全部」里了。
+    - 股票委托历史不带 symbol 一次拿全。原先股票代码只在碰巧出现在本次结果里时
+      才进下拉框，选了别的交易对，SOXL 就从候选里消失了。
+
+    同一个代码出现在几处时，先登记的那处说了算：挂单与持仓在前，现货余额在最后
+    （BNBUSDT 既有合约仓位又有现货余额时算合约，与原先一致）。杠杆挂单仍按现货查——
+    历史走的是现货端点，这里不假装能分开。
     """
-    out = {o["symbol"] for o in open_orders if o["symbol"]}
+    out: dict[str, str] = {}
+
+    def add(symbol: str, venue: str) -> None:
+        if symbol and symbol not in out:
+            out[symbol] = venue
+
+    for order in open_orders:
+        add(order["symbol"], order["venue"] if order["venue"] in ("usdm", "equity") else "spot")
     for row in positions or []:
         if dec0(row.get("positionAmt")) != 0:
-            out.add(row.get("symbol", ""))
+            add(row.get("symbol", ""), "usdm")
+    for row in income or []:
+        # 划转与返佣这类行 symbol 是空串，add 会跳过
+        if isinstance(row, dict):
+            add(row.get("symbol", ""), "usdm")
+    for row in equity_rows:
+        if isinstance(row, dict):
+            add(row.get("symbol", ""), "equity")
     for row in spot or []:
         asset = row.get("asset", "")
         if asset and dec0(row.get("free")) + dec0(row.get("locked")) > 0:
             pair = f"{asset}USDT"
             if pair in prices:
-                out.add(pair)
-    return sorted(s for s in out if s)
-
-
-def _venue_of(symbol: str, futures_symbols: set[str]) -> str:
-    return "usdm" if symbol in futures_symbols else "spot"
+                add(pair, "spot")
+    return out
 
 
 def build_orders(client: BinanceClient, cache: SourceCache, *,
                  symbol: str | None = None, venue: str | None = None,
                  force: bool = False, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
+    end_ms = int(now.timestamp() * 1000)
+    lookback_start_ms = end_ms - LOOKBACK_DAYS * 24 * MS_HOUR
 
-    # prices / spot / futures.risk 与 /portfolio 共用同一批缓存键——已经取过就是免费的
+    # prices / spot / futures.risk / income 与 /portfolio 共用同一批缓存键——已经取过就是免费的
     base_jobs: list[tuple[str, int, Callable[[], Any]]] = [
         ("prices", TTL["prices"], client.spot_prices),
         ("spot", 60, client.user_asset),
         ("futures.risk", TTL["risk"], client.futures_position_risk),
+        ("income", TTL["income"],
+         lambda: client.futures_income(start_ms=lookback_start_ms, end_ms=end_ms)),
         ("orders.spot_open", TTL["open"], client.spot_open_orders),
         ("orders.futures_open", TTL["open"], client.futures_open_orders),
         ("orders.conditional_open", TTL["open"], client.futures_open_algo_orders),
         ("orders.equity_market", TTL["history"], client.equity_exchange_info),
         ("orders.equity_open", TTL["open"], client.equity_open_orders),
+        # 股票历史不带 symbol 就是全账户：一次取回，选了哪只股票在本地筛。
+        # 原先选中某只股票时带着 symbol 去问，却与「全部」共用这一个缓存键，
+        # 5 分钟内两种查询会拿到对方的结果（选 SOXL 看到别的股票，或反过来）。
+        ("orders.history:equity", TTL["history"],
+         lambda: client.equity_order_history(start_ms=lookback_start_ms, end_ms=end_ms)),
+        ("orders.trades:equity", TTL["history"],
+         lambda: client.equity_trade_history(start_ms=lookback_start_ms, end_ms=end_ms)),
         ("orders.margin_open", TTL["open"], client.margin_open_orders),
         ("orders.lists", TTL["lists"], client.spot_open_order_lists),
         ("orders.algo", TTL["algo"], client.algo_open_orders),
@@ -380,12 +420,26 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
     open_orders.sort(key=lambda o: o["created_at"] or "", reverse=True)
 
     futures_symbols = {r.get("symbol") for r in risk}
-    futures_symbols |= {o["symbol"] for o in open_orders if o["venue"] == "usdm"}
     market_payload = payload("orders.equity_market")
     equity_symbols = {row.get("symbol") for row in (
         market_payload.get("symbols", []) if isinstance(market_payload, dict) else [])}
-    equity_symbols |= {o["symbol"] for o in open_orders if o["venue"] == "equity"}
-    symbols = _history_symbols(open_orders, risk, payload("spot"), prices)
+    equity_orders_raw = [row for row in payload("orders.history:equity") or []
+                         if isinstance(row, dict)]
+    equity_fills_raw = [row for row in payload("orders.trades:equity") or []
+                        if isinstance(row, dict)]
+    candidates = _history_candidates(open_orders, risk, payload("income"),
+                                     [*equity_orders_raw, *equity_fills_raw],
+                                     payload("spot"), prices)
+
+    def venue_of(sym: str) -> str:
+        # 显式指定优先；其次是候选里登记的；都不在时按认得出的代码推断
+        if symbol and venue:
+            return venue
+        if sym in candidates:
+            return candidates[sym]
+        if sym in futures_symbols:
+            return "usdm"
+        return "equity" if sym in equity_symbols else "spot"
 
     # --- 历史：接口必须按交易对问，但那不该变成"页面替你挑了一个" -----------
     #
@@ -394,90 +448,60 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
     # "委托历史"。**不选就是全部**：把候选里的每一个都问一遍再合并。
     # `allOrders` / `myTrades` 的 symbol 必填是接口的限制，不是产品的形状。
     #
+    # 合约也逐个问，不用省略 symbol 的全账户查询（理由见模块注释）。「全部」与
+    # 「选定一个」因此走同一条路、共用同一批缓存键，同一个交易对在两处看到的不会不一样。
+    #
     # 代价是一次要发 2N 个请求（N = 候选交易对数）。可以接受的理由：候选本身由
-    # 持仓与余额界定（不是全市场），每个都按 `TTL["history"]` 缓存，
+    # 持仓、余额与近 90 天的收支界定（不是全市场），每个都按 `TTL["history"]` 缓存，
     # 而现货成交那一半 `/portfolio` 本来就在按同样的粒度取。
-    targets = [symbol] if symbol else list(symbols)
-    venues = {s: (venue if (symbol and venue) else
-                   ("equity" if s in equity_symbols else _venue_of(s, futures_symbols)))
-              for s in targets}
+    targets = [symbol] if symbol else sorted(candidates)
+    venues = {s: venue_of(s) for s in targets}
+    with_equity = not symbol or venues[symbol] == "equity"
     query = None
     history: list[dict] = []
     fills: list[dict] = []
     history_states: list[dict] = []
 
     if targets:
-        end_ms = int(now.timestamp() * 1000)
         # 按 id 翻页而不是按时间窗。时间窗最多 24 小时（现货）/ 7 天（合约），
         # 只取最近一个窗口的话，上次交易在窗口之前就是一片空白——这就是
         # "历史那里完全没有数据"。合约那边接口本身只留 90 天，走到头自然停。
+        crypto_targets = [s for s in targets if venues[s] != "equity"]
         jobs: list[tuple[str, int, Callable[[], Any]]] = []
-        global_futures_key = "orders.history:usdm:all"
-        equity_history_key = "orders.history:equity"
-        equity_trades_key = "orders.trades:equity"
-        for sym in targets:
+        for sym in crypto_targets:
             v = venues[sym]
-            if v == "equity":
-                continue
             # 默认参数绑定：闭包里直接用 `sym` 的话，循环结束后每个 lambda
             # 拿到的都是最后一个交易对
-            if symbol or v != "usdm":
-                jobs.append((f"orders.history:{v}:{sym}", TTL["history"],
-                             lambda s=sym, vv=v: client.orders_since(s, venue=vv)))
+            jobs.append((f"orders.history:{v}:{sym}", TTL["history"],
+                         lambda s=sym, vv=v: client.orders_since(s, venue=vv)))
             jobs.append((f"orders.trades:{v}:{sym}", TTL["history"],
                          (lambda s=sym: client.futures_trades_since(s)) if v == "usdm"
                          else (lambda s=sym: client.spot_trades_since(s))))
-        if not symbol:
-            global_start_ms = end_ms - WINDOW["usdm"]["lookback_days"] * 24 * MS_HOUR
-            jobs.append((global_futures_key, TTL["history"],
-                         lambda: client.futures_all_orders_all_symbols(
-                             start_ms=global_start_ms, end_ms=end_ms)))
-        if not symbol or venues.get(symbol) == "equity":
-            equity_start_ms = end_ms - 90 * 24 * MS_HOUR
-            equity_filter = symbol if symbol and venues.get(symbol) == "equity" else None
-            jobs.extend([
-                (equity_history_key, TTL["history"],
-                 lambda s=equity_filter: client.equity_order_history(
-                     start_ms=equity_start_ms, end_ms=end_ms, symbol=s)),
-                (equity_trades_key, TTL["history"],
-                 lambda s=equity_filter: client.equity_trade_history(
-                     start_ms=equity_start_ms, end_ms=end_ms, symbol=s)),
-            ])
         hist = fetch_all(cache, jobs, force=force)
 
         def _orders() -> list[dict]:
             out: list[dict] = []
-            for sym in targets:
+            for sym in crypto_targets:
                 v = venues[sym]
-                if v == "equity":
-                    continue
-                if not symbol and v == "usdm":
-                    continue
-                ref = reference_of(sym, v == "usdm")
                 got = hist[f"orders.history:{v}:{sym}"]
-                out.extend(_order(r, v, ref) for r in (got.payload or []))
-            if not symbol:
-                got = hist[global_futures_key]
-                out.extend(_order(r, "usdm", reference_of(r.get("symbol", ""), True))
+                out.extend(_order(r, v, reference_of(sym, v == "usdm"))
                            for r in (got.payload or []))
-            if not symbol or venues.get(symbol) == "equity":
-                got = hist[equity_history_key]
+            if with_equity:
                 out.extend(_equity_order(r, dec(r.get("avgFilledPrice"))
                                          or dec(r.get("limitPrice")))
-                           for r in (got.payload or []))
+                           for r in equity_orders_raw
+                           if not symbol or r.get("symbol") == symbol)
             return sorted(out, key=lambda o: o["created_at"] or "", reverse=True)
 
         def _fills() -> list[dict]:
             out: list[dict] = []
-            for sym in targets:
+            for sym in crypto_targets:
                 v = venues[sym]
-                if v == "equity":
-                    continue
                 got = hist[f"orders.trades:{v}:{sym}"]
                 out.extend(_fill(r, v, prices) for r in (got.payload or []))
-            if not symbol or venues.get(symbol) == "equity":
-                got = hist[equity_trades_key]
-                out.extend(_equity_fill(r) for r in (got.payload or []))
+            if with_equity:
+                out.extend(_equity_fill(r) for r in equity_fills_raw
+                           if not symbol or r.get("symbol") == symbol)
             return sorted(out, key=lambda f: f["time"] or "", reverse=True)
 
         history = parse("order_history", _orders, fallback=[]) or []
@@ -490,7 +514,7 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         # 报成最宽的那个等于替另一半打了包票
         looks = [x["lookback_days"] for x in limits if x["lookback_days"] is not None]
         lookback = min(looks) if looks else None
-        start_ms = end_ms - (lookback or 90) * MS_HOUR * 24
+        start_ms = end_ms - (lookback or LOOKBACK_DAYS) * MS_HOUR * 24
         query = {
             # 没指定交易对时是 None，不是"碰巧第一个"——界面据此写「全部」
             "symbol": symbol or None,
@@ -501,16 +525,16 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
             "max_window_hours": min(x["max_hours"] for x in limits),
             "lookback_days": lookback,
         }
-        history_results = [hist[f"orders.history:{venues[s]}:{s}"] for s in targets
-                           if venues[s] != "equity" and (symbol or venues[s] != "usdm")]
+        history_results = [hist[f"orders.history:{venues[s]}:{s}"] for s in crypto_targets]
+        trade_results = [hist[f"orders.trades:{venues[s]}:{s}"] for s in crypto_targets]
+        if with_equity:
+            history_results.append(results["orders.history:equity"])
+            trade_results.append(results["orders.trades:equity"])
         if not symbol:
-            history_results.append(hist[global_futures_key])
-        if not symbol or venues.get(symbol) == "equity":
-            history_results.append(hist[equity_history_key])
-        trade_results = [hist[f"orders.trades:{venues[s]}:{s}"] for s in targets
-                         if venues[s] != "equity"]
-        if not symbol or venues.get(symbol) == "equity":
-            trade_results.append(hist[equity_trades_key])
+            # 「全部」的候选靠合约收支补上已平仓的交易对。收支没取到，合并出来的历史
+            # 可能少了那几个交易对，不能报 ok
+            history_results.append(results["income"])
+            trade_results.append(results["income"])
         history_states = [
             {"key": "order_history", **_merge_states(history_results)},
             {"key": "trade_history", **_merge_states(trade_results)},
@@ -539,6 +563,7 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
             state["detail"] = errors[state["key"]]
     fresh = [datetime.fromisoformat(s["as_of"]) for s in states
              if s["status"] == "ok" and s["as_of"]]
+    history_symbols = sorted(set(candidates) | {o["symbol"] for o in history if o["symbol"]})
 
     return {
         "as_of": min(fresh).isoformat() if fresh else None,
@@ -546,8 +571,9 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         "open": open_orders,
         "order_lists": parse("order_lists",
                              lambda: _order_lists(payload("orders.lists")), fallback=[]) or [],
-        "history_symbols": sorted(set(symbols)
-                                  | {o["symbol"] for o in history if o["symbol"]}),
+        "history_symbols": history_symbols,
+        # 下拉框按它分组。股票代码没有计价币后缀，只按计价币分会落进「其他」
+        "history_venues": {s: candidates.get(s) or venue_of(s) for s in history_symbols},
         "query": query,
         "history": history,
         "fills": fills,

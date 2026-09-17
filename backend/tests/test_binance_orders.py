@@ -14,7 +14,7 @@ from fanisl.binance.cache import SourceCache
 from fanisl.binance.client import BinanceClient
 from fanisl.binance.orders import build_orders
 
-from binance_mock import NOW, make_transport
+from binance_mock import EQUITY_HISTORY, INCOME, NOW, make_transport
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def by_id(snap):
 def test_snapshot_shape_and_sources(cache):
     snap = build(cache)
     assert set(snap) == {"as_of", "sources", "open", "order_lists", "history_symbols",
-                         "query", "history", "fills"}
+                         "history_venues", "query", "history", "fills"}
     assert {s["key"] for s in snap["sources"]} == {
         "spot_open", "futures_open", "margin_open", "order_lists", "algo_open",
         "conditional_open", "equity_market", "equity_open",
@@ -202,7 +202,7 @@ def test_no_symbol_means_every_candidate_not_the_first_one(cache):
 
     q = snap["query"]
     assert q["symbol"] is None            # 没挑，也别装作挑了
-    assert q["symbols"] == ["AAPL", "BNBUSDT", "NVDAUSDT", "QQQUSDT"]
+    assert q["symbols"] == ["AAPL", "BNBUSDT", "NVDA", "NVDAUSDT", "QQQUSDT"]
     assert q["venue"] is None             # 跨 venue，没有单一答案
 
     # 现货与合约的记录都在，且按时间倒序合在一起
@@ -212,26 +212,114 @@ def test_no_symbol_means_every_candidate_not_the_first_one(cache):
         (o["created_at"] for o in snap["history"]), reverse=True)
 
 
-def test_default_futures_order_history_uses_the_account_wide_query(cache):
-    """allOrders 的 symbol 已可省略；全账户查询不会漏掉当前余额推不出的旧标的。"""
-    seen: list[tuple[str, dict[str, str]]] = []
+def _client(handler):
+    return BinanceClient("k", "s", client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+
+def test_all_history_asks_each_futures_symbol_not_the_account_wide_query(cache):
+    """「全部」的合约委托逐个交易对问，与选定一个走同一条路。
+
+    2026-09-17 线上：「全部」里只剩一笔股票委托，合约委托一条都没有，切换 7/30/90 天
+    委托历史纹丝不动（成交明细会变——它一直是逐个问的）；选定任一合约交易对又都查得到。
+    原先「全部」用的是省略 symbol 的全账户 allOrders。这里让那个查询返回空，
+    模拟线上的样子：合约委托照样要在。
+    """
+    seen: list[str | None] = []
     base = make_transport()
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/fapi/v1/allOrders":
-            seen.append((request.url.path, dict(request.url.params)))
+            params = dict(request.url.params)
+            seen.append(params.get("symbol"))
+            if "symbol" not in params:
+                return httpx.Response(200, json=[])
         return base.handler(request)
 
-    client = BinanceClient("k", "s", client=httpx.Client(
-        transport=httpx.MockTransport(handler)))
+    client = _client(handler)
     try:
-        build_orders(client, cache, force=True, now=NOW)
+        snap = build_orders(client, cache, force=True, now=NOW)
     finally:
         client.close()
 
-    assert len(seen) > 1                    # 90 天按每段小于 7 天切窗
-    assert all("symbol" not in params for _, params in seen)
-    assert all("startTime" in params and "endTime" in params for _, params in seen)
+    assert None not in seen
+    assert {"NVDAUSDT", "QQQUSDT"} <= set(seen)
+    assert [o["symbol"] for o in snap["history"] if o["venue"] == "usdm"] == ["NVDAUSDT", "NVDAUSDT"]
+
+
+def test_stock_symbols_stay_in_the_picker_whichever_pair_is_selected(cache):
+    """选了合约交易对之后，股票代码不能从下拉框里消失（线上 SOXL 就是这样）。
+
+    原先股票代码只在碰巧出现在本次历史结果里时才进候选。
+    """
+    snap = build(cache, symbol="NVDAUSDT")
+    assert "NVDA" in snap["history_symbols"]
+    assert snap["history_venues"]["NVDA"] == "equity"
+    assert snap["history_venues"]["NVDAUSDT"] == "usdm"
+    assert snap["history_venues"]["BNBUSDT"] == "spot"
+
+
+def test_one_stock_is_filtered_locally_from_the_account_wide_history(cache):
+    """股票历史一次取全账户，选定一只在本地筛。
+
+    原先选定时带着 symbol 去问，却与「全部」共用一个缓存键：5 分钟内先看「全部」
+    再选 NVDA，拿到的是缓存里所有股票的委托。
+    """
+    rows = [*EQUITY_HISTORY["rows"], {**EQUITY_HISTORY["rows"][0],
+                                      "orderId": "eq-history-tsla", "symbol": "TSLA"}]
+    seen: list[dict[str, str]] = []
+    base = make_transport()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/sapi/v1/equity/order/history":
+            seen.append(dict(request.url.params))
+            return httpx.Response(200, json={"total": 2, "page": 1, "size": 100, "rows": rows})
+        return base.handler(request)
+
+    client = _client(handler)
+    try:
+        everything = build_orders(client, cache, force=False, now=NOW)
+        one = build_orders(client, cache, symbol="NVDA", force=False, now=NOW)
+    finally:
+        client.close()
+
+    assert {o["symbol"] for o in everything["history"] if o["venue"] == "equity"} == {"NVDA", "TSLA"}
+    assert [o["symbol"] for o in one["history"]] == ["NVDA"]
+    assert one["query"]["venue"] == "equity"
+    assert seen and all("symbol" not in params for params in seen)
+
+
+def test_closed_futures_positions_are_found_through_income(cache):
+    """平掉的仓位不在持仓里、也没有挂单，但 90 天收支里有它的手续费。"""
+    income = [*INCOME, {"symbol": "TSLAUSDT", "incomeType": "COMMISSION", "income": "-1.20",
+                        "asset": "USDT", "time": int((NOW - timedelta(days=20)).timestamp() * 1000)}]
+    seen: list[str | None] = []
+    base = make_transport()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/fapi/v1/income":
+            return httpx.Response(200, json=income)
+        if request.url.path == "/fapi/v1/allOrders":
+            seen.append(dict(request.url.params).get("symbol"))
+        return base.handler(request)
+
+    client = _client(handler)
+    try:
+        snap = build_orders(client, cache, force=True, now=NOW)
+    finally:
+        client.close()
+
+    assert snap["history_venues"]["TSLAUSDT"] == "usdm"
+    assert "TSLAUSDT" in snap["query"]["symbols"]
+    assert "TSLAUSDT" in seen
+
+
+def test_income_failure_marks_all_history_incomplete(cache):
+    """「全部」的候选靠收支补全；收支没取到，合并出来的历史可能缺交易对，不能报 ok。"""
+    snap = build(cache, fail={"/fapi/v1/income": 451})
+    states = {s["key"]: s for s in snap["sources"]}
+    assert states["order_history"]["status"] == "unreachable"
+    assert states["trade_history"]["status"] == "unreachable"
+    assert snap["history"]                      # 取到的照常给
 
 
 def test_mixed_venues_report_the_tightest_window(cache):

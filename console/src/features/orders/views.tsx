@@ -257,6 +257,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
       span={span}
       symbol={symbol}
       symbols={snapshot.history_symbols}
+      venues={snapshot.history_venues}
     />
   )
 
@@ -319,6 +320,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
             span={span}
             symbol={symbol}
             symbols={snapshot.history_symbols}
+            venues={snapshot.history_venues}
           />
 
           <Module
@@ -367,7 +369,10 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
 }
 
 /**
- * 候选交易对分组。**按计价币分**，同一计价币里按标的字母序。
+ * 候选交易对分组。**加密货币按计价币分**，同一计价币里按标的字母序；**股票单独一组**。
+ *
+ * 股票代码是裸 ticker（SOXL），没有计价币后缀，按计价币分只会落进「其他」，
+ * 混在一长串 USDT 交易对后面很难找到——线上就是这样被当成"下拉框里没有 SOXL"。
  *
  * 有挂单的那几个在行尾标上条数——一份候选里能一眼认出"我正挂着单的是这些"，
  * 而那多半就是要查的。条数是数据，不是提示语。
@@ -378,36 +383,43 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
 /** 「全部」这一项的值。不能用空串——Radix Select 把空串当成"清空选择" */
 const ALL_SYMBOLS = '__all__'
 
-function symbolGroups(symbols: string[], open: Order[]): SelectGroup[] {
+function symbolGroups(symbols: string[], venues: Record<string, OrderVenue>, open: Order[]): SelectGroup[] {
   const counts = new Map<string, number>()
   for (const order of open) counts.set(order.symbol, (counts.get(order.symbol) ?? 0) + 1)
+  const badgeOf = (symbol: string) => {
+    const count = counts.get(symbol) ?? 0
+    return count > 0 ? `×${count}` : undefined
+  }
 
   const byQuote = new Map<string, SelectOption[]>()
+  const stocks: SelectOption[] = []
   for (const symbol of symbols) {
+    if (venues[symbol] === 'equity') {
+      stocks.push({ value: symbol, label: symbol, badge: badgeOf(symbol) })
+      continue
+    }
     const { base, quote } = splitPair(symbol)
-    const count = counts.get(symbol) ?? 0
     const list = byQuote.get(quote ?? '其他') ?? []
     list.push({
       value: symbol,
       label: base,
       suffix: quote ? ` ${quote}` : undefined,
-      badge: count > 0 ? `×${count}` : undefined,
+      badge: badgeOf(symbol),
     })
     byQuote.set(quote ?? '其他', list)
   }
 
-  const groups = [...byQuote.entries()]
+  const byLabel = (a: SelectOption, b: SelectOption) => a.label.localeCompare(b.label)
+  const groups: SelectGroup[] = [...byQuote.entries()]
     .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
-    .map(([label, options]) => ({
-      label, options: [...options].sort((a, b) => a.label.localeCompare(b.label)),
-    }))
+    .map(([label, options]) => ({ label, options: [...options].sort(byLabel) }))
+  if (stocks.length > 0) groups.push({ label: VENUE_LABEL.equity, options: stocks.sort(byLabel) })
   // 只有一组时不画分组标题——整份候选都是 USDT 计价很常见，那行标题什么也没区分
-  const quotes: SelectGroup[] = groups.length === 1
-    ? groups.map((group) => ({ options: group.options })) : groups
+  const titled = groups.length === 1 ? groups.map((group) => ({ options: group.options })) : groups
   // 「全部」单独一组：它不属于任何计价币，跟在某个标题下面读着像那一组里的一员
   return [
     { options: [{ value: ALL_SYMBOLS, label: '全部', suffix: ` ${symbols.length} 个` }] },
-    ...quotes,
+    ...titled,
   ]
 }
 
@@ -415,9 +427,10 @@ function symbolGroups(symbols: string[], open: Order[]): SelectGroup[] {
  * 查询条件本身就是这一页的内容。allOrders / myTrades 都必须传 symbol，
  * 单次区间还有上限——把这几条摆在明面上，好过让人以为这里是一条能一直翻的全量流水。
  */
-function QueryPanel({ symbol, symbols, open, query, slot, span, onSelectSpan, onSelectSymbol }: {
+function QueryPanel({ symbol, symbols, venues, open, query, slot, span, onSelectSpan, onSelectSymbol }: {
   symbol: string
   symbols: string[]
+  venues: Record<string, OrderVenue>
   /** 只为了在候选里标出哪些交易对正挂着单 */
   open: Order[]
   query: OrdersSnapshot['query']
@@ -434,7 +447,7 @@ function QueryPanel({ symbol, symbols, open, query, slot, span, onSelectSpan, on
         <div className="min-w-0 flex-1">
           <Select
             disabled={symbols.length === 0}
-            groups={symbolGroups(symbols, open)}
+            groups={symbolGroups(symbols, venues, open)}
             label="交易对"
             onValueChange={(next) => onSelectSymbol(next === ALL_SYMBOLS ? '' : next)}
             placeholder={symbols.length === 0 ? '没有可查的交易对' : '选择'}

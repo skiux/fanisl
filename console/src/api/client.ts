@@ -269,7 +269,8 @@ function emptyOrders(asOf: string | null, status: SourceStatus, detail: string |
   return {
     as_of: asOf,
     sources: ofx.ORDER_SOURCE_KEYS.map((key) => ({ key, status, as_of: asOf, detail })),
-    open: [], order_lists: [], history_symbols: [], query: null, history: [], fills: [],
+    open: [], order_lists: [], history_symbols: [], history_venues: {}, query: null,
+    history: [], fills: [],
   }
 }
 

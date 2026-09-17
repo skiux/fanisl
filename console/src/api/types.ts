@@ -579,10 +579,16 @@ export type OrdersSnapshot = {
   open: Order[]
   order_lists: OrderList[]
   /**
-   * 可查历史的交易对。allOrders 必须传 symbol，后端只能从"有挂单 + 有持仓 +
-   * 现货余额能配出的交易对"推一份候选，做不到真正的全量。
+   * 可查历史的交易对。现货 allOrders / myTrades 与合约 userTrades 必须传 symbol，
+   * 后端只能从"挂单 + 持仓 + 近 90 天合约收支 + 股票委托 + 现货余额"推一份候选，
+   * 做不到真正的全量。
    */
   history_symbols: string[]
+  /**
+   * 每个候选在哪个 venue。下拉框按它分组：股票代码（SOXL）没有计价币后缀，
+   * 只按计价币分会落进「其他」。
+   */
+  history_venues: Record<string, OrderVenue>
   query: HistoryQuery | null
   history: Order[]
   fills: Fill[]

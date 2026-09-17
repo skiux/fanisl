@@ -171,10 +171,18 @@ const RAW_SPOT_HISTORY: RawOrder[] = [
   { venue: 'spot', symbol: 'BNBUSDT', side: 'buy', kind: 'limit', qty: 3.4, price: 512, tif: 'GTC', status: 'canceled', ageMin: 71 * 24 * 60, touchedMin: 70 * 24 * 60 },
 ]
 
+/** 股票委托：代码是裸 ticker，没有计价币后缀（线上账户的第一笔就是 SOXL） */
+const RAW_EQUITY_HISTORY: RawOrder[] = [
+  { venue: 'equity', symbol: 'SOXL', side: 'buy', kind: 'market', qty: 40, filled: 40, status: 'filled', ageMin: 2 * 24 * 60 },
+]
+
 export function buildHistory(asOf: Date): Order[] {
   return [
     ...RAW_HISTORY.map((row, index) => toOrder(row, index + 90, asOf)),
     ...RAW_SPOT_HISTORY.map((row, index) => toOrder(row, index + 200, asOf)),
+    ...RAW_EQUITY_HISTORY.map((row, index) => ({
+      ...toOrder(row, index + 300, asOf), quote_asset: 'USDC', trading_session: 'rth' as const,
+    })),
   ].sort((a, b) => b.created_at.localeCompare(a.created_at))
 }
 
@@ -250,13 +258,21 @@ export function buildFills(asOf: Date): Fill[] {
   })].sort((a, b) => b.time.localeCompare(a.time))
 }
 
-/** 可查历史的交易对：有挂单的 + 有持仓的 + 现货余额能配出的 */
+/** 可查历史的交易对：挂单 + 持仓 + 近 90 天合约收支 + 股票委托 + 现货余额 */
 export const HISTORY_SYMBOLS = [
   'NVDAUSDT', 'QQQUSDT', 'XAUUSDT', 'AAPLUSDT', 'MSFTUSDT',
   'TSLAUSDT', 'AMZNUSDT', 'MUUSDT', 'BNBUSDT', 'BTCUSDT', 'ETHUSDT', 'SOLUSDT',
+  'SOXL',
 ]
 
 const SPOT_HISTORY_SYMBOLS = new Set(['BNBUSDT', 'BTCUSDT', 'ETHUSDT', 'SOLUSDT'])
+
+export const HISTORY_VENUES: Record<string, OrderVenue> = Object.fromEntries(
+  HISTORY_SYMBOLS.map((symbol) => [
+    symbol,
+    symbol === 'SOXL' ? 'equity' : SPOT_HISTORY_SYMBOLS.has(symbol) ? 'spot' : 'usdm',
+  ]),
+)
 
 /**
  * `symbol` 为 null = 默认那一档：候选里的每个都问过一遍再合并，
@@ -274,13 +290,15 @@ export function buildQuery(asOf: Date, symbol: string | null = null): HistoryQue
       lookback_days: 90,
     }
   }
-  const spot = SPOT_HISTORY_SYMBOLS.has(symbol)
+  const venue = HISTORY_VENUES[symbol] ?? 'usdm'
+  // 与后端 orders.WINDOW 一致：合约单次 < 7 天、回溯 90 天；现货单次 24 小时、
+  // 无回溯上限；股票接口没声明上限，按一次取 90 天报
+  const window = { spot: [24, null], usdm: [7 * 24, 90], margin: [24, null], equity: [90 * 24, null] }[venue]
   return {
-    symbol, symbols: [symbol], venue: spot ? 'spot' : 'usdm',
+    symbol, symbols: [symbol], venue,
     from, to: asOf.toISOString(),
-    // /fapi/v1/allOrders：单次区间 < 7 天，最多回溯 90 天；现货单次 24 小时、无回溯上限
-    max_window_hours: spot ? 24 : 7 * 24,
-    lookback_days: spot ? null : 90,
+    max_window_hours: window[0] as number,
+    lookback_days: window[1],
   }
 }
 
@@ -300,6 +318,7 @@ export function buildOrdersSnapshot(asOf: Date): OrdersSnapshot {
     open: buildOpenOrders(asOf),
     order_lists: buildOrderLists(asOf),
     history_symbols: HISTORY_SYMBOLS,
+    history_venues: HISTORY_VENUES,
     query: buildQuery(asOf),
     history: buildHistory(asOf),
     fills: buildFills(asOf),

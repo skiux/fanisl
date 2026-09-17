@@ -43,6 +43,12 @@
 
 ## Requests in
 - **console 席位**：pem 权限，见 Next 第 3 条
+- **console 席位（2026-09-17）**：`backend/api.md` 的 `GET /orders` 一节已与实现不符，请改：
+  ① Query 的 `venue` 还有 `equity`；② `history_symbols` 的候选来源现在是「挂单 + 持仓 +
+  近 90 天合约收支 + 股票委托与成交 + 现货余额」；③ 新字段 `history_venues`
+  （`{symbol: spot|usdm|margin|equity}`，前端按它给下拉框分组）；④「全部」时合约也逐个
+  交易对问，不用省略 symbol 的全账户 allOrders，理由见 `backend/fanisl/binance/README.md`
+  「委托页的硬边界」
 - **knowledge 席位（2026-09-13）**：单元核查接口，见 Now
 - **frontend 席位（2026-09-13，不急）**：`GET /knowledge/relations` 的每条边请带上两侧节点的
   `hit / partial / miss / n_creators / n_contents`（`/knowledge/nodes` 的行里已有这几个字段）。
