@@ -118,28 +118,45 @@ FUT_ACCOUNT = {
         {"asset": "PAXG", "walletBalance": "0", "marginBalance": "0",
          "availableBalance": "0"},
     ],
+    # v3 的持仓行只有下面这些字段，**没有 entryPrice、leverage、isolated**（2026-09-17
+    # 核对线上缓存）。这里原先照 v2 的形状编，迁到 v3 之后照旧读那三个字段，线上全错，
+    # 测试却一直是绿的。开仓价在 positionRisk，杠杆与保证金模式在 symbolConfig。
     "positions": [
         {"symbol": "NVDAUSDT", "positionSide": "BOTH", "positionAmt": "38",
-         "notional": "8299.96", "entryPrice": "205.60", "leverage": "3",
-         "isolated": False, "unrealizedProfit": "487.16",
-         "positionInitialMargin": "2766.65", "maintMargin": "448.17"},
+         "notional": "8299.96", "unrealizedProfit": "487.16",
+         "isolatedMargin": "0", "isolatedWallet": "0",
+         "initialMargin": "2766.65", "maintMargin": "448.17", "updateTime": 0},
         {"symbol": "QQQUSDT", "positionSide": "BOTH", "positionAmt": "14",
-         "notional": "8662.36", "entryPrice": "604.13", "leverage": "3",
-         "isolated": False, "unrealizedProfit": "204.54",
-         "positionInitialMargin": "2887.45", "maintMargin": "0"},
+         "notional": "8662.36", "unrealizedProfit": "204.54",
+         "isolatedMargin": "0", "isolatedWallet": "0",
+         "initialMargin": "2887.45", "maintMargin": "0", "updateTime": 0},
         # 空仓位：必须被过滤掉，否则界面上会多出几行 0 数量的"持仓"
         {"symbol": "SOLUSDT", "positionSide": "BOTH", "positionAmt": "0",
-         "notional": "0", "entryPrice": "0", "leverage": "5", "isolated": False,
-         "unrealizedProfit": "0", "positionInitialMargin": "0", "maintMargin": "0"},
+         "notional": "0", "unrealizedProfit": "0",
+         "isolatedMargin": "0", "isolatedWallet": "0",
+         "initialMargin": "0", "maintMargin": "0", "updateTime": 0},
     ],
 }
 FUT_CONFIG = {"dualSidePosition": False, "multiAssetsMargin": False, "feeTier": 0}
+# 杠杆倍数与保证金模式只有这里有
+FUT_SYMBOL_CONFIG = [
+    {"symbol": "NVDAUSDT", "marginType": "CROSSED", "isAutoAddMargin": False,
+     "leverage": 3, "maxNotionalValue": "5000000"},
+    {"symbol": "QQQUSDT", "marginType": "CROSSED", "isAutoAddMargin": False,
+     "leverage": 3, "maxNotionalValue": "5000000"},
+    {"symbol": "SOLUSDT", "marginType": "CROSSED", "isAutoAddMargin": False,
+     "leverage": 5, "maxNotionalValue": "10000000"},
+]
 FUT_RISK = [
-    {"symbol": "NVDAUSDT", "positionSide": "BOTH", "markPrice": "218.42",
-     "liquidationPrice": "152.84", "positionAmt": "38"},
+    {"symbol": "NVDAUSDT", "positionSide": "BOTH", "positionAmt": "38",
+     "entryPrice": "205.60", "markPrice": "218.42", "unRealizedProfit": "487.16",
+     "liquidationPrice": "152.84", "isolatedMargin": "0", "isolatedWallet": "0",
+     "notional": "8299.96", "marginAsset": "USDT"},
     # QQQ 没有强平价（全仓余额充足时 Binance 返回 "0"）→ 距强平留空
-    {"symbol": "QQQUSDT", "positionSide": "BOTH", "markPrice": "618.74",
-     "liquidationPrice": "0", "positionAmt": "14"},
+    {"symbol": "QQQUSDT", "positionSide": "BOTH", "positionAmt": "14",
+     "entryPrice": "604.13", "markPrice": "618.74", "unRealizedProfit": "204.54",
+     "liquidationPrice": "0", "isolatedMargin": "0", "isolatedWallet": "0",
+     "notional": "8662.36", "marginAsset": "USDT"},
 ]
 FUT_ADL = [{"symbol": "NVDAUSDT", "adlQuantile": {"BOTH": 1}},
            {"symbol": "QQQUSDT", "adlQuantile": {"BOTH": 2}}]
@@ -247,6 +264,7 @@ ROUTES = {
     "/sapi/v3/asset/getUserAsset": USER_ASSET,
     "/fapi/v3/account": FUT_ACCOUNT,
     "/fapi/v1/accountConfig": FUT_CONFIG,
+    "/fapi/v1/symbolConfig": FUT_SYMBOL_CONFIG,
     "/fapi/v3/positionRisk": FUT_RISK,
     "/fapi/v1/adlQuantile": FUT_ADL,
     "/fapi/v1/symbolAdlRisk": FUT_SYMBOL_ADL,

@@ -18,7 +18,9 @@ from fanisl.binance.cache import SourceCache
 from fanisl.binance.client import BinanceClient
 from fanisl.binance.portfolio import build_portfolio, _today_settled
 
-from binance_mock import BTC, LIQUIDATION_LOAN, NOW, PREV_CLOSE_RATIO, _day, make_transport
+from binance_mock import (
+    BTC, FUT_RISK, LIQUIDATION_LOAN, NOW, PREV_CLOSE_RATIO, _day, make_transport,
+)
 
 
 @pytest.fixture
@@ -344,6 +346,43 @@ def test_futures_positions_pull_mark_and_liq_from_position_risk(cache):
     assert nvda["liquidation_price"] == 152.84
     assert nvda["liq_distance"] == pytest.approx((218.42 - 152.84) / 218.42)
     assert nvda["adl_quantile"] == 1
+
+
+def test_v3_positions_take_entry_from_risk_and_leverage_from_symbol_config(cache):
+    """v3 的 account 持仓行没有 entryPrice / leverage / isolated（2026-09-17 核对线上）。
+
+    照 v2 的字段去读，每个仓位都成了开仓价 0、1×、全仓：风险面板显示错，
+    压力测试也不再报逐仓仓位各自触及强平价。
+    """
+    config = [
+        {"symbol": "NVDAUSDT", "marginType": "CROSSED", "isAutoAddMargin": False,
+         "leverage": 3, "maxNotionalValue": "5000000"},
+        {"symbol": "QQQUSDT", "marginType": "ISOLATED", "isAutoAddMargin": False,
+         "leverage": 5, "maxNotionalValue": "5000000"},
+    ]
+    snap = build_replacing(cache, {
+        "/fapi/v1/symbolConfig": lambda: httpx.Response(200, json=config),
+    })
+    positions = {p["symbol"]: p for p in snap["futures"]["positions"]}
+    assert positions["NVDAUSDT"]["entry_price"] == 205.60
+    assert positions["QQQUSDT"]["entry_price"] == 604.13
+    assert (positions["NVDAUSDT"]["leverage"], positions["NVDAUSDT"]["isolated"]) == (3, False)
+    assert (positions["QQQUSDT"]["leverage"], positions["QQQUSDT"]["isolated"]) == (5, True)
+
+
+def test_isolated_falls_back_to_position_risk_without_symbol_config(cache):
+    """symbolConfig 取不到时，逐仓仍能从 positionRisk 认出来：只有逐仓的 isolatedWallet > 0。"""
+    risk = [dict(row) for row in FUT_RISK]
+    risk[1]["isolatedWallet"] = "1732.47"                    # QQQ 是逐仓
+    snap = build_replacing(cache, {
+        "/fapi/v1/symbolConfig": lambda: httpx.Response(500, json={"code": -1000, "msg": "x"}),
+        "/fapi/v3/positionRisk": lambda: httpx.Response(200, json=risk),
+    })
+    positions = {p["symbol"]: p for p in snap["futures"]["positions"]}
+    assert positions["QQQUSDT"]["isolated"] is True
+    assert positions["NVDAUSDT"]["isolated"] is False
+    futures_state = next(s for s in snap["sources"] if s["key"] == "futures")
+    assert "futures.symbol_config" in futures_state["detail"]
 
 
 def test_tradfi_positions_use_exchange_metadata_schedule_and_symbol_adl(cache):

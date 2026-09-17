@@ -160,6 +160,7 @@ IP 权重上限 **6000/分钟**。而：
 | 坑 | 后果 |
 |---|---|
 | `/fapi/v3/account` **没有**标记价、强平价、ADL 分位 | 在 `positionRisk` 与 `adlQuantile` 上。少了它们"距强平多远"无从算起 |
+| v3 的 `account` 持仓行也**没有** `entryPrice` / `leverage` / `isolated`，v3 `positionRisk` 只补回了 `entryPrice` | 杠杆倍数与全仓/逐仓只在 `/fapi/v1/symbolConfig`。迁到 v3 后照 v2 字段读，线上每个仓位都成了开仓价 0、1×、全仓（2026-09-17 核对线上缓存） |
 | Stocks Trading 的 Account 文档没有持仓 GET | 只能展示挂单、历史、成交与钱包中可验证的代币化资产；不能用成交净额伪造持仓 |
 | Stocks Trading 行情要求 API key 但不要求签名 | 当公开端点调用会 401；当 USER_DATA 调用会多余地签名 |
 | TradFi Perps 仍属于 USDⓈ-M | 不能按裸股票账户处理；保证金、强平与资金费仍走 fapi |
@@ -423,7 +424,8 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | `spot` | `POST /sapi/v3/asset/getUserAsset` | 5 | 60s | POST 但是只读 |
 | `futures` | `GET /fapi/v3/account` | 5 † | 30s | 保证金与未实现盈亏 |
 | | `GET /fapi/v1/accountConfig` | 5 † | 30s | 双向持仓 / 联合保证金 |
-| | `GET /fapi/v3/positionRisk` | 5 | 30s | **标记价与强平价只有这里有** |
+| | `GET /fapi/v3/positionRisk` | 5 | 30s | **标记价、强平价、开仓价只有这里有** |
+| | `GET /fapi/v1/symbolConfig` | 5 | 30s | **杠杆倍数与全仓/逐仓只有这里有** |
 | | `GET /fapi/v1/adlQuantile` | 5 | 30s | 自动减仓队列 |
 | | `GET /fapi/v1/symbolAdlRisk` | 1 | 1800s | 标的级 ADL 风险，官方每 30 分钟更新 |
 | | `GET /fapi/v1/exchangeInfo` | 1 | 1800s | TradFi 分类与合约元数据 |
@@ -459,7 +461,7 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 日快照（`accountSnapshot`，单次权重 2400）**已经不用了**：它只覆盖现货 / 全仓杠杆 /
 U 本位三种，理财、资金、币本位没有历史快照，拿它算盈亏会把钱包间划转算成损益。
 
-一次完整取数：SPOT 池约 **18 300**（提现一项就占 18 000），FAPI 池约 **51**。
+一次完整取数：SPOT 池约 **18 300**（提现一项就占 18 000），FAPI 池 **63**（上表 fapi 各行相加）。
 `withdrawals` 列在 `NEVER_FORCE` 里——"重新取数"穿不透它。
 
 ### 委托页 `/orders`

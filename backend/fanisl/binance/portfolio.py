@@ -173,6 +173,7 @@ def _jobs(client: BinanceClient, now: datetime) -> list[tuple[str, int, Callable
         ("spot", TTL["spot"], client.user_asset),
         ("futures.account", TTL["futures"], client.futures_account),
         ("futures.config", TTL["futures"], client.futures_account_config),
+        ("futures.symbol_config", TTL["futures"], client.futures_symbol_config),
         ("futures.risk", TTL["futures"], client.futures_position_risk),
         ("futures.adl", TTL["futures"], client.futures_adl_quantile),
         ("futures.symbol_adl", TTL["futures_metadata"], client.futures_symbol_adl_risk),
@@ -215,7 +216,8 @@ _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
     "prices": ("prices", ()),
     "wallets": ("wallets", ()),
     "spot": ("spot", ()),
-    "futures": ("futures.account", ("futures.config", "futures.risk", "futures.adl",
+    "futures": ("futures.account", ("futures.config", "futures.symbol_config",
+                                      "futures.risk", "futures.adl",
                                       "futures.symbol_adl", "futures.exchange_info",
                                       "futures.schedule", "futures.brackets")),
     "stocks": ("equity.tokenized", ("wallets",)),
@@ -509,14 +511,20 @@ def _schedule_session(schedule: Any, underlying_type: str | None, now_ms: int) -
 def _futures(account: Any, config: Any, risk: Any, adl: Any, brackets: Any,
              exchange_info: Any = None, schedule: Any = None, symbol_adl: Any = None,
              prices: dict[str, float] | None = None,
-             now: datetime | None = None) -> dict | None:
+             now: datetime | None = None, symbol_config: Any = None) -> dict | None:
     if not isinstance(account, dict):
         return None
 
-    # positionRisk 才有标记价与强平价；account 里只有保证金与未实现盈亏
+    # positionRisk 才有标记价、强平价与（v3 起）开仓价；account 里只有保证金与未实现盈亏
     risk_by = {}
     for row in risk or []:
         risk_by[(row.get("symbol"), row.get("positionSide", "BOTH"))] = row
+    # v3 的 account 与 positionRisk 都没有杠杆倍数和逐仓标记，只有 symbolConfig 有
+    symbol_config_by = {
+        row.get("symbol"): row
+        for row in symbol_config or []
+        if isinstance(row, dict) and row.get("symbol")
+    } if isinstance(symbol_config, list) else {}
     adl_by = {r.get("symbol"): r.get("adlQuantile", {}) for r in adl or []}
     metadata_by = {
         row.get("symbol"): row
@@ -576,17 +584,23 @@ def _futures(account: Any, config: Any, risk: Any, adl: Any, brackets: Any,
         underlying_subtypes = metadata.get("underlyingSubType")
         if not isinstance(underlying_subtypes, list):
             underlying_subtypes = []
+        entry = dec0(r.get("entryPrice"))
+        sym_config = symbol_config_by.get(symbol, {})
+        margin_type = str(sym_config.get("marginType", "")).upper()
         positions.append({
             "symbol": symbol,
             "position_side": {"BOTH": "both", "LONG": "long", "SHORT": "short"}.get(side, "both"),
             "position_amt": amt,
             "notional_usd": notional,
-            "entry_price": dec0(row.get("entryPrice")),
-            "mark_price": mark if mark is not None else dec0(row.get("entryPrice")),
+            "entry_price": entry,
+            "mark_price": mark if mark is not None else entry,
             "liquidation_price": liq,
             "liq_distance": distance,
-            "leverage": int(dec0(row.get("leverage")) or 1),
-            "isolated": bool(row.get("isolated", False)),
+            "leverage": int(dec0(sym_config.get("leverage")) or 1),
+            # symbolConfig 取不到时退回 positionRisk：逐仓仓位的 isolatedWallet 才大于 0。
+            # 全当全仓的话，压力测试不会报出逐仓仓位各自触及强平价（stress.ts 的 liquidated）
+            "isolated": (margin_type == "ISOLATED" if margin_type
+                         else dec0(r.get("isolatedWallet")) > 0),
             "unrealized_pnl_usd": dec0(row.get("unrealizedProfit")),
             "initial_margin_usd": dec0(row.get("positionInitialMargin")
                                        or row.get("initialMargin")),
@@ -1066,7 +1080,8 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         payload("futures.account"), payload("futures.config"),
         payload("futures.risk"), payload("futures.adl"),
         payload("futures.brackets"), payload("futures.exchange_info"),
-        payload("futures.schedule"), payload("futures.symbol_adl"), prices, now))
+        payload("futures.schedule"), payload("futures.symbol_adl"), prices, now,
+        symbol_config=payload("futures.symbol_config")))
     stocks = block("stocks", lambda: _stocks(
         payload("wallets"), payload("equity.tokenized"), btc_usd), fallback={
             "standalone_positions_available": False,

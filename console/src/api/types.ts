@@ -5,7 +5,7 @@
  * 数据来源对照：
  *   wallets    GET  /sapi/v1/asset/wallet/balance          六个钱包的分布
  *   spot       POST /sapi/v3/asset/getUserAsset            现货逐币（四种锁定态）
- *   futures    GET  /fapi/v3/account + /fapi/v1/accountConfig
+ *   futures    GET  /fapi/v3/{account,positionRisk} + /fapi/v1/{accountConfig,symbolConfig}
  *   brackets   GET  /fapi/v1/leverageBracket               维持保证金档位→真实强平边际
  *   earn       GET  /sapi/v1/simple-earn/{flexible,locked}/position
  *   margin     GET  /sapi/v1/margin/account                marginLevel
@@ -114,11 +114,13 @@ export type FuturesPosition = {
   position_side: PositionSide
   position_amt: number
   notional_usd: number
+  /** 来自 v3 positionRisk；v3 的 account 持仓行没有开仓价 */
   entry_price: number
   mark_price: number
   liquidation_price: number | null
   /** 标记价到强平价的距离占比，由 leverageBracket 的维持保证金率推得 */
   liq_distance: number | null
+  /** leverage 与 isolated 来自 /fapi/v1/symbolConfig：v3 的 account 与 positionRisk 都没有 */
   leverage: number
   isolated: boolean
   unrealized_pnl_usd: number

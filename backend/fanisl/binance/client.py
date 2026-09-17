@@ -251,12 +251,22 @@ class BinanceClient:
     def futures_account_config(self) -> Any:
         return self.signed_get(FAPI_BASE, "/fapi/v1/accountConfig")
 
+    def futures_symbol_config(self) -> Any:
+        """逐交易对的杠杆倍数与保证金模式（`CROSSED` / `ISOLATED`），权重 5。
+
+        **v3 的 account 与 positionRisk 都不再带 `leverage` 与逐仓标记**，只有这里有。
+        dd86e5d 迁到 v3 时仍按 v2 的字段去 account 上读，线上每个仓位都成了
+        1×、全仓、开仓价 0（2026-09-17 核对线上缓存的字段名）。
+        """
+        return self.signed_get(FAPI_BASE, "/fapi/v1/symbolConfig")
+
     def futures_position_risk(self) -> Any:
-        """标记价、强平价、真实杠杆。
+        """标记价、强平价、开仓价。
 
         **`/fapi/v3/account` 里没有这三样**——它给的是保证金与未实现盈亏，
-        markPrice / liquidationPrice 只在 positionRisk 上。少了它，"距强平还有多远"
-        这一列就无从算起，而那是这一页最该看的数。
+        markPrice / liquidationPrice / entryPrice 只在 positionRisk 上。少了它，
+        "距强平还有多远"这一列就无从算起，而那是这一页最该看的数。
+        v2 这里还有 leverage，v3 没有了，见 `futures_symbol_config`。
         """
         return self.signed_get(FAPI_BASE, "/fapi/v3/positionRisk")
 

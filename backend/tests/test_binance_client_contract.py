@@ -21,6 +21,7 @@ def test_current_futures_versions_and_wallet_detail_parameter():
         client.wallet_balance()
         client.futures_account()
         client.futures_position_risk()
+        client.futures_symbol_config()
         client.futures_open_algo_orders()
     finally:
         client.close()
@@ -29,6 +30,7 @@ def test_current_futures_versions_and_wallet_detail_parameter():
     assert by_path["/sapi/v1/asset/wallet/balance"]["needBalanceDetail"] == "true"
     assert "/fapi/v3/account" in by_path
     assert "/fapi/v3/positionRisk" in by_path
+    assert "/fapi/v1/symbolConfig" in by_path     # v3 之后杠杆与逐仓只有这里有
     assert "/fapi/v1/openAlgoOrders" in by_path
 
 
