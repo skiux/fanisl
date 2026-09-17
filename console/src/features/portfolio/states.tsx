@@ -215,7 +215,6 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
       body={
         <>
           <p>{message}</p>
-          <p className="mt-3 text-ink-3">这里不会用上一次的数字顶替；取不到就是取不到。</p>
         </>
       }
       icon={<PlugsConnected aria-hidden="true" size={19} />}
