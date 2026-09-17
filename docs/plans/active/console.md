@@ -7,6 +7,15 @@
 （待该席位填）
 
 ## Next
+- **逐日盈亏缺理财派息**：`flows.earn_flexible` / `flows.earn_locked` 自 2026-09-05 起每次
+  `HTTP 400 -6021 Query time range too large`（生产缓存表实测）。`_flow_jobs` 按 90 天问，
+  rewardsRecord 单次上限 30 天（流水页按 30 天问是对的）；flows.* 不进「取数状态」，界面上
+  看不出来。后果：有派息的非稳定币，派息不计入当天收益，更早的持仓量偏大。修时按 ≤30 天
+  切窗并翻页，顺带核对活期 `type` 只问 `REWARDS` 是否漏了 `BONUS` / `REALTIME`。
+  改之前读 `dailypnl.py` 模块注释。
+- **需拍板：`unsupported` 会把真故障画成「未启用」**。未归类的 4xx（`_map_error` 兜底）与
+  装配失败（`common.guard()`）都记 `unsupported`，SourceHealth 显示为中性的「未启用」。
+  选项：改记 `unreachable`（标红，但文案是「不可达」）；或契约加一个 `error` 状态（前后端都要改）。
 - 近期在做的是持仓页：风险控制、饼图、日历、滚轮选择器
   （最后几个提交：`7e3d46d` 饼图自绘 SVG、`f00b04d` 风险控制页重排）
 - `fanisl-trader.service` 在服务器上未启用，交易 worker 是休眠的；
