@@ -1,0 +1,591 @@
+{
+ "content_id": 123,
+ "extractor_version": "pending-v2",
+ "model": "claude-session",
+ "units": [
+  {
+   "kind": "concept",
+   "quote": "因为现在这个市场呢，它是价格在前，政策在后。政策完全是一个辅助的作用，而价格本身呢，计价了多重的因素。",
+   "locator": "00:18",
+   "tags": [
+    "price-action",
+    "fed-policy"
+   ],
+   "payload": {
+    "canonical_statement": "作者认为当前市场是价格在前、政策在后：政策只起辅助作用，价格本身已计价多重因素——应先看价格再看美联储。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "昨天呢，沃什在发言当中也提到了：我们加息是因为市场倒逼着加息；倒逼着加息的原因是因为十年债收益率居高不下；而导致十年债收益率居高不下的三个原因，一个是目前经济和就业都挺好，一个是AI的资本开支不能停，还有一个呢，是目前某一场战争所导致的油价的高企。",
+   "locator": "00:23",
+   "tags": [
+    "fed-policy",
+    "bond-yields",
+    "ai-capex"
+   ],
+   "payload": {
+    "canonical_statement": "据作者转述，沃什在 9-16 议息后说加息是被市场倒逼的，原因是 10 年期收益率居高不下，而这有三个来源：经济与就业都好、AI 资本开支停不下来、战争导致油价高企。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那总结就是后市我个人观点啊，还是保持相对乐观，我们可以慢慢的把子弹打出去。",
+   "locator": "01:19",
+   "tags": [
+    "spx",
+    "positioning"
+   ],
+   "payload": {
+    "asset_text": "美股后市（作者判相对乐观，可以慢慢把子弹打出去）。这是仓位立场，没有价位或期限；我方以 SPX 计价",
+    "asset_symbol": "SPX",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   },
+   "ref_price": 7551.81
+  },
+  {
+   "kind": "concept",
+   "quote": "因为铜油比，大家看这个走势，在过去的很长一段时间里边，它都是一个中枢回归的这么一个走势。也就是它永远是过度上涨之后会下跌，过度下跌之后会上涨。",
+   "locator": "01:48",
+   "tags": [
+    "oil-supply",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "铜油比（铜期货 / 原油期货）长期呈中枢回归：过度上涨后下跌、过度下跌后上涨。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "现在的铜油比呢，是明显的偏离主要均线的。那后面的话呢，大概率呢，会有一个上修的行情，但是在择时上他未必是现在，我补充一下。可能是年内的一个空间和机会，一旦铜油比向上修复，也也就意味着油价得到控制，然后铜价呢，延续之前的缓慢上行的牛市。",
+   "locator": "01:56",
+   "tags": [
+    "oil-supply",
+    "macro-data"
+   ],
+   "payload": {
+    "asset_text": "铜油比 HG/CL（作者判明显偏离主要均线，年内大概率向上修复，意味着油价受控、铜价延续缓慢上行）。我方没有铜期货序列，无法计算比值",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "directional",
+    "direction": "up",
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2026-12-31"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "我们如果把铜油比的比值和美股，不论是标普啊还是科技啊，你去做一个拟合，你会发现它的相关性是比较高的，尤其是年内的这几波节奏。那铜油比从高位杀下来，往往对股市呢就有压力；而向上修复的过程当中呢，就会给股市一个非常好的支撑的作用。",
+   "locator": "02:13",
+   "tags": [
+    "oil-supply",
+    "spx",
+    "macro-data"
+   ],
+   "payload": {
+    "canonical_statement": "作者称铜油比与美股（标普与科技）相关性较高，今年尤其明显：铜油比从高位下杀时股市承压，向上修复时给股市很好的支撑。铜油比向上意味着市场交易增长。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "然后呢，我们会再简单聊一下黄金，以及现在因为这个政策法案没有通过，所以CRCL（Circle）的话呢，基本也是高位打了保护，后面的机会呢，可能还要再等。",
+   "locator": "02:28",
+   "tags": [
+    "crcl",
+    "stablecoin",
+    "positioning"
+   ],
+   "payload": {
+    "asset_text": "Circle CRCL（作者判政策法案没通过，高位已做了保护，后面的机会还要再等）。这是仓位立场",
+    "asset_symbol": "CRCL",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   },
+   "ref_price": 80.45
+  },
+  {
+   "kind": "concept",
+   "quote": "然后我观察从23年的10月份开始呢，在每一次牛市的推进过程当中呢，它的小回调基本上都是围绕着3小时、4小时级别左右的144、169隧道，在这个位置撑住之后往上走的。",
+   "locator": "03:48",
+   "tags": [
+    "spx",
+    "ema-tunnel",
+    "price-action"
+   ],
+   "payload": {
+    "canonical_statement": "作者复盘：2023 年 10 月以来标普 500 每次牛市推进中的小回调，基本都在 3-4 小时级别的 144/169 EMA 隧道撑住后上行。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那如果我们把我提前标记的这些箭头都去掉的话，大家看每一次市场在进行更深的回调的过程当中啊，它都会反复的把4小时级别的大隧道从支撑换为压力。",
+   "locator": "04:04",
+   "tags": [
+    "spx",
+    "ema-tunnel",
+    "price-action"
+   ],
+   "payload": {
+    "canonical_statement": "作者复盘：标普 500 每次进入更深回调之前，都会反复把 4 小时级别的 144/169 大隧道由支撑换为压力（如 2026 年 1 月、2024 年 9 月与 12 月）。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "注意，我们一直给大家强调的位置是7630到7640，这是一个结构上的强弱分水岭。只有把这站上去，小周期级别隧道回来了，然后结构也回来了。价格呢，又没有更低的低点，那么市场就会延续强势。",
+   "locator": "05:28",
+   "tags": [
+    "spx",
+    "price-action"
+   ],
+   "payload": {
+    "canonical_statement": "作者判标普 500 的 7630-7640 是结构强弱分水岭：站上去、小周期隧道收回、结构恢复、没有更低的低点，市场才会延续强势。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "首先，价格在这获得支撑，可能在接下来的一个到两个交易日，市场会去再次考验一下七千六百四左右。",
+   "locator": "05:43",
+   "tags": [
+    "spx",
+    "price-action"
+   ],
+   "payload": {
+    "asset_text": "标普 500（作者判在 4 小时隧道获得支撑后，接下来一两个交易日可能再次考验 7640 左右）",
+    "asset_symbol": "SPX",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "up",
+    "magnitude": {
+     "target": 7640
+    },
+    "horizon": {
+     "type": "within_duration",
+     "duration_days": 2
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "hedged",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "target_touch",
+     "eval_ladder": [
+      "2026-09-19"
+     ],
+     "success_def": "2026-09-19（或此前最近交易日）之前任一日最高价 >= 7640 = hit，不触及 = miss。原文『接下来的一个到两个交易日』按 §3『明天』一档取 2 天；发布于 09-17 12:00 UTC 即美东开盘前，覆盖 09-17 与 09-18 两个交易日。措辞是『可能』，stance 记 hedged。ref 取库内 09-16 收盘 7551.81：屏上 4 小时图标 7331.81、日线标 7381.81，与他说的 7520-7550 支撑矛盾，按 §5 弃用。"
+    }
+   },
+   "ref_price": 7551.81
+  },
+  {
+   "kind": "claim",
+   "quote": "首先，价格在这获得支撑，可能在接下来的一个到两个交易日，市场会去再次考验一下七千六百四左右。这里边收复，直接打开空间，你就没有必要动了，或者说再去加一加，我们可以继续往更高的级别上去拿一拿。",
+   "locator": "05:43",
+   "tags": [
+    "spx",
+    "price-action",
+    "position-sizing"
+   ],
+   "payload": {
+    "asset_text": "标普 500（作者判收复 7640 左右就直接打开上行空间）",
+    "asset_symbol": "SPX",
+    "priceable": true,
+    "claim_class": "directional",
+    "direction": "up",
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": "收复 7640 左右",
+    "condition_observable": true,
+    "stance_strength": "explicit",
+    "verifiability": "C",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-09-24",
+      "2026-10-17",
+      "2026-12-16"
+     ],
+     "success_def": "条件：期限内出现日收盘 >= 7640。成立后，阶梯各时点收盘 >= 条件成立日收盘 = hit；条件在某时点之前未成立，该时点不评。scoring_overrides 配 {condition: {type: close_above_eq, level: 7640}, vs: condition_close}。『打开空间』只给方向不给目标，故用 sign。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+    }
+   },
+   "ref_price": 7551.81
+  },
+  {
+   "kind": "method",
+   "quote": "那不论这两种的可能性市场走哪一种，我们都会觉得，在7500点到7400点的这个区域呢，应该可以分批次的把子弹打出去。并不需要太着急，因为你不知道价格他会不会反弹一下，然后再一组合再下来。",
+   "locator": "05:58",
+   "tags": [
+    "spx",
+    "position-sizing",
+    "execution"
+   ],
+   "payload": {
+    "name": "标普 7400-7500 分批加仓，不急于一次打完",
+    "summary": "不论收复 7640 还是在压力下震荡，7400-7500 区域都可以分批把子弹打出去；价格可能反弹后再回落，不必着急。",
+    "family": "positioning",
+    "rules": [
+     "7400-7500 区域分批次加仓",
+     "不需要太着急：价格可能先反弹一下再回落",
+     "同段的前提：先看 7640 左右能否收复——收复就不用动或再加一点"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "SPX 日线"
+    ],
+    "overlap_with_killed": [],
+    "testability": "A"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "所以不论呢，美联储和沃什怎么发言，我们还是觉得，他还是暂时性的，预防性的，最后呢，还是会回到降息的通道，或者是起码维持一个相当长时间的利率不变的水平，而不是会持续的加息。",
+   "locator": "06:18",
+   "tags": [
+    "dfedtaru",
+    "fed-policy"
+   ],
+   "payload": {
+    "asset_text": "联邦基金目标利率上限（作者判这次加息是暂时性、预防性的，最终会回到降息通道或长期维持不变，而不是持续加息）。没有给出期限与次数口径，无法机械判定",
+    "asset_symbol": "DFEDTARU",
+    "priceable": true,
+    "claim_class": "event_outcome",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   },
+   "ref_price": 3.75
+  },
+  {
+   "kind": "method",
+   "quote": "那么油价能不能回落，我们也不知道，这个地缘的问题呢，实在是太复杂，它并不在我们分析的框架里边。面对不熟悉的东西呢，我们只能是在相对大级别的周期的位置上去等，等变化，但是你又应该在场而不能完全空仓。你只需要去计算好你在哪一个级别去应对波动，然后去动态的调整你的敞口就可以了。",
+   "locator": "07:09",
+   "tags": [
+    "risk-mgmt",
+    "positioning",
+    "oil-supply"
+   ],
+   "payload": {
+    "name": "面对分析框架外的变量：在场、在大级别位置等、动态调敞口",
+    "summary": "地缘与油价不在分析框架内时，不去预测，也不空仓；在相对大级别的周期位置上等变化，算好在哪个级别应对波动，动态调整敞口。",
+    "family": "positioning",
+    "rules": [
+     "承认该变量不在自己的分析框架里，不去预测",
+     "应该在场，不能完全空仓",
+     "在相对大级别的周期位置上等变化",
+     "事先算好在哪一个级别应对波动，据此动态调整敞口"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "我们就完全有理由可以认为呢，现在的铜油比可以走收敛的走势。就是后面的话呢，它不会再出现2026年3月份的低点了。而是在如图所示的0.06左右的位置附近，它会获得支撑。",
+   "locator": "08:28",
+   "tags": [
+    "oil-supply",
+    "macro-data"
+   ],
+   "payload": {
+    "asset_text": "铜油比 HG/CL（作者判走收敛、不再跌破 2026 年 3 月低点，0.06 附近获得支撑；屏上当前 0.0736）。我方没有铜期货序列",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "price_target",
+    "direction": "range",
+    "magnitude": {
+     "low": 0.06
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "如果为每一次的涨和跌都去寻找一个理由，你就会陷入一种非常危险的交易节奏和逻辑当中。这是当前公开的媒体给大家的一种错觉，就是所有的涨跌似乎都要在某些理论上找到对应。但如果这样找的话，你会发现你的噪音会非常大。而且最终呢，你会陷入到一个频繁交易的节奏当中。",
+   "locator": "09:14",
+   "tags": [
+    "psychology",
+    "execution"
+   ],
+   "payload": {
+    "canonical_statement": "为每一次涨跌都找一个理由会让噪音非常大，最终陷入频繁交易——这是公开媒体制造的错觉；应由价格反推故事，而不是先有故事再看价格。",
+    "category": "psychology",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "所以其实如果我们积攒一点，你完全可以把一次正确复制成无数次正确。比如最近这波行情，ok ok，我看对了，就像我们半导体，其实我们一直在节奏内，我们半导体已经在节奏内很久了。那如果我积攒一点把指数的正确拆成很多个股我们的高抛低吸，那我完全可以把我一次判断正确的事情，给他拆分成很多次成功。那这些呢，也一定会玩在网上造势。反过来说如果错了，那我们可以再去把它淡化成一个长期的模糊正确。因为长期这个市场还是会涨嘛，对吧，我们可以跌一跌、买一买嘛。总之你一般不会出现太大的一个打脸的问题。",
+   "locator": "10:42",
+   "tags": [
+    "psychology"
+   ],
+   "payload": {
+    "canonical_statement": "作者描述内容创作者的一种套路：把一次对指数的正确判断拆成很多个股的高抛低吸来宣传成多次正确；错了就淡化成长期的模糊正确（长期市场总会涨）——这样很少被打脸。",
+    "category": "psychology",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "因为我比较注重退出条件和择时择价。大家看，其实我输出的所有的观点，都是非常的量化且具体的。这就导致一旦出错，错的也会非常的明显和明确。",
+   "locator": "11:10",
+   "tags": [
+    "psychology",
+    "risk-mgmt"
+   ],
+   "payload": {
+    "canonical_statement": "作者说自己的观点注重退出条件、择时与择价，都是量化且具体的，所以一旦出错会非常明显；他认为越能坦然面对错误与止损，长期交易做得越好。",
+    "category": "psychology",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "所以我们可以现在把纳指的位置锚定到28800点。这个位置呢，是6小时级别的隧道。这个位置，我们仍然不排除他会跌破，但是我觉得已经到了可以缓慢加仓的一个位置了。",
+   "locator": "12:49",
+   "tags": [
+    "ndx",
+    "price-action",
+    "position-sizing"
+   ],
+   "payload": {
+    "asset_text": "纳指 100（作者判 28800 的 6 小时级别隧道已到可以缓慢加仓的位置，但不排除跌破）。这是加仓立场，不是价格判断",
+    "asset_symbol": "NDX",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": {
+     "level": 28800
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "hedged",
+    "verifiability": "D"
+   },
+   "ref_price": 28945.06
+  },
+  {
+   "kind": "method",
+   "quote": "所以我们说啊，这次决议落地之后呢，反倒我们更应该专注个股的轮动和低吸的机会。指数上既然你不能百分之百的去确定它到底是在哪个隧道的哪一个点位精确反弹。",
+   "locator": "13:24",
+   "tags": [
+    "execution",
+    "rotation",
+    "price-action"
+   ],
+   "payload": {
+    "name": "事件落地后，从猜指数转向做个股轮动与低吸",
+    "summary": "议息这类事件落地后，指数在哪个隧道的哪个点精确反弹无法确定，精力放到个股轮动与低吸上。",
+    "family": "reversion",
+    "rules": [
+     "事件落地后，不去猜指数会在哪个点位精确反弹",
+     "转而专注个股的轮动与低吸机会"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "它再往下再跌一下的话呢，我认为也不用恐慌了。我认为接下来呢，再出主跌浪的概率开始变得低了。",
+   "locator": "14:26",
+   "tags": [
+    "soxx",
+    "semiconductor-cycle",
+    "price-action"
+   ],
+   "payload": {
+    "asset_text": "半导体与动量板块（作者判即使再探一下日隧道也不用恐慌，再出主跌浪的概率变低）。『主跌浪』没有可判定的幅度；我方以 SOXX 计价",
+    "asset_symbol": "SOXX",
+    "priceable": true,
+    "claim_class": "risk_warning",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   },
+   "ref_price": 502.06
+  },
+  {
+   "kind": "claim",
+   "quote": "那我们说，今年的下半年，包括四季度啊，可能要对盈利的预期有所放缓。市场向向上的空间呢，有可能没有我们想象的那么大了。",
+   "locator": "14:50",
+   "tags": [
+    "spx",
+    "valuation"
+   ],
+   "payload": {
+    "asset_text": "美股下半年与四季度（作者判盈利预期可能放缓，向上空间可能没有想象的大）。没有价位与幅度",
+    "asset_symbol": "SPX",
+    "priceable": true,
+    "claim_class": "risk_warning",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2026-12-31"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "hedged",
+    "verifiability": "D"
+   },
+   "ref_price": 7551.81
+  },
+  {
+   "kind": "concept",
+   "quote": "其实这次加息啊，对美国经济的基本面来说呢，它是有点疼的。但是美国呢，它愿意忍受这么高的利率和这种赤字和财政开支。来换什么呀？来换这个AI的定价权，和油价以及大宗商品的定价权。",
+   "locator": "14:56",
+   "tags": [
+    "fed-policy",
+    "fiscal-policy",
+    "ai-capex"
+   ],
+   "payload": {
+    "canonical_statement": "作者认为这次加息对美国经济基本面是有痛感的，但美国愿意忍受高利率、赤字与财政开支，换取 AI、油价与大宗商品的定价权。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那所以我们可能要经历这么一个周期的啊。高利率的环境。那这个环境里面所有的增长高度依赖于AI的传导。所以整个的结构呢，它是变得越来越脆弱了。因此，虽然我们短期看到了一些相对安全的位置。但是向上的成长空间呢，可能还是要把预期调低。",
+   "locator": "15:09",
+   "tags": [
+    "ai-capex",
+    "fed-policy",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "高利率环境里所有增长都高度依赖 AI 的传导，结构越来越脆弱：短期虽有相对安全的位置，向上空间的预期要调低。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "这是中间的一个动量的预测模型，它是基于美元、实际利率和其他的不确定性参数。依照的呢，就是十年期的美债实际利率和美元指数的这个关系。然后得出的这个金价呢。在美债利率2.4到2.8的区间里面。美元指数在97到101的区间里面。对应着黄金的一个区间价格。大概呢就是4000点到4700点。这是极端的一个波动窗口。如果你觉得波动率没有那么高，那可以把它放到什么呢？4200点到4400点或4500点。那我觉得黄金可能要维持一个较长时期的震荡。",
+   "locator": "15:34",
+   "tags": [
+    "xauusd",
+    "bond-yields",
+    "dxy"
+   ],
+   "payload": {
+    "asset_text": "现货黄金（作者判要维持较长时期的震荡；模型给的极端窗口 4000-4700，波动率不高时 4200-4400 或 4500）。给了两个区间、上沿还有两种说法，期限『较长时期』也不在 §3 表内，补不出唯一口径，按 §0.6 记 D",
+    "asset_symbol": "XAUUSD",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "range",
+    "magnitude": {
+     "low": 4000,
+     "high": 4700,
+     "narrow_low": 4200,
+     "narrow_high_a": 4400,
+     "narrow_high_b": 4500
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   },
+   "ref_price": 4387.5
+  },
+  {
+   "kind": "concept",
+   "quote": "什么时候可以不加息，甚至是降息呢？那就是一定要看到增长出问题的时候。因为通胀呢，很难真正压得下去。长债收益率呢，也基本上压不下去。在这种情形之下呢。只有依赖于一个衰退或滞胀交易，然后把市场重新推回一个降息的通道里面来。那个阶段里面呢，黄金的逻辑才会发生改变。",
+   "locator": "16:04",
+   "tags": [
+    "fed-policy",
+    "xauusd",
+    "inflation"
+   ],
+   "payload": {
+    "canonical_statement": "作者判：通胀与长债收益率都很难压下去，只有增长出问题（衰退或滞胀交易）才会让美联储停止加息乃至降息，届时黄金的逻辑才会改变。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  }
+ ]
+}

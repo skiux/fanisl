@@ -43,9 +43,17 @@ def _pub_close(ps: PriceStore, sym: str, pub: dt.date) -> float | None:
 
 def _resolve_condition(ps: PriceStore, cond: dict, own_sym: str, pub: dt.date,
                        until: dt.date) -> tuple[dt.date | None, str | None]:
-    """在 [pub+1, until] 内找条件成立日。返回 (成立日|None, 失败态|None)。"""
+    """在 [pub+1, until] 内找条件成立日。返回 (成立日|None, 失败态|None)。
+
+    `after`（ISO 日期，可选）把搜索起点推迟到该日：条件挂在某个已排期事件上时要用它。
+    例如「9-16 议息不加息」＝ DFEDTARU 在 9-17 之后仍 < 3.76；不设 after 的话，
+    会前那几天利率本来就是 3.75，条件在发布次日就被误判为成立（2026-09-17 新增）。
+    """
     sym = cond.get("symbol", own_sym)
-    bars = _bars(ps, sym, pub + dt.timedelta(days=1), until)
+    start = pub + dt.timedelta(days=1)
+    if cond.get("after"):
+        start = max(start, dt.date.fromisoformat(cond["after"]))
+    bars = _bars(ps, sym, start, until)
     if not bars:
         return None, "condition_not_met"
     t = cond["type"]
@@ -80,8 +88,10 @@ def _resolve_condition(ps: PriceStore, cond: dict, own_sym: str, pub: dt.date,
 
 def _score_sign(direction: str, eval_close: float, ref: float, ov: dict) -> str:
     factor, band = ov.get("ref_factor", 1.0), ov.get("band", 0.02)
-    if ov.get("op") == ">=":
-        return "hit" if eval_close >= ref * factor else "miss"
+    # 显式比较符优先于 direction。阶梯序列（政策利率）对着基准日比较时要严格号：
+    # 「12 月加息」＝ 12-31 的值 > 11-30 的值，用 up 的 >= 会把「没变动」判成 hit（§4）
+    if ov.get("op") in _CMP:
+        return "hit" if _CMP[ov["op"]](eval_close, ref * factor) else "miss"
     if direction == "up":
         return "hit" if eval_close >= ref * factor else "miss"
     if direction == "down":

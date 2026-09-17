@@ -254,6 +254,41 @@ def _seed_units(kstore, n=3):
     return ids
 
 
+
+def test_scorer_condition_after_and_explicit_op(monkeypatch):
+    """条件的 after 起点、sign 的显式比较符：两者都为阶梯序列（政策利率）上的事件型 claim 而设。"""
+    import datetime as dt
+    from fanisl.knowledge import scorers
+
+    rate = {dt.date(2026, 9, d): 3.75 for d in (14, 15, 16)}
+    rate.update({dt.date(2026, 9, d): 4.00 for d in (17, 18)})
+    rate.update({dt.date(2026, 11, 30): 4.00, dt.date(2026, 12, 31): 4.00})
+
+    class PS:
+        def close_on_or_before(self, sym, d):
+            ks = [k for k in rate if k <= d]
+            return (max(ks), rate[max(ks)]) if ks else None
+
+    def bars(ps, sym, start, until):
+        return [{"ts": k, "close": v, "high": v, "low": v} for k, v in sorted(rate.items()) if start <= k <= until]
+
+    monkeypatch.setattr(scorers, "_bars", bars)
+    pub, until = dt.date(2026, 9, 13), dt.date(2026, 9, 20)
+    no_hike = {"type": "close_below", "symbol": "DFEDTARU", "level": 3.76}
+    # 不设 after：会前利率本来就是 3.75，条件在发布次日被误判成立
+    assert scorers._resolve_condition(PS(), no_hike, "SPX", pub, until) == (dt.date(2026, 9, 14), None)
+    # 设 after：只看议息之后，加息了 → 条件不成立
+    assert scorers._resolve_condition(PS(), {**no_hike, "after": "2026-09-17"}, "SPX", pub, until) == \
+        (None, "condition_not_met")
+
+    # 显式严格号：12-31 与 11-30 相同（12 月没加息）→ miss；up 的默认 >= 会判 hit
+    assert scorers._score_sign("up", 4.00, 4.00, {}) == "hit"
+    assert scorers._score_sign("up", 4.00, 4.00, {"op": ">"}) == "miss"
+    assert scorers._score_sign("up", 4.25, 4.00, {"op": ">"}) == "hit"
+    assert scorers._score_sign(None, 4.00, 4.00, {"op": "<="}) == "hit"
+    # 既有的 ">=" + ref_factor 行为不变（overrides 93、173 在用）
+    assert scorers._score_sign("up", 96.0, 100.0, {"op": ">=", "ref_factor": 0.95}) == "hit"
+
 def test_nodes_import_gates_and_lifecycle(kstore, pool):
     from fanisl.knowledge.nodes import NodeStore
     with pool.connection() as conn:

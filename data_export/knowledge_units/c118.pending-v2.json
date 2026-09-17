@@ -1,0 +1,636 @@
+{
+ "content_id": 118,
+ "extractor_version": "pending-v2",
+ "model": "claude-session",
+ "units": [
+  {
+   "kind": "claim",
+   "quote": "我其实不太赞同会有所谓的鸽派加息啊。因为鸽派加息就等于没加息。",
+   "locator": "01:36",
+   "tags": [
+    "dfedtaru",
+    "fed-policy"
+   ],
+   "payload": {
+    "asset_text": "9-16 议息加息的性质（作者判不会是鸽派加息——鸽派加息压不住 5 年与 10 年收益率，等于白加）。鹰鸽没有可机械判定的口径",
+    "asset_symbol": "DFEDTARU",
+    "priceable": true,
+    "claim_class": "event_outcome",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2026-09-16"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   },
+   "ref_price": 3.75
+  },
+  {
+   "kind": "concept",
+   "quote": "因为鸽派加息就等于没加息。因为你加息的目的是为了控制通胀，是为了压一压长端的国债收益率。那如果你鸽派加息，那你收益率根本就压不下来。",
+   "locator": "01:39",
+   "tags": [
+    "fed-policy",
+    "bond-yields"
+   ],
+   "payload": {
+    "canonical_statement": "作者认为『鸽派加息』等于没加息：加息的目的是控制通胀、压长端收益率，鸽派加息压不下收益率。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "首先为什么CPI刚刚公布的那一瞬间，市场是，美债收益率是跳涨的？短端长端都是跳涨的。原因很简单，因为算法在获得第一信息的时候，看到的是一个过热的CPI。这个过热的CPI第一计价的应该是通胀起来了，通胀起来了，所以未来的利率路径要往上抬。那你两年的和五年期的就都应该往上涨。这是第一计价，这是算法的，CTA在做的，并不是人为去操作的。然后第二阶段的话呢，就是下跌。下跌是市场看到了分项。这个分项呢，好像有一点过热，核心有一点高，但也没有那么的糟糕。所以市场开始做一些比较良性的计价，就是中端的长端的收益率呢，往下走一走。走的原因是，市场认为呢，我们有信心控制住通胀。通过一次到两次的加息，可以实现对长端收益率的提前控制，能够把长短利差去收窄。但是这是市场阶段性的一个结论。只不过这个结论呢，并没有持续多久。我们看到在这个交易了大概不到半小时吧，大概半小时左右的一个时间。那后面的话呢，中长期的债市收益率呢，再度回暖。这个回暖的过程，其实就是我们刚刚所说的一个更谨慎的过程。市场又慢慢的明白过来了，仅仅是一次25bp的加息，不给任何指引是不够的，我们拒绝下跌。",
+   "locator": "02:13",
+   "tags": [
+    "bond-yields",
+    "macro-data",
+    "market-structure"
+   ],
+   "payload": {
+    "canonical_statement": "作者对 9-11 CPI 公布后美债收益率三段走势的读法：公布瞬间短端长端跳涨是算法（CTA）按『过热 CPI』做第一计价；随后看到分项没那么糟而回落，市场以为一两次加息就能提前控住长端；约半小时后中长端再度回升——市场意识到只加一次 25bp、不给指引是不够的。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "所以我觉得后面的推演大概应该是中立或偏鹰派的加息，以及不加息。这是一个尾部情形，小概率事件。这是我们应该去应对的两种可能性。",
+   "locator": "04:14",
+   "tags": [
+    "dfedtaru",
+    "fed-policy"
+   ],
+   "payload": {
+    "asset_text": "联邦基金目标利率上限（作者判 9-16 议息的基准情形是中立或偏鹰派的加息，不加息是尾部小概率事件）",
+    "asset_symbol": "DFEDTARU",
+    "priceable": true,
+    "claim_class": "event_outcome",
+    "direction": "up",
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2026-09-18"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "A",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-09-18"
+     ],
+     "success_def": "2026-09-18（或此前最近一个有数据的日期）FRED DFEDTARU > 3.75（发布时的政策利率上限）= hit，即 9-16 议息加息。阶梯序列的『没变动』必须判 miss，scoring_overrides 配 {mode: close_at_eval, level: 3.75, op: \">\"}（§4 严格号）。标的（加息 = 政策利率）与期限（正文所说的下周议息，9-16）都是原文自带，判法与 c117 #1576 一致，故为 A。"
+    }
+   },
+   "ref_price": 3.75
+  },
+  {
+   "kind": "claim",
+   "quote": "那更多的在鹰派加息的这个概率里边呢，那十年期和五年期应该会继续往下走一走。这个收益率往下走一走，同时呢短端的收益率再往上抬一抬，然后十年期减两年期的这个债利差啊，会继续的往下走一个熊平的走势啊，熊市平坦化。那么在这种情况之下呢，股市呢还是会获得一定的压制。",
+   "locator": "04:52",
+   "tags": [
+    "t10y2y",
+    "bond-yields",
+    "fed-policy"
+   ],
+   "payload": {
+    "asset_text": "鹰派加息情形下的债市与股市（作者判 5 年与 10 年收益率往下、短端往上，10Y-2Y 熊平，股市受压制）。前置条件『鹰派加息』没有可机械判定的口径，故 D",
+    "asset_symbol": "T10Y2Y",
+    "priceable": true,
+    "claim_class": "directional",
+    "direction": "down",
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": "鹰派加息",
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   },
+   "ref_price": 0.33
+  },
+  {
+   "kind": "concept",
+   "quote": "十年期如果不能够打下来接近百分之五的国债收益率，那必然也会对美股现在的估值的溢价要有更严苛的一个要求。就是你凭什么能够在高波动当中给我更高的回报，而不是去买十年期的美债。",
+   "locator": "05:21",
+   "tags": [
+    "bond-yields",
+    "valuation",
+    "spx"
+   ],
+   "payload": {
+    "canonical_statement": "10 年期收益率接近 5% 而压不下来时，市场对美股估值溢价的要求会更严：高波动的股票凭什么给出高于 10 年期美债的回报。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那第二种情形就是不加息了，如果不加息的话呢，债市的反馈首先中端长端我们不知道，短端的收益率水平，两年期的，一定是会掉头向下的。那么在短期按教科书去看，美股呢和黄金呢，必然会是上涨的。而且黄金的涨幅呢会非常大。",
+   "locator": "06:54",
+   "tags": [
+    "spx",
+    "fed-policy",
+    "bond-yields"
+   ],
+   "payload": {
+    "asset_text": "标普 500（作者判：若 9-16 不加息，美股短期必然上涨；『美股』我方以 SPX 计价）",
+    "asset_symbol": "SPX",
+    "priceable": true,
+    "claim_class": "directional",
+    "direction": "up",
+    "magnitude": null,
+    "horizon": {
+     "type": "within_duration",
+     "duration_days": 7
+    },
+    "condition_text": "如果不加息",
+    "condition_observable": true,
+    "stance_strength": "explicit",
+    "verifiability": "C",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-09-20"
+     ],
+     "success_def": "条件成立（9-16 未加息）后，2026-09-20（或此前最近交易日）SPX 收盘 >= 7656.98（2026-09-11 收盘）= hit；条件不成立则整条不评。条件『不加息』：scoring_overrides 配 {condition: {type: close_below, symbol: DFEDTARU, level: 3.76, after: 2026-09-17}}——9-16 议息之后政策利率上限仍 < 3.76 才算成立；after 让会前那几天的 3.75 不被误读为条件成立。期限按 §3 原文『短期』取 7 天。同句两个标的按同一期限。"
+    }
+   },
+   "ref_price": 7656.98
+  },
+  {
+   "kind": "claim",
+   "quote": "那第二种情形就是不加息了，如果不加息的话呢，债市的反馈首先中端长端我们不知道，短端的收益率水平，两年期的，一定是会掉头向下的。那么在短期按教科书去看，美股呢和黄金呢，必然会是上涨的。而且黄金的涨幅呢会非常大。",
+   "locator": "06:54",
+   "tags": [
+    "xauusd",
+    "fed-policy",
+    "bond-yields"
+   ],
+   "payload": {
+    "asset_text": "现货黄金（作者判：若 9-16 不加息，黄金短期必然上涨且涨幅会非常大）",
+    "asset_symbol": "XAUUSD",
+    "priceable": true,
+    "claim_class": "directional",
+    "direction": "up",
+    "magnitude": null,
+    "horizon": {
+     "type": "within_duration",
+     "duration_days": 7
+    },
+    "condition_text": "如果不加息",
+    "condition_observable": true,
+    "stance_strength": "explicit",
+    "verifiability": "C",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-09-20"
+     ],
+     "success_def": "条件成立（9-16 未加息）后，2026-09-20（或此前最近交易日）XAUUSD 收盘 >= 4408.9（2026-09-11 收盘）= hit；条件不成立则整条不评。条件『不加息』：scoring_overrides 配 {condition: {type: close_below, symbol: DFEDTARU, level: 3.76, after: 2026-09-17}}——9-16 议息之后政策利率上限仍 < 3.76 才算成立；after 让会前那几天的 3.75 不被误读为条件成立。期限按 §3 原文『短期』取 7 天。同句两个标的按同一期限。"
+    }
+   },
+   "ref_price": 4408.9
+  },
+  {
+   "kind": "claim",
+   "quote": "所以下周我觉得MOAT包括什么，包括RSP，RSP是标普的等权重指数，或者是标普400。那这些其实代表了市场的广度。那MOAT质量板块呢，代表了市场的一个轮动的风格。我认为呢，还会有一个下降的空间。那这个空间呢，慢慢的往下走，应该不会太大了。我们看一下这个MOAT在十三日K上啊，半月线左右。因为它已经跌到了，已经跌到了这个2024年一月份的起点了，107左右。但是因为它有一个下降的势能，所以在后面的走势当中呢，它应该会暂时的跌穿一下107，去找到半月线左右。",
+   "locator": "08:05",
+   "tags": [
+    "moat",
+    "market-breadth",
+    "rotation"
+   ],
+   "payload": {
+    "asset_text": "护城河 ETF MOAT（质量因子；作者判下周还有下降空间，会暂时跌穿 107）",
+    "asset_symbol": "MOAT",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "down",
+    "magnitude": {
+     "target": 107
+    },
+    "horizon": {
+     "type": "within_duration",
+     "duration_days": 7
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "target_touch",
+     "eval_ladder": [
+      "2026-09-20"
+     ],
+     "success_def": "2026-09-20（或此前最近交易日）之前任一日最低价 <= 107 = hit，不触及 = miss。期限按 §3 原文『下周』取 7 天。ref 取屏上 13 日 K 的 108.34（库内 09-11 收盘 108.54，差 0.2%，不矛盾，按 §5 用屏价）。"
+    }
+   },
+   "ref_price": 108.34
+  },
+  {
+   "kind": "claim",
+   "quote": "所以下周我觉得MOAT包括什么，包括RSP，RSP是标普的等权重指数，或者是标普400。那这些其实代表了市场的广度。那MOAT质量板块呢，代表了市场的一个轮动的风格。我认为呢，还会有一个下降的空间。那这个空间呢，慢慢的往下走，应该不会太大了。我们看一下这个MOAT在十三日K上啊，半月线左右。因为它已经跌到了，已经跌到了这个2024年一月份的起点了，107左右。但是因为它有一个下降的势能，所以在后面的走势当中呢，它应该会暂时的跌穿一下107，去找到半月线左右。大概呢是十三日的EMA8和十三EM隧道。因为这个隧道呢在过去的结构性的回调当中呢，也都会对市场产生不错的支撑。那如果撑不住，一般呢就是比较不好的、糟糕的走势会发生的时候才会没有反馈。再叠加一下2024年一月份的这个前高位置附近的支撑呢，我们觉得在105到107的区间之内呢，它会止跌。",
+   "locator": "08:05",
+   "tags": [
+    "moat",
+    "market-breadth",
+    "price-action"
+   ],
+   "payload": {
+    "asset_text": "护城河 ETF MOAT（作者判下周的下跌会在 105-107 区间止跌）",
+    "asset_symbol": "MOAT",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "range",
+    "magnitude": {
+     "low": 105
+    },
+    "horizon": {
+     "type": "within_duration",
+     "duration_days": 7
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "range_hold",
+     "eval_ladder": [
+      "2026-09-20"
+     ],
+     "success_def": "至 2026-09-20，期限内日收盘始终 >= 105 = hit；盘中破 105 但收盘收回 = partial；任一日收盘 < 105 = miss。『止跌区间 105-107』只取下沿——同段另一条（跌穿 107）已经说价格会进到区间里。期限按 §3 原文『下周』取 7 天。"
+    }
+   },
+   "ref_price": 108.34
+  },
+  {
+   "kind": "concept",
+   "quote": "质量板块的止跌呢，我认为也会意味着市场在广度上的这种下跌会得到一个遏制。后面我们可以再观察像400啊，还有等权指数的一个走势。",
+   "locator": "09:13",
+   "tags": [
+    "moat",
+    "market-breadth",
+    "rotation"
+   ],
+   "payload": {
+    "canonical_statement": "质量板块止跌意味着市场广度的下跌会被遏制；之后可观察标普 400 与标普等权指数的走势确认。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "OK，这是MOAT，我们再观察它让出的这个空间有多少。那对应着RSP啊，标普等权的一个走势，向下的空间呢，也应该是一个百分之二三左右的级别，在这个级别如果止跌，那我们再去观察后市。",
+   "locator": "09:38",
+   "tags": [
+    "rsp",
+    "market-breadth",
+    "price-action"
+   ],
+   "payload": {
+    "asset_text": "标普 500 等权 ETF RSP（作者判向下还有 2%-3% 的空间）",
+    "asset_symbol": "RSP",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "down",
+    "magnitude": {
+     "pct_low": 2,
+     "pct_high": 3,
+     "target": 210.57
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "target_touch",
+     "eval_ladder": [
+      "2026-09-20",
+      "2026-10-13",
+      "2026-12-12"
+     ],
+     "success_def": "期限内任一日最低价 <= 210.57（ref 214.87 下跌 2%，取原文『百分之二三』的下限）= hit，不触及 = miss。ref 取屏上 214.87，与库内 09-11 收盘一致。正文在前面说过『下周』，但那句离本条超过 600 字、进不了 quote，按 §3『无期限词』取 +7/+30/+90，阶梯系我方指定。"
+    }
+   },
+   "ref_price": 214.87
+  },
+  {
+   "kind": "claim",
+   "quote": "如果向上突破，那我觉得对应的宏观情形，就是他不加息。那是动量板块。我们看一下费城如果向上走的话，突破应该会去到，560，570左右。那对应着一些个股的话，会涨得更高一点。这个空间呢，还是可期的。",
+   "locator": "10:14",
+   "tags": [
+    "soxx",
+    "semiconductor-cycle",
+    "fed-policy"
+   ],
+   "payload": {
+    "asset_text": "半导体 SOXX（作者判：向上突破对应的宏观情形是不加息，突破后会去到 560-570。他用『费城』指的是 SOXX 的价位——同段 534、510、450、470 都是 SOXX 的量级）",
+    "asset_symbol": "SOXX",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "up",
+    "magnitude": {
+     "target": 560,
+     "high": 570
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": "向上突破（原文对应的宏观情形：不加息）",
+    "condition_observable": true,
+    "stance_strength": "explicit",
+    "verifiability": "C",
+    "scoring_spec": {
+     "method": "target_touch",
+     "eval_ladder": [
+      "2026-09-20",
+      "2026-10-13",
+      "2026-12-12"
+     ],
+     "success_def": "条件成立（9-16 未加息）后，期限内任一日最高价触及 560 = hit，不触及 = miss；条件不成立则整条不评。条件『不加息』：scoring_overrides 配 {condition: {type: close_below, symbol: DFEDTARU, level: 3.76, after: 2026-09-17}}——9-16 议息之后政策利率上限仍 < 3.76 才算成立；after 让会前那几天的 3.75 不被误读为条件成立。条件取原文自己给的宏观对应（不加息），不取他另处说的 534 突破位——534 不在本条 quote 里。ref 取 2026-09-11 收盘 527.07：屏上标 539.13，与他把 534 当作『未突破的前高』矛盾，按 §5 弃用。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+    }
+   },
+   "ref_price": 527.07
+  },
+  {
+   "kind": "claim",
+   "quote": "向下的话呢，它的空间也会更深。前面我们说的比较糟糕的情形就是往下再走一个主跌浪，把这个多少啊，把之前2024年七月份的这个前低给它跌穿，再去找一找日隧道位置附近啊。回到我们以费城半导体为例啊，大概是450或者是470，那这些位置如果到这里呢，它应该是个很好的中期的买点，对吧？",
+   "locator": "10:32",
+   "tags": [
+    "soxx",
+    "semiconductor-cycle",
+    "price-action"
+   ],
+   "payload": {
+    "asset_text": "半导体 SOXX 向下选择方向时的去处（作者判走主跌浪会到 450 或 470，那是很好的中期买点）。前置条件『向下选择方向』本条没有给出可判定的位",
+    "asset_symbol": "SOXX",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "down",
+    "magnitude": {
+     "low": 450,
+     "high": 470
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": "收敛三角向下选择方向",
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   },
+   "ref_price": 527.07
+  },
+  {
+   "kind": "method",
+   "quote": "突破单呢，它的意义并不在于怎么进，而在于怎么出。因为突破基本买的都是偏高一点的位置，或者是追的偏低一点的空头。对吧？不论是哪一个方向，突破必然不是一个价位优先，它是一个能量优先。所以止损就显得非常重要。否则的话呢，你一定会被挂到一个非常不利的位置。这是最重要的。那么收敛三角的一个突破呢，它的原则我认为也是比较简单的。我们就看之前的不断收敛，降低的高点和抬高的低点。它会不会被有效突破？有效突破就是方向确认的一个信号。我们以半导体为例啊，因为这个动量的策略大家看的比较少。我们看一看SOXX的走势。那它的这个突破呢，基本就可以以这个534左右，大概呢是上周震荡的这个前高，是否被突破作为一个去买多头的标准。",
+   "locator": "11:33",
+   "tags": [
+    "soxx",
+    "execution",
+    "risk-mgmt",
+    "price-action"
+   ],
+   "payload": {
+    "name": "突破单：能量优先，重在怎么出场",
+    "summary": "突破买的是偏高的位置，价位不占优，所以止损决定成败；收敛三角以前期降低的高点或抬高的低点被有效突破作为方向确认。",
+    "family": "trend",
+    "rules": [
+     "突破单的意义不在怎么进，而在怎么出：突破是能量优先，不是价位优先",
+     "止损非常重要，否则会被挂在很不利的位置",
+     "收敛三角：看不断降低的高点与抬高的低点是否被有效突破，有效突破即方向确认",
+     "以 SOXX 为例：上周震荡前高 534 左右被突破，作为买多头的标准"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "日线 OHLC"
+    ],
+    "overlap_with_killed": [],
+    "testability": "A"
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "如果是多头的突破单，我个人的止损会放得非常的窄。因为你做突破的唯一理由就是周五的反馈告诉我们，市场加息也是利好，不论怎么样我们就是要涨涨涨了。那这个推论成立的条件就是周五的走势，所以如果周五的走势被反包过来，价格跌破了510，那么我还是会去看看回调要多一些，OK。当然这个操作的话呢，是比较偏投机和交易属性多一些。在配置的方向上来说呢，还是尽可能的逢低进，然后长期持有。只是呢，去通过调整你的仓位和敞口来去扛住更多的波动。",
+   "locator": "12:49",
+   "tags": [
+    "soxx",
+    "risk-mgmt",
+    "position-sizing"
+   ],
+   "payload": {
+    "name": "交易仓与配置仓分开：突破单窄止损，配置逢低进、靠敞口扛波动",
+    "summary": "多头突破单的止损放得很窄，推论依据被反包即失效；配置方向逢低进、长期持有，用仓位与敞口调节去承受波动。",
+    "family": "positioning",
+    "rules": [
+     "多头突破单止损放得非常窄：突破的唯一理由是周五的反馈，推论依据就是周五的走势",
+     "周五的走势被反包、价格跌破 510，就转而看更多回调",
+     "突破单偏投机与交易属性",
+     "配置方向：尽可能逢低进、长期持有，通过调整仓位与敞口扛住波动"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "日线 OHLC",
+     "作者的实际仓位（未披露）"
+    ],
+    "overlap_with_killed": [],
+    "testability": "B"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "因为我们毕竟对AI这条线长期还是看好的，现在宏观的扰动大不了给一个指数百分之十左右的一个回调，后面呢，还是会有很好的一个买点。",
+   "locator": "13:36",
+   "tags": [
+    "ai-capex",
+    "fed-policy",
+    "positioning"
+   ],
+   "payload": {
+    "asset_text": "美股指数的回调幅度（作者判宏观扰动大不了给指数 10% 左右的回调）。没说是哪个指数、从哪个高点算，补不出唯一口径，按 §0.6 记 D",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "risk_warning",
+    "direction": "down",
+    "magnitude": {
+     "max_drawdown_pct": 10
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "纳指100的走势在两万八到两万八千八的这个区间里边呢，它是深度的，支撑筹码区，但是市场呢，就没给。这个周五的走势是在我的意料之外的啊。因为我觉得周五应该去回到这个区间里边，那然后你给更多的流动性，给更多的买盘，更大的级别的，一个结构确认。那后面的上涨才会更坚实。",
+   "locator": "13:52",
+   "tags": [
+    "ndx",
+    "price-action",
+    "market-structure"
+   ],
+   "payload": {
+    "canonical_statement": "作者认为纳指 100 在 28000-28800 是深度支撑筹码区，他预期周五会回到该区间做更大级别的结构确认、之后的上涨才坚实，但市场没给——他把这读作不确定性的前兆而非积极信号。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "包括最近这几年啊，大家也都看到，就是美股的日收线和周收线，它的噪音变得非常的多啊。这个不排除是资金，在啊，交易共振形成的一种策略的，这么一个特性。就是，会在啊，大家经常观察的，常规的收线窗口里制造一些噪音啊。因此我们还是需要下周的更长的窗口的确认了。",
+   "locator": "14:38",
+   "tags": [
+    "price-action",
+    "market-structure"
+   ],
+   "payload": {
+    "canonical_statement": "近几年美股日收线与周收线的噪音明显变多，作者推测是资金在大家常看的收线窗口里借交易共振制造噪音，所以需要更长的窗口确认。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "黄金呢，上周整个一周的走势是小跌了百分之一点六到一点七左右。那但是上周呢，美债收益率不论是三十年、十年、五年还是两年都是大涨的。债市录得如此涨幅的情况下之下，黄金呢，黄金呢应该是被压得更狠的，但是没有啊。这个没有的话呢，其实就已经表现出非常不错的韧性了。",
+   "locator": "15:03",
+   "tags": [
+    "xauusd",
+    "bond-yields"
+   ],
+   "payload": {
+    "canonical_statement": "2026-09-11 那周 30 年、10 年、5 年、2 年期收益率全线大涨，黄金只小跌 1.6%-1.7%——本该被压得更狠而没有，作者读作黄金有韧性。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "所以现在倒不用觉得黄金弱。因为这一周啊，他应该更弱的但是他没有。这就说明现在四千三、四千四左右这个位置的金价呢，计价了当前的一个利率的路径了。黄金短期继续回调的风险信号呢，我认为应该是四千两百点。",
+   "locator": "15:26",
+   "tags": [
+    "xauusd",
+    "price-action",
+    "bond-yields"
+   ],
+   "payload": {
+    "asset_text": "现货黄金（作者判黄金不弱，4300-4400 已计价当前利率路径，短期回调的风险信号是 4200）",
+    "asset_symbol": "XAUUSD",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "range",
+    "magnitude": {
+     "low": 4200
+    },
+    "horizon": {
+     "type": "within_duration",
+     "duration_days": 7
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "hedged",
+    "verifiability": "B",
+    "scoring_spec": {
+     "method": "range_hold",
+     "eval_ladder": [
+      "2026-09-20"
+     ],
+     "success_def": "至 2026-09-20，期限内日收盘始终 >= 4200 = hit；盘中破 4200 但收盘收回 = partial；任一日收盘 < 4200 = miss。4200 原文是『风险信号』而非承诺守住，结合『倒不用觉得黄金弱』读作守住，stance 记 hedged。期限按 §3 原文『短期』取 7 天。ref 取库内 09-11 收盘 4408.90：屏上周线标『4500 上方』，与他说的 4300-4400 矛盾，按 §5 弃用。"
+    }
+   },
+   "ref_price": 4408.9
+  },
+  {
+   "kind": "claim",
+   "quote": "那接下来跌破四千二，后市在最糟糕的情形之下呢，市场是有可能会去寻找三日隧道的。那大概呢会再去短暂的跌破四千点。这种情形呢，是小概率事件。",
+   "locator": "16:40",
+   "tags": [
+    "xauusd",
+    "price-action"
+   ],
+   "payload": {
+    "asset_text": "现货黄金（作者判：若跌破 4200，最糟糕的情形下会去找三日隧道、短暂跌破 4000；他自己标为小概率事件）",
+    "asset_symbol": "XAUUSD",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": "down",
+    "magnitude": {
+     "target": 4000
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": "跌破 4200",
+    "condition_observable": true,
+    "stance_strength": "speculative",
+    "verifiability": "C",
+    "scoring_spec": {
+     "method": "target_touch",
+     "eval_ladder": [
+      "2026-09-20",
+      "2026-10-13",
+      "2026-12-12"
+     ],
+     "success_def": "条件：期限内出现日收盘 < 4200。成立后，任一日最低价 < 4000 = hit，不触及 = miss；条件不成立则整条不评。scoring_overrides 配 {condition: {type: close_below, level: 4200}}。作者把整个情形标为『小概率事件』、『最糟糕的情形』，stance 记 speculative——本条只检验条件成立之后的去向，不检验他对条件本身的概率判断（那由同期『短期守住 4200』一条检验）。原文无期限词，+7/+30/+90 阶梯系我方指定。"
+    }
+   },
+   "ref_price": 4408.9
+  },
+  {
+   "kind": "claim",
+   "quote": "那总结一下呢，下周我比较预测两种情形。一种呢是小概率的不加息的事件。另外一种呢是偏鹰派的加息来获得长端收益率控制的一个效果。那在这两种情形之下呢，一个是对应着风险资产的承压，另外一个呢会是风险资产在短期上会有一些向上的释放。那这两种情形对应着风险资产的方向是完全不同的。我们认为波动率放大还是一个大概率的情形。",
+   "locator": "16:57",
+   "tags": [
+    "vix",
+    "fed-policy",
+    "psychology"
+   ],
+   "payload": {
+    "asset_text": "美股波动率（作者判下周波动率放大是大概率；我方以 VIX 计价）",
+    "asset_symbol": "VIX",
+    "priceable": true,
+    "claim_class": "directional",
+    "direction": "up",
+    "magnitude": null,
+    "horizon": {
+     "type": "within_duration",
+     "duration_days": 7
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "C",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-09-20"
+     ],
+     "success_def": "2026-09-20（或此前最近交易日）VIX 收盘 >= 15.84（2026-09-11 收盘）= hit。『波动率』由我方指定 VIX 为代理，故记 C；期限按 §3 原文『下周』取 7 天。"
+    }
+   },
+   "ref_price": 15.84
+  }
+ ]
+}

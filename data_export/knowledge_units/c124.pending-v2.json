@@ -1,0 +1,406 @@
+{
+ "content_id": 124,
+ "extractor_version": "pending-v2",
+ "model": "claude-session",
+ "units": [
+  {
+   "kind": "concept",
+   "quote": "这一波的SEP其实和市场的这个预期做对比的话是鸽派的。鸽派在哪呢？我们从PCE核心PCE这个角度去看，和6月份所做的这个预期做对比的话，核心PCE26年年底只上升了0.1%，而27年对于通胀这个预期完全没有任何的改变。\n\n在Federal funds rate在隔夜利率这一块或者美联储的联邦利率、基准利率这一块，在26年是上升了一次加息，从3.8%上升到了4.1%。而整个27年上升了0.5个百分点或者两次加息。但是我们把26年和27年去作对比的话，27年在26年的基础上不会有任何的加息。",
+   "locator": "01:24",
+   "tags": [
+    "fed-policy",
+    "inflation",
+    "dfedtaru"
+   ],
+   "payload": {
+    "canonical_statement": "2026 年 9 月 SEP 与 6 月相比：2026 年底核心 PCE 只上调 0.1 个百分点（屏上 3.3→3.4），2027 年不变；联邦基金利率中位数 2026 年 3.8%→4.1%（多一次加息），2027 年上调 0.5 个百分点但与 2026 年持平——即 2027 年不再加息。作者判相对市场定价是鸽派。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "的确和6月份做对比的话是鹰派的，但是你要知道市场现在定价了多少。我们到底是鹰派还是鸽派，我们是和现在债券市场做的这个定价去做这个对比，而不是和上一次的SEP做对比。和上一次已经没有任何的意义了，因为从6月份到9月份到目前为止，过去的三个月市场是有波动的，市场是有这个定价在那边。",
+   "locator": "02:06",
+   "tags": [
+    "fed-policy",
+    "bond-yields"
+   ],
+   "payload": {
+    "name": "判断 SEP 鹰鸽：对比当下的债市定价，不对比上一次 SEP",
+    "summary": "新的经济预测与点阵图是鹰是鸽，要拿去和当前债券期货市场的定价比；和三个月前的 SEP 比没有意义，那期间市场已经重新定价过。",
+    "family": "event",
+    "rules": [
+     "拿新 SEP 的利率路径对比议息前债券（期货）市场的定价",
+     "不要对比上一次 SEP——两次之间市场已经波动、重新定价过",
+     "新 SEP 比上次高但比市场定价低，就是鸽派"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [
+     "联邦基金期货隐含利率",
+     "SEP 中位数"
+    ],
+    "overlap_with_killed": [],
+    "testability": "B"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那至于这一次加息会在什么时候，稍后我会和大家分享一下我自己的看法，我认为10月份加息的概率非常的低，12月份加息的概率几乎是100%确定会加息的。或者这一个加息的概率会非常的高，不能说100%，不能说得那么的绝对。",
+   "locator": "02:36",
+   "tags": [
+    "dfedtaru",
+    "fed-policy"
+   ],
+   "payload": {
+    "asset_text": "联邦基金目标利率上限（作者判 12 月议息加息的概率非常高，几乎确定）",
+    "asset_symbol": "DFEDTARU",
+    "priceable": true,
+    "claim_class": "event_outcome",
+    "direction": "up",
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2026-12-31"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "A",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-12-31"
+     ],
+     "success_def": "2026-12-31（或此前最近一个有数据的日期）FRED DFEDTARU > 2026-11-30 的值 = hit，即 12 月议息加息。scoring_overrides 配 {baseline_date: 2026-11-30, op: \">\"}：以 11 月底为基准只检验 12 月这一次会议，严格号让『没变动』判 miss（§4）。标的与期限（原文的『12 月份』）都是原文自带，故为 A。"
+    }
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那非常集中的一个结果，就是由6位美联储成员认为27年不会加息，3个人认为会降息两次，有一个人认为会降息四次，那这个人的观点是没有任何参考价值，不用去看。然后有8个人认为27年还会加息一次。",
+   "locator": "03:06",
+   "tags": [
+    "fed-policy",
+    "dfedtaru"
+   ],
+   "payload": {
+    "canonical_statement": "9 月点阵图对 2027 年变得集中：8 人认为还会加息一次，6 人不变，3 人降息两次，1 人降息四次（作者转述）。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "第一点，他说道Jackson Hole会议的时候我说过，让我现在去说市场是紧缩的，我会受到非常大的这个挑战。所以今天我加息了。\n\n这句话给我的一个感觉就是，他想要表达其实在Jackson Hole会议，8月份的时候，我就已经给过市场这一个指引了。他在今天的这个讲话里面，有很多次都引用了他在6月份讲过的话，他在8月份所讲过的话，他想表达什么？他想表达我其实并没有不给市场指引，我一直在给市场指引，只是市场没有接受到我的信号。",
+   "locator": "05:00",
+   "tags": [
+    "fed-policy"
+   ],
+   "payload": {
+    "canonical_statement": "沃什在 9-16 记者会上援引自己 Jackson Hole 时说的『让我说现在的金融环境是紧缩的，会受到很大挑战』来解释加息；作者读作沃什一直在给指引（6 月、8 月都给过），只是市场没接收到。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "method",
+   "quote": "其实我今天这期视频一开始我想讲的是，我们要去判断凯文·沃什的讲话或者美联储到底是鹰派还是鸽派，千万不要拿当天市场的一个走势去做这个判断。OK。你拿当天市场的一个走势，周三市场，最后的确是收跌的。那如果你从开会之前到开会之后的话，市场的确是下跌的。然后你的理解就是，OK，市场下跌，所以美联储是鹰派的。但是你怎么去解释现在的盘后是上涨的？现在盘后上涨了0.6%、0.7%吧，指数上涨了0.6%、0.7%。那到底是鹰派的还是鸽派的？所以美联储鹰派还是鸽派对于市场的这个影响，它是可持续的，千万不要从结果去出发去倒推美联储是鹰派的还是鸽派的。",
+   "locator": "06:02",
+   "tags": [
+    "fed-policy",
+    "psychology"
+   ],
+   "payload": {
+    "name": "不要用当天的市场涨跌倒推美联储鹰鸽",
+    "summary": "议息当天收跌不等于鹰派——同一晚盘后又涨了 0.6%-0.7%。鹰鸽要从讲话与定价本身判断，不能从当天的结果倒推。",
+    "family": "event",
+    "rules": [
+     "不用议息当天的收盘涨跌判断美联储鹰鸽",
+     "作者的反例：9-16 收跌，但盘后指数涨了 0.6%-0.7%",
+     "鹰鸽对市场的影响是持续的，要从讲话内容与定价去判断"
+    ],
+    "claimed_performance": null,
+    "data_requirements": [],
+    "overlap_with_killed": [],
+    "testability": "C"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "然后第三点，这一点我非常，我认为非常的重要，就是接下去他判断的一个标准是什么。他说，市场关注单一数据是非常危险的行为。随着时间的这个推移，市场会慢慢的理解，这一届美联储是怎么做决定的。他说的非常的明确，他说我看到的是一个趋势，我并非只看这一个单一的数据点。",
+   "locator": "09:44",
+   "tags": [
+    "fed-policy",
+    "inflation"
+   ],
+   "payload": {
+    "canonical_statement": "沃什的判断标准：看趋势而非单一数据点，市场只盯单一数据是危险的。作者据此推论：要改变加息判断，至少需要连续两三个月的通胀数据好转。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那如果他还是按照原来自己这个原则的话，在10月28日下一次美联储会议的时候，最正确的一个决定是不去做任何加息或者不加息的这个决定，不去影响到中期选举。那所以我认为虽然现在定市场是定价了10月份有50%的概率会加息，但是我认为10月份加息的概率不高，非常的低。",
+   "locator": "11:15",
+   "tags": [
+    "dfedtaru",
+    "fed-policy",
+    "midterm-election"
+   ],
+   "payload": {
+    "asset_text": "联邦基金目标利率上限（作者判 10-28 议息加息的概率非常低，依据是沃什说过重大政治事件前美联储不宜做决定；市场定价 10 月加息约 50%）",
+    "asset_symbol": "DFEDTARU",
+    "priceable": true,
+    "claim_class": "event_outcome",
+    "direction": "flat",
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2026-10-31"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "A",
+    "scoring_spec": {
+     "method": "sign",
+     "eval_ladder": [
+      "2026-10-31"
+     ],
+     "success_def": "2026-10-31（或此前最近一个有数据的日期）FRED DFEDTARU <= 2026-10-27（会前一日）的值 = hit，即 10-28 议息没有加息。scoring_overrides 配 {baseline_date: 2026-10-27, op: \"<=\"}：以会前一日为基准而不是发布日，这样只检验 10 月这一次会议。标的（加息 = 政策利率）与期限（原文点名的 10 月 28 日会议）都是原文自带，故为 A。"
+    }
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "然后第四点，市场问他10年期的利率为何上涨？他说，因为经济非常的强。第一点。第二点，资金的竞争。就是大国这一块，资本的一个开支。资本开支来自于哪？很多的钱是来自于融资。融资的这个钱主要来自于比如举债。举债会影响到，就市场里面钱就这么多。钱非常的稀有，钱当钱非常稀有的时候，你钱的一个成本，借钱的这个成本就上升。借钱的成本上升，利率就上升。",
+   "locator": "11:38",
+   "tags": [
+    "bond-yields",
+    "ai-capex",
+    "fed-policy"
+   ],
+   "payload": {
+    "canonical_statement": "沃什对 10 年期利率上涨的解释：经济非常强；资金竞争——资本开支大量靠举债融资，钱稀缺时借钱成本与利率上升；以及地缘政治（作者转述）。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "第三个就是地缘政治。地缘政治这一块非常有意思，他两次聊到了地缘政治影响到了10年期利率这个上升，且地缘政治影响到他们这一次做加息的这个决定。也就是说，油价的的这个上涨，是影响到了他们的这个决定了。这一点非常有意思，但是起码他也给了这个标准了。就是如果接下去油价出现下跌的话，我们有可能会考虑不加息。",
+   "locator": "12:10",
+   "tags": [
+    "fed-policy",
+    "oil-supply"
+   ],
+   "payload": {
+    "canonical_statement": "沃什两次提到地缘政治推高了 10 年期利率并影响了这次加息决定——作者读作油价上涨是加息理由之一，反过来油价下跌会降低继续加息的概率。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "你用嘴去调节市场这个预期，可以。但是市场已经帮你去组做这件事情，你就必须要跟着市场去做。不然的话，你不去做的话，你就会在市场这块失去你的这个信用。那未来你再用这张嘴去调节市场预期的话你就做不到了。所以这就叫Follow through，所以你说到要做到，你说到市场帮你去定价你就要做到。",
+   "locator": "12:56",
+   "tags": [
+    "fed-policy",
+    "psychology"
+   ],
+   "payload": {
+    "canonical_statement": "Follow through：央行可以用讲话调节预期，但市场按讲话完成定价之后，央行必须照做，否则失去信用，今后再也无法用讲话调节预期。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "从上一次利率会议到现在为止，几乎每一次的一个美联储会议都有人不同意最后的一个决定。这一次终于所有的美联储成员大家的一个意见是一致的，大家同意的都认为这一次应该加息。",
+   "locator": "13:40",
+   "tags": [
+    "fed-policy"
+   ],
+   "payload": {
+    "canonical_statement": "9-16 加息是全体一致通过——自上一年 12 月鲍威尔最后一次会议以来，几乎每次会议都有人持异议。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "所以接下去我认为因为两年期美债收益率的一个上涨，短期来说长债收益率也出现了上涨。但上涨不是非常的明显，但是你随着时间的这个推移，我认为长债这一块的通胀预期break-even是会下降的。",
+   "locator": "15:16",
+   "tags": [
+    "inflation",
+    "bond-yields"
+   ],
+   "payload": {
+    "asset_text": "长债的盈亏平衡通胀预期（作者判随着时间推移会下降）。我方没有 break-even 序列，也没有期限口径",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "directional",
+    "direction": "down",
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "整体来说，名义利率会不会下降，还要取决于另外一点，就是贝莱德会不会行动。在中期选举之前如果贝莱德也行动的话，我认为名义利率是会下降，长债这一块的名义利率。",
+   "locator": "15:30",
+   "tags": [
+    "bond-yields",
+    "midterm-election",
+    "fiscal-policy"
+   ],
+   "payload": {
+    "asset_text": "长债名义利率（作者判：中期选举前若（原文作『贝莱德』）也采取行动，长债名义利率会下降）。前置条件无法机械判定，也没有指明品种",
+    "asset_symbol": null,
+    "priceable": false,
+    "claim_class": "directional",
+    "direction": "down",
+    "magnitude": null,
+    "horizon": {
+     "type": "by_date",
+     "deadline": "2026-11-03"
+    },
+    "condition_text": "中期选举前采取行动",
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "那两年期上涨了7个基点，那就是定价了接下去还会有3.2次这个加息。就是你如果加息完3.2次的话，联储利率要去到4.7%了。但是在点阵图里面是多少？4.1%。就是现在明显，市场是比美联储点阵图里面还要鹰了多少？0.6个百分点。0.6个百分点是两次加息以上了。",
+   "locator": "15:42",
+   "tags": [
+    "fed-policy",
+    "bond-yields"
+   ],
+   "payload": {
+    "canonical_statement": "9-16 议息后两年期收益率上涨 7 个基点，市场定价还有约 3.2 次加息、利率到 4.7%，比点阵图的 4.1% 高 0.6 个百分点（两次加息以上）——市场比美联储更鹰。",
+    "category": "macro_framework",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那所以我认为当下市场的一个现状就是：市场对于加息周期的这个次数是过于悲观了，反映在期货市场里面。",
+   "locator": "16:01",
+   "tags": [
+    "dfedtaru",
+    "fed-policy",
+    "bond-yields"
+   ],
+   "payload": {
+    "asset_text": "本轮加息次数（作者判期货市场定价的约 3.2 次、利率到 4.7% 过于悲观，点阵图是 4.1%）。『过于悲观』对应的上限有多种读法，补不出唯一口径，按 §0.6 记 D",
+    "asset_symbol": "DFEDTARU",
+    "priceable": true,
+    "claim_class": "event_outcome",
+    "direction": null,
+    "magnitude": {
+     "market_implied_peak": 4.7,
+     "dot_plot_2026": 4.1
+    },
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   }
+  },
+  {
+   "kind": "claim",
+   "quote": "那么，所以从一个相对比较短的一个角度去看，我这是写在下午4点半的时候，我说，从一个短期的角度去看在财报之前，在这个位置或者这个位置以下，我认为都是买点。",
+   "locator": "16:26",
+   "tags": [
+    "spx",
+    "positioning",
+    "psychology"
+   ],
+   "payload": {
+    "asset_text": "美股（作者判短期在财报季之前，当前位置及以下都是买点，依据是恐慌指标、参与度低与估值在低位）。这是仓位立场；我方以 SPX 计价",
+    "asset_symbol": "SPX",
+    "priceable": true,
+    "claim_class": "price_target",
+    "direction": null,
+    "magnitude": null,
+    "horizon": {
+     "type": "open_ended"
+    },
+    "condition_text": null,
+    "condition_observable": false,
+    "stance_strength": "explicit",
+    "verifiability": "D"
+   },
+   "ref_price": 7551.81
+  },
+  {
+   "kind": "concept",
+   "quote": "参与度这边标普500，20日线跌到了18%，50日线也跌到了31%，罗素2020、25、35、50的话跌到了32%。那指也是一样的，20日线跌到了25%，50日线跌到了32%，200日线都跌到了38%。就有超过50%以上的公司，60%的公司那指都是低于200日线以下。",
+   "locator": "16:48",
+   "tags": [
+    "spx",
+    "ndx",
+    "market-breadth"
+   ],
+   "payload": {
+    "canonical_statement": "2026-09-16 参与度：标普 500 站上 20 日线 18%、50 日线 31%；纳指 20 日线 25%、50 日线 32%、200 日线 38%——纳指约六成成分股在 200 日线之下。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "从估值这个角度去看，标普500的估值forward P跌到了18.9倍，跌到了今年3月份的水平。在去年，2025年3月份是在18倍。在21年年底、22年年底那一波加息周期的一个起点是在21.5倍。",
+   "locator": "17:17",
+   "tags": [
+    "spx",
+    "valuation"
+   ],
+   "payload": {
+    "canonical_statement": "标普 500 forward PE 跌到 18.9 倍（今年 3 月的水平）；2025 年 3 月为 18 倍；2021 年底开启上一轮加息周期时是 21.5 倍——现在的估值比 2022 年那轮起点还低。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  },
+  {
+   "kind": "concept",
+   "quote": "PE是没有泡沫的。现在市场的一个争论点是在这一个earnings，盈利能力是不是有一个泡沫。因为如果盈利能力被高估的话，你简单来说现在估值虽然看起来非常的高，但其实估值非常低，因为你的盈利能力有泡沫。那所以现在市场的一个争论点不是在估值有没有泡沫，估值绝对没有泡沫，而是盈利能力是不是有泡沫。",
+   "locator": "17:59",
+   "tags": [
+    "valuation",
+    "ai-capex"
+   ],
+   "payload": {
+    "canonical_statement": "作者认为美股估值没有泡沫，市场的真正争论在盈利是否有泡沫：若盈利被高估，看起来低的估值其实并不低——判断取决于未来一年大科技与半导体的 EPS 能否兑现预期。",
+    "category": "market_structure",
+    "stance": "assert",
+    "regime_qualifier": null
+   }
+  }
+ ]
+}
