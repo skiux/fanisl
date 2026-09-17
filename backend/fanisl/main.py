@@ -656,7 +656,7 @@ def knowledge_prices(symbol: str, since: str, until: str | None = None) -> dict:
 # --- 单元核查（知识域唯一的写接口组，契约见 api.md §5.6）---------------------------
 #
 # 取值校验与状态流转都在 knowledge/store.py，这里不另写一份——store 是唯一口径。接口层只管三件事：
-# ① 写接口要求管理员：核查会驱动知识席位修改生产库里的单元，v1 只让管理员提交；
+# ① 写接口只要求登录，不分角色：角色只属于资产台（根 AGENTS.md §1），知识站对所有登录用户一视同仁；
 # ② 作者取自登录会话：请求模型里没有 author 字段，请求体带了也被丢弃；
 # ③ 按 store 的约定映射异常：ValueError→400，LookupError→404，ReviewConflict→409。
 # **不开答复接口**：role=extractor 的消息只能由知识席位的 CLI（knowledge/review.py）写入。
@@ -694,24 +694,24 @@ def knowledge_unit_reviews(unit_id: int) -> list[dict]:
 
 @app.post("/knowledge/units/{unit_id}/reviews", status_code=201)
 def knowledge_create_review(unit_id: int, req: ReviewCreateRequest,
-                            user: dict = Depends(auth_routes.require_admin)) -> dict:
-    """提交核查（管理员）。created_by 取自会话。"""
+                            user: dict = Depends(auth_routes.current_user)) -> dict:
+    """提交核查。created_by 取自会话。"""
     return _review_call(lambda: knowledge_store.create_review(
         unit_id, category=req.category, body=req.body, author=user["username"]))
 
 
 @app.post("/knowledge/reviews/{review_id}/messages")
 def knowledge_reply_review(review_id: int, req: ReviewMessageRequest,
-                           user: dict = Depends(auth_routes.require_admin)) -> dict:
-    """补充或回复（管理员）。任何状态下回复都会重新打开，回到知识席位的待办。"""
+                           user: dict = Depends(auth_routes.current_user)) -> dict:
+    """补充或回复。任何状态下回复都会重新打开，回到知识席位的待办。"""
     return _review_call(lambda: knowledge_store.add_review_message(
         review_id, body=req.body, author=user["username"]))
 
 
 @app.post("/knowledge/reviews/{review_id}/close")
 def knowledge_close_review(review_id: int,
-                           _admin: dict = Depends(auth_routes.require_admin)) -> dict:
-    """关闭核查（管理员）：认可答复，或撤回意见。已经关闭的再关 → 409。"""
+                           _user: dict = Depends(auth_routes.current_user)) -> dict:
+    """关闭核查：认可答复，或撤回意见。已经关闭的再关 → 409。"""
     return _review_call(lambda: knowledge_store.close_review(review_id))
 
 

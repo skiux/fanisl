@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import UnitReviews from './UnitReviews'
 import type { UnitReview } from './reviews'
 
-const admin = {
+const member = {
   status: 'authenticated',
-  user: { id: 1, username: 'mur', role: 'admin', display_name: 'mur', is_active: true, last_login_at: null },
+  user: { id: 1, username: 'mur', role: 'member', display_name: 'mur', is_active: true, last_login_at: null },
 }
 
 const session = vi.hoisted(() => ({ current: null as unknown }))
@@ -49,7 +49,7 @@ function jsonReply(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), { status, headers: { 'content-type': 'application/json' } })
 }
 
-beforeEach(() => { session.current = admin })
+beforeEach(() => { session.current = member })
 afterEach(() => { vi.unstubAllGlobals() })
 
 describe('单元核查面板', () => {
@@ -95,25 +95,23 @@ describe('单元核查面板', () => {
     await vi.waitFor(() => expect(onChanged).toHaveBeenCalledWith(created))
   })
 
-  it('403 一律说需要管理员权限；409 显示接口给的原因', async () => {
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce(jsonReply(403, { detail: 'Forbidden' }))
-      .mockResolvedValueOnce(jsonReply(409, { detail: '核查 12 已经关闭' })))
+  it('409 显示接口给的原因', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonReply(409, { detail: '核查 12 已经关闭' })))
     renderPanel()
     const card = screen.getByRole('article', { name: '核查 #12' })
 
     await userEvent.click(within(card).getByRole('button', { name: '认可并关闭' }))
-    expect((await within(card).findByRole('alert')).textContent).toBe('需要管理员权限')
-
-    await userEvent.click(within(card).getByRole('button', { name: '认可并关闭' }))
-    await vi.waitFor(() => expect(within(card).getByRole('alert').textContent).toBe('核查 12 已经关闭'))
+    expect((await within(card).findByRole('alert')).textContent).toBe('核查 12 已经关闭')
   })
 
-  it('成员只读：看得到答复，没有任何按钮', () => {
-    session.current = { status: 'authenticated', user: { ...admin.user, role: 'member' } }
+  it('不分角色：管理员与成员看到的入口一样', () => {
+    const buttons = () => screen.getAllByRole('button').map((button) => button.textContent)
+    const { unmount } = render(<UnitReviews onChanged={vi.fn()} onRetry={vi.fn()} reviews={[answered]} state="loaded" unitId={1518} />)
+    const asMember = buttons()
+    unmount()
+    session.current = { status: 'authenticated', user: { ...member.user, role: 'admin' } }
     renderPanel()
-    expect(screen.getByText(/需要管理员权限/)).toBeTruthy()
-    expect(screen.getByText('确认有误')).toBeTruthy()
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(buttons()).toEqual(asMember)
+    expect(asMember).toContain('认可并关闭')
   })
 })

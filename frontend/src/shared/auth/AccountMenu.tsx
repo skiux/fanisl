@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { getSession, logout, subscribe } from './session'
 
-const ROLE_LABEL = { admin: '管理员', member: '成员' } as const
-
 /**
  * 账号菜单。
  *
@@ -10,8 +8,9 @@ const ROLE_LABEL = { admin: '管理员', member: '成员' } as const
  * 塞进一个本来就排满的胶囊里。`.nav-actions` 是没有 gap 的 flex，于是它顶着搜索框、
  * 用户名被裁掉。
  *
- * 现在收成**一个入口**：名字是触发器，点开才是账号、用户管理、退出。
- * 一个槽位换三个，"账号"这件事也有了自己的地方。
+ * 现在收成**一个入口**：名字是触发器，点开才是账号与退出。
+ *
+ * 不显示角色，也没有「用户管理」：角色只属于资产台（根 AGENTS.md §1），管理员从资产台进。
  */
 function AccountMenu() {
   const session = useSyncExternalStore(subscribe, getSession)
@@ -58,12 +57,9 @@ function AccountMenu() {
         <div className="account-panel" role="menu">
           <div className="account-identity">
             <b>{user.display_name || user.username}</b>
-            <span>{ROLE_LABEL[user.role]} · {user.username}</span>
+            {user.display_name && user.display_name !== user.username && <span>{user.username}</span>}
           </div>
           <a href="/console/#/account" onClick={() => setOpen(false)} role="menuitem">账号</a>
-          {user.role === 'admin' && (
-            <a href="/console/#/admin" onClick={() => setOpen(false)} role="menuitem">用户管理</a>
-          )}
           <button
             onClick={() => {
               setOpen(false)

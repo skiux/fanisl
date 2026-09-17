@@ -71,9 +71,9 @@ Lax 的语义是：跨站的**顶层 GET 导航**会带 cookie，跨站的 POST/
 
 🔑 = 需要 `role=admin`，否则 403。
 
-**业务路由里的角色判定**：单元核查的三个写接口（`backend/api.md` §5.6）要求管理员，用的是同一个
-`routes.require_admin`，在 `main.py` 里作 FastAPI 依赖，先于请求体校验执行。资产台三组接口的
-`force=true` 只对管理员生效，member 传了会被忽略。其余业务路由只要求登录——成员能不能调
+**业务路由里的角色判定只在资产台**：`/portfolio`、`/orders`、`/ledger` 的 `force=true` 只对管理员生效，
+member 传了会被忽略；成员的逐日盈亏只给 90 天。知识站不分角色（根 `AGENTS.md` §1）——单元核查的
+三个写接口（`backend/api.md` §5.6）只要求登录，用的是 `routes.current_user`。其余业务路由只要求登录——成员能不能调
 会花 Claude 额度或改评测台状态的接口，还没有定，见 `docs/plans/active/base.md`。
 
 **会连带踢会话的操作**：改口令、重置口令、停用、改角色。理由是同一条——权限或凭据变了，

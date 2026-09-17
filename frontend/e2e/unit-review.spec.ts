@@ -3,14 +3,13 @@ import { mockApi } from './api-fixture'
 
 // 单元核查（docs/plans/active/features/unit-review.md 第 5 节）。写接口只在夹具里跑：
 // 本机 API 连的是生产隧道，对它提交就是往生产库里写核查。
-
-const ADMIN = { role: 'admin' }
+// 夹具默认会话是成员（role=member）：核查不分角色，下面的用例都以成员身份跑。
 
 // 桌面上是右栏的阅读区，窄屏是抽屉——两种都在 .unit-reader 里
 const reader = (page: Page) => page.locator('.unit-reader')
 
 test('核查 tab 带未关闭计数，知识席位的复盘与修改记录原样展开', async ({ page }) => {
-  await mockApi(page, ADMIN)
+  await mockApi(page)
   await page.goto('/#/knowledge?unit=1&view=evidence&tab=review&review=12')
 
   const tab = reader(page).getByRole('tab', { name: /^核查/ })
@@ -30,8 +29,8 @@ test('核查 tab 带未关闭计数，知识席位的复盘与修改记录原样
   await expect(card.getByText('半导体（按 §0.6 不替他指定阈值）')).toBeVisible()
 })
 
-test('管理员提交一条核查，列表与计数随之更新', async ({ page }) => {
-  await mockApi(page, ADMIN)
+test('提交一条核查，列表与计数随之更新', async ({ page }) => {
+  await mockApi(page)
   await page.goto('/#/knowledge?unit=1&view=evidence&tab=review')
 
   const panel = reader(page).getByRole('region', { name: '单元核查' })
@@ -51,7 +50,7 @@ test('管理员提交一条核查，列表与计数随之更新', async ({ page 
 })
 
 test('待确认入口：答复过的核查在顶栏露头，点进去落在那条核查上', async ({ page }) => {
-  await mockApi(page, ADMIN)
+  await mockApi(page)
   await page.goto('/#/asset')
 
   await page.getByRole('button', { name: '待确认的核查 1 条' }).click()
@@ -65,7 +64,7 @@ test('待确认入口：答复过的核查在顶栏露头，点进去落在那�
 })
 
 test('不认可就回复，核查回到知识席位；撤回后关闭，顶栏与计数跟着变', async ({ page }) => {
-  await mockApi(page, ADMIN)
+  await mockApi(page)
   await page.goto('/#/knowledge?unit=1&view=evidence&tab=review')
   await expect(page.getByRole('button', { name: '待确认的核查 1 条' })).toBeVisible()
 
@@ -84,25 +83,17 @@ test('不认可就回复，核查回到知识席位；撤回后关闭，顶栏�
   await expect(reader(page).getByRole('tab', { name: /^核查/ })).not.toHaveAccessibleName(/未关闭/)
 })
 
-test('写接口回 403 时说"需要管理员权限"，状态不变', async ({ page }) => {
-  await mockApi(page, ADMIN, { forbidWrites: true })
-  await page.goto('/#/knowledge?unit=1&view=evidence&tab=review')
-
-  const card = reader(page).getByRole('article', { name: '核查 #12' })
-  await card.getByRole('button', { name: '认可并关闭' }).click()
-  await expect(card.getByRole('alert')).toHaveText('需要管理员权限')
-  await expect(card.getByText('待你确认')).toBeVisible()
-})
-
-test('成员只读：看得到核查与答复，没有提交与回复入口，顶栏没有待确认', async ({ page }) => {
+test('关闭已经关闭的核查时显示接口给的原因，状态不变', async ({ page }) => {
   await mockApi(page)
   await page.goto('/#/knowledge?unit=1&view=evidence&tab=review')
 
-  const panel = reader(page).getByRole('region', { name: '单元核查' })
-  await expect(panel.getByText(/需要管理员权限/)).toBeVisible()
-  await expect(panel.getByRole('article', { name: '核查 #12' })).toBeVisible()
-  await expect(panel.getByRole('button')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: /待确认的核查/ })).toHaveCount(0)
+  const card = reader(page).getByRole('article', { name: '核查 #12' })
+  // 另一个标签页里已经关掉了：页面还停在"待你确认"，接口回 409
+  await page.route('**/knowledge/reviews/12/close', (route) =>
+    route.fulfill({ json: { detail: '核查 12 已经关闭' }, status: 409 }))
+  await card.getByRole('button', { name: '认可并关闭' }).click()
+  await expect(card.getByRole('alert')).toHaveText('核查 12 已经关闭')
+  await expect(card.getByText('待你确认')).toBeVisible()
 })
 
 test('深链到不在首页那 100 条里的旧单元，打开的就是它，不是列表第一条', async ({ page }) => {

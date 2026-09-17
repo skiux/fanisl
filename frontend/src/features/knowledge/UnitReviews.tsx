@@ -268,8 +268,7 @@ function roleLabel(message: ReviewMessage, me: string | null) {
   return message.author === me ? '你' : '站上用户'
 }
 
-function ReviewCard({ canWrite, focused, me, onChanged, review }: {
-  canWrite: boolean
+function ReviewCard({ focused, me, onChanged, review }: {
   focused: boolean
   me: string | null
   onChanged: (review: UnitReview) => void
@@ -313,7 +312,7 @@ function ReviewCard({ canWrite, focused, me, onChanged, review }: {
           {review.amendments.map((amendment) => <Amendment amendment={amendment} key={amendment.id} />)}
         </section>
       )}
-      {canWrite && <ReviewActions onChanged={onChanged} review={review} />}
+      <ReviewActions onChanged={onChanged} review={review} />
     </article>
   )
 }
@@ -322,6 +321,8 @@ function ReviewCard({ canWrite, focused, me, onChanged, review }: {
  * 单元核查：用户对一条提取提出异议，知识席位用 CLI 审查后答复，改了单元就留下改前改后。
  *
  * 列表与计数由上层（EvidenceDossier）持有，因为 tab 上要显示未关闭的条数，而 tab 在面板之外。
+ *
+ * 不分角色：能进站的都已登录，提交、回复、关闭对谁都开放。角色只属于资产台（根 AGENTS.md §1）。
  */
 function UnitReviews({ focusReviewId = null, onChanged, onRetry, reviews, state, unitId }: {
   focusReviewId?: number | null
@@ -333,8 +334,6 @@ function UnitReviews({ focusReviewId = null, onChanged, onRetry, reviews, state,
 }) {
   const session = useSyncExternalStore(subscribe, getSession)
   const user = session.status === 'authenticated' ? session.user : null
-  // 写接口只给 admin；按钮藏起来只是不让人点了再吃 403，真正的闸在后端
-  const canWrite = user?.role === 'admin'
   const list = reviews ?? []
   const unclosed = unclosedCount(list)
 
@@ -361,15 +360,14 @@ function UnitReviews({ focusReviewId = null, onChanged, onRetry, reviews, state,
         </div>
       )}
 
-      {state !== 'loading' && (canWrite
-        ? <ReviewComposer onSubmitted={onChanged} startOpen={state === 'loaded' && list.length === 0} unitId={unitId} />
-        : <p className="review-readonly">提交、回复与关闭需要管理员权限；这里可以查看已有的核查与答复。</p>)}
+      {state !== 'loading' && (
+        <ReviewComposer onSubmitted={onChanged} startOpen={state === 'loaded' && list.length === 0} unitId={unitId} />
+      )}
 
       {state === 'loaded' && list.length === 0 && <p className="review-empty">这条单元还没有核查。</p>}
 
       {list.map((review) => (
         <ReviewCard
-          canWrite={canWrite}
           focused={review.id === focusReviewId}
           key={review.id}
           me={user?.username ?? null}

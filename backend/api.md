@@ -19,7 +19,7 @@
 - **CORS**：线上两个前端与 API 同源，用不到 CORS。本机跨端口开发时要带 cookie，
   浏览器不允许 `Access-Control-Allow-Origin: *`，所以来源要逐个列进 `CORS_ORIGINS`。
 - **错误**：非 2xx 返回 `{"detail": "人类可读的中文原因"}`。常见：400 参数问题、403 需要管理员
-  （§5.6 的写接口）、404 不存在、409 状态冲突（如撤已成交的单、关闭已关闭的核查）、
+  （§1.5 的管理员接口）、404 不存在、409 状态冲突（如撤已成交的单、关闭已关闭的核查）、
   502 Claude API 错误（同步调 Claude 的端点）。请求体结构不对（缺字段、类型错）是 FastAPI 的
   422，此时 `detail` 是字段错误列表而不是字符串。
 - **时间**：一律 ISO 8601 带时区（如 `2026-07-12T20:00:00+08:00`）；日线日期为 `YYYY-MM-DD`。
@@ -617,9 +617,8 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
 
 **这是知识域唯一的写接口组**，规则与本章其余只读端点不同：
 
-- **三个 POST 要求 `role=admin`**，member → `403 {"detail":"需要管理员权限"}`。核查会驱动知识席位
-  修改生产库里的单元，v1 只让管理员提交。角色判定先于请求体校验：member 发一个缺字段的请求，
-  拿到的也是 403。
+- **三个 POST 只要求登录，不分角色**：member 与 admin 一样能提交、回复、关闭。角色只属于资产台，
+  知识站对所有登录用户一视同仁（2026-09-17 起；此前要求 `role=admin`）。
 - **作者一律取自登录会话**（`user.username`）。请求体里带 `author` / `created_by` / `role` 会被
   忽略，不报错。本机 `AUTH_ENABLED=false` 时作者是 `(auth-disabled)`。
 - **没有答复接口。** `role=extractor` 的消息只能由知识席位的 CLI 写入
@@ -658,16 +657,16 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
 #### GET /knowledge/units/{id}/reviews
 该单元的全部核查，**新的在前**：`[review...]`。没有核查时是 `[]`；单元不存在也是 `[]`，不报 404。
 
-#### POST /knowledge/units/{id}/reviews 🔑
+#### POST /knowledge/units/{id}/reviews
 提交核查。Body `{"category": str, "body": str}` → **201** + review（`status=open`，`messages` 里一条
 `role=reviewer`，`created_by` 与这条消息的 `author` 都是当前登录用户）。
 `category` 不在枚举里、`body` 去掉首尾空白后为空或超过 4000 字 → 400；单元不存在 → 404。
 
-#### POST /knowledge/reviews/{id}/messages 🔑
+#### POST /knowledge/reviews/{id}/messages
 补充说明，或回复知识席位的答复。Body `{"body": str}` → 200 + review。**任何状态下回复都会把核查
 置回 `open`**（`closed_at` 清空），回到知识席位的待办。`body` 为空或超长 → 400；核查不存在 → 404。
 
-#### POST /knowledge/reviews/{id}/close 🔑
+#### POST /knowledge/reviews/{id}/close
 关闭核查（认可答复，或撤回意见）。无 body → 200 + review（`status=closed`，`closed_at` 有值）。
 已经关闭 → 409；核查不存在 → 404。
 
@@ -676,8 +675,6 @@ recent:[{unit_id, verdict, note, created_at, kind, quote}]}`（录入走 CLI，A
 created_at, updated_at, closed_at, kind, content_id, quote(前 80 字), verifiability|null, creator,
 n_messages, last_message(前 120 字)}]`。`status` 省略为全部；`open` 是知识席位的待办，**`answered`
 是用户的待确认**（站上「待确认」入口用它）；其他取值 → 400。`limit` 上限 500。
-
-🔑 = 需要 `role=admin`，否则 403。
 
 ---
 
@@ -815,7 +812,6 @@ BZ 实测 0 条知识单元、3 笔交易，只按知识单元筛它在工作台
 | GET /knowledge/relations | 仅 6 条边（conflicts 1） | 页面为增长设计，但当下逐条完整呈现 |
 | GET /knowledge/nodes | 多数节点无评分聚合（hit/miss=0） | 无评分时不显示 0%，显示"未验证" |
 | GET /knowledge/weekly | 现算，1-2s | 骨架；markdown 直接渲染 |
-| POST /knowledge/units/{id}/reviews 等三个核查写接口 | member 账号一律 403 | 显示「需要管理员权限」；可以不给非管理员显示提交入口，但真正的限制在接口侧 |
 | GET /knowledge/reviews?status=answered | 多数时候是 `[]` | 「待确认」入口不显示角标，不要显示 0 |
 | GET /asset | 长尾标的普遍 `units<10`、`scored=0`、`hit_rate:null` | 不显示 0%，显示"未验证"；n<10 视觉降权 |
 | GET /asset/{id} | 指数/金属/利率的 `profile` 恒 `null`、`news` 恒 `[]`（`has_company=false`） | 隐藏这两节；覆盖条写明"没有公司这回事"，不是"未接入" |

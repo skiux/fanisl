@@ -27,12 +27,12 @@ function formatTime(value: string) {
  * 放在顶栏而不是知识库里，是因为日常入口是标的页——答复要在用户每天都会经过的地方被看见，
  * 否则只能逐个单元去翻，闭环就断了。
  *
- * 只给管理员：写接口只开给 admin，成员看见了也关不掉。没有待确认时整个入口不渲染——
+ * 所有登录用户都有：核查不分角色。没有待确认时整个入口不渲染——
  * 顶栏在窄屏上本来就刚好排满（见 AccountMenu 的注释），不留一个常驻的空位。
  */
 function ReviewInbox() {
   const session = useSyncExternalStore(subscribe, getSession)
-  const isAdmin = session.status === 'authenticated' && session.user.role === 'admin'
+  const signedIn = session.status === 'authenticated'
   const [items, setItems] = useState<ReviewQueueItem[]>([])
   const [open, setOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -46,14 +46,14 @@ function ReviewInbox() {
   }, [])
 
   useEffect(() => {
-    if (!isAdmin) return
+    if (!signedIn) return
     const controller = new AbortController()
     fetchAnsweredReviews(controller.signal)
       .then(setItems)
       // 入口只是提醒：取不到就当没有，不在顶栏上报错打断页面
       .catch(() => { if (!controller.signal.aborted) setItems([]) })
     return () => controller.abort()
-  }, [isAdmin, refreshKey])
+  }, [signedIn, refreshKey])
 
   useEffect(() => {
     if (!open) return
@@ -73,7 +73,7 @@ function ReviewInbox() {
     }
   }, [open])
 
-  if (!isAdmin || items.length === 0) return null
+  if (!signedIn || items.length === 0) return null
 
   return (
     <div className="review-inbox" ref={root}>

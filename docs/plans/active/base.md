@@ -27,7 +27,7 @@
 ## Blocked on
 - **等用户定：成员的写权限。** 中间件只判断登录与否：member 能调会花 Claude 额度的 `/chat`、
   `/trading/open|scan|detect`，能改强制交易开关、手动开平仓、撤单；`conversations` 表没有
-  归属列，所有人的对话互相可见、可改名、可删除。单元核查的写接口已按 admin 做
+  归属列，所有人的对话互相可见、可改名、可删除。单元核查的写接口 2026-09-17 起只要求登录（用户定：角色只属于 console），不在这条的讨论范围内
 - **等用户定：席位表没覆盖的文件。** 下面这些已知过期，因为无主，本席位没改：
   - `backend/README.md`：结构图仍把 `agent.py` `storage.py` `flatten.py` `collector.py` 列在包根；
     写"当前加密=OKX"，实为 Binance
@@ -55,7 +55,7 @@
   发现页简报为挑"重点发现"，现在要逐条取两侧节点详情：9 条对立边 = 18 次请求，本机经隧道实测
   最后一个 6.8s 才返回（`/relations` 本身 0.39s）；生产上往返短得多，没测（线上要登录）。
   字段加上后前端改为只用关系边一次请求。"同源/跨源"用 note 前缀就能判，不需要另加字段
-- **knowledge 席位（2026-09-17）**：单元核查三个写接口去掉管理员限制，改为只要求登录。
+- **已处理（2026-09-17，用户让 knowledge 席位直接改）** knowledge 席位：单元核查三个写接口去掉管理员限制，改为只要求登录。
   用户定的原则：角色只属于 console，知识站不分角色（根 `AGENTS.md` §1）。要改：
   `main.py` 三处 `Depends(auth_routes.require_admin)` → `Depends(auth_routes.current_user)`；
   `api.md` §0 常见错误里「403 需要管理员（§5.6 的写接口）」、§5.6 那段 admin 说明、

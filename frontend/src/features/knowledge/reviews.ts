@@ -1,7 +1,7 @@
 // 单元核查的传输契约与调用。字段以 backend/api.md §5.6 为准；流程与取舍见
 // docs/plans/active/features/unit-review.md。
 //
-// 站上只有三个写操作：提交、回复、关闭，都要求 admin。知识席位的答复只走 CLI，这里没有、
+// 站上只有三个写操作：提交、回复、关闭，登录即可，不分角色。知识席位的答复只走 CLI，这里没有、
 // 也不该有任何以知识席位身份写入的路径。
 
 import { ApiError, apiJson } from '../../shared/api/client'
@@ -124,9 +124,9 @@ export function reviewHref(unitId: number, reviewId?: number) {
   return `#/knowledge?${params.toString()}`
 }
 
-/** 写接口的报错。403 统一写"需要管理员权限"；400 / 404 / 409 的 detail 已是中文，原样给。 */
+/** 写接口的报错。400 / 404 / 409 的 detail 已是中文，原样给；401 由会话闸门切回登录页。 */
 export function reviewErrorMessage(error: unknown) {
-  if (error instanceof ApiError) return error.status === 403 ? '需要管理员权限' : error.message
+  if (error instanceof ApiError) return error.message
   return '网络异常，没有提交成功，请稍后重试'
 }
 

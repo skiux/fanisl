@@ -297,8 +297,6 @@ export function seedReviews(): FixtureReview[] {
 
 type ReviewState = {
   reviews: FixtureReview[]
-  forbidWrites: boolean
-  role: string
   username: string
   nextId: number
   nextMessageId: number
@@ -322,11 +320,6 @@ async function handleReviews(route: Route, url: URL, state: ReviewState): Promis
   const request = route.request()
   const reply = (payload: unknown, status = 200) => route.fulfill({ json: payload, status })
   const newestFirst = (items: FixtureReview[]) => [...items].sort((a, b) => b.id - a.id)
-  // 角色判定先于请求体校验，与后端一致
-  if (request.method() === 'POST' && (state.forbidWrites || state.role !== 'admin')) {
-    await reply({ detail: '需要管理员权限' }, 403)
-    return true
-  }
   const now = new Date(FIXTURE_NOW.getTime() + (state.tick += 1) * 60_000).toISOString()
 
   if (path === '/knowledge/reviews') {
@@ -447,8 +440,6 @@ export async function mockAuth(page: Page, user: unknown = SESSION_USER) {
 type MockOptions = {
   /** 核查的初始数据，默认 seedReviews()。 */
   reviews?: FixtureReview[]
-  /** 模拟会话里的角色已过期：界面按管理员渲染，写接口却回 403。 */
-  forbidWrites?: boolean
 }
 
 export async function mockApi(page: Page, userOverrides?: Record<string, unknown>, options: MockOptions = {}) {
@@ -457,8 +448,6 @@ export async function mockApi(page: Page, userOverrides?: Record<string, unknown
   await mockAuth(page, user)
   const state: ReviewState = {
     reviews: options.reviews ?? seedReviews(),
-    forbidWrites: options.forbidWrites ?? false,
-    role: user.role,
     username: user.username,
     nextId: 100,
     nextMessageId: 1000,

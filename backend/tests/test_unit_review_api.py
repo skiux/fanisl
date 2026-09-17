@@ -1,6 +1,6 @@
 """单元核查的 HTTP 接口（契约见 backend/api.md §5.6）。
 
-走真正的 fanisl.main：要验的是中间件、角色判定、请求模型与 store 接在一起之后的行为。
+走真正的 fanisl.main：要验的是中间件、登录判定、请求模型与 store 接在一起之后的行为。
 TestClient 的 base_url 用 https——会话 cookie 带 Secure，http 下 httpx 不会存它。
 """
 
@@ -76,18 +76,20 @@ def test_everything_requires_login(unit_id):
     assert c.post("/knowledge/reviews/1/close").status_code == 401
 
 
-def test_member_can_read_but_not_write(member, unit_id, pool):
-    assert member.get(f"/knowledge/units/{unit_id}/reviews").json() == []
-    assert member.get("/knowledge/reviews").json() == []
-    for path, body in ((f"/knowledge/units/{unit_id}/reviews", {"category": "quote", "body": "x"}),
-                       ("/knowledge/reviews/1/messages", {"body": "x"}),
-                       ("/knowledge/reviews/1/close", None)):
-        r = member.post(path, json=body)
-        assert r.status_code == 403, path
-        assert r.json()["detail"] == "需要管理员权限"
-    # 角色判定先于请求体校验：member 发缺字段的请求拿到的也是 403，不是 422
-    assert member.post(f"/knowledge/units/{unit_id}/reviews", json={}).status_code == 403
-    assert _review_count(pool) == 0
+def test_member_can_do_everything_an_admin_can(member, unit_id):
+    """知识站不分角色（根 AGENTS.md §1）：成员能提交、回复、关闭，作者同样取自会话。
+    2026-09-17 之前这三个写接口要求管理员，这条测试原本断言成员拿 403。"""
+    r = member.post(f"/knowledge/units/{unit_id}/reviews",
+                    json={"category": "quote", "body": "断章取义", "created_by": "root"})
+    assert r.status_code == 201 and r.json()["created_by"] == "bob"
+    rid = r.json()["id"]
+
+    r = member.post(f"/knowledge/reviews/{rid}/messages", json={"body": "补充依据"})
+    assert r.status_code == 200 and r.json()["messages"][-1]["author"] == "bob"
+    r = member.post(f"/knowledge/reviews/{rid}/close")
+    assert r.status_code == 200 and r.json()["status"] == "closed"
+    # 结构不对仍由 FastAPI 拦下
+    assert member.post(f"/knowledge/units/{unit_id}/reviews", json={}).status_code == 422
 
 
 def test_admin_submits_and_the_author_comes_from_the_session(admin, unit_id):

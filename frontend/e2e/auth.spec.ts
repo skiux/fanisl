@@ -87,10 +87,10 @@ test('会话中途失效：任意接口 401 就整体切回登录页', async ({ 
   await expect(page.getByRole('heading', { name: '个人投资知识引擎' })).toBeVisible()
 })
 
-test('账号菜单：一个入口装下身份、账号、用户管理与退出', async ({ page }) => {
+test('账号菜单：一个入口装下身份、账号与退出，不显示角色', async ({ page }) => {
   // 原来是往顶栏直接排三个文字元素，把 .nav-actions（没有 gap 的 flex）撑到裁字。
-  // 现在收成一个触发器 + 一个面板。
-  await mockApi(page)
+  // 现在收成一个触发器 + 一个面板。以管理员登录：角色在这里也不该露面。
+  await mockApi(page, { role: 'admin' })
   await page.route('**/auth/logout', (route) => route.fulfill({ json: { ok: true }, status: 200 }))
   await page.goto('/#/knowledge')
 
@@ -103,6 +103,9 @@ test('账号菜单：一个入口装下身份、账号、用户管理与退出',
   // 菜单项与目标页面的标题同名，跳过去不会觉得进错了地方
   await expect(menu.getByRole('menuitem', { name: '账号' })).toHaveAttribute(
     'href', '/console/#/account')
+  // 角色只属于资产台：管理员在这里也看不到角色与「用户管理」
+  await expect(menu).not.toContainText(/管理员|成员/)
+  await expect(menu.getByRole('menuitem')).toHaveCount(2)
   await menu.getByRole('menuitem', { name: '退出' }).click()
   await expect(page.getByRole('heading', { name: '个人投资知识引擎' })).toBeVisible()
 })

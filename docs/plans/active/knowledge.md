@@ -10,8 +10,7 @@
 按下面编号排列。**第 6 条的结构问题建议最先做**——一条坏单元能让之后的全部 claim 停评。
 
 ## Blocked on
-- 单元核查去掉管理员限制：等 base 放开三个写接口、frontend 去掉角色判断
-  （`features/unit-review.md` 第 6 节 3b / 3c）
+- 无
 
 ## Requests in
 - **frontend 席位**：标的页为空多半是标的未登记（见下面第 1 条），不是前端问题
