@@ -43,12 +43,178 @@ def test_snapshot_shape_matches_contract(cache):
     snap = build(cache)
     assert set(snap) == {"as_of", "base_currency", "sources", "totals", "stable_assets",
                          "wallets", "spot", "futures", "earn", "margin", "income",
-                         "transfers", "stocks", "pnl"}
+                         "transfers", "stocks", "pnl", "capabilities", "isolated_margin",
+                         "liquidation_loan", "portfolio_margin"}
     assert snap["base_currency"] == "USD"
     assert {s["key"] for s in snap["sources"]} == {
         "prices", "wallets", "spot", "futures", "earn", "margin",
-        "income", "transfers", "stocks"}
-    assert all(s["status"] == "ok" for s in snap["sources"])
+        "income", "transfers", "stocks", "account", "isolated_margin",
+        "liquidation_loan", "portfolio_margin"}
+    states = {s["key"]: s for s in snap["sources"]}
+    assert all(states[key]["status"] == "ok" for key in states if key != "portfolio_margin")
+    assert states["portfolio_margin"]["status"] == "unsupported"
+
+
+def test_capabilities_gate_margin_risk_sources(cache):
+    snap = build(cache)
+    assert snap["capabilities"] == {
+        "vip_level": 1,
+        "reading": True,
+        "ip_restricted": True,
+        "margin": True,
+        "futures": True,
+        "options": False,
+        "portfolio_margin": False,
+        "trade_permissions": {
+            "spot_margin": False,
+            "margin": False,
+            "futures": False,
+            "options": False,
+            "portfolio_margin": False,
+            "withdrawals": False,
+        },
+    }
+    assert snap["isolated_margin"]["pairs"][0]["symbol"] == "BNBUSDT"
+    assert snap["isolated_margin"]["pairs"][0]["liquidation_price"] == 438.2
+    assert snap["liquidation_loan"] == {
+        "asset": "USDC", "amount": 0.0, "repaid_amount": 0.0,
+        "remaining_amount": 0.0,
+    }
+
+
+def test_disabled_margin_and_portfolio_products_are_not_queried(cache):
+    calls = []
+    base = make_transport(calls=calls)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/sapi/v1/account/info":
+            return httpx.Response(200, json={
+                "vipLevel": 0, "isMarginEnabled": False, "isFutureEnabled": True,
+                "isOptionsEnabled": False, "isPortfolioMarginRetailEnabled": False,
+            })
+        return base.handler(request)
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        snap = build_portfolio(client, cache, force=True, now=NOW)
+    finally:
+        client.close()
+
+    assert "/sapi/v1/margin/account" not in calls
+    assert "/sapi/v1/margin/isolated/account" not in calls
+    assert "/sapi/v1/margin/liquidation-loan" not in calls
+    assert not [path for path in calls if path.startswith("/papi/")]
+    states = {s["key"]: s for s in snap["sources"]}
+    assert states["margin"]["status"] == "unsupported"
+    assert states["isolated_margin"]["status"] == "unsupported"
+    assert states["liquidation_loan"]["status"] == "unsupported"
+    assert states["portfolio_margin"]["status"] == "unsupported"
+
+
+def test_classic_portfolio_margin_uses_papi_after_mode_probe(cache):
+    calls = []
+    base = make_transport(calls=calls)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/sapi/v1/account/info":
+            return httpx.Response(200, json={
+                "vipLevel": 2, "isMarginEnabled": True, "isFutureEnabled": True,
+                "isOptionsEnabled": False, "isPortfolioMarginRetailEnabled": True,
+            })
+        if path == "/sapi/v1/portfolio/account":
+            calls.append(path)
+            return httpx.Response(200, json={"accountType": "PM_1", "accountStatus": "NORMAL"})
+        if path == "/papi/v1/account":
+            calls.append(path)
+            return httpx.Response(200, json={
+                "uniMMR": "5.25", "accountEquity": "20000", "actualEquity": "21000",
+                "accountInitialMargin": "3000", "accountMaintMargin": "900",
+                "accountStatus": "NORMAL", "virtualMaxWithdrawAmount": "5000",
+                "totalAvailableBalance": "6500",
+            })
+        if path == "/papi/v2/um/account":
+            calls.append(path)
+            return httpx.Response(200, json={"assets": [], "positions": []})
+        if path == "/papi/v1/um/positionRisk":
+            calls.append(path)
+            return httpx.Response(200, json=[])
+        return base.handler(request)
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        snap = build_portfolio(client, cache, force=True, now=NOW)
+    finally:
+        client.close()
+
+    assert calls.index("/sapi/v1/portfolio/account") < calls.index("/papi/v1/account")
+    assert {"/papi/v1/account", "/papi/v2/um/account", "/papi/v1/um/positionRisk"} <= set(calls)
+    assert snap["portfolio_margin"] == {
+        "mode": "portfolio",
+        "account_type": "PM_1",
+        "account_status": "NORMAL",
+        "uni_mmr": 5.25,
+        "equity_usd": 20000.0,
+        "actual_equity_usd": 21000.0,
+        "initial_margin_usd": 3000.0,
+        "maint_margin_usd": 900.0,
+        "available_balance_usd": 6500.0,
+        "max_withdraw_usd": 5000.0,
+        "positions": [],
+    }
+
+
+def test_span_portfolio_margin_stays_on_sapi_v2(cache):
+    calls = []
+    base = make_transport(calls=calls)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/sapi/v1/account/info":
+            return httpx.Response(200, json={
+                "vipLevel": 2, "isMarginEnabled": True, "isFutureEnabled": True,
+                "isOptionsEnabled": False, "isPortfolioMarginRetailEnabled": True,
+            })
+        if path == "/sapi/v1/portfolio/account":
+            calls.append(path)
+            return httpx.Response(200, json={"accountType": "PM_3", "accountStatus": "NORMAL"})
+        if path == "/sapi/v2/portfolio/account":
+            calls.append(path)
+            return httpx.Response(200, json={
+                "accountType": "PM_3", "accountStatus": "NORMAL", "uniMMR": "5167.92",
+                "accountEquity": "122607.35", "actualEquity": "142607.35",
+                "accountMaintMargin": "23.72",
+            })
+        if path == "/sapi/v1/portfolio/balance":
+            calls.append(path)
+            return httpx.Response(200, json=[])
+        return base.handler(request)
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        snap = build_portfolio(client, cache, force=True, now=NOW)
+    finally:
+        client.close()
+
+    assert "/sapi/v2/portfolio/account" in calls
+    assert "/sapi/v1/portfolio/balance" in calls
+    assert not [path for path in calls if path.startswith("/papi/")]
+    assert snap["portfolio_margin"] == {
+        "mode": "span",
+        "account_type": "PM_3",
+        "account_status": "NORMAL",
+        "uni_mmr": 5167.92,
+        "equity_usd": 122607.35,
+        "actual_equity_usd": 142607.35,
+        "initial_margin_usd": None,
+        "maint_margin_usd": 23.72,
+        "available_balance_usd": None,
+        "max_withdraw_usd": None,
+        "positions": [],
+    }
 
 
 def test_stablecoins_are_cash_not_a_position(cache):

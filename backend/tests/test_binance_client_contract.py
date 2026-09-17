@@ -112,3 +112,61 @@ def test_tradfi_metadata_endpoints_are_public_reads():
 
     assert paths == ["/fapi/v1/exchangeInfo", "/fapi/v1/tradingSchedule",
                      "/fapi/v1/symbolAdlRisk"]
+
+
+def test_account_capability_and_margin_risk_reads_use_current_paths():
+    paths = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/time"):
+            return httpx.Response(200, json={"serverTime": 0})
+        paths.append(request.url.path)
+        return httpx.Response(200, json={})
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        client.account_info()
+        client.api_restrictions()
+        client.isolated_margin_account()
+        client.margin_liquidation_loan()
+    finally:
+        client.close()
+
+    assert paths == [
+        "/sapi/v1/account/info",
+        "/sapi/v1/account/apiRestrictions",
+        "/sapi/v1/margin/isolated/account",
+        "/sapi/v1/margin/liquidation-loan",
+    ]
+
+
+def test_portfolio_margin_reads_use_papi_and_sapi_contracts():
+    seen: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/time"):
+            return httpx.Response(200, json={"serverTime": 0})
+        seen.append((request.url.host, request.url.path))
+        return httpx.Response(200, json={})
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        client.portfolio_margin_pro_account()
+        client.portfolio_margin_pro_account(span=True)
+        client.portfolio_margin_pro_balance()
+        client.portfolio_margin_account()
+        client.portfolio_margin_um_account()
+        client.portfolio_margin_um_position_risk()
+    finally:
+        client.close()
+
+    assert seen == [
+        ("api.binance.com", "/sapi/v1/portfolio/account"),
+        ("api.binance.com", "/sapi/v2/portfolio/account"),
+        ("api.binance.com", "/sapi/v1/portfolio/balance"),
+        ("papi.binance.com", "/papi/v1/account"),
+        ("papi.binance.com", "/papi/v2/um/account"),
+        ("papi.binance.com", "/papi/v1/um/positionRisk"),
+    ]

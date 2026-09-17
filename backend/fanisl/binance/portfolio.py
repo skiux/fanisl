@@ -43,6 +43,7 @@ TTL = {
     "futures_metadata": 1800,
     "brackets": 86_400,
     "stocks": 21_600,
+    "account": 300,
     "earn": 300,
     "margin": 60,
     "income": 300,
@@ -179,9 +180,10 @@ def _jobs(client: BinanceClient, now: datetime) -> list[tuple[str, int, Callable
         ("futures.schedule", TTL["futures_metadata"], client.futures_trading_schedule),
         ("futures.brackets", TTL["brackets"], client.leverage_brackets),
         ("equity.tokenized", TTL["stocks"], client.equity_tokenized_assets),
+        ("account.info", TTL["account"], client.account_info),
+        ("account.restrictions", TTL["account"], client.api_restrictions),
         ("earn.flexible", TTL["earn"], client.earn_flexible_positions),
         ("earn.locked", TTL["earn"], client.earn_locked_positions),
-        ("margin", TTL["margin"], client.margin_account),
         ("income", TTL["income"],
          lambda: client.futures_income(start_ms=start_ms, end_ms=end_ms)),
         ("transfers.deposits", TTL["transfers"],
@@ -200,6 +202,7 @@ def _jobs(client: BinanceClient, now: datetime) -> list[tuple[str, int, Callable
 # 它们各自的真实年龄没有被藏起来：每个来源自己的 as_of 照常返回，
 # 界面上的「取数状态」一格一格地显示。
 LIVE_CADENCE = frozenset({"prices", "wallets", "spot", "futures", "earn", "margin",
+                          "isolated_margin", "liquidation_loan", "portfolio_margin",
                           "income", "transfers"})
 
 # 贵到不该被"重新取数"穿透的来源。提现历史单次权重 18000（账户维度 10 次/秒），
@@ -216,8 +219,12 @@ _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
                                       "futures.symbol_adl", "futures.exchange_info",
                                       "futures.schedule", "futures.brackets")),
     "stocks": ("equity.tokenized", ("wallets",)),
+    "account": ("account.info", ("account.restrictions",)),
     "earn": ("earn.flexible", ("earn.locked",)),
     "margin": ("margin", ()),
+    "isolated_margin": ("isolated_margin", ()),
+    "liquidation_loan": ("liquidation_loan", ()),
+    "portfolio_margin": ("portfolio_margin", ()),
     "income": ("income", ()),
     "transfers": ("transfers.deposits", ("transfers.withdrawals",)),
 }
@@ -242,7 +249,7 @@ def _states(results: dict[str, SourceResult],
                 state["status"] = "unsupported"
                 state["detail"] = parse_errors[key]
             else:
-                missing = [k for k in extras if not results[k].ok]
+                missing = [k for k in extras if results.get(k) is None or not results[k].ok]
                 if missing:
                     state["detail"] = "部分补充数据取不到：" + "、".join(missing)
         out.append(state)
@@ -316,6 +323,146 @@ def _stocks(wallet_rows: Any, tokenized_rows: Any, btc_usd: float | None) -> dic
             "Binance Stocks Trading 当前未提供持仓查询端点；这里仅列出钱包详情中可验证的代币化股票资产。"
         ),
         "tokenized_assets": assets,
+    }
+
+
+def _capabilities(info: Any, restrictions: Any) -> dict | None:
+    if not isinstance(info, dict):
+        return None
+    permissions = restrictions if isinstance(restrictions, dict) else {}
+
+    def permission(key: str) -> bool | None:
+        return bool(permissions[key]) if key in permissions else None
+
+    vip = dec(info.get("vipLevel"))
+    return {
+        "vip_level": int(vip) if vip is not None else None,
+        "reading": permission("enableReading"),
+        "ip_restricted": permission("ipRestrict"),
+        "margin": bool(info.get("isMarginEnabled", False)),
+        "futures": bool(info.get("isFutureEnabled", False)),
+        "options": bool(info.get("isOptionsEnabled", False)),
+        "portfolio_margin": bool(info.get("isPortfolioMarginRetailEnabled", False)),
+        "trade_permissions": {
+            "spot_margin": permission("enableSpotAndMarginTrading"),
+            "margin": permission("enableMargin"),
+            "futures": permission("enableFutures"),
+            "options": permission("enableVanillaOptions"),
+            "portfolio_margin": permission("enablePortfolioMarginTrading"),
+            "withdrawals": permission("enableWithdrawals"),
+        },
+    }
+
+
+def _margin_leg(payload: Any, prices: dict[str, float]) -> dict:
+    row = payload if isinstance(payload, dict) else {}
+    asset = str(row.get("asset", ""))
+    net = dec0(row.get("netAsset"))
+    return {
+        "asset": asset,
+        "free": dec0(row.get("free")),
+        "locked": dec0(row.get("locked")),
+        "borrowed": dec0(row.get("borrowed")),
+        "interest": dec0(row.get("interest")),
+        "net": net,
+        "value_usd": usd_value(asset, net, prices),
+    }
+
+
+def _isolated_margin(payload: Any, btc_usd: float | None,
+                     prices: dict[str, float]) -> dict | None:
+    if not isinstance(payload, dict):
+        return None
+
+    def btc_value(key: str) -> float | None:
+        value = dec(payload.get(key))
+        return None if value is None or btc_usd is None else value * btc_usd
+
+    pairs = []
+    for row in payload.get("assets", []) or []:
+        if not isinstance(row, dict) or not row.get("enabled", True):
+            continue
+        level = dec(row.get("marginLevel"))
+        pairs.append({
+            "symbol": str(row.get("symbol", "")),
+            "enabled": bool(row.get("enabled", True)),
+            "trade_enabled": bool(row.get("tradeEnabled", False)),
+            "margin_level": None if level is None or level >= 999 else level,
+            "margin_level_status": str(row.get("marginLevelStatus", "")) or None,
+            "margin_ratio": dec(row.get("marginRatio")),
+            "index_price": dec(row.get("indexPrice")),
+            "liquidation_price": dec(row.get("liquidatePrice")),
+            "liquidation_rate": dec(row.get("liquidateRate")),
+            "base": _margin_leg(row.get("baseAsset"), prices),
+            "quote": _margin_leg(row.get("quoteAsset"), prices),
+        })
+    pairs.sort(key=lambda row: row["margin_level"] if row["margin_level"] is not None else 999)
+    return {
+        "total_asset_usd": btc_value("totalAssetOfBtc"),
+        "total_liability_usd": btc_value("totalLiabilityOfBtc"),
+        "total_net_asset_usd": btc_value("totalNetAssetOfBtc"),
+        "pairs": pairs,
+    }
+
+
+def _liquidation_loan(payload: Any) -> dict | None:
+    if not isinstance(payload, dict):
+        return None
+    return {
+        "asset": str(payload.get("asset", "")),
+        "amount": dec0(payload.get("amount")),
+        "repaid_amount": dec0(payload.get("repaidAmount")),
+        "remaining_amount": dec0(payload.get("remainingAmount")),
+    }
+
+
+def _portfolio_margin(summary: Any, um_account: Any, um_risk: Any,
+                      account_type: str) -> dict | None:
+    if not isinstance(summary, dict):
+        return None
+    normalized_type = account_type.upper()
+    # 官方同一页对 PM_1 的文案同时出现过 “PM PRO” 与 “classic PM”，不把这组
+    # 营销名称固化进契约；精确模式由 account_type 保留，只有 PM_3 的 SPAN 可稳定区分。
+    mode = "span" if normalized_type == "PM_3" else "portfolio"
+    risk_by = {
+        (row.get("symbol"), row.get("positionSide", "BOTH")): row
+        for row in um_risk or [] if isinstance(row, dict)
+    }
+    positions = []
+    account = um_account if isinstance(um_account, dict) else {}
+    for row in account.get("positions", []) or []:
+        if not isinstance(row, dict):
+            continue
+        amount = dec0(row.get("positionAmt"))
+        if amount == 0:
+            continue
+        symbol = str(row.get("symbol", ""))
+        side = str(row.get("positionSide", "BOTH"))
+        risk = risk_by.get((symbol, side), {})
+        mark = dec(risk.get("markPrice"))
+        liq = dec(risk.get("liquidationPrice"))
+        positions.append({
+            "symbol": symbol,
+            "position_side": {"LONG": "long", "SHORT": "short"}.get(side, "both"),
+            "position_amt": amount,
+            "notional_usd": abs(dec0(row.get("notional")) or amount * (mark or 0)),
+            "entry_price": dec0(row.get("entryPrice")),
+            "mark_price": mark,
+            "liquidation_price": None if liq is None or liq <= 0 else liq,
+            "unrealized_pnl_usd": dec0(row.get("unrealizedProfit")),
+        })
+    return {
+        "mode": mode,
+        "account_type": account_type or None,
+        "account_status": str(summary.get("accountStatus", "")) or None,
+        "uni_mmr": dec(summary.get("uniMMR")),
+        "equity_usd": dec(summary.get("accountEquity")),
+        "actual_equity_usd": dec(summary.get("actualEquity")),
+        "initial_margin_usd": dec(summary.get("accountInitialMargin")),
+        "maint_margin_usd": dec(summary.get("accountMaintMargin")),
+        "available_balance_usd": dec(summary.get("totalAvailableBalance")),
+        "max_withdraw_usd": dec(summary.get("virtualMaxWithdrawAmount")),
+        "positions": positions,
     }
 
 
@@ -798,6 +945,102 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
     now = now or datetime.now(timezone.utc)
     results = fetch_all(cache, _jobs(client, now), force=force, never_force=NEVER_FORCE)
 
+    account_result = results["account.info"]
+
+    def unavailable(key: str, detail: str) -> SourceResult:
+        return SourceResult(key, None, "unsupported", account_result.as_of, detail)
+
+    def dependent(key: str) -> SourceResult:
+        return SourceResult(
+            key, None, account_result.status, account_result.as_of,
+            "账户能力信息不可用，未请求依赖接口。" +
+            (f" {account_result.detail}" if account_result.detail else ""),
+        )
+
+    # 先读账户能力，再决定是否请求杠杆与统一账户端点。没有开通的产品直接标成
+    # unsupported，既不制造一串 4xx，也不会让前端把“未启用”误报成数据源故障。
+    if account_result.ok and isinstance(account_result.payload, dict):
+        margin_enabled = bool(account_result.payload.get("isMarginEnabled", False))
+        portfolio_enabled = bool(
+            account_result.payload.get("isPortfolioMarginRetailEnabled", False))
+        if margin_enabled:
+            results.update(fetch_all(cache, [
+                ("margin", TTL["margin"], client.margin_account),
+                ("isolated_margin", TTL["margin"], client.isolated_margin_account),
+                ("liquidation_loan", TTL["margin"], client.margin_liquidation_loan),
+            ], force=force, never_force=NEVER_FORCE))
+        else:
+            detail = "账户未启用杠杆交易，未请求该接口。"
+            results["margin"] = unavailable("margin", detail)
+            results["isolated_margin"] = unavailable("isolated_margin", detail)
+            results["liquidation_loan"] = unavailable("liquidation_loan", detail)
+
+        if portfolio_enabled:
+            probe = fetch_all(cache, [
+                ("portfolio_margin.probe", TTL["account"],
+                 client.portfolio_margin_pro_account),
+            ], force=force, never_force=NEVER_FORCE)
+            results.update(probe)
+            probe_result = probe["portfolio_margin.probe"]
+            account_type = ""
+            if probe_result.ok and isinstance(probe_result.payload, dict):
+                account_type = str(probe_result.payload.get("accountType", "")).upper()
+
+            if not probe_result.ok:
+                results["portfolio_margin"] = SourceResult(
+                    "portfolio_margin", None, probe_result.status,
+                    probe_result.as_of, probe_result.detail)
+            elif account_type == "PM_3":
+                mode_results = fetch_all(cache, [
+                    ("portfolio_margin.summary", TTL["margin"],
+                     lambda: client.portfolio_margin_pro_account(span=True)),
+                    ("portfolio_margin.balance", TTL["margin"],
+                     client.portfolio_margin_pro_balance),
+                ], force=force, never_force=NEVER_FORCE)
+                results.update(mode_results)
+                failed = next((row for row in mode_results.values() if not row.ok), None)
+                if failed:
+                    results["portfolio_margin"] = SourceResult(
+                        "portfolio_margin", None, failed.status, failed.as_of, failed.detail)
+                else:
+                    as_of = min(row.as_of for row in mode_results.values() if row.as_of)
+                    results["portfolio_margin"] = SourceResult(
+                        "portfolio_margin", {"accountType": account_type}, "ok", as_of, None)
+            elif account_type in {"PM_1", "PM_2"}:
+                mode_results = fetch_all(cache, [
+                    ("portfolio_margin.summary", TTL["margin"],
+                     client.portfolio_margin_account),
+                    ("portfolio_margin.um_account", TTL["margin"],
+                     client.portfolio_margin_um_account),
+                    ("portfolio_margin.um_risk", TTL["margin"],
+                     client.portfolio_margin_um_position_risk),
+                ], force=force, never_force=NEVER_FORCE)
+                results.update(mode_results)
+                failed = next((row for row in mode_results.values() if not row.ok), None)
+                if failed:
+                    results["portfolio_margin"] = SourceResult(
+                        "portfolio_margin", None, failed.status, failed.as_of, failed.detail)
+                else:
+                    as_of = min(row.as_of for row in mode_results.values() if row.as_of)
+                    results["portfolio_margin"] = SourceResult(
+                        "portfolio_margin", {"accountType": account_type}, "ok", as_of, None)
+            else:
+                results["portfolio_margin"] = unavailable(
+                    "portfolio_margin",
+                    f"统一账户返回未知账户类型：{account_type or '空值'}。")
+        else:
+            results["portfolio_margin"] = unavailable(
+                "portfolio_margin", "账户未启用统一账户，未请求该接口。")
+    else:
+        # 能力探测失败时仍保留原先的全仓杠杆请求，让旧缓存可以继续降级显示；
+        # 新增的高权重/模式相关接口则不盲目探测，并继承真实失败状态。
+        results.update(fetch_all(cache, [
+            ("margin", TTL["margin"], client.margin_account),
+        ], force=force, never_force=NEVER_FORCE))
+        results["isolated_margin"] = dependent("isolated_margin")
+        results["liquidation_loan"] = dependent("liquidation_loan")
+        results["portfolio_margin"] = dependent("portfolio_margin")
+
     def payload(key: str) -> Any:
         got = results.get(key)
         return got.payload if got else None
@@ -828,9 +1071,22 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
             "coverage_detail": "Binance Stocks Trading 当前未提供持仓查询端点。",
             "tokenized_assets": [],
         })
+    capabilities = block("account", lambda: _capabilities(
+        payload("account.info"), payload("account.restrictions")))
     earn = block("earn", lambda: _earn(payload("earn.flexible"),
                                        payload("earn.locked"), prices), fallback=[]) or []
     margin = block("margin", lambda: _margin(payload("margin"), btc_usd, prices))
+    isolated_margin = block("isolated_margin", lambda: _isolated_margin(
+        payload("isolated_margin"), btc_usd, prices))
+    liquidation_loan = block("liquidation_loan", lambda: _liquidation_loan(
+        payload("liquidation_loan")))
+    probe_payload = payload("portfolio_margin.probe")
+    account_type = str(probe_payload.get("accountType", "")) \
+        if isinstance(probe_payload, dict) else ""
+    portfolio_margin = block("portfolio_margin", lambda: _portfolio_margin(
+        payload("portfolio_margin.summary"),
+        payload("portfolio_margin.um_account") or payload("portfolio_margin.balance"),
+        payload("portfolio_margin.um_risk"), account_type))
     income = block("income", lambda: _income(payload("income"), prices))
     transfers = block("transfers", lambda: _transfers(
         payload("transfers.deposits"), payload("transfers.withdrawals"), prices))
@@ -906,9 +1162,13 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "wallets": wallets,
         "spot": spot,
         "stocks": stocks,
+        "capabilities": capabilities,
         "futures": futures,
         "earn": earn,
         "margin": margin,
+        "isolated_margin": isolated_margin,
+        "liquidation_loan": liquidation_loan,
+        "portfolio_margin": portfolio_margin,
         "income": income,
         "transfers": transfers,
         "pnl": block("pnl", lambda: _pnl(

@@ -9,6 +9,10 @@
  *   brackets   GET  /fapi/v1/leverageBracket               维持保证金档位→真实强平边际
  *   earn       GET  /sapi/v1/simple-earn/{flexible,locked}/position
  *   margin     GET  /sapi/v1/margin/account                marginLevel
+ *   account    GET  /sapi/v1/account/{info,apiRestrictions} 产品能力与 API 权限
+ *   isolated   GET  /sapi/v1/margin/isolated/account       逐仓杠杆风险
+ *   liquidation GET /sapi/v1/margin/liquidation-loan       强平穿仓借款
+ *   portfolio  GET  /sapi/v{1,2}/portfolio/* + /papi/*     统一账户 / SPAN
  *   income     GET  /fapi/v1/income                        资金费/已实现/手续费
  *   transfers  GET  /sapi/v1/capital/{deposit/hisrec,withdraw/history}
  */
@@ -19,7 +23,8 @@ export type SourceKey =
   // 而其余全部 unauthorized——界面据此能分清"网络/凭据问题"与"确实没有资产"。
   | 'prices'
   | 'wallets' | 'spot' | 'stocks' | 'futures'
-  | 'earn' | 'margin' | 'income' | 'transfers'
+  | 'account' | 'earn' | 'margin' | 'isolated_margin'
+  | 'liquidation_loan' | 'portfolio_margin' | 'income' | 'transfers'
   // 委托页
   | 'spot_open' | 'futures_open' | 'margin_open' | 'order_lists' | 'algo_open'
   | 'conditional_open' | 'equity_market' | 'equity_open'
@@ -185,6 +190,88 @@ export type MarginAsset = {
   value_usd: number | null
 }
 
+export type AccountCapabilities = {
+  vip_level: number | null
+  reading: boolean | null
+  ip_restricted: boolean | null
+  margin: boolean
+  futures: boolean
+  options: boolean
+  portfolio_margin: boolean
+  trade_permissions: {
+    spot_margin: boolean | null
+    margin: boolean | null
+    futures: boolean | null
+    options: boolean | null
+    portfolio_margin: boolean | null
+    withdrawals: boolean | null
+  }
+}
+
+export type IsolatedMarginLeg = {
+  asset: string
+  free: number
+  locked: number
+  borrowed: number
+  interest: number
+  net: number
+  value_usd: number | null
+}
+
+export type IsolatedMarginPair = {
+  symbol: string
+  enabled: boolean
+  trade_enabled: boolean
+  margin_level: number | null
+  margin_level_status: string | null
+  margin_ratio: number | null
+  index_price: number | null
+  liquidation_price: number | null
+  liquidation_rate: number | null
+  base: IsolatedMarginLeg
+  quote: IsolatedMarginLeg
+}
+
+export type IsolatedMarginAccount = {
+  total_asset_usd: number | null
+  total_liability_usd: number | null
+  total_net_asset_usd: number | null
+  pairs: IsolatedMarginPair[]
+}
+
+/** 强平后的破产缺口借款；remaining_amount > 0 才是仍需处理的风险。 */
+export type LiquidationLoan = {
+  asset: string
+  amount: number
+  repaid_amount: number
+  remaining_amount: number
+}
+
+export type PortfolioMarginPosition = {
+  symbol: string
+  position_side: PositionSide
+  position_amt: number
+  notional_usd: number
+  entry_price: number
+  mark_price: number | null
+  liquidation_price: number | null
+  unrealized_pnl_usd: number
+}
+
+export type PortfolioMarginAccount = {
+  mode: 'portfolio' | 'span'
+  account_type: string | null
+  account_status: string | null
+  uni_mmr: number | null
+  equity_usd: number | null
+  actual_equity_usd: number | null
+  initial_margin_usd: number | null
+  maint_margin_usd: number | null
+  available_balance_usd: number | null
+  max_withdraw_usd: number | null
+  positions: PortfolioMarginPosition[]
+}
+
 /** /fapi/v1/income 按类型汇总。资金费是永续的持续性损益，长期持仓可能超过价格波动本身。 */
 export type IncomeBreakdown = {
   realized_pnl: number
@@ -323,9 +410,13 @@ export type PortfolioSnapshot = {
   wallets: WalletBucket[]
   spot: SpotAsset[]
   stocks: StocksAccount
+  capabilities: AccountCapabilities | null
   futures: FuturesAccount | null
   earn: EarnPosition[]
   margin: MarginAccount | null
+  isolated_margin: IsolatedMarginAccount | null
+  liquidation_loan: LiquidationLoan | null
+  portfolio_margin: PortfolioMarginAccount | null
   income: IncomeBreakdown | null
   transfers: Transfers | null
   pnl: Pnl | null

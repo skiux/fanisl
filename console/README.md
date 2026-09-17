@@ -14,10 +14,15 @@
 |---|---|
 | `wallets` | `GET /sapi/v1/asset/wallet/balance` 六个钱包的分布 |
 | `spot` | `POST /sapi/v3/asset/getUserAsset` 四种锁定态 |
-| `futures` | `GET /fapi/v2/account` + `/fapi/v1/accountConfig` |
+| `futures` | `GET /fapi/v3/account` + `/fapi/v1/accountConfig` + `/fapi/v3/positionRisk` |
 | `futures[].liq_distance` | `positionRisk` 给了强平价才有；**给不出就是 null，不拿杠杆倒推** |
+| `stocks` | 钱包详情 + `/sapi/v1/equity/market/tokenized-assets`；独立 Stocks Trading 没有持仓 GET |
+| `capabilities` | `/sapi/v1/account/info` + `/sapi/v1/account/apiRestrictions` |
 | `earn` | `GET /sapi/v1/simple-earn/{flexible,locked}/position` |
 | `margin` | `GET /sapi/v1/margin/account` |
+| `isolated_margin` | `GET /sapi/v1/margin/isolated/account`（账户启用杠杆时） |
+| `liquidation_loan` | `GET /sapi/v1/margin/liquidation-loan`；仅剩余未还时显示 |
+| `portfolio_margin` | 按 `PM_1` / `PM_2` / `PM_3` 分流到 PAPI 或 SAPI v2 |
 | `income` | `GET /fapi/v1/income`（资金费 / 已实现 / 手续费） |
 | `transfers` | `GET /sapi/v1/capital/{deposit/hisrec,withdraw/history}` |
 | `pnl` | 现货成交重放 + 合约 `positionRisk` / `income`（**不用日快照**，见下） |

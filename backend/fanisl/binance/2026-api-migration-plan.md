@@ -10,7 +10,7 @@
 
 ---
 
-### Phase 1: Current endpoint and accounting correctness
+### Phase 1: Current endpoint and accounting correctness — complete (`dd86e5d`)
 
 - Add regression tests for `/fapi/v3/account`, `/fapi/v3/positionRisk`, `needBalanceDetail=true`, `/fapi/v1/openAlgoOrders`, optional-symbol futures `allOrders`, and `SPECIAL_FUNDING_FEE`.
 - Migrate the client and assemblers while preserving per-source degradation.
@@ -18,7 +18,7 @@
 - Run focused Binance tests, then the backend suite and console test/typecheck checks.
 - Commit the phase on `main`.
 
-### Phase 2: Standalone Stocks Trading and TradFi perpetual metadata
+### Phase 2: Standalone Stocks Trading and TradFi perpetual metadata — complete (`ef80a3b`)
 
 - Add client tests for equity exchange information, tokenized-asset mapping, quotes, open orders, order history, and trade history.
 - Normalize standalone equity orders and fills into the existing orders page with venue `equity`, UUID order identifiers, stock sessions, and USDC values.
@@ -29,7 +29,7 @@
 - Run backend and console verification and inspect the page at desktop and mobile widths.
 - Commit the phase on `main`.
 
-### Phase 3: Account capability and risk coverage
+### Phase 3: Account capability and risk coverage — complete (this commit)
 
 - Add account capability detection from `/sapi/v1/account/info` and API restrictions.
 - Query isolated-margin and liquidation-loan read endpoints only when the account capability says they apply; keep unsupported products as explicit source states.

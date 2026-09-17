@@ -22,6 +22,30 @@ Binance 2026 的文档里同时存在两条股票相关路径，接口与账户�
 `/sapi/v1/equity/market/tokenized-assets` 映射回 `AAPL`，作为可验证的股票敞口进入持仓；
 不与独立 Stocks Trading 的未知持仓混为一谈。
 
+## 账户模式先探测，再取风险数据
+
+`/portfolio` 先读 `/sapi/v1/account/info` 与 `/sapi/v1/account/apiRestrictions`。账户没有
+开通的产品不再盲调端点：来源状态记为 `unsupported`，前端显示为「未启用」，不计入
+「数据缺失」。这一步也把账户产品能力与 API key 的读/交易权限分开；二者不是同一件事。
+
+杠杆能力启用时才取三组只读数据：
+
+- `/sapi/v1/margin/account`：全仓杠杆账户；
+- `/sapi/v1/margin/isolated/account`：逐仓交易对、风险率、指数价与强平价；
+- `/sapi/v1/margin/liquidation-loan`：强平破产后的账户缺口。`remainingAmount > 0` 才在
+  页面显示告警；它不是「可借额度」，也不是普通负债。
+
+统一账户能力启用后，先用 `/sapi/v1/portfolio/account` 读 `accountType`。`PM_1` / `PM_2`
+继续通过 `papi.binance.com` 的 `/papi/v1/account`、`/papi/v2/um/account` 与
+`/papi/v1/um/positionRisk` 读取账户和 U 本位仓位；`PM_3`（SPAN）改走
+`/sapi/v2/portfolio/account` 与 `/sapi/v1/portfolio/balance`。契约保留原始
+`account_type`，避免把 Binance 文档里变动过的产品名称写死。整个客户端仍只有 GET；
+不会调用免责声明签署、还款、下单或其他写接口。
+
+Stocks Trading 的订单流已经有 WebSocket，但当前服务只有请求级缓存，没有可续播的事件
+存储与断线补洞机制。订单与资产页继续 REST 轮询；在持久化事件游标和补偿查询完成之前，
+把 WebSocket 接进来只会让断线期间的状态静默缺失。
+
 ## Key 类型
 
 Binance 支持三种，并推荐 **Ed25519**；HMAC 当前仍受支持。三种都支持，
@@ -50,7 +74,7 @@ cache.py      按来源的 TTL 缓存 + 降级语义
 common.py     字符串数值解析、计价、钱包名映射
 costbasis.py  交易对拆分 + **跨钱包持有量**（成本基础引擎已删，见文件头）
 dailypnl.py   **逐日盈亏**：进出清单 → 历史持仓量 → 每天赚了多少   ← 口径核心
-portfolio.py  /portfolio  资产快照（含代币化股票与 TradFi 元数据）
+portfolio.py  /portfolio  资产快照（含股票、TradFi、杠杆与统一账户风险）
 orders.py     /orders     委托（现货 / 杠杆 / U 本位 / Stocks Trading）
 ledger.py     /ledger     流水（8 个端点，20 次调用）
 ```
@@ -134,6 +158,9 @@ IP 权重上限 **6000/分钟**。而：
 | Stocks Trading 的 Account 文档没有持仓 GET | 只能展示挂单、历史、成交与钱包中可验证的代币化资产；不能用成交净额伪造持仓 |
 | Stocks Trading 行情要求 API key 但不要求签名 | 当公开端点调用会 401；当 USER_DATA 调用会多余地签名 |
 | TradFi Perps 仍属于 USDⓈ-M | 不能按裸股票账户处理；保证金、强平与资金费仍走 fapi |
+| 账户能力与 API key 权限是两层 | `isMarginEnabled=true` 不表示只读 key 有交易权限；展示和请求分流不能混用 |
+| `PM_1` / `PM_2` / `PM_3` 需要先探测 | 前两类走 PAPI，`PM_3` 的 SPAN 汇总走 SAPI v2；不能对所有账户打一套端点 |
+| liquidation loan 是强平后的破产缺口 | 不是可用余额乘杠杆，也不是借款额度；只有 `remainingAmount` 是仍待处理的风险 |
 | TP/SL/追踪止损已迁到 `/fapi/v1/openAlgoOrders` | 只查普通 `openOrders` 会漏掉账户已有的保护单 |
 | TradFi 股息调整记为 `SPECIAL_FUNDING_FEE` | 它属于资金费；归到 other 或丢弃都会把损益算错 |
 | 合约要读 `origType` 而不是 `type` | 条件单触发后 `type` 变 MARKET，止盈单会显示成"市价单" |

@@ -1,9 +1,9 @@
 import { PRICE } from './prices'
 import { NVDA_ENTRY_PRICE, OPEN_POSITION_QTY, spotLockedByAsset } from './orders-fixtures'
 import type {
-  DailyPnl, EarnPosition, FuturesAccount, FuturesPosition, Pnl,
-  IncomeBreakdown, MarginAccount, PortfolioSnapshot, SourceState, SpotAsset,
-  StocksAccount, Transfers, WalletBucket,
+  AccountCapabilities, DailyPnl, EarnPosition, FuturesAccount, FuturesPosition, Pnl,
+  IncomeBreakdown, IsolatedMarginAccount, LiquidationLoan, MarginAccount,
+  PortfolioSnapshot, SourceState, SpotAsset, StocksAccount, Transfers, WalletBucket,
 } from './types'
 
 /** locked（挂单占用）不在这里写死，由委托 fixture 反推，两页的数对得上 */
@@ -222,6 +222,53 @@ export const margin: MarginAccount = (() => {
   }
 })()
 
+export const capabilities: AccountCapabilities = {
+  vip_level: 1,
+  reading: true,
+  ip_restricted: true,
+  margin: true,
+  futures: true,
+  options: false,
+  portfolio_margin: false,
+  trade_permissions: {
+    spot_margin: false,
+    margin: false,
+    futures: false,
+    options: false,
+    portfolio_margin: false,
+    withdrawals: false,
+  },
+}
+
+export const isolatedMargin: IsolatedMarginAccount = {
+  total_asset_usd: 4142.8,
+  total_liability_usd: 2568.4,
+  total_net_asset_usd: 1574.4,
+  pairs: [{
+    symbol: 'BNBUSDT',
+    enabled: true,
+    trade_enabled: true,
+    margin_level: 1.61,
+    margin_level_status: 'EXCESSIVE',
+    margin_ratio: 0.15,
+    index_price: PRICE.BNB ?? null,
+    liquidation_price: 438.2,
+    liquidation_rate: 1.1,
+    base: {
+      asset: 'BNB', free: 3.8, locked: 0, borrowed: 1.1, interest: 0.003,
+      net: 2.697, value_usd: 2.697 * (PRICE.BNB ?? 0),
+    },
+    quote: {
+      asset: 'USDT', free: 850, locked: 0, borrowed: 1600, interest: 2.4,
+      net: -752.4, value_usd: -752.4,
+    },
+  }],
+}
+
+export const liquidationLoan: LiquidationLoan = {
+  asset: 'USDC', amount: 0, repaid_amount: 0, remaining_amount: 0,
+}
+
 const FUNDING_WALLET = 1842.3
 
 export const wallets: WalletBucket[] = (() => {
@@ -408,15 +455,26 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
   return {
     as_of: iso,
     base_currency: 'USD',
-    sources: ([
-      'wallets', 'spot', 'stocks', 'futures', 'earn', 'margin', 'income', 'transfers',
-    ] as const).map((key) => okSource(key, iso)),
     totals: {
       equity_usd: equity,
       gross_exposure_ratio: equity > 0 ? notional / equity : null,
     },
     stable_assets: STABLE_FIXTURE,
-    wallets, spot, stocks, futures, earn, margin, income, transfers,
+    wallets, spot, stocks, capabilities, futures, earn, margin,
+    isolated_margin: isolatedMargin,
+    liquidation_loan: liquidationLoan,
+    portfolio_margin: null,
+    income, transfers,
     pnl: buildPnl(),
+    sources: [
+      ...([
+        'prices', 'wallets', 'spot', 'stocks', 'futures', 'account', 'earn', 'margin',
+        'isolated_margin', 'liquidation_loan', 'income', 'transfers',
+      ] as const).map((key) => okSource(key, iso)),
+      {
+        key: 'portfolio_margin', status: 'unsupported', as_of: iso,
+        detail: '账户未启用统一账户，未请求该接口。',
+      },
+    ],
   }
 }

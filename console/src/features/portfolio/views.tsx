@@ -1,5 +1,5 @@
 import { cn } from '../../lib/cn'
-import { money, percent, signedMoney, SOURCE_LABEL } from '../../lib/format'
+import { amount, money, percent, price, signedMoney, SOURCE_LABEL } from '../../lib/format'
 import { cash } from '../../lib/holdings'
 import type { MarginAccount, PortfolioSnapshot } from '../../api/types'
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
@@ -9,6 +9,13 @@ import { PnlBreakdown } from './PnlBreakdown'
 
 /** 合约 income 与 userTrades 都只保留 90 天，这是接口硬限 */
 const WINDOW_DAYS = 90
+const ISOLATED_STATUS: Record<string, string> = {
+  EXCESSIVE: '充足',
+  NORMAL: '正常',
+  MARGIN_CALL: '追加保证金',
+  PRE_LIQUIDATION: '接近强平',
+  FORCE_LIQUIDATION: '强平中',
+}
 import { PositionsList, RiskGauges } from './RiskPanel'
 import { SourceHealth } from './SourceHealth'
 import { WalletSpread } from './WalletSpread'
@@ -36,7 +43,8 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
   const pnl = snapshot.pnl
   const t = snapshot.transfers
   const grossFlow = t ? Math.max(t.deposits_usd, t.withdrawals_usd, 1) : 1
-  const okCount = snapshot.sources.filter((source) => source.status === 'ok').length
+  const relevantSources = snapshot.sources.filter((source) => source.status !== 'unsupported')
+  const missingCount = relevantSources.filter((source) => source.status !== 'ok').length
 
   return (
     <div className={cn(veiled && 'veiled')}>
@@ -109,9 +117,9 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
         {/* **只在出问题时出现。** 全绿时这一块是纯运维信息——和流水页那张
             「取数窗口」端点表同一类，删了；但来源挂掉时它是有用的：页面上的数字
             少了一块，得说清楚少的是哪一块。所以不按角色藏，按状态出。 */}
-        {okCount < snapshot.sources.length && (
+        {missingCount > 0 && (
           <Module
-            figure={`${snapshot.sources.length - okCount} 项缺失`}
+            figure={`${missingCount} 项缺失`}
             span="lg:col-span-12"
             title="下面的数字不完整"
             tone="muted"
@@ -321,6 +329,7 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
   // 合约的杠杆设置（那个 20×）只是开仓上限，不代表现在扛着多少倍。
   const realLeverage = f && f.total_margin_balance > 0 ? gross / f.total_margin_balance : null
   const liability = m && m.total_asset_usd > 0 ? m.total_liability_usd / m.total_asset_usd : null
+  const marginEnabled = snapshot.sources.find((source) => source.key === 'margin')?.status !== 'unsupported'
 
   if (futuresMissing || !f) {
     return (
@@ -332,7 +341,9 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
               这里不拿上一次的数字顶替，也不用 0 充数。
             </p>
             <ul className="mt-5 divide-y divide-rule border-t border-rule">
-              {snapshot.sources.filter((source) => source.status !== 'ok').map((source) => (
+              {snapshot.sources.filter((source) => (
+                source.status !== 'ok' && source.status !== 'unsupported'
+              )).map((source) => (
                 <li className="flex items-center gap-3 py-2.5" key={source.key}>
                   <span className="w-[84px] shrink-0 text-xs text-ink-2">
                     {SOURCE_LABEL[source.key] ?? source.key}
@@ -342,7 +353,10 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
               ))}
             </ul>
           </Module>
-          <MarginAccountModule liability={liability} margin={m} span="lg:col-span-5" />
+          {marginEnabled && (
+            <MarginAccountModule liability={liability} margin={m} span="lg:col-span-5" />
+          )}
+          <AdditionalRiskModules snapshot={snapshot} />
         </ViewGrid>
       </div>
     )
@@ -410,10 +424,113 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
             ) : <p className="text-sm text-ink-3">当前没有合约敞口。</p>}
           </Module>
 
-          <MarginAccountModule dense liability={liability} margin={m} span="" />
+          {marginEnabled && <MarginAccountModule dense liability={liability} margin={m} span="" />}
         </Stack>
+        <AdditionalRiskModules snapshot={snapshot} />
       </ViewGrid>
     </div>
+  )
+}
+
+function AdditionalRiskModules({ snapshot }: { snapshot: PortfolioSnapshot }) {
+  const isolated = snapshot.isolated_margin
+  const loan = snapshot.liquidation_loan
+  const portfolio = snapshot.portfolio_margin
+  return (
+    <>
+      {loan && loan.remaining_amount > 0 && (
+        <Module
+          figure={`${amount(loan.remaining_amount)} ${loan.asset}`}
+          note="尚未偿还"
+          span="lg:col-span-12"
+          title="强平借款"
+          tone="loss"
+        >
+          <dl className="grid grid-cols-2 gap-x-10 gap-y-5 sm:max-w-2xl sm:grid-cols-3">
+            <Figure label="原始借款" value={`${amount(loan.amount)} ${loan.asset}`} />
+            <Figure label="已偿还" value={`${amount(loan.repaid_amount)} ${loan.asset}`} />
+            <Figure
+              label="待偿还"
+              tone="loss"
+              value={`${amount(loan.remaining_amount)} ${loan.asset}`}
+            />
+          </dl>
+        </Module>
+      )}
+
+      {isolated && isolated.pairs.length > 0 && (
+        <Module
+          note={`${isolated.pairs.length} 个交易对`}
+          span="lg:col-span-12"
+          title="逐仓杠杆"
+        >
+          <dl className="mb-5 grid grid-cols-2 gap-x-10 gap-y-5 sm:max-w-2xl sm:grid-cols-3">
+            <Figure label="总资产" value={money(isolated.total_asset_usd)} />
+            <Figure label="总负债" tone="loss" value={money(isolated.total_liability_usd)} />
+            <Figure label="净资产" value={money(isolated.total_net_asset_usd)} />
+          </dl>
+          <ul className="divide-y divide-rule border-y border-rule">
+            {isolated.pairs.map((pair) => {
+              const liabilities = [pair.base, pair.quote]
+                .filter((leg) => leg.borrowed + leg.interest > 0)
+                .map((leg) => `${amount(leg.borrowed + leg.interest)} ${leg.asset}`)
+              return (
+                <li className="grid gap-3 py-3.5 sm:grid-cols-[minmax(0,1fr)_repeat(4,minmax(0,0.72fr))] sm:items-center" key={pair.symbol}>
+                  <div>
+                    <div className="text-sm text-ink">{pair.symbol}</div>
+                    <div className="mt-1 text-xs text-ink-3">
+                      {pair.trade_enabled ? '可交易' : '暂停交易'}
+                      {pair.margin_level_status
+                        ? ` · ${ISOLATED_STATUS[pair.margin_level_status] ?? pair.margin_level_status}`
+                        : ''}
+                    </div>
+                  </div>
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:contents">
+                    <Figure label="风险率" value={pair.margin_level?.toFixed(2) ?? '—'} />
+                    <Figure label="指数价" value={price(pair.index_price)} />
+                    <Figure label="强平价" value={price(pair.liquidation_price)} />
+                    <Figure label="借款" value={liabilities.join(' / ') || '—'} />
+                  </dl>
+                </li>
+              )
+            })}
+          </ul>
+        </Module>
+      )}
+
+      {portfolio && (
+        <Module
+          figure={portfolio.uni_mmr === null ? '—' : portfolio.uni_mmr.toFixed(2)}
+          note={`${portfolio.account_type ?? '未知类型'} · ${portfolio.account_status ?? '状态未知'}`}
+          span="lg:col-span-12"
+          title={portfolio.mode === 'span' ? '统一账户 Pro / SPAN' : '统一账户'}
+        >
+          <dl className="grid grid-cols-2 gap-x-10 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
+            <Figure label="账户权益" value={money(portfolio.equity_usd)} />
+            <Figure label="实际权益" value={money(portfolio.actual_equity_usd)} />
+            <Figure label="起始保证金" value={money(portfolio.initial_margin_usd)} />
+            <Figure label="维持保证金" value={money(portfolio.maint_margin_usd)} />
+            <Figure label="可用余额" value={money(portfolio.available_balance_usd)} />
+            <Figure label="最大可转出" value={money(portfolio.max_withdraw_usd)} />
+          </dl>
+          {portfolio.positions.length > 0 && (
+            <ul className="mt-5 divide-y divide-rule border-t border-rule">
+              {portfolio.positions.map((position) => (
+                <li className="flex items-baseline justify-between gap-4 py-3 text-sm" key={`${position.symbol}:${position.position_side}`}>
+                  <span className="text-ink">
+                    {position.symbol}
+                    <span className="ml-2 text-xs text-ink-3">
+                      {position.position_amt >= 0 ? 'Long' : 'Short'} · {amount(Math.abs(position.position_amt))}
+                    </span>
+                  </span>
+                  <span className="tnum text-ink-2">{money(position.notional_usd)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Module>
+      )}
+    </>
   )
 }
 

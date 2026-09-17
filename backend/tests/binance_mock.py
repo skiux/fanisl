@@ -184,6 +184,33 @@ EARN_LOCKED = {"total": 1, "rows": [
 MARGIN = {"marginLevel": "1.8134", "totalAssetOfBtc": "0.09994",
           "totalLiabilityOfBtc": "0.05527", "totalNetAssetOfBtc": "0.04467"}
 
+ACCOUNT_INFO = {"vipLevel": 1, "isMarginEnabled": True, "isFutureEnabled": True,
+                "isOptionsEnabled": False, "isPortfolioMarginRetailEnabled": False}
+API_RESTRICTIONS = {
+    "ipRestrict": True, "enableReading": True, "enableWithdrawals": False,
+    "enableMargin": False, "enableFutures": False, "enableVanillaOptions": False,
+    "enableSpotAndMarginTrading": False, "enablePortfolioMarginTrading": False,
+}
+ISOLATED_MARGIN = {
+    "assets": [{
+        "symbol": "BNBUSDT", "isolatedCreated": True, "enabled": True,
+        "marginLevel": "2.45000000", "marginLevelStatus": "NORMAL",
+        "marginRatio": "1.50000000", "indexPrice": "682.15000000",
+        "liquidatePrice": "438.20000000", "liquidateRate": "1.10000000",
+        "tradeEnabled": True,
+        "baseAsset": {"asset": "BNB", "borrowed": "0", "free": "1.2",
+                      "interest": "0", "locked": "0", "netAsset": "1.2",
+                      "netAssetOfBtc": "0.0087", "totalAsset": "1.2"},
+        "quoteAsset": {"asset": "USDT", "borrowed": "320", "free": "40",
+                       "interest": "1.25", "locked": "0", "netAsset": "-281.25",
+                       "netAssetOfBtc": "-0.00298", "totalAsset": "40"},
+    }],
+    "totalAssetOfBtc": "0.01295", "totalLiabilityOfBtc": "0.00341",
+    "totalNetAssetOfBtc": "0.00954",
+}
+LIQUIDATION_LOAN = {"asset": "USDC", "amount": "0", "repaidAmount": "0",
+                    "remainingAmount": "0"}
+
 INCOME = [
     {"symbol": "NVDAUSDT", "incomeType": "REALIZED_PNL", "income": "3847.22",
      "asset": "USDT", "time": int(NOW.timestamp() * 1000)},
@@ -226,6 +253,10 @@ ROUTES = {
     "/sapi/v1/simple-earn/flexible/position": EARN_FLEX,
     "/sapi/v1/simple-earn/locked/position": EARN_LOCKED,
     "/sapi/v1/margin/account": MARGIN,
+    "/sapi/v1/account/info": ACCOUNT_INFO,
+    "/sapi/v1/account/apiRestrictions": API_RESTRICTIONS,
+    "/sapi/v1/margin/isolated/account": ISOLATED_MARGIN,
+    "/sapi/v1/margin/liquidation-loan": LIQUIDATION_LOAN,
     "/fapi/v1/income": INCOME,
     "/sapi/v1/capital/deposit/hisrec": DEPOSITS,
     "/sapi/v1/capital/withdraw/history": WITHDRAWALS,

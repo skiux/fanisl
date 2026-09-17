@@ -72,6 +72,11 @@ const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
 /** fapi 上的三组：合约账户、维持保证金档位、收支流水。451 一起挂 */
 const FAPI_SOURCES: SourceKey[] = ['futures', 'income']
 
+const PORTFOLIO_SOURCE_KEYS = [
+  'prices', 'wallets', 'spot', 'stocks', 'futures', 'account', 'earn', 'margin',
+  'isolated_margin', 'liquidation_loan', 'portfolio_margin', 'income', 'transfers',
+] as const
+
 function degrade(
   snapshot: PortfolioSnapshot,
   keys: SourceKey[],
@@ -138,7 +143,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
       const cached = fx.buildSnapshot(minutesAgo(842))
       return {
         ...cached,
-        sources: cached.sources.map((source) => ({
+        sources: cached.sources.map((source) => source.status === 'unsupported' ? source : ({
           ...source,
           status: 'unreachable' as const,
           detail: 'HTTP 451 — Binance 拒绝当前出口地区',
@@ -176,7 +181,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
       return {
         as_of: iso,
         base_currency: 'USD',
-        sources: (['wallets', 'spot', 'stocks', 'futures', 'earn', 'margin', 'income', 'transfers'] as const)
+        sources: PORTFOLIO_SOURCE_KEYS
           .map((key) => ({
             key, status: 'unauthorized' as const, as_of: null,
             detail: 'API key 无读取权限，或调用 IP 不在白名单内',
@@ -186,7 +191,8 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
           standalone_positions_available: false,
           coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点。',
           tokenized_assets: [],
-        }, futures: null, earn: [], margin: null,
+        }, capabilities: null, futures: null, earn: [], margin: null,
+        isolated_margin: null, liquidation_loan: null, portfolio_margin: null,
         income: null, transfers: null, pnl: null,
       }
     }
@@ -196,15 +202,32 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
       return {
         as_of: iso,
         base_currency: 'USD',
-        sources: (['wallets', 'spot', 'stocks', 'futures', 'earn', 'margin', 'income', 'transfers'] as const)
-          .map((key) => fx.okSource(key, iso)),
+        sources: PORTFOLIO_SOURCE_KEYS.map((key) => (
+          key === 'margin' || key === 'isolated_margin'
+            || key === 'liquidation_loan' || key === 'portfolio_margin'
+            ? {
+              key, status: 'unsupported' as const, as_of: iso,
+              detail: key === 'portfolio_margin'
+                ? '账户未启用统一账户，未请求该接口。'
+                : '账户未启用杠杆交易，未请求该接口。',
+            }
+            : fx.okSource(key, iso)
+        )),
         totals: { equity_usd: 0, gross_exposure_ratio: null },
         stable_assets: fx.STABLE_FIXTURE,
         wallets: [], spot: [], stocks: {
           standalone_positions_available: false,
           coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点。',
           tokenized_assets: [],
+        }, capabilities: {
+          vip_level: 0, reading: true, ip_restricted: true,
+          margin: false, futures: true, options: false, portfolio_margin: false,
+          trade_permissions: {
+            spot_margin: false, margin: false, futures: false, options: false,
+            portfolio_margin: false, withdrawals: false,
+          },
         }, futures: null, earn: [], margin: null,
+        isolated_margin: null, liquidation_loan: null, portfolio_margin: null,
         income: null, transfers: null, pnl: null,
       }
     }

@@ -6,9 +6,10 @@ leverageBracket 的维持保证金档位、日快照、理财持仓、小额兑�
 （`console/src/api/types.ts`）是**按 Binance 原始字段**写的，绕一层统一模型再拆回来
 只会丢字段。签名本身是 40 行 HMAC，自己写更直白。
 
-**三个域名不是一回事**，错误也不一样：
+**四个域名不是一回事**，错误也不一样：
     api.binance.com   现货 /api/v3 与钱包 /sapi/v1
     fapi.binance.com  U 本位合约 /fapi
+    papi.binance.com  经典组合保证金 /papi
     dapi.binance.com  币本位合约（暂未用）
 用户的网络环境里 451 是**间歇性**的，而且**往往只打在 fapi 上**（见
 `~/.claude` 的环境记录与 doc）。所以失败必须按域名/按来源分开记，不能一崩全崩——
@@ -28,6 +29,7 @@ from .signing import Signer, build_signer
 
 SPOT_BASE = "https://api.binance.com"
 FAPI_BASE = "https://fapi.binance.com"
+PAPI_BASE = "https://papi.binance.com"
 
 # 与 console 契约里的 SourceStatus 一一对应
 ErrorKind = Literal["unauthorized", "unreachable", "rate_limited", "unsupported"]
@@ -155,9 +157,12 @@ class BinanceClient:
         """本地时钟 → 服务器时钟的毫秒偏移。按域名各算一份并缓存。"""
         if base in self._offset_ms:
             return self._offset_ms[base]
+        # PAPI 没有独立的 server-time 端点；它与主站共用 Binance 服务器时钟。
+        # 因此 PAPI 的签名也用主站 `/api/v3/time` 对时，但偏移仍按 PAPI 缓存。
+        time_base = FAPI_BASE if base == FAPI_BASE else SPOT_BASE
         path = "/fapi/v1/time" if base == FAPI_BASE else "/api/v3/time"
         try:
-            resp = self._http.get(base + path)
+            resp = self._http.get(time_base + path)
             server_ms = int(resp.json()["serverTime"])
             self._offset_ms[base] = server_ms - int(time.time() * 1000)
         except (httpx.HTTPError, ValueError, KeyError):
@@ -259,6 +264,37 @@ class BinanceClient:
 
     def margin_account(self) -> Any:
         return self.signed_get(SPOT_BASE, "/sapi/v1/margin/account")
+
+    def account_info(self) -> Any:
+        """账户开通的产品能力。只用于决定哪些可选账户端点值得查询。"""
+        return self.signed_get(SPOT_BASE, "/sapi/v1/account/info")
+
+    def api_restrictions(self) -> Any:
+        """当前 API key 的读取与交易权限；console 只读，不据此发起写操作。"""
+        return self.signed_get(SPOT_BASE, "/sapi/v1/account/apiRestrictions")
+
+    def isolated_margin_account(self) -> Any:
+        return self.signed_get(SPOT_BASE, "/sapi/v1/margin/isolated/account")
+
+    def margin_liquidation_loan(self) -> Any:
+        """全仓杠杆破产清算后形成的未偿借款（2026-05 新增，只读）。"""
+        return self.signed_get(SPOT_BASE, "/sapi/v1/margin/liquidation-loan")
+
+    def portfolio_margin_pro_account(self, *, span: bool = False) -> Any:
+        version = "v2" if span else "v1"
+        return self.signed_get(SPOT_BASE, f"/sapi/{version}/portfolio/account")
+
+    def portfolio_margin_pro_balance(self) -> Any:
+        return self.signed_get(SPOT_BASE, "/sapi/v1/portfolio/balance")
+
+    def portfolio_margin_account(self) -> Any:
+        return self.signed_get(PAPI_BASE, "/papi/v1/account")
+
+    def portfolio_margin_um_account(self) -> Any:
+        return self.signed_get(PAPI_BASE, "/papi/v2/um/account")
+
+    def portfolio_margin_um_position_risk(self) -> Any:
+        return self.signed_get(PAPI_BASE, "/papi/v1/um/positionRisk")
 
     def earn_flexible_positions(self, *, size: int = 100) -> Any:
         return self.signed_get(SPOT_BASE, "/sapi/v1/simple-earn/flexible/position",

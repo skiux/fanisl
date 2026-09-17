@@ -8,7 +8,7 @@ const STATUS_TEXT: Record<SourceStatus, string> = {
   unreachable: '不可达',
   unauthorized: '无权限',
   rate_limited: '被限流',
-  unsupported: '不支持',
+  unsupported: '未启用',
 }
 
 /**
@@ -24,17 +24,21 @@ export function SourceHealth({ sources }: { sources: SourceState[] }) {
     <ul className="grid gap-x-10 gap-y-px sm:grid-cols-2 xl:grid-cols-3">
       {sources.map((source) => {
         const ok = source.status === 'ok'
+        const neutral = source.status === 'unsupported'
         return (
           <li
             className="flex items-center gap-2.5 border-b border-rule py-2.5"
             key={source.key}
             title={source.detail ?? undefined}
           >
-            <StatusDot level={ok ? freshnessOf(source.as_of).level : 'error'} />
+            <StatusDot level={ok ? freshnessOf(source.as_of).level : neutral ? 'unknown' : 'error'} />
             <span className="min-w-0 truncate text-xs text-ink-2">
               {SOURCE_LABEL[source.key] ?? source.key}
             </span>
-            <span className={cn('ml-auto shrink-0 whitespace-nowrap text-xs', ok ? 'text-ink-3' : 'text-loss')}>
+            <span className={cn(
+              'ml-auto shrink-0 whitespace-nowrap text-xs',
+              ok || neutral ? 'text-ink-3' : 'text-loss',
+            )}>
               {ok ? relativeTime(source.as_of) : STATUS_TEXT[source.status]}
             </span>
           </li>
