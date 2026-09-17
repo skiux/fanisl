@@ -48,6 +48,16 @@ describe('apiJson', () => {
     })
   })
 
+  it('500 是后端抛了异常，不能说成没响应', async () => {
+    // 未捕获的异常由 Starlette 回纯文本 500。2026-09-17 资产页 500 时，
+    // 页面写的是"后端没有响应"，而后端其实响应了
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Internal Server Error', {
+      status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } })))
+    await expect(apiJson('/portfolio')).rejects.toMatchObject({
+      status: 500, message: '后端处理出错（HTTP 500）',
+    })
+  })
+
   it('后端回的 JSON 错误照常原样透出，不被上面那条覆盖', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
       json({ detail: '用户名或口令不正确' }, 401)))

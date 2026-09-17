@@ -42,6 +42,9 @@ function proxyHint(path: string, status: number): string {
     return `${path} 没有被代理到后端（HTTP ${status}）——`
       + 'nginx 的 API 路径正则里少了这个前缀，请求落到了前端的静态兜底。'
   }
+  // 500 是后端代码抛了没接住的异常（Starlette 回纯文本），后端其实响应了；
+  // 502/503/504 才是没响应。2026-09-17 资产页 500 时这里写的是"后端没有响应"。
+  if (status === 500) return '后端处理出错（HTTP 500）'
   if (status >= 500) return `后端没有响应（HTTP ${status}）`
   return `请求失败（HTTP ${status}）`
 }
@@ -54,7 +57,8 @@ async function readDetail(response: Response, path: string): Promise<string> {
     } catch { /* 落到下面的推断 */ }
     return response.statusText || `请求失败（HTTP ${response.status}）`
   }
-  // 后端所有错误都回 JSON。回的是 HTML，说明这一发根本没到后端。
+  // 后端主动报的错都回 JSON。不是 JSON 的，要么没到后端（nginx 回的 HTML），
+  // 要么后端抛了没接住的异常（纯文本 500）。
   return proxyHint(path, response.status)
 }
 
