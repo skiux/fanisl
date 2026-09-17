@@ -406,7 +406,9 @@ def _isolated_margin(payload: Any, btc_usd: float | None,
 
 
 def _liquidation_loan(payload: Any) -> dict | None:
-    if not isinstance(payload, dict):
+    # 没有借款时接口回空响应，客户端换成 `{}`（见 client.margin_liquidation_loan）。
+    # 那是"没有记录"，不是"一笔 0 元的借款"：块为 null，来源状态照常 ok。
+    if not isinstance(payload, dict) or not payload:
         return None
     return {
         "asset": str(payload.get("asset", "")),

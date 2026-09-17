@@ -208,8 +208,11 @@ ISOLATED_MARGIN = {
     "totalAssetOfBtc": "0.01295", "totalLiabilityOfBtc": "0.00341",
     "totalNetAssetOfBtc": "0.00954",
 }
-LIQUIDATION_LOAN = {"asset": "USDC", "amount": "0", "repaidAmount": "0",
-                    "remainingAmount": "0"}
+# **没有借款时这个接口回 200 + 0 字节响应体**（2026-09-17 线上实测），路由默认就这么回。
+# 这里原先编了一份全 0 的 JSON，测试因此一直是绿的，线上却整页 500。
+# 下面是有借款时的样本（官方文档的例子），只给解析那条测试用。
+LIQUIDATION_LOAN = {"asset": "USDC", "amount": "1000.00000000",
+                    "repaidAmount": "300.00000000", "remainingAmount": "700.00000000"}
 
 INCOME = [
     {"symbol": "NVDAUSDT", "incomeType": "REALIZED_PNL", "income": "3847.22",
@@ -256,7 +259,6 @@ ROUTES = {
     "/sapi/v1/account/info": ACCOUNT_INFO,
     "/sapi/v1/account/apiRestrictions": API_RESTRICTIONS,
     "/sapi/v1/margin/isolated/account": ISOLATED_MARGIN,
-    "/sapi/v1/margin/liquidation-loan": LIQUIDATION_LOAN,
     "/fapi/v1/income": INCOME,
     "/sapi/v1/capital/deposit/hisrec": DEPOSITS,
     "/sapi/v1/capital/withdraw/history": WITHDRAWALS,
@@ -575,6 +577,8 @@ def make_transport(*, fail: dict[str, int] | None = None, calls: list | None = N
         for prefix, status in fail.items():
             if path.startswith(prefix):
                 return httpx.Response(status, json={"code": -1000, "msg": "mocked failure"})
+        if path == "/sapi/v1/margin/liquidation-loan":
+            return httpx.Response(200, content=b"")     # 没有借款，见 LIQUIDATION_LOAN
         if path == "/sapi/v1/accountSnapshot":
             kind = dict(request.url.params).get("type", "SPOT")
             return httpx.Response(200, json={"SPOT": SPOT_SNAP, "MARGIN": MARGIN_SNAP,

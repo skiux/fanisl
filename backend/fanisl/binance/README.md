@@ -33,7 +33,8 @@ Binance 2026 的文档里同时存在两条股票相关路径，接口与账户�
 - `/sapi/v1/margin/account`：全仓杠杆账户；
 - `/sapi/v1/margin/isolated/account`：逐仓交易对、风险率、指数价与强平价；
 - `/sapi/v1/margin/liquidation-loan`：强平破产后的账户缺口。`remainingAmount > 0` 才在
-  页面显示告警；它不是「可借额度」，也不是普通负债。
+  页面显示告警；它不是「可借额度」，也不是普通负债。**没有借款时回 200 + 空响应体**
+  （文档没写），落成 `liquidation_loan: null`，来源状态照常是 ok。
 
 统一账户能力启用后，先用 `/sapi/v1/portfolio/account` 读 `accountType`。`PM_1` / `PM_2`
 继续通过 `papi.binance.com` 的 `/papi/v1/account`、`/papi/v2/um/account` 与
@@ -112,9 +113,13 @@ fapi 上**，现货那半边不该跟着一起坏。
 | 过期且失败 | **旧数据** + 真实失败原因 + **旧时刻** | 蒙上 `.veiled`，标红原因 |
 | 从未成功 | `null` | 留空，不是 0 |
 
-**装配失败也按来源降级。** 缓存层只兜得住网络与 HTTP 错误（`BinanceError`），而字段解析
-在它外面——Binance 改一次字段类型（数组元素从对象变字符串这类），整页就会 500，
-而 nginx 只给一句 Bad Gateway。所以每一块装配都过 `common.guard()`：失败时这一块变
+**取数抛出任何异常都只降级那一个来源。** `cache.fetch` 原先只接 `BinanceError`：
+2026-09-17 强平借款接口回了 200 + 空响应体，`resp.json()` 抛的 `JSONDecodeError` 穿出
+`fetch_all`，整个资产页 500。现在客户端把"200 但不是 JSON"报成 `unreachable`
+（上游异常），`fetch` 对其余意料之外的异常同样记 `unreachable` 并打到 stderr。
+
+**装配失败也按来源降级。** 字段解析在缓存层外面——Binance 改一次字段类型（数组元素从
+对象变字符串这类），整页就会 500。所以每一块装配都过 `common.guard()`：失败时这一块变
 `null`、该来源记 `unsupported`、原因进 `detail` 显示在「取数状态」里，同时打到 stderr
 （journalctl 可查）。**不静默吞掉，也不带走别的来源。**
 
@@ -428,6 +433,7 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | `earn` | `GET /sapi/v1/simple-earn/flexible/position` | 150 | 300s | UID 限速 |
 | | `GET /sapi/v1/simple-earn/locked/position` | 150 | 300s | UID 限速 |
 | `margin` | `GET /sapi/v1/margin/account` | 10 | 60s | 全仓杠杆 |
+| `liquidation_loan` | `GET /sapi/v1/margin/liquidation-loan` | 100 †（UID） | 60s | 杠杆启用才取；没有借款时回空响应体 |
 | `income` | `GET /fapi/v1/income` | 30 † | 300s | 已实现 / 资金费 / 手续费 |
 | `transfers` | `GET /sapi/v1/capital/deposit/hisrec` | 1 | 300s | 充值 |
 | | `GET /sapi/v1/capital/withdraw/history` | **18000** | 900s | UID 限速 10 次/秒，最贵的一个 |
@@ -497,6 +503,9 @@ U 本位三种，理财、资金、币本位没有历史快照，拿它算盈亏
 ### 几个容易踩的点
 
 - **`/sapi/v1/asset/wallet/balance` 返回的是 BTC**，不是 USD。不换算的话总净值差几万倍。
+- **`/sapi/v1/margin/liquidation-loan` 没有借款时回 HTTP 200 + 0 字节响应体**，文档只给了
+  有借款时的样例（2026-09-17 线上实测）。客户端换成 `{}` 而不是 None：payload 为 None
+  的缓存不算命中，这个 UID 权重 100 的接口会每次刷新都重打一遍。
 - **`liquidationPrice` 在全仓且余额充足时返回 `"0"`**，不是 null，也不是缺字段。
   当成 0 会算出"距强平 100%"，拿杠杆倒推会算出"距强平 1/杠杆"——两个都是错的，
   正确做法是留空。
@@ -512,7 +521,8 @@ U 本位三种，理财、资金、币本位没有历史快照，拿它算盈亏
 
 ## 测试
 
-`tests/test_binance_{signing,portfolio,orders,ledger}.py` 走 `httpx.MockTransport`，
+`tests/test_binance_cache.py` 钉缓存层的降级语义（取数抛任何异常都只降级那一个来源）。
+`tests/test_binance_{signing,client_contract,portfolio,orders,ledger}.py` 走 `httpx.MockTransport`，
 喂**真实形状**的响应，不联网；`tests/test_dailypnl.py` 与 `tests/test_costbasis.py`
 是纯逻辑，连 transport 都不需要——逐日盈亏的口径（持有、买入、充值、派息、手续费、
 回滚不平、无报价、"空账户的 0 是真的 vs 算不出来的空"）钉在那里。上面「读文档才知道的坑」那张表里的每一条都有测试盯着。样本在 `tests/binance_mock.py` 三组共用——各写一份必然漂移：

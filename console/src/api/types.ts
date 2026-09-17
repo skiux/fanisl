@@ -239,7 +239,10 @@ export type IsolatedMarginAccount = {
   pairs: IsolatedMarginPair[]
 }
 
-/** 强平后的破产缺口借款；remaining_amount > 0 才是仍需处理的风险。 */
+/**
+ * 强平后的破产缺口借款；remaining_amount > 0 才是仍需处理的风险。
+ * 没有借款时整块是 null（接口回空响应），来源状态照常是 ok。
+ */
 export type LiquidationLoan = {
   asset: string
   amount: number

@@ -11,11 +11,17 @@
 - 过期且取数失败 → **回落到旧数据**，但 `status` 记成真实的失败原因、`as_of` 仍是
   旧数据的时刻。前端据此把这一块蒙上 `.veiled` 并标红，而不是假装它是当前值。
 - 从来没成功过 → payload 为 None，前端留空。**不拿 0 顶替**——0 是一个有效余额。
+- **取数抛出任何异常都按失败处理**，不只是 `BinanceError`。2026-09-17 一个接口回了
+  200 + 空响应体，`JSONDecodeError` 穿出 `fetch_all`，整个资产页 500。
+
+**payload 为 None 的缓存永远不算命中。** 接口说"没有记录"时要存成非 None 的空值
+（`{}` / `[]`），否则这个来源每次请求都会重打一遍。见 `client.margin_liquidation_loan`。
 """
 
 from __future__ import annotations
 
 import json
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -124,12 +130,19 @@ def fetch(cache: SourceCache, key: str, ttl_s: int, fn: Callable[[], Any], *,
 
     try:
         payload = fn()
-    except BinanceError as e:
-        cache.note_failure(key, e.kind, e.detail)
+    except Exception as e:  # noqa: BLE001 — 一个来源出什么错，都只降级它自己
+        if isinstance(e, BinanceError):
+            kind, detail = e.kind, e.detail
+        else:
+            # 意料之外的异常（解析、翻页里的类型转换……）原先会穿出 fetch_all，
+            # 把整页带成 500。照常降级，同时打到 stderr，journalctl 可查。
+            kind, detail = "unreachable", f"取数异常（{type(e).__name__}: {str(e)[:200]}）"
+            print(f"[fanisl] binance 取数异常 {key}: {e!r}", file=sys.stderr, flush=True)
+        cache.note_failure(key, kind, detail)
         # 有旧数据就带着旧时刻返回——前端会把它蒙上并标出真实原因
         if cached is not None and cached["payload"] is not None:
-            return SourceResult(key, cached["payload"], e.kind, cached["fetched_at"], e.detail)
-        return SourceResult(key, None, e.kind, None, e.detail)
+            return SourceResult(key, cached["payload"], kind, cached["fetched_at"], detail)
+        return SourceResult(key, None, kind, None, detail)
 
     at = cache.write(key, payload)
     return SourceResult(key, payload, "ok", at, None)

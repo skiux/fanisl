@@ -172,7 +172,9 @@ class BinanceClient:
     # --- 请求 -------------------------------------------------------------
 
     def signed_get(self, base: str, path: str, params: dict[str, Any] | None = None,
-                   *, _retry_on_time: bool = True) -> Any:
+                   *, allow_empty: bool = False, _retry_on_time: bool = True) -> Any:
+        """`allow_empty`：该端点用 200 + 空响应体表示"没有记录"，返回 None。
+        只给实测过这么做的端点开；其余端点回空响应体是上游异常。"""
         if not self.api_key or self.signer is None:
             raise CredentialsMissing(self._signer_error)
 
@@ -189,7 +191,9 @@ class BinanceClient:
         self._record_weight(resp)
 
         if resp.status_code == 200:
-            return resp.json()
+            if allow_empty and not resp.content:
+                return None
+            return _json_body(resp)
 
         code, msg = _error_body(resp)
         # 时钟漂移：重新对时后重试一次。这是唯一值得自动重试的错误——
@@ -197,7 +201,8 @@ class BinanceClient:
         if code in _TIMESTAMP_CODES and _retry_on_time:
             self._offset_ms.pop(base, None)
             self._server_time_offset(base)
-            return self.signed_get(base, path, params, _retry_on_time=False)
+            return self.signed_get(base, path, params, allow_empty=allow_empty,
+                                   _retry_on_time=False)
 
         raise _map_error(resp.status_code, code, msg, path)
 
@@ -216,7 +221,7 @@ class BinanceClient:
         self._record_weight(resp)
         if resp.status_code == 200:
             # 股票报价在停牌、退市或未知代码时会返回空 body。
-            return resp.json() if resp.content else None
+            return _json_body(resp) if resp.content else None
         code, msg = _error_body(resp)
         raise _map_error(resp.status_code, code, msg, path)
 
@@ -277,8 +282,18 @@ class BinanceClient:
         return self.signed_get(SPOT_BASE, "/sapi/v1/margin/isolated/account")
 
     def margin_liquidation_loan(self) -> Any:
-        """全仓杠杆破产清算后形成的未偿借款（2026-05 新增，只读）。"""
-        return self.signed_get(SPOT_BASE, "/sapi/v1/margin/liquidation-loan")
+        """全仓杠杆破产清算后形成的未偿借款（2026-05 新增，只读）。
+
+        **没有借款时回 HTTP 200 + 0 字节的响应体**。文档只给了有借款时的样例；
+        2026-09-17 线上实测。当时照 JSON 解析直接抛 `JSONDecodeError`，缓存层接不住，
+        整个资产页 500。
+
+        空响应换成 `{}` 而不是 None：缓存层只把非 None 的 payload 当成命中，
+        None 会让这个 UID 权重 100 的接口每次刷新都重打一遍。
+        """
+        payload = self.signed_get(SPOT_BASE, "/sapi/v1/margin/liquidation-loan",
+                                  allow_empty=True)
+        return {} if payload is None else payload
 
     def portfolio_margin_pro_account(self, *, span: bool = False) -> Any:
         version = "v2" if span else "v1"
@@ -544,7 +559,7 @@ class BinanceClient:
         if resp.status_code != 200:
             code, msg = _error_body(resp)
             raise _map_error(resp.status_code, code, msg, "/api/v3/klines")
-        return resp.json()
+        return _json_body(resp)
 
     def spot_prices(self) -> Any:
         """全市场最新价，公开端点、不签名。现货估值与合约标记价都要它。"""
@@ -556,7 +571,7 @@ class BinanceClient:
         if resp.status_code != 200:
             code, msg = _error_body(resp)
             raise _map_error(resp.status_code, code, msg, "/api/v3/ticker/price")
-        return resp.json()
+        return _json_body(resp)
 
     # --- 内部 -------------------------------------------------------------
 
@@ -573,9 +588,25 @@ class BinanceClient:
             raise BinanceError("unreachable", f"网络错误: {e}") from e
         self._record_weight(resp)
         if resp.status_code == 200:
-            return resp.json()
+            return _json_body(resp)
         code, msg = _error_body(resp)
         raise _map_error(resp.status_code, code, msg, path)
+
+
+def _json_body(resp: httpx.Response) -> Any:
+    """200 的响应体按 JSON 解析；解析不了算这一个来源的上游异常。
+
+    `resp.json()` 抛的是 `ValueError`，不是 `BinanceError`。2026-09-17 强平借款接口
+    回了 200 + 空响应体，这个异常穿过缓存层，整个资产页 500。
+    """
+    try:
+        return resp.json()
+    except ValueError as e:
+        content_type = resp.headers.get("content-type") or "无 content-type"
+        raise BinanceError(
+            "unreachable",
+            f"上游异常 HTTP 200：响应不是 JSON（{content_type}，{len(resp.content)} 字节）",
+            status=200) from e
 
 
 def _error_body(resp: httpx.Response) -> tuple[int | None, str]:

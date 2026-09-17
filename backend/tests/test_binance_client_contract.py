@@ -1,8 +1,9 @@
 """Current Binance read-only endpoint contracts that are easy to regress silently."""
 
 import httpx
+import pytest
 
-from fanisl.binance.client import BinanceClient
+from fanisl.binance.client import BinanceClient, BinanceError
 
 
 def test_current_futures_versions_and_wallet_detail_parameter():
@@ -139,6 +140,30 @@ def test_account_capability_and_margin_risk_reads_use_current_paths():
         "/sapi/v1/margin/isolated/account",
         "/sapi/v1/margin/liquidation-loan",
     ]
+
+
+def test_empty_success_body_is_no_record_only_where_measured():
+    """强平借款没有记录时回 200 + 空响应体（2026-09-17 线上实测），换成 `{}`。
+
+    别的端点回 200 但不是 JSON 是上游异常，必须抛 `BinanceError`——抛 `ValueError`
+    的话缓存层接不住，整页 500。
+    """
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/time"):
+            return httpx.Response(200, json={"serverTime": 0})
+        return httpx.Response(200, content=b"")
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        assert client.margin_liquidation_loan() == {}
+        with pytest.raises(BinanceError) as error:
+            client.isolated_margin_account()
+    finally:
+        client.close()
+
+    assert error.value.kind == "unreachable"
+    assert error.value.status == 200
 
 
 def test_portfolio_margin_reads_use_papi_and_sapi_contracts():

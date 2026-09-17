@@ -18,7 +18,7 @@ from fanisl.binance.cache import SourceCache
 from fanisl.binance.client import BinanceClient
 from fanisl.binance.portfolio import build_portfolio, _today_settled
 
-from binance_mock import BTC, NOW, PREV_CLOSE_RATIO, _day, make_transport
+from binance_mock import BTC, LIQUIDATION_LOAN, NOW, PREV_CLOSE_RATIO, _day, make_transport
 
 
 @pytest.fixture
@@ -33,6 +33,23 @@ def build(cache, *, fail=None, calls=None, force=True):
         fail=fail, calls=calls)))
     try:
         return build_portfolio(client, cache, force=force, now=NOW)
+    finally:
+        client.close()
+
+
+def build_replacing(cache, responses):
+    """默认的假 Binance，只把 `responses` 里的路径换成给定的响应（path → 工厂函数）。"""
+    base = make_transport()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path in responses:
+            return responses[request.url.path]()
+        return base.handler(request)
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        return build_portfolio(client, cache, force=True, now=NOW)
     finally:
         client.close()
 
@@ -76,10 +93,48 @@ def test_capabilities_gate_margin_risk_sources(cache):
     }
     assert snap["isolated_margin"]["pairs"][0]["symbol"] == "BNBUSDT"
     assert snap["isolated_margin"]["pairs"][0]["liquidation_price"] == 438.2
+    assert snap["liquidation_loan"] is None       # 没有借款，见下一条
+
+
+def test_no_liquidation_loan_is_an_empty_response_not_a_failure(cache):
+    """没有借款时 Binance 回 200 + 0 字节响应体（2026-09-17 线上实测）。
+
+    当时照 JSON 解析抛 `JSONDecodeError`，缓存层只接 `BinanceError`，整个资产页 500。
+    "没有借款"要落成 null + ok，而且要真的进缓存：payload 为 None 的缓存不算命中，
+    这个 UID 权重 100 的接口会每次刷新都重打一遍。
+    """
+    calls = []
+    snap = build(cache, calls=calls)
+    states = {s["key"]: s for s in snap["sources"]}
+    assert snap["liquidation_loan"] is None
+    assert states["liquidation_loan"]["status"] == "ok"
+
+    build(cache, calls=calls, force=False)
+    assert calls.count("/sapi/v1/margin/liquidation-loan") == 1
+
+
+def test_outstanding_liquidation_loan_is_parsed(cache):
+    snap = build_replacing(cache, {
+        "/sapi/v1/margin/liquidation-loan": lambda: httpx.Response(200, json=LIQUIDATION_LOAN),
+    })
     assert snap["liquidation_loan"] == {
-        "asset": "USDC", "amount": 0.0, "repaid_amount": 0.0,
-        "remaining_amount": 0.0,
+        "asset": "USDC", "amount": 1000.0, "repaid_amount": 300.0,
+        "remaining_amount": 700.0,
     }
+
+
+def test_success_response_that_is_not_json_degrades_only_that_source(cache):
+    """200 但不是 JSON：这一个来源记上游异常，别的来源照常。原先是整页 500。"""
+    snap = build_replacing(cache, {
+        "/sapi/v1/margin/isolated/account": lambda: httpx.Response(
+            200, content=b"<html>maintenance</html>", headers={"content-type": "text/html"}),
+    })
+    states = {s["key"]: s for s in snap["sources"]}
+    assert states["isolated_margin"]["status"] == "unreachable"
+    assert "不是 JSON" in states["isolated_margin"]["detail"]
+    assert snap["isolated_margin"] is None
+    assert states["margin"]["status"] == "ok"
+    assert states["futures"]["status"] == "ok"
 
 
 def test_disabled_margin_and_portfolio_products_are_not_queried(cache):
