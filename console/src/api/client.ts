@@ -190,6 +190,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         wallets: [], spot: [], stocks: {
           standalone_positions_available: false,
           coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点。',
+          equity_holdings: [],
           tokenized_assets: [],
         }, capabilities: null, futures: null, earn: [], margin: null,
         isolated_margin: null, liquidation_loan: null, portfolio_margin: null,
@@ -218,6 +219,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         wallets: [], spot: [], stocks: {
           standalone_positions_available: false,
           coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点。',
+          equity_holdings: [],
           tokenized_assets: [],
         }, capabilities: {
           vip_level: 0, reading: true, ip_restricted: true,

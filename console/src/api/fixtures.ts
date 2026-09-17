@@ -127,7 +127,9 @@ export const positions: FuturesPosition[] = RAW_POSITIONS.map((row) => {
 
 export const stocks: StocksAccount = {
   standalone_positions_available: false,
-  coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点；这里仅列出钱包详情中可验证的代币化股票资产。',
+  coverage_detail: 'Binance Stocks 没有持仓查询接口。正股持仓取自钱包明细里 EQ_ 开头的资产，数量与钱包一致；市值用 Binance 给的 BTC 估值换算，接口不提供成本与盈亏。AAPLB 这类代币化股票按官方映射对应到股票代码。',
+  // 正股留空：敞口分布那组测试按"十二个标的"设计，正股的展示与计入另有测试
+  equity_holdings: [],
   tokenized_assets: [{
     asset_code: 'AAPLB',
     name: 'Apple Inc. Tokenized Stock',
@@ -283,7 +285,8 @@ export const wallets: WalletBucket[] = (() => {
     bucket('usdm_futures', futures.total_margin_balance),
     bucket('earn', earnValue),
     bucket('cross_margin', margin.total_net_asset_usd),
-    bucket('funding', FUNDING_WALLET),
+    bucket('funding', FUNDING_WALLET
+      + stocks.equity_holdings.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)),
     // 币本位与逐仓杠杆没开：接口会返回它们，但 activate=false，不该混进分布里
     { kind: 'coinm_futures', value_usd: 0, btc_valuation: 0, activate: false },
     { kind: 'isolated_margin', value_usd: 0, btc_valuation: 0, activate: false },

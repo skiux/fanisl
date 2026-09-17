@@ -307,7 +307,7 @@ def test_tokenized_stock_wallet_assets_map_to_the_underlying_equity(cache):
     """钱包里的 AAPLB 不是一个独立公司，必须按官方映射显示为 AAPL 敞口。"""
     stocks = build(cache)["stocks"]
     assert stocks["standalone_positions_available"] is False
-    assert "未提供持仓查询端点" in stocks["coverage_detail"]
+    assert "没有持仓查询接口" in stocks["coverage_detail"]
     assert stocks["tokenized_assets"] == [{
         "asset_code": "AAPLB",
         "name": "Apple Inc. Tokenized Stock",
@@ -318,6 +318,41 @@ def test_tokenized_stock_wallet_assets_map_to_the_underlying_equity(cache):
         "value_usd": pytest.approx(0.004 * BTC),
         "wallet": "spot",
     }]
+
+
+def test_directly_bought_stocks_come_from_eq_assets_in_wallet_detail(cache):
+    """Binance Stocks 没有持仓接口；买入的正股在资金钱包明细里记作 EQ_ 开头的资产。
+
+    2026-09-17 线上：资金钱包里是 EQ_SOXL，而资产页一只股票都不显示——原先只认
+    AAPLB 这类代币化代码。
+    """
+    stocks = build(cache)["stocks"]
+    assert stocks["equity_holdings"] == [{
+        "asset_code": "EQ_SOXL",
+        "symbol": "SOXL",
+        "name": "",
+        "qty": 40.0,
+        "price_usd": pytest.approx(0.005 * BTC / 40),
+        "value_usd": pytest.approx(0.005 * BTC),
+        "wallet": "funding",
+    }]
+    # 正股不是代币化股票，不能混进另一张表
+    assert all(row["asset_code"] != "EQ_SOXL" for row in stocks["tokenized_assets"])
+
+
+def test_stock_without_a_valuation_has_no_value_not_zero(cache):
+    """持有数量是正的，BTC 估值却是 0 或缺失：那是"没有估值"，不是市值 0 美元。"""
+    wallets = [
+        {"activate": True, "balance": "0", "walletName": "Funding",
+         "assetBalances": [{"asset": "EQ_SOXL", "free": "40", "locked": "0",
+                            "freeze": "0", "withdrawing": "0", "btcValuation": "0"}]},
+    ]
+    snap = build_replacing(cache, {
+        "/sapi/v1/asset/wallet/balance": lambda: httpx.Response(200, json=wallets),
+    })
+    holding = snap["stocks"]["equity_holdings"][0]
+    assert holding["qty"] == 40.0
+    assert holding["value_usd"] is None and holding["price_usd"] is None
 
 
 def test_equity_excludes_deactivated_wallets(cache):

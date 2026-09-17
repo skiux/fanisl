@@ -106,10 +106,16 @@ export function openingCapacity(equity: number | null, position: number | null, 
 /** 会跟着行情一起跌的现货类持有（稳定币不动，所以不算） */
 function riskAssets(snapshot: PortfolioSnapshot): number {
   const stable = new Set(snapshot.stable_assets)
+  // 股票也跟着一起跌。原先这里只有币：正股（资金钱包的 EQ_SOXL）与代币化股票
+  // 都不在，「全部下跌 30%」少算了这一块
+  const stocks = [...snapshot.stocks.equity_holdings, ...snapshot.stocks.tokenized_assets]
+  const stockCodes = new Set(stocks.map((row) => row.asset_code))
   const sum = (rows: { asset: string; value_usd: number | null }[]) =>
-    rows.filter((r) => !stable.has(r.asset)).reduce((acc, r) => acc + (r.value_usd ?? 0), 0)
+    rows.filter((r) => !stable.has(r.asset) && !stockCodes.has(r.asset))
+      .reduce((acc, r) => acc + (r.value_usd ?? 0), 0)
   return sum(snapshot.spot) + sum(snapshot.earn)
     + sum(snapshot.margin?.assets ?? []) + sum(snapshot.futures?.assets ?? [])
+    + stocks.reduce((acc, r) => acc + (r.value_usd ?? 0), 0)
 }
 
 /**

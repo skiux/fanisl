@@ -30,7 +30,10 @@ export type Exposure = {
 
 export function exposures(snapshot: PortfolioSnapshot, equity: number): Exposure[] {
   const stable = new Set(snapshot.stable_assets)
-  const tokenizedCodes = new Set(snapshot.stocks.tokenized_assets.map((row) => row.asset_code))
+  // 股票按股票代码合并（AAPLB → AAPL、EQ_SOXL → SOXL）。它们若同时出现在现货行里，
+  // 那一行要跳过，否则同一笔钱算两次
+  const stockCodes = new Set([...snapshot.stocks.tokenized_assets, ...snapshot.stocks.equity_holdings]
+    .map((row) => row.asset_code))
   const byAsset = new Map<string, { spot: number; perp: number; gross: number }>()
   const add = (asset: string, spot: number, perp: number) => {
     if (!asset || stable.has(asset)) return
@@ -42,9 +45,10 @@ export function exposures(snapshot: PortfolioSnapshot, equity: number): Exposure
   }
 
   for (const row of snapshot.spot) {
-    if (!tokenizedCodes.has(row.asset)) add(row.asset, row.value_usd ?? 0, 0)
+    if (!stockCodes.has(row.asset)) add(row.asset, row.value_usd ?? 0, 0)
   }
   for (const row of snapshot.stocks.tokenized_assets) add(row.symbol, row.value_usd ?? 0, 0)
+  for (const row of snapshot.stocks.equity_holdings) add(row.symbol, row.value_usd ?? 0, 0)
   for (const row of snapshot.earn) add(row.asset, row.value_usd ?? 0, 0)
   for (const row of snapshot.margin?.assets ?? []) add(row.asset, row.value_usd ?? 0, 0)
   for (const row of snapshot.futures?.assets ?? []) add(row.asset, row.value_usd ?? 0, 0)

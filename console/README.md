@@ -16,7 +16,7 @@
 | `spot` | `POST /sapi/v3/asset/getUserAsset` 四种锁定态 |
 | `futures` | `GET /fapi/v3/account` + `/fapi/v1/accountConfig` + `/fapi/v3/positionRisk` |
 | `futures[].liq_distance` | `positionRisk` 给了强平价才有；**给不出就是 null，不拿杠杆倒推** |
-| `stocks` | 钱包详情 + `/sapi/v1/equity/market/tokenized-assets`；独立 Stocks Trading 没有持仓 GET |
+| `stocks` | 钱包详情 + `/sapi/v1/equity/market/tokenized-assets`。Stocks Trading 没有持仓 GET：正股从钱包明细里 `EQ_` 开头的资产认出（`equity_holdings`），代币化股票按官方映射；两者都计入敞口分布与压力测试 |
 | `capabilities` | `/sapi/v1/account/info` + `/sapi/v1/account/apiRestrictions` |
 | `earn` | `GET /sapi/v1/simple-earn/{flexible,locked}/position` |
 | `margin` | `GET /sapi/v1/margin/account` |

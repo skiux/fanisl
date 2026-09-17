@@ -90,6 +90,10 @@ WALLETS = [
                         "freeze": "0", "withdrawing": "0", "btcValuation": "0.001"},
                        {"asset": "AAPLB", "free": "2", "locked": "0",
                         "freeze": "0", "withdrawing": "0", "btcValuation": "0.004"}]},
+    # 直接买入的正股：资金钱包里记作 EQ_ 开头的资产（2026-09-17 线上实测，文档没写）
+    {"activate": True, "balance": "0.005", "walletName": "Funding",
+     "assetBalances": [{"asset": "EQ_SOXL", "assetName": "", "free": "40", "locked": "0",
+                        "freeze": "0", "withdrawing": "0", "btcValuation": "0.005"}]},
     {"activate": True, "balance": "0.09", "walletName": "USDⓈ-M Futures"},
     {"activate": True, "balance": "0.02", "walletName": "Earn"},
     {"activate": False, "balance": "0", "walletName": "Isolated Margin"},

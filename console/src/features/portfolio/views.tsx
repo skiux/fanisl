@@ -4,7 +4,9 @@ import { cash } from '../../lib/holdings'
 import type { MarginAccount, PortfolioSnapshot } from '../../api/types'
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
 import { RealizedDays } from './RealizedDays'
-import { CashTable, EarnTable, ParkedTable, SpotTable, TokenizedStocksTable } from './Holdings'
+import {
+  CashTable, EarnTable, EquityHoldingsTable, ParkedTable, SpotTable, TokenizedStocksTable,
+} from './Holdings'
 import { PnlBreakdown } from './PnlBreakdown'
 
 /** 合约 income 与 userTrades 都只保留 90 天，这是接口硬限 */
@@ -140,8 +142,11 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
   const frozen = at((item) => item.freeze)
   const withdrawing = at((item) => item.withdrawing)
   const unpriced = snapshot.spot.filter((item) => item.value_usd === null).length
+  const equityHoldings = snapshot.stocks.equity_holdings
   const tokenizedStocks = snapshot.stocks.tokenized_assets
-  const tokenizedValue = tokenizedStocks.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
+  const stockRows = [...equityHoldings, ...tokenizedStocks]
+  const stockValue = stockRows.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
+  const unvaluedStocks = stockRows.filter((item) => item.value_usd === null).length
 
   const earnValue = snapshot.earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
   const rewards = snapshot.earn.reduce((sum, item) => sum + (item.cumulative_rewards_usd ?? 0), 0)
@@ -232,14 +237,28 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
           </Module>
         </Stack>
 
-        {tokenizedStocks.length > 0 && (
+        {/* 正股与代币化股票在一个模块里：都是"钱包里实际有的股票"，只是形态不同。
+            分开两块的话，只持有正股的账户会看到一块不相干的空标题。 */}
+        {stockRows.length > 0 && (
           <Module
-            figure={money(tokenizedValue)}
-            note={`${tokenizedStocks.length} 项 · 钱包可验证`}
+            figure={money(stockValue)}
+            note={[
+              equityHoldings.length > 0 ? `${equityHoldings.length} 只正股` : null,
+              tokenizedStocks.length > 0 ? `${tokenizedStocks.length} 项代币化` : null,
+              unvaluedStocks > 0 ? `${unvaluedStocks} 项无估值` : null,
+            ].filter(Boolean).join(' · ')}
             span="lg:col-span-12"
-            title="代币化股票"
+            title="股票"
           >
-            <TokenizedStocksTable rows={tokenizedStocks} />
+            {equityHoldings.length > 0 && <EquityHoldingsTable rows={equityHoldings} />}
+            {tokenizedStocks.length > 0 && (
+              <div className={cn(equityHoldings.length > 0 && 'mt-6')}>
+                {equityHoldings.length > 0 && (
+                  <p className="mb-2 text-xs text-ink-2">代币化股票</p>
+                )}
+                <TokenizedStocksTable rows={tokenizedStocks} />
+              </div>
+            )}
             <p className="mt-3 border-t border-rule pt-3 text-xs leading-relaxed text-ink-3">
               {snapshot.stocks.coverage_detail}
             </p>

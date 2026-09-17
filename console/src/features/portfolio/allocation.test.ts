@@ -285,7 +285,7 @@ describe('敞口分布', () => {
       symbol: 'MSTRUSDT', position_amt: -9, notional_usd: 3079.44,
     }
     render({
-      ...snapshot, spot: [], stocks: { ...snapshot.stocks, tokenized_assets: [] },
+      ...snapshot, spot: [], stocks: { ...snapshot.stocks, equity_holdings: [], tokenized_assets: [] },
       earn: [], margin: null,
       futures: { ...snapshot.futures!, assets: [], positions: [short] },
     })

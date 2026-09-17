@@ -11,8 +11,14 @@ Binance 2026 的文档里同时存在两条股票相关路径，接口与账户�
 
 - **Stocks Trading** 走 `/sapi/v1/equity/*`，代码是 `AAPL` 这类裸 ticker，委托默认以
   USDC 计价，并带 `RTH` / `EXTENDED` / `24H` 交易时段。它有挂单、委托历史和逐笔成交，
-  但当前 Account 文档只有签署免责声明的写接口，**没有独立股票持仓查询端点**。因此
-  `/orders` 展示完整可读记录，`/portfolio` 不从成交历史反推持仓。
+  但当前 Account 文档只有签署免责声明的写接口，**没有独立股票持仓查询端点**（官方
+  Postman 集合 2026-09-14、Go/Rust SDK 2026-09-16 核对过，16 个 REST 接口里没有）。
+  **持仓在钱包明细里**：买入的正股在资金钱包记作 `EQ_` 开头的资产（SOXL → `EQ_SOXL`），
+  文档没写，2026-09-17 线上实测。`/portfolio` 据此给出 `stocks.equity_holdings`：
+  数量取钱包余额，市值用明细里的 `btcValuation` 换算（为 0 或缺失时留 `null`）。
+  不从成交历史反推持仓——转入、转出与公司行动会让倒推的数量静默失真。
+  **成本与盈亏接口不提供；逐日盈亏也不含正股**：`held_across_wallets` 不读资金钱包，
+  股票也没有 REST 日线（只有 WebSocket K 线）。
 - **TradFi Perps** 仍是 USDⓈ-M Futures，走 `/fapi/*`，代码如 `NVDAUSDT`。它继续使用
   合约保证金、强平价与 ADL 逻辑；`exchangeInfo` 的 `underlyingType` / `underlyingSubType`
   用来识别 TradFi，`tradingSchedule` 给出当前市场时段，`symbolAdlRisk` 给出标的级 ADL
@@ -161,7 +167,7 @@ IP 权重上限 **6000/分钟**。而：
 |---|---|
 | `/fapi/v3/account` **没有**标记价、强平价、ADL 分位 | 在 `positionRisk` 与 `adlQuantile` 上。少了它们"距强平多远"无从算起 |
 | v3 的 `account` 持仓行也**没有** `entryPrice` / `leverage` / `isolated`，v3 `positionRisk` 只补回了 `entryPrice` | 杠杆倍数与全仓/逐仓只在 `/fapi/v1/symbolConfig`。迁到 v3 后照 v2 字段读，线上每个仓位都成了开仓价 0、1×、全仓（2026-09-17 核对线上缓存） |
-| Stocks Trading 的 Account 文档没有持仓 GET | 只能展示挂单、历史、成交与钱包中可验证的代币化资产；不能用成交净额伪造持仓 |
+| Stocks Trading 的 Account 文档没有持仓 GET | 持仓只能从钱包明细认：正股是资金钱包里的 `EQ_<代码>`（文档没写，2026-09-17 实测），代币化股票按 tokenized-assets 映射；不能用成交净额伪造持仓 |
 | Stocks Trading 行情要求 API key 但不要求签名 | 当公开端点调用会 401；当 USER_DATA 调用会多余地签名 |
 | TradFi Perps 仍属于 USDⓈ-M | 不能按裸股票账户处理；保证金、强平与资金费仍走 fapi |
 | 账户能力与 API key 权限是两层 | `isMarginEnabled=true` 不表示只读 key 有交易权限；展示和请求分流不能混用 |

@@ -90,10 +90,30 @@ export type TokenizedStockAsset = {
   wallet: WalletKind
 }
 
+/**
+ * 直接买入的正股。Binance Stocks 没有持仓接口，它们在资金钱包明细里记作
+ * `EQ_` 开头的资产（2026-09-17 线上实测，文档没写）。
+ */
+export type EquityHolding = {
+  /** 钱包资产代码，例如 EQ_SOXL */
+  asset_code: string
+  /** 股票代码，例如 SOXL */
+  symbol: string
+  name: string
+  qty: number
+  /** 由钱包估值反推（市值 / 股数）；没有估值时为 null */
+  price_usd: number | null
+  /** 钱包明细的 BTC 估值换成美元；估值为 0 或缺失时为 null，不当 0 */
+  value_usd: number | null
+  wallet: WalletKind
+}
+
 export type StocksAccount = {
-  /** Stocks Trading 目前没有可读取持仓的账户端点。 */
+  /** Stocks Trading 目前没有可读取持仓的账户端点；持仓只能从钱包明细里认出来。 */
   standalone_positions_available: false
   coverage_detail: string
+  /** 直接买入的正股（钱包里 EQ_ 开头的资产）。 */
+  equity_holdings: EquityHolding[]
   /** 钱包详情中可验证、并由官方映射回股票代码的代币化股票。 */
   tokenized_assets: TokenizedStockAsset[]
 }

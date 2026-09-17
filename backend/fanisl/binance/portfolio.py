@@ -275,18 +275,29 @@ def _wallets(rows: Any, btc_usd: float | None) -> list[dict]:
     return out
 
 
-def _stocks(wallet_rows: Any, tokenized_rows: Any, btc_usd: float | None) -> dict:
-    """把资金钱包中的代币化股票资产映射回真实股票代码。
+# 直接买入的正股在钱包明细里的资产代码前缀：SOXL 记作 EQ_SOXL，放在资金钱包。
+# 文档没写，2026-09-17 线上实测（Stocks Trading 本身没有持仓查询端点）。
+EQUITY_ASSET_PREFIX = "EQ_"
 
-    Stocks Trading 当前没有账户持仓查询端点，所以这里只展示钱包详情中可以证实的
-    代币化资产；不能从成交历史倒推独立股票持仓，因为转入、转出和公司行动会让结果
-    静默失真。
+STOCKS_COVERAGE = (
+    "Binance Stocks 没有持仓查询接口。正股持仓取自钱包明细里 EQ_ 开头的资产，"
+    "数量与钱包一致；市值用 Binance 给的 BTC 估值换算，接口不提供成本与盈亏。"
+    "AAPLB 这类代币化股票按官方映射对应到股票代码。"
+)
+
+
+def _stocks(wallet_rows: Any, tokenized_rows: Any, btc_usd: float | None) -> dict:
+    """钱包明细里的股票：直接买入的正股（EQ_SOXL）与代币化股票（AAPLB）。
+
+    两者都只认钱包里**实际存在的余额**，不从成交历史倒推：转入、转出和公司行动
+    会让倒推的数量静默失真。
     """
     mappings = {
         str(row.get("assetCode", "")): row
         for row in tokenized_rows or []
         if isinstance(row, dict) and row.get("assetCode") and row.get("underlyingEquitySymbol")
     }
+    equities = []
     assets = []
     for wallet in wallet_rows or []:
         if not isinstance(wallet, dict):
@@ -298,15 +309,30 @@ def _stocks(wallet_rows: Any, tokenized_rows: Any, btc_usd: float | None) -> dic
             if not isinstance(balance, dict):
                 continue
             asset_code = str(balance.get("asset", ""))
-            mapping = mappings.get(asset_code)
-            if mapping is None:
-                continue
             qty = sum(dec0(balance.get(key)) for key in
                       ("free", "locked", "freeze", "withdrawing"))
             if qty <= 0:
                 continue
-            multiplier = dec(mapping.get("multiplier"))
             btc_value = dec(balance.get("btcValuation"))
+            # 估值为 0 或缺失都当"没有估值"：持有数量是正的，0 美元不是一个真实的市值
+            value = btc_value * btc_usd if (btc_value and btc_usd is not None) else None
+
+            if asset_code.startswith(EQUITY_ASSET_PREFIX) and len(asset_code) > len(EQUITY_ASSET_PREFIX):
+                equities.append({
+                    "asset_code": asset_code,
+                    "symbol": asset_code[len(EQUITY_ASSET_PREFIX):],
+                    "name": str(balance.get("assetName", "")),
+                    "qty": qty,
+                    "price_usd": None if value is None else value / qty,
+                    "value_usd": value,
+                    "wallet": wallet_kind,
+                })
+                continue
+
+            mapping = mappings.get(asset_code)
+            if mapping is None:
+                continue
+            multiplier = dec(mapping.get("multiplier"))
             assets.append({
                 "asset_code": asset_code,
                 "name": str(mapping.get("assetName", "")),
@@ -314,16 +340,16 @@ def _stocks(wallet_rows: Any, tokenized_rows: Any, btc_usd: float | None) -> dic
                 "qty": qty,
                 "multiplier": multiplier,
                 "underlying_qty": None if multiplier is None else qty * multiplier,
-                "value_usd": None if btc_value is None or btc_usd is None else btc_value * btc_usd,
+                "value_usd": value,
                 "wallet": wallet_kind,
             })
-    assets.sort(key=lambda row: row["value_usd"] if row["value_usd"] is not None else -1,
-                reverse=True)
+    by_value = lambda row: row["value_usd"] if row["value_usd"] is not None else -1  # noqa: E731
+    equities.sort(key=by_value, reverse=True)
+    assets.sort(key=by_value, reverse=True)
     return {
         "standalone_positions_available": False,
-        "coverage_detail": (
-            "Binance Stocks Trading 当前未提供持仓查询端点；这里仅列出钱包详情中可验证的代币化股票资产。"
-        ),
+        "coverage_detail": STOCKS_COVERAGE,
+        "equity_holdings": equities,
         "tokenized_assets": assets,
     }
 
@@ -1085,7 +1111,8 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
     stocks = block("stocks", lambda: _stocks(
         payload("wallets"), payload("equity.tokenized"), btc_usd), fallback={
             "standalone_positions_available": False,
-            "coverage_detail": "Binance Stocks Trading 当前未提供持仓查询端点。",
+            "coverage_detail": STOCKS_COVERAGE,
+            "equity_holdings": [],
             "tokenized_assets": [],
         })
     capabilities = block("account", lambda: _capabilities(
