@@ -159,6 +159,63 @@ const assetDossier = {
   }],
 }
 
+// ---- 验证页（backend/api.md §5.4 的 verification-page 四个分类）----
+// 单元 1 有三个评分时点：两个已判定（命中、未中），第三个还没到期——评分阶梯要能从已判定跳到即将到期。
+// 夹具不按 days 过滤，页面对即将到期一律取 365 天。
+
+const verificationClaim = (id: number, payload: Record<string, unknown>, quote: string, creatorName = creator.name) => ({
+  unit_id: id, quote, payload, published_at: '2026-08-01T00:00:00Z', ref_price_at_publish: 250,
+  creator: creatorName, content_title: '半导体研究样本',
+})
+
+const soxxPayload = {
+  asset_symbol: 'SOXX', asset_text: '半导体', claim_class: 'price_target', direction: 'up',
+  magnitude: { target: 262 }, verifiability: 'B', stance_strength: 'explicit', priceable: true,
+  scoring_spec: {
+    method: 'target_touch', benchmark: null, eval_ladder: ['2026-08-10', '2026-08-20', '2026-10-01'],
+    success_def: '至阶梯日 SOXX 任一日最高价 ≥ 262 = hit',
+  },
+}
+
+const scored = (scoreId: number, horizon: string, outcome: string, realized: Record<string, unknown>) => ({
+  score_id: scoreId, horizon_label: horizon, outcome, realized,
+  eval_ts: `${horizon}T12:00:00Z`, scored_at: `${horizon}T12:00:05Z`,
+})
+
+const verificationBuckets: Record<string, Array<Record<string, unknown>>> = {
+  recent: [
+    { ...verificationClaim(3, { ...soxxPayload, asset_symbol: 'XAUUSD', magnitude: { low: 3900 }, scoring_spec: { method: 'range_hold', success_def: '阶梯日收盘 ≥ 3900 = hit' } }, '黄金 3900 是长期支撑。', '另一信源'),
+      ...scored(503, '2026-08-25', 'partial', { ref: 4010, eval_close: 3950.25, ladder: '2026-08-25' }) },
+    { ...verificationClaim(1, soxxPayload, '半导体这一段还没走完，262 会到。'),
+      ...scored(502, '2026-08-20', 'miss', { ref: 250, eval_close: 241.5, ladder: '2026-08-20' }) },
+    { ...verificationClaim(1, soxxPayload, '半导体这一段还没走完，262 会到。'),
+      ...scored(501, '2026-08-10', 'hit', { ref: 250, eval_close: 262.4, ladder: '2026-08-10' }) },
+    // 填充：七月的一串裁决，让桌面与手机的默认窗口都能被结果放满
+    ...Array.from({ length: 12 }, (_, index) => ({
+      ...verificationClaim(300 + index, { ...soxxPayload, asset_symbol: 'SPX', magnitude: null }, `${String(index + 1).padStart(2, '0')} 号填充裁决：标普这一段还会涨。`),
+      ...scored(600 + index, `2026-07-${String(20 + index).padStart(2, '0')}`, index % 3 === 0 ? 'miss' : 'hit', { ref: 7000, eval_close: 7100, ladder: '' }),
+    })),
+  ],
+  due: [
+    { ...verificationClaim(6, { ...soxxPayload, asset_symbol: 'NDX', magnitude: null, scoring_spec: { method: 'sign', success_def: '到期收盘高于发布参考价 = hit' } }, '纳指这里回踩就是买点。'),
+      horizon_label: '2026-09-03' },
+    { ...verificationClaim(1, soxxPayload, '半导体这一段还没走完，262 会到。'), horizon_label: '2026-10-01' },
+    // 填充：让即将到期多出几屏，翻看与"整页不滚动"才测得到
+    ...Array.from({ length: 40 }, (_, index) => ({
+      ...verificationClaim(200 + index, { ...soxxPayload, asset_symbol: 'NDX', magnitude: null }, `${String(index + 1).padStart(2, '0')} 号填充判断：纳指这一段还会走。`),
+      horizon_label: `2026-09-${String(5 + (index % 20)).padStart(2, '0')}`,
+    })),
+  ],
+  review: [
+    { ...verificationClaim(4, { ...soxxPayload, condition_text: 'SOXX 先回踩 230', condition_observable: true }, '回踩 230 之后再看 262。'),
+      ...scored(504, '2026-08-15', 'condition_not_met', { ref: 250, ladder: '2026-08-15' }) },
+  ],
+  unavailable: [
+    { ...verificationClaim(5, { ...soxxPayload, asset_symbol: 'FCG', priceable: false }, '天然气 ETF 年底翻倍。'),
+      ...scored(505, '2026-08-12', 'unpriceable', { note: "无符号映射: ['FCG']" }) },
+  ],
+}
+
 function responseFor(url: URL): unknown {
   const path = url.pathname
   if (path === '/knowledge/overview') return { contents: 49, units: 798, nodes: 448, creators: 3, corroborated: 9, claims: 295, methods: 102, concepts: 401 }
@@ -204,7 +261,19 @@ function responseFor(url: URL): unknown {
       eval_ts: '2026-08-18T00:00:00Z', scored_at: '2026-08-18T00:00:00Z',
     }]
   }
-  if (path === '/knowledge/verification-page') return { items: [], total: 0, offset: 0, limit: 200, has_more: false }
+  if (path === '/knowledge/verification-page') {
+    const items = verificationBuckets[url.searchParams.get('bucket') ?? ''] ?? []
+    return { items, total: items.length, offset: 0, limit: 200, has_more: false }
+  }
+  const verificationPath = path.match(/^\/knowledge\/verifications\/(\d+)$/)
+  if (verificationPath) {
+    const row = Object.values(verificationBuckets).flat().find((item) => item.score_id === Number(verificationPath[1]))
+    if (!row) return null
+    return {
+      ...row, scorer_version: 'v1', locator: '00:31', tags: ['semiconductor'], extractor_version: 'test-v1',
+      creator_id: 1, content_id: 1, content_url: 'https://example.test/source', nodes: [{ id: 1, title: node.title, status: 'active', kind: 'claim', relation: 'restates', note: null }],
+    }
+  }
   if (path === '/knowledge/relations') return []
   if (path === '/knowledge/harness-candidates') return []
   if (path === '/knowledge/weekly') return weekly

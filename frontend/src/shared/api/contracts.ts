@@ -1,7 +1,7 @@
 import type { AssetDossierData, AssetIndex } from '../../features/asset/types'
 import type { ReviewQueueItem, UnitReview } from '../../features/knowledge/reviews'
 import type { KnowledgeNodePage, KnowledgeOverview, KnowledgeUnitPage } from '../../features/knowledge/types'
-import type { VerificationPageData, VerificationSummary } from '../../features/verification/types'
+import type { VerificationPageData } from '../../features/verification/types'
 
 function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -39,12 +39,6 @@ export function isKnowledgeNodePage(value: unknown): value is KnowledgeNodePage 
   const items = value.items
   return Array.isArray(items)
     && items.every((item: unknown) => record(item) && finiteNumber(item.id) && typeof item.title === 'string')
-}
-
-export function isVerificationSummary(value: unknown): value is VerificationSummary {
-  if (!record(value) || !record(value.overview) || !Array.isArray(value.nearest_due)) return false
-  const overview = value.overview
-  return ['due', 'completed', 'unavailable', 'review'].every((key) => finiteNumber(overview[key]))
 }
 
 export function isVerificationPage(value: unknown): value is VerificationPageData {

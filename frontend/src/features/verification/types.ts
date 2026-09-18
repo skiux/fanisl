@@ -7,13 +7,6 @@ export type VerificationOutcome =
   | 'unpriceable'
   | 'pending'
 
-export type VerificationOverview = {
-  due: number
-  completed: number
-  unavailable: number
-  review: number
-}
-
 export type DueVerification = {
   unit_id: number
   quote: string
@@ -31,19 +24,6 @@ export type ScoredVerification = DueVerification & {
   realized: Record<string, unknown> | null
   eval_ts: string
   scored_at: string
-}
-
-export type VerificationQueue = {
-  overview: VerificationOverview
-  due: DueVerification[]
-  recent: ScoredVerification[]
-  unavailable: ScoredVerification[]
-  review: ScoredVerification[]
-}
-
-export type VerificationSummary = {
-  overview: VerificationOverview
-  nearest_due: DueVerification[]
 }
 
 export type VerificationPageData = {

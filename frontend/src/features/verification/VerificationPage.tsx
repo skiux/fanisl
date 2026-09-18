@@ -1,186 +1,253 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
-import { isVerificationPage, isVerificationSummary } from '../../shared/api/contracts'
+import { isVerificationPage } from '../../shared/api/contracts'
 import { outcomeLabels, outcomeMarks } from '../../shared/domain/labels'
 import AppHeader from '../../shared/navigation/AppHeader'
-import { VerificationReader } from './VerificationDossier'
-import type {
-  DueVerification,
-  ScoredVerification,
-  VerificationPageData,
-  VerificationSummary,
-} from './types'
+import { asText, claimHeadline, countdown } from '../asset/format'
+import EvidenceDossier from '../knowledge/EvidenceDossier'
+import RecordDialog from './RecordDialog'
+import Timeline from './Timeline'
+import {
+  QUEUE_VIEWS, RECORD_KINDS, dayLabel, dayOf, defaultStart, indexOfDay, isScored, kindCounts, kindLabels, kindOf,
+  matchesQuery, matchesRoute, parseDay, parseRoute, recordKey, routeFor, shortDay, summarizeDays, todayKey,
+  type QueueItem, type QueueView, type RecordKind, type RecordRoute,
+} from './records'
+import type { VerificationPageData } from './types'
 import './verification.css'
 
 const PAGE_SIZE = 200
+// 即将到期不再分 7/14/30/90 天：2026-09-17 实测 90 天与 365 天都是 198 条，一次取完画在时间轴上
+const DUE_DAYS = 365
+const CARD_GAP = 12
 
-type QueueView = 'recent' | 'due' | 'watch' | 'unavailable'
-type QueueItem = DueVerification | ScoredVerification
-type LoadState = 'loading' | 'loaded' | 'error'
+type Bucket = { request: number; items: QueueItem[] | null }
 
-type VerificationGroup = {
-  key: string
-  items: QueueItem[]
-  primary: QueueItem
-}
-
-type RecordRoute = {
-  scoreId: number | null
-  dueUnitId: number | null
-  dueHorizon: string | null
-}
-
-const queueLabels: Record<QueueView, string> = {
-  recent: '最新裁决',
-  due: '待执行',
-  watch: '观察中',
-  unavailable: '质量异常',
-}
-
-const queueDescriptions: Record<QueueView, string> = {
-  recent: '评分器已经按发布时冻结的判据完成执行。相同判断的多个评分时点合并展示。',
-  due: '判据已经冻结、尚未到达执行日期。这里展示未来要发生的验证工作。',
-  watch: '条件没有触发或结果仍待确认。继续保留语境，不把观察状态误写成错误。',
-  unavailable: '价格或条件无法机械核验。异常被保留为知识质量信号，不用空白掩盖。',
-}
-
-function readRecordRoute(): RecordRoute {
-  const [, search = ''] = window.location.hash.split('?')
-  const params = new URLSearchParams(search)
-  const score = Number(params.get('score'))
-  const due = Number(params.get('due'))
-  return {
-    scoreId: Number.isInteger(score) && score > 0 ? score : null,
-    dueUnitId: Number.isInteger(due) && due > 0 ? due : null,
-    dueHorizon: params.get('horizon'),
+async function loadBucket(view: QueueView, signal: AbortSignal) {
+  const url = (offset: number) => `/knowledge/verification-page?bucket=${view}&days=${DUE_DAYS}&limit=${PAGE_SIZE}&offset=${offset}`
+  const first = await apiJson<VerificationPageData>(url(0), { signal }, isVerificationPage)
+  const offsets: number[] = []
+  for (let offset = first.items.length; first.has_more && first.items.length > 0 && offset < first.total; offset += PAGE_SIZE) {
+    offsets.push(offset)
   }
+  // 剩余页并发取：串行会让记录一多就变成 N 次往返
+  const rest = await Promise.all(offsets.map((offset) => apiJson<VerificationPageData>(url(offset), { signal }, isVerificationPage)))
+  return [...first.items, ...rest.flatMap((page) => page.items)]
 }
 
-function isScored(item: QueueItem): item is ScoredVerification {
-  return 'score_id' in item
+function shiftDay(day: string, days: number) {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10)
 }
 
-function itemKey(item: QueueItem) {
-  return isScored(item)
-    ? `score-${item.score_id}`
-    : `due-${item.unit_id}-${item.horizon_label}`
+function DayCard({ current, item, onMark, onOpen, siblings }: {
+  current: boolean
+  item: QueueItem
+  /** 指到这张卡片时在时间轴上标出它那天，离开时传 null */
+  onMark: (day: string | null) => void
+  onOpen: (item: QueueItem) => void
+  /** 同一条判断的全部评分时点（跨四个分类），按日期排 */
+  siblings: QueueItem[]
+}) {
+  const kind = kindOf(item)
+  const symbol = asText(item.payload.asset_symbol)
+  const headline = claimHeadline(item.payload)
+  return (
+    <li>
+      <button
+        aria-current={current ? 'true' : undefined}
+        className={`verify-card kind-${kind}`}
+        onBlur={() => onMark(null)}
+        onClick={() => onOpen(item)}
+        onFocus={() => onMark(dayOf(item))}
+        onMouseEnter={() => onMark(dayOf(item))}
+        onMouseLeave={() => onMark(null)}
+        type="button"
+      >
+        <span className="verify-card-top">
+          <b aria-hidden="true">{isScored(item) ? outcomeMarks[item.outcome] : '·'}</b>
+          <em>{isScored(item) ? outcomeLabels[item.outcome] : countdown(dayOf(item))}</em>
+          <strong>{symbol ?? '—'}</strong>
+          {headline && <span>{headline}</span>}
+          <time dateTime={dayOf(item)}>{shortDay(dayOf(item))}</time>
+        </span>
+        <span className="verify-card-quote">{item.quote}</span>
+        <span className="verify-card-foot">
+          <small>{item.creator}</small>
+          {siblings.length > 1 && (
+            <span
+              aria-label={`共 ${siblings.length} 个评分时点：${siblings.map((entry) => `${shortDay(dayOf(entry))} ${kindLabels[kindOf(entry)]}`).join('，')}`}
+              className="verify-card-ladder"
+              role="img"
+            >
+              {siblings.map((entry) => (
+                <i className={`kind-${kindOf(entry)}${recordKey(entry) === recordKey(item) ? ' is-this' : ''}`} key={recordKey(entry)} />
+              ))}
+            </span>
+          )}
+        </span>
+      </button>
+    </li>
+  )
 }
 
-function groupItems(items: QueueItem[]): VerificationGroup[] {
-  const groups = new Map<number, QueueItem[]>()
-  items.forEach((item) => groups.set(item.unit_id, [...(groups.get(item.unit_id) ?? []), item]))
-  return [...groups.entries()].map(([unitId, group]) => {
-    const ordered = [...group].sort((left, right) => {
-      const leftDate = isScored(left) ? left.eval_ts : left.horizon_label
-      const rightDate = isScored(right) ? right.eval_ts : right.horizon_label
-      return new Date(leftDate).getTime() - new Date(rightDate).getTime()
-    })
-    return {
-      key: `unit-${unitId}`,
-      items: ordered,
-      primary: isScored(ordered[0]) ? ordered[ordered.length - 1] : ordered[0],
-    }
-  })
-}
-
-function formatDate(value: string | null | undefined, withYear = false) {
-  if (!value) return '日期未知'
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: withYear ? 'numeric' : undefined,
-    month: '2-digit',
-    day: '2-digit',
-    timeZone: 'Asia/Shanghai',
-  }).format(new Date(value))
-}
-
-function dateKey(item: QueueItem) {
-  const value = isScored(item) ? item.scored_at : item.horizon_label
-  return new Date(value).toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' })
-}
-
-function asText(value: unknown) {
-  return typeof value === 'string' && value.trim() ? value : null
-}
-
-function formatMetric(key: string, value: unknown) {
-  if (typeof value !== 'number') return null
-  if (key.endsWith('_ret')) return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`
-  return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(value)
-}
-
-function itemSummary(item: ScoredVerification) {
-  if (!item.realized) return '没有数值型实测字段'
-  const priorities = ['eval_close', 'asset_ret', 'bench_ret', 'high', 'low']
-  const parts = priorities.flatMap((key) => {
-    const value = formatMetric(key, item.realized?.[key])
-    return value ? [value] : []
-  })
-  return parts.slice(0, 2).join(' · ') || '判定字段已落库'
-}
-
-function routeFor(item: QueueItem) {
-  if (isScored(item)) return `#/verification?score=${item.score_id}`
-  const horizon = encodeURIComponent(item.horizon_label)
-  return `#/verification?due=${item.unit_id}&horizon=${horizon}`
-}
-
+/**
+ * 验证页：上面一条判决时间轴是全部记录的缩略图，下面一屏卡片是它的放大镜。
+ * 卡片按时间顺序铺满一屏（可以跨好几天），时间轴上用一块高亮标出这一屏覆盖的日期；
+ * 翻「更早 / 更晚」时高亮沿轴移动，点轴上某天窗口就移过去。整页不滚动。
+ */
 function VerificationPage() {
-  const searchRef = useRef<HTMLInputElement>(null)
-  const [summary, setSummary] = useState<VerificationSummary | null>(null)
-  const [page, setPage] = useState<VerificationPageData | null>(null)
-  const [loadState, setLoadState] = useState<LoadState>('loading')
-  const [requestKey, setRequestKey] = useState(0)
-  const [windowDays, setWindowDays] = useState(14)
-  const [view, setView] = useState<QueueView>('recent')
+  const [request, setRequest] = useState(0)
+  const [buckets, setBuckets] = useState<Partial<Record<QueueView, Bucket>>>({})
+  const [route, setRoute] = useState<RecordRoute>(() => parseRoute(window.location.hash))
+  const [chosenDay, setChosenDay] = useState<string | null>(() => parseDay(window.location.hash))
   const [query, setQuery] = useState('')
-  const [creator, setCreator] = useState<string | null>(null)
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const [visibleLimit, setVisibleLimit] = useState(18)
-  const [unitOpen, setUnitOpen] = useState<number | null>(null)
-  const [recordRoute, setRecordRoute] = useState<RecordRoute>(readRecordRoute)
+  const [creator, setCreator] = useState('')
+  const [hidden, setHidden] = useState<Set<RecordKind>>(() => new Set())
+  // 窗口停在序列的第几条；key 记下当时的筛选条件，条件一变就回到默认位置
+  const [cursor, setCursor] = useState<{ key: string; index: number } | null>(null)
+  const [grid, setGrid] = useState({ cols: 3, rows: 3 })
+  const [evidenceUnit, setEvidenceUnit] = useState<number | null>(null)
+  const [markedDay, setMarkedDay] = useState<string | null>(null)
+  const cardsRef = useRef<HTMLOListElement>(null)
+  const today = todayKey()
 
   useEffect(() => {
     const controller = new AbortController()
-    setLoadState('loading')
-    const bucket = view === 'watch' ? 'review' : view
-    const load = async () => {
-      const [summaryPayload, firstPage] = await Promise.all([
-        apiJson<VerificationSummary>(`/knowledge/verification-summary?days=${windowDays}`, { signal: controller.signal }, isVerificationSummary),
-        apiJson<VerificationPageData>(`/knowledge/verification-page?bucket=${bucket}&days=${windowDays}&limit=${PAGE_SIZE}&offset=0`, { signal: controller.signal }, isVerificationPage),
-      ])
-      // 剩余页并发取；串行 while 会让日志一长就变成 N 次往返才出首屏。
-      const items = [...firstPage.items]
-      if (firstPage.has_more && firstPage.items.length > 0) {
-        const offsets: number[] = []
-        for (let offset = firstPage.items.length; offset < firstPage.total; offset += PAGE_SIZE) {
-          offsets.push(offset)
-        }
-        const rest = await Promise.all(offsets.map((offset) => apiJson<VerificationPageData>(
-          `/knowledge/verification-page?bucket=${bucket}&days=${windowDays}&limit=${PAGE_SIZE}&offset=${offset}`,
-          { signal: controller.signal },
-          isVerificationPage,
-        )))
-        rest.forEach((payload) => items.push(...payload.items))
-      }
-      setSummary(summaryPayload)
-      setPage({ ...firstPage, items, has_more: false })
-      setLoadState('loaded')
-    }
-    load().catch(() => {
-      if (!controller.signal.aborted) setLoadState('error')
+    QUEUE_VIEWS.forEach((bucket) => {
+      loadBucket(bucket, controller.signal)
+        .then((items) => setBuckets((current) => ({ ...current, [bucket]: { request, items } })))
+        .catch(() => {
+          if (!controller.signal.aborted) setBuckets((current) => ({ ...current, [bucket]: { request, items: null } }))
+        })
     })
     return () => controller.abort()
-  }, [requestKey, view, windowDays])
+  }, [request])
 
   useEffect(() => {
     const update = () => {
-      setRecordRoute(readRecordRoute())
-      setUnitOpen(null)
-      window.scrollTo({ left: 0, top: 0 })
+      setRoute(parseRoute(window.location.hash))
+      setChosenDay(parseDay(window.location.hash))
+      setCursor(null)
+      setEvidenceUnit(null)
     }
     window.addEventListener('hashchange', update)
     return () => window.removeEventListener('hashchange', update)
   }, [])
+
+  // 卡片区放几列几行由它的实际尺寸定
+  useEffect(() => {
+    const element = cardsRef.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      const cardHeight = parseFloat(getComputedStyle(element).getPropertyValue('--verify-card-h')) || 148
+      const cols = element.clientWidth >= 900 ? 3 : element.clientWidth >= 560 ? 2 : 1
+      const rows = Math.max(1, Math.floor((element.clientHeight + CARD_GAP) / (cardHeight + CARD_GAP)))
+      setGrid((current) => (current.cols === cols && current.rows === rows ? current : { cols, rows }))
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  const bucketState = (bucket: QueueView) => {
+    const data = buckets[bucket]
+    if (!data || data.request !== request) return 'loading'
+    return data.items === null ? 'error' : 'loaded'
+  }
+  const loading = QUEUE_VIEWS.some((bucket) => bucketState(bucket) === 'loading')
+  const failed = QUEUE_VIEWS.filter((bucket) => bucketState(bucket) === 'error')
+
+  const allItems = useMemo(() => QUEUE_VIEWS.flatMap((bucket) => buckets[bucket]?.items ?? []), [buckets])
+  const scoped = useMemo(
+    () => allItems.filter((item) => (!creator || item.creator === creator) && matchesQuery(item, query)),
+    [allItems, creator, query],
+  )
+  const counts = useMemo(() => kindCounts(scoped), [scoped])
+  const days = useMemo(() => summarizeDays(scoped.filter((item) => !hidden.has(kindOf(item)))), [hidden, scoped])
+  const scale = useMemo(() => summarizeDays(allItems), [allItems])
+  const sequence = useMemo(() => days.flatMap((entry) => entry.items), [days])
+
+  const creators = useMemo(() => {
+    const tally = new Map<string, number>()
+    allItems.forEach((item) => tally.set(item.creator, (tally.get(item.creator) ?? 0) + 1))
+    return [...tally.entries()].sort((left, right) => right[1] - left[1]).map(([name]) => name)
+  }, [allItems])
+
+  const range = useMemo(() => {
+    const known = allItems.map(dayOf).sort()
+    const first = known[0] && known[0] < today ? known[0] : today
+    const last = known[known.length - 1] && known[known.length - 1] > today ? known[known.length - 1] : today
+    return { start: shiftDay(first, -3), end: shiftDay(last, 4) }
+  }, [allItems, today])
+
+  const openItem = route ? allItems.find((item) => matchesRoute(item, route)) ?? null : null
+  const openPosition = openItem ? sequence.findIndex((item) => recordKey(item) === recordKey(openItem)) : -1
+
+  const capacity = grid.cols * grid.rows
+  const filterKey = `${creator}|${query}|${[...hidden].join(',')}`
+  const maxStart = Math.max(0, sequence.length - capacity)
+  const base = cursor?.key === filterKey ? cursor.index
+    : chosenDay ? indexOfDay(sequence, chosenDay)
+      : defaultStart(sequence, today, capacity)
+  // 打开的记录必须在窗口里：浮层里逐条往后看，窗口跟着走
+  const followed = openPosition < 0 || (openPosition >= base && openPosition < base + capacity) ? base
+    : openPosition < base ? openPosition : openPosition - capacity + 1
+  const start = Math.min(Math.max(0, followed), maxStart)
+  const windowItems = sequence.slice(start, start + capacity)
+  const windowFrom = windowItems.length ? dayOf(windowItems[0]) : null
+  const windowTo = windowItems.length ? dayOf(windowItems[windowItems.length - 1]) : null
+  const windowCounts = kindCounts(windowItems)
+
+  const unitItems = useCallback(
+    (unitId: number) => allItems.filter((entry) => entry.unit_id === unitId).sort((left, right) => dayOf(left).localeCompare(dayOf(right))),
+    [allItems],
+  )
+
+  // 地址只替换不堆历史：刷新或转发仍落在同一段、同一条，返回键直接离开本页
+  const setAddress = useCallback((next: { item?: QueueItem; day?: string | null }) => {
+    const hash = next.item ? routeFor(next.item) : next.day ? `#/verification?day=${next.day}` : '#/verification'
+    window.history.replaceState(window.history.state, '', hash)
+    setRoute(parseRoute(hash))
+    if (!next.item) setChosenDay(next.day ?? null)
+  }, [])
+
+  const moveTo = (index: number) => {
+    const clamped = Math.min(Math.max(0, index), maxStart)
+    setCursor({ key: filterKey, index: clamped })
+    const first = sequence[clamped]
+    if (first) setAddress({ day: dayOf(first) })
+  }
+
+  const selectDay = (day: string) => moveTo(indexOfDay(sequence, day))
+  const stepDay = (delta: number) => {
+    const current = windowFrom ? days.findIndex((entry) => entry.day === windowFrom) : -1
+    const target = days[current + delta]
+    if (target) selectDay(target.day)
+  }
+
+  const openRecord = (item: QueueItem) => {
+    setCursor({ key: filterKey, index: start })
+    setAddress({ item })
+  }
+  const closeRecord = () => {
+    setCursor({ key: filterKey, index: start })
+    setAddress({ day: windowFrom })
+  }
+  const stepRecord = (delta: number) => {
+    const target = sequence[openPosition + delta]
+    if (target) setAddress({ item: target })
+  }
+
+  const toggleKind = (kind: RecordKind) => setHidden((current) => {
+    const next = new Set(current)
+    if (next.has(kind)) next.delete(kind)
+    else next.add(kind)
+    return next
+  })
+
+  const clearFilters = () => {
+    setQuery('')
+    setCreator('')
+    setHidden(new Set())
+  }
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -188,310 +255,138 @@ function VerificationPage() {
         event.preventDefault()
         window.location.hash = '#/knowledge?search=1'
       }
-      if (event.key !== 'Escape') return
-      if (unitOpen !== null) {
-        setUnitOpen(null)
-        return
-      }
-      if (recordRoute.scoreId !== null || recordRoute.dueUnitId !== null) {
-        window.location.hash = '#/verification'
-        return
-      }
-      setFiltersOpen(false)
-      if (document.activeElement === searchRef.current) {
-        setQuery('')
-        searchRef.current?.blur()
-      }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [recordRoute.dueUnitId, recordRoute.scoreId, unitOpen])
+  }, [])
 
-  useEffect(() => {
-    if (unitOpen === null) return
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
-  }, [unitOpen])
-
-  useEffect(() => {
-    setVisibleLimit(18)
-  }, [creator, query, view, windowDays])
-
-  const allItems = useMemo(() => page?.items ?? [], [page])
-  const creators = useMemo(() => {
-    const counts = new Map<string, number>()
-    allItems.forEach((item) => counts.set(item.creator, (counts.get(item.creator) ?? 0) + 1))
-    return [...counts.entries()].sort((left, right) => right[1] - left[1])
-  }, [allItems])
-  const filteredItems = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase()
-    return allItems.filter((item) => {
-      if (creator && item.creator !== creator) return false
-      if (!normalized) return true
-      return `${item.quote} ${item.creator} ${item.content_title} ${JSON.stringify(item.payload)}`
-        .toLocaleLowerCase()
-        .includes(normalized)
-    })
-  }, [allItems, creator, query])
-  const groups = useMemo(() => groupItems(filteredItems), [filteredItems])
-  const visibleGroups = groups.slice(0, visibleLimit)
-  const datedGroups = useMemo(() => {
-    const sections = new Map<string, VerificationGroup[]>()
-    visibleGroups.forEach((group) => {
-      const key = dateKey(group.primary)
-      sections.set(key, [...(sections.get(key) ?? []), group])
-    })
-    return [...sections.entries()]
-  }, [visibleGroups])
-
-  const dueItem = useMemo(() => {
-    if (recordRoute.dueUnitId === null) return null
-    const match = allItems.find((item) => !isScored(item) && (
-      item.unit_id === recordRoute.dueUnitId
-      && (!recordRoute.dueHorizon || item.horizon_label === recordRoute.dueHorizon)
-    ))
-    return match && !isScored(match) ? match : null
-  }, [allItems, recordRoute.dueHorizon, recordRoute.dueUnitId])
-
-  const recordItems = allItems
-  const recordIndex = recordItems.findIndex((item) => (
-    isScored(item)
-      ? item.score_id === recordRoute.scoreId
-      : item.unit_id === recordRoute.dueUnitId && item.horizon_label === recordRoute.dueHorizon
-  ))
-  const previousRecord = recordIndex > 0 ? recordItems[recordIndex - 1] : null
-  const nextRecord = recordIndex >= 0 && recordIndex < recordItems.length - 1 ? recordItems[recordIndex + 1] : null
-
-  const selectView = (next: QueueView) => {
-    setView(next)
-    setFiltersOpen(false)
-  }
-
-  const openRecord = (item: QueueItem) => {
-    window.location.hash = routeFor(item).slice(1)
-  }
-
-  const overview = summary?.overview ?? { due: 0, completed: 0, unavailable: 0, review: 0 }
-  const overviewItems: Array<{ key: QueueView; count: number; label: string; note: string }> = [
-    { key: 'recent', count: overview.completed, label: '最新裁决', note: '已执行' },
-    { key: 'due', count: overview.due, label: '待执行', note: `${windowDays} 天内` },
-    { key: 'unavailable', count: overview.unavailable, label: '质量异常', note: '不可机械验' },
-    { key: 'watch', count: overview.review, label: '观察中', note: '保留语境' },
-  ]
-  const nearestDue = summary?.nearest_due ?? []
-
-  if (recordRoute.scoreId !== null || recordRoute.dueUnitId !== null) {
-    return (
-      <div className="verification-page verification-record-page">
-        <div aria-hidden="true" className="verification-material" />
-        <header className="verification-record-nav">
-          <button onClick={() => { window.location.hash = '#/verification' }} type="button">
-            <span aria-hidden="true">←</span><b>返回验证日志</b>
-          </button>
-          <div><span>FANISL / VERIFICATION RECORD</span><b>只读判定档案</b></div>
-          <nav aria-label="相邻判定档案">
-            <button disabled={!previousRecord} onClick={() => previousRecord && openRecord(previousRecord)} type="button">上一条</button>
-            <span>{recordIndex >= 0 ? `${recordIndex + 1} / ${recordItems.length}` : '— / —'}</span>
-            <button disabled={!nextRecord} onClick={() => nextRecord && openRecord(nextRecord)} type="button">下一条</button>
-          </nav>
-        </header>
-        <main className="verification-record-stage">
-          <VerificationReader
-            dueItem={dueItem}
-            onCloseUnit={() => setUnitOpen(null)}
-            onOpenUnit={setUnitOpen}
-            scoreId={recordRoute.scoreId}
-            unitOpen={unitOpen}
-          />
-        </main>
-      </div>
-    )
-  }
+  const filtered = Boolean(query || creator || hidden.size)
+  const windowNote = RECORD_KINDS.filter((kind) => windowCounts[kind] > 0).map((kind) => `${kindLabels[kind]} ${windowCounts[kind]}`).join(' · ')
 
   return (
-    <div className="verification-page">
-      <div aria-hidden="true" className="verification-material" />
-      <AppHeader
-        current="verification"
-        onSearch={() => { window.location.hash = '#/knowledge?search=1' }}
-      />
+    <div className="verify-page">
+      <AppHeader current="verification" onSearch={() => { window.location.hash = '#/knowledge?search=1' }} />
 
-      <main className="verification-stage">
-        <header className="verification-masthead">
-          <div className="verification-title">
-            <span>02 / VERIFICATION LOG</span>
-            <h1>验证</h1>
-            <p><i />发布时定规则，到期后只看证据</p>
-          </div>
-          <div className="verification-statement">
-            <span>WHAT IT ANSWERS</span>
-            <strong>过去的判断，后来发生了什么？</strong>
-            <p>这里不是预测榜单，而是知识引擎的质检层。原话、冻结判据、价格窗口和机械裁决共同组成一份不可改写的验证记录。</p>
-          </div>
-          <div className="verification-overview" aria-label="验证日志分类">
-            {overviewItems.map((item) => (
-              <button
-                aria-pressed={view === item.key}
-                key={item.key}
-                onClick={() => selectView(item.key)}
-                type="button"
-              >
-                <span>{item.note}</span>
-                <strong>{loadState === 'loading' ? '—' : item.count}</strong>
-                <b>{item.label}</b>
+      <main className="verify-stage">
+        <header className="verify-head">
+          <h1>验证</h1>
+          <div aria-label="按类别显示" className="verify-legend" role="group">
+            {RECORD_KINDS.map((kind) => (
+              <button aria-pressed={!hidden.has(kind)} className={`kind-${kind}`} key={kind} onClick={() => toggleKind(kind)} type="button">
+                <i aria-hidden="true" />{kindLabels[kind]}<small>{loading ? '' : counts[kind]}</small>
               </button>
             ))}
+          </div>
+          <div className="verify-filters">
+            <label className="verify-search">
+              <span aria-hidden="true">⌕</span>
+              <input
+                aria-label="搜索验证记录"
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Escape') setQuery('') }}
+                placeholder="原话、标的或信源"
+                type="search"
+                value={query}
+              />
+            </label>
+            <select aria-label="信源" onChange={(event) => setCreator(event.target.value)} value={creator}>
+              <option value="">全部信源</option>
+              {creators.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
           </div>
         </header>
 
-        <section className="verification-due-strip" aria-label="近期执行日程">
-          <header><span>NEXT / EXECUTION</span><strong>接下来要验证</strong></header>
-          <div>
-            {loadState === 'loading' && [0, 1, 2].map((item) => <i key={item} />)}
-            {loadState === 'loaded' && nearestDue.length === 0 && <p>未来 {windowDays} 天内没有待执行记录。</p>}
-            {nearestDue.map((item) => (
-              <button key={itemKey(item)} onClick={() => openRecord(item)} type="button">
-                <time>{formatDate(item.horizon_label)}</time>
-                <span>{asText(item.payload.asset_symbol) ?? '未标定标的'}</span>
-                <strong>{item.quote}</strong>
-                <b aria-hidden="true">↗</b>
-              </button>
-            ))}
-          </div>
-        </section>
+        {failed.length > 0 && (
+          <p className="verify-notice">
+            {failed.map((bucket) => ({ recent: '已判定', due: '即将到期', review: '需复核', unavailable: '不可判' })[bucket]).join('、')}没有读到。
+            <button onClick={() => setRequest((value) => value + 1)} type="button">重试</button>
+          </p>
+        )}
+        {route && !loading && !openItem && (
+          <p className="verify-notice">
+            地址里的这条记录不在当前数据里。
+            <button onClick={() => setAddress({ day: windowFrom })} type="button">关闭</button>
+          </p>
+        )}
 
-        <section className="verification-log">
-          <header className="verification-log-head">
-            <div>
-              <span>READ ONLY / CHRONICLE</span>
-              <h2>{queueLabels[view]}</h2>
-              <p>{queueDescriptions[view]}</p>
-            </div>
-              <p><b>{loadState === 'loading' ? '—' : page?.total ?? 0}</b><span>个评分时点</span></p>
+        {loading ? (
+          <div aria-label="正在读取" className="verify-timeline is-loading" />
+        ) : (
+          <Timeline
+            days={days}
+            end={range.end}
+            from={windowFrom}
+            mark={markedDay}
+            onSelect={selectDay}
+            onStep={stepDay}
+            scale={scale}
+            start={range.start}
+            to={windowTo}
+            today={today}
+          />
+        )}
+
+        <section aria-label="这一段的判断" className="verify-window">
+          <header>
+            <h2 aria-live="polite">
+              {windowFrom && windowTo ? (windowFrom === windowTo ? dayLabel(windowFrom) : `${shortDay(windowFrom)} – ${shortDay(windowTo)}`) : loading ? '' : '没有记录'}
+              {windowNote && <span>{windowNote}</span>}
+            </h2>
+            {sequence.length > capacity && (
+              <nav aria-label="沿时间轴翻看">
+                <small>{start + 1}–{start + windowItems.length} / {sequence.length}</small>
+                <button disabled={start === 0} onClick={() => moveTo(start - capacity)} type="button">‹ 更早</button>
+                <button disabled={start >= maxStart} onClick={() => moveTo(start + capacity)} type="button">更晚 ›</button>
+              </nav>
+            )}
           </header>
 
-          <div className="verification-tools">
-            <label>
-              <span aria-hidden="true">⌕</span>
-              <input
-                aria-label="检索验证日志"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="检索原话、标的或信源"
-                ref={searchRef}
-                value={query}
+          <ol className="verify-cards" ref={cardsRef} style={{ '--cols': grid.cols } as React.CSSProperties}>
+            {loading && Array.from({ length: Math.min(capacity, 6) }, (_, index) => <li className="verify-card-skeleton" key={index} />)}
+            {!loading && windowItems.map((item) => (
+              <DayCard
+                current={openItem !== null && recordKey(item) === recordKey(openItem)}
+                item={item}
+                key={recordKey(item)}
+                onMark={setMarkedDay}
+                onOpen={openRecord}
+                siblings={unitItems(item.unit_id)}
               />
-              {query && <button aria-label="清空检索" onClick={() => setQuery('')} type="button">×</button>}
-            </label>
-            <button aria-expanded={filtersOpen} onClick={() => setFiltersOpen((open) => !open)} type="button">
-              <span>信源</span><b>{creator ?? '全部'}</b><i aria-hidden="true">⌄</i>
-            </button>
-            {view === 'due' && (
-              <div className="verification-window" aria-label="待执行观察窗口">
-                {[7, 14, 30, 90].map((days) => (
-                  <button aria-pressed={windowDays === days} key={days} onClick={() => setWindowDays(days)} type="button">{days}天</button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {filtersOpen && (
-            <div className="verification-source-filter">
-              <button aria-pressed={creator === null} onClick={() => { setCreator(null); setFiltersOpen(false) }} type="button">
-                <span>全部信源</span><b>{allItems.length}</b>
-              </button>
-              {creators.map(([name, count]) => (
-                <button aria-pressed={creator === name} key={name} onClick={() => { setCreator(name); setFiltersOpen(false) }} type="button">
-                  <span>{name}</span><b>{count}</b>
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div aria-busy={loadState === 'loading'} className="verification-log-body">
-            {loadState === 'loading' && [0, 1, 2, 3].map((item) => (
-              <div className="verification-log-skeleton" key={item}><i /><span /><span /></div>
             ))}
-            {loadState === 'error' && (
-              <div className="verification-empty">
-                <span>QUEUE UNAVAILABLE</span>
-                <strong>验证日志暂时没有载入</strong>
-                <p>页面不会用预览数字替代真实裁决。</p>
-                <button onClick={() => setRequestKey((value) => value + 1)} type="button">重新读取</button>
-              </div>
+            {!loading && sequence.length === 0 && (
+              <li className="verify-empty">
+                <p>{filtered ? '没有匹配的记录' : '还没有验证记录'}</p>
+                {filtered && <button onClick={clearFilters} type="button">清除条件</button>}
+              </li>
             )}
-            {loadState === 'loaded' && datedGroups.map(([date, sectionGroups]) => (
-              <section className="verification-day" key={date}>
-                <header><time>{formatDate(date, true)}</time><span>{sectionGroups.length} 份档案</span></header>
-                <div>
-                  {sectionGroups.map((group, index) => {
-                    const item = group.primary
-                    const scored = isScored(item)
-                    // 只认规范符号：v2 的 asset_text 装的是定级理由，平均 51 字，放在这里读不成标的
-                    const asset = asText(item.payload.asset_symbol)
-                    return (
-                      <article className={`verification-record-row ${scored ? `outcome-${item.outcome}` : 'outcome-due'}`} key={group.key}>
-                        <button className="verification-record-main" onClick={() => openRecord(item)} type="button">
-                          <span className="verification-record-number">{String(index + 1).padStart(2, '0')}</span>
-                          <span className="verification-record-outcome">
-                            <b>{scored ? outcomeMarks[item.outcome] : '↗'}</b>
-                            <em>{scored ? outcomeLabels[item.outcome] : '等待执行'}</em>
-                          </span>
-                          <span className="verification-record-copy">
-                            <strong>{item.quote}</strong>
-                            <span>{item.creator} · {asset ?? '无规范标的'}</span>
-                          </span>
-                          <span className="verification-record-result">
-                            <small>{scored ? '实测' : '状态'}</small>
-                            <b>{scored ? itemSummary(item) : `冻结于 ${formatDate(item.published_at)}`}</b>
-                          </span>
-                          <span className="verification-record-open">查看档案 <b aria-hidden="true">→</b></span>
-                        </button>
-                        <footer aria-label="评分时点">
-                          <span>评分时点</span>
-                          {group.items.map((horizonItem) => (
-                            <button
-                              aria-label={`打开 ${formatDate(horizonItem.horizon_label, true)} 的${isScored(horizonItem) ? '裁决' : '待执行档案'}`}
-                              className={isScored(horizonItem) ? `outcome-${horizonItem.outcome}` : 'outcome-due'}
-                              key={itemKey(horizonItem)}
-                              onClick={() => openRecord(horizonItem)}
-                              type="button"
-                            >
-                              <i>{isScored(horizonItem) ? outcomeMarks[horizonItem.outcome] : '·'}</i>
-                              <time>{formatDate(horizonItem.horizon_label)}</time>
-                            </button>
-                          ))}
-                        </footer>
-                      </article>
-                    )
-                  })}
-                </div>
-              </section>
-            ))}
-            {loadState === 'loaded' && groups.length === 0 && (
-              <div className="verification-empty">
-                <span>NO RECORD FOUND</span>
-                <strong>{query || creator ? '当前条件没有匹配档案' : `${queueLabels[view]}暂时为空`}</strong>
-                <p>{query || creator ? '清除检索和信源条件后可恢复完整日志。' : queueDescriptions[view]}</p>
-                {(query || creator) && <button onClick={() => { setQuery(''); setCreator(null) }} type="button">清除条件</button>}
-              </div>
-            )}
-          </div>
-
-          {groups.length > visibleGroups.length && (
-            <button className="verification-load-more" onClick={() => setVisibleLimit((limit) => limit + 18)} type="button">
-              <span>继续读取</span><b>还剩 {groups.length - visibleGroups.length} 份档案</b>
-            </button>
-          )}
+          </ol>
         </section>
       </main>
 
-      <footer className="verification-footer">
-        <span>FANISL / VERIFICATION WITHOUT REVISION</span>
-        <p>没有事后解释，只有发布时的合同与到期后的证据。</p>
-      </footer>
+      {openItem && (
+        <RecordDialog
+          item={openItem}
+          onClose={closeRecord}
+          onOpenUnit={setEvidenceUnit}
+          onSelect={(item) => setAddress({ item })}
+          onStep={stepRecord}
+          position={openPosition}
+          total={sequence.length}
+          unitItems={unitItems(openItem.unit_id)}
+        />
+      )}
+
+      {evidenceUnit !== null && (
+        <div className="verify-evidence-overlay">
+          <EvidenceDossier
+            backLabel="返回验证记录"
+            onClose={() => setEvidenceUnit(null)}
+            parentLabel="VERDICT"
+            parentTitle={openItem && isScored(openItem) ? `#${openItem.score_id}` : openItem?.horizon_label ?? ''}
+            unitId={evidenceUnit}
+          />
+        </div>
+      )}
     </div>
   )
 }

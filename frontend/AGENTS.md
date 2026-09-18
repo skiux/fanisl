@@ -14,7 +14,7 @@ anything under `backend/`.
 
 `archive` (research archive) · `asset` (asset workbench) · `discovery` ·
 `knowledge` (L0/L1 browsing, unit dossier, unit reviews) · `verification`
-(verdict log and verdict dossiers)
+(verdict timeline with a card "lens" below it; the page never scrolls; a record opens in a dialog)
 
 ## Sources of truth
 
@@ -62,6 +62,15 @@ first — one component, one state — and confirm that before wiring it in.
   The unit does not have to be on the loaded page of the list. Do not fall back
   to the first row: that once silently replaced every old unit linked from the
   asset page with the newest one.
+- **Deep links into a verdict** are `#/verification?score={id}` or
+  `#/verification?due={unit_id}&horizon={YYYY-MM-DD}`. The page loads all four
+  buckets, moves the card window so the record is on screen and opens the
+  dialog. `?day=YYYY-MM-DD` sets where the card window starts. All of these use
+  `replaceState`, so they never add history entries.
+- **The verification page must not scroll.** Cards have a fixed height
+  (`--verify-card-h`); cards per screen = columns × rows measured from the card
+  area. Adding anything of variable height to a card breaks the arithmetic.
+  `e2e/verification.spec.ts` asserts the page has no vertical scroll.
 - **e2e runs on a fixed clock** (`FIXTURE_NOW` in `e2e/api-fixture.ts`). Derive
   fixture dates from it, never from `Date.now()`, or screenshot baselines drift
   every day.

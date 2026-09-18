@@ -13,9 +13,19 @@ test('knowledge masthead visual baseline', async ({ page }) => {
   })
 })
 
-test('verification masthead visual baseline', async ({ page }) => {
+test('verification timeline visual baseline', async ({ page }) => {
   await page.goto('/#/verification')
-  await expect(page.locator('.verification-masthead')).toHaveScreenshot('verification-masthead.png', {
+  await expect(page.locator('.verify-card').first()).toBeVisible()
+  await expect(page.locator('.verify-stage')).toHaveScreenshot('verification-timeline.png', {
+    animations: 'disabled',
+    caret: 'hide',
+  })
+})
+
+test('verification record visual baseline', async ({ page }) => {
+  await page.goto('/#/verification?score=502')
+  await expect(page.getByRole('img', { name: 'SOXX 价格走势' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: '判定记录 502' })).toHaveScreenshot('verification-record.png', {
     animations: 'disabled',
     caret: 'hide',
   })

@@ -108,6 +108,7 @@ export const realizedLabels: Record<string, string> = {
   ref: '发布参考价', eval_close: '到期收盘', asset_ret: '标的收益', bench_ret: '基准收益',
   excess_ret: '超额收益', relative_ret: '相对收益', target: '判定目标',
   high: '区间最高', low: '区间最低', ladder: '评分日期', condition: '条件观测',
+  cond_date: '条件成立日', max_dd: '最大回撤',
 }
 
 // ---- 单元核查（backend/api.md §5.6）----
