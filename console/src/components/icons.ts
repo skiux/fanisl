@@ -94,6 +94,7 @@ export const ICONS: Record<string, string> = {
   WMT: 'WMT.svg',
   XAG: 'XAG.svg',
   XAU: 'XAU.svg',
+  XAUT: 'XAUT.svg',
   XLM: 'XLM.svg',
   XOM: 'XOM.svg',
   XRP: 'XRP.svg',

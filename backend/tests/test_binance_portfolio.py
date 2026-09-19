@@ -14,9 +14,11 @@ import re
 import httpx
 import pytest
 
-from fanisl.binance.cache import SourceCache
+from fanisl.binance.cache import SourceCache, SourceResult
 from fanisl.binance.client import BinanceClient
-from fanisl.binance.portfolio import build_portfolio, _today_settled
+from fanisl.binance.portfolio import (
+    build_portfolio, _equity_costs, _fresh_payload, _today_settled,
+)
 
 from binance_mock import (
     BTC, FUT_RISK, LIQUIDATION_LOAN, NOW, PREV_CLOSE_RATIO, _day, make_transport,
@@ -313,7 +315,12 @@ def test_tokenized_stock_wallet_assets_map_to_the_underlying_equity(cache):
         "name": "Apple Inc. Tokenized Stock",
         "symbol": "AAPL",
         "qty": 2.0,
+        "free_qty": 2.0,
+        "locked_qty": 0.0,
+        "freeze_qty": 0.0,
+        "withdrawing_qty": 0.0,
         "multiplier": 1.0,
+        "multiplier_valid": True,
         "underlying_qty": 2.0,
         "value_usd": pytest.approx(0.004 * BTC),
         "wallet": "spot",
@@ -332,6 +339,10 @@ def test_directly_bought_stocks_come_from_eq_assets_in_wallet_detail(cache):
         "symbol": "SOXL",
         "name": "",
         "qty": 40.0,
+        "free_qty": 40.0,
+        "locked_qty": 0.0,
+        "freeze_qty": 0.0,
+        "withdrawing_qty": 0.0,
         "price_usd": pytest.approx(0.005 * BTC / 40),
         "value_usd": pytest.approx(0.005 * BTC),
         "wallet": "funding",
@@ -353,6 +364,226 @@ def test_stock_without_a_valuation_has_no_value_not_zero(cache):
     holding = snap["stocks"]["equity_holdings"][0]
     assert holding["qty"] == 40.0
     assert holding["value_usd"] is None and holding["price_usd"] is None
+
+
+def test_stock_position_reconciles_cost_quote_and_wallet_lock_states(cache):
+    wallets = [
+        {"activate": True, "balance": "0.02", "walletName": "Funding",
+         "assetBalances": [{
+             "asset": "EQ_SOXL", "assetName": "Direxion Daily Semiconductor Bull 3X",
+             "free": "30", "locked": "5", "freeze": "3", "withdrawing": "2",
+             "btcValuation": f"{1140 / BTC}",
+         }]},
+    ]
+    history = {"total": 3, "page": 1, "size": 100, "rows": [
+        {"orderId": "buy-1", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
+         "avgFilledPrice": "20", "filledQty": "30", "fee": "1", "status": "FILLED",
+         "createdAt": 10, "updatedAt": 10},
+        {"orderId": "buy-2", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
+         "avgFilledPrice": "30", "filledQty": "20", "fee": "1", "status": "FILLED",
+         "createdAt": 25, "updatedAt": 25},
+        {"orderId": "sell-1", "symbol": "SOXL", "quote": "USDC", "side": "SELL",
+         "avgFilledPrice": "40", "filledQty": "10", "fee": "1", "status": "FILLED",
+         "createdAt": 20, "updatedAt": 30},
+    ]}
+    trades = {"total": 3, "page": 1, "size": 100, "rows": [
+        {"executionId": "fill-buy-1", "orderId": "buy-1", "symbol": "SOXL",
+         "quote": "USDC", "side": "BUY", "price": "20", "qty": "30",
+         "total": "600", "executionAt": 10, "updatedAt": 10},
+        {"executionId": "fill-buy-2", "orderId": "buy-2", "symbol": "SOXL",
+         "quote": "USDC", "side": "BUY", "price": "30", "qty": "20",
+         "total": "600", "executionAt": 25, "updatedAt": 25},
+        {"executionId": "fill-sell-1", "orderId": "sell-1", "symbol": "SOXL",
+         "quote": "USDC", "side": "SELL", "price": "40", "qty": "10",
+         "total": "400", "executionAt": 30, "updatedAt": 30},
+    ]}
+    exchange = {"timezone": "UTC", "symbols": [{
+        "symbol": "SOXL", "tradability": "BUY_SELL", "overnightSupported": True,
+        "fractionable": True, "fractionableEh": False, "extendedSession": True,
+    }]}
+    quote = {"symbol": "SOXL", "bidPrice": "28.45", "askPrice": "28.55",
+             "bidSize": 20, "askSize": 18}
+    snap = build_replacing(cache, {
+        "/sapi/v1/asset/wallet/balance": lambda: httpx.Response(200, json=wallets),
+        "/sapi/v1/equity/order/history": lambda: httpx.Response(200, json=history),
+        "/sapi/v1/equity/trade/history": lambda: httpx.Response(200, json=trades),
+        "/sapi/v1/equity/market/exchangeInfo": lambda: httpx.Response(200, json=exchange),
+        "/sapi/v1/equity/market/quote": lambda: httpx.Response(200, json=quote),
+    })
+
+    row = snap["stocks"]["positions"][0]
+    assert row["symbol"] == "SOXL"
+    assert (row["available_qty"], row["locked_qty"], row["freeze_qty"],
+            row["withdrawing_qty"], row["total_qty"]) == (30.0, 5.0, 3.0, 2.0, 40.0)
+    assert row["direct_qty"] == 40.0 and row["tokenized_qty"] == 0.0
+    assert row["wallet_value_usd"] == pytest.approx(1140.0)
+    assert row["bid_usd"] == 28.45 and row["ask_usd"] == 28.55
+    assert row["mark_price_usd"] == 28.5
+    assert row["spread_bps"] == pytest.approx((28.55 - 28.45) / 28.5 * 10_000)
+    assert row["tradability"] == "BUY_SELL"
+    assert row["fractionable"] is True and row["fractionable_extended"] is False
+    assert row["extended_session"] is True
+    assert row["overnight_supported"] is True
+    assert row["cost_status"] == "reconciled"
+    assert row["avg_cost_usd"] == pytest.approx(24.04)
+    assert row["cost_basis_usd"] == pytest.approx(961.6)
+    assert row["realized_pnl_usd"] == pytest.approx(158.6)
+    assert row["unrealized_pnl_usd"] == pytest.approx(178.4)
+    assert row["unrealized_pnl_pct"] == pytest.approx(178.4 / 961.6)
+    assert snap["stocks"]["cost_coverage"] == {"reconciled": 1, "total": 1}
+
+
+def test_stock_cost_is_hidden_when_history_does_not_reconcile_with_wallet(cache):
+    history = {"total": 1, "page": 1, "size": 100, "rows": [
+        {"orderId": "buy-1", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
+         "avgFilledPrice": "20", "filledQty": "39", "fee": "1", "status": "FILLED",
+         "createdAt": 1, "updatedAt": 1},
+    ]}
+    trades = {"total": 1, "page": 1, "size": 100, "rows": [
+        {"executionId": "fill-buy-1", "orderId": "buy-1", "symbol": "SOXL",
+         "quote": "USDC", "side": "BUY", "price": "20", "qty": "39",
+         "total": "780", "executionAt": 1, "updatedAt": 1},
+    ]}
+    snap = build_replacing(cache, {
+        "/sapi/v1/equity/order/history": lambda: httpx.Response(200, json=history),
+        "/sapi/v1/equity/trade/history": lambda: httpx.Response(200, json=trades),
+    })
+
+    row = next(item for item in snap["stocks"]["positions"] if item["symbol"] == "SOXL")
+    assert row["cost_status"] == "incomplete"
+    assert row["avg_cost_usd"] is None
+    assert row["cost_basis_usd"] is None
+    assert row["realized_pnl_usd"] is None
+    assert row["unrealized_pnl_usd"] is None
+
+
+def test_stock_cost_fails_closed_when_multifill_buy_straddles_a_sell():
+    orders = [
+        {"orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
+         "avgFilledPrice": "30", "filledQty": "10", "fee": "2"},
+        {"orderId": "sell", "symbol": "SOXL", "quote": "USDC", "side": "SELL",
+         "avgFilledPrice": "30", "filledQty": "5", "fee": "1"},
+    ]
+    trades = [
+        {"executionId": "buy-1", "orderId": "buy", "symbol": "SOXL",
+         "quote": "USDC", "side": "BUY", "price": "20", "qty": "5",
+         "executionAt": 10},
+        {"executionId": "sell-1", "orderId": "sell", "symbol": "SOXL",
+         "quote": "USDC", "side": "SELL", "price": "30", "qty": "5",
+         "executionAt": 20},
+        {"executionId": "buy-2", "orderId": "buy", "symbol": "SOXL",
+         "quote": "USDC", "side": "BUY", "price": "40", "qty": "5",
+         "executionAt": 30},
+    ]
+
+    costs = _equity_costs(orders, trades)
+
+    assert costs["SOXL"]["complete"] is False
+
+
+def test_stock_cost_replays_multifill_buy_when_fees_are_determined_before_sell():
+    orders = [
+        {"orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
+         "avgFilledPrice": "30", "filledQty": "10", "fee": "2"},
+        {"orderId": "sell", "symbol": "SOXL", "quote": "USDC", "side": "SELL",
+         "avgFilledPrice": "35", "filledQty": "5", "fee": "1"},
+    ]
+    trades = [
+        {"executionId": "buy-1", "orderId": "buy", "symbol": "SOXL",
+         "quote": "USDC", "side": "BUY", "price": "20", "qty": "5",
+         "executionAt": 10},
+        {"executionId": "buy-2", "orderId": "buy", "symbol": "SOXL",
+         "quote": "USDC", "side": "BUY", "price": "40", "qty": "5",
+         "executionAt": 20},
+        {"executionId": "sell-1", "orderId": "sell", "symbol": "SOXL",
+         "quote": "USDC", "side": "SELL", "price": "35", "qty": "5",
+         "executionAt": 30},
+    ]
+
+    costs = _equity_costs(orders, trades)
+
+    assert costs["SOXL"]["complete"] is True
+    assert costs["SOXL"]["qty"] == pytest.approx(5)
+    assert costs["SOXL"]["cost"] == pytest.approx(151)
+    assert costs["SOXL"]["realized"] == pytest.approx(23)
+
+
+def test_stock_cost_fails_closed_on_opposite_fills_in_the_same_millisecond():
+    orders = [
+        {"orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
+         "avgFilledPrice": "20", "filledQty": "5", "fee": "0"},
+        {"orderId": "sell", "symbol": "SOXL", "quote": "USDC", "side": "SELL",
+         "avgFilledPrice": "30", "filledQty": "5", "fee": "0"},
+    ]
+    trades = [
+        {"executionId": "a-buy", "orderId": "buy", "symbol": "SOXL",
+         "quote": "USDC", "side": "BUY", "price": "20", "qty": "5",
+         "executionAt": 10},
+        {"executionId": "z-sell", "orderId": "sell", "symbol": "SOXL",
+         "quote": "USDC", "side": "SELL", "price": "30", "qty": "5",
+         "executionAt": 10},
+    ]
+
+    assert _equity_costs(orders, trades)["SOXL"]["complete"] is False
+
+
+@pytest.mark.parametrize("broken", [
+    {"executionId": "bad", "orderId": "buy", "symbol": "SOXL",
+     "quote": "", "side": "BUY", "price": "20", "qty": "1", "executionAt": 1},
+    {"executionId": "bad", "orderId": "buy", "symbol": "SOXL",
+     "quote": "USDC", "side": "HOLD", "price": "20", "qty": "1", "executionAt": 1},
+    {"executionId": "bad", "orderId": "buy", "symbol": "SOXL",
+     "quote": "USDC", "side": "BUY", "price": None, "qty": "1", "executionAt": 1},
+])
+def test_stock_cost_fails_closed_on_malformed_fills(broken):
+    orders = [{"orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
+               "avgFilledPrice": "20", "filledQty": "1", "fee": "0"}]
+    costs = _equity_costs(orders, [broken])
+    assert costs["SOXL"]["complete"] is False
+
+
+def test_failed_source_payload_is_not_used_for_current_stock_derivations():
+    stale = SourceResult(
+        "equity.history", [{"orderId": "old"}], "unreachable",
+        datetime(2026, 9, 1, tzinfo=timezone.utc), "timeout",
+    )
+    assert _fresh_payload({"equity.history": stale}, "equity.history") is None
+
+
+def test_stock_quote_does_not_fall_back_to_wallet_valuation(cache):
+    snap = build_replacing(cache, {
+        "/sapi/v1/equity/market/quote": lambda: httpx.Response(200, content=b""),
+    })
+    row = next(item for item in snap["stocks"]["positions"] if item["symbol"] == "SOXL")
+    assert row["wallet_price_usd"] is not None
+    assert row["mark_price_usd"] is None
+    assert row["unrealized_pnl_usd"] is None
+
+
+def test_single_sided_stock_quote_is_visible_but_not_used_as_mark(cache):
+    snap = build_replacing(cache, {
+        "/sapi/v1/equity/market/quote": lambda: httpx.Response(200, json={
+            "symbol": "SOXL", "bidPrice": "28.45",
+        }),
+    })
+    row = next(item for item in snap["stocks"]["positions"] if item["symbol"] == "SOXL")
+    assert row["bid_usd"] == 28.45 and row["ask_usd"] is None
+    assert row["mark_price_usd"] is None
+    assert row["spread_bps"] is None
+    assert row["unrealized_pnl_usd"] is None
+
+
+def test_invalid_tokenized_multiplier_is_not_expressed_as_stock_shares(cache):
+    tokenized = [{"assetCode": "AAPLB", "assetName": "Apple tokenized stock",
+                  "underlyingEquitySymbol": "AAPL", "multiplier": "1",
+                  "multiplierValid": False}]
+    snap = build_replacing(cache, {
+        "/sapi/v1/equity/market/tokenized-assets": lambda: httpx.Response(200, json=tokenized),
+    })
+    raw = snap["stocks"]["tokenized_assets"][0]
+    assert raw["multiplier_valid"] is False
+    assert raw["multiplier"] is None and raw["underlying_qty"] is None
+    assert all(row["symbol"] != "AAPL" for row in snap["stocks"]["positions"])
 
 
 def test_equity_excludes_deactivated_wallets(cache):

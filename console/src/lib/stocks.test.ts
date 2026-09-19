@@ -8,13 +8,14 @@ const base = buildSnapshot(new Date('2026-09-17T12:00:00Z'))
 
 const soxl: EquityHolding = {
   asset_code: 'EQ_SOXL', symbol: 'SOXL', name: '', qty: 40,
+  free_qty: 40, locked_qty: 0, freeze_qty: 0, withdrawing_qty: 0,
   price_usd: 28.5, value_usd: 1140, wallet: 'funding',
 }
 
 function withStock(snapshot: PortfolioSnapshot, holding: EquityHolding): PortfolioSnapshot {
   return {
     ...snapshot,
-    stocks: { ...snapshot.stocks, equity_holdings: [holding] },
+    stocks: { ...snapshot.stocks, equity_holdings: [...snapshot.stocks.equity_holdings, holding] },
     totals: snapshot.totals && {
       ...snapshot.totals, equity_usd: snapshot.totals.equity_usd + (holding.value_usd ?? 0),
     },

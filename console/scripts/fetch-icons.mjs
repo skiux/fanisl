@@ -4,12 +4,13 @@
 // 下载下来的文件进 public/icons/，同时生成 src/components/icons.ts 那份清单，
 // 组件据此决定用真图标还是字母标记（清单避免了 404 之后再回退的闪烁）。
 //
-// 五个来源，按顺序试，先成的算：
+// 六个来源，按顺序试，先成的算：
 //   parqet    按代码给 60×60 方图，底色是品牌色。**股票与 ETF 的主力**
 //   spothq    cryptocurrency-icons，32×32 圆图。加密货币用它，比 parqet 全
 //   fmp       PNG 兜底，只有前两个都没有时才用（CRCL / SKHY 这种新上市的）
 //   tv        TradingView 的符号图，用来补贵金属
 //   amazon    Amazon 官方 favicon；通用股票源仍是旧版字母 a 图标
+//   xaut      Tether 官方 XAUt 矢量标志
 //
 // 方图与圆图混着无所谓：组件统一裁成圆的，底下再垫一层 sheet-2，
 // 透明底的 PNG 也就有了同样的圆盘。
@@ -41,6 +42,7 @@ const AT = {
   fmp: (t) => `https://financialmodelingprep.com/image-stock/${t}.png`,
   tv: (slug) => `https://s3-symbol-logo.tradingview.com/${slug}.svg`,
   amazon: () => 'https://www.amazon.com/favicon.ico',
+  xaut: () => 'https://tether.io/wp-content/uploads/tether-io_logos/tether_XAUt_token_COLOR_v1_v2_SVG/tether_XAUt_token_v2.svg',
 }
 
 const WANTED = [
@@ -51,6 +53,7 @@ const WANTED = [
   })),
   // 贵金属：XAUUSDT / XAGUSDT 的 baseOf 是 XAU / XAG
   { code: 'XAU', tries: [AT.parqet('GOLD'), AT.tv('gold')] },
+  { code: 'XAUT', tries: [AT.xaut()] },
   { code: 'XAG', tries: [AT.tv('silver')] },
 ]
 

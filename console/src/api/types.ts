@@ -84,7 +84,13 @@ export type TokenizedStockAsset = {
   /** 官方 tokenized-assets 映射的股票代码，例如 AAPL。 */
   symbol: string
   qty: number
+  free_qty: number
+  locked_qty: number
+  freeze_qty: number
+  withdrawing_qty: number
   multiplier: number | null
+  /** 官方映射明确标记 multiplier 当前是否可用。 */
+  multiplier_valid: boolean
   underlying_qty: number | null
   value_usd: number | null
   wallet: WalletKind
@@ -101,11 +107,46 @@ export type EquityHolding = {
   symbol: string
   name: string
   qty: number
+  free_qty: number
+  locked_qty: number
+  freeze_qty: number
+  withdrawing_qty: number
   /** 由钱包估值反推（市值 / 股数）；没有估值时为 null */
   price_usd: number | null
   /** 钱包明细的 BTC 估值换成美元；估值为 0 或缺失时为 null，不当 0 */
   value_usd: number | null
   wallet: WalletKind
+}
+
+export type StockPosition = {
+  symbol: string
+  name: string
+  direct_qty: number
+  tokenized_qty: number
+  available_qty: number
+  locked_qty: number
+  freeze_qty: number
+  withdrawing_qty: number
+  total_qty: number
+  /** Binance 钱包 BTC 估值反推的单价，用于与账户净值对账。 */
+  wallet_price_usd: number | null
+  wallet_value_usd: number | null
+  bid_usd: number | null
+  ask_usd: number | null
+  /** 买卖价都存在时取中间价；单边缺失时为 null，不用钱包估值或单边价格冒充。 */
+  mark_price_usd: number | null
+  spread_bps: number | null
+  tradability: string | null
+  fractionable: boolean
+  fractionable_extended: boolean
+  extended_session: boolean
+  overnight_supported: boolean
+  cost_status: 'reconciled' | 'incomplete' | 'unavailable'
+  avg_cost_usd: number | null
+  cost_basis_usd: number | null
+  realized_pnl_usd: number | null
+  unrealized_pnl_usd: number | null
+  unrealized_pnl_pct: number | null
 }
 
 export type StocksAccount = {
@@ -116,6 +157,9 @@ export type StocksAccount = {
   equity_holdings: EquityHolding[]
   /** 钱包详情中可验证、并由官方映射回股票代码的代币化股票。 */
   tokenized_assets: TokenizedStockAsset[]
+  /** 按经济标的合并后的仓位，直接持有与代币化形态仍由数量字段分别保留。 */
+  positions: StockPosition[]
+  cost_coverage: { reconciled: number; total: number }
 }
 
 export type PositionSide = 'long' | 'short' | 'both'

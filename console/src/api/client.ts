@@ -192,6 +192,8 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
           coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点。',
           equity_holdings: [],
           tokenized_assets: [],
+          positions: [],
+          cost_coverage: { reconciled: 0, total: 0 },
         }, capabilities: null, futures: null, earn: [], margin: null,
         isolated_margin: null, liquidation_loan: null, portfolio_margin: null,
         income: null, transfers: null, pnl: null,
@@ -221,6 +223,8 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
           coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点。',
           equity_holdings: [],
           tokenized_assets: [],
+          positions: [],
+          cost_coverage: { reconciled: 0, total: 0 },
         }, capabilities: {
           vip_level: 0, reading: true, ip_restricted: true,
           margin: false, futures: true, options: false, portfolio_margin: false,

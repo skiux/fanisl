@@ -97,6 +97,49 @@ def test_equity_history_paginates_the_documented_envelope():
     assert [row["orderId"] for row in rows] == ["o-1", "o-2"]
 
 
+def test_equity_history_fails_closed_when_page_guard_truncates_rows():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/time"):
+            return httpx.Response(200, json={"serverTime": 0})
+        return httpx.Response(200, json={
+            "total": 2,
+            "page": 1,
+            "size": 1,
+            "rows": [{"orderId": "o-1"}],
+        })
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        with pytest.raises(BinanceError, match="分页上限") as error:
+            client.equity_order_history(start_ms=1, end_ms=2, size=1, max_pages=1)
+    finally:
+        client.close()
+
+    assert error.value.kind == "unsupported"
+
+
+def test_equity_history_rejects_repeated_pages_even_when_raw_count_reaches_total():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/time"):
+            return httpx.Response(200, json={"serverTime": 0})
+        current = int(request.url.params["current"])
+        return httpx.Response(200, json={
+            "total": 2, "page": current, "size": 1,
+            "rows": [{"orderId": "same-order"}],
+        })
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        with pytest.raises(BinanceError, match="重复") as error:
+            client.equity_order_history(start_ms=1, end_ms=2, size=1)
+    finally:
+        client.close()
+
+    assert error.value.kind == "unsupported"
+
+
 def test_tradfi_metadata_endpoints_are_public_reads():
     paths = []
 

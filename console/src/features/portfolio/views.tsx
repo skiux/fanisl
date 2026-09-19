@@ -5,9 +5,10 @@ import type { MarginAccount, PortfolioSnapshot } from '../../api/types'
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
 import { RealizedDays } from './RealizedDays'
 import {
-  CashTable, EarnTable, EquityHoldingsTable, ParkedTable, SpotTable, TokenizedStocksTable,
+  CashTable, EarnTable, ParkedTable, SpotTable,
 } from './Holdings'
 import { PnlBreakdown } from './PnlBreakdown'
+import { StockPositionsList, StockSummary } from './StockPositions'
 
 /** 合约 income 与 userTrades 都只保留 90 天，这是接口硬限 */
 const WINDOW_DAYS = 90
@@ -142,11 +143,15 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
   const frozen = at((item) => item.freeze)
   const withdrawing = at((item) => item.withdrawing)
   const unpriced = snapshot.spot.filter((item) => item.value_usd === null).length
-  const equityHoldings = snapshot.stocks.equity_holdings
-  const tokenizedStocks = snapshot.stocks.tokenized_assets
-  const stockRows = [...equityHoldings, ...tokenizedStocks]
-  const stockValue = stockRows.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-  const unvaluedStocks = stockRows.filter((item) => item.value_usd === null).length
+  const stockPositions = snapshot.stocks.positions
+  const unresolvedStocks = snapshot.stocks.tokenized_assets
+    .filter((row) => !row.multiplier_valid)
+  const stockCount = stockPositions.length + unresolvedStocks.length
+  const stockPnlRows = stockPositions.filter((row) => row.unrealized_pnl_usd !== null)
+  const stockPnl = stockPnlRows.reduce((sum, row) => sum + (row.unrealized_pnl_usd ?? 0), 0)
+  const stockPnlComplete = stockCount > 0
+    && unresolvedStocks.length === 0
+    && stockPnlRows.length === stockPositions.length
 
   const earnValue = snapshot.earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
   const rewards = snapshot.earn.reduce((sum, item) => sum + (item.cumulative_rewards_usd ?? 0), 0)
@@ -237,32 +242,24 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
           </Module>
         </Stack>
 
-        {/* 正股与代币化股票在一个模块里：都是"钱包里实际有的股票"，只是形态不同。
-            分开两块的话，只持有正股的账户会看到一块不相干的空标题。 */}
-        {stockRows.length > 0 && (
-          <Module
-            figure={money(stockValue)}
-            note={[
-              equityHoldings.length > 0 ? `${equityHoldings.length} 只正股` : null,
-              tokenizedStocks.length > 0 ? `${tokenizedStocks.length} 项代币化` : null,
-              unvaluedStocks > 0 ? `${unvaluedStocks} 项无估值` : null,
-            ].filter(Boolean).join(' · ')}
-            span="lg:col-span-12"
-            title="股票"
-          >
-            {equityHoldings.length > 0 && <EquityHoldingsTable rows={equityHoldings} />}
-            {tokenizedStocks.length > 0 && (
-              <div className={cn(equityHoldings.length > 0 && 'mt-6')}>
-                {equityHoldings.length > 0 && (
-                  <p className="mb-2 text-xs text-ink-2">代币化股票</p>
-                )}
-                <TokenizedStocksTable rows={tokenizedStocks} />
-              </div>
-            )}
-            <p className="mt-3 border-t border-rule pt-3 text-xs leading-relaxed text-ink-3">
-              {snapshot.stocks.coverage_detail}
-            </p>
-          </Module>
+        {stockCount > 0 && (
+          <>
+            <Module
+              figure={stockPnlComplete ? signedMoney(stockPnl) : '—'}
+              note={stockPnlComplete
+                ? `${stockCount} 个标的`
+                : `${stockPnlRows.length} / ${stockCount} 项盈亏可算`}
+              span="lg:col-span-8"
+              title="股票持仓"
+              tone={!stockPnlComplete ? 'muted' : stockPnl >= 0 ? 'gain' : 'loss'}
+            >
+              <StockPositionsList positions={stockPositions} unresolved={unresolvedStocks} />
+            </Module>
+            <StockSummary
+              equityUsd={snapshot.totals?.equity_usd ?? null}
+              stocks={snapshot.stocks}
+            />
+          </>
         )}
 
         {/* **现金单独成一块。** 它不是「理财持仓」的缩略版，是另一刀：那张表按

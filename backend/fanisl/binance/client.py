@@ -400,15 +400,48 @@ class BinanceClient:
     def _equity_history(self, path: str, *, start_ms: int, end_ms: int,
                         symbol: str | None, size: int, max_pages: int) -> list[dict]:
         out: list[dict] = []
+        expected_total: int | None = None
+        id_field = "executionId" if "/trade/" in path else "orderId"
+        seen: set[str] = set()
         for current in range(1, max_pages + 1):
             payload = self.signed_get(SPOT_BASE, path,
                                       {"startTime": start_ms, "endTime": end_ms,
                                        "symbol": symbol, "current": current, "size": size})
-            rows = payload.get("rows", []) if isinstance(payload, dict) else []
-            out.extend(row for row in rows if isinstance(row, dict))
-            total = int(payload.get("total", len(out))) if isinstance(payload, dict) else len(out)
-            if not rows or len(out) >= total or len(rows) < size:
+            if not isinstance(payload, dict):
+                raise BinanceError("unsupported", "股票历史分页响应页码不一致，拒绝使用。")
+            try:
+                response_page = int(payload.get("page", -1))
+                total = int(payload.get("total", -1))
+            except (TypeError, ValueError) as error:
+                raise BinanceError(
+                    "unsupported", "股票历史分页元数据无效，拒绝使用。",
+                ) from error
+            if response_page != current:
+                raise BinanceError("unsupported", "股票历史分页响应页码不一致，拒绝使用。")
+            rows = payload.get("rows", [])
+            if not isinstance(rows, list):
+                raise BinanceError("unsupported", "股票历史分页 rows 不是数组，拒绝使用。")
+            if total < 0 or (expected_total is not None and total != expected_total):
+                raise BinanceError("unsupported", "股票历史分页总数发生变化，拒绝使用。")
+            expected_total = total
+            for row in rows:
+                if not isinstance(row, dict):
+                    raise BinanceError("unsupported", "股票历史包含无效记录，拒绝使用。")
+                row_id = str(row.get(id_field, ""))
+                if not row_id or row_id in seen:
+                    raise BinanceError("unsupported", "股票历史分页出现空 ID 或重复记录，拒绝使用。")
+                seen.add(row_id)
+                out.append(row)
+            if len(out) > total:
+                raise BinanceError("unsupported", "股票历史记录超过接口总数，拒绝使用。")
+            if not rows or len(out) == total or len(rows) < size:
                 break
+        if expected_total is None or len(out) != expected_total:
+            raise BinanceError(
+                "unsupported",
+                f"股票历史达到分页上限：只取得 {len(out)} / {expected_total or 0} 条，"
+                "拒绝用残缺记录计算成本。",
+            )
         return out
 
     def spot_my_trades(self, symbol: str, *, start_ms: int, end_ms: int,

@@ -16,7 +16,7 @@
 | `spot` | `POST /sapi/v3/asset/getUserAsset` 四种锁定态 |
 | `futures` | `GET /fapi/v3/account` + `/fapi/v1/accountConfig` + `/fapi/v3/positionRisk` |
 | `futures[].liq_distance` | `positionRisk` 给了强平价才有；**给不出就是 null，不拿杠杆倒推** |
-| `stocks` | 钱包详情 + `/sapi/v1/equity/market/tokenized-assets`。Stocks Trading 没有持仓 GET：正股从钱包明细里 `EQ_` 开头的资产认出（`equity_holdings`），代币化股票按官方映射；两者都计入敞口分布与压力测试 |
+| `stocks` | 钱包详情是数量权威：`EQ_*` 正股 + `tokenized-assets` 映射的代币化股票。成本按 `order/history` 的订单手续费与 `trade/history` 的逐笔执行顺序重放，只在净股数与钱包合计一致、执行顺序可证明时显示；`market/quote` 与 `exchangeInfo` 提供买卖价及交易能力。单边盘口、历史失败、成交顺序或逐笔手续费不确定、无效换算比例都明确留空，不以钱包估值或 0 代替。两种持有形态都计入敞口分布与压力测试 |
 | `capabilities` | `/sapi/v1/account/info` + `/sapi/v1/account/apiRestrictions` |
 | `earn` | `GET /sapi/v1/simple-earn/{flexible,locked}/position` |
 | `margin` | `GET /sapi/v1/margin/account` |
@@ -630,11 +630,12 @@ items-start（容器）+ mt-2（每格内部，两档共用）
 **不在运行时引图床。** 那会让每开一次页面，第三方就收到一份"这个账户持有哪些币"的
 请求——一个私人资产台不该为了几个图标做这件事。下载下来还顺带解决了离线与缓存。
 
-五个来源，按顺序试、先成的算：**parqet**（按代码给 60×60 品牌色方图，股票与 ETF 的
+六个来源，按顺序试、先成的算：**parqet**（按代码给 60×60 品牌色方图，股票与 ETF 的
 主力）、**spothq/cryptocurrency-icons**（32×32 圆图，加密货币比 parqet 全）、
 **FMP**（PNG 兜底，只有前两个都没有时才用，CRCL / SKHY 这种新上市的）、
 **TradingView**（补贵金属 XAU / XAG）、**Amazon 官方 favicon**（AMZN 的新 Smile
-图标；通用股票源仍是旧版字母 a）。要加新标的就往 `fetch-icons.mjs` 的名单里补一行
+图标；通用股票源仍是旧版字母 a）、**Tether 官方媒体库**（XAUT）。要加新标的就往
+`fetch-icons.mjs` 的名单里补一行
 再跑一次；它同时重写 `src/components/icons.ts` 那份清单。
 
 **方图与圆图混着无所谓**：组件统一 `rounded-full` 裁成圆的，底下垫一层 `sheet-2`，
