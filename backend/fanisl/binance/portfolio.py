@@ -51,6 +51,9 @@ TTL = {
     "futures_metadata": 1800,
     "brackets": 86_400,
     "stocks": 21_600,
+    # 股票持仓会在成交后立即变化，成本也必须跟着更新。交易历史本身权重只有 1，
+    # 并且下面只按当前持仓标的查询；不能和很少变化的市场元数据共用 6 小时缓存。
+    "stock_history": 60,
     "account": 300,
     "earn": 300,
     "margin": 60,
@@ -101,10 +104,38 @@ def _stock_quote_jobs(client: BinanceClient, symbols: list[str]
              (lambda s=symbol: client.equity_quote(s))) for symbol in symbols]
 
 
-def _equity_detail_jobs(client: BinanceClient, order_rows: Any, symbols: list[str]
+def _equity_history_for_symbols(client: BinanceClient, symbols: list[str],
+                                end_ms: int, *, trades: bool) -> list[dict]:
+    """只取当前持仓标的的完整股票历史，并防守上游忽略 symbol 过滤。"""
+    out = []
+    seen = set()
+    id_field = "executionId" if trades else "orderId"
+    fetch = client.equity_trade_history if trades else client.equity_order_history
+    for symbol in symbols:
+        rows = fetch(start_ms=EQUITY_HISTORY_START_MS, end_ms=end_ms, symbol=symbol)
+        for row in rows:
+            if str(row.get("symbol", "")).upper() != symbol:
+                continue
+            row_id = str(row.get(id_field, ""))
+            if row_id and row_id not in seen:
+                seen.add(row_id)
+                out.append(row)
+    return out
+
+
+def _equity_detail_jobs(client: BinanceClient, order_rows: Any, trade_rows: Any,
+                        symbols: list[str]
                         ) -> list[tuple[str, int, Any]]:
-    """只为当前持仓补查缺失手续费；详情按 order id 缓存，避免重复打接口。"""
+    """为当前持仓补查缺失手续费或逐笔成交；详情按 order id 缓存。"""
     wanted = set(symbols)
+    filled_qty: dict[str, Decimal] = {}
+    for row in trade_rows if isinstance(trade_rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        order_id = str(row.get("orderId", ""))
+        qty = _decimal(row.get("qty"))
+        if order_id and qty is not None and qty > 0:
+            filled_qty[order_id] = filled_qty.get(order_id, Decimal(0)) + qty
     candidates = []
     seen = set()
     for row in order_rows if isinstance(order_rows, list) else []:
@@ -112,9 +143,15 @@ def _equity_detail_jobs(client: BinanceClient, order_rows: Any, symbols: list[st
             continue
         raw_fee = row.get("fee")
         order_id = str(row.get("orderId", ""))
+        expected_qty = _decimal(row.get("filledQty"))
+        actual_qty = filled_qty.get(order_id, Decimal(0))
+        qty_tolerance = (max(Decimal("1e-9"), expected_qty * Decimal("1e-10"))
+                         if expected_qty is not None else Decimal(0))
+        fills_missing = (expected_qty is not None and expected_qty > 0
+                         and abs(actual_qty - expected_qty) > qty_tolerance)
         if (str(row.get("symbol", "")).upper() not in wanted
                 or str(row.get("status", "")).upper() != "FILLED"
-                or (raw_fee is not None and raw_fee != "")
+                or ((raw_fee is not None and raw_fee != "") and not fills_missing)
                 or not order_id or order_id in seen):
             continue
         seen.add(order_id)
@@ -127,25 +164,58 @@ def _equity_detail_jobs(client: BinanceClient, order_rows: Any, symbols: list[st
     ]
 
 
-def _equity_history_with_details(order_rows: Any,
-                                 detail_results: dict[str, SourceResult]) -> Any:
+def _equity_history_with_details(order_rows: Any, trade_rows: Any,
+                                 detail_results: dict[str, SourceResult]
+                                 ) -> tuple[Any, Any]:
     if not isinstance(order_rows, list):
-        return order_rows
-    out = []
+        return order_rows, trade_rows
+    out_orders = []
+    out_trades = list(trade_rows) if isinstance(trade_rows, list) else trade_rows
+    seen_executions = {
+        str(row.get("executionId", ""))
+        for row in out_trades if isinstance(row, dict)
+    } if isinstance(out_trades, list) else set()
     for row in order_rows:
         if not isinstance(row, dict):
-            out.append(row)
+            out_orders.append(row)
             continue
         order_id = str(row.get("orderId", ""))
         result = detail_results.get(f"equity.detail.{order_id}")
         detail = result.payload if result is not None and result.ok else None
-        fee = detail.get("fee") if isinstance(detail, dict) else None
-        if (isinstance(detail, dict) and str(detail.get("orderId", "")) == order_id
-                and fee is not None and fee != ""):
-            out.append({**row, "fee": fee})
-        else:
-            out.append(row)
-    return out
+        if not (isinstance(detail, dict)
+                and str(detail.get("orderId", "")) == order_id):
+            out_orders.append(row)
+            continue
+
+        enriched = dict(row)
+        fee = detail.get("fee")
+        if fee is not None and fee != "":
+            enriched["fee"] = fee
+        out_orders.append(enriched)
+
+        if not isinstance(out_trades, list):
+            continue
+        detail_trades = detail.get("trades")
+        for fill in detail_trades if isinstance(detail_trades, list) else []:
+            if not isinstance(fill, dict):
+                continue
+            execution_id = str(fill.get("executionId", ""))
+            if not execution_id or execution_id in seen_executions:
+                continue
+            seen_executions.add(execution_id)
+            out_trades.append({
+                **fill,
+                "executionId": execution_id,
+                "orderId": order_id,
+                "symbol": detail.get("symbol") or row.get("symbol"),
+                "quote": detail.get("quote") or row.get("quote"),
+                "side": detail.get("side") or row.get("side"),
+                "orderType": detail.get("orderType") or row.get("orderType"),
+                "total": fill.get("total") or str(
+                    dec0(fill.get("price")) * dec0(fill.get("qty"))),
+                "updatedAt": fill.get("updatedAt") or fill.get("executionAt"),
+            })
+    return out_orders, out_trades
 
 
 def _closes(results: dict[str, SourceResult], symbols: list[str]
@@ -243,12 +313,6 @@ def _jobs(client: BinanceClient, now: datetime) -> list[tuple[str, int, Callable
         ("futures.brackets", TTL["brackets"], client.leverage_brackets),
         ("equity.exchange_info", TTL["stocks"], client.equity_exchange_info),
         ("equity.tokenized", TTL["stocks"], client.equity_tokenized_assets),
-        ("equity.history", TTL["stocks"],
-         lambda: client.equity_order_history(
-            start_ms=EQUITY_HISTORY_START_MS, end_ms=end_ms)),
-        ("equity.trades", TTL["stocks"],
-         lambda: client.equity_trade_history(
-            start_ms=EQUITY_HISTORY_START_MS, end_ms=end_ms)),
         ("account.info", TTL["account"], client.account_info),
         ("account.restrictions", TTL["account"], client.api_restrictions),
         ("earn.flexible", TTL["earn"], client.earn_flexible_positions),
@@ -276,10 +340,10 @@ LIVE_CADENCE = frozenset({"prices", "wallets", "spot", "futures", "earn", "bfusd
                           "income", "transfers"})
 
 # 贵到不该被"重新取数"穿透的来源。提现历史单次权重 18000（账户维度 10 次/秒），
-# 是所有端点里最贵的；成交历史要按 id 翻页，页数随成交笔数增长，而它只增不改，
-# 强刷没有意义。用户连点几下就能把权重预算打空，然后所有页面一起 429。
+# 是所有端点里最贵的；杠杆档位与 BFUSD 公布年化也不会随页面刷新变化。
+# 用户连点几下就能把权重预算打空，然后所有页面一起 429。
 NEVER_FORCE = frozenset({
-    "futures.brackets", "transfers.withdrawals", "equity.history", "equity.trades",
+    "futures.brackets", "transfers.withdrawals",
     "bfusd.rate",
 })
 
@@ -359,6 +423,9 @@ def _wallets(rows: Any, btc_usd: float | None) -> list[dict]:
 # 直接买入的正股在钱包明细里的资产代码前缀：SOXL 记作 EQ_SOXL，放在资金钱包。
 # 文档没写，2026-09-17 线上实测（Stocks Trading 本身没有持仓查询端点）。
 EQUITY_ASSET_PREFIX = "EQ_"
+# REST 当前默认 USDC，但股票订单推送把同一美元计价语义写作 USD。这里仅用于
+# 股票成本核对；不能把 USD 加进全站稳定币集合，否则钱包资产分类会被改变。
+EQUITY_USD_QUOTES = STABLE_ASSETS | {"USD"}
 
 STOCKS_COVERAGE = (
     "Binance Stocks 没有持仓查询接口。正股持仓取自钱包明细里 EQ_ 开头的资产，"
@@ -413,7 +480,7 @@ def _equity_costs(order_rows: Any, trade_rows: Any) -> dict[str, dict]:
             state["fees_complete"] = False
         if (not order_id or order_id in orders or qty is None or qty <= 0
                 or price is None or price <= 0 or fee is None or fee < 0
-                or quote not in STABLE_ASSETS or side not in {"BUY", "SELL"}):
+                or quote not in EQUITY_USD_QUOTES or side not in {"BUY", "SELL"}):
             state["complete"] = False
             continue
         orders[order_id] = {
@@ -442,7 +509,7 @@ def _equity_costs(order_rows: Any, trade_rows: Any) -> dict[str, dict]:
         if (not execution_id or execution_id in seen_executions or order is None
                 or price is None or price <= 0 or qty is None or qty <= 0
                 or executed_at is None or executed_at <= 0
-                or quote not in STABLE_ASSETS or side not in {"BUY", "SELL"}
+                or quote not in EQUITY_USD_QUOTES or side not in {"BUY", "SELL"}
                 or order["symbol"] != symbol or order["quote"] != quote
                 or order["side"] != side):
             state["complete"] = False
@@ -1535,19 +1602,47 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         quote_results = fetch_all(cache, _stock_quote_jobs(client, stock_symbols),
                                   force=force, never_force=NEVER_FORCE)
         results.update(quote_results)
+        end_ms = int(now.timestamp() * 1000)
+        history_results = fetch_all(cache, [
+            ("equity.history", TTL["stock_history"],
+             lambda: _equity_history_for_symbols(
+                 client, stock_symbols, end_ms, trades=False)),
+            ("equity.trades", TTL["stock_history"],
+             lambda: _equity_history_for_symbols(
+                 client, stock_symbols, end_ms, trades=True)),
+        ], force=force, never_force=NEVER_FORCE)
+        results.update(history_results)
+    else:
+        wallet_result = results["wallets"]
+        if wallet_result.ok:
+            results["equity.history"] = SourceResult(
+                "equity.history", [], "ok", now, None)
+            results["equity.trades"] = SourceResult(
+                "equity.trades", [], "ok", now, None)
+        else:
+            detail = "钱包数据不可用，无法确定需要查询的股票代码。"
+            results["equity.history"] = SourceResult(
+                "equity.history", None, wallet_result.status,
+                wallet_result.as_of, detail)
+            results["equity.trades"] = SourceResult(
+                "equity.trades", None, wallet_result.status,
+                wallet_result.as_of, detail)
     raw_equity_history = _fresh_payload(results, "equity.history")
+    raw_equity_trades = _fresh_payload(results, "equity.trades")
     equity_detail_results: dict[str, SourceResult] = {}
-    detail_jobs = _equity_detail_jobs(client, raw_equity_history, stock_symbols)
+    detail_jobs = _equity_detail_jobs(
+        client, raw_equity_history, raw_equity_trades, stock_symbols)
     if detail_jobs:
-        # 详情只补成本精度，失败仍能显示不含手续费的估算；不让 force 穿透 6h 缓存。
+        # 详情补逐笔成交与手续费；失败时仍由严格的数量核对决定能否显示估算。
+        # orderId 对应的最终详情不会变化，不让 force 穿透 6 小时缓存。
         equity_detail_results = fetch_all(cache, detail_jobs, force=False,
                                           never_force=NEVER_FORCE)
         results.update(equity_detail_results)
-    equity_history = _equity_history_with_details(
-        raw_equity_history, equity_detail_results)
+    equity_history, equity_trades = _equity_history_with_details(
+        raw_equity_history, raw_equity_trades, equity_detail_results)
     stocks = block("stocks", lambda: _stocks(
         payload("wallets"), payload("equity.tokenized"), btc_usd,
-        equity_history, _fresh_payload(results, "equity.trades"),
+        equity_history, equity_trades,
         _fresh_payload(results, "equity.exchange_info"),
         {symbol: (quote_results[f"equity.quote.{symbol}"].payload
                   if quote_results.get(f"equity.quote.{symbol}")

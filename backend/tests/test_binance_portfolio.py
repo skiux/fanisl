@@ -585,6 +585,34 @@ def test_stock_order_detail_recovers_missing_commission(cache):
     }
 
 
+def test_stock_order_detail_recovers_soxl_fills_and_legacy_usd_quote(cache):
+    """订单历史有 SOXL、逐笔历史却为空时，详情里的 trades 仍应足够还原成本。"""
+    history = {"total": 1, "page": 1, "size": 100, "rows": [{
+        "orderId": "buy", "symbol": "SOXL", "quote": "USD", "side": "BUY",
+        "orderType": "MARKET", "avgFilledPrice": "25", "filledQty": "40",
+        "status": "FILLED", "createdAt": 10, "updatedAt": 12,
+    }]}
+    trades = {"total": 0, "page": 1, "size": 100, "rows": []}
+    detail = {
+        **history["rows"][0],
+        "fee": "0.40",
+        "trades": [{
+            "executionId": "fill", "executionAt": 11,
+            "price": "25", "qty": "40",
+        }],
+    }
+    snap = build_replacing(cache, {
+        "/sapi/v1/equity/order/history": lambda: httpx.Response(200, json=history),
+        "/sapi/v1/equity/order/detail": lambda: httpx.Response(200, json=detail),
+        "/sapi/v1/equity/trade/history": lambda: httpx.Response(200, json=trades),
+    })
+
+    row = next(item for item in snap["stocks"]["positions"] if item["symbol"] == "SOXL")
+    assert row["cost_status"] == "reconciled"
+    assert row["avg_cost_usd"] == pytest.approx(25.01)
+    assert row["cost_basis_usd"] == pytest.approx(1000.40)
+
+
 def test_stock_detail_lookup_is_limited_to_current_holdings_and_newest_orders():
     rows = [{
         "orderId": f"soxl-{index}", "symbol": "SOXL", "status": "FILLED",
@@ -598,7 +626,7 @@ def test_stock_detail_lookup_is_limited_to_current_holdings_and_newest_orders():
     ])
     client = BinanceClient("k", "s", client=httpx.Client(transport=make_transport()))
     try:
-        jobs = _equity_detail_jobs(client, rows, ["SOXL"])
+        jobs = _equity_detail_jobs(client, rows, [], ["SOXL"])
     finally:
         client.close()
 

@@ -64,11 +64,11 @@ function AdlPips({ quantile }: { quantile: number | null }) {
 }
 
 const SESSION_LABEL: Record<string, string> = {
-  REGULAR: '常规时段',
   PRE_MARKET: '盘前',
   POST_MARKET: '盘后',
   OVERNIGHT: '隔夜',
   CLOSED: '休市',
+  NO_TRADING: '休市',
 }
 
 const SYMBOL_ADL_LABEL: Record<string, string> = {
@@ -102,9 +102,9 @@ function PositionRow({ position }: { position: FuturesPosition }) {
               {long ? 'Long' : 'Short'}
             </span>
             <AdlPips quantile={position.adl_quantile} />
-            {position.tradfi && (
+            {position.tradfi && position.market_session && SESSION_LABEL[position.market_session] && (
               <span className="rounded-[4px] border border-rule px-1.5 py-px text-[9.5px] text-ink-3">
-                TradFi{position.market_session ? ` · ${SESSION_LABEL[position.market_session] ?? position.market_session}` : ''}
+                {SESSION_LABEL[position.market_session]}
               </span>
             )}
           </div>
