@@ -97,24 +97,6 @@ def test_equity_history_paginates_the_documented_envelope():
     assert [row["orderId"] for row in rows] == ["o-1", "o-2"]
 
 
-def test_equity_order_detail_uses_documented_endpoint():
-    def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path.endswith("/time"):
-            return httpx.Response(200, json={"serverTime": 0})
-        assert request.url.path == "/sapi/v1/equity/order/detail"
-        assert request.url.params["orderId"] == "soxl-buy"
-        return httpx.Response(200, json={"orderId": "soxl-buy", "fee": "0.35"})
-
-    client = BinanceClient("k", "s", client=httpx.Client(
-        transport=httpx.MockTransport(handler)))
-    try:
-        detail = client.equity_order_detail("soxl-buy")
-    finally:
-        client.close()
-
-    assert detail["fee"] == "0.35"
-
-
 def test_bfusd_rate_history_uses_current_simple_earn_endpoint():
     seen = {}
 

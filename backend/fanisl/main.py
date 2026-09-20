@@ -25,6 +25,7 @@ from contextlib import asynccontextmanager
 from .binance.ledger import build_ledger
 from .binance.orders import build_orders
 from .binance.portfolio import MEMBER_MAX_DAYS, build_portfolio
+from .binance import routes as binance_routes
 from .runtime import (
     ACCOUNT_ID,
     ACCOUNT_IDS,
@@ -63,6 +64,7 @@ app = FastAPI(title="fanisl", version="0.1.0", lifespan=_lifespan)
 
 # 登录与用户管理
 app.include_router(auth_routes.build_router(user_store, settings))
+app.include_router(binance_routes.build_router(binance_cache))
 
 # --- 中间件 ---------------------------------------------------------------
 # Starlette 里**最后加的在最外层**。这里的顺序是有意的：CORS 必须包在鉴权外面，

@@ -25,6 +25,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Any, Callable
 
 from psycopg_pool import ConnectionPool
@@ -38,6 +39,14 @@ CREATE TABLE IF NOT EXISTS binance_cache (
     fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     status     TEXT NOT NULL DEFAULT 'ok',
     detail     TEXT
+);
+CREATE TABLE IF NOT EXISTS binance_stock_costs (
+    symbol           TEXT PRIMARY KEY,
+    trade_value_usd  NUMERIC NOT NULL CHECK (trade_value_usd > 0),
+    commission_usd   NUMERIC NOT NULL CHECK (commission_usd >= 0),
+    position_qty     NUMERIC NOT NULL CHECK (position_qty > 0),
+    updated_by       BIGINT NOT NULL,
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 """
 
@@ -117,6 +126,34 @@ class SourceCache:
             cur = conn.execute("DELETE FROM binance_cache WHERE source_key LIKE %s",
                                (f"{prefix}%",))
             return cur.rowcount
+
+    def stock_costs(self) -> dict[str, dict]:
+        """Return the durable manual input for each current stock position."""
+        with self.pool.connection() as conn:
+            rows = conn.execute(
+                "SELECT symbol, trade_value_usd, commission_usd, position_qty, "
+                "updated_by, updated_at FROM binance_stock_costs ORDER BY symbol"
+            ).fetchall()
+        return {str(row["symbol"]): dict(row) for row in rows}
+
+    def upsert_stock_cost(self, symbol: str, trade_value_usd: Decimal,
+                          commission_usd: Decimal, position_qty: Decimal,
+                          updated_by: int) -> dict:
+        """Save the two values Binance omits for a known current stock quantity."""
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "INSERT INTO binance_stock_costs "
+                "(symbol, trade_value_usd, commission_usd, position_qty, updated_by) "
+                "VALUES (%s, %s, %s, %s, %s) "
+                "ON CONFLICT (symbol) DO UPDATE SET "
+                "trade_value_usd=EXCLUDED.trade_value_usd, "
+                "commission_usd=EXCLUDED.commission_usd, "
+                "position_qty=EXCLUDED.position_qty, updated_by=EXCLUDED.updated_by, "
+                "updated_at=now() RETURNING symbol, trade_value_usd, commission_usd, "
+                "position_qty, updated_by, updated_at",
+                (symbol.upper(), trade_value_usd, commission_usd, position_qty, updated_by),
+            ).fetchone()
+        return dict(row)
 
 
 def fetch(cache: SourceCache, key: str, ttl_s: int, fn: Callable[[], Any], *,

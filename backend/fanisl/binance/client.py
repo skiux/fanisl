@@ -395,10 +395,6 @@ class BinanceClient:
                                     start_ms=start_ms, end_ms=end_ms, symbol=symbol,
                                     size=size, max_pages=max_pages)
 
-    def equity_order_detail(self, order_id: str) -> Any:
-        return self.signed_get(SPOT_BASE, "/sapi/v1/equity/order/detail",
-                               {"orderId": order_id})
-
     def equity_trade_history(self, *, start_ms: int, end_ms: int,
                              symbol: str | None = None, size: int = 100,
                              max_pages: int = 100) -> list[dict]:

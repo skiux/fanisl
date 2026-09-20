@@ -7,6 +7,7 @@
 """
 
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 import pathlib
 import re
@@ -17,8 +18,7 @@ import pytest
 from fanisl.binance.cache import SourceCache, SourceResult
 from fanisl.binance.client import BinanceClient
 from fanisl.binance.portfolio import (
-    build_portfolio, _equity_costs, _equity_detail_jobs, _fresh_payload,
-    _today_settled,
+    build_portfolio, _fresh_payload, _today_settled,
 )
 
 from binance_mock import (
@@ -28,9 +28,10 @@ from binance_mock import (
 
 @pytest.fixture
 def cache(pool):
+    cache = SourceCache(pool)
     with pool.connection() as conn:
-        conn.execute("TRUNCATE binance_cache")
-    return SourceCache(pool)
+        conn.execute("TRUNCATE binance_stock_costs, binance_cache")
+    return cache
 
 
 def build(cache, *, fail=None, calls=None, force=True):
@@ -367,7 +368,9 @@ def test_stock_without_a_valuation_has_no_value_not_zero(cache):
     assert holding["value_usd"] is None and holding["price_usd"] is None
 
 
-def test_stock_position_reconciles_cost_quote_and_wallet_lock_states(cache):
+def test_stock_position_uses_admin_entered_cost_and_wallet_lock_states(cache):
+    cache.upsert_stock_cost(
+        "SOXL", Decimal("920"), Decimal("4"), Decimal("40"), 7)
     wallets = [
         {"activate": True, "balance": "0.02", "walletName": "Funding",
          "assetBalances": [{
@@ -376,38 +379,15 @@ def test_stock_position_reconciles_cost_quote_and_wallet_lock_states(cache):
              "btcValuation": f"{1140 / BTC}",
          }]},
     ]
-    history = {"total": 3, "page": 1, "size": 100, "rows": [
-        {"orderId": "buy-1", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
-         "avgFilledPrice": "20", "filledQty": "30", "fee": "1", "status": "FILLED",
-         "createdAt": 10, "updatedAt": 10},
-        {"orderId": "buy-2", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
-         "avgFilledPrice": "30", "filledQty": "20", "fee": "1", "status": "FILLED",
-         "createdAt": 25, "updatedAt": 25},
-        {"orderId": "sell-1", "symbol": "SOXL", "quote": "USDC", "side": "SELL",
-         "avgFilledPrice": "40", "filledQty": "10", "fee": "1", "status": "FILLED",
-         "createdAt": 20, "updatedAt": 30},
-    ]}
-    trades = {"total": 3, "page": 1, "size": 100, "rows": [
-        {"executionId": "fill-buy-1", "orderId": "buy-1", "symbol": "SOXL",
-         "quote": "USDC", "side": "BUY", "price": "20", "qty": "30",
-         "total": "600", "executionAt": 10, "updatedAt": 10},
-        {"executionId": "fill-buy-2", "orderId": "buy-2", "symbol": "SOXL",
-         "quote": "USDC", "side": "BUY", "price": "30", "qty": "20",
-         "total": "600", "executionAt": 25, "updatedAt": 25},
-        {"executionId": "fill-sell-1", "orderId": "sell-1", "symbol": "SOXL",
-         "quote": "USDC", "side": "SELL", "price": "40", "qty": "10",
-         "total": "400", "executionAt": 30, "updatedAt": 30},
-    ]}
     exchange = {"timezone": "UTC", "symbols": [{
         "symbol": "SOXL", "tradability": "BUY_SELL", "overnightSupported": True,
         "fractionable": True, "fractionableEh": False, "extendedSession": True,
+        "stepSize": "0.000001",
     }]}
     quote = {"symbol": "SOXL", "bidPrice": "28.45", "askPrice": "28.55",
              "bidSize": 20, "askSize": 18}
     snap = build_replacing(cache, {
         "/sapi/v1/asset/wallet/balance": lambda: httpx.Response(200, json=wallets),
-        "/sapi/v1/equity/order/history": lambda: httpx.Response(200, json=history),
-        "/sapi/v1/equity/trade/history": lambda: httpx.Response(200, json=trades),
         "/sapi/v1/equity/market/exchangeInfo": lambda: httpx.Response(200, json=exchange),
         "/sapi/v1/equity/market/quote": lambda: httpx.Response(200, json=quote),
     })
@@ -425,255 +405,54 @@ def test_stock_position_reconciles_cost_quote_and_wallet_lock_states(cache):
     assert row["fractionable"] is True and row["fractionable_extended"] is False
     assert row["extended_session"] is True
     assert row["overnight_supported"] is True
-    assert row["cost_status"] == "reconciled"
-    assert row["avg_cost_usd"] == pytest.approx(24.04)
-    assert row["cost_basis_usd"] == pytest.approx(961.6)
-    assert row["realized_pnl_usd"] == pytest.approx(158.6)
-    assert row["unrealized_pnl_usd"] == pytest.approx(178.4)
-    assert row["unrealized_pnl_pct"] == pytest.approx(178.4 / 961.6)
+    assert row["cost_status"] == "manual"
+    assert row["trade_value_usd"] == pytest.approx(920)
+    assert row["commission_usd"] == pytest.approx(4)
+    assert row["cost_position_qty"] == pytest.approx(40)
+    assert row["cost_updated_at"] is not None
+    assert row["avg_cost_usd"] == pytest.approx(23.1)
+    assert row["cost_basis_usd"] == pytest.approx(924)
+    assert row["unrealized_pnl_usd"] == pytest.approx(216)
+    assert row["unrealized_pnl_pct"] == pytest.approx(216 / 924)
+    assert "realized_pnl_usd" not in row
     assert snap["stocks"]["cost_coverage"] == {
-        "reconciled": 1, "estimated": 0, "total": 1,
+        "manual": 1, "stale": 0, "total": 1,
     }
 
 
-def test_stock_cost_is_hidden_when_history_does_not_reconcile_with_wallet(cache):
-    history = {"total": 1, "page": 1, "size": 100, "rows": [
-        {"orderId": "buy-1", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
-         "avgFilledPrice": "20", "filledQty": "39", "fee": "1", "status": "FILLED",
-         "createdAt": 1, "updatedAt": 1},
-    ]}
-    trades = {"total": 1, "page": 1, "size": 100, "rows": [
-        {"executionId": "fill-buy-1", "orderId": "buy-1", "symbol": "SOXL",
-         "quote": "USDC", "side": "BUY", "price": "20", "qty": "39",
-         "total": "780", "executionAt": 1, "updatedAt": 1},
-    ]}
-    snap = build_replacing(cache, {
-        "/sapi/v1/equity/order/history": lambda: httpx.Response(200, json=history),
-        "/sapi/v1/equity/trade/history": lambda: httpx.Response(200, json=trades),
-    })
+def test_stock_cost_is_missing_until_an_admin_enters_it(cache):
+    row = next(item for item in build(cache)["stocks"]["positions"]
+               if item["symbol"] == "SOXL")
 
-    row = next(item for item in snap["stocks"]["positions"] if item["symbol"] == "SOXL")
-    assert row["cost_status"] == "incomplete"
+    assert row["cost_status"] == "missing"
+    assert row["trade_value_usd"] is None
+    assert row["commission_usd"] is None
+    assert row["cost_position_qty"] is None
     assert row["avg_cost_usd"] is None
     assert row["cost_basis_usd"] is None
-    assert row["realized_pnl_usd"] is None
     assert row["unrealized_pnl_usd"] is None
 
 
-def test_stock_cost_fails_closed_when_multifill_buy_straddles_a_sell():
-    orders = [
-        {"orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
-         "avgFilledPrice": "30", "filledQty": "10", "fee": "2"},
-        {"orderId": "sell", "symbol": "SOXL", "quote": "USDC", "side": "SELL",
-         "avgFilledPrice": "30", "filledQty": "5", "fee": "1"},
-    ]
-    trades = [
-        {"executionId": "buy-1", "orderId": "buy", "symbol": "SOXL",
-         "quote": "USDC", "side": "BUY", "price": "20", "qty": "5",
-         "executionAt": 10},
-        {"executionId": "sell-1", "orderId": "sell", "symbol": "SOXL",
-         "quote": "USDC", "side": "SELL", "price": "30", "qty": "5",
-         "executionAt": 20},
-        {"executionId": "buy-2", "orderId": "buy", "symbol": "SOXL",
-         "quote": "USDC", "side": "BUY", "price": "40", "qty": "5",
-         "executionAt": 30},
-    ]
+def test_stock_cost_becomes_stale_when_current_quantity_changes(cache):
+    cache.upsert_stock_cost(
+        "SOXL", Decimal("920"), Decimal("4"), Decimal("39"), 7)
 
-    costs = _equity_costs(orders, trades)
+    stocks = build(cache)["stocks"]
+    row = next(item for item in stocks["positions"] if item["symbol"] == "SOXL")
 
-    assert costs["SOXL"]["complete"] is False
-
-
-def test_stock_cost_replays_multifill_buy_when_fees_are_determined_before_sell():
-    orders = [
-        {"orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
-         "avgFilledPrice": "30", "filledQty": "10", "fee": "2"},
-        {"orderId": "sell", "symbol": "SOXL", "quote": "USDC", "side": "SELL",
-         "avgFilledPrice": "35", "filledQty": "5", "fee": "1"},
-    ]
-    trades = [
-        {"executionId": "buy-1", "orderId": "buy", "symbol": "SOXL",
-         "quote": "USDC", "side": "BUY", "price": "20", "qty": "5",
-         "executionAt": 10},
-        {"executionId": "buy-2", "orderId": "buy", "symbol": "SOXL",
-         "quote": "USDC", "side": "BUY", "price": "40", "qty": "5",
-         "executionAt": 20},
-        {"executionId": "sell-1", "orderId": "sell", "symbol": "SOXL",
-         "quote": "USDC", "side": "SELL", "price": "35", "qty": "5",
-         "executionAt": 30},
-    ]
-
-    costs = _equity_costs(orders, trades)
-
-    assert costs["SOXL"]["complete"] is True
-    assert costs["SOXL"]["qty"] == pytest.approx(5)
-    assert costs["SOXL"]["cost"] == pytest.approx(151)
-    assert costs["SOXL"]["realized"] == pytest.approx(23)
-
-
-def test_stock_cost_remains_available_as_estimate_when_commission_is_missing():
-    orders = [{
-        "orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
-        "avgFilledPrice": "25", "filledQty": "40",
-    }]
-    trades = [{
-        "executionId": "fill", "orderId": "buy", "symbol": "SOXL",
-        "quote": "USDC", "side": "BUY", "price": "25", "qty": "40",
-        "executionAt": 10,
-    }]
-
-    costs = _equity_costs(orders, trades)
-
-    assert costs["SOXL"]["complete"] is True
-    assert costs["SOXL"]["fees_complete"] is False
-    assert costs["SOXL"]["qty"] == pytest.approx(40)
-    assert costs["SOXL"]["cost"] == pytest.approx(1000)
-
-
-def test_stock_position_labels_fee_free_cost_as_estimated(cache):
-    history = {"total": 1, "page": 1, "size": 100, "rows": [{
-        "orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
-        "avgFilledPrice": "25", "filledQty": "40", "status": "FILLED",
-        "createdAt": 10, "updatedAt": 10,
-    }]}
-    trades = {"total": 1, "page": 1, "size": 100, "rows": [{
-        "executionId": "fill", "orderId": "buy", "symbol": "SOXL",
-        "quote": "USDC", "side": "BUY", "price": "25", "qty": "40",
-        "total": "1000", "executionAt": 10, "updatedAt": 10,
-    }]}
-    snap = build_replacing(cache, {
-        "/sapi/v1/equity/order/history": lambda: httpx.Response(200, json=history),
-        "/sapi/v1/equity/order/detail": lambda: httpx.Response(
-            200, json={"orderId": "buy"}),
-        "/sapi/v1/equity/trade/history": lambda: httpx.Response(200, json=trades),
-    })
-
-    row = next(item for item in snap["stocks"]["positions"] if item["symbol"] == "SOXL")
-    assert row["cost_status"] == "estimated"
-    assert row["avg_cost_usd"] == pytest.approx(25)
-    assert row["cost_basis_usd"] == pytest.approx(1000)
-    assert row["realized_pnl_usd"] is None
-    assert snap["stocks"]["cost_coverage"] == {
-        "reconciled": 0, "estimated": 1, "total": 2,
-    }
-
-
-def test_stock_order_detail_recovers_missing_commission(cache):
-    history = {"total": 1, "page": 1, "size": 100, "rows": [{
-        "orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
-        "avgFilledPrice": "25", "filledQty": "40", "status": "FILLED",
-        "createdAt": 10, "updatedAt": 10,
-    }]}
-    trades = {"total": 1, "page": 1, "size": 100, "rows": [{
-        "executionId": "fill", "orderId": "buy", "symbol": "SOXL",
-        "quote": "USDC", "side": "BUY", "price": "25", "qty": "40",
-        "total": "1000", "executionAt": 10, "updatedAt": 10,
-    }]}
-    snap = build_replacing(cache, {
-        "/sapi/v1/equity/order/history": lambda: httpx.Response(200, json=history),
-        "/sapi/v1/equity/order/detail": lambda: httpx.Response(
-            200, json={"orderId": "buy", "fee": "0.40"}),
-        "/sapi/v1/equity/trade/history": lambda: httpx.Response(200, json=trades),
-    })
-
-    row = next(item for item in snap["stocks"]["positions"] if item["symbol"] == "SOXL")
-    assert row["cost_status"] == "reconciled"
-    assert row["avg_cost_usd"] == pytest.approx(25.01)
-    assert row["cost_basis_usd"] == pytest.approx(1000.40)
-    assert snap["stocks"]["cost_coverage"] == {
-        "reconciled": 1, "estimated": 0, "total": 2,
-    }
-
-
-def test_stock_order_detail_recovers_soxl_fills_and_legacy_usd_quote(cache):
-    """订单历史有 SOXL、逐笔历史却为空时，详情里的 trades 仍应足够还原成本。"""
-    history = {"total": 1, "page": 1, "size": 100, "rows": [{
-        "orderId": "buy", "symbol": "SOXL", "quote": "USD", "side": "BUY",
-        "orderType": "MARKET", "avgFilledPrice": "25", "filledQty": "40",
-        "status": "FILLED", "createdAt": 10, "updatedAt": 12,
-    }]}
-    trades = {"total": 0, "page": 1, "size": 100, "rows": []}
-    detail = {
-        **history["rows"][0],
-        "fee": "0.40",
-        "trades": [{
-            "executionId": "fill", "executionAt": 11,
-            "price": "25", "qty": "40",
-        }],
-    }
-    snap = build_replacing(cache, {
-        "/sapi/v1/equity/order/history": lambda: httpx.Response(200, json=history),
-        "/sapi/v1/equity/order/detail": lambda: httpx.Response(200, json=detail),
-        "/sapi/v1/equity/trade/history": lambda: httpx.Response(200, json=trades),
-    })
-
-    row = next(item for item in snap["stocks"]["positions"] if item["symbol"] == "SOXL")
-    assert row["cost_status"] == "reconciled"
-    assert row["avg_cost_usd"] == pytest.approx(25.01)
-    assert row["cost_basis_usd"] == pytest.approx(1000.40)
-
-
-def test_stock_detail_lookup_is_limited_to_current_holdings_and_newest_orders():
-    rows = [{
-        "orderId": f"soxl-{index}", "symbol": "SOXL", "status": "FILLED",
-        "updatedAt": index,
-    } for index in range(105)]
-    rows.extend([
-        {"orderId": "sold", "symbol": "NVDA", "status": "FILLED", "updatedAt": 999},
-        {"orderId": "open", "symbol": "SOXL", "status": "NEW", "updatedAt": 998},
-        {"orderId": "known", "symbol": "SOXL", "status": "FILLED", "fee": "0.1",
-         "updatedAt": 997},
-    ])
-    client = BinanceClient("k", "s", client=httpx.Client(transport=make_transport()))
-    try:
-        jobs = _equity_detail_jobs(client, rows, [], ["SOXL"])
-    finally:
-        client.close()
-
-    keys = [key for key, _, _ in jobs]
-    assert len(keys) == 100
-    assert keys[0] == "equity.detail.soxl-104"
-    assert keys[-1] == "equity.detail.soxl-5"
-    assert "equity.detail.sold" not in keys
+    assert row["cost_status"] == "stale"
+    assert row["trade_value_usd"] == pytest.approx(920)
+    assert row["commission_usd"] == pytest.approx(4)
+    assert row["cost_position_qty"] == pytest.approx(39)
+    assert row["avg_cost_usd"] is None
+    assert row["cost_basis_usd"] is None
+    assert row["unrealized_pnl_usd"] is None
+    assert stocks["cost_coverage"] == {"manual": 0, "stale": 1, "total": 2}
 
 
 def test_bfusd_latest_published_rate_is_exposed(cache):
     snap = build(cache)
     assert snap["yield_rates"]["BFUSD"] == pytest.approx(0.0736)
-
-
-def test_stock_cost_fails_closed_on_opposite_fills_in_the_same_millisecond():
-    orders = [
-        {"orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
-         "avgFilledPrice": "20", "filledQty": "5", "fee": "0"},
-        {"orderId": "sell", "symbol": "SOXL", "quote": "USDC", "side": "SELL",
-         "avgFilledPrice": "30", "filledQty": "5", "fee": "0"},
-    ]
-    trades = [
-        {"executionId": "a-buy", "orderId": "buy", "symbol": "SOXL",
-         "quote": "USDC", "side": "BUY", "price": "20", "qty": "5",
-         "executionAt": 10},
-        {"executionId": "z-sell", "orderId": "sell", "symbol": "SOXL",
-         "quote": "USDC", "side": "SELL", "price": "30", "qty": "5",
-         "executionAt": 10},
-    ]
-
-    assert _equity_costs(orders, trades)["SOXL"]["complete"] is False
-
-
-@pytest.mark.parametrize("broken", [
-    {"executionId": "bad", "orderId": "buy", "symbol": "SOXL",
-     "quote": "", "side": "BUY", "price": "20", "qty": "1", "executionAt": 1},
-    {"executionId": "bad", "orderId": "buy", "symbol": "SOXL",
-     "quote": "USDC", "side": "HOLD", "price": "20", "qty": "1", "executionAt": 1},
-    {"executionId": "bad", "orderId": "buy", "symbol": "SOXL",
-     "quote": "USDC", "side": "BUY", "price": None, "qty": "1", "executionAt": 1},
-])
-def test_stock_cost_fails_closed_on_malformed_fills(broken):
-    orders = [{"orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
-               "avgFilledPrice": "20", "filledQty": "1", "fee": "0"}]
-    costs = _equity_costs(orders, [broken])
-    assert costs["SOXL"]["complete"] is False
 
 
 def test_failed_source_payload_is_not_used_for_current_stock_derivations():
