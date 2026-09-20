@@ -26,6 +26,7 @@ function occupied(row: StockPosition) {
 
 function StockPositionRow({ row }: { row: StockPosition }) {
   const used = occupied(row)
+  const costAvailable = row.cost_status === 'reconciled' || row.cost_status === 'estimated'
   const quote = row.bid_usd !== null || row.ask_usd !== null
     ? `${price(row.bid_usd)} / ${price(row.ask_usd)}` : '—'
   const features = [
@@ -61,12 +62,15 @@ function StockPositionRow({ row }: { row: StockPosition }) {
             </div>
           </div>
           <div className="shrink-0 text-right">
-            {row.cost_status === 'reconciled' ? (
+            {costAvailable ? (
               <>
                 <Delta className="text-sm" value={row.unrealized_pnl_usd}>
                   {signedMoney(row.unrealized_pnl_usd)}
                 </Delta>
-                <div className="tnum text-xs text-ink-3">{signedPercent(row.unrealized_pnl_pct)}</div>
+                <div className="tnum text-xs text-ink-3">
+                  {signedPercent(row.unrealized_pnl_pct)}
+                  {row.cost_status === 'estimated' && ' · 未含手续费'}
+                </div>
               </>
             ) : row.cost_status === 'unavailable' ? (
               <>
@@ -84,7 +88,9 @@ function StockPositionRow({ row }: { row: StockPosition }) {
 
         <dl className="tnum mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs sm:grid-cols-3">
           <div className="min-w-0">
-            <dt className="text-ink-3">成本</dt>
+            <dt className="text-ink-3">
+              {row.cost_status === 'estimated' ? '估算成本' : '成本'}
+            </dt>
             <dd className="truncate text-ink-2">{price(row.avg_cost_usd)}</dd>
           </div>
           <div className="min-w-0">
@@ -173,10 +179,12 @@ export function StockSummary({ stocks, equityUsd }: {
 }) {
   const totals = stockTotals(stocks)
   const unresolved = stocks.tokenized_assets.filter((row) => !row.multiplier_valid).length
-  const incomplete = stocks.cost_coverage.total - stocks.cost_coverage.reconciled
+  const available = stocks.cost_coverage.reconciled + stocks.cost_coverage.estimated
+  const incomplete = stocks.cost_coverage.total - available
   const costTotal = stocks.cost_coverage.total + unresolved
   const pending = incomplete + unresolved
   const allCovered = costTotal > 0 && pending === 0
+  const exact = allCovered && stocks.cost_coverage.estimated === 0
   const allValued = totals.total !== null
   return (
     <div className="flex flex-col gap-9 lg:col-span-4" data-stock-summary>
@@ -210,16 +218,19 @@ export function StockSummary({ stocks, equityUsd }: {
       </Module>
 
       <Module
-        figure={`${stocks.cost_coverage.reconciled} / ${costTotal}`}
-        note={allCovered ? '全部一致' : `${pending} 项待核对`}
+        figure={`${available} / ${costTotal}`}
+        note={allCovered
+          ? stocks.cost_coverage.estimated > 0
+            ? `${stocks.cost_coverage.estimated} 项为估算` : '全部一致'
+          : `${pending} 项待核对`}
         span=""
         title="成本核对"
-        tone={allCovered ? 'gain' : 'muted'}
+        tone={exact ? 'gain' : 'muted'}
       >
         <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
           <Figure
-            label="已核对成本"
-            note={`${stocks.cost_coverage.reconciled} / ${costTotal} 项`}
+            label="可用成本"
+            note={`${available} / ${costTotal} 项`}
             value={money(totals.knownCost)}
           />
           <Figure
@@ -229,7 +240,12 @@ export function StockSummary({ stocks, equityUsd }: {
             value={signedMoney(totals.knownPnl)}
           />
         </dl>
-        {!allCovered && (
+        {stocks.cost_coverage.estimated > 0 && (
+          <p className="mt-4 border-t border-rule pt-3 text-xs leading-relaxed text-ink-3">
+            估算项的成交数量已与钱包核对，成本与未实现盈亏暂未包含 Binance 未返回的手续费。
+          </p>
+        )}
+        {pending > 0 && (
           <p className="mt-4 border-t border-rule pt-3 text-xs leading-relaxed text-ink-3">
             只合计股数与钱包一致的仓位；其余仓位不显示成本和盈亏。
           </p>

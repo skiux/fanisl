@@ -164,6 +164,7 @@ export const SOURCE_LABEL: Record<string, string> = {
   futures: '合约账户',
   account: '账户能力',
   earn: '理财持仓',
+  bfusd: 'BFUSD 年化',
   margin: '杠杆账户',
   isolated_margin: '逐仓杠杆',
   liquidation_loan: '强平借款',

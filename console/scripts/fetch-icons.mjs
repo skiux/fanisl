@@ -26,6 +26,8 @@ const CRYPTO = [
 // 美股永续与 ETF。Binance 上过的 + 用户关注列表里的
 const STOCKS = [
   'SPY', 'QQQ', 'IWM', 'DIA',
+  'SOXL', 'SOXS', 'SPXL', 'SPXS', 'TECL', 'TECS', 'TQQQ', 'SQQQ', 'UPRO',
+  'LABU', 'LABD', 'FAS', 'FAZ', 'TNA', 'TZA',
   'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NVDA', 'TSLA',
   'AVGO', 'AMD', 'INTC', 'MU', 'ARM', 'TSM', 'MRVL', 'SNDK', 'LITE', 'GLW',
   'ORCL', 'CRM', 'ADBE', 'NFLX', 'PYPL', 'UBER', 'COIN', 'HOOD', 'PLTR',

@@ -97,6 +97,46 @@ def test_equity_history_paginates_the_documented_envelope():
     assert [row["orderId"] for row in rows] == ["o-1", "o-2"]
 
 
+def test_equity_order_detail_uses_documented_endpoint():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/time"):
+            return httpx.Response(200, json={"serverTime": 0})
+        assert request.url.path == "/sapi/v1/equity/order/detail"
+        assert request.url.params["orderId"] == "soxl-buy"
+        return httpx.Response(200, json={"orderId": "soxl-buy", "fee": "0.35"})
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        detail = client.equity_order_detail("soxl-buy")
+    finally:
+        client.close()
+
+    assert detail["fee"] == "0.35"
+
+
+def test_bfusd_rate_history_uses_current_simple_earn_endpoint():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/time"):
+            return httpx.Response(200, json={"serverTime": 0})
+        seen["path"] = request.url.path
+        seen["params"] = dict(request.url.params)
+        return httpx.Response(200, json={"rows": [], "total": "0"})
+
+    client = BinanceClient("k", "s", client=httpx.Client(
+        transport=httpx.MockTransport(handler)))
+    try:
+        client.bfusd_rate_history(current=1, size=1)
+    finally:
+        client.close()
+
+    assert seen["path"] == "/sapi/v1/bfusd/history/rateHistory"
+    assert seen["params"]["current"] == "1"
+    assert seen["params"]["size"] == "1"
+
+
 def test_equity_history_fails_closed_when_page_guard_truncates_rows():
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/time"):

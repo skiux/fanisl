@@ -41,7 +41,7 @@ describe('持仓页的股票', () => {
           cost_status: 'incomplete' as const, avg_cost_usd: null, cost_basis_usd: null,
           realized_pnl_usd: null, unrealized_pnl_usd: null, unrealized_pnl_pct: null },
       ],
-      cost_coverage: { reconciled: 1, total: 2 },
+      cost_coverage: { reconciled: 1, estimated: 0, total: 2 },
     }
 
     const totals = stockTotals(partial)
@@ -69,7 +69,7 @@ describe('持仓页的股票', () => {
         equity_holdings: [],
         tokenized_assets: [tokenized],
         positions: [],
-        cost_coverage: { reconciled: 0, total: 0 },
+        cost_coverage: { reconciled: 0, estimated: 0, total: 0 },
       },
     }
 
@@ -121,7 +121,7 @@ describe('持仓页的股票', () => {
             unrealized_pnl_usd: null, unrealized_pnl_pct: null,
           },
         ],
-        cost_coverage: { reconciled: 1, total: 2 },
+        cost_coverage: { reconciled: 1, estimated: 0, total: 2 },
       },
     }
     act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
@@ -160,7 +160,7 @@ describe('持仓页的股票', () => {
           direct_qty: 40, tokenized_qty: 0, available_qty: 40, total_qty: 40,
           wallet_price_usd: 28.5, wallet_value_usd: 1140,
         }],
-        cost_coverage: { reconciled: 2, total: 2 },
+        cost_coverage: { reconciled: 2, estimated: 0, total: 2 },
       },
     }
     act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
@@ -172,5 +172,42 @@ describe('持仓页的股票', () => {
     act(() => symbolSort.click())
     expect(rows().map((row) => row.dataset.stockPosition))
       .toEqual([...rows().map((row) => row.dataset.stockPosition)].sort())
+  })
+
+  it('手续费缺失时显示估算成本，并明确说明未包含手续费', () => {
+    const base = buildSnapshot(new Date('2026-09-17T12:00:00Z'))
+    const estimated = {
+      ...base.stocks.positions[0],
+      cost_status: 'estimated' as const,
+      avg_cost_usd: 209.9,
+      cost_basis_usd: 419.8,
+      realized_pnl_usd: null,
+      unrealized_pnl_usd: 40.2,
+      unrealized_pnl_pct: 40.2 / 419.8,
+    }
+    const snapshot: PortfolioSnapshot = {
+      ...base,
+      stocks: {
+        ...base.stocks,
+        positions: [estimated],
+        cost_coverage: { reconciled: 0, estimated: 1, total: 1 },
+      },
+    }
+
+    act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
+
+    expect(host.textContent).toContain('估算成本')
+    expect(host.textContent).toContain('未含手续费')
+    expect(host.textContent).toContain('$209.9')
+    expect(host.textContent).toContain('1 项为估算')
+  })
+
+  it('合约与全仓杠杆里的币直接并入现货持仓，不再单列旧模块', () => {
+    const snapshot = buildSnapshot(new Date('2026-09-17T12:00:00Z'))
+    act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
+
+    expect(host.textContent).not.toContain('合约中的现货持仓')
+    expect(host.textContent).toContain('现货 · 合约钱包 · 全仓杠杆')
+    expect(host.textContent).toContain('现货钱包可用')
   })
 })

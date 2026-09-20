@@ -1,10 +1,10 @@
 import { baseOf } from './format'
-import type { PortfolioSnapshot } from '../api/types'
+import type { PortfolioSnapshot, SpotAsset } from '../api/types'
 
 /**
  * 跨钱包地看"我到底拿着什么"。
  *
- * 页面上原先没有这一层：现货持仓、理财持仓、合约仓位、合约中的现货持仓各画各的，
+ * 页面上原先没有这一层：现货、理财、合约仓位和各钱包余额各画各的，
  * 于是**"我对 NVDA 一共有多大敞口"这个问题在哪一页都答不上来**——现货那份在一张表里，
  * 永续那份在另一张表里，两者相加没人做。风险判断要的恰恰是相加之后的数。
  *
@@ -71,13 +71,66 @@ export function exposures(snapshot: PortfolioSnapshot, equity: number): Exposure
     .sort((a, b) => Math.abs(b.net_usd) - Math.abs(a.net_usd) || b.gross_usd - a.gross_usd)
 }
 
+export type SpotHoldingRow = SpotAsset & {
+  /** 同一种币可能分散在多个钱包；主表合并数量，但保留位置提示。 */
+  locations: string[]
+}
+
+export function spotHoldings(snapshot: PortfolioSnapshot): SpotHoldingRow[] {
+  type Pending = SpotHoldingRow & { known_value: number; value_complete: boolean }
+  const stable = new Set(snapshot.stable_assets)
+  const byAsset = new Map<string, Pending>()
+  const add = (asset: string, quantity: number, value: number | null, location: string,
+               locks: Pick<SpotAsset, 'free' | 'locked' | 'freeze' | 'withdrawing'>) => {
+    if (!asset || quantity <= 0) return
+    const row = byAsset.get(asset) ?? {
+      asset, free: 0, locked: 0, freeze: 0, withdrawing: 0, total: 0,
+      price_usd: null, value_usd: null, locations: [], known_value: 0,
+      value_complete: true,
+    }
+    row.free += locks.free
+    row.locked += locks.locked
+    row.freeze += locks.freeze
+    row.withdrawing += locks.withdrawing
+    row.total += quantity
+    if (value === null) row.value_complete = false
+    else row.known_value += value
+    if (!row.locations.includes(location)) row.locations.push(location)
+    byAsset.set(asset, row)
+  }
+
+  for (const row of snapshot.spot) {
+    if (!stable.has(row.asset)) add(row.asset, row.total, row.value_usd, '现货', row)
+  }
+  for (const row of snapshot.futures?.assets ?? []) {
+    if (!stable.has(row.asset)) {
+      add(row.asset, row.wallet_balance, row.value_usd, '合约钱包', {
+        free: row.wallet_balance, locked: 0, freeze: 0, withdrawing: 0,
+      })
+    }
+  }
+  for (const row of snapshot.margin?.assets ?? []) {
+    if (!stable.has(row.asset)) {
+      add(row.asset, row.net, row.value_usd, '全仓杠杆', {
+        free: row.net, locked: 0, freeze: 0, withdrawing: 0,
+      })
+    }
+  }
+
+  return [...byAsset.values()].map(({ known_value, value_complete, ...row }) => ({
+    ...row,
+    value_usd: value_complete ? known_value : null,
+    price_usd: value_complete && row.total > 0 ? known_value / row.total : null,
+  })).sort((a, b) => (b.value_usd ?? -1) - (a.value_usd ?? -1))
+}
+
 /** 现金放在哪儿。同一个币可能同时在几个地方，所以数的是**行**不是币种 */
 export type CashRow = {
   asset: string
   where: string
   amount: number
   value_usd: number | null
-  /** 只有理财那几行有年化 */
+  /** 理财产品年化，或 BFUSD 等资产的官方公布年化。 */
   apr: number | null
 }
 
@@ -90,15 +143,20 @@ export function cash(snapshot: PortfolioSnapshot): CashRow[] {
     rows.push({ asset, where, amount, value_usd: value, apr })
   }
 
-  for (const row of snapshot.spot) push(row.asset, '现货', row.total, row.value_usd)
+  const published = (asset: string) => snapshot.yield_rates[asset] ?? null
+  for (const row of snapshot.spot) {
+    push(row.asset, '现货', row.total, row.value_usd, published(row.asset))
+  }
   for (const row of snapshot.earn) {
     push(row.asset, row.kind === 'locked' ? '理财 · 定期' : '理财 · 活期',
-         row.amount, row.value_usd, row.apr)
+         row.amount, row.value_usd, row.apr ?? published(row.asset))
   }
-  for (const row of snapshot.margin?.assets ?? []) push(row.asset, '全仓杠杆', row.net, row.value_usd)
+  for (const row of snapshot.margin?.assets ?? []) {
+    push(row.asset, '全仓杠杆', row.net, row.value_usd, published(row.asset))
+  }
   // 合约钱包里的稳定币就是**保证金本身**，是这几行里唯一直接决定强平的
   for (const row of snapshot.futures?.assets ?? []) {
-    push(row.asset, '合约保证金', row.wallet_balance, row.value_usd)
+    push(row.asset, '合约保证金', row.wallet_balance, row.value_usd, published(row.asset))
   }
   return rows.sort((a, b) => (b.value_usd ?? 0) - (a.value_usd ?? 0))
 }

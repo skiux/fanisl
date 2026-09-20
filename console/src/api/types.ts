@@ -23,7 +23,7 @@ export type SourceKey =
   // 而其余全部 unauthorized——界面据此能分清"网络/凭据问题"与"确实没有资产"。
   | 'prices'
   | 'wallets' | 'spot' | 'stocks' | 'futures'
-  | 'account' | 'earn' | 'margin' | 'isolated_margin'
+  | 'account' | 'earn' | 'bfusd' | 'margin' | 'isolated_margin'
   | 'liquidation_loan' | 'portfolio_margin' | 'income' | 'transfers'
   // 委托页
   | 'spot_open' | 'futures_open' | 'margin_open' | 'order_lists' | 'algo_open'
@@ -141,7 +141,7 @@ export type StockPosition = {
   fractionable_extended: boolean
   extended_session: boolean
   overnight_supported: boolean
-  cost_status: 'reconciled' | 'incomplete' | 'unavailable'
+  cost_status: 'reconciled' | 'estimated' | 'incomplete' | 'unavailable'
   avg_cost_usd: number | null
   cost_basis_usd: number | null
   realized_pnl_usd: number | null
@@ -159,7 +159,7 @@ export type StocksAccount = {
   tokenized_assets: TokenizedStockAsset[]
   /** 按经济标的合并后的仓位，直接持有与代币化形态仍由数量字段分别保留。 */
   positions: StockPosition[]
-  cost_coverage: { reconciled: number; total: number }
+  cost_coverage: { reconciled: number; estimated: number; total: number }
 }
 
 export type PositionSide = 'long' | 'short' | 'both'
@@ -471,11 +471,13 @@ export type PortfolioSnapshot = {
    * 维护一份名单——这件事曾经在四个地方各写一份、四份还不一样。
    *
    * 少一个的后果：那个币会被拉日线，于是 ±0.03% 的报价噪声变成"今日盈亏"；
-   * 「合约中的现货持仓」把一笔保证金当成币仓列出来；最大单一敞口把它算成集中持仓。
+   * 现金表把保证金当成现金；最大单一敞口不会把它算成集中持仓。
    * 名单里包含理财与合约的 1:1 包装（LDUSDT / BFUSD），不含欧元稳定币
    * （EURI / AEUR 是稳定币但不是美元，按 1 美元计价直接算错）。
    */
   stable_assets: string[]
+  /** 按资产给出的当前公布年化；null 表示该来源当前取不到。 */
+  yield_rates: Record<string, number | null>
   wallets: WalletBucket[]
   spot: SpotAsset[]
   stocks: StocksAccount

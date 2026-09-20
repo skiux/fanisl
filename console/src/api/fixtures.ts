@@ -185,7 +185,7 @@ export const stocks: StocksAccount = {
     unrealized_pnl_usd: 40,
     unrealized_pnl_pct: 40 / 420,
   }],
-  cost_coverage: { reconciled: 1, total: 1 },
+  cost_coverage: { reconciled: 1, estimated: 0, total: 1 },
 }
 
 const FUTURES_WALLET = 18_500
@@ -210,8 +210,10 @@ export const futures: FuturesAccount = (() => {
     // 合约钱包里躺着的币。把 BNB 划进来当保证金 / 抵手续费是常见做法——
     // 它们仍然是现货持仓，只是不在现货钱包里
     assets: [
-      { asset: 'USDT', wallet_balance: FUTURES_WALLET - 810, margin_balance: marginBalance - 810,
-        available: marginBalance - initial - 810, value_usd: FUTURES_WALLET - 810 },
+      { asset: 'USDT', wallet_balance: FUTURES_WALLET - 3810, margin_balance: marginBalance - 3810,
+        available: marginBalance - initial - 3810, value_usd: FUTURES_WALLET - 3810 },
+      { asset: 'BFUSD', wallet_balance: 3000, margin_balance: 3000,
+        available: 3000, value_usd: 3000 },
       { asset: 'BNB', wallet_balance: 1.1875, margin_balance: 1.1875,
         available: 1.1875, value_usd: 1.1875 * (PRICE.BNB ?? 0) },
     ],
@@ -509,6 +511,7 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
       gross_exposure_ratio: equity > 0 ? notional / equity : null,
     },
     stable_assets: STABLE_FIXTURE,
+    yield_rates: { BFUSD: 0.0736 },
     wallets, spot, stocks, capabilities, futures, earn, margin,
     isolated_margin: isolatedMargin,
     liquidation_loan: liquidationLoan,
@@ -517,7 +520,7 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
     pnl: buildPnl(),
     sources: [
       ...([
-        'prices', 'wallets', 'spot', 'stocks', 'futures', 'account', 'earn', 'margin',
+        'prices', 'wallets', 'spot', 'stocks', 'futures', 'account', 'earn', 'bfusd', 'margin',
         'isolated_margin', 'liquidation_loan', 'income', 'transfers',
       ] as const).map((key) => okSource(key, iso)),
       {

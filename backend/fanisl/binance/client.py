@@ -329,6 +329,11 @@ class BinanceClient:
         return self.signed_get(SPOT_BASE, "/sapi/v1/simple-earn/locked/position",
                                {"size": size})
 
+    def bfusd_rate_history(self, *, current: int = 1, size: int = 1) -> Any:
+        """BFUSD 已从 Futures 移到 Simple Earn；当前年化在独立历史端点。"""
+        return self.signed_get(SPOT_BASE, "/sapi/v1/bfusd/history/rateHistory",
+                               {"current": current, "size": size})
+
     def futures_income(self, *, start_ms: int, end_ms: int, limit: int = 1000) -> Any:
         return self.signed_get(FAPI_BASE, "/fapi/v1/income",
                                {"startTime": start_ms, "endTime": end_ms, "limit": limit})
@@ -389,6 +394,10 @@ class BinanceClient:
         return self._equity_history("/sapi/v1/equity/order/history",
                                     start_ms=start_ms, end_ms=end_ms, symbol=symbol,
                                     size=size, max_pages=max_pages)
+
+    def equity_order_detail(self, order_id: str) -> Any:
+        return self.signed_get(SPOT_BASE, "/sapi/v1/equity/order/detail",
+                               {"orderId": order_id})
 
     def equity_trade_history(self, *, start_ms: int, end_ms: int,
                              symbol: str | None = None, size: int = 100,

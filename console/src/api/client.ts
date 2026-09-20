@@ -73,7 +73,7 @@ const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
 const FAPI_SOURCES: SourceKey[] = ['futures', 'income']
 
 const PORTFOLIO_SOURCE_KEYS = [
-  'prices', 'wallets', 'spot', 'stocks', 'futures', 'account', 'earn', 'margin',
+  'prices', 'wallets', 'spot', 'stocks', 'futures', 'account', 'earn', 'bfusd', 'margin',
   'isolated_margin', 'liquidation_loan', 'portfolio_margin', 'income', 'transfers',
 ] as const
 
@@ -186,14 +186,14 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
             key, status: 'unauthorized' as const, as_of: null,
             detail: 'API key 无读取权限，或调用 IP 不在白名单内',
           })),
-        totals: null, stable_assets: fx.STABLE_FIXTURE,
+        totals: null, stable_assets: fx.STABLE_FIXTURE, yield_rates: { BFUSD: null },
         wallets: [], spot: [], stocks: {
           standalone_positions_available: false,
           coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点。',
           equity_holdings: [],
           tokenized_assets: [],
           positions: [],
-          cost_coverage: { reconciled: 0, total: 0 },
+          cost_coverage: { reconciled: 0, estimated: 0, total: 0 },
         }, capabilities: null, futures: null, earn: [], margin: null,
         isolated_margin: null, liquidation_loan: null, portfolio_margin: null,
         income: null, transfers: null, pnl: null,
@@ -218,13 +218,14 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         )),
         totals: { equity_usd: 0, gross_exposure_ratio: null },
         stable_assets: fx.STABLE_FIXTURE,
+        yield_rates: { BFUSD: null },
         wallets: [], spot: [], stocks: {
           standalone_positions_available: false,
           coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点。',
           equity_holdings: [],
           tokenized_assets: [],
           positions: [],
-          cost_coverage: { reconciled: 0, total: 0 },
+          cost_coverage: { reconciled: 0, estimated: 0, total: 0 },
         }, capabilities: {
           vip_level: 0, reading: true, ip_restricted: true,
           margin: false, futures: true, options: false, portfolio_margin: false,

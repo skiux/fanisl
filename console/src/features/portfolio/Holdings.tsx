@@ -3,22 +3,25 @@ import { CaretDown } from '@phosphor-icons/react'
 import { cn } from '../../lib/cn'
 import { Ticker } from '../../components/Ticker'
 import { amount, DUST_THRESHOLD_USD, money, percent, price } from '../../lib/format'
-import type { EarnPosition, EquityHolding, SpotAsset, TokenizedStockAsset } from '../../api/types'
-import type { CashRow } from '../../lib/holdings'
+import type { EarnPosition, EquityHolding, TokenizedStockAsset } from '../../api/types'
+import type { CashRow, SpotHoldingRow } from '../../lib/holdings'
 
 const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_112px]'
 
-/** 锁定原因不止一种，合并成"占用"会丢掉"为什么动不了" */
-function lockNote(item: SpotAsset) {
+/** 合并后仍保留资产所在钱包与锁定原因，否则总数无法核对。 */
+function rowNote(item: SpotHoldingRow) {
   const parts: string[] = []
+  if (item.locations.length > 1 || item.locations[0] !== '现货') {
+    parts.push(item.locations.join(' · '))
+  }
   if (item.locked > 0) parts.push(`${amount(item.locked)} 挂单`)
   if (item.freeze > 0) parts.push(`${amount(item.freeze)} 冻结`)
   if (item.withdrawing > 0) parts.push(`${amount(item.withdrawing)} 提现中`)
   return parts.length > 0 ? parts.join(' · ') : null
 }
 
-function SpotRow({ item, share }: { item: SpotAsset; share: number }) {
-  const note = lockNote(item)
+function SpotRow({ item, share }: { item: SpotHoldingRow; share: number }) {
+  const note = rowNote(item)
   return (
     <li className={cn(ROW, 'py-3 transition-colors duration-200 hover:bg-sheet-2/45')}>
       <div className="flex min-w-0 items-center gap-2.5">
@@ -51,11 +54,11 @@ function SpotRow({ item, share }: { item: SpotAsset; share: number }) {
   )
 }
 
-export function SpotTable({ spot }: { spot: SpotAsset[] }) {
+export function SpotTable({ spot }: { spot: SpotHoldingRow[] }) {
   const [dustOpen, setDustOpen] = useState(false)
   const { major, dust, dustValue, total } = useMemo(() => {
     const sorted = [...spot].sort((a, b) => (b.value_usd ?? -1) - (a.value_usd ?? -1))
-    const isDusty = (item: SpotAsset) => (item.value_usd ?? 0) < DUST_THRESHOLD_USD
+    const isDusty = (item: SpotHoldingRow) => (item.value_usd ?? 0) < DUST_THRESHOLD_USD
     return {
       major: sorted.filter((item) => !isDusty(item)),
       dust: sorted.filter(isDusty),
@@ -63,10 +66,10 @@ export function SpotTable({ spot }: { spot: SpotAsset[] }) {
       total: sorted.reduce((sum, item) => sum + (item.value_usd ?? 0), 0),
     }
   }, [spot])
-  const share = (item: SpotAsset) => (total > 0 ? (item.value_usd ?? 0) / total : 0)
+  const share = (item: SpotHoldingRow) => (total > 0 ? (item.value_usd ?? 0) / total : 0)
 
   if (spot.length === 0) {
-    return <p className="py-10 text-center text-sm text-ink-3">现货账户里没有余额。</p>
+    return <p className="py-10 text-center text-sm text-ink-3">当前没有现货类资产。</p>
   }
 
   return (
@@ -211,48 +214,6 @@ export function TokenizedStocksTable({ rows }: { rows: TokenizedStockAsset[] }) 
     </>
   )
 }
-
-/**
- * 合约 / 全仓杠杆钱包里躺着的币。
- *
- * 它们仍然是现货持仓，只是不在现货钱包里——把 BNB 划进合约当保证金、抵手续费
- * 是常见做法。「现货持仓」那张表只读现货钱包，于是这些币在页面上凭空消失，
- * 屏幕上就成了"现货数据取不到"。盈亏那边一直是按跨钱包持有量算的。
- */
-export function ParkedTable({ rows }: {
-  rows: { asset: string; qty: number; value_usd: number | null; where: string }[]
-}) {
-  return (
-    <>
-      <div className={cn(PARKED_ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
-        <span>资产</span>
-        <span className="hidden sm:block">数量</span>
-        <span className="hidden sm:block">在哪个钱包</span>
-        <span className="text-right">价值</span>
-      </div>
-      <ul className="divide-y divide-rule">
-        {rows.map((row) => (
-          <li className={cn(PARKED_ROW, 'py-3')} key={`${row.where}:${row.asset}`}>
-            <span className="flex min-w-0 items-center gap-2.5">
-              <Ticker asset={row.asset} />
-              <span className="truncate text-sm text-ink">{row.asset}</span>
-              {/* 窄屏没有"在哪个钱包"那一列，钱包名跟在代码后面 */}
-              <span className="shrink-0 text-micro text-ink-3 sm:hidden">{row.where}</span>
-            </span>
-            <span className="tnum hidden text-sm text-ink-2 sm:block">{amount(row.qty)}</span>
-            <span className="hidden text-sm text-ink-2 sm:block">{row.where}</span>
-            <span className="tnum text-right text-sm text-ink">
-              {row.value_usd === null ? '—' : money(row.value_usd)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </>
-  )
-}
-
-const PARKED_ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)]'
-
 
 const CASH_ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)]'
 

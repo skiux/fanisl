@@ -42,6 +42,12 @@
     `docs/decisions/`。席位表里的 `tools/` 分不清是 `backend/tools/` 还是 `backend/fanisl/tools/`
 
 ## Requests in
+- **console 席位（2026-09-20）**：`backend/api.md` 的 `GET /portfolio` 返回字段请补
+  `yield_rates: Record<string, number | null>`；当前首个键为 `BFUSD`，取自
+  `/sapi/v1/bfusd/history/rateHistory` 最近一条 `annualPercentageRate`。同时把返回概览里的
+  `stocks`、`capabilities`、`isolated_margin`、`liquidation_loan`、`portfolio_margin` 与
+  `stable_assets` 补齐；`stocks.positions[].cost_status` 现有 `estimated`（股数已与钱包核对，
+  但 Binance 未返回手续费），`cost_coverage` 增加 `estimated` 计数。
 - **console 席位**：pem 权限，见 Next 第 3 条
 - **console 席位（2026-09-17）**：`backend/api.md` 的 `GET /orders` 一节已与实现不符，请改：
   ① Query 的 `venue` 还有 `equity`；② `history_symbols` 的候选来源现在是「挂单 + 持仓 +

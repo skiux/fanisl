@@ -35,6 +35,9 @@ MS_DAY = 86_400_000
 # 开通时间端点。取 1 表示从可查询历史的起点开始；分页护栏一旦截断，客户端会直接失败，
 # 不会把残缺记录交给成本计算。
 EQUITY_HISTORY_START_MS = 1
+# Order Detail 的 IP 限速是 200 次/分钟。只补当前持仓相关、最近的缺手续费订单，
+# 再多就保留为“未含手续费”的估算，不能为追求精确把整个账户打进 429。
+MAX_EQUITY_DETAIL_LOOKUPS = 100
 
 # 成员只能看 90 天以内。管理员看全量——现货成交没有时间上限，能一直回溯到开户。
 MEMBER_MAX_DAYS = 90
@@ -96,6 +99,53 @@ def _stock_quote_jobs(client: BinanceClient, symbols: list[str]
                       ) -> list[tuple[str, int, Any]]:
     return [(f"equity.quote.{symbol}", TTL["prices"],
              (lambda s=symbol: client.equity_quote(s))) for symbol in symbols]
+
+
+def _equity_detail_jobs(client: BinanceClient, order_rows: Any, symbols: list[str]
+                        ) -> list[tuple[str, int, Any]]:
+    """只为当前持仓补查缺失手续费；详情按 order id 缓存，避免重复打接口。"""
+    wanted = set(symbols)
+    candidates = []
+    seen = set()
+    for row in order_rows if isinstance(order_rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        raw_fee = row.get("fee")
+        order_id = str(row.get("orderId", ""))
+        if (str(row.get("symbol", "")).upper() not in wanted
+                or str(row.get("status", "")).upper() != "FILLED"
+                or (raw_fee is not None and raw_fee != "")
+                or not order_id or order_id in seen):
+            continue
+        seen.add(order_id)
+        candidates.append((dec0(row.get("updatedAt")), order_id))
+    candidates.sort(reverse=True)
+    return [
+        (f"equity.detail.{order_id}", TTL["stocks"],
+         (lambda value=order_id: client.equity_order_detail(value)))
+        for _, order_id in candidates[:MAX_EQUITY_DETAIL_LOOKUPS]
+    ]
+
+
+def _equity_history_with_details(order_rows: Any,
+                                 detail_results: dict[str, SourceResult]) -> Any:
+    if not isinstance(order_rows, list):
+        return order_rows
+    out = []
+    for row in order_rows:
+        if not isinstance(row, dict):
+            out.append(row)
+            continue
+        order_id = str(row.get("orderId", ""))
+        result = detail_results.get(f"equity.detail.{order_id}")
+        detail = result.payload if result is not None and result.ok else None
+        fee = detail.get("fee") if isinstance(detail, dict) else None
+        if (isinstance(detail, dict) and str(detail.get("orderId", "")) == order_id
+                and fee is not None and fee != ""):
+            out.append({**row, "fee": fee})
+        else:
+            out.append(row)
+    return out
 
 
 def _closes(results: dict[str, SourceResult], symbols: list[str]
@@ -203,6 +253,7 @@ def _jobs(client: BinanceClient, now: datetime) -> list[tuple[str, int, Callable
         ("account.restrictions", TTL["account"], client.api_restrictions),
         ("earn.flexible", TTL["earn"], client.earn_flexible_positions),
         ("earn.locked", TTL["earn"], client.earn_locked_positions),
+        ("bfusd.rate", TTL["earn"], client.bfusd_rate_history),
         ("income", TTL["income"],
          lambda: client.futures_income(start_ms=start_ms, end_ms=end_ms)),
         ("transfers.deposits", TTL["transfers"],
@@ -220,7 +271,7 @@ def _jobs(client: BinanceClient, now: datetime) -> list[tuple[str, int, Callable
 #
 # 它们各自的真实年龄没有被藏起来：每个来源自己的 as_of 照常返回，
 # 界面上的「取数状态」一格一格地显示。
-LIVE_CADENCE = frozenset({"prices", "wallets", "spot", "futures", "earn", "margin",
+LIVE_CADENCE = frozenset({"prices", "wallets", "spot", "futures", "earn", "bfusd", "margin",
                           "isolated_margin", "liquidation_loan", "portfolio_margin",
                           "income", "transfers"})
 
@@ -229,9 +280,10 @@ LIVE_CADENCE = frozenset({"prices", "wallets", "spot", "futures", "earn", "margi
 # 强刷没有意义。用户连点几下就能把权重预算打空，然后所有页面一起 429。
 NEVER_FORCE = frozenset({
     "futures.brackets", "transfers.withdrawals", "equity.history", "equity.trades",
+    "bfusd.rate",
 })
 
-# 契约里的八个来源，各自由哪些子调用支撑。primary 决定状态，extra 只在失败时补一句说明。
+# 契约里的来源各自由哪些子调用支撑。primary 决定状态，extra 只在失败时补一句说明。
 _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
     "prices": ("prices", ()),
     "wallets": ("wallets", ()),
@@ -245,6 +297,7 @@ _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
     )),
     "account": ("account.info", ("account.restrictions",)),
     "earn": ("earn.flexible", ("earn.locked",)),
+    "bfusd": ("bfusd.rate", ()),
     "margin": ("margin", ()),
     "isolated_margin": ("isolated_margin", ()),
     "liquidation_loan": ("liquidation_loan", ()),
@@ -310,7 +363,8 @@ EQUITY_ASSET_PREFIX = "EQ_"
 STOCKS_COVERAGE = (
     "Binance Stocks 没有持仓查询接口。正股持仓取自钱包明细里 EQ_ 开头的资产，"
     "数量与钱包一致；市值沿用 Binance 钱包估值。成本按完整委托与逐笔成交历史重放，"
-    "且仅在净股数与当前正股和代币化股票合计股数一致时显示。"
+    "且仅在净股数与当前正股和代币化股票合计股数一致时显示；订单详情仍未返回"
+    "手续费时，明确标为未含手续费的估算。"
 )
 
 
@@ -333,7 +387,7 @@ def _equity_costs(order_rows: Any, trade_rows: Any) -> dict[str, dict]:
     def state_for(symbol: str) -> dict[str, Any]:
         return states.setdefault(symbol, {
             "qty": Decimal(0), "cost": Decimal(0), "realized": Decimal(0),
-            "complete": True,
+            "complete": True, "fees_complete": True,
         })
 
     for row in order_rows if isinstance(order_rows, list) else []:
@@ -348,11 +402,15 @@ def _equity_costs(order_rows: Any, trade_rows: Any) -> dict[str, dict]:
         quote = str(row.get("quote", "")).upper()
         side = str(row.get("side", "")).upper()
         price = _decimal(row.get("avgFilledPrice"))
-        fee = _decimal(row.get("fee"))
+        raw_fee = row.get("fee")
+        fee_missing = raw_fee is None or raw_fee == ""
+        fee = Decimal(0) if fee_missing else _decimal(raw_fee)
         if not symbol:
             global_complete = False
             continue
         state = state_for(symbol)
+        if fee_missing:
+            state["fees_complete"] = False
         if (not order_id or order_id in orders or qty is None or qty <= 0
                 or price is None or price <= 0 or fee is None or fee < 0
                 or quote not in STABLE_ASSETS or side not in {"BUY", "SELL"}):
@@ -474,6 +532,7 @@ def _equity_costs(order_rows: Any, trade_rows: Any) -> dict[str, dict]:
         symbol: {
             "qty": float(state["qty"]), "cost": float(state["cost"]),
             "realized": float(state["realized"]), "complete": state["complete"],
+            "fees_complete": state["fees_complete"],
         }
         for symbol, state in states.items()
     }
@@ -555,9 +614,11 @@ def _stock_positions(equities: list[dict], assets: list[dict], order_rows: Any,
         metadata = metadata_by.get(symbol, {})
         step_size = dec(metadata.get("stepSize"))
         tolerance = max(1e-9, step_size / 2 if step_size is not None and step_size > 0 else 1e-8)
-        reconciled = bool(cost and cost["complete"]
-                          and abs(cost["qty"] - total_qty) <= tolerance)
-        cost_basis = cost["cost"] if reconciled else None
+        quantity_reconciled = bool(cost and cost["complete"]
+                                   and abs(cost["qty"] - total_qty) <= tolerance)
+        reconciled = bool(quantity_reconciled and cost["fees_complete"])
+        estimated = bool(quantity_reconciled and not cost["fees_complete"])
+        cost_basis = cost["cost"] if quantity_reconciled else None
         average = cost_basis / total_qty if cost_basis is not None and total_qty > 0 else None
         unrealized = (mark * total_qty - cost_basis
                       if mark is not None and cost_basis is not None else None)
@@ -582,10 +643,12 @@ def _stock_positions(equities: list[dict], assets: list[dict], order_rows: Any,
             "fractionable_extended": bool(metadata.get("fractionableEh", False)),
             "extended_session": bool(metadata.get("extendedSession", False)),
             "overnight_supported": bool(metadata.get("overnightSupported", False)),
-            "cost_status": "reconciled" if reconciled else (
+            "cost_status": "reconciled" if reconciled else "estimated" if estimated else (
                 "incomplete" if histories_available else "unavailable"),
             "avg_cost_usd": average,
             "cost_basis_usd": cost_basis,
+            # 卖出手续费缺失会让已实现盈亏不确定；估算状态只展示当前剩余成本与
+            # 未实现盈亏，并在前端明确标注未含手续费。
             "realized_pnl_usd": cost["realized"] if reconciled else None,
             "unrealized_pnl_usd": unrealized,
             "unrealized_pnl_pct": (unrealized / cost_basis
@@ -595,6 +658,7 @@ def _stock_positions(equities: list[dict], assets: list[dict], order_rows: Any,
                    if row["wallet_value_usd"] is not None else -1, reverse=True)
     return positions, {
         "reconciled": sum(row["cost_status"] == "reconciled" for row in positions),
+        "estimated": sum(row["cost_status"] == "estimated" for row in positions),
         "total": len(positions),
     }
 
@@ -1039,6 +1103,21 @@ def _earn(flexible: Any, locked: Any, prices: dict[str, float]) -> list[dict]:
     return out
 
 
+def _bfusd_rate(payload: Any) -> float | None:
+    """取 Binance 已公布的最近一条 BFUSD 年化；无效响应保持未知。"""
+    if not isinstance(payload, dict) or not isinstance(payload.get("rows"), list):
+        return None
+    candidates = []
+    for row in payload["rows"]:
+        if not isinstance(row, dict):
+            continue
+        rate = dec(row.get("annualPercentageRate"))
+        if rate is None or rate < 0:
+            continue
+        candidates.append((dec0(row.get("time")), rate))
+    return max(candidates, default=(0.0, None), key=lambda item: item[0])[1]
+
+
 def _margin(payload: Any, btc_usd: float | None,
             prices: dict[str, float] | None = None) -> dict | None:
     """marginLevel 直接给；三个总额是 **BTC 计价**的。"""
@@ -1446,7 +1525,7 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
             "equity_holdings": [],
             "tokenized_assets": [],
             "positions": [],
-            "cost_coverage": {"reconciled": 0, "total": 0},
+            "cost_coverage": {"reconciled": 0, "estimated": 0, "total": 0},
         }
     stock_seed = block("stocks", lambda: _stocks(
         payload("wallets"), payload("equity.tokenized"), btc_usd), fallback=stock_fallback)
@@ -1456,9 +1535,19 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         quote_results = fetch_all(cache, _stock_quote_jobs(client, stock_symbols),
                                   force=force, never_force=NEVER_FORCE)
         results.update(quote_results)
+    raw_equity_history = _fresh_payload(results, "equity.history")
+    equity_detail_results: dict[str, SourceResult] = {}
+    detail_jobs = _equity_detail_jobs(client, raw_equity_history, stock_symbols)
+    if detail_jobs:
+        # 详情只补成本精度，失败仍能显示不含手续费的估算；不让 force 穿透 6h 缓存。
+        equity_detail_results = fetch_all(cache, detail_jobs, force=False,
+                                          never_force=NEVER_FORCE)
+        results.update(equity_detail_results)
+    equity_history = _equity_history_with_details(
+        raw_equity_history, equity_detail_results)
     stocks = block("stocks", lambda: _stocks(
         payload("wallets"), payload("equity.tokenized"), btc_usd,
-        _fresh_payload(results, "equity.history"), _fresh_payload(results, "equity.trades"),
+        equity_history, _fresh_payload(results, "equity.trades"),
         _fresh_payload(results, "equity.exchange_info"),
         {symbol: (quote_results[f"equity.quote.{symbol}"].payload
                   if quote_results.get(f"equity.quote.{symbol}")
@@ -1468,6 +1557,7 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         payload("account.info"), payload("account.restrictions")))
     earn = block("earn", lambda: _earn(payload("earn.flexible"),
                                        payload("earn.locked"), prices), fallback=[]) or []
+    bfusd_rate = block("bfusd", lambda: _bfusd_rate(payload("bfusd.rate")))
     margin = block("margin", lambda: _margin(payload("margin"), btc_usd, prices))
     isolated_margin = block("isolated_margin", lambda: _isolated_margin(
         payload("isolated_margin"), btc_usd, prices))
@@ -1552,6 +1642,7 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         # 这件事原先在四个地方各写了一份、四份还不一样；少一个的后果见
         # `common.STABLE_ASSETS` 的注释。排序只为让响应稳定、好 diff。
         "stable_assets": sorted(STABLE_ASSETS),
+        "yield_rates": {"BFUSD": bfusd_rate},
         "wallets": wallets,
         "spot": spot,
         "stocks": stocks,

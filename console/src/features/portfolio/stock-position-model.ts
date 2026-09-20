@@ -37,7 +37,9 @@ export function stockTotals(stocks: StocksAccount) {
     ? tokenizedRows.reduce((sum, row) => sum + (row.value_usd ?? 0), 0) : null
   const holdings = [...directRows, ...tokenizedRows]
   const valued = holdings.filter((row) => row.value_usd !== null)
-  const reconciled = stocks.positions.filter((row) => row.cost_status === 'reconciled')
+  const costed = stocks.positions.filter((row) => (
+    row.cost_status === 'reconciled' || row.cost_status === 'estimated'
+  ))
   const withPnl = stocks.positions.filter((row) => row.unrealized_pnl_usd !== null)
   return {
     direct,
@@ -46,8 +48,8 @@ export function stockTotals(stocks: StocksAccount) {
     knownValue: valued.reduce((sum, row) => sum + (row.value_usd ?? 0), 0),
     valuedCount: valued.length,
     holdingCount: holdings.length,
-    knownCost: reconciled.length > 0
-      ? reconciled.reduce((sum, row) => sum + (row.cost_basis_usd ?? 0), 0) : null,
+    knownCost: costed.length > 0
+      ? costed.reduce((sum, row) => sum + (row.cost_basis_usd ?? 0), 0) : null,
     knownPnl: withPnl.length > 0
       ? withPnl.reduce((sum, row) => sum + (row.unrealized_pnl_usd ?? 0), 0) : null,
     pnlCount: withPnl.length,

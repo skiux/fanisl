@@ -201,6 +201,9 @@ EARN_LOCKED = {"total": 1, "rows": [
     {"positionId": 90210, "asset": "BNB", "amount": "2.5", "APY": "0.085",
      "rewardAsset": "BNB", "rewardAmt": "0.0412", "canRedeemEarly": False,
      "deliverDate": int((NOW + timedelta(days=12)).timestamp() * 1000)}]}
+BFUSD_RATE = {"rows": [
+    {"annualPercentageRate": "0.0736", "time": int(NOW.timestamp() * 1000)},
+], "total": "1"}
 
 MARGIN = {"marginLevel": "1.8134", "totalAssetOfBtc": "0.09994",
           "totalLiabilityOfBtc": "0.05527", "totalNetAssetOfBtc": "0.04467"}
@@ -277,6 +280,7 @@ ROUTES = {
     "/fapi/v1/leverageBracket": BRACKETS,
     "/sapi/v1/simple-earn/flexible/position": EARN_FLEX,
     "/sapi/v1/simple-earn/locked/position": EARN_LOCKED,
+    "/sapi/v1/bfusd/history/rateHistory": BFUSD_RATE,
     "/sapi/v1/margin/account": MARGIN,
     "/sapi/v1/account/info": ACCOUNT_INFO,
     "/sapi/v1/account/apiRestrictions": API_RESTRICTIONS,

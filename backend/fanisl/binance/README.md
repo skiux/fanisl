@@ -172,6 +172,8 @@ IP 权重上限 **6000/分钟**。而：
 | `/fapi/v3/account` **没有**标记价、强平价、ADL 分位 | 在 `positionRisk` 与 `adlQuantile` 上。少了它们"距强平多远"无从算起 |
 | v3 的 `account` 持仓行也**没有** `entryPrice` / `leverage` / `isolated`，v3 `positionRisk` 只补回了 `entryPrice` | 杠杆倍数与全仓/逐仓只在 `/fapi/v1/symbolConfig`。迁到 v3 后照 v2 字段读，线上每个仓位都成了开仓价 0、1×、全仓（2026-09-17 核对线上缓存） |
 | Stocks Trading 的 Account 文档没有持仓 GET | 持仓只能从钱包明细认：正股是资金钱包里的 `EQ_<代码>`（文档没写，2026-09-17 实测），代币化股票按 tokenized-assets 映射；不能用成交净额伪造持仓 |
+| 股票逐笔成交没有手续费，`order/history` 在线上又可能漏掉 `fee` | 对缺手续费的已成交委托再查 `order/detail`；详情仍没有时只显示“未含手续费”的估算成本，不能把它冒充精确成本 |
+| BFUSD 已移到 Simple Earn，账户余额接口不带当前年化 | 用 `/sapi/v1/bfusd/history/rateHistory` 的最近一条 `annualPercentageRate`，并应用到各钱包中的 BFUSD 现金行 |
 | Stocks Trading 行情要求 API key 但不要求签名 | 当公开端点调用会 401；当 USER_DATA 调用会多余地签名 |
 | TradFi Perps 仍属于 USDⓈ-M | 不能按裸股票账户处理；保证金、强平与资金费仍走 fapi |
 | 账户能力与 API key 权限是两层 | `isMarginEnabled=true` 不表示只读 key 有交易权限；展示和请求分流不能混用 |
@@ -310,7 +312,8 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
 
 **"现货数据取不到"多半就是这一条**：币划进了合约钱包当保证金，量一直都在，
 只是当初只读了现货余额。逐日盈亏与已实现都走 `held_across_wallets`；
-资产页的「合约中的现货持仓」把它们逐个列出来。
+资产页把它们按币种并入「现货持仓」，并在行内保留“合约钱包 / 全仓杠杆”的位置提示；
+稳定币仍归入「现金」，避免把保证金重复画成一笔投资持仓。
 
 **④ 稳定币是计价单位，不是有成本的持仓。** USDT 的成本恒等于面值。当成普通仓位记，
 会因为"没见过它怎么进来的"被标成成本不明，进而把账户里最大的一块从已实现里剔掉。
@@ -457,11 +460,13 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | | `GET /fapi/v1/leverageBracket` | 1 | 24h | 维持保证金分档；重新取数不穿透 |
 | `stocks` | `GET /sapi/v1/equity/market/tokenized-assets` | 1 | 6h | `AAPLB` 等钱包资产映射到股票代码；API key、不签名 |
 | | `GET /sapi/v1/equity/market/exchangeInfo` | 1 | 6h | 可交易方向、碎股、延长时段与隔夜能力；API key、不签名 |
-| | `GET /sapi/v1/equity/order/history` | 1 / 页 | 6h | 从历史起点分页；提供订单总手续费，重新取数不穿透 |
+| | `GET /sapi/v1/equity/order/history` | 1 / 页 | 6h | 从历史起点分页；重新取数不穿透 |
+| | `GET /sapi/v1/equity/order/detail` | 1 / 缺手续费委托 | 随历史 | 只补当前持仓相关、最新 100 笔缺手续费委托；失败不带走整段历史 |
 | | `GET /sapi/v1/equity/trade/history` | 1 / 页 | 6h | 从历史起点分页；按真实执行时间回放逐笔成交，订单手续费按成交额分摊；若多次买入中夹有卖出则因逐笔手续费未知而留空 |
 | | `GET /sapi/v1/equity/market/quote` | 1 / 标的 | 30s | 最新买一/卖一，官方说明最多约 5 秒延迟；缺任一侧时不生成中间价与盈亏 |
 | `earn` | `GET /sapi/v1/simple-earn/flexible/position` | 150 | 300s | UID 限速 |
 | | `GET /sapi/v1/simple-earn/locked/position` | 150 | 300s | UID 限速 |
+| `bfusd` | `GET /sapi/v1/bfusd/history/rateHistory` | 150 | 300s | 最近公布年化；重新取数不穿透 |
 | `margin` | `GET /sapi/v1/margin/account` | 10 | 60s | 全仓杠杆 |
 | `liquidation_loan` | `GET /sapi/v1/margin/liquidation-loan` | 100 †（UID） | 60s | 杠杆启用才取；没有借款时回空响应体 |
 | `income` | `GET /fapi/v1/income` | 30 † | 300s | 已实现 / 资金费 / 手续费 |
@@ -489,9 +494,9 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 日快照（`accountSnapshot`，单次权重 2400）**已经不用了**：它只覆盖现货 / 全仓杠杆 /
 U 本位三种，理财、资金、币本位没有历史快照，拿它算盈亏会把钱包间划转算成损益。
 
-一次完整取数：SPOT 池约 **18 300**（提现一项就占 18 000），FAPI 池 **63**（上表 fapi 各行相加）。
-`withdrawals`、股票委托历史和股票逐笔成交历史列在 `NEVER_FORCE` 里——"重新取数"
-穿不透这些高成本或只增不改的历史来源。
+一次完整取数：SPOT 池约 **18 450 + 最多 100 笔当前持仓的缺手续费委托**（提现一项就占 18 000），
+FAPI 池 **63**（上表 fapi 各行相加）。`withdrawals`、BFUSD 年化、股票委托历史和股票
+逐笔成交历史列在 `NEVER_FORCE` 里——"重新取数"穿不透这些高成本或只增不改的来源。
 
 ### 委托页 `/orders`
 

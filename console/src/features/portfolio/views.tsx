@@ -1,11 +1,11 @@
 import { cn } from '../../lib/cn'
 import { amount, money, percent, price, signedMoney, SOURCE_LABEL } from '../../lib/format'
-import { cash } from '../../lib/holdings'
+import { cash, spotHoldings } from '../../lib/holdings'
 import type { MarginAccount, PortfolioSnapshot } from '../../api/types'
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
 import { RealizedDays } from './RealizedDays'
 import {
-  CashTable, EarnTable, ParkedTable, SpotTable,
+  CashTable, EarnTable, SpotTable,
 } from './Holdings'
 import { PnlBreakdown } from './PnlBreakdown'
 import { StockPositionsList, StockSummary } from './StockPositions'
@@ -136,7 +136,9 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
 }
 
 export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; veiled: boolean }) {
-  const value = snapshot.spot.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
+  const holdings = spotHoldings(snapshot)
+  const holdingsValue = holdings.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
+  const spotValue = snapshot.spot.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
   const at = (pick: (item: PortfolioSnapshot['spot'][number]) => number) =>
     snapshot.spot.reduce((sum, item) => sum + (item.price_usd ?? 0) * pick(item), 0)
   const onOrder = at((item) => item.locked)
@@ -152,6 +154,8 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
   const stockPnlComplete = stockCount > 0
     && unresolvedStocks.length === 0
     && stockPnlRows.length === stockPositions.length
+  const stockPnlEstimated = stockPnlComplete
+    && stockPositions.some((row) => row.cost_status === 'estimated')
 
   const earnValue = snapshot.earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
   const rewards = snapshot.earn.reduce((sum, item) => sum + (item.cumulative_rewards_usd ?? 0), 0)
@@ -163,7 +167,6 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
   const lockedEarn = snapshot.earn.filter((item) => item.kind === 'locked')
   const lockedValue = lockedEarn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
 
-  const stable = new Set(snapshot.stable_assets)
   const cashRows = cash(snapshot)
   const cashTotal = cashRows.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
   const earning = cashRows.filter((row) => row.apr !== null)
@@ -172,40 +175,28 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
     ? earning.reduce((sum, row) => sum + (row.value_usd ?? 0) * (row.apr ?? 0), 0) / earningValue
     : null
 
-  // 合约与全仓杠杆钱包里躺着的币。稳定币不列——那是保证金，不是"持仓"
-  const parked = [
-    ...(snapshot.futures?.assets ?? []).map((row) => ({
-      asset: row.asset, qty: row.wallet_balance, value_usd: row.value_usd, where: '合约',
-    })),
-    ...(snapshot.margin?.assets ?? []).map((row) => ({
-      asset: row.asset, qty: row.net, value_usd: row.value_usd, where: '全仓杠杆',
-    })),
-  ].filter((row) => !stable.has(row.asset) && row.qty > 0)
-   .sort((a, b) => (b.value_usd ?? 0) - (a.value_usd ?? 0))
-  const parkedValue = parked.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
-
   return (
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
         <Module
-          figure={money(value)}
-          note={`${snapshot.spot.length} 个币种`}
+          figure={money(holdingsValue)}
+          note={`${holdings.length} 个币种`}
           span="lg:col-span-8"
           title="现货持仓"
         >
-          <SpotTable spot={snapshot.spot} />
+          <SpotTable spot={holdings} />
         </Module>
 
         <Stack span="lg:col-span-4">
           {/* 逐行的锁定原因在表里，这里给的是合计——两者不是同一个数 */}
           <Module
-            figure={money(value - onOrder - frozen - withdrawing)}
+            figure={money(spotValue - onOrder - frozen - withdrawing)}
             note={unpriced > 0 ? `${unpriced} 项无报价` : '现货可动用'}
             span=""
-            title="可动用"
+            title="现货钱包可用"
           >
             <SplitBar
-              left={value - onOrder - frozen - withdrawing}
+              left={spotValue - onOrder - frozen - withdrawing}
               leftLabel="可动用"
               right={onOrder + frozen + withdrawing}
               rightLabel="锁定"
@@ -247,7 +238,7 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
             <Module
               figure={stockPnlComplete ? signedMoney(stockPnl) : '—'}
               note={stockPnlComplete
-                ? `${stockCount} 个标的`
+                ? `${stockCount} 个标的${stockPnlEstimated ? ' · 含估算' : ''}`
                 : `${stockPnlRows.length} / ${stockCount} 项盈亏可算`}
               span="lg:col-span-8"
               title="股票持仓"
@@ -306,23 +297,6 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
           <EarnTable earn={snapshot.earn} />
         </Module>
 
-        {/* 划进合约当保证金 / 抵手续费的币，仍然是现货持仓，只是不在现货钱包里。
-            这一节原先没有，于是"现货持仓"那张表里看不到它们，屏幕上就成了
-            "现货数据取不到"——其实量一直都在，只是这一页没把它列出来。
-            盈亏那边一直是按跨钱包持有量算的（`held_across_wallets`）。 */}
-        {parked.length > 0 && (
-          <Module
-            figure={money(parkedValue)}
-            // 同一个币可能同时在合约和杠杆里，所以数的是**行**不是币种——
-            // 写"1 个币种"而底下列着两行（BNB 在合约、BNB 在杠杆）读着像错的。
-            // 单位跟「理财持仓 3 项」一致。
-            note={`${parked.length} 项`}
-            span="lg:col-span-12"
-            title="合约中的现货持仓"
-          >
-            <ParkedTable rows={parked} />
-          </Module>
-        )}
       </ViewGrid>
     </div>
   )

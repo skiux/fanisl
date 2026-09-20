@@ -17,7 +17,8 @@ import pytest
 from fanisl.binance.cache import SourceCache, SourceResult
 from fanisl.binance.client import BinanceClient
 from fanisl.binance.portfolio import (
-    build_portfolio, _equity_costs, _fresh_payload, _today_settled,
+    build_portfolio, _equity_costs, _equity_detail_jobs, _fresh_payload,
+    _today_settled,
 )
 
 from binance_mock import (
@@ -65,12 +66,12 @@ def test_snapshot_shape_matches_contract(cache):
     assert set(snap) == {"as_of", "base_currency", "sources", "totals", "stable_assets",
                          "wallets", "spot", "futures", "earn", "margin", "income",
                          "transfers", "stocks", "pnl", "capabilities", "isolated_margin",
-                         "liquidation_loan", "portfolio_margin"}
+                         "liquidation_loan", "portfolio_margin", "yield_rates"}
     assert snap["base_currency"] == "USD"
     assert {s["key"] for s in snap["sources"]} == {
         "prices", "wallets", "spot", "futures", "earn", "margin",
         "income", "transfers", "stocks", "account", "isolated_margin",
-        "liquidation_loan", "portfolio_margin"}
+        "liquidation_loan", "portfolio_margin", "bfusd"}
     states = {s["key"]: s for s in snap["sources"]}
     assert all(states[key]["status"] == "ok" for key in states if key != "portfolio_margin")
     assert states["portfolio_margin"]["status"] == "unsupported"
@@ -430,7 +431,9 @@ def test_stock_position_reconciles_cost_quote_and_wallet_lock_states(cache):
     assert row["realized_pnl_usd"] == pytest.approx(158.6)
     assert row["unrealized_pnl_usd"] == pytest.approx(178.4)
     assert row["unrealized_pnl_pct"] == pytest.approx(178.4 / 961.6)
-    assert snap["stocks"]["cost_coverage"] == {"reconciled": 1, "total": 1}
+    assert snap["stocks"]["cost_coverage"] == {
+        "reconciled": 1, "estimated": 0, "total": 1,
+    }
 
 
 def test_stock_cost_is_hidden_when_history_does_not_reconcile_with_wallet(cache):
@@ -506,6 +509,109 @@ def test_stock_cost_replays_multifill_buy_when_fees_are_determined_before_sell()
     assert costs["SOXL"]["qty"] == pytest.approx(5)
     assert costs["SOXL"]["cost"] == pytest.approx(151)
     assert costs["SOXL"]["realized"] == pytest.approx(23)
+
+
+def test_stock_cost_remains_available_as_estimate_when_commission_is_missing():
+    orders = [{
+        "orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
+        "avgFilledPrice": "25", "filledQty": "40",
+    }]
+    trades = [{
+        "executionId": "fill", "orderId": "buy", "symbol": "SOXL",
+        "quote": "USDC", "side": "BUY", "price": "25", "qty": "40",
+        "executionAt": 10,
+    }]
+
+    costs = _equity_costs(orders, trades)
+
+    assert costs["SOXL"]["complete"] is True
+    assert costs["SOXL"]["fees_complete"] is False
+    assert costs["SOXL"]["qty"] == pytest.approx(40)
+    assert costs["SOXL"]["cost"] == pytest.approx(1000)
+
+
+def test_stock_position_labels_fee_free_cost_as_estimated(cache):
+    history = {"total": 1, "page": 1, "size": 100, "rows": [{
+        "orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
+        "avgFilledPrice": "25", "filledQty": "40", "status": "FILLED",
+        "createdAt": 10, "updatedAt": 10,
+    }]}
+    trades = {"total": 1, "page": 1, "size": 100, "rows": [{
+        "executionId": "fill", "orderId": "buy", "symbol": "SOXL",
+        "quote": "USDC", "side": "BUY", "price": "25", "qty": "40",
+        "total": "1000", "executionAt": 10, "updatedAt": 10,
+    }]}
+    snap = build_replacing(cache, {
+        "/sapi/v1/equity/order/history": lambda: httpx.Response(200, json=history),
+        "/sapi/v1/equity/order/detail": lambda: httpx.Response(
+            200, json={"orderId": "buy"}),
+        "/sapi/v1/equity/trade/history": lambda: httpx.Response(200, json=trades),
+    })
+
+    row = next(item for item in snap["stocks"]["positions"] if item["symbol"] == "SOXL")
+    assert row["cost_status"] == "estimated"
+    assert row["avg_cost_usd"] == pytest.approx(25)
+    assert row["cost_basis_usd"] == pytest.approx(1000)
+    assert row["realized_pnl_usd"] is None
+    assert snap["stocks"]["cost_coverage"] == {
+        "reconciled": 0, "estimated": 1, "total": 2,
+    }
+
+
+def test_stock_order_detail_recovers_missing_commission(cache):
+    history = {"total": 1, "page": 1, "size": 100, "rows": [{
+        "orderId": "buy", "symbol": "SOXL", "quote": "USDC", "side": "BUY",
+        "avgFilledPrice": "25", "filledQty": "40", "status": "FILLED",
+        "createdAt": 10, "updatedAt": 10,
+    }]}
+    trades = {"total": 1, "page": 1, "size": 100, "rows": [{
+        "executionId": "fill", "orderId": "buy", "symbol": "SOXL",
+        "quote": "USDC", "side": "BUY", "price": "25", "qty": "40",
+        "total": "1000", "executionAt": 10, "updatedAt": 10,
+    }]}
+    snap = build_replacing(cache, {
+        "/sapi/v1/equity/order/history": lambda: httpx.Response(200, json=history),
+        "/sapi/v1/equity/order/detail": lambda: httpx.Response(
+            200, json={"orderId": "buy", "fee": "0.40"}),
+        "/sapi/v1/equity/trade/history": lambda: httpx.Response(200, json=trades),
+    })
+
+    row = next(item for item in snap["stocks"]["positions"] if item["symbol"] == "SOXL")
+    assert row["cost_status"] == "reconciled"
+    assert row["avg_cost_usd"] == pytest.approx(25.01)
+    assert row["cost_basis_usd"] == pytest.approx(1000.40)
+    assert snap["stocks"]["cost_coverage"] == {
+        "reconciled": 1, "estimated": 0, "total": 2,
+    }
+
+
+def test_stock_detail_lookup_is_limited_to_current_holdings_and_newest_orders():
+    rows = [{
+        "orderId": f"soxl-{index}", "symbol": "SOXL", "status": "FILLED",
+        "updatedAt": index,
+    } for index in range(105)]
+    rows.extend([
+        {"orderId": "sold", "symbol": "NVDA", "status": "FILLED", "updatedAt": 999},
+        {"orderId": "open", "symbol": "SOXL", "status": "NEW", "updatedAt": 998},
+        {"orderId": "known", "symbol": "SOXL", "status": "FILLED", "fee": "0.1",
+         "updatedAt": 997},
+    ])
+    client = BinanceClient("k", "s", client=httpx.Client(transport=make_transport()))
+    try:
+        jobs = _equity_detail_jobs(client, rows, ["SOXL"])
+    finally:
+        client.close()
+
+    keys = [key for key, _, _ in jobs]
+    assert len(keys) == 100
+    assert keys[0] == "equity.detail.soxl-104"
+    assert keys[-1] == "equity.detail.soxl-5"
+    assert "equity.detail.sold" not in keys
+
+
+def test_bfusd_latest_published_rate_is_exposed(cache):
+    snap = build(cache)
+    assert snap["yield_rates"]["BFUSD"] == pytest.approx(0.0736)
 
 
 def test_stock_cost_fails_closed_on_opposite_fills_in_the_same_millisecond():
