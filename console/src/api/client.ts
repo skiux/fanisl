@@ -157,7 +157,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         ...base,
         sources: degrade(base, ['income'], 'unreachable', '合约损益接口暂时取不到', null),
         // 只有 income 挂了。合约未实现来自 positionRisk、现货涨跌来自行情与余额，
-        // 两样都还在——挂掉的是当日结算、合约已实现与那三项持有成本。
+        // 两样都还在——挂掉的是当日结算、合约已实现与三类合约收支。
         pnl: base.pnl && {
           ...base.pnl,
           today: { ...base.pnl.today, settled_usd: null, settled_parts: null,
@@ -193,7 +193,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
           equity_holdings: [],
           tokenized_assets: [],
           positions: [],
-          cost_coverage: { reconciled: 0, estimated: 0, total: 0 },
+          cost_coverage: { manual: 0, stale: 0, total: 0 },
         }, capabilities: null, futures: null, earn: [], margin: null,
         isolated_margin: null, liquidation_loan: null, portfolio_margin: null,
         income: null, transfers: null, pnl: null,
@@ -225,7 +225,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
           equity_holdings: [],
           tokenized_assets: [],
           positions: [],
-          cost_coverage: { reconciled: 0, estimated: 0, total: 0 },
+          cost_coverage: { manual: 0, stale: 0, total: 0 },
         }, capabilities: {
           vip_level: 0, reading: true, ip_restricted: true,
           margin: false, futures: true, options: false, portfolio_margin: false,
@@ -262,7 +262,80 @@ export async function fetchPortfolio(
   if (scenario === 'down') {
     throw new PortfolioError('network', '连不上 fanisl 后端（127.0.0.1:8000）')
   }
-  return scenarioSnapshot(scenario)
+  return withScenarioStockCosts(scenarioSnapshot(scenario), scenario)
+}
+
+export type StockCostInput = {
+  trade_value_usd: number
+  commission_usd: number
+  position_qty: number
+}
+
+export type SavedStockCost = StockCostInput & {
+  symbol: string
+  updated_at: string
+}
+
+const scenarioStockCosts = new Map<string, SavedStockCost>()
+
+function withScenarioStockCosts(snapshot: PortfolioSnapshot, scenario: Scenario): PortfolioSnapshot {
+  let changed = false
+  const positions = snapshot.stocks.positions.map((row) => {
+    const saved = scenarioStockCosts.get(`${scenario}:${row.symbol}`)
+    if (!saved) return row
+    changed = true
+    const matches = Math.abs(saved.position_qty - row.total_qty) <= 1e-8
+    const total = matches ? saved.trade_value_usd + saved.commission_usd : null
+    const unrealized = total !== null && row.mark_price_usd !== null
+      ? row.mark_price_usd * row.total_qty - total : null
+    return {
+      ...row,
+      cost_status: matches ? 'manual' as const : 'stale' as const,
+      trade_value_usd: saved.trade_value_usd,
+      commission_usd: saved.commission_usd,
+      cost_position_qty: saved.position_qty,
+      cost_updated_at: saved.updated_at,
+      avg_cost_usd: total === null ? null : total / row.total_qty,
+      cost_basis_usd: total,
+      unrealized_pnl_usd: unrealized,
+      unrealized_pnl_pct: unrealized === null || total === null ? null : unrealized / total,
+    }
+  })
+  if (!changed) return snapshot
+  return {
+    ...snapshot,
+    stocks: {
+      ...snapshot.stocks,
+      positions,
+      cost_coverage: {
+        manual: positions.filter((row) => row.cost_status === 'manual').length,
+        stale: positions.filter((row) => row.cost_status === 'stale').length,
+        total: positions.length,
+      },
+    },
+  }
+}
+
+export async function saveStockCost(
+  scenario: Scenario,
+  symbol: string,
+  input: StockCostInput,
+): Promise<{ stock_cost: SavedStockCost }> {
+  const normalized = symbol.trim().toUpperCase()
+  if (scenario !== 'live') {
+    await new Promise((resolve) => setTimeout(resolve, 180))
+    const stockCost = {
+      symbol: normalized,
+      ...input,
+      updated_at: new Date().toISOString(),
+    }
+    scenarioStockCosts.set(`${scenario}:${normalized}`, stockCost)
+    return { stock_cost: stockCost }
+  }
+  return apiJson(`/admin/stock-costs/${encodeURIComponent(normalized)}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
 }
 
 /* --------------------------- 委托 --------------------------- */

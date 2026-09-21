@@ -37,9 +37,7 @@ export function stockTotals(stocks: StocksAccount) {
     ? tokenizedRows.reduce((sum, row) => sum + (row.value_usd ?? 0), 0) : null
   const holdings = [...directRows, ...tokenizedRows]
   const valued = holdings.filter((row) => row.value_usd !== null)
-  const costed = stocks.positions.filter((row) => (
-    row.cost_status === 'reconciled' || row.cost_status === 'estimated'
-  ))
+  const costed = stocks.positions.filter((row) => row.cost_status === 'manual')
   const withPnl = stocks.positions.filter((row) => row.unrealized_pnl_usd !== null)
   return {
     direct,

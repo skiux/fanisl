@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { StockCostInput } from '../../api/client'
 import { SortBy, type SortState } from '../../components/controls'
 import { Figure, Module, SplitBar } from '../../components/layout'
 import { Delta } from '../../components/Primitives'
@@ -8,6 +9,7 @@ import type { StockPosition, StocksAccount, TokenizedStockAsset } from '../../ap
 import {
   STOCK_SORT_KEYS, sortStockPositions, stockTotals, type StockSort,
 } from './stock-position-model'
+import { StockCostEditor } from './StockCostEditor'
 
 const TRADABILITY: Record<string, string> = {
   BUY_SELL: '可买卖',
@@ -24,9 +26,14 @@ function occupied(row: StockPosition) {
   return row.locked_qty + row.freeze_qty + row.withdrawing_qty
 }
 
-function StockPositionRow({ row }: { row: StockPosition }) {
+function StockPositionRow({ row, canEditCost, onSaveCost }: {
+  row: StockPosition
+  canEditCost: boolean
+  onSaveCost?: (symbol: string, input: StockCostInput) => Promise<void>
+}) {
+  const [editing, setEditing] = useState(false)
   const used = occupied(row)
-  const costAvailable = row.cost_status === 'reconciled' || row.cost_status === 'estimated'
+  const costAvailable = row.cost_status === 'manual'
   const quote = row.bid_usd !== null || row.ask_usd !== null
     ? `${price(row.bid_usd)} / ${price(row.ask_usd)}` : '—'
   const features = [
@@ -69,18 +76,19 @@ function StockPositionRow({ row }: { row: StockPosition }) {
                 </Delta>
                 <div className="tnum text-xs text-ink-3">
                   {signedPercent(row.unrealized_pnl_pct)}
-                  {row.cost_status === 'estimated' && ' · 未含手续费'}
                 </div>
               </>
-            ) : row.cost_status === 'unavailable' ? (
+            ) : row.cost_status === 'stale' ? (
               <>
-                <div className="text-xs text-ink-2">成本数据暂缺</div>
-                <div className="mt-0.5 text-micro text-ink-3">等待历史取数恢复</div>
+                <div className="text-xs text-ink-2">持仓数量已变化</div>
+                <div className="mt-0.5 text-micro text-ink-3">需按当前仓位重新录入</div>
               </>
             ) : (
               <>
-                <div className="text-xs text-ink-2">成本待核对</div>
-                <div className="mt-0.5 text-micro text-ink-3">不合计盈亏</div>
+                <div className="text-xs text-ink-2">
+                  {canEditCost ? '待录入成本' : '管理员尚未录入'}
+                </div>
+                <div className="mt-0.5 text-micro text-ink-3">暂不合计盈亏</div>
               </>
             )}
           </div>
@@ -89,7 +97,7 @@ function StockPositionRow({ row }: { row: StockPosition }) {
         <dl className="tnum mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs sm:grid-cols-3">
           <div className="min-w-0">
             <dt className="text-ink-3">
-              {row.cost_status === 'estimated' ? '估算成本' : '成本'}
+              平均成本
             </dt>
             <dd className="truncate text-ink-2">{price(row.avg_cost_usd)}</dd>
           </div>
@@ -112,6 +120,26 @@ function StockPositionRow({ row }: { row: StockPosition }) {
               </span>
             ))}
           </div>
+        )}
+
+        {canEditCost && onSaveCost && !editing && (
+          <button
+            className="mt-3 text-xs text-ink-3 underline decoration-rule-strong underline-offset-4 transition-[color,transform] duration-150 hover:text-ink active:translate-y-px"
+            onClick={() => setEditing(true)}
+            type="button"
+          >
+            {row.cost_status === 'missing' ? '录入成本' : '修正成本'}
+          </button>
+        )}
+        {canEditCost && onSaveCost && editing && (
+          <StockCostEditor
+            onCancel={() => setEditing(false)}
+            onSave={async (input) => {
+              await onSaveCost(row.symbol, input)
+              setEditing(false)
+            }}
+            row={row}
+          />
         )}
       </div>
     </li>
@@ -149,9 +177,13 @@ function UnresolvedTokenizedRow({ row }: { row: TokenizedStockAsset }) {
   )
 }
 
-export function StockPositionsList({ positions, unresolved = [] }: {
+export function StockPositionsList({
+  positions, unresolved = [], canEditCost = false, onSaveCost,
+}: {
   positions: StockPosition[]
   unresolved?: TokenizedStockAsset[]
+  canEditCost?: boolean
+  onSaveCost?: (symbol: string, input: StockCostInput) => Promise<void>
 }) {
   const [sort, setSort] = useState<SortState<StockSort>>({ key: 'value', direction: 'desc' })
   const rows = useMemo(() => sortStockPositions(positions, sort), [positions, sort])
@@ -166,7 +198,14 @@ export function StockPositionsList({ positions, unresolved = [] }: {
         </div>
       )}
       <ul>
-        {rows.map((row) => <StockPositionRow key={row.symbol} row={row} />)}
+        {rows.map((row) => (
+          <StockPositionRow
+            canEditCost={canEditCost ?? false}
+            key={row.symbol}
+            onSaveCost={onSaveCost}
+            row={row}
+          />
+        ))}
         {unresolved.map((row) => <UnresolvedTokenizedRow key={row.asset_code} row={row} />)}
       </ul>
     </div>
@@ -179,12 +218,12 @@ export function StockSummary({ stocks, equityUsd }: {
 }) {
   const totals = stockTotals(stocks)
   const unresolved = stocks.tokenized_assets.filter((row) => !row.multiplier_valid).length
-  const available = stocks.cost_coverage.reconciled + stocks.cost_coverage.estimated
+  const available = stocks.cost_coverage.manual
   const incomplete = stocks.cost_coverage.total - available
   const costTotal = stocks.cost_coverage.total + unresolved
   const pending = incomplete + unresolved
   const allCovered = costTotal > 0 && pending === 0
-  const exact = allCovered && stocks.cost_coverage.estimated === 0
+  const exact = allCovered
   const allValued = totals.total !== null
   return (
     <div className="flex flex-col gap-9 lg:col-span-4" data-stock-summary>
@@ -219,12 +258,9 @@ export function StockSummary({ stocks, equityUsd }: {
 
       <Module
         figure={`${available} / ${costTotal}`}
-        note={allCovered
-          ? stocks.cost_coverage.estimated > 0
-            ? `${stocks.cost_coverage.estimated} 项为估算` : '全部一致'
-          : `${pending} 项待核对`}
+        note={allCovered ? '全部已录入' : `${pending} 项待录入`}
         span=""
-        title="成本核对"
+        title="成本覆盖"
         tone={exact ? 'gain' : 'muted'}
       >
         <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
@@ -240,14 +276,15 @@ export function StockSummary({ stocks, equityUsd }: {
             value={signedMoney(totals.knownPnl)}
           />
         </dl>
-        {stocks.cost_coverage.estimated > 0 && (
+        {stocks.cost_coverage.stale > 0 && (
           <p className="mt-4 border-t border-rule pt-3 text-xs leading-relaxed text-ink-3">
-            估算项的成交数量已与钱包核对，成本与未实现盈亏暂未包含 Binance 未返回的手续费。
+            {stocks.cost_coverage.stale} 项持仓数量已变化，原成本不再用于平均成本和盈亏。
           </p>
         )}
         {pending > 0 && (
           <p className="mt-4 border-t border-rule pt-3 text-xs leading-relaxed text-ink-3">
-            只合计股数与钱包一致的仓位；其余仓位不显示成本和盈亏。
+            Binance 暂未提供完整成本和手续费。管理员录入当前持仓的交易价值与手续费后，
+            才会显示平均成本和未实现盈亏。
           </p>
         )}
       </Module>

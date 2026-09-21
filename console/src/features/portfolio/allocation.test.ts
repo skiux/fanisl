@@ -12,6 +12,8 @@ let host: HTMLDivElement
 let root: Root
 let width: ReturnType<typeof vi.spyOn>
 const snapshot = buildSnapshot(new Date())
+const longTotal = exposures(snapshot, snapshot.totals!.equity_usd)
+  .reduce((sum, row) => sum + Math.max(0, (row.gross_usd + row.net_usd) / 2), 0)
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -106,9 +108,9 @@ describe('敞口分布', () => {
       .sort((a, b) => b - a)
     const total = rows.reduce((sum, value) => sum + value, 0)
     expect(rows).toHaveLength(12)
-    expect(rows.slice(0, 3).reduce((sum, value) => sum + value, 0) / total).toBeCloseTo(0.5, 2)
+    expect(rows.slice(0, 3).reduce((sum, value) => sum + value, 0) / total).toBeCloseTo(0.5, 1)
     render()
-    expect(host.querySelector('[data-allocation-total]')!.textContent).toBe('$60,455.85')
+    expect(host.querySelector('[data-allocation-total]')!.textContent).toBe(money(longTotal))
   })
 
   it('所有有多头金额的资产都保留独立区域，包括不足 1% 的小额资产', () => {
@@ -140,7 +142,7 @@ describe('敞口分布', () => {
     expect(host.querySelector('[data-chart-label="AMZN"] [data-asset-mark="AMZN"]')?.getAttribute('src'))
       .toMatch(/\/icons\/AMZN\.ico$/)
     expect(host.querySelectorAll('linearGradient, filter, clipPath, [data-allocation-logo-background], .allocation-sector-bed')).toHaveLength(0)
-    // 正常样例最小仓位约 3.3%。信息沿半径排成两行后，移动端不应再退化成 5px 字。
+    // 正常样例最小仓位约 1.9%。窄扇区使用外移的紧凑标签后，移动端不应退化成 5px 字。
     expect(Math.min(...labels.map((label) => Number(label.dataset.labelFontSize)))).toBeGreaterThan(6.5)
   })
 
@@ -196,7 +198,7 @@ describe('敞口分布', () => {
     const labels = new Map([...host.querySelectorAll<HTMLElement>('[data-chart-label]')]
       .map((label) => [label.dataset.chartLabel!, label]))
     const fontSize = (asset: string) => Number(labels.get(asset)!.dataset.labelFontSize)
-    expect(fontSize('QQQ') / fontSize('MU')).toBeCloseTo(Math.sqrt(5_500.6 / 1_999.96), 5)
+    expect(fontSize('SOL') / fontSize('AAPL')).toBeCloseTo(Math.sqrt(3_500.001516 / 3_000.04428), 5)
     expect(fontSize('BTC')).toBeGreaterThan(fontSize('NVDA'))
     expect(fontSize('NVDA')).toBeGreaterThan(fontSize('XAU'))
     for (const asset of ['BTC', 'NVDA', 'XAU']) {
@@ -228,7 +230,7 @@ describe('敞口分布', () => {
     const content = center.querySelector<HTMLElement>('.allocation-center-content')!
     expect(Number(center.dataset.centerDiameter)).toBeGreaterThan(84)
     expect(Number.parseFloat(content.style.fontSize)).toBeGreaterThanOrEqual(10.5)
-    expect(center.textContent).toBe('$60,455.85')
+    expect(center.textContent).toBe(money(longTotal))
   })
 
   it('选择资产不压暗任何区域，重复点击与 Escape 都能取消选择', () => {
@@ -247,7 +249,7 @@ describe('敞口分布', () => {
     expect(center.querySelector('[data-asset-mark="QQQ"]')).not.toBeNull()
     expect(center.textContent).not.toContain('QQQ')
     expect(center.textContent).toContain('$5,500.60')
-    expect(center.textContent).toContain('9.1%')
+    expect(center.textContent).toContain(`${(5500.6 / longTotal * 100).toFixed(1)}%`)
     for (const tile of host.querySelectorAll<HTMLElement>('[data-slice]')) {
       expect(tile.style.background).toBe(original.get(tile.dataset.slice)!.background)
       expect(tile.style.opacity).toBe(original.get(tile.dataset.slice)!.opacity)
@@ -256,7 +258,7 @@ describe('敞口分布', () => {
     expect(button.getAttribute('aria-pressed')).toBe('false')
     expect(cursor.getAttribute('data-active')).toBe('false')
     expect(center.dataset.centerAsset).toBe('')
-    expect(center.textContent).toBe('$60,455.85')
+    expect(center.textContent).toBe(money(longTotal))
     act(() => button.click())
     act(() => button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
     expect(button.getAttribute('aria-pressed')).toBe('false')
@@ -352,16 +354,16 @@ describe('敞口分布', () => {
     render()
     vi.stubGlobal('matchMedia', () => ({ matches: reduced }))
     const list = host.querySelector<HTMLDivElement>('.allocation-scroll')!
-    const row = host.querySelector<HTMLButtonElement>('[data-asset="MU"]')!
+    const row = host.querySelector<HTMLButtonElement>('[data-asset="SOXL"]')!
     vi.spyOn(list, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 340, 300))
     vi.spyOn(row, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 850, 340, 72))
     const scroll = vi.fn()
     list.scrollTo = scroll
-    act(() => host.querySelector('[data-slice="MU"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    act(() => host.querySelector('[data-slice="SOXL"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true })))
     expect(scroll).toHaveBeenNthCalledWith(1, { top: 0, behavior: 'instant' })
     expect(scroll).toHaveBeenLastCalledWith(expect.objectContaining({ behavior: reduced ? 'instant' : 'smooth' }))
     expect(scroll.mock.calls.at(-1)![0].top).toBeGreaterThan(0)
-    expect(host.querySelector('[data-slice="MU"]')!.getAttribute('aria-pressed')).toBe('true')
+    expect(host.querySelector('[data-slice="SOXL"]')!.getAttribute('aria-pressed')).toBe('true')
   })
 
   it('改选可见资产也会取消前一次尚未完成的平滑滚动', () => {

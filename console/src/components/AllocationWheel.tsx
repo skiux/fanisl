@@ -21,33 +21,42 @@ function geometry(availableWidth: number, count: number) {
 }
 
 const LARGE_SLICE_SHARE = 0.12
+const COMPACT_SLICE_SHARE = 0.025
 
 function labelMetrics(slice: AllocationSlice, inner: number, outer: number) {
   const thickness = outer - inner
   const large = slice.share >= LARGE_SLICE_SHARE
+  const compact = slice.share < COMPACT_SLICE_SHARE
   // 大扇区把标签通道向圆心多借一点空间，外缘仍留给百分比刻度。
-  const middle = inner + thickness * (large ? 0.55 : 0.62)
-  const radialRoom = thickness * (large ? 0.915 : 0.78)
-  const arcRoom = Math.max(0, (slice.end - slice.start) * middle * 0.88)
+  // 窄扇区的切向空间在外缘更充足；将标签移向外侧，同时收窄其径向盒子，避免越过圆周。
+  const middle = inner + thickness * (large ? 0.55 : compact ? 0.74 : 0.62)
+  const radialRoom = compact
+    ? Math.min(thickness * 0.78, Math.max(0, (outer - middle - 4) * 2))
+    : thickness * (large ? 0.915 : 0.78)
+  const arcRoom = Math.max(0, (slice.end - slice.start) * middle * (compact ? 0.97 : 0.88))
   const compactValue = moneyCompact(slice.value)
   const percent = allocationPercent(slice.share)
   // 未受空间约束时，字号平方与仓位占比成正比；中小扇区因此保持相同的信息面积占比。
   // 大仓位还要受实际字符串宽度约束，避免 $11K · 18.3% 这类长数据越过环宽。
-  const proportional = outer * Math.sqrt(slice.share) * 0.27
-  const codeLineEm = 1.42 + 0.28 + Math.max(1, slice.key.length) * 0.62
+  const proportional = outer * Math.sqrt(slice.share) * 0.3
+  const markScale = compact ? 1.24 : 1.42
+  const lineGap = compact ? 0.11 : 0.22
+  const labelHeightEm = markScale + 0.91 + lineGap
+  const codeLineEm = markScale + (compact ? 0.22 : 0.28) + Math.max(1, slice.key.length) * 0.62
   const valueLineEm = (compactValue.length + percent.length + 1) * 0.6 * 0.91 + 0.96
   const contentEm = Math.max(codeLineEm, valueLineEm)
   const contentFit = radialRoom * 0.96 / contentEm
   // 18px 后缓慢收敛，前三个大仓位仍按面积递增，但不会放大成海报标题。
   const readableScale = proportional <= 18 ? proportional : 18 + 2 * Math.tanh((proportional - 18) / 4)
-  const fontSize = Math.max(0, Math.min(readableScale, arcRoom / 2.35, contentFit))
+  const fontSize = Math.max(0, Math.min(readableScale, arcRoom / labelHeightEm, contentFit))
   return {
     compactValue,
     contentFit,
     contentWidth: contentEm * fontSize,
     fontSize,
-    height: fontSize * 2.35,
-    markSize: fontSize * 1.42,
+    height: fontSize * labelHeightEm,
+    lineGap,
+    markSize: fontSize * markScale,
     percent,
     proportional,
     radius: middle,
@@ -129,7 +138,7 @@ function SliceLabel({ slice, center, inner, outer }: {
         data-label-room={metrics.width}
         style={{
           fontSize: metrics.fontSize,
-          gap: metrics.fontSize * 0.22,
+          gap: metrics.fontSize * metrics.lineGap,
           lineHeight: 1,
           transform: `rotate(${readable}deg)`,
         }}
@@ -189,7 +198,7 @@ export function AllocationWheel({ items, selected, onSelect }: {
   const toggle = (key: string) => onSelect(selected === key ? null : key)
   return (
     <div
-      className="allocation-chart relative -translate-x-6 w-[calc(100%+48px)] max-w-[480px] sm:mx-auto sm:w-full sm:translate-x-0"
+      className="allocation-chart relative -translate-x-5 w-[calc(100%+40px)] max-w-[480px] sm:mx-auto sm:w-full sm:translate-x-0"
       ref={ref}
       style={{ height: geo.diameter }}
     >

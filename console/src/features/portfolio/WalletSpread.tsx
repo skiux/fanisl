@@ -34,7 +34,7 @@ export function WalletSpread({ wallets, veiled }: { wallets: WalletBucket[]; vei
               <span className="w-[72px] shrink-0 text-xs text-ink-2">
                 {WALLET_LABEL[bucket.kind] ?? bucket.kind}
               </span>
-              <span className="h-[3px] w-[84px] shrink-0 overflow-hidden rounded-full bg-rule">
+              <span className="h-[3px] min-w-5 flex-1 overflow-hidden rounded-full bg-rule">
                 <span
                   className="block h-full rounded-full bg-ink-3 transition-[width] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
                   style={{ width: `${(share * 100).toFixed(2)}%` }}

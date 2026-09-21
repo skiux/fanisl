@@ -141,10 +141,15 @@ export type StockPosition = {
   fractionable_extended: boolean
   extended_session: boolean
   overnight_supported: boolean
-  cost_status: 'reconciled' | 'estimated' | 'incomplete' | 'unavailable'
+  cost_status: 'manual' | 'missing' | 'stale'
+  /** 管理员录入的当前持仓累计交易价值，不含手续费。 */
+  trade_value_usd: number | null
+  commission_usd: number | null
+  /** 保存成本时的钱包股数；与 total_qty 不同时 cost_status 为 stale。 */
+  cost_position_qty: number | null
+  cost_updated_at: string | null
   avg_cost_usd: number | null
   cost_basis_usd: number | null
-  realized_pnl_usd: number | null
   unrealized_pnl_usd: number | null
   unrealized_pnl_pct: number | null
 }
@@ -159,7 +164,7 @@ export type StocksAccount = {
   tokenized_assets: TokenizedStockAsset[]
   /** 按经济标的合并后的仓位，直接持有与代币化形态仍由数量字段分别保留。 */
   positions: StockPosition[]
-  cost_coverage: { reconciled: number; estimated: number; total: number }
+  cost_coverage: { manual: number; stale: number; total: number }
 }
 
 export type PositionSide = 'long' | 'short' | 'both'

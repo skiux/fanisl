@@ -2,6 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> Historical implementation record. The automatic cost-replay design below was retired on
+> 2026-09-21 because Binance did not provide enough fee data to make it reliable. Current behavior
+> uses admin-entered trade value plus commission; see `console/README.md` and
+> `backend/fanisl/binance/README.md`.
+
 **Goal:** Show direct and tokenized stock holdings with the same information hierarchy as futures positions, an official XAUT mark, reconciled cost basis, current quotes, and clear coverage states.
 
 **Architecture:** Wallet `EQ_*` and tokenized balances remain the authority for current quantities. Full order history supplies total fees and full trade history supplies the real per-fill sequence; fees are allocated by fill notional before replaying moving-average cost. Derived numbers are exposed only when both histories are fresh and reconstructed net shares reconcile with the combined direct and validly converted tokenized quantity. The frontend derives a unified stock-position view model and renders it in the existing 8+4 portfolio grid.

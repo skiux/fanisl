@@ -1,4 +1,5 @@
 import { cn } from '../../lib/cn'
+import type { StockCostInput } from '../../api/client'
 import { amount, money, percent, price, signedMoney, SOURCE_LABEL } from '../../lib/format'
 import { cash, spotHoldings } from '../../lib/holdings'
 import type { MarginAccount, PortfolioSnapshot } from '../../api/types'
@@ -9,6 +10,7 @@ import {
 } from './Holdings'
 import { PnlBreakdown } from './PnlBreakdown'
 import { StockPositionsList, StockSummary } from './StockPositions'
+import { useIsAdmin } from '../../lib/role'
 
 /** 合约 income 与 userTrades 都只保留 90 天，这是接口硬限 */
 const WINDOW_DAYS = 90
@@ -135,7 +137,12 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
   )
 }
 
-export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot; veiled: boolean }) {
+export function HoldingsView({ snapshot, veiled, onSaveStockCost }: {
+  snapshot: PortfolioSnapshot
+  veiled: boolean
+  onSaveStockCost?: (symbol: string, input: StockCostInput) => Promise<void>
+}) {
+  const isAdmin = useIsAdmin()
   const holdings = spotHoldings(snapshot)
   const holdingsValue = holdings.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
   const spotValue = snapshot.spot.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
@@ -154,8 +161,6 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
   const stockPnlComplete = stockCount > 0
     && unresolvedStocks.length === 0
     && stockPnlRows.length === stockPositions.length
-  const stockPnlEstimated = stockPnlComplete
-    && stockPositions.some((row) => row.cost_status === 'estimated')
 
   const earnValue = snapshot.earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
   const rewards = snapshot.earn.reduce((sum, item) => sum + (item.cumulative_rewards_usd ?? 0), 0)
@@ -238,13 +243,18 @@ export function HoldingsView({ snapshot, veiled }: { snapshot: PortfolioSnapshot
             <Module
               figure={stockPnlComplete ? signedMoney(stockPnl) : '—'}
               note={stockPnlComplete
-                ? `${stockCount} 个标的${stockPnlEstimated ? ' · 含估算' : ''}`
+                ? `${stockCount} 个标的`
                 : `${stockPnlRows.length} / ${stockCount} 项盈亏可算`}
               span="lg:col-span-8"
               title="股票持仓"
               tone={!stockPnlComplete ? 'muted' : stockPnl >= 0 ? 'gain' : 'loss'}
             >
-              <StockPositionsList positions={stockPositions} unresolved={unresolvedStocks} />
+              <StockPositionsList
+                canEditCost={isAdmin && Boolean(onSaveStockCost)}
+                onSaveCost={onSaveStockCost}
+                positions={stockPositions}
+                unresolved={unresolvedStocks}
+              />
             </Module>
             <StockSummary
               equityUsd={snapshot.totals?.equity_usd ?? null}
