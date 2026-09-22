@@ -11,7 +11,7 @@ from fanisl.binance.cache import SourceCache, fetch
 def cache(pool):
     cache = SourceCache(pool)
     with pool.connection() as conn:
-        conn.execute("TRUNCATE binance_stock_costs, binance_cache")
+        conn.execute("TRUNCATE binance_spot_costs, binance_stock_costs, binance_cache")
     return cache
 
 
@@ -54,3 +54,14 @@ def test_stock_cost_is_persisted_and_updated_per_symbol(cache):
     assert rows["SOXL"]["trade_value_usd"] == Decimal("980")
     assert rows["SOXL"]["commission_usd"] == Decimal("0.55")
     assert rows["SOXL"]["updated_by"] == 8
+
+
+def test_spot_cost_is_persisted_separately_from_stocks(cache):
+    first = cache.upsert_spot_cost(
+        "btc", Decimal("2000"), Decimal("2"), Decimal("0.1"), 7)
+    assert first["asset"] == "BTC"
+    assert first["position_qty"] == Decimal("0.1")
+    cache.upsert_spot_cost("BTC", Decimal("2100"), Decimal("0"), Decimal("0.1"), 8)
+    assert cache.spot_costs()["BTC"]["trade_value_usd"] == Decimal("2100")
+    assert cache.spot_costs()["BTC"]["updated_by"] == 8
+    assert cache.stock_costs() == {}

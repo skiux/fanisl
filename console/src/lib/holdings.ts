@@ -74,16 +74,24 @@ export function exposures(snapshot: PortfolioSnapshot, equity: number): Exposure
 export type SpotHoldingRow = SpotAsset & {
   /** 同一种币可能分散在多个钱包；主表合并数量，但保留位置提示。 */
   locations: string[]
+  cost_status: 'manual' | 'missing' | 'stale' | 'unavailable'
+  trade_value_usd: number | null
+  commission_usd: number | null
+  cost_position_qty: number | null
+  avg_cost_usd: number | null
+  cost_basis_usd: number | null
+  unrealized_pnl_usd: number | null
+  unrealized_pnl_pct: number | null
 }
 
 export function spotHoldings(snapshot: PortfolioSnapshot): SpotHoldingRow[] {
-  type Pending = SpotHoldingRow & { known_value: number; value_complete: boolean }
+  type Pending = SpotAsset & { locations: string[]; known_value: number; value_complete: boolean }
   const stable = new Set(snapshot.stable_assets)
   const byAsset = new Map<string, Pending>()
   const add = (asset: string, quantity: number, value: number | null, location: string,
                locks: Pick<SpotAsset, 'free' | 'locked' | 'freeze' | 'withdrawing'>) => {
     if (!asset || quantity <= 0) return
-    const row = byAsset.get(asset) ?? {
+    const row: Pending = byAsset.get(asset) ?? {
       asset, free: 0, locked: 0, freeze: 0, withdrawing: 0, total: 0,
       price_usd: null, value_usd: null, locations: [], known_value: 0,
       value_complete: true,
@@ -117,11 +125,38 @@ export function spotHoldings(snapshot: PortfolioSnapshot): SpotHoldingRow[] {
     }
   }
 
-  return [...byAsset.values()].map(({ known_value, value_complete, ...row }) => ({
-    ...row,
-    value_usd: value_complete ? known_value : null,
-    price_usd: value_complete && row.total > 0 ? known_value / row.total : null,
-  })).sort((a, b) => (b.value_usd ?? -1) - (a.value_usd ?? -1))
+  const sourceOkay = (key: 'spot' | 'futures' | 'margin' | 'prices') => {
+    const state = snapshot.sources.find((source) => source.key === key)
+    return state?.status === 'ok'
+      || (state?.status === 'unsupported' && (
+        (key === 'futures' && snapshot.capabilities?.futures === false)
+        || (key === 'margin' && snapshot.capabilities?.margin === false)
+      ))
+  }
+  const balancesAvailable = (['spot', 'futures', 'margin'] as const).every(sourceOkay)
+  const pricesAvailable = sourceOkay('prices')
+  return [...byAsset.values()].map(({ known_value, value_complete, ...row }) => {
+    const value = value_complete ? known_value : null
+    const saved = snapshot.spot_costs[row.asset]
+    const status = !balancesAvailable ? 'unavailable'
+      : !saved ? 'missing'
+      : Math.abs(saved.position_qty - row.total) <= 1e-8 ? 'manual' : 'stale'
+    const cost = status === 'manual' ? saved!.trade_value_usd + saved!.commission_usd : null
+    const pnl = cost !== null && value !== null && pricesAvailable ? value - cost : null
+    return {
+      ...row,
+      value_usd: value,
+      price_usd: value !== null && row.total > 0 ? value / row.total : null,
+      cost_status: status,
+      trade_value_usd: saved?.trade_value_usd ?? null,
+      commission_usd: saved?.commission_usd ?? null,
+      cost_position_qty: saved?.position_qty ?? null,
+      avg_cost_usd: cost !== null ? cost / row.total : null,
+      cost_basis_usd: cost,
+      unrealized_pnl_usd: pnl,
+      unrealized_pnl_pct: pnl !== null && cost !== null ? pnl / cost : null,
+    } satisfies SpotHoldingRow
+  }).sort((a, b) => (b.value_usd ?? -1) - (a.value_usd ?? -1))
 }
 
 /** 现金放在哪儿。同一个币可能同时在几个地方，所以数的是**行**不是币种 */

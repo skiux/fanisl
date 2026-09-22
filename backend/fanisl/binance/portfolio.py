@@ -1404,6 +1404,17 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "yield_rates": {"BFUSD": bfusd_rate},
         "wallets": wallets,
         "spot": spot,
+        "spot_costs": {
+            asset: {
+                "asset": asset,
+                "trade_value_usd": float(row["trade_value_usd"]),
+                "commission_usd": float(row["commission_usd"]),
+                "position_qty": float(row["position_qty"]),
+                "updated_at": row["updated_at"].isoformat(),
+            }
+            for asset, row in cache.spot_costs().items()
+            if asset not in STABLE_ASSETS
+        },
         "stocks": stocks,
         "capabilities": capabilities,
         "futures": futures,

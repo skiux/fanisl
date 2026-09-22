@@ -25,6 +25,16 @@ class CostStore:
             "updated_at": datetime(2026, 9, 21, 8, 0, tzinfo=timezone.utc),
         }
 
+    def upsert_spot_cost(self, asset, trade_value_usd, commission_usd,
+                         position_qty, updated_by):
+        self.saved = (asset, trade_value_usd, commission_usd, position_qty, updated_by)
+        return {
+            "asset": asset, "trade_value_usd": trade_value_usd,
+            "commission_usd": commission_usd, "position_qty": position_qty,
+            "updated_by": updated_by,
+            "updated_at": datetime(2026, 9, 21, 8, 0, tzinfo=timezone.utc),
+        }
+
 
 def client_for(role: str) -> tuple[TestClient, CostStore]:
     store = CostStore()
@@ -80,3 +90,34 @@ def test_invalid_symbol_and_values_are_rejected():
         **valid, "position_qty": 0,
     }).status_code == 422
     assert store.saved is None
+
+
+def test_admin_saves_spot_cost_for_current_quantity():
+    client, store = client_for("admin")
+    response = client.put("/admin/spot-costs/btc", json={
+        "trade_value_usd": 2000, "commission_usd": 2, "position_qty": 0.1,
+    })
+    assert response.status_code == 200
+    assert store.saved == (
+        "BTC", Decimal("2000"), Decimal("2"), Decimal("0.1"), 7)
+    assert response.json()["spot_cost"] == {
+        "asset": "BTC", "trade_value_usd": 2000.0,
+        "commission_usd": 2.0, "position_qty": 0.1,
+        "updated_at": "2026-09-21T08:00:00+00:00",
+    }
+
+
+def test_only_admin_can_save_valid_spot_cost():
+    valid = {"trade_value_usd": 2000, "commission_usd": 0, "position_qty": 0.1}
+    member, member_store = client_for("member")
+    assert member.put("/admin/spot-costs/BTC", json={}).status_code == 403
+    assert member_store.saved is None
+    admin, admin_store = client_for("admin")
+    for path, body in [
+        ("invalid symbol", valid), ("USDT", valid),
+        ("BTC", {**valid, "trade_value_usd": 0}),
+        ("BTC", {**valid, "commission_usd": -1}),
+        ("BTC", {**valid, "position_qty": 0}),
+    ]:
+        assert admin.put(f"/admin/spot-costs/{path}", json=body).status_code == 422
+    assert admin_store.saved is None

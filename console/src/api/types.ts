@@ -77,6 +77,15 @@ export type SpotAsset = {
   value_usd: number | null
 }
 
+/** 人工录入的当前币仓交易价值与手续费；数量由当前跨钱包持仓核对。 */
+export type SpotCostRecord = {
+  asset: string
+  trade_value_usd: number
+  commission_usd: number
+  position_qty: number
+  updated_at: string
+}
+
 export type TokenizedStockAsset = {
   /** Binance 钱包资产代码，例如 AAPLB。 */
   asset_code: string
@@ -412,9 +421,10 @@ export type WalletAsset = {
  * 三块的窗口不一样，是接口的硬限：现货成交没有时间上限，合约损益只保留 90 天，
  * 合约未实现是此刻的值。所以不能加成一个数说"这段时间赚了多少"。
  *
- * **现货这一侧没有"相对成本"的任何数**——未实现没有，已实现也没有。两者都要
+ * **这个 PnL 汇总没有现货"相对成本"的数**——历史已实现无法重建。两者都要
  * 完整的买入历史，而划转 / 理财派息 / 小额兑换进来的币在 `myTrades` 里没有痕迹，
- * 90 天以前的充值也查不回来。现货要看的是**每天涨跌了多少**，那只需要当天的
+ * 90 天以前的充值也查不回来。持仓页人工录入的现货成本只算当前币仓的未实现，
+ * 不并入这个汇总。现货每日涨跌只需要当天的
  * 持仓量与当天的收盘价，不需要任何成本。
  * 合约那半边不一样：`unRealizedProfit` 与 `REALIZED_PNL` 都是交易所按自己的开仓
  * 均价算好给的，拿来即用。
@@ -485,6 +495,7 @@ export type PortfolioSnapshot = {
   yield_rates: Record<string, number | null>
   wallets: WalletBucket[]
   spot: SpotAsset[]
+  spot_costs: Record<string, SpotCostRecord>
   stocks: StocksAccount
   capabilities: AccountCapabilities | null
   futures: FuturesAccount | null

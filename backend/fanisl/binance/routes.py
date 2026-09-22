@@ -11,14 +11,18 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..auth import routes as auth_routes
+from .common import STABLE_ASSETS
 
 _SYMBOL = re.compile(r"[A-Z][A-Z0-9.-]{0,15}")
 
 
-class StockCostStore(Protocol):
+class CostStore(Protocol):
     def upsert_stock_cost(self, symbol: str, trade_value_usd: Decimal,
                           commission_usd: Decimal, position_qty: Decimal,
                           updated_by: int) -> dict: ...
+    def upsert_spot_cost(self, asset: str, trade_value_usd: Decimal,
+                         commission_usd: Decimal, position_qty: Decimal,
+                         updated_by: int) -> dict: ...
 
 
 class StockCostRequest(BaseModel):
@@ -27,10 +31,10 @@ class StockCostRequest(BaseModel):
     position_qty: Decimal = Field(gt=0, allow_inf_nan=False)
 
 
-def _public(row: dict) -> dict:
+def _public(row: dict, *, key: str = "symbol") -> dict:
     updated_at = row.get("updated_at")
     return {
-        "symbol": str(row["symbol"]),
+        key: str(row[key]),
         "trade_value_usd": float(row["trade_value_usd"]),
         "commission_usd": float(row["commission_usd"]),
         "position_qty": float(row["position_qty"]),
@@ -38,7 +42,7 @@ def _public(row: dict) -> dict:
     }
 
 
-def build_router(store: StockCostStore) -> APIRouter:
+def build_router(store: CostStore) -> APIRouter:
     router = APIRouter()
 
     @router.put("/admin/stock-costs/{symbol}")
@@ -52,5 +56,17 @@ def build_router(store: StockCostStore) -> APIRouter:
             req.position_qty, int(admin["id"]),
         )
         return {"stock_cost": _public(row)}
+
+    @router.put("/admin/spot-costs/{asset}")
+    def put_spot_cost(asset: str, req: StockCostRequest,
+                      admin: dict = Depends(auth_routes.require_admin)) -> dict:
+        normalized = asset.strip().upper()
+        if not _SYMBOL.fullmatch(normalized) or normalized in STABLE_ASSETS:
+            raise HTTPException(status_code=422, detail="现货资产代码格式不正确或属于现金")
+        row = store.upsert_spot_cost(
+            normalized, req.trade_value_usd, req.commission_usd,
+            req.position_qty, int(admin["id"]),
+        )
+        return {"spot_cost": _public(row, key="asset")}
 
     return router

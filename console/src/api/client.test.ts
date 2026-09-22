@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchPortfolio, saveStockCost } from './client'
+import { fetchPortfolio, saveSpotCost, saveStockCost } from './client'
+import { spotHoldings } from '../lib/holdings'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -45,5 +46,38 @@ describe('stock cost writes', () => {
     expect(position.cost_basis_usd).toBe(961.2)
     expect(position.avg_cost_usd).toBeCloseTo(24.03)
     expect(position.cost_status).toBe('manual')
+  })
+})
+
+describe('spot cost writes', () => {
+  it('sends the admin input without contacting Binance trading APIs', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json({ spot_cost: {
+      asset: 'BNB', trade_value_usd: 900, commission_usd: 3,
+      position_qty: 2, updated_at: '2026-09-21T08:00:00+00:00',
+    } }))
+    vi.stubGlobal('fetch', fetchMock)
+    await saveSpotCost('live', 'bnb', {
+      trade_value_usd: 900, commission_usd: 3, position_qty: 2,
+    })
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toMatch(/\/admin\/spot-costs\/BNB$/)
+    expect(JSON.parse(String(init.body))).toEqual({
+      trade_value_usd: 900, commission_usd: 3, position_qty: 2,
+    })
+  })
+
+  it('keeps fixture input local and refreshes the same holding after save', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const original = await fetchPortfolio('ok')
+    const bnb = spotHoldings(original).find((row) => row.asset === 'BNB')!
+    await saveSpotCost('ok', 'BNB', {
+      trade_value_usd: 900, commission_usd: 3, position_qty: bnb.total,
+    })
+    const refreshed = spotHoldings(await fetchPortfolio('ok'))
+      .find((row) => row.asset === 'BNB')!
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(refreshed.cost_basis_usd).toBe(903)
+    expect(refreshed.avg_cost_usd).toBeCloseTo(903 / bnb.total)
   })
 })

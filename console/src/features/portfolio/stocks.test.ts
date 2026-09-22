@@ -232,7 +232,7 @@ describe('持仓页的股票', () => {
       snapshot, veiled: false, onSaveStockCost: vi.fn(),
     })))
     expect(host.textContent).toContain('管理员尚未录入')
-    expect(host.textContent).not.toContain('录入成本')
+    expect(host.querySelector('[data-stock-position="SOXL"] button')).toBeNull()
 
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json('admin')))
     await act(async () => { await refreshSession() })

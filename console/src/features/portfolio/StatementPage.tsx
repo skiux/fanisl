@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  fetchPortfolio, readScenario, saveStockCost, writeScenario,
-  type Scenario, type StockCostInput,
+  fetchPortfolio, readScenario, saveSpotCost, saveStockCost, writeScenario,
+  type Scenario, type SpotCostInput, type StockCostInput,
 } from '../../api/client'
 import { PortfolioError, type PortfolioSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
@@ -87,6 +87,21 @@ export function StatementPage() {
       setRefreshing(false)
     }
   }, [scenario])
+  const saveCryptoCost = useCallback(async (asset: string, input: SpotCostInput) => {
+    setRefreshing(true)
+    try {
+      await saveSpotCost(scenario, asset, input)
+      try {
+        const snapshot = await fetchPortfolio(scenario, undefined, { force: false })
+        setPhase({ kind: 'ready', snapshot })
+      } catch (cause) {
+        const detail = cause instanceof Error ? `：${cause.message}` : ''
+        throw new Error(`成本已保存，但账户快照刷新失败${detail}`, { cause })
+      }
+    } finally {
+      setRefreshing(false)
+    }
+  }, [scenario])
 
   const snapshot = phase.kind === 'ready' ? phase.snapshot : null
 
@@ -109,6 +124,7 @@ export function StatementPage() {
         <Body
           onRetry={retry}
           onSaveStockCost={saveCost}
+          onSaveSpotCost={saveCryptoCost}
           onSelectView={selectView}
           phase={phase}
           view={view}
@@ -141,12 +157,13 @@ function buildTabs(futuresMissing: boolean): TabItem<ViewKey>[] {
  * return 之后，hook 顺序会随 phase 变。同样的错在 `RealizedDays` 里已经造成过
  * 一次整页白屏，这次是 lint 抓到的（那时候这个项目还没有 lint）。
  */
-function Body({ phase, view, onSelectView, onRetry, onSaveStockCost }: {
+function Body({ phase, view, onSelectView, onRetry, onSaveStockCost, onSaveSpotCost }: {
   phase: Phase
   view: ViewKey
   onSelectView: (key: ViewKey) => void
   onRetry: () => void
   onSaveStockCost: (symbol: string, input: StockCostInput) => Promise<void>
+  onSaveSpotCost: (asset: string, input: SpotCostInput) => Promise<void>
 }) {
   if (phase.kind === 'loading') return <StatementSkeleton />
   if (phase.kind === 'failed') {
@@ -156,6 +173,7 @@ function Body({ phase, view, onSelectView, onRetry, onSaveStockCost }: {
     <Loaded
       onRetry={onRetry}
       onSaveStockCost={onSaveStockCost}
+      onSaveSpotCost={onSaveSpotCost}
       onSelectView={onSelectView}
       phase={phase}
       view={view}
@@ -163,12 +181,13 @@ function Body({ phase, view, onSelectView, onRetry, onSaveStockCost }: {
   )
 }
 
-function Loaded({ phase, view, onSelectView, onRetry, onSaveStockCost }: {
+function Loaded({ phase, view, onSelectView, onRetry, onSaveStockCost, onSaveSpotCost }: {
   phase: Extract<Phase, { kind: 'ready' }>
   view: ViewKey
   onSelectView: (key: ViewKey) => void
   onRetry: () => void
   onSaveStockCost: (symbol: string, input: StockCostInput) => Promise<void>
+  onSaveSpotCost: (asset: string, input: SpotCostInput) => Promise<void>
 }) {
   // 详情抽屉的开关。放在这一层而不是页面顶层：只有拿到 snapshot 才有数据可给，
   // 往上提要么多传一层，要么在没数据时也挂着一个空对话框。
@@ -227,6 +246,7 @@ function Loaded({ phase, view, onSelectView, onRetry, onSaveStockCost }: {
           {view === 'holdings' && (
             <HoldingsView
               onSaveStockCost={onSaveStockCost}
+              onSaveSpotCost={onSaveSpotCost}
               snapshot={snapshot}
               veiled={veiled}
             />

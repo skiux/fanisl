@@ -187,7 +187,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
             detail: 'API key 无读取权限，或调用 IP 不在白名单内',
           })),
         totals: null, stable_assets: fx.STABLE_FIXTURE, yield_rates: { BFUSD: null },
-        wallets: [], spot: [], stocks: {
+        wallets: [], spot: [], spot_costs: {}, stocks: {
           standalone_positions_available: false,
           coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点。',
           equity_holdings: [],
@@ -219,7 +219,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         totals: { equity_usd: 0, gross_exposure_ratio: null },
         stable_assets: fx.STABLE_FIXTURE,
         yield_rates: { BFUSD: null },
-        wallets: [], spot: [], stocks: {
+        wallets: [], spot: [], spot_costs: {}, stocks: {
           standalone_positions_available: false,
           coverage_detail: 'Binance Stocks Trading 当前未提供持仓查询端点。',
           equity_holdings: [],
@@ -270,6 +270,7 @@ export type StockCostInput = {
   commission_usd: number
   position_qty: number
 }
+export type SpotCostInput = StockCostInput
 
 export type SavedStockCost = StockCostInput & {
   symbol: string
@@ -277,8 +278,13 @@ export type SavedStockCost = StockCostInput & {
 }
 
 const scenarioStockCosts = new Map<string, SavedStockCost>()
+const scenarioSpotCosts = new Map<string, PortfolioSnapshot['spot_costs'][string]>()
 
 function withScenarioStockCosts(snapshot: PortfolioSnapshot, scenario: Scenario): PortfolioSnapshot {
+  const spot_costs = { ...snapshot.spot_costs }
+  for (const [key, value] of scenarioSpotCosts) {
+    if (key.startsWith(`${scenario}:`)) spot_costs[value.asset] = value
+  }
   let changed = false
   const positions = snapshot.stocks.positions.map((row) => {
     const saved = scenarioStockCosts.get(`${scenario}:${row.symbol}`)
@@ -301,9 +307,10 @@ function withScenarioStockCosts(snapshot: PortfolioSnapshot, scenario: Scenario)
       unrealized_pnl_pct: unrealized === null || total === null ? null : unrealized / total,
     }
   })
-  if (!changed) return snapshot
+  if (!changed) return { ...snapshot, spot_costs }
   return {
     ...snapshot,
+    spot_costs,
     stocks: {
       ...snapshot.stocks,
       positions,
@@ -335,6 +342,23 @@ export async function saveStockCost(
   return apiJson(`/admin/stock-costs/${encodeURIComponent(normalized)}`, {
     method: 'PUT',
     body: JSON.stringify(input),
+  })
+}
+
+export async function saveSpotCost(
+  scenario: Scenario,
+  asset: string,
+  input: SpotCostInput,
+): Promise<{ spot_cost: PortfolioSnapshot['spot_costs'][string] }> {
+  const normalized = asset.trim().toUpperCase()
+  if (scenario !== 'live') {
+    await new Promise((resolve) => setTimeout(resolve, 180))
+    const spot_cost = { asset: normalized, ...input, updated_at: new Date().toISOString() }
+    scenarioSpotCosts.set(`${scenario}:${normalized}`, spot_cost)
+    return { spot_cost }
+  }
+  return apiJson(`/admin/spot-costs/${encodeURIComponent(normalized)}`, {
+    method: 'PUT', body: JSON.stringify(input),
   })
 }
 

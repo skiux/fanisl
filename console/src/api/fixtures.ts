@@ -488,6 +488,9 @@ export const STABLE_FIXTURE = [
 export function buildSnapshot(asOf: Date): PortfolioSnapshot {
   const iso = asOf.toISOString()
   const notional = positions.reduce((sum, p) => sum + p.notional_usd, 0)
+  const bnbQty = spot.find((row) => row.asset === 'BNB')!.total
+    + futures.assets.find((row) => row.asset === 'BNB')!.wallet_balance
+    + margin.assets.find((row) => row.asset === 'BNB')!.net
   return {
     as_of: iso,
     base_currency: 'USD',
@@ -497,7 +500,10 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
     },
     stable_assets: STABLE_FIXTURE,
     yield_rates: { BFUSD: 0.0736 },
-    wallets, spot, stocks, capabilities, futures, earn, margin,
+    wallets, spot, spot_costs: {
+      BNB: { asset: 'BNB', trade_value_usd: 3300, commission_usd: 3,
+        position_qty: bnbQty, updated_at: iso },
+    }, stocks, capabilities, futures, earn, margin,
     isolated_margin: isolatedMargin,
     liquidation_loan: liquidationLoan,
     portfolio_margin: null,

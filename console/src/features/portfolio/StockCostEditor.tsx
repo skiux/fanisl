@@ -3,8 +3,17 @@ import type { StockCostInput } from '../../api/client'
 import type { StockPosition } from '../../api/types'
 import { amount, money } from '../../lib/format'
 
-export function StockCostEditor({ row, onCancel, onSave }: {
-  row: StockPosition
+type CostRecord = Pick<StockPosition,
+  'trade_value_usd' | 'commission_usd' | 'cost_position_qty'> & {
+  cost_status: 'manual' | 'missing' | 'stale' | 'unavailable'
+}
+
+export function PositionCostEditor({ row, asset, quantity, unit, kind, onCancel, onSave }: {
+  row: CostRecord
+  asset: string
+  quantity: number
+  unit: string
+  kind: 'stock' | 'spot'
   onCancel: () => void
   onSave: (input: StockCostInput) => Promise<void>
 }) {
@@ -21,7 +30,7 @@ export function StockCostEditor({ row, onCancel, onSave }: {
   const valid = tradeValue.trim() !== '' && commission.trim() !== ''
     && Number.isFinite(parsed.trade) && parsed.trade > 0
     && Number.isFinite(parsed.fee) && parsed.fee >= 0
-    && row.total_qty > 0
+    && quantity > 0
   const total = valid ? parsed.trade + parsed.fee : null
 
   async function submit(event: FormEvent) {
@@ -36,7 +45,7 @@ export function StockCostEditor({ row, onCancel, onSave }: {
       await onSave({
         trade_value_usd: parsed.trade,
         commission_usd: parsed.fee,
-        position_qty: row.total_qty,
+        position_qty: quantity,
       })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '保存失败，请稍后重试。')
@@ -48,16 +57,17 @@ export function StockCostEditor({ row, onCancel, onSave }: {
   return (
     <form
       className="mt-4 rounded-[10px] border border-rule bg-sheet-2/55 p-3.5 sm:p-4"
-      data-stock-cost-editor={row.symbol}
+      data-stock-cost-editor={kind === 'stock' ? asset : undefined}
+      data-spot-cost-editor={kind === 'spot' ? asset : undefined}
       onSubmit={submit}
     >
       <div className="flex items-baseline justify-between gap-4">
         <div>
           <div className="text-xs font-medium text-ink">当前持仓成本</div>
-          <p className="mt-0.5 text-micro text-ink-3">按当前 {amount(row.total_qty)} 股录入</p>
+          <p className="mt-0.5 text-micro text-ink-3">按当前 {amount(quantity)} {unit} 录入</p>
         </div>
         {row.cost_status === 'stale' && row.cost_position_qty !== null && (
-          <span className="tnum text-micro text-ink-3">原记录 {amount(row.cost_position_qty)} 股</span>
+          <span className="tnum text-micro text-ink-3">原记录 {amount(row.cost_position_qty)} {unit}</span>
         )}
       </div>
 
@@ -96,7 +106,7 @@ export function StockCostEditor({ row, onCancel, onSave }: {
           <div>
             <dt className="text-ink-3">平均成本</dt>
             <dd className="tnum mt-0.5 text-ink">
-              {money(total === null ? null : total / row.total_qty)}
+              {money(total === null ? null : total / quantity)}
             </dd>
           </div>
         </dl>
@@ -125,4 +135,15 @@ export function StockCostEditor({ row, onCancel, onSave }: {
       )}
     </form>
   )
+}
+
+export function StockCostEditor({ row, onCancel, onSave }: {
+  row: StockPosition
+  onCancel: () => void
+  onSave: (input: StockCostInput) => Promise<void>
+}) {
+  return <PositionCostEditor
+    asset={row.symbol} kind="stock" onCancel={onCancel} onSave={onSave}
+    quantity={row.total_qty} row={row} unit="股"
+  />
 }

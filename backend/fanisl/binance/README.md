@@ -1,7 +1,8 @@
 # Binance 只读层（资产台后端）
 
 给 `console/`（资产台）供数的三组只读接口：`/portfolio`、`/orders`、`/ledger`，以及只写
-本地数据库的管理员股票成本接口 `/admin/stock-costs/{symbol}`。形状由
+本地数据库的管理员股票成本接口 `/admin/stock-costs/{symbol}` 与现货成本接口
+`/admin/spot-costs/{asset}`。形状由
 `console/src/api/types.ts` 定义，那份契约**按 Binance 原始字段写**，不是想当然的余额模型。
 
 全员共用同一个 Binance 账户，凭据在服务器 `.env`，权限只开 Enable Reading。
@@ -25,6 +26,11 @@ Binance 2026 的文档里同时存在两条股票相关路径，接口与账户�
   委托与成交历史仍供 `/orders` 展示，不参与 `/portfolio` 的成本计算。
   **逐日盈亏仍不含正股**：`held_across_wallets` 不读资金钱包，股票也没有 REST 日线
   （只有 WebSocket K 线）。
+- **现货币仓成本**同样由管理员为当前持仓填写交易价值与手续费，保存到独立于 Binance
+  响应缓存的 `binance_spot_costs` 表。`GET /portfolio` 的 `spot_costs` 按币种返回录入值与
+  保存时的数量；console 在现货钱包、合约钱包和全仓杠杆合并后核对数量，匹配才显示
+  平均成本和这笔持仓的未实现盈亏。数量变化或余额来源失败时不沿用旧成本；稳定币在现金
+  模块，不录入成本。理财持仓仍在自己的模块，不计入这笔币仓的录入数量。
 - **TradFi Perps** 仍是 USDⓈ-M Futures，走 `/fapi/*`，代码如 `NVDAUSDT`。它继续使用
   合约保证金、强平价与 ADL 逻辑；`exchangeInfo` 的 `underlyingType` / `underlyingSubType`
   用来识别 TradFi，`tradingSchedule` 给出当前市场时段，`symbolAdlRisk` 给出标的级 ADL
@@ -261,7 +267,8 @@ spot_marks[]            逐币今日涨跌，给详情抽屉用
 unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖到）
 ```
 
-**`unrealized` 与 `realized` 里都只有合约。** 现货这一侧没有任何"相对成本"的数，
+**`pnl.unrealized` 与 `pnl.realized` 里都只有合约。** 现货在持仓页另行显示管理员
+录入的当前币仓成本及相对成本的未实现盈亏，不并入日历与汇总。自动推导历史成本不可靠，
 理由见下面第 ① 条。响应里也没有 `spot_assets` / `coverage` / `incomplete_assets` /
 `failed_symbols`——它们随成本基础引擎一起删了。
 
@@ -270,7 +277,7 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
 
 ### 四个修过的坑（每一条都有测试钉着）
 
-**① 现货根本不该算"未实现"。** 它是市值减加权平均成本，而那个成本要**完整的买入
+**① 不应凭成交历史自动计算现货"未实现"。** 它是市值减加权平均成本，而那个成本要**完整的买入
 历史**。这个账户拿不到：划转 / 理财派息 / 小额兑换 / 闪兑进来的币从不出现在
 `myTrades` 里，`capital/deposit/hisrec` 又只回 90 天，更早的充值永远查不回来。
 
@@ -281,7 +288,8 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
    +$215.79，有据可依的只有 +$32.15。
 2. 只对 `min(余额, 重放数量)` 算，多出来的报在 `unpriced_qty`。不虚高了，
    但报出去的仍是一个永远缺一块的数。
-3. 开一条人工通道让管理员手填均价。这是在给一个不该问的问题找答案。
+3. 早期试过手填均价，仍把这段未经核对的历史记录混进汇总。现在仅对管理员明确录入
+   的**当前币仓**单独显示成本和未实现盈亏，不拿它反算历史已实现或覆盖账户汇总。
 
 **已实现是同一个病，只是更隐蔽。** 它 `= Σ 卖出量 × (卖出价 − 当时均价)`，用的是
 同一个均价。卖得比重放看到的还多时能被识破（那个币会标成成本不明、整个剔除），

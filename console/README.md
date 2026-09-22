@@ -6,7 +6,7 @@
 ## 当前状态
 
 后端已接（`GET /portfolio` · `/orders` · `/ledger`，以及管理员使用的
-`PUT /admin/stock-costs/{symbol}`，见
+`PUT /admin/stock-costs/{symbol}`、`PUT /admin/spot-costs/{asset}`，见
 `backend/fanisl/binance/README.md`）。全站需要登录，未登录只渲染登录页。
 
 `src/api/types.ts` 仍是前后端的契约锚点，字段按 Binance 实际接口对齐：
@@ -15,6 +15,7 @@
 |---|---|
 | `wallets` | `GET /sapi/v1/asset/wallet/balance` 六个钱包的分布 |
 | `spot` | `POST /sapi/v3/asset/getUserAsset` 四种锁定态 |
+| `spot_costs` | 本地管理员录入的交易价值与手续费；保存时记录跨钱包持仓数量，数量不一致或余额来源不可用时不显示平均成本与未实现盈亏。稳定币归现金、理财另列 |
 | `futures` | `GET /fapi/v3/account` + `/fapi/v1/accountConfig` + `/fapi/v3/positionRisk` |
 | `futures[].liq_distance` | `positionRisk` 给了强平价才有；**给不出就是 null，不拿杠杆倒推** |
 | `stocks` | 钱包详情是数量权威：`EQ_*` 正股 + `tokenized-assets` 映射的代币化股票。Binance 当前没有给出可完整核对的持仓成本与手续费，管理员按当前股数录入累计交易价值与手续费，总成本为两者之和；股数变化后旧值失效。`market/quote` 与 `exchangeInfo` 提供买卖价及交易能力。无效换算比例与缺失报价明确留空，不以钱包估值或 0 代替。两种持有形态都计入敞口分布与压力测试 |
@@ -296,15 +297,18 @@ items-start（容器）+ mt-2（每格内部，两档共用）
 `fontBoundingBoxAscent / 1000 × 字号`；要墨迹顶就再减 `actualBoundingBoxAscent`。
 拿行盒或空 `inline-block` 探针量出来的数一次都没对过。
 
-## 现货这一侧没有"相对成本"的任何数
+## 现货成本由管理员按当前币仓录入
 
-未实现没有，已实现也没有——两者要的是同一段**补不齐的买入历史**：划转 / 理财派息 /
+不从成交历史推算成本或已实现盈亏——两者要的是同一段**补不齐的买入历史**：划转 / 理财派息 /
 小额兑换进来的币在 `myTrades` 里没有痕迹，90 天以前的充值也查不回来。
 卖得比重放看到的多时能被识破（那个币会标成成本不明），可**买得比看到的多、
 卖得不多时无声出错**——报一个看不出错的数比不报更糟。
 
 后端那套成本基础引擎（`Lot` / `replay` / `summarize`）连同 `spot_assets`、
-`realized.spot_usd` 一起删了。现货只剩"每天涨跌了多少"。
+`realized.spot_usd` 一起删了。日历仍显示现货每天涨跌；持仓页另以管理员录入的
+当前币仓交易价值加手续费计算总成本、平均成本和该仓位的未实现盈亏。
+现货钱包、合约钱包、全仓杠杆同一资产先合并数量；数量变化或余额来源不可用时不使用
+旧成本。这里的未实现只对应已录入的持仓，不混入全账户汇总的 `pnl.unrealized`。
 
 ## 合约收支：四行同一个窗口，条形才可比
 

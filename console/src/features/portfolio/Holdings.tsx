@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react'
 import { CaretDown } from '@phosphor-icons/react'
 import { cn } from '../../lib/cn'
 import { Ticker } from '../../components/Ticker'
-import { amount, DUST_THRESHOLD_USD, money, percent, price } from '../../lib/format'
+import { amount, DUST_THRESHOLD_USD, money, percent, price, signedMoney, signedPercent } from '../../lib/format'
+import type { SpotCostInput } from '../../api/client'
 import type { EarnPosition, EquityHolding, TokenizedStockAsset } from '../../api/types'
 import type { CashRow, SpotHoldingRow } from '../../lib/holdings'
+import { PositionCostEditor } from './StockCostEditor'
 
 const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_112px]'
 
@@ -20,41 +22,89 @@ function rowNote(item: SpotHoldingRow) {
   return parts.length > 0 ? parts.join(' · ') : null
 }
 
-function SpotRow({ item, share }: { item: SpotHoldingRow; share: number }) {
+function SpotRow({ item, share, canEditCost, onSaveCost }: {
+  item: SpotHoldingRow
+  share: number
+  canEditCost: boolean
+  onSaveCost?: (asset: string, input: SpotCostInput) => Promise<void>
+}) {
+  const [editing, setEditing] = useState(false)
   const note = rowNote(item)
   return (
-    <li className={cn(ROW, 'py-3 transition-colors duration-200 hover:bg-sheet-2/45')}>
-      <div className="flex min-w-0 items-center gap-2.5">
-        <Ticker asset={item.asset} />
-        <div className="min-w-0">
-          <div className="truncate text-sm text-ink">{item.asset}</div>
-          {note && <div className="tnum truncate text-micro text-ink-3" title={note}>{note}</div>}
+    <li className="py-3.5 transition-colors duration-200 hover:bg-sheet-2/45" data-spot-position={item.asset}>
+      <div className={ROW}>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Ticker asset={item.asset} />
+          <div className="min-w-0">
+            <div className="truncate text-sm text-ink">{item.asset}</div>
+            {note && <div className="tnum truncate text-micro text-ink-3" title={note}>{note}</div>}
+          </div>
+        </div>
+        <div className="tnum hidden text-sm text-ink-2 sm:block">{amount(item.total)}</div>
+        <div className="tnum hidden text-sm text-ink-3 sm:block">{price(item.price_usd)}</div>
+        <div className="text-right sm:text-left">
+          {item.value_usd === null
+            ? <span className="text-xs text-ink-3">无报价</span>
+            : <span className="tnum text-sm text-ink">{money(item.value_usd)}</span>}
+          <div className="tnum text-micro text-ink-3 sm:hidden">{amount(item.total)}</div>
+        </div>
+        <div className="hidden items-center gap-2 sm:flex">
+          <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-rule">
+            <span
+              className="block h-full rounded-full bg-ink-3 transition-[width] duration-500"
+              style={{ width: `${Math.min(100, share * 100).toFixed(2)}%` }}
+            />
+          </span>
+          <span className="tnum w-[34px] shrink-0 text-right text-micro text-ink-3">
+            {share >= 0.005 ? percent(share, 0) : '<1%'}
+          </span>
         </div>
       </div>
-      <div className="tnum hidden text-sm text-ink-2 sm:block">{amount(item.total)}</div>
-      <div className="tnum hidden text-sm text-ink-3 sm:block">{price(item.price_usd)}</div>
-      <div className="text-right sm:text-left">
-        {item.value_usd === null
-          ? <span className="text-xs text-ink-3">无报价</span>
-          : <span className="tnum text-sm text-ink">{money(item.value_usd)}</span>}
-        <div className="tnum text-micro text-ink-3 sm:hidden">{amount(item.total)}</div>
-      </div>
-      <div className="hidden items-center gap-2 sm:flex">
-        <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-rule">
-          <span
-            className="block h-full rounded-full bg-ink-3 transition-[width] duration-500"
-            style={{ width: `${Math.min(100, share * 100).toFixed(2)}%` }}
+      <div className="mt-2.5 sm:pl-[34px]">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1.5">
+          {item.cost_status === 'manual' ? (
+            <dl className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
+              <div><dt className="inline text-ink-3">平均成本 </dt><dd className="tnum inline text-ink-2">{price(item.avg_cost_usd)}</dd></div>
+              <div><dt className="inline text-ink-3">总成本 </dt><dd className="tnum inline text-ink-2">{money(item.cost_basis_usd)}</dd></div>
+              <div><dt className="inline text-ink-3">未实现 </dt><dd className={cn('tnum inline', item.unrealized_pnl_usd === null ? 'text-ink-3' : item.unrealized_pnl_usd >= 0 ? 'text-gain' : 'text-loss')}>
+                {signedMoney(item.unrealized_pnl_usd)} <span className="text-micro">{signedPercent(item.unrealized_pnl_pct)}</span>
+              </dd></div>
+            </dl>
+          ) : <p className="text-xs text-ink-3">
+            {item.cost_status === 'stale' ? '持仓数量已变化 · 原成本不再用于计算'
+              : item.cost_status === 'unavailable' ? '余额来源不可用 · 暂不计算成本'
+              : canEditCost ? '平均成本 — · 未实现 —' : '管理员尚未录入成本'}
+          </p>}
+          {canEditCost && onSaveCost && item.cost_status !== 'unavailable' && !editing && (
+            <button
+              className="shrink-0 text-xs text-ink-3 underline decoration-rule-strong underline-offset-4 transition-colors duration-150 hover:text-ink"
+              onClick={() => setEditing(true)}
+              type="button"
+            >
+              {item.cost_status === 'missing' ? '录入成本' : '修正成本'}
+            </button>
+          )}
+        </div>
+        {canEditCost && onSaveCost && editing && (
+          <PositionCostEditor
+            asset={item.asset} kind="spot" quantity={item.total} row={item} unit={item.asset}
+            onCancel={() => setEditing(false)}
+            onSave={async (input) => {
+              await onSaveCost(item.asset, input)
+              setEditing(false)
+            }}
           />
-        </span>
-        <span className="tnum w-[34px] shrink-0 text-right text-micro text-ink-3">
-          {share >= 0.005 ? percent(share, 0) : '<1%'}
-        </span>
+        )}
       </div>
     </li>
   )
 }
 
-export function SpotTable({ spot }: { spot: SpotHoldingRow[] }) {
+export function SpotTable({ spot, canEditCost = false, onSaveCost }: {
+  spot: SpotHoldingRow[]
+  canEditCost?: boolean
+  onSaveCost?: (asset: string, input: SpotCostInput) => Promise<void>
+}) {
   const [dustOpen, setDustOpen] = useState(false)
   const { major, dust, dustValue, total } = useMemo(() => {
     const sorted = [...spot].sort((a, b) => (b.value_usd ?? -1) - (a.value_usd ?? -1))
@@ -77,12 +127,12 @@ export function SpotTable({ spot }: { spot: SpotHoldingRow[] }) {
       <div className={cn(ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
         <span>资产</span>
         <span className="hidden sm:block">数量</span>
-        <span className="hidden sm:block">价格</span>
+        <span className="hidden sm:block">现价</span>
         <span className="text-right sm:text-left">价值</span>
         <span className="hidden text-right sm:block">占比</span>
       </div>
       <ul className="divide-y divide-rule">
-        {major.map((item) => <SpotRow item={item} key={item.asset} share={share(item)} />)}
+        {major.map((item) => <SpotRow canEditCost={canEditCost} item={item} key={item.asset} onSaveCost={onSaveCost} share={share(item)} />)}
       </ul>
       {dust.length > 0 && (
         <div className="border-t border-rule">
@@ -99,7 +149,7 @@ export function SpotTable({ spot }: { spot: SpotHoldingRow[] }) {
           <div className="collapsible" data-open={dustOpen}>
             <div>
               <ul className="divide-y divide-rule border-t border-rule">
-                {dust.map((item) => <SpotRow item={item} key={item.asset} share={share(item)} />)}
+                {dust.map((item) => <SpotRow canEditCost={canEditCost} item={item} key={item.asset} onSaveCost={onSaveCost} share={share(item)} />)}
               </ul>
             </div>
           </div>

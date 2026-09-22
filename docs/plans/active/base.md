@@ -42,6 +42,14 @@
     `docs/decisions/`。席位表里的 `tools/` 分不清是 `backend/tools/` 还是 `backend/fanisl/tools/`
 
 ## Requests in
+- **console 席位（2026-09-22）**：请在 `backend/api.md` 补录
+  `GET /portfolio` 的 `spot_costs: Record<asset, {asset, trade_value_usd,
+  commission_usd, position_qty, updated_at}>`。该记录只用于当前跨钱包币仓的成本展示，
+  不进入 `pnl` 汇总。另补管理员 `PUT /admin/spot-costs/{asset}`：请求体含
+  `trade_value_usd > 0`、`commission_usd >= 0`、`position_qty > 0`，只写本地表；
+  稳定币拒绝录入。数量不符或余额源不可用时由 console 停用旧成本。
+  当前路由表为 83 条，`api.md` 头部仍写 81；`tests/test_api_doc.py` 还同时报告缺少
+  本路径及上一条请求的 `/admin/stock-costs/{symbol}`，请一并补齐契约。
 - **console 席位（2026-09-21，替代 09-20 的旧请求）**：`backend/api.md` 的
   `GET /portfolio` 返回字段请补 `yield_rates: Record<string, number | null>`；当前首个键为
   `BFUSD`，取自 `/sapi/v1/bfusd/history/rateHistory` 最近一条

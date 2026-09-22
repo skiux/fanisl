@@ -30,7 +30,7 @@ from binance_mock import (
 def cache(pool):
     cache = SourceCache(pool)
     with pool.connection() as conn:
-        conn.execute("TRUNCATE binance_stock_costs, binance_cache")
+        conn.execute("TRUNCATE binance_spot_costs, binance_stock_costs, binance_cache")
     return cache
 
 
@@ -65,7 +65,7 @@ def build_replacing(cache, responses):
 def test_snapshot_shape_matches_contract(cache):
     snap = build(cache)
     assert set(snap) == {"as_of", "base_currency", "sources", "totals", "stable_assets",
-                         "wallets", "spot", "futures", "earn", "margin", "income",
+                         "wallets", "spot", "spot_costs", "futures", "earn", "margin", "income",
                          "transfers", "stocks", "pnl", "capabilities", "isolated_margin",
                          "liquidation_loan", "portfolio_margin", "yield_rates"}
     assert snap["base_currency"] == "USD"
@@ -448,6 +448,17 @@ def test_stock_cost_becomes_stale_when_current_quantity_changes(cache):
     assert row["cost_basis_usd"] is None
     assert row["unrealized_pnl_usd"] is None
     assert stocks["cost_coverage"] == {"manual": 0, "stale": 1, "total": 2}
+
+
+def test_spot_cost_is_manual_input_not_replayed_trades(cache):
+    snap = build(cache)
+    assert snap["spot_costs"] == {}
+    cache.upsert_spot_cost(
+        "BNB", Decimal("1000"), Decimal("3"), Decimal("1.5"), 7)
+    after = build(cache, force=False)
+    assert after["spot_costs"]["BNB"]["position_qty"] == pytest.approx(1.5)
+    assert after["spot_costs"]["BNB"]["trade_value_usd"] == pytest.approx(1000)
+    assert after["spot_costs"]["BNB"]["commission_usd"] == pytest.approx(3)
 
 
 def test_bfusd_latest_published_rate_is_exposed(cache):

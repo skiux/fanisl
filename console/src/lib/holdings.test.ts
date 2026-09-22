@@ -29,4 +29,56 @@ describe('持仓跨钱包归并', () => {
     expect(row.where).toBe('合约保证金')
     expect(row.apr).toBe(snapshot.yield_rates.BFUSD)
   })
+
+  it('只给与跨钱包当前持有量一致的人工成本计算平均价和未实现盈亏', () => {
+    const base = buildSnapshot(new Date('2026-09-19T12:00:00Z'))
+    const held = spotHoldings(base).find((row) => row.asset === 'BNB')!
+    const snapshot = {
+      ...base,
+      spot_costs: { BNB: {
+        asset: 'BNB', trade_value_usd: 900, commission_usd: 3,
+        position_qty: held.total, updated_at: '2026-09-19T12:00:00Z',
+      } },
+    }
+    const row = spotHoldings(snapshot).find((item) => item.asset === 'BNB')!
+    expect(row.cost_status).toBe('manual')
+    expect(row.cost_basis_usd).toBe(903)
+    expect(row.avg_cost_usd).toBeCloseTo(903 / row.total)
+    expect(row.unrealized_pnl_usd).toBeCloseTo(row.value_usd! - 903)
+    expect(row.unrealized_pnl_pct).toBeCloseTo((row.value_usd! - 903) / 903)
+    expect(spotHoldings(snapshot).find((item) => item.asset === 'BTC')!.cost_status)
+      .toBe('missing')
+    expect(spotHoldings(snapshot).some((item) => item.asset === 'USDT')).toBe(false)
+  })
+
+  it('余额变化或钱包来源失败时，不使用旧成本计算盈亏', () => {
+    const base = buildSnapshot(new Date('2026-09-19T12:00:00Z'))
+    const held = spotHoldings(base).find((row) => row.asset === 'BNB')!
+    const snapshot = { ...base, spot_costs: { BNB: {
+      asset: 'BNB', trade_value_usd: 900, commission_usd: 3,
+      position_qty: held.total - 0.01, updated_at: '2026-09-19T12:00:00Z',
+    } } }
+    const stale = spotHoldings(snapshot).find((item) => item.asset === 'BNB')!
+    expect(stale.cost_status).toBe('stale')
+    expect(stale.cost_basis_usd).toBeNull()
+    expect(stale.unrealized_pnl_usd).toBeNull()
+
+    const unavailable = spotHoldings({
+      ...snapshot, sources: base.sources.map((source) => source.key === 'futures'
+        ? { ...source, status: 'unreachable' as const } : source),
+    }).find((item) => item.asset === 'BNB')!
+    expect(unavailable.cost_status).toBe('unavailable')
+    expect(unavailable.avg_cost_usd).toBeNull()
+    expect(unavailable.unrealized_pnl_usd).toBeNull()
+  })
+
+  it('报价来源失败时仍保留录入成本，但不显示以旧价格计算的盈亏', () => {
+    const base = buildSnapshot(new Date('2026-09-19T12:00:00Z'))
+    const withoutPrices = { ...base, sources: base.sources.map((source) =>
+      source.key === 'prices' ? { ...source, status: 'unreachable' as const } : source) }
+    const bnb = spotHoldings(withoutPrices).find((row) => row.asset === 'BNB')!
+    expect(bnb.cost_status).toBe('manual')
+    expect(bnb.cost_basis_usd).toBe(3303)
+    expect(bnb.unrealized_pnl_usd).toBeNull()
+  })
 })

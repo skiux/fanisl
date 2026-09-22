@@ -1,5 +1,5 @@
 import { cn } from '../../lib/cn'
-import type { StockCostInput } from '../../api/client'
+import type { SpotCostInput, StockCostInput } from '../../api/client'
 import { amount, money, percent, price, signedMoney, SOURCE_LABEL } from '../../lib/format'
 import { cash, spotHoldings } from '../../lib/holdings'
 import type { MarginAccount, PortfolioSnapshot } from '../../api/types'
@@ -137,10 +137,11 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
   )
 }
 
-export function HoldingsView({ snapshot, veiled, onSaveStockCost }: {
+export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost }: {
   snapshot: PortfolioSnapshot
   veiled: boolean
   onSaveStockCost?: (symbol: string, input: StockCostInput) => Promise<void>
+  onSaveSpotCost?: (asset: string, input: SpotCostInput) => Promise<void>
 }) {
   const isAdmin = useIsAdmin()
   const holdings = spotHoldings(snapshot)
@@ -189,7 +190,10 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost }: {
           span="lg:col-span-8"
           title="现货持仓"
         >
-          <SpotTable spot={holdings} />
+          <SpotTable
+            canEditCost={isAdmin && Boolean(onSaveSpotCost) && !veiled}
+            onSaveCost={onSaveSpotCost} spot={holdings}
+          />
         </Module>
 
         <Stack span="lg:col-span-4">
