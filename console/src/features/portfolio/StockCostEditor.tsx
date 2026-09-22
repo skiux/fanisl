@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import type { StockCostInput } from '../../api/client'
 import type { StockPosition } from '../../api/types'
-import { amount, money } from '../../lib/format'
+import { amount } from '../../lib/format'
 
 type CostRecord = Pick<StockPosition,
   'cost_price_usd' | 'commission_usd' | 'cost_position_qty'> & {
@@ -31,12 +31,11 @@ export function PositionCostEditor({ row, asset, quantity, unit, kind, onCancel,
     && Number.isFinite(parsed.price) && parsed.price > 0
     && Number.isFinite(parsed.fee) && parsed.fee >= 0
     && quantity > 0
-  const total = valid ? parsed.price * quantity + parsed.fee : null
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!valid) {
-      setError('请填写大于 0 的单位成本价；手续费可以为 0。')
+      setError('请填写大于 0 的成本价；手续费可以为 0。')
       return
     }
     setSaving(true)
@@ -63,8 +62,8 @@ export function PositionCostEditor({ row, asset, quantity, unit, kind, onCancel,
     >
       <div className="flex items-baseline justify-between gap-4">
         <div>
-          <div className="text-xs font-medium text-ink">录入成本价与手续费</div>
-          <p className="mt-0.5 text-micro text-ink-3">当前 {amount(quantity)} {unit} · 多次买入请填写平均成本价</p>
+          <div className="text-xs font-medium text-ink">成本价与手续费</div>
+          <p className="mt-0.5 text-micro text-ink-3">当前 {amount(quantity)} {unit}</p>
         </div>
         {row.cost_status === 'stale' && row.cost_position_qty !== null && (
           <span className="tnum text-micro text-ink-3">原记录 {amount(row.cost_position_qty)} {unit}</span>
@@ -73,7 +72,7 @@ export function PositionCostEditor({ row, asset, quantity, unit, kind, onCancel,
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="grid gap-1.5 text-xs text-ink-2">
-          <span>单位成本价（USD / {unit}）</span>
+          <span>成本价（USD / {unit}）</span>
           <input
             autoFocus
             className="tnum h-10 min-w-0 rounded-[7px] border border-rule-strong bg-sheet px-3 text-sm text-ink outline-none transition-[border-color,box-shadow] duration-200 focus:border-ink focus:shadow-[0_0_0_3px_var(--accent-soft)]"
@@ -97,20 +96,8 @@ export function PositionCostEditor({ row, asset, quantity, unit, kind, onCancel,
         </label>
       </div>
 
-      <div className="mt-3 flex flex-col gap-3 border-t border-rule pt-3 sm:flex-row sm:items-end sm:justify-between">
-        <dl className="grid grid-cols-2 gap-x-6 text-xs">
-          <div>
-            <dt className="text-ink-3">总成本 · 单价 × 数量 + 手续费</dt>
-            <dd className="tnum mt-0.5 text-ink">{money(total)}</dd>
-          </div>
-          <div>
-            <dt className="text-ink-3">平均成本</dt>
-            <dd className="tnum mt-0.5 text-ink">
-              {money(total === null ? null : total / quantity)}
-            </dd>
-          </div>
-        </dl>
-        <div className="flex items-center justify-end gap-3">
+      <div className="mt-3 flex justify-end border-t border-rule pt-3">
+        <div className="flex items-center gap-3">
           <button
             className="rounded-[6px] px-2.5 py-1.5 text-xs text-ink-3 transition-[color,transform] duration-150 hover:text-ink active:translate-y-px disabled:opacity-45"
             disabled={saving}

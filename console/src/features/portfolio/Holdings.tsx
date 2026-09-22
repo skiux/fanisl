@@ -65,8 +65,7 @@ function SpotRow({ item, share, canEditCost, onSaveCost }: {
           <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1.5">
             {item.cost_status === 'manual' && (
               <dl className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
-                <div><dt className="inline text-ink-3">平均成本 </dt><dd className="tnum inline text-ink-2">{price(item.avg_cost_usd)}</dd></div>
-                <div><dt className="inline text-ink-3">总成本 </dt><dd className="tnum inline text-ink-2">{money(item.cost_basis_usd)}</dd></div>
+                <div><dt className="inline text-ink-3">成本价 </dt><dd className="tnum inline text-ink-2">{price(item.cost_price_usd)}</dd></div>
                 <div><dt className="inline text-ink-3">未实现 </dt><dd className={cn('tnum inline', item.unrealized_pnl_usd === null ? 'text-ink-3' : item.unrealized_pnl_usd >= 0 ? 'text-gain' : 'text-loss')}>
                   {signedMoney(item.unrealized_pnl_usd)} <span className="text-micro">{signedPercent(item.unrealized_pnl_pct)}</span>
                 </dd></div>

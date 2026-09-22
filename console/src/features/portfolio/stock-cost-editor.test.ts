@@ -27,7 +27,7 @@ afterEach(() => {
 })
 
 describe('stock cost editor', () => {
-  it('previews total and average, then submits the current quantity', async () => {
+  it('accepts a cost price and fee, then submits the current quantity', async () => {
     const row = { ...stocks.positions[0], cost_price_usd: null, commission_usd: null,
       cost_position_qty: null, cost_updated_at: null, cost_status: 'missing' as const }
     const save = vi.fn().mockResolvedValue(undefined)
@@ -42,8 +42,9 @@ describe('stock cost editor', () => {
       setInput(inputs[1], '1.6')
     })
 
-    expect(host.textContent).toContain('$961.60')
-    expect(host.textContent).toContain('$24.04')
+    expect(host.textContent).toContain('成本价（USD / 股）')
+    expect(host.textContent).not.toContain('总成本')
+    expect(host.textContent).not.toContain('平均成本')
     await act(async () => host.querySelector('form')?.dispatchEvent(
       new Event('submit', { bubbles: true, cancelable: true })))
     expect(save).toHaveBeenCalledWith({

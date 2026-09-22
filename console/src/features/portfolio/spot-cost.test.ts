@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildSnapshot } from '../../api/fixtures'
 import { markAnonymous, refreshSession } from '../../api/session'
 import { spotHoldings } from '../../lib/holdings'
+import { price } from '../../lib/format'
 import { HoldingsView } from './views'
 
 let host: HTMLDivElement
@@ -32,7 +33,7 @@ async function setRole(role: 'admin' | 'member') {
 }
 
 describe('现货人工成本', () => {
-  it('显示当前币仓的平均成本、总成本和未实现盈亏，不将现价称作成本价', () => {
+  it('现货持仓显示录入的成本价和未实现盈亏，不重复显示总成本', () => {
     const base = buildSnapshot(new Date('2026-09-19T12:00:00Z'))
     const row = spotHoldings(base).find((item) => item.asset === 'BNB')!
     const snapshot = { ...base, spot_costs: { BNB: {
@@ -41,9 +42,10 @@ describe('现货人工成本', () => {
     } } }
     act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
     const bnb = host.querySelector('[data-spot-position="BNB"]')!
-    expect(bnb.textContent).toContain('平均成本')
-    expect(bnb.textContent).toContain('总成本')
-    expect(bnb.textContent).toContain('$903.00')
+    expect(bnb.textContent).toContain(`成本价 ${price(900 / row.total)}`)
+    expect(bnb.textContent).not.toContain('平均成本')
+    expect(bnb.textContent).not.toContain('总成本')
+    expect(bnb.textContent).not.toContain('$903.00')
     expect(bnb.textContent).toContain('未实现')
     expect(host.textContent).toContain('现价')
   })
@@ -61,6 +63,7 @@ describe('现货人工成本', () => {
     const bnb = host.querySelector('[data-spot-position="BNB"]')!
     expect(bnb.textContent).not.toContain('持仓数量已变化')
     expect(bnb.textContent).not.toContain('$903.00')
+    expect(bnb.textContent).not.toContain('成本价')
     expect(bnb.textContent).not.toContain('管理员尚未录入')
     expect(bnb.querySelector('button')).toBeNull()
 

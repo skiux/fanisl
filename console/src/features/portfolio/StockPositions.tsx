@@ -87,9 +87,9 @@ function StockPositionRow({ row, canEditCost, onSaveCost }: {
         <dl className="tnum mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs sm:grid-cols-3">
           <div className="min-w-0">
             <dt className="text-ink-3">
-              平均成本
+              成本价
             </dt>
-            <dd className="truncate text-ink-2">{price(row.avg_cost_usd)}</dd>
+            <dd className="truncate text-ink-2">{price(costAvailable ? row.cost_price_usd : null)}</dd>
           </div>
           <div className="min-w-0">
             <dt className="text-ink-3">买 / 卖</dt>
@@ -207,10 +207,6 @@ export function StockSummary({ stocks, equityUsd }: {
   equityUsd: number | null
 }) {
   const totals = stockTotals(stocks)
-  const unresolved = stocks.tokenized_assets.filter((row) => !row.multiplier_valid).length
-  const available = stocks.cost_coverage.manual
-  const costTotal = stocks.cost_coverage.total + unresolved
-  const allCovered = costTotal > 0 && available === costTotal
   const allValued = totals.total !== null
   return (
     <div className="flex flex-col gap-9 lg:col-span-4" data-stock-summary>
@@ -239,27 +235,6 @@ export function StockSummary({ stocks, equityUsd }: {
             label="实时报价"
             value={stocks.positions.length > 0
               ? `${totals.quoteCount} / ${stocks.positions.length}` : '—'}
-          />
-        </dl>
-      </Module>
-
-      <Module
-        figure={`${available} / ${costTotal}`}
-        span=""
-        title="成本覆盖"
-        tone={allCovered ? 'gain' : 'muted'}
-      >
-        <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-          <Figure
-            label="可用成本"
-            note={`${available} / ${costTotal} 项`}
-            value={money(totals.knownCost)}
-          />
-          <Figure
-            label="已报价盈亏"
-            note={`${totals.pnlCount} / ${costTotal} 项`}
-            tone={totals.knownPnl === null ? undefined : totals.knownPnl >= 0 ? 'gain' : 'loss'}
-            value={signedMoney(totals.knownPnl)}
           />
         </dl>
       </Module>

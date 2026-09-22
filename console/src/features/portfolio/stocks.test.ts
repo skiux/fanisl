@@ -83,7 +83,7 @@ describe('持仓页的股票', () => {
     const text = host.textContent ?? ''
     expect(host.querySelector('[data-stock-unresolved="AAPLB"]')).not.toBeNull()
     expect(text).toContain('Binance 当前未确认换算比例')
-    expect(text).toContain('0 / 1')
+    expect(text).not.toContain('成本覆盖')
     expect(text).not.toContain('1 股')
   })
 
@@ -142,8 +142,9 @@ describe('持仓页的股票', () => {
     expect(text).toContain('代币化')
     expect(text).toContain('可用 30')
     expect(text).toContain('占用 10')
-    expect(text).toContain('成本')
-    expect(text).toContain('$24.04')
+    const soxl = host.querySelector('[data-stock-position="SOXL"]')!
+    expect(soxl.textContent).toContain('成本价$24')
+    expect(soxl.textContent).not.toContain('$24.04')
     expect(text).toContain('买 / 卖')
     expect(text).toContain('$28.45 / $28.55')
     expect(text).toContain('钱包估值')
@@ -152,9 +153,10 @@ describe('持仓页的股票', () => {
     expect(text).not.toContain('暂不合计盈亏')
     expect(text).toContain('暂停交易')
     expect(text).toContain('常规时段可买碎股')
-    expect(text).toContain('成本覆盖')
+    expect(text).not.toContain('成本覆盖')
+    expect(text).not.toContain('平均成本')
+    expect(text).not.toContain('总成本')
     expect(text).toContain('实时报价')
-    expect(text).toContain('1 / 2')
     expect(text).not.toContain('TQQQ$0.00')
   })
 
@@ -205,7 +207,8 @@ describe('持仓页的股票', () => {
 
     act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
 
-    expect(host.querySelector('[data-stock-position="SOXL"]')?.textContent).toContain('平均成本—')
+    expect(host.querySelector('[data-stock-position="SOXL"]')?.textContent).toContain('成本价—')
+    expect(host.querySelector('[data-stock-position="SOXL"]')?.textContent).not.toContain('成本价$24')
     expect(host.textContent).not.toContain('需按当前仓位重新录入')
     expect(host.textContent).not.toContain('原成本不再用于平均成本和盈亏')
   })

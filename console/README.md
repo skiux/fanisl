@@ -15,10 +15,10 @@
 |---|---|
 | `wallets` | `GET /sapi/v1/asset/wallet/balance` 六个钱包的分布 |
 | `spot` | `POST /sapi/v3/asset/getUserAsset` 四种锁定态 |
-| `spot_costs` | 本地管理员录入的交易价值与手续费；保存时记录跨钱包持仓数量，数量不一致或余额来源不可用时不显示平均成本与未实现盈亏。稳定币归现金、理财另列 |
+| `spot_costs` | 管理员录入当前持仓的单位成本价与手续费；保存时记录跨钱包持仓数量，数量不一致或余额来源不可用时不显示旧成本价。稳定币归现金、理财另列 |
 | `futures` | `GET /fapi/v3/account` + `/fapi/v1/accountConfig` + `/fapi/v3/positionRisk` |
 | `futures[].liq_distance` | `positionRisk` 给了强平价才有；**给不出就是 null，不拿杠杆倒推** |
-| `stocks` | 钱包详情是数量权威：`EQ_*` 正股 + `tokenized-assets` 映射的代币化股票。Binance 当前没有给出可完整核对的持仓成本与手续费，管理员按当前股数录入累计交易价值与手续费，总成本为两者之和；股数变化后旧值失效。`market/quote` 与 `exchangeInfo` 提供买卖价及交易能力。无效换算比例与缺失报价明确留空，不以钱包估值或 0 代替。两种持有形态都计入敞口分布与压力测试 |
+| `stocks` | 钱包详情是数量权威：`EQ_*` 正股 + `tokenized-assets` 映射的代币化股票。Binance 当前没有给出可完整核对的持仓成本与手续费，管理员按当前股数录入单位成本价与手续费；股数变化后旧值失效。`market/quote` 与 `exchangeInfo` 提供买卖价及交易能力。无效换算比例与缺失报价明确留空，不以钱包估值或 0 代替。两种持有形态都计入敞口分布与压力测试 |
 | `capabilities` | `/sapi/v1/account/info` + `/sapi/v1/account/apiRestrictions` |
 | `earn` | `GET /sapi/v1/simple-earn/{flexible,locked}/position` |
 | `margin` | `GET /sapi/v1/margin/account` |
@@ -306,7 +306,8 @@ items-start（容器）+ mt-2（每格内部，两档共用）
 
 后端那套成本基础引擎（`Lot` / `replay` / `summarize`）连同 `spot_assets`、
 `realized.spot_usd` 一起删了。日历仍显示现货每天涨跌；持仓页另以管理员录入的
-当前币仓交易价值加手续费计算总成本、平均成本和该仓位的未实现盈亏。
+当前币仓的单位成本价显示在持仓行；手续费只留在录入表单中。内部仍按
+`单位成本价 × 当前数量 + 手续费` 计算该仓位的盈亏，不在持仓行重复展示总成本与平均成本。
 现货钱包、合约钱包、全仓杠杆同一资产先合并数量；数量变化或余额来源不可用时不使用
 旧成本。这里的未实现只对应已录入的持仓，不混入全账户汇总的 `pnl.unrealized`。
 
