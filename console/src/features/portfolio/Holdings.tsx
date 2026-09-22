@@ -192,6 +192,17 @@ export function SpotTable({ spot, canEditCost = false, onSaveCost }: {
   )
 }
 
+/**
+ * 活期的年化是**阶梯**的：区间内那部分按档位利率，超出的按实时年化。
+ * `apr` 已经是按当前金额加权后的那个数（后端 `_apr_tiers`），这里把吃到的那一档
+ * 说出来，否则页面上的年化与 Binance 首屏那个挂牌利率对不上，看着像错的。
+ */
+function tierNote(item: EarnPosition) {
+  const tier = item.apr_tiers.find((row) => row.amount > 0)
+  if (!tier || item.apr_base === null) return null
+  return `前 ${amount(tier.to)} 按 ${percent(tier.rate, 2)} · 其余 ${percent(item.apr_base, 2)}`
+}
+
 export function EarnTable({ earn }: { earn: EarnPosition[] }) {
   if (earn.length === 0) {
     return <p className="py-10 text-center text-sm text-ink-3">没有理财持仓。</p>
@@ -213,6 +224,9 @@ export function EarnTable({ earn }: { earn: EarnPosition[] }) {
               {item.redeem_date && ` · ${item.redeem_date} 到期`}
               {!item.can_redeem && item.kind === 'locked' && ' · 锁定中'}
             </div>
+            {tierNote(item) && (
+              <div className="tnum mt-0.5 truncate text-micro text-ink-3">{tierNote(item)}</div>
+            )}
           </div>
           <div className="shrink-0 text-right">
             <div className="tnum text-sm text-ink">{money(item.value_usd)}</div>

@@ -535,7 +535,12 @@ class BinanceClient:
                                 "size": size})
 
     def earn_flexible_rewards(self, *, start_ms: int, end_ms: int,
-                              kind: str = "REWARDS", size: int = 100) -> Any:
+                              kind: str = "ALL", size: int = 100) -> Any:
+        """活期派息记录。**type 要 ALL**：活期的收益分成实时年化（`REALTIME`）与
+        阶梯年化奖励（`BONUS`）两类，另有历史奖励（`REWARDS`）。这里原先只问
+        `REWARDS`，于是阶梯那部分——也就是小额活期里占比最大的一块——从来没被取到。
+        每行自带 `type`，`ALL` 是把三类并起来，不是把同一笔算三遍。
+        """
         return self.signed_get(SPOT_BASE, "/sapi/v1/simple-earn/flexible/history/rewardsRecord",
                                {"type": kind, "startTime": start_ms, "endTime": end_ms,
                                 "size": size})

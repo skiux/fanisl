@@ -22,8 +22,18 @@ from fanisl.binance.portfolio import (
 )
 
 from binance_mock import (
-    BTC, FUT_RISK, LIQUIDATION_LOAN, NOW, PREV_CLOSE_RATIO, _day, make_transport,
+    BTC, EQUITY_PRICE, FUT_RISK, LIQUIDATION_LOAN, NOW, PREV_CLOSE_RATIO, _day,
+    equity_daily, make_transport,
 )
+
+
+@pytest.fixture(autouse=True)
+def equity_closes(monkeypatch):
+    """正股的昨收不在 Binance 上，portfolio 从 Yahoo 取——测试里换成假日线。
+
+    自动生效：假 Binance 的资金钱包里有 EQ_SOXL，不拦就是每跑一次测试真去一趟 Yahoo。
+    """
+    monkeypatch.setattr("fanisl.binance.portfolio.fetch_daily_adjclose", equity_daily)
 
 
 @pytest.fixture
@@ -1065,7 +1075,11 @@ def test_daily_counts_price_moves_not_just_settlements(cache):
     assert quiet, "样本里应当有不成交的日子"
     assert any(abs(d["spot_usd"]) > 1 for d in quiet), "不成交的日子也该有盈亏"
 
-    assert today["pnl_usd"] == pytest.approx(today["spot_usd"] + today["settled_usd"])
+    # 一天 = 持仓涨跌 + 正股涨跌 + 当日结算 + 理财派息 − 杠杆利息。
+    # 后三项各自有名字，不混进"现货涨跌"里，见 dailypnl.daily_credits。
+    assert today["pnl_usd"] == pytest.approx(
+        today["spot_usd"] + today["stock_usd"] + today["settled_usd"]
+        + today["earn_usd"] + today["interest_usd"])
     assert snap["pnl"]["today_usd"] == pytest.approx(today["pnl_usd"])
 
 
@@ -1127,6 +1141,130 @@ def test_stablecoins_stay_out_of_the_spot_half(cache):
     """USDT 面值不动，算进去只有噪声——而它的进出量最大，最容易把误差放大。"""
     snap = build(cache)
     assert all(row["asset"] != "USDT" for row in snap["pnl"]["spot_marks"])
+
+
+def test_the_funding_wallet_counts_toward_the_daily_quantity(cache):
+    """资金钱包原先整个不在持有量里，放在那儿的币逐日盈亏一分都不算。
+
+    划到资金钱包不是卖出——持有量一点没变，只是换了个地方待着。
+    """
+    from binance_mock import WALLETS
+    before = next(r for r in build(cache)["pnl"]["spot_marks"] if r["asset"] == "BNB")
+    funding = next(w for w in WALLETS if w["walletName"] == "Funding")
+    funding["assetBalances"].append(
+        {"asset": "BNB", "free": "1", "locked": "0", "freeze": "0",
+         "withdrawing": "0", "btcValuation": "0.007"})
+    try:
+        with cache.pool.connection() as conn:
+            conn.execute("TRUNCATE binance_cache")
+        after = next(r for r in build(cache)["pnl"]["spot_marks"] if r["asset"] == "BNB")
+        assert after["qty"] == pytest.approx(before["qty"] + 1)
+        # 多出来的那一个照今天的涨跌算：682.15 × (1 − 昨收比)
+        assert after["today_usd"] - before["today_usd"] == pytest.approx(
+            682.15 * (1 - PREV_CLOSE_RATIO))
+    finally:
+        funding["assetBalances"] = [b for b in funding["assetBalances"]
+                                    if b["asset"] != "BNB"]
+
+
+def test_a_stock_is_marked_to_market_with_a_price_from_outside_binance(cache):
+    """正股的昨收不在 Binance 上：它的股票接口只有买一卖一，没有日线也没有前收。
+
+    数量来自钱包明细（EQ_SOXL，40 股），行情来自仓库里那个 Yahoo 源。
+    """
+    snap = build(cache)
+    soxl = next(r for r in snap["pnl"]["stock_marks"] if r["asset"] == "SOXL")
+    assert soxl["qty"] == pytest.approx(40)
+    assert soxl["price_usd"] == pytest.approx(EQUITY_PRICE["SOXL"])
+    assert soxl["prev_close_usd"] == pytest.approx(EQUITY_PRICE["SOXL"] * PREV_CLOSE_RATIO)
+    assert snap["pnl"]["today"]["stock_usd"] == pytest.approx(
+        40 * EQUITY_PRICE["SOXL"] * (1 - PREV_CLOSE_RATIO))
+    assert snap["pnl"]["equity_close_source"]
+    assert snap["pnl"]["equity_missing"] == []
+    # 正股不混进现货那半边：两边的行情来源不同，降级也不该互相牵连
+    assert all(row["asset"] != "SOXL" for row in snap["pnl"]["spot_marks"])
+
+
+def test_a_weekend_does_not_blank_the_calendar(cache):
+    """股票周末没有行情，而日历是逐个 UTC 日走的。
+
+    缺一根就把那天报成"算不出来"的话，每个周末都会在日历上留两个洞——
+    周六的市值本来就等于周五的收盘，当天涨跌是 0，这不是近似。
+    """
+    snap = build(cache)
+    weekend = [d for d in snap["pnl"]["daily"]
+               if datetime.fromisoformat(d["date"]).weekday() >= 5]
+    assert weekend, "90 天窗口里总该有周末"
+    assert all(d["known"] for d in weekend)
+    assert all(d["stock_usd"] == 0 for d in weekend)
+
+
+def test_a_stock_without_a_close_is_named_not_silently_dropped(cache, monkeypatch):
+    """Yahoo 取不到时，正股那一份不计入——但要点名，而不是让整张日历陪葬。
+
+    一只股占这个账户 1.5%，为它把 90 天日历抹空不成比例；
+    可"今天赚了多少"里悄悄少一块同样不能接受，所以 `equity_missing` 把它说出来。
+    """
+    monkeypatch.setattr("fanisl.binance.portfolio.fetch_daily_adjclose",
+                        lambda symbol, start=0: [])
+    snap = build(cache)
+    assert snap["pnl"]["equity_missing"] == ["SOXL"]
+    assert snap["pnl"]["today"]["stock_usd"] == 0
+    assert all(d["known"] for d in snap["pnl"]["daily"])
+
+
+def test_todays_earn_and_interest_are_their_own_lines(cache):
+    """活期派息与杠杆利息记在稳定币上，而稳定币不参与盯市——原先这两笔整个丢了。
+
+    活期的收益分实时年化与阶梯奖励两类，接口按 `type` 过滤；这里原先只问了
+    `REWARDS` 一类，阶梯那部分从来没被取到，所以样本里两类都给。
+    """
+    from binance_mock import EARN_REWARDS_TODAY, MARGIN_INTEREST_TODAY
+    snap = build_replacing(cache, {
+        "/sapi/v1/simple-earn/flexible/history/rewardsRecord":
+            lambda: httpx.Response(200, json=EARN_REWARDS_TODAY),
+        "/sapi/v1/margin/interestHistory":
+            lambda: httpx.Response(200, json=MARGIN_INTEREST_TODAY),
+    })
+    today = snap["pnl"]["today"]
+    assert today["earn_usd"] == pytest.approx(0.42 + 0.31)
+    assert today["interest_usd"] == pytest.approx(-0.11)
+    assert snap["pnl"]["earn_marks"] == [{"asset": "USDT", "usd": pytest.approx(0.73)}]
+    assert snap["pnl"]["interest_marks"] == [{"asset": "USDT", "usd": pytest.approx(-0.11)}]
+    assert today["total_usd"] == pytest.approx(
+        today["spot_usd"] + today["stock_usd"] + today["settled_usd"]
+        + today["earn_usd"] + today["interest_usd"])
+
+
+def test_yesterdays_stablecoin_interest_lands_on_yesterday(cache):
+    """默认样本里的派息与利息记在昨天：它们该落在昨天那一格，不是今天。"""
+    daily = {d["date"]: d for d in build(cache)["pnl"]["daily"]}
+    # 活期 0.86 USDT 按 1 美元算，定期 0.0012 BNB 按当天收盘算——
+    # 稳定币不需要日线，其余按当天收盘，两条路径在同一格里
+    assert daily[_day(1)]["earn_usd"] == pytest.approx(
+        0.86 + 0.0012 * 682.15 * PREV_CLOSE_RATIO)
+    assert daily[_day(1)]["interest_usd"] == pytest.approx(-1.04)
+    assert daily[_day(0)]["earn_usd"] == 0
+
+
+def test_flexible_apr_is_blended_over_the_tiers(cache):
+    """活期是阶梯的：前 500 按 12%，其余按实时 4.82%。
+
+    原先直接报实时年化，于是页面上的活期年化一直偏低——小额那几档才是高的那一段。
+    """
+    snap = build(cache)
+    row = next(r for r in snap["earn"] if r["asset"] == "USDT")
+    assert row["apr_base"] == pytest.approx(0.0482)
+    assert row["apr"] == pytest.approx((500 * 0.12 + 6000 * 0.0482) / 6500)
+    assert row["apr_tiers"] == [
+        {"from": 0.0, "to": 500.0, "rate": pytest.approx(0.12), "amount": pytest.approx(500)}]
+
+
+def test_locked_earn_keeps_its_single_rate(cache):
+    snap = build(cache)
+    row = next(r for r in snap["earn"] if r["kind"] == "locked")
+    assert row["apr"] == pytest.approx(0.085)
+    assert row["apr_tiers"] == []
 
 
 def test_pnl_has_no_spot_unrealized_field(cache):

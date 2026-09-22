@@ -119,8 +119,8 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         pnl: base.pnl && {
           ...base.pnl,
           today: { ...base.pnl.today, settled_usd: null, settled_parts: null,
-                   total_usd: base.pnl.today.spot_usd },
-          today_usd: base.pnl.today.spot_usd,
+                   total_usd: withoutSettled(base.pnl.today) },
+          today_usd: withoutSettled(base.pnl.today),
           unrealized: { ...base.pnl.unrealized, futures_usd: null },
           realized: { ...base.pnl.realized, futures_usd: null },
           carry: { ...base.pnl.carry, funding_usd: null, commission_usd: null,
@@ -128,7 +128,9 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
           // 日历不清空：现货那半边照常算得出来，没了的只是合约结算。
           // 后端就是这样（income 取不到时 settled 全是 0，pnl 只剩现货）。
           daily: base.pnl.daily.map((day) => ({
-            ...day, settled_usd: 0, pnl_usd: day.spot_usd, known: day.spot_usd !== null,
+            ...day, settled_usd: 0, known: day.spot_usd !== null,
+            pnl_usd: day.spot_usd === null ? null
+              : day.spot_usd + day.stock_usd + day.earn_usd + day.interest_usd,
           })),
         },
         totals: base.totals && {
@@ -161,15 +163,17 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
         pnl: base.pnl && {
           ...base.pnl,
           today: { ...base.pnl.today, settled_usd: null, settled_parts: null,
-                   total_usd: base.pnl.today.spot_usd },
-          today_usd: base.pnl.today.spot_usd,
+                   total_usd: withoutSettled(base.pnl.today) },
+          today_usd: withoutSettled(base.pnl.today),
           realized: { ...base.pnl.realized, futures_usd: null },
           carry: { ...base.pnl.carry, funding_usd: null, commission_usd: null,
                    referral_usd: null },
           // 日历不清空：现货那半边照常算得出来，没了的只是合约结算。
           // 后端就是这样（income 取不到时 settled 全是 0，pnl 只剩现货）。
           daily: base.pnl.daily.map((day) => ({
-            ...day, settled_usd: 0, pnl_usd: day.spot_usd, known: day.spot_usd !== null,
+            ...day, settled_usd: 0, known: day.spot_usd !== null,
+            pnl_usd: day.spot_usd === null ? null
+              : day.spot_usd + day.stock_usd + day.earn_usd + day.interest_usd,
           })),
         },
         totals: base.totals,
@@ -275,6 +279,13 @@ export type SpotCostInput = StockCostInput
 export type SavedStockCost = StockCostInput & {
   symbol: string
   updated_at: string
+}
+
+/** 合约那一项挂了，剩下的照算：持仓涨跌、正股、派息与利息都不经过 fapi */
+function withoutSettled(today: NonNullable<PortfolioSnapshot['pnl']>['today']) {
+  return today.spot_usd === null ? null
+    : today.spot_usd + (today.stock_usd ?? 0) + (today.earn_usd ?? 0)
+      + (today.interest_usd ?? 0)
 }
 
 const scenarioStockCosts = new Map<string, SavedStockCost>()

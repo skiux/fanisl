@@ -17,7 +17,11 @@
     成交            单位成本 = 成交价    → 买入当天只赚"成交价到收盘"那一段
     充值 / 提现     单位成本 = 当日收盘  → 钱进来不是赚的，当天贡献 0
     合约结算        单位成本 = 当日收盘  → 它已经在"当日结算"那半边算过一次
-    理财派息        单位成本 = 0         → 白得的，全额算收益
+    派息 / 利息     单位成本 = 当日收盘  → 另行成项，见 `daily_credits`
+
+**理财派息与杠杆利息不在盯市里**（原先它们的单位成本是 0，等于并进某个币当天的
+涨跌）。改的理由是稳定币整个不参与盯市：USDT 活期的利息一分都没算进来，而它是
+这个账户上最大的一笔理财。现在它们各自成项，稳定币也照样算。
 
 展开验一下买入：`(q+a)·close − q·close₋₁ − a·p = q·(close − close₋₁) + a·(close − p)`
 ——持仓那部分照涨跌算，新买的那部分从成交价算起。这正是想要的。
@@ -59,16 +63,22 @@ def _day(value: Any) -> str:
     return (ms_to_iso(value) or "")[:10]
 
 
-def flow(day: str, asset: str, dq: float, unit_usd: float | None) -> dict:
-    """一笔进出。`unit_usd=None` 表示按当日收盘计价（本身不产生盈亏）。"""
-    return {"day": day, "asset": asset, "dq": dq, "unit_usd": unit_usd}
+def flow(day: str, asset: str, dq: float, unit_usd: float | None,
+         kind: str = "move") -> dict:
+    """一笔进出。`unit_usd=None` 表示按当日收盘计价（本身不产生盈亏）。
+
+    `kind` 只区分**它的损益由谁报**：`move` 的落在盯市里（`daily_spot_pnl`），
+    `earn`（理财派息）与 `interest`（杠杆利息）另行成项（`daily_credits`）。
+    后两类在盯市里按当日收盘计价，因此不会被算两次。
+    """
+    return {"day": day, "asset": asset, "dq": dq, "unit_usd": unit_usd, "kind": kind}
 
 
 def collect_flows(*, trades: Iterable[dict] = (), deposits: Any = None,
                   withdrawals: Any = None, income: Any = None,
                   earn_flexible: Any = None, earn_locked: Any = None,
                   margin_interest: Any = None, convert: Any = None,
-                  dust: Any = None) -> list[dict]:
+                  dust: Any = None, equity_trades: Iterable[dict] = ()) -> list[dict]:
     """各来源的原始行 → 统一的进出清单。
 
     **钱包之间的划转不在这里**，也不需要：持仓量按跨钱包统计，划转两头相抵。
@@ -116,20 +126,39 @@ def collect_flows(*, trades: Iterable[dict] = (), deposits: Any = None,
             # 单位成本按当日收盘：这笔的损益已经在"当日结算"那半边算过一次了
             out.append(flow(day, row.get("asset", ""), amount, None))
 
+    # 派息与利息**按当日收盘计价**（单位成本 None），损益由 `daily_credits` 单独给。
+    # 原先它们的单位成本是 0，等于把损益并进那个币当天的涨跌里：稳定币整个不参与
+    # 盯市，USDT 活期的利息因此一分都没算进来，而且它们在界面上也没有名字。
     for row in _rows(earn_flexible):
         day, amount = _day(row.get("time")), dec0(row.get("rewards"))
         if day and amount > 0:
-            out.append(flow(day, row.get("asset", ""), amount, 0.0))
+            out.append(flow(day, row.get("asset", ""), amount, None, "earn"))
     for row in _rows(earn_locked):
         day, amount = _day(row.get("time")), dec0(row.get("amount"))
         if day and amount > 0:
-            out.append(flow(day, row.get("asset", ""), amount, 0.0))
+            out.append(flow(day, row.get("asset", ""), amount, None, "earn"))
 
     for row in _rows(margin_interest):
         day = _day(row.get("interestAccuredTime") or row.get("interestAccruedTime"))
         amount = dec0(row.get("interest"))
         if day and amount > 0:
-            out.append(flow(day, row.get("asset", ""), -amount, 0.0))
+            out.append(flow(day, row.get("asset", ""), -amount, None, "interest"))
+
+    # 正股成交。股票的资产键就是代码本身（SOXL），与 `held` 里那一份同名；
+    # 计价腿多半是 USDC，稳定币不参与盯市，和加密成交的 USDT 腿一样只是记账。
+    for row in equity_trades or []:
+        symbol = str(row.get("symbol") or "")
+        qty, price = dec0(row.get("qty")), dec(row.get("price"))
+        day = _day(row.get("executionAt"))
+        if not symbol or qty <= 0 or price is None or not day:
+            continue
+        side = 1.0 if str(row.get("side", "")).upper() == "BUY" else -1.0
+        out.append(flow(day, symbol, side * qty, price))
+        quote = str(row.get("quote") or "")
+        if quote:
+            total = dec0(row.get("total")) or qty * price
+            out.append(flow(day, quote, -side * total,
+                            1.0 if quote in USD_QUOTES else None))
 
     for row in ((convert or {}).get("list", []) if isinstance(convert, dict) else []):
         if row.get("orderStatus") != "SUCCESS":
@@ -261,4 +290,38 @@ def daily_spot_pnl(held: dict[str, float], closes: dict[str, dict[str, float]],
         "unpriced_assets": unpriced,
         # 回滚出负数的币。出现就说明进出清单缺了一类，值得查，不该沉默
         "unbalanced_assets": sorted(negative),
+    }
+
+
+def daily_credits(flows: Iterable[dict], closes: dict[str, dict[str, float]], *,
+                  kind: str, days: int, now: datetime) -> dict:
+    """一类**白得或白付**的流水按天折成美元：理财派息（`earn`）、杠杆利息（`interest`）。
+
+    它们不是涨跌，是数量凭空多出来或少下去，所以单独成项而不是并进盯市。
+    稳定币按 1 美元折算——它们没有日线，也不需要；其余按当天收盘。
+    既没有日线又不是稳定币的只能跳过，记在 `unpriced_assets` 里，不猜一个价。
+    """
+    today = now.astimezone(timezone.utc).date()
+    dates = [(today - timedelta(days=back)).isoformat() for back in range(days - 1, -1, -1)]
+    totals: dict[str, float] = {day: 0.0 for day in dates}
+    by_asset: dict[str, float] = {}
+    unpriced: set[str] = set()
+
+    for f in flows:
+        if f.get("kind") != kind or f["day"] not in totals:
+            continue
+        asset = f["asset"]
+        price = 1.0 if asset in STABLE_ASSETS else (closes.get(asset) or {}).get(f["day"])
+        if price is None:
+            unpriced.add(asset)
+            continue
+        usd = f["dq"] * price
+        totals[f["day"]] += usd
+        if f["day"] == dates[-1]:
+            by_asset[asset] = by_asset.get(asset, 0.0) + usd
+
+    return {
+        "days": totals,
+        "today_by_asset": [{"asset": a, "usd": by_asset[a]} for a in sorted(by_asset)],
+        "unpriced_assets": sorted(unpriced),
     }

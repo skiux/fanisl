@@ -47,15 +47,20 @@ def split_symbol(symbol: str, quotes: Iterable[str] = USD_QUOTES) -> tuple[str, 
 
 
 def held_across_wallets(spot: list[dict], futures: dict | None,
-                        margin: dict | None, earn: list[dict]) -> dict[str, float]:
+                        margin: dict | None, earn: list[dict],
+                        funding: list[dict] | None = None) -> dict[str, float]:
     """一个币在**整个账户**里有多少，不分钱包。
 
     成本基础不认钱包：把 BNB 从现货划进合约当保证金、或者存进理财吃利息，
     持有量一点没变，只是换了个地方待着。只看现货余额的话，划走的那部分会显示成
     "卖掉了"——而实际上一笔成交都没发生。
 
-    资金钱包不在这里。`wallet/balance?needBalanceDetail=true` 现在能给逐资产明细，
-    但调用方还需先把各钱包明细规范化，才能安全并入这里。
+    `funding` 是资金钱包（`wallet/balance?needBalanceDetail=true` 的逐资产明细，
+    由调用方规范成 `{asset, qty}`）。它原先不在这里，于是**放在资金钱包里的币
+    逐日盈亏一分都不算**——正股就在那儿，此外这个账户的 USDT 与小币也在。
+
+    正股不在这里：它的行情另有出处、也另算一遍盯市（`portfolio._equity_daily`），
+    混进来只会让"这个币取不到报价"与"股票取不到报价"共用一套降级。
     """
     out: dict[str, float] = {}
 
@@ -74,6 +79,8 @@ def held_across_wallets(spot: list[dict], futures: dict | None,
         add(row.get("asset", ""), row.get("net", 0.0))
     for row in earn or []:
         add(row.get("asset", ""), row.get("amount", 0.0))
+    for row in funding or []:
+        add(row.get("asset", ""), row.get("qty", 0.0))
     return out
 
 

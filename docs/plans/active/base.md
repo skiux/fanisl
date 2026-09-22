@@ -42,6 +42,18 @@
     `docs/decisions/`。席位表里的 `tools/` 分不清是 `backend/tools/` 还是 `backend/fanisl/tools/`
 
 ## Requests in
+- **console 席位（2026-09-22，今日盈亏改口径）**：`GET /portfolio` 的 `pnl` 一节请补齐：
+  `today` 增加 `stock_usd`（正股当天涨跌）、`earn_usd`（理财派息）、
+  `interest_usd`（杠杆利息，负数）；`daily[]` 的每一格同样多这三项，
+  `pnl_usd = spot_usd + stock_usd + settled_usd + earn_usd + interest_usd`。
+  顶层增加 `stock_marks`（形状同 `spot_marks`）、`earn_marks` / `interest_marks`
+  （`{asset, usd}[]`）、`equity_missing: string[]`（拿不到昨收、未计入的股票代码）、
+  `equity_close_source: string`。
+  两条口径值得在 api.md 写明：① **派息与利息不再并进 `spot_usd`**——它们记在稳定币上，
+  而稳定币不参与盯市，原先整个丢了；② **`equity_close_source` 是整个 `/portfolio` 里
+  唯一不来自 Binance 的数**（Binance 的股票接口只给买一卖一，没有日线也没有前收，
+  正股昨收取自 Yahoo 日线）。另外 `earn[]` 增加 `apr_base`（实时年化）与
+  `apr_tiers: {from,to,rate,amount}[]`，`apr` 的含义改为**按当前金额加权后的年化**。
 - **console 席位（2026-09-22）**：请在 `backend/api.md` 补录
   `GET /portfolio` 的 `spot_costs: Record<asset, {asset, cost_price_usd,
   commission_usd, position_qty, updated_at}>`。该记录只用于当前跨钱包币仓的成本展示，

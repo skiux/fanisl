@@ -211,26 +211,39 @@ type RawEarn = {
   asset: string
   amount: number
   kind: EarnPosition['kind']
+  /** 实时年化：超出阶梯的那部分按它计息。定期没有阶梯，它就是全部 */
   apr: number
+  /** 阶梯：区间内那部分按这个利率，活期 USDT 的前几百块才是高的那一段 */
+  tiers?: { from: number; to: number; rate: number }[]
   rewards: number
   redeem?: string
 }
 
 const RAW_EARN: RawEarn[] = [
-  { id: 'USDT-FLEX', asset: 'USDT', amount: 8000, kind: 'flexible', apr: 0.0482, rewards: 164.21 },
+  { id: 'USDT-FLEX', asset: 'USDT', amount: 8000, kind: 'flexible', apr: 0.0482,
+    tiers: [{ from: 0, to: 500, rate: 0.12 }], rewards: 164.21 },
   { id: 'USDT-30D', asset: 'USDT', amount: 5000, kind: 'locked', apr: 0.065, rewards: 62.38, redeem: '2026-09-14' },
   { id: 'BNB-FLEX', asset: 'BNB', amount: 1.5, kind: 'flexible', apr: 0.0035, rewards: 0.0092 },
 ]
 
 export const earn: EarnPosition[] = RAW_EARN.map((row) => {
   const price = PRICE[row.asset]
+  // 与后端 `_apr_tiers` 同一套算法：档内按档位利率，超出的按实时年化
+  const tiers = (row.tiers ?? []).map((tier) => ({
+    ...tier, amount: Math.max(0, Math.min(row.amount, tier.to) - tier.from),
+  }))
+  const covered = tiers.reduce((sum, tier) => sum + tier.amount, 0)
+  const weighted = tiers.reduce((sum, tier) => sum + tier.amount * tier.rate, 0)
+    + Math.max(0, row.amount - covered) * row.apr
   return {
     product_id: row.id,
     asset: row.asset,
     amount: row.amount,
     value_usd: price === null || price === undefined ? null : row.amount * price,
     kind: row.kind,
-    apr: row.apr,
+    apr: row.amount > 0 ? weighted / row.amount : row.apr,
+    apr_base: row.apr,
+    apr_tiers: tiers,
     cumulative_rewards: row.rewards,
     cumulative_rewards_usd: price === null || price === undefined ? null : row.rewards * price,
     redeem_date: row.redeem ?? null,
@@ -373,7 +386,16 @@ export const okSource = (key: SourceState['key'], asOf: string): SourceState => 
  */
 const PREV_CLOSE_RATIO: Record<string, number> = {
   BTC: 0.988, BNB: 0.982, ETH: 1.004, SOL: 1,
+  // 正股的昨收另有出处：Binance 的股票接口只给买一卖一，没有日线
+  SOXL: 0.973,
 }
+
+/** 今天的活期派息与杠杆利息。**记在稳定币上**，所以它们不在逐币涨跌里 */
+const EARN_MARKS = [
+  { asset: 'USDT', usd: 1.04 },
+  { asset: 'USDC', usd: 0.32 },
+]
+const INTEREST_MARKS = [{ asset: 'USDT', usd: -0.28 }]
 
 /**
  * 盈亏构成。和后端同一套口径。**没有残差项**——旧的归因表用"期末 − 期初 −
@@ -399,13 +421,31 @@ function buildPnl(): Pnl {
       }
     })
 
-  const daily = buildDaily()
+  // 正股：数量来自钱包，昨收来自 Binance 以外的日线，见 Pnl.equity_close_source
+  const stockMarks = stocks.equity_holdings.map((row) => {
+    const now = row.price_usd
+    const ratio = PREV_CLOSE_RATIO[row.symbol]
+    const prev = now === null || ratio === undefined ? null : now * ratio
+    return {
+      asset: row.symbol, qty: row.qty, price_usd: now, prev_close_usd: prev,
+      value_usd: row.value_usd,
+      today_usd: now === null || prev === null ? null : row.qty * (now - prev),
+    }
+  })
+  const todayStock = stockMarks.reduce((sum, row) => sum + (row.today_usd ?? 0), 0)
+  const todayEarn = EARN_MARKS.reduce((sum, row) => sum + row.usd, 0)
+  const todayInterest = INTEREST_MARKS.reduce((sum, row) => sum + row.usd, 0)
+
+  const daily = buildDaily(todayStock, todayEarn, todayInterest)
 
   return {
     today: {
       spot_usd: daily.at(-1)?.spot_usd ?? null,
+      stock_usd: daily.at(-1)?.stock_usd ?? null,
       settled_usd: daily.at(-1)?.settled_usd ?? null,
       settled_parts: splitSettled(daily.at(-1)?.settled_usd ?? 0),
+      earn_usd: daily.at(-1)?.earn_usd ?? null,
+      interest_usd: daily.at(-1)?.interest_usd ?? null,
       total_usd: daily.at(-1)?.pnl_usd ?? null,
     },
     today_usd: daily.at(-1)?.pnl_usd ?? null,
@@ -425,6 +465,11 @@ function buildPnl(): Pnl {
     },
     daily,
     spot_marks: marks,
+    stock_marks: stockMarks,
+    earn_marks: EARN_MARKS,
+    interest_marks: INTEREST_MARKS,
+    equity_missing: [],
+    equity_close_source: 'Yahoo 日线复权收盘',
     unbalanced_assets: [],
   }
 }
@@ -448,7 +493,7 @@ function splitSettled(total: number): IncomeBreakdown {
   }
 }
 
-function buildDaily(): DailyPnl[] {
+function buildDaily(todayStock = 0, todayEarn = 0, todayInterest = 0): DailyPnl[] {
   const out: DailyPnl[] = []
   // **全程 UTC。** 原先是本地的 setDate/getDay 再 toISOString 出去，
   // UTC+8 的人在本地 08:00 之前打开，日期会整体差一天。
@@ -468,11 +513,21 @@ function buildDaily(): DailyPnl[] {
       ? Math.round(Math.sin(back * 2.1 + 0.9) * 180 * 100) / 100 : 0
     // 最早那两天故意算不出来：日历要能画出"这天没有数"的样子
     const known = back < 88
+    // 正股：周末没有行情，那天不动。派息天天有，利息按日计。
+    const weekend = weekday === 0 || weekday === 6
+    const stock = back === 0 ? todayStock
+      : weekend ? 0 : Math.round(Math.sin(back * 0.83) * 21 * 100) / 100
+    const earn = back === 0 ? todayEarn : 1.31
+    const interest = back === 0 ? todayInterest : -0.28
     out.push({
       date: day.toISOString().slice(0, 10),
       spot_usd: known ? spot : null,
+      stock_usd: stock,
       settled_usd: settled,
-      pnl_usd: known ? Math.round((spot + settled) * 100) / 100 : null,
+      earn_usd: earn,
+      interest_usd: interest,
+      pnl_usd: known
+        ? Math.round((spot + stock + settled + earn + interest) * 100) / 100 : null,
       known,
     })
   }

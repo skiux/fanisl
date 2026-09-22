@@ -184,6 +184,7 @@ IP 权重上限 **6000/分钟**。而：
 | Stocks Trading 的 Account 文档没有持仓 GET | 持仓只能从钱包明细认：正股是资金钱包里的 `EQ_<代码>`（文档没写，2026-09-17 实测），代币化股票按 tokenized-assets 映射；不能用成交净额伪造持仓 |
 | 股票逐笔成交没有手续费，`order/history` 在线上又可能漏掉 `fee` 或对应成交 | `/orders` 原样保留可得历史；`/portfolio` 不拿残缺记录估算成本，由管理员录入单位平均成本价与手续费，股数变化后停用旧值 |
 | BFUSD 已移到 Simple Earn，账户余额接口不带当前年化 | 用 `/sapi/v1/bfusd/history/rateHistory` 的最近一条 `annualPercentageRate`，并应用到各钱包中的 BFUSD 现金行 |
+| 活期理财的年化是**阶梯**的，`latestAnnualPercentageRate` 只是超出阶梯之后的实时利率 | 用同一行里的 `tierAnnualPercentageRate`（形如 `{"0-500USDT": 0.12}`）按当前金额加权：档内那部分按档位利率，其余按实时利率（`_apr_tiers`）。实时利率未知而又有超出部分时报 `null`，不给半个数 |
 | Stocks Trading 行情要求 API key 但不要求签名 | 当公开端点调用会 401；当 USER_DATA 调用会多余地签名 |
 | TradFi Perps 仍属于 USDⓈ-M | 不能按裸股票账户处理；保证金、强平与资金费仍走 fapi |
 | 账户能力与 API key 权限是两层 | `isMarginEnabled=true` 不表示只读 key 有交易权限；展示和请求分流不能混用 |
@@ -322,6 +323,10 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
 算，不认钱包，否则划走的部分会显示成卖掉了。合约那边用 `walletBalance` 而不是
 `marginBalance`——后者含浮盈，那是仓位的钱不是多出来的币。
 
+**资金钱包也在里面**（2026-09-22 补）。它原先整个不在 `held_across_wallets` 里，
+放在那儿的币逐日盈亏一分都不算——而这个账户的正股、一部分 USDT 与小币就在资金钱包。
+数量取自 `wallet/balance?needBalanceDetail=true` 的逐资产明细。
+
 **"现货数据取不到"多半就是这一条**：币划进了合约钱包当保证金，量一直都在，
 只是当初只读了现货余额。逐日盈亏与已实现都走 `held_across_wallets`；
 资产页把它们按币种并入「现货持仓」，并在行内保留“合约钱包 / 全仓杠杆”的位置提示；
@@ -343,10 +348,21 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
 | 现货成交 | `myTrades`（已有，全历史） | 成交价 |
 | 充提 | `capital/deposit,withdraw`（已有，90 天） | 当日收盘 |
 | 合约结算 | `fapi/v1/income`（已有，90 天） | 当日收盘（损益已计在 settled 里） |
-| 理财派息 | `simple-earn/*/history/rewardsRecord` | **0**（白得的） |
-| 杠杆利息 | `margin/interestHistory` | **0** |
+| 理财派息 | `simple-earn/*/history/rewardsRecord`（`type=ALL`） | 当日收盘（**另行成项**） |
+| 杠杆利息 | `margin/interestHistory` | 当日收盘（**另行成项**） |
 | 闪兑 | `convert/tradeFlow`（**只回 30 天**） | 当日收盘 |
 | 小额兑换 | `asset/dribblet`（**只回 30 天**） | 当日收盘 |
+| 正股成交 | `equity/trade/history` | 成交价 |
+
+**派息与利息不在盯市里，各自成项**（`dailypnl.daily_credits`）。原先它们的单位成本是
+0，等于把损益并进那个币当天的涨跌里；而**稳定币整个不参与盯市**，于是 USDT 活期的
+派息与杠杆利息在「今日盈亏」里一分都看不到——那恰恰是这个账户上金额最大的一块理财。
+现在它们按 1 美元折算（其余资产按当日收盘），在接口里是 `today.earn_usd` /
+`today.interest_usd`，日历每一格也各有一份。
+
+**活期派息要问 `type=ALL`。** 活期的收益分实时年化（`REALTIME`）与阶梯年化奖励
+（`BONUS`）两类，另有历史奖励（`REWARDS`）。这里原先只问 `REWARDS`，阶梯那部分
+从来没被取到。
 
 **回滚出负数 = 有一类进出没被覆盖到**（这个账户上最可能是 90 天以外的充值）。
 那天报 `null` 而不是一个错的数，`unbalanced_assets` 把是哪几个币说出来。
@@ -355,6 +371,23 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
 **没有报价对的币整个不参与**（`unpriced_assets`），与净值同一个口径。曾经写成
 "任一持有的币缺价 ⇒ 那天报空"，结果一个几分钱的尘埃仓位（0.00071 PAXG，
 没有 USDT 对）把整张 90 天日历抹成了空白。
+
+### 正股那一份：唯一一处非 Binance 数据
+
+**Binance 的股票接口没有日线，也没有前收。** `equity/market/quote` 只给买一卖一
+（binance-sdk-stocks 1.2.0 复核，2026-09-22），另外十五个端点都是下单与查单。
+而"今天涨跌了多少"必须有昨收，所以正股的日线取自仓库里已有的 Yahoo 源
+（`data/yahoo_source.py`，免 key，复权收盘），接口里用 `pnl.equity_close_source`
+标明出处。持仓数量仍来自钱包明细（`EQ_` 开头的资产），与「股票持仓」同一份。
+
+正股**另走一遍同一套盯市**（`daily_spot_pnl`，只是换一份行情），不与加密那一遍
+合并：两边的降级不该互相牵连。Binance 行情挂了，不该让股票那一行顶上去冒充"今天赚了
+多少"；Yahoo 挂了，也不该把整张日历抹空——那种情况下正股按 0 计，
+`pnl.equity_missing` 把没算进去的代码点名，界面上照样写出来。
+
+股票**周末与假日没有行情**，而盯市是逐个 UTC 日走的：缺一根就会把那天判成"算不出来"。
+所以取到的日线按日历向后补齐（`_equity_closes`）——周六的市值本来就等于周五的收盘，
+当天涨跌是 0，这不是近似。
 
 ### 窗口不一样，别加成一个数
 
@@ -473,7 +506,7 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | `stocks` | `GET /sapi/v1/equity/market/tokenized-assets` | 1 | 6h | `AAPLB` 等钱包资产映射到股票代码；API key、不签名 |
 | | `GET /sapi/v1/equity/market/exchangeInfo` | 1 | 6h | 可交易方向、碎股、延长时段与隔夜能力；API key、不签名 |
 | | `GET /sapi/v1/equity/market/quote` | 1 / 标的 | 30s | 最新买一/卖一，官方说明最多约 5 秒延迟；缺任一侧时不生成中间价与盈亏 |
-| `earn` | `GET /sapi/v1/simple-earn/flexible/position` | 150 | 300s | UID 限速 |
+| `earn` | `GET /sapi/v1/simple-earn/flexible/position` | 150 | 300s | UID 限速；**阶梯年化 `tierAnnualPercentageRate` 就在这里**，不必另取产品列表 |
 | | `GET /sapi/v1/simple-earn/locked/position` | 150 | 300s | UID 限速 |
 | `bfusd` | `GET /sapi/v1/bfusd/history/rateHistory` | 150 | 300s | 最近公布年化；重新取数不穿透 |
 | `margin` | `GET /sapi/v1/margin/account` | 10 | 60s | 全仓杠杆 |
@@ -483,16 +516,20 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | | `GET /sapi/v1/capital/withdraw/history` | **18000** | 900s | UID 限速 10 次/秒，最贵的一个 |
 | `trades.*` | `GET /api/v3/myTrades` | 20 / 交易对 | 6h | `fromId` 翻页，**无时间上限** |
 | `close.*` | `GET /api/v3/klines` | 2 / 交易对 | 900s | 日线收盘，不签名；`limit=WINDOW_DAYS+2` |
-| `flows.earn_flexible` | `GET /sapi/v1/simple-earn/flexible/history/rewardsRecord` | 150 | 1800s | UID 限速 |
+| `flows.earn_flexible` | `GET /sapi/v1/simple-earn/flexible/history/rewardsRecord` | 150 | 1800s | UID 限速；`type=ALL`，只问 `REWARDS` 会漏掉阶梯奖励 |
 | `flows.earn_locked` | `GET /sapi/v1/simple-earn/locked/history/rewardsRecord` | 150 | 1800s | UID 限速 |
 | `flows.interest` | `GET /sapi/v1/margin/interestHistory` | 1 | 1800s | 杠杆利息 |
 | `flows.convert` | `GET /sapi/v1/convert/tradeFlow` | **3000** | 1800s | **只回 30 天** |
 | `flows.dust` | `GET /sapi/v1/asset/dribblet` | 1 | 1800s | **只回 30 天** |
+| `flows.equity_trades` | `GET /sapi/v1/equity/trade/history` | 1 | 1800s | 正股成交，用来回滚股数 |
+| `close.equity.*` | Yahoo `chart/{symbol}`（**不是 Binance**） | — | 900s | 正股日线复权收盘；Binance 的股票接口没有日线也没有前收 |
 
 后面这两组（`close.*` 与 `flows.*`）都是**逐日盈亏**要的，不是给别的地方用的：
 
 - `close.*` 提供每天的收盘价。**按交易对逐个问**，所以只覆盖当前持有的币
   （`_cost_symbols`）——已清仓的币取不到日线，也就回滚不到。
+  正股那几行（`close.equity.*`）是整个资产页上唯一不来自 Binance 的数据，理由见
+  「正股那一份」一节。
 - `flows.*` 提供"某天多了/少了几个币"，用来把历史持仓量从今天的余额往回滚。
   钱包之间的划转**不必问**：持有量按跨钱包统计，划转两头相抵。
   闪兑与小额兑换只回 30 天是硬限，更早的日子回滚不到，那几天会报 `null`。
@@ -503,7 +540,8 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 日快照（`accountSnapshot`，单次权重 2400）**已经不用了**：它只覆盖现货 / 全仓杠杆 /
 U 本位三种，理财、资金、币本位没有历史快照，拿它算盈亏会把钱包间划转算成损益。
 
-一次完整取数：SPOT 池约 **18 450 + 每个股票持仓一次报价**（提现一项就占 18 000），
+一次完整取数：SPOT 池约 **18 451 + 每个股票持仓一次报价**（提现一项就占 18 000；
+正股成交历史权重 1），另加每个正股一次 Yahoo 日线（不占 Binance 权重），
 FAPI 池 **63**（上表 fapi 各行相加）。`withdrawals` 与 BFUSD 年化列在
 `NEVER_FORCE` 里；管理员成本保存在本地表，不消耗 Binance 权重，也不需要强制刷新上游。
 
@@ -570,7 +608,10 @@ FAPI 池 **63**（上表 fapi 各行相加）。`withdrawals` 与 BFUSD 年化�
 `tests/test_binance_{signing,client_contract,portfolio,orders,ledger}.py` 走 `httpx.MockTransport`，
 喂**真实形状**的响应，不联网；`tests/test_dailypnl.py` 与 `tests/test_costbasis.py`
 是纯逻辑，连 transport 都不需要——逐日盈亏的口径（持有、买入、充值、派息、手续费、
-回滚不平、无报价、"空账户的 0 是真的 vs 算不出来的空"）钉在那里。上面「读文档才知道的坑」那张表里的每一条都有测试盯着。样本在 `tests/binance_mock.py` 三组共用——各写一份必然漂移：
+回滚不平、无报价、"空账户的 0 是真的 vs 算不出来的空"）钉在那里。
+正股那一份也有自己的几条：昨收取自 Binance 之外、周末不抹空日历、取不到昨收时点名
+而不是悄悄少一块。**假 Yahoo 是必须的**——假 Binance 拦不住它，`tests/test_binance_portfolio.py`
+里有一个 autouse fixture 把它换掉，否则每跑一次测试就真去一趟 Yahoo。上面「读文档才知道的坑」那张表里的每一条都有测试盯着。样本在 `tests/binance_mock.py` 三组共用——各写一份必然漂移：
 改了一处样本，另一处还在验旧形状，而两边都是绿的。
 
 样本按用户的实际持仓形态编（美股永续 NVDA/QQQ 为主，现货只留 BNB 与稳定币）。

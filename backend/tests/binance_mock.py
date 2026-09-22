@@ -51,6 +51,34 @@ def _klines(symbol: str, bars: int = KLINE_BARS):
     return out
 
 
+# 正股的日线。**Binance 没有这个数据**（股票接口只给买一卖一），portfolio 从
+# 仓库里那个 Yahoo 源取，测试当然不真去 Yahoo。形状与 `fetch_daily_adjclose`
+# 一致：`[(ts_utc, 收盘)]`，**只有交易日有根**——周末缺根是股票与加密最大的差别，
+# 逐日盈亏要能自己补齐，否则每个周末都会把日历抹空。
+EQUITY_PRICE = {"SOXL": 24.0}
+
+
+def equity_daily(symbol: str, *, start: int = 0, bars: int = KLINE_BARS):
+    price = EQUITY_PRICE.get(symbol)
+    if price is None:
+        return []
+    midnight = NOW.replace(hour=0, minute=0, second=0, microsecond=0)
+    out = []
+    for i in range(bars):
+        day = midnight - timedelta(days=bars - 1 - i)
+        if day.weekday() >= 5:          # 周末没有行情
+            continue
+        if i == bars - 1:
+            close = price
+        elif i == bars - 2:
+            close = price * PREV_CLOSE_RATIO
+        else:
+            close = price * (PREV_CLOSE_RATIO + 0.03 * math.sin(i / 4))
+        # Yahoo 的日线时间戳是开盘时刻，取日期用的正是它
+        out.append((day + timedelta(hours=13, minutes=30), close))
+    return out
+
+
 def _snapshot_vos(total_btc_by_day: dict[str, float]):
     vos = []
     for day, btc in total_btc_by_day.items():
@@ -194,7 +222,10 @@ BRACKETS = [
 ]
 
 EARN_FLEX = {"total": 1, "rows": [
+    # 活期是**阶梯**的：前 500 个按 12%，超出的按实时 4.82%。
+    # 键里的单位就是资产本身，这是 Binance 的真实形状。
     {"productId": "USDT001", "asset": "USDT", "totalAmount": "6500",
+     "tierAnnualPercentageRate": {"0-500USDT": 0.12},
      "latestAnnualPercentageRate": "0.0482", "cumulativeTotalRewards": "128.44",
      "canRedeem": True}]}
 EARN_LOCKED = {"total": 1, "rows": [
@@ -468,6 +499,19 @@ SPOT_MY_TRADES = [
      "commissionAsset": "BNB", "isBuyer": True, "isMaker": True,
      "time": int((NOW - timedelta(hours=10)).timestamp() * 1000)},
 ]
+
+# 今天入账的活期派息与杠杆利息，给"今日盈亏"那一组测试单独替换用（默认路由里的
+# 那两份记在昨天）。**稳定币**是故意的：它们不参与盯市，原先这两笔一分都看不到。
+EARN_REWARDS_TODAY = {"total": 2, "rows": [
+    {"asset": "USDT", "rewards": "0.42", "projectId": "USDT001", "type": "REALTIME",
+     "time": int(NOW.timestamp() * 1000)},
+    {"asset": "USDT", "rewards": "0.31", "projectId": "USDT001", "type": "BONUS",
+     "time": int(NOW.timestamp() * 1000)},
+]}
+MARGIN_INTEREST_TODAY = {"total": 1, "rows": [
+    {"txId": 9100, "interestAccuredTime": int(NOW.timestamp() * 1000),
+     "asset": "USDT", "principal": "5000", "interest": "0.11",
+     "interestRate": "0.0002", "type": "PERIODIC"}]}
 
 ROUTES.update({
     "/api/v3/openOrders": SPOT_OPEN,

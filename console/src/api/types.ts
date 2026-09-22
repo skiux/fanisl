@@ -241,14 +241,31 @@ export type EarnPosition = {
   amount: number
   value_usd: number | null
   kind: 'flexible' | 'locked'
-  /** 最新年化，locked 为固定年化 */
+  /**
+   * **按当前金额加权后的年化**，locked 为固定年化。
+   *
+   * 活期是阶梯的：区间内那部分按档位利率，超出的按实时年化（`apr_base`）。
+   * 这里原先直接给实时年化，于是小额活期显示的年化一直偏低——USDT 的前几百块
+   * 拿的是高得多的档位利率。实时年化未知而又有超出阶梯的部分时为 null。
+   */
   apr: number | null
+  /** 实时年化：超出阶梯的那部分按它计息 */
+  apr_base: number | null
+  /** 档位。`amount` 是当前金额落在这一档里的部分，为 0 表示这一档没吃到 */
+  apr_tiers: EarnAprTier[]
   cumulative_rewards: number | null
   /** 累计收益的 USD 计价；前端没有价格表，换算由后端做 */
   cumulative_rewards_usd: number | null
   /** locked 才有 */
   redeem_date: string | null
   can_redeem: boolean
+}
+
+export type EarnAprTier = {
+  from: number
+  to: number
+  rate: number
+  amount: number
 }
 
 export type MarginAccount = {
@@ -387,8 +404,15 @@ export type Transfers = {
 export type DailyPnl = {
   /** YYYY-MM-DD，UTC 日切，与 Binance 的结算日一致 */
   date: string
+  /** 现货类持仓的涨跌（跨全部钱包，含资金钱包） */
   spot_usd: number | null
+  /** 正股持仓的涨跌。昨收不在 Binance 上，见 Pnl.equity_close_source */
+  stock_usd: number
   settled_usd: number
+  /** 理财派息。**稳定币也算**：它们不参与盯市，利息却是实打实的收入 */
+  earn_usd: number
+  /** 杠杆利息，负数 */
+  interest_usd: number
   pnl_usd: number | null
   /** 这天算不算得出来。算不出来时 pnl_usd 是 null，不是"亏了 0" */
   known: boolean
@@ -403,6 +427,12 @@ export type SpotMarkRow = {
   prev_close_usd: number | null
   value_usd: number | null
   today_usd: number | null
+}
+
+/** 派息 / 利息里某个资产今天的那一笔，已折成美元 */
+export type CreditMarkRow = {
+  asset: string
+  usd: number
 }
 
 /** 合约钱包里逐个币的余额。把 BNB 划进来当保证金 / 抵手续费是常见做法 */
@@ -433,6 +463,8 @@ export type Pnl = {
   /** 今天赚了多少 = 日历最后一格。同一个数只算一处，两边不会对不上 */
   today: {
     spot_usd: number | null
+    /** 正股今天涨跌了多少 */
+    stock_usd: number | null
     /** 合约今天结算掉的合计 */
     settled_usd: number | null
     /**
@@ -441,6 +473,10 @@ export type Pnl = {
      * income 取不到时为 null。
      */
     settled_parts: IncomeBreakdown | null
+    /** 今天的理财派息 */
+    earn_usd: number | null
+    /** 今天的杠杆利息，负数 */
+    interest_usd: number | null
     total_usd: number | null
   }
   /** **只有合约。** 现货没有未实现这一项，见 SpotMarkRow */
@@ -463,6 +499,18 @@ export type Pnl = {
   daily: DailyPnl[]
   today_usd: number | null
   spot_marks: SpotMarkRow[]
+  /** 正股逐只的今日涨跌。与 spot_marks 同一套算法，只是行情另有出处 */
+  stock_marks: SpotMarkRow[]
+  /** 今天的派息与利息按资产拆开 */
+  earn_marks: CreditMarkRow[]
+  interest_marks: CreditMarkRow[]
+  /** 拿不到昨收、因而没计进今日盈亏的股票代码。页面上要点名 */
+  equity_missing: string[]
+  /**
+   * 正股昨收的出处。**这是资产页上唯一不来自 Binance 的数**——它的股票接口
+   * （`/sapi/v1/equity/*`）只给买一卖一，没有任何日线或前收。
+   */
+  equity_close_source: string
   /**
    * 持仓量回滚不平的币：有一类进出没被覆盖到（多半是 90 天以外的充值，
    * 那个接口回不了那么远）。受影响的天已经报成 null，这里说出是哪几个币。
