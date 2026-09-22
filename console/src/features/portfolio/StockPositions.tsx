@@ -283,7 +283,7 @@ export function StockSummary({ stocks, equityUsd }: {
         )}
         {pending > 0 && (
           <p className="mt-4 border-t border-rule pt-3 text-xs leading-relaxed text-ink-3">
-            Binance 暂未提供完整成本和手续费。管理员录入当前持仓的交易价值与手续费后，
+            Binance 暂未提供完整成本和手续费。管理员录入当前持仓的平均成本价与手续费后，
             才会显示平均成本和未实现盈亏。
           </p>
         )}

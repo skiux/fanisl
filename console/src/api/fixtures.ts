@@ -161,7 +161,7 @@ export const stocks: StocksAccount = {
     extended_session: true,
     overnight_supported: true,
     cost_status: 'manual',
-    trade_value_usd: 960,
+    cost_price_usd: 24,
     commission_usd: 1.6,
     cost_position_qty: 40,
     cost_updated_at: '2026-09-20T08:00:00+00:00',
@@ -501,7 +501,7 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
     stable_assets: STABLE_FIXTURE,
     yield_rates: { BFUSD: 0.0736 },
     wallets, spot, spot_costs: {
-      BNB: { asset: 'BNB', trade_value_usd: 3300, commission_usd: 3,
+      BNB: { asset: 'BNB', cost_price_usd: 3300 / bnbQty, commission_usd: 3,
         position_qty: bnbQty, updated_at: iso },
     }, stocks, capabilities, futures, earn, margin,
     isolated_margin: isolatedMargin,

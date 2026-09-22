@@ -77,10 +77,10 @@ export type SpotAsset = {
   value_usd: number | null
 }
 
-/** 人工录入的当前币仓交易价值与手续费；数量由当前跨钱包持仓核对。 */
+/** 人工录入的当前币仓单位成本价与手续费；数量由当前跨钱包持仓核对。 */
 export type SpotCostRecord = {
   asset: string
-  trade_value_usd: number
+  cost_price_usd: number
   commission_usd: number
   position_qty: number
   updated_at: string
@@ -151,8 +151,8 @@ export type StockPosition = {
   extended_session: boolean
   overnight_supported: boolean
   cost_status: 'manual' | 'missing' | 'stale'
-  /** 管理员录入的当前持仓累计交易价值，不含手续费。 */
-  trade_value_usd: number | null
+  /** 管理员录入的当前持仓单位成本价，不含手续费。 */
+  cost_price_usd: number | null
   commission_usd: number | null
   /** 保存成本时的钱包股数；与 total_qty 不同时 cost_status 为 stale。 */
   cost_position_qty: number | null

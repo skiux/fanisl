@@ -20,16 +20,17 @@ Binance 2026 的文档里同时存在两条股票相关路径，接口与账户�
   数量取钱包余额，市值用明细里的 `btcValuation` 换算（为 0 或缺失时留 `null`）。
   不从成交历史反推持仓——转入、转出与公司行动会让倒推的数量静默失真。
   Binance 当前不给完整持仓成本与手续费，资产页不再用不完整历史反推。管理员为当前
-  持仓录入累计交易价值与手续费，总成本直接相加；保存时同时记录当前股数，钱包股数
+  持仓录入单位平均成本价与手续费，总成本 = 单价 × 当前股数 + 手续费；保存时记录当前股数，钱包股数
   变化后旧值标为 `stale`，平均成本与盈亏保持 `null`，直到重新录入。最新买卖价来自
   `/equity/market/quote`，交易方向、常规/延长时段碎股与隔夜能力来自 `exchangeInfo`。
   委托与成交历史仍供 `/orders` 展示，不参与 `/portfolio` 的成本计算。
   **逐日盈亏仍不含正股**：`held_across_wallets` 不读资金钱包，股票也没有 REST 日线
   （只有 WebSocket K 线）。
-- **现货币仓成本**同样由管理员为当前持仓填写交易价值与手续费，保存到独立于 Binance
+- **现货币仓成本**同样由管理员为当前持仓填写单位平均成本价与手续费，保存到独立于 Binance
   响应缓存的 `binance_spot_costs` 表。`GET /portfolio` 的 `spot_costs` 按币种返回录入值与
   保存时的数量；console 在现货钱包、合约钱包和全仓杠杆合并后核对数量，匹配才显示
-  平均成本和这笔持仓的未实现盈亏。数量变化或余额来源失败时不沿用旧成本；稳定币在现金
+  平均成本和这笔持仓的未实现盈亏。旧版整仓价值记录没有明确单价，不自动换算为新成本；
+  数量变化或余额来源失败时不沿用旧成本；稳定币在现金
   模块，不录入成本。理财持仓仍在自己的模块，不计入这笔币仓的录入数量。
 - **TradFi Perps** 仍是 USDⓈ-M Futures，走 `/fapi/*`，代码如 `NVDAUSDT`。它继续使用
   合约保证金、强平价与 ADL 逻辑；`exchangeInfo` 的 `underlyingType` / `underlyingSubType`
@@ -90,7 +91,7 @@ Binance 支持三种，并推荐 **Ed25519**；HMAC 当前仍受支持。三种�
 signing.py    key 类型判定（HMAC / Ed25519 / RSA），按 .env 自动选
 client.py     签名 + 错误分类 + 对时                 ← 不含任何写入方法
 cache.py      按来源的 TTL 缓存 + 降级语义
-routes.py     管理员录入股票交易价值与手续费（只写本地表，不调用 Binance 写接口）
+routes.py     管理员录入持仓单位成本价与手续费（只写本地表，不调用 Binance 写接口）
 common.py     字符串数值解析、计价、钱包名映射
 costbasis.py  交易对拆分 + **跨钱包持有量**（成本基础引擎已删，见文件头）
 dailypnl.py   **逐日盈亏**：进出清单 → 历史持仓量 → 每天赚了多少   ← 口径核心
@@ -181,7 +182,7 @@ IP 权重上限 **6000/分钟**。而：
 | `/fapi/v3/account` **没有**标记价、强平价、ADL 分位 | 在 `positionRisk` 与 `adlQuantile` 上。少了它们"距强平多远"无从算起 |
 | v3 的 `account` 持仓行也**没有** `entryPrice` / `leverage` / `isolated`，v3 `positionRisk` 只补回了 `entryPrice` | 杠杆倍数与全仓/逐仓只在 `/fapi/v1/symbolConfig`。迁到 v3 后照 v2 字段读，线上每个仓位都成了开仓价 0、1×、全仓（2026-09-17 核对线上缓存） |
 | Stocks Trading 的 Account 文档没有持仓 GET | 持仓只能从钱包明细认：正股是资金钱包里的 `EQ_<代码>`（文档没写，2026-09-17 实测），代币化股票按 tokenized-assets 映射；不能用成交净额伪造持仓 |
-| 股票逐笔成交没有手续费，`order/history` 在线上又可能漏掉 `fee` 或对应成交 | `/orders` 原样保留可得历史；`/portfolio` 不拿残缺记录估算成本，由管理员录入累计交易价值与手续费，股数变化后停用旧值 |
+| 股票逐笔成交没有手续费，`order/history` 在线上又可能漏掉 `fee` 或对应成交 | `/orders` 原样保留可得历史；`/portfolio` 不拿残缺记录估算成本，由管理员录入单位平均成本价与手续费，股数变化后停用旧值 |
 | BFUSD 已移到 Simple Earn，账户余额接口不带当前年化 | 用 `/sapi/v1/bfusd/history/rateHistory` 的最近一条 `annualPercentageRate`，并应用到各钱包中的 BFUSD 现金行 |
 | Stocks Trading 行情要求 API key 但不要求签名 | 当公开端点调用会 401；当 USER_DATA 调用会多余地签名 |
 | TradFi Perps 仍属于 USDⓈ-M | 不能按裸股票账户处理；保证金、强平与资金费仍走 fapi |

@@ -75,7 +75,7 @@ export type SpotHoldingRow = SpotAsset & {
   /** 同一种币可能分散在多个钱包；主表合并数量，但保留位置提示。 */
   locations: string[]
   cost_status: 'manual' | 'missing' | 'stale' | 'unavailable'
-  trade_value_usd: number | null
+  cost_price_usd: number | null
   commission_usd: number | null
   cost_position_qty: number | null
   avg_cost_usd: number | null
@@ -141,14 +141,14 @@ export function spotHoldings(snapshot: PortfolioSnapshot): SpotHoldingRow[] {
     const status = !balancesAvailable ? 'unavailable'
       : !saved ? 'missing'
       : Math.abs(saved.position_qty - row.total) <= 1e-8 ? 'manual' : 'stale'
-    const cost = status === 'manual' ? saved!.trade_value_usd + saved!.commission_usd : null
+    const cost = status === 'manual' ? saved!.cost_price_usd * row.total + saved!.commission_usd : null
     const pnl = cost !== null && value !== null && pricesAvailable ? value - cost : null
     return {
       ...row,
       value_usd: value,
       price_usd: value !== null && row.total > 0 ? value / row.total : null,
       cost_status: status,
-      trade_value_usd: saved?.trade_value_usd ?? null,
+      cost_price_usd: saved?.cost_price_usd ?? null,
       commission_usd: saved?.commission_usd ?? null,
       cost_position_qty: saved?.position_qty ?? null,
       avg_cost_usd: cost !== null ? cost / row.total : null,

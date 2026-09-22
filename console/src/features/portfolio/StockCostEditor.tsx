@@ -4,7 +4,7 @@ import type { StockPosition } from '../../api/types'
 import { amount, money } from '../../lib/format'
 
 type CostRecord = Pick<StockPosition,
-  'trade_value_usd' | 'commission_usd' | 'cost_position_qty'> & {
+  'cost_price_usd' | 'commission_usd' | 'cost_position_qty'> & {
   cost_status: 'manual' | 'missing' | 'stale' | 'unavailable'
 }
 
@@ -17,33 +17,33 @@ export function PositionCostEditor({ row, asset, quantity, unit, kind, onCancel,
   onCancel: () => void
   onSave: (input: StockCostInput) => Promise<void>
 }) {
-  const [tradeValue, setTradeValue] = useState(
-    row.trade_value_usd === null ? '' : String(row.trade_value_usd))
+  const [costPrice, setCostPrice] = useState(
+    row.cost_price_usd === null ? '' : String(row.cost_price_usd))
   const [commission, setCommission] = useState(
     row.commission_usd === null ? '' : String(row.commission_usd))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const parsed = useMemo(() => ({
-    trade: Number(tradeValue),
+    price: Number(costPrice),
     fee: Number(commission),
-  }), [tradeValue, commission])
-  const valid = tradeValue.trim() !== '' && commission.trim() !== ''
-    && Number.isFinite(parsed.trade) && parsed.trade > 0
+  }), [costPrice, commission])
+  const valid = costPrice.trim() !== '' && commission.trim() !== ''
+    && Number.isFinite(parsed.price) && parsed.price > 0
     && Number.isFinite(parsed.fee) && parsed.fee >= 0
     && quantity > 0
-  const total = valid ? parsed.trade + parsed.fee : null
+  const total = valid ? parsed.price * quantity + parsed.fee : null
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!valid) {
-      setError('请填写大于 0 的交易价值；手续费可以为 0。')
+      setError('请填写大于 0 的单位成本价；手续费可以为 0。')
       return
     }
     setSaving(true)
     setError(null)
     try {
       await onSave({
-        trade_value_usd: parsed.trade,
+        cost_price_usd: parsed.price,
         commission_usd: parsed.fee,
         position_qty: quantity,
       })
@@ -63,8 +63,8 @@ export function PositionCostEditor({ row, asset, quantity, unit, kind, onCancel,
     >
       <div className="flex items-baseline justify-between gap-4">
         <div>
-          <div className="text-xs font-medium text-ink">当前持仓成本</div>
-          <p className="mt-0.5 text-micro text-ink-3">按当前 {amount(quantity)} {unit} 录入</p>
+          <div className="text-xs font-medium text-ink">录入成本价与手续费</div>
+          <p className="mt-0.5 text-micro text-ink-3">当前 {amount(quantity)} {unit} · 多次买入请填写平均成本价</p>
         </div>
         {row.cost_status === 'stale' && row.cost_position_qty !== null && (
           <span className="tnum text-micro text-ink-3">原记录 {amount(row.cost_position_qty)} {unit}</span>
@@ -73,15 +73,15 @@ export function PositionCostEditor({ row, asset, quantity, unit, kind, onCancel,
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="grid gap-1.5 text-xs text-ink-2">
-          <span>交易价值（USD）</span>
+          <span>单位成本价（USD / {unit}）</span>
           <input
             autoFocus
             className="tnum h-10 min-w-0 rounded-[7px] border border-rule-strong bg-sheet px-3 text-sm text-ink outline-none transition-[border-color,box-shadow] duration-200 focus:border-ink focus:shadow-[0_0_0_3px_var(--accent-soft)]"
             inputMode="decimal"
-            onChange={(event) => setTradeValue(event.target.value)}
-            placeholder="例如 1000.00"
+            onChange={(event) => setCostPrice(event.target.value)}
+            placeholder="例如 24.00"
             type="text"
-            value={tradeValue}
+            value={costPrice}
           />
         </label>
         <label className="grid gap-1.5 text-xs text-ink-2">
@@ -100,7 +100,7 @@ export function PositionCostEditor({ row, asset, quantity, unit, kind, onCancel,
       <div className="mt-3 flex flex-col gap-3 border-t border-rule pt-3 sm:flex-row sm:items-end sm:justify-between">
         <dl className="grid grid-cols-2 gap-x-6 text-xs">
           <div>
-            <dt className="text-ink-3">总成本</dt>
+            <dt className="text-ink-3">总成本 · 单价 × 数量 + 手续费</dt>
             <dd className="tnum mt-0.5 text-ink">{money(total)}</dd>
           </div>
           <div>

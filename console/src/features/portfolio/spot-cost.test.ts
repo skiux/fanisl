@@ -36,7 +36,7 @@ describe('现货人工成本', () => {
     const base = buildSnapshot(new Date('2026-09-19T12:00:00Z'))
     const row = spotHoldings(base).find((item) => item.asset === 'BNB')!
     const snapshot = { ...base, spot_costs: { BNB: {
-      asset: 'BNB', trade_value_usd: 900, commission_usd: 3,
+      asset: 'BNB', cost_price_usd: 900 / row.total, commission_usd: 3,
       position_qty: row.total, updated_at: '2026-09-19T12:00:00Z',
     } } }
     act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
@@ -51,7 +51,7 @@ describe('现货人工成本', () => {
   it('只有管理员能录入，旧数量的成本不再显示为当前成本', async () => {
     const base = buildSnapshot(new Date('2026-09-19T12:00:00Z'))
     const snapshot = { ...base, spot_costs: { BNB: {
-      asset: 'BNB', trade_value_usd: 900, commission_usd: 3,
+      asset: 'BNB', cost_price_usd: 900, commission_usd: 3,
       position_qty: 0.5, updated_at: '2026-09-19T12:00:00Z',
     } } }
     await setRole('member')

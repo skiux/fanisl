@@ -13,23 +13,23 @@ class CostStore:
     def __init__(self) -> None:
         self.saved = None
 
-    def upsert_stock_cost(self, symbol, trade_value_usd, commission_usd,
+    def upsert_stock_cost(self, symbol, cost_price_usd, commission_usd,
                           position_qty, updated_by):
-        self.saved = (symbol, trade_value_usd, commission_usd, position_qty, updated_by)
+        self.saved = (symbol, cost_price_usd, commission_usd, position_qty, updated_by)
         return {
             "symbol": symbol,
-            "trade_value_usd": trade_value_usd,
+            "cost_price_usd": cost_price_usd,
             "commission_usd": commission_usd,
             "position_qty": position_qty,
             "updated_by": updated_by,
             "updated_at": datetime(2026, 9, 21, 8, 0, tzinfo=timezone.utc),
         }
 
-    def upsert_spot_cost(self, asset, trade_value_usd, commission_usd,
+    def upsert_spot_cost(self, asset, cost_price_usd, commission_usd,
                          position_qty, updated_by):
-        self.saved = (asset, trade_value_usd, commission_usd, position_qty, updated_by)
+        self.saved = (asset, cost_price_usd, commission_usd, position_qty, updated_by)
         return {
-            "asset": asset, "trade_value_usd": trade_value_usd,
+            "asset": asset, "cost_price_usd": cost_price_usd,
             "commission_usd": commission_usd, "position_qty": position_qty,
             "updated_by": updated_by,
             "updated_at": datetime(2026, 9, 21, 8, 0, tzinfo=timezone.utc),
@@ -52,7 +52,7 @@ def client_for(role: str) -> tuple[TestClient, CostStore]:
 def test_admin_saves_normalized_stock_cost():
     client, store = client_for("admin")
     response = client.put("/admin/stock-costs/soxl", json={
-        "trade_value_usd": 1000,
+        "cost_price_usd": 1000,
         "commission_usd": 0.4,
         "position_qty": 40,
     })
@@ -61,7 +61,7 @@ def test_admin_saves_normalized_stock_cost():
     assert store.saved == (
         "SOXL", Decimal("1000"), Decimal("0.4"), Decimal("40"), 7)
     assert response.json() == {"stock_cost": {
-        "symbol": "SOXL", "trade_value_usd": 1000.0, "commission_usd": 0.4,
+        "symbol": "SOXL", "cost_price_usd": 1000.0, "commission_usd": 0.4,
         "position_qty": 40.0, "updated_at": "2026-09-21T08:00:00+00:00",
     }}
 
@@ -77,11 +77,11 @@ def test_member_is_rejected_before_body_validation():
 
 def test_invalid_symbol_and_values_are_rejected():
     client, store = client_for("admin")
-    valid = {"trade_value_usd": 1000, "commission_usd": 0, "position_qty": 40}
+    valid = {"cost_price_usd": 1000, "commission_usd": 0, "position_qty": 40}
 
     assert client.put("/admin/stock-costs/invalid symbol", json=valid).status_code == 422
     assert client.put("/admin/stock-costs/SOXL", json={
-        **valid, "trade_value_usd": 0,
+        **valid, "cost_price_usd": 0,
     }).status_code == 422
     assert client.put("/admin/stock-costs/SOXL", json={
         **valid, "commission_usd": -0.1,
@@ -95,27 +95,27 @@ def test_invalid_symbol_and_values_are_rejected():
 def test_admin_saves_spot_cost_for_current_quantity():
     client, store = client_for("admin")
     response = client.put("/admin/spot-costs/btc", json={
-        "trade_value_usd": 2000, "commission_usd": 2, "position_qty": 0.1,
+        "cost_price_usd": 2000, "commission_usd": 2, "position_qty": 0.1,
     })
     assert response.status_code == 200
     assert store.saved == (
         "BTC", Decimal("2000"), Decimal("2"), Decimal("0.1"), 7)
     assert response.json()["spot_cost"] == {
-        "asset": "BTC", "trade_value_usd": 2000.0,
+        "asset": "BTC", "cost_price_usd": 2000.0,
         "commission_usd": 2.0, "position_qty": 0.1,
         "updated_at": "2026-09-21T08:00:00+00:00",
     }
 
 
 def test_only_admin_can_save_valid_spot_cost():
-    valid = {"trade_value_usd": 2000, "commission_usd": 0, "position_qty": 0.1}
+    valid = {"cost_price_usd": 2000, "commission_usd": 0, "position_qty": 0.1}
     member, member_store = client_for("member")
     assert member.put("/admin/spot-costs/BTC", json={}).status_code == 403
     assert member_store.saved is None
     admin, admin_store = client_for("admin")
     for path, body in [
         ("invalid symbol", valid), ("USDT", valid),
-        ("BTC", {**valid, "trade_value_usd": 0}),
+        ("BTC", {**valid, "cost_price_usd": 0}),
         ("BTC", {**valid, "commission_usd": -1}),
         ("BTC", {**valid, "position_qty": 0}),
     ]:

@@ -43,11 +43,12 @@
 
 ## Requests in
 - **console 席位（2026-09-22）**：请在 `backend/api.md` 补录
-  `GET /portfolio` 的 `spot_costs: Record<asset, {asset, trade_value_usd,
+  `GET /portfolio` 的 `spot_costs: Record<asset, {asset, cost_price_usd,
   commission_usd, position_qty, updated_at}>`。该记录只用于当前跨钱包币仓的成本展示，
   不进入 `pnl` 汇总。另补管理员 `PUT /admin/spot-costs/{asset}`：请求体含
-  `trade_value_usd > 0`、`commission_usd >= 0`、`position_qty > 0`，只写本地表；
-  稳定币拒绝录入。数量不符或余额源不可用时由 console 停用旧成本。
+  `cost_price_usd > 0`（单位平均成本价）、`commission_usd >= 0`、`position_qty > 0`，只写本地表；
+  稳定币拒绝录入。总成本为 `cost_price_usd × position_qty + commission_usd`。
+  旧 `trade_value_usd` 整仓记录不自动换算；数量不符或余额源不可用时停用成本。
   当前路由表为 83 条，`api.md` 头部仍写 81；`tests/test_api_doc.py` 还同时报告缺少
   本路径及上一条请求的 `/admin/stock-costs/{symbol}`，请一并补齐契约。
 - **console 席位（2026-09-21，替代 09-20 的旧请求）**：`backend/api.md` 的
@@ -56,7 +57,7 @@
   `annualPercentageRate`。同时补齐 `stocks`、`capabilities`、`isolated_margin`、
   `liquidation_loan`、`portfolio_margin` 与 `stable_assets`。股票成本已改为管理员录入：
   `stocks.positions[].cost_status` 为 `manual | missing | stale`，并返回
-  `trade_value_usd`、`commission_usd`、`cost_position_qty`、`cost_updated_at`；
+  `cost_price_usd`、`commission_usd`、`cost_position_qty`、`cost_updated_at`；
   `cost_coverage` 为 `{manual, stale, total}`。另请记录管理员接口
   `PUT /admin/stock-costs/{symbol}`，请求体为上述前两项加 `position_qty`，只写本地表。
 - **console 席位**：pem 权限，见 Next 第 3 条

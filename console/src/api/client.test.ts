@@ -13,13 +13,13 @@ afterEach(() => vi.unstubAllGlobals())
 describe('stock cost writes', () => {
   it('sends the exact admin input and current position quantity', async () => {
     const fetchMock = vi.fn().mockResolvedValue(json({ stock_cost: {
-      symbol: 'SOXL', trade_value_usd: 920, commission_usd: 4,
+      symbol: 'SOXL', cost_price_usd: 23, commission_usd: 4,
       position_qty: 40, updated_at: '2026-09-21T08:00:00+00:00',
     } }))
     vi.stubGlobal('fetch', fetchMock)
 
     await saveStockCost('live', 'SOXL', {
-      trade_value_usd: 920, commission_usd: 4, position_qty: 40,
+      cost_price_usd: 23, commission_usd: 4, position_qty: 40,
     })
 
     expect(fetchMock).toHaveBeenCalledOnce()
@@ -27,7 +27,7 @@ describe('stock cost writes', () => {
     expect(url).toMatch(/\/admin\/stock-costs\/SOXL$/)
     expect(init).toMatchObject({ method: 'PUT', credentials: 'include' })
     expect(JSON.parse(String(init.body))).toEqual({
-      trade_value_usd: 920, commission_usd: 4, position_qty: 40,
+      cost_price_usd: 23, commission_usd: 4, position_qty: 40,
     })
   })
 
@@ -36,11 +36,11 @@ describe('stock cost writes', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const saved = await saveStockCost('ok', 'SOXL', {
-      trade_value_usd: 960, commission_usd: 1.2, position_qty: 40,
+      cost_price_usd: 24, commission_usd: 1.2, position_qty: 40,
     })
 
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(saved.stock_cost.trade_value_usd + saved.stock_cost.commission_usd).toBe(961.2)
+    expect(saved.stock_cost.cost_price_usd * saved.stock_cost.position_qty + saved.stock_cost.commission_usd).toBe(961.2)
     const snapshot = await fetchPortfolio('ok')
     const position = snapshot.stocks.positions.find((row) => row.symbol === 'SOXL')!
     expect(position.cost_basis_usd).toBe(961.2)
@@ -52,17 +52,17 @@ describe('stock cost writes', () => {
 describe('spot cost writes', () => {
   it('sends the admin input without contacting Binance trading APIs', async () => {
     const fetchMock = vi.fn().mockResolvedValue(json({ spot_cost: {
-      asset: 'BNB', trade_value_usd: 900, commission_usd: 3,
+      asset: 'BNB', cost_price_usd: 900, commission_usd: 3,
       position_qty: 2, updated_at: '2026-09-21T08:00:00+00:00',
     } }))
     vi.stubGlobal('fetch', fetchMock)
     await saveSpotCost('live', 'bnb', {
-      trade_value_usd: 900, commission_usd: 3, position_qty: 2,
+      cost_price_usd: 900, commission_usd: 3, position_qty: 2,
     })
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toMatch(/\/admin\/spot-costs\/BNB$/)
     expect(JSON.parse(String(init.body))).toEqual({
-      trade_value_usd: 900, commission_usd: 3, position_qty: 2,
+      cost_price_usd: 900, commission_usd: 3, position_qty: 2,
     })
   })
 
@@ -72,12 +72,12 @@ describe('spot cost writes', () => {
     const original = await fetchPortfolio('ok')
     const bnb = spotHoldings(original).find((row) => row.asset === 'BNB')!
     await saveSpotCost('ok', 'BNB', {
-      trade_value_usd: 900, commission_usd: 3, position_qty: bnb.total,
+      cost_price_usd: 900 / bnb.total, commission_usd: 3, position_qty: bnb.total,
     })
     const refreshed = spotHoldings(await fetchPortfolio('ok'))
       .find((row) => row.asset === 'BNB')!
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(refreshed.cost_basis_usd).toBe(903)
+    expect(refreshed.cost_basis_usd).toBeCloseTo(903)
     expect(refreshed.avg_cost_usd).toBeCloseTo(903 / bnb.total)
   })
 })

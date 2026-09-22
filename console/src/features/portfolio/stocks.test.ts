@@ -40,7 +40,7 @@ describe('持仓页的股票', () => {
         { ...base.stocks.positions[0], symbol: 'TQQQ', direct_qty: 5, tokenized_qty: 0,
           total_qty: 5, available_qty: 5, wallet_price_usd: null, wallet_value_usd: null,
           bid_usd: 72.1, ask_usd: null, mark_price_usd: null, spread_bps: null,
-          cost_status: 'missing' as const, trade_value_usd: null, commission_usd: null,
+          cost_status: 'missing' as const, cost_price_usd: null, commission_usd: null,
           cost_position_qty: null, cost_updated_at: null, avg_cost_usd: null,
           cost_basis_usd: null, unrealized_pnl_usd: null, unrealized_pnl_pct: null },
       ],
@@ -110,7 +110,7 @@ describe('持仓页的股票', () => {
             bid_usd: 28.45, ask_usd: 28.55, mark_price_usd: 28.5, spread_bps: 35.09,
             tradability: 'BUY_SELL', fractionable: true, fractionable_extended: false,
             extended_session: true,
-            overnight_supported: true, cost_status: 'manual', trade_value_usd: 960,
+            overnight_supported: true, cost_status: 'manual', cost_price_usd: 24,
             commission_usd: 1.6, cost_position_qty: 40,
             cost_updated_at: '2026-09-20T08:00:00+00:00', avg_cost_usd: 24.04,
             cost_basis_usd: 961.6,
@@ -123,7 +123,7 @@ describe('持仓页的股票', () => {
             bid_usd: 229.9, ask_usd: 230.1, mark_price_usd: 230, spread_bps: 8.7,
             tradability: 'NONE', fractionable: false, fractionable_extended: false,
             extended_session: false,
-            overnight_supported: true, cost_status: 'missing', trade_value_usd: null,
+            overnight_supported: true, cost_status: 'missing', cost_price_usd: null,
             commission_usd: null, cost_position_qty: null, cost_updated_at: null,
             avg_cost_usd: null, cost_basis_usd: null,
             unrealized_pnl_usd: null, unrealized_pnl_pct: null,
@@ -213,7 +213,7 @@ describe('持仓页的股票', () => {
     const base = buildSnapshot(new Date('2026-09-17T12:00:00Z'))
     const missing = {
       ...base.stocks.positions[0], cost_status: 'missing' as const,
-      trade_value_usd: null, commission_usd: null, cost_position_qty: null,
+      cost_price_usd: null, commission_usd: null, cost_position_qty: null,
       cost_updated_at: null, avg_cost_usd: null, cost_basis_usd: null,
       unrealized_pnl_usd: null, unrealized_pnl_pct: null,
     }

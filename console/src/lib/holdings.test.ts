@@ -36,13 +36,13 @@ describe('持仓跨钱包归并', () => {
     const snapshot = {
       ...base,
       spot_costs: { BNB: {
-        asset: 'BNB', trade_value_usd: 900, commission_usd: 3,
+        asset: 'BNB', cost_price_usd: 900 / held.total, commission_usd: 3,
         position_qty: held.total, updated_at: '2026-09-19T12:00:00Z',
       } },
     }
     const row = spotHoldings(snapshot).find((item) => item.asset === 'BNB')!
     expect(row.cost_status).toBe('manual')
-    expect(row.cost_basis_usd).toBe(903)
+    expect(row.cost_basis_usd).toBeCloseTo(903)
     expect(row.avg_cost_usd).toBeCloseTo(903 / row.total)
     expect(row.unrealized_pnl_usd).toBeCloseTo(row.value_usd! - 903)
     expect(row.unrealized_pnl_pct).toBeCloseTo((row.value_usd! - 903) / 903)
@@ -55,7 +55,7 @@ describe('持仓跨钱包归并', () => {
     const base = buildSnapshot(new Date('2026-09-19T12:00:00Z'))
     const held = spotHoldings(base).find((row) => row.asset === 'BNB')!
     const snapshot = { ...base, spot_costs: { BNB: {
-      asset: 'BNB', trade_value_usd: 900, commission_usd: 3,
+      asset: 'BNB', cost_price_usd: 900, commission_usd: 3,
       position_qty: held.total - 0.01, updated_at: '2026-09-19T12:00:00Z',
     } } }
     const stale = spotHoldings(snapshot).find((item) => item.asset === 'BNB')!
@@ -78,7 +78,7 @@ describe('持仓跨钱包归并', () => {
       source.key === 'prices' ? { ...source, status: 'unreachable' as const } : source) }
     const bnb = spotHoldings(withoutPrices).find((row) => row.asset === 'BNB')!
     expect(bnb.cost_status).toBe('manual')
-    expect(bnb.cost_basis_usd).toBe(3303)
+    expect(bnb.cost_basis_usd).toBeCloseTo(3303)
     expect(bnb.unrealized_pnl_usd).toBeNull()
   })
 })

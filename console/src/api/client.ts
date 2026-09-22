@@ -266,7 +266,7 @@ export async function fetchPortfolio(
 }
 
 export type StockCostInput = {
-  trade_value_usd: number
+  cost_price_usd: number
   commission_usd: number
   position_qty: number
 }
@@ -291,13 +291,13 @@ function withScenarioStockCosts(snapshot: PortfolioSnapshot, scenario: Scenario)
     if (!saved) return row
     changed = true
     const matches = Math.abs(saved.position_qty - row.total_qty) <= 1e-8
-    const total = matches ? saved.trade_value_usd + saved.commission_usd : null
+    const total = matches ? saved.cost_price_usd * row.total_qty + saved.commission_usd : null
     const unrealized = total !== null && row.mark_price_usd !== null
       ? row.mark_price_usd * row.total_qty - total : null
     return {
       ...row,
       cost_status: matches ? 'manual' as const : 'stale' as const,
-      trade_value_usd: saved.trade_value_usd,
+      cost_price_usd: saved.cost_price_usd,
       commission_usd: saved.commission_usd,
       cost_position_qty: saved.position_qty,
       cost_updated_at: saved.updated_at,

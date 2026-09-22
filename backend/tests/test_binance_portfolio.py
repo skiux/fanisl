@@ -370,7 +370,7 @@ def test_stock_without_a_valuation_has_no_value_not_zero(cache):
 
 def test_stock_position_uses_admin_entered_cost_and_wallet_lock_states(cache):
     cache.upsert_stock_cost(
-        "SOXL", Decimal("920"), Decimal("4"), Decimal("40"), 7)
+        "SOXL", Decimal("23"), Decimal("4"), Decimal("40"), 7)
     wallets = [
         {"activate": True, "balance": "0.02", "walletName": "Funding",
          "assetBalances": [{
@@ -406,7 +406,7 @@ def test_stock_position_uses_admin_entered_cost_and_wallet_lock_states(cache):
     assert row["extended_session"] is True
     assert row["overnight_supported"] is True
     assert row["cost_status"] == "manual"
-    assert row["trade_value_usd"] == pytest.approx(920)
+    assert row["cost_price_usd"] == pytest.approx(23)
     assert row["commission_usd"] == pytest.approx(4)
     assert row["cost_position_qty"] == pytest.approx(40)
     assert row["cost_updated_at"] is not None
@@ -425,7 +425,7 @@ def test_stock_cost_is_missing_until_an_admin_enters_it(cache):
                if item["symbol"] == "SOXL")
 
     assert row["cost_status"] == "missing"
-    assert row["trade_value_usd"] is None
+    assert row["cost_price_usd"] is None
     assert row["commission_usd"] is None
     assert row["cost_position_qty"] is None
     assert row["avg_cost_usd"] is None
@@ -435,13 +435,13 @@ def test_stock_cost_is_missing_until_an_admin_enters_it(cache):
 
 def test_stock_cost_becomes_stale_when_current_quantity_changes(cache):
     cache.upsert_stock_cost(
-        "SOXL", Decimal("920"), Decimal("4"), Decimal("39"), 7)
+        "SOXL", Decimal("23"), Decimal("4"), Decimal("39"), 7)
 
     stocks = build(cache)["stocks"]
     row = next(item for item in stocks["positions"] if item["symbol"] == "SOXL")
 
     assert row["cost_status"] == "stale"
-    assert row["trade_value_usd"] == pytest.approx(920)
+    assert row["cost_price_usd"] == pytest.approx(23)
     assert row["commission_usd"] == pytest.approx(4)
     assert row["cost_position_qty"] == pytest.approx(39)
     assert row["avg_cost_usd"] is None
@@ -454,10 +454,10 @@ def test_spot_cost_is_manual_input_not_replayed_trades(cache):
     snap = build(cache)
     assert snap["spot_costs"] == {}
     cache.upsert_spot_cost(
-        "BNB", Decimal("1000"), Decimal("3"), Decimal("1.5"), 7)
+        "BNB", Decimal("600"), Decimal("3"), Decimal("1.5"), 7)
     after = build(cache, force=False)
     assert after["spot_costs"]["BNB"]["position_qty"] == pytest.approx(1.5)
-    assert after["spot_costs"]["BNB"]["trade_value_usd"] == pytest.approx(1000)
+    assert after["spot_costs"]["BNB"]["cost_price_usd"] == pytest.approx(600)
     assert after["spot_costs"]["BNB"]["commission_usd"] == pytest.approx(3)
 
 

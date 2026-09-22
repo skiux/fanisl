@@ -56,6 +56,10 @@ CREATE TABLE IF NOT EXISTS binance_spot_costs (
     updated_by       BIGINT NOT NULL,
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Legacy trade_value_usd rows represented an entire holding. Do not infer a unit price
+-- from them: their meaning was ambiguous. New rows explicitly record the unit cost.
+ALTER TABLE binance_stock_costs ADD COLUMN IF NOT EXISTS cost_price_usd NUMERIC;
+ALTER TABLE binance_spot_costs ADD COLUMN IF NOT EXISTS cost_price_usd NUMERIC;
 """
 
 
@@ -139,27 +143,30 @@ class SourceCache:
         """Return the durable manual input for each current stock position."""
         with self.pool.connection() as conn:
             rows = conn.execute(
-                "SELECT symbol, trade_value_usd, commission_usd, position_qty, "
-                "updated_by, updated_at FROM binance_stock_costs ORDER BY symbol"
+                "SELECT symbol, cost_price_usd, commission_usd, position_qty, "
+                "updated_by, updated_at FROM binance_stock_costs "
+                "WHERE cost_price_usd IS NOT NULL ORDER BY symbol"
             ).fetchall()
         return {str(row["symbol"]): dict(row) for row in rows}
 
-    def upsert_stock_cost(self, symbol: str, trade_value_usd: Decimal,
+    def upsert_stock_cost(self, symbol: str, cost_price_usd: Decimal,
                           commission_usd: Decimal, position_qty: Decimal,
                           updated_by: int) -> dict:
         """Save the two values Binance omits for a known current stock quantity."""
         with self.pool.connection() as conn:
             row = conn.execute(
                 "INSERT INTO binance_stock_costs "
-                "(symbol, trade_value_usd, commission_usd, position_qty, updated_by) "
-                "VALUES (%s, %s, %s, %s, %s) "
+                "(symbol, trade_value_usd, cost_price_usd, commission_usd, position_qty, updated_by) "
+                "VALUES (%s, %s, %s, %s, %s, %s) "
                 "ON CONFLICT (symbol) DO UPDATE SET "
                 "trade_value_usd=EXCLUDED.trade_value_usd, "
+                "cost_price_usd=EXCLUDED.cost_price_usd, "
                 "commission_usd=EXCLUDED.commission_usd, "
                 "position_qty=EXCLUDED.position_qty, updated_by=EXCLUDED.updated_by, "
-                "updated_at=now() RETURNING symbol, trade_value_usd, commission_usd, "
+                "updated_at=now() RETURNING symbol, cost_price_usd, commission_usd, "
                 "position_qty, updated_by, updated_at",
-                (symbol.upper(), trade_value_usd, commission_usd, position_qty, updated_by),
+                (symbol.upper(), cost_price_usd * position_qty, cost_price_usd,
+                 commission_usd, position_qty, updated_by),
             ).fetchone()
         return dict(row)
 
@@ -167,27 +174,30 @@ class SourceCache:
         """Read admin-entered cost for the current cross-wallet crypto holdings."""
         with self.pool.connection() as conn:
             rows = conn.execute(
-                "SELECT asset, trade_value_usd, commission_usd, position_qty, "
-                "updated_by, updated_at FROM binance_spot_costs ORDER BY asset"
+                "SELECT asset, cost_price_usd, commission_usd, position_qty, "
+                "updated_by, updated_at FROM binance_spot_costs "
+                "WHERE cost_price_usd IS NOT NULL ORDER BY asset"
             ).fetchall()
         return {str(row["asset"]): dict(row) for row in rows}
 
-    def upsert_spot_cost(self, asset: str, trade_value_usd: Decimal,
+    def upsert_spot_cost(self, asset: str, cost_price_usd: Decimal,
                          commission_usd: Decimal, position_qty: Decimal,
                          updated_by: int) -> dict:
         """Save one current holding's purchase value and fees, separate from quotes."""
         with self.pool.connection() as conn:
             row = conn.execute(
                 "INSERT INTO binance_spot_costs "
-                "(asset, trade_value_usd, commission_usd, position_qty, updated_by) "
-                "VALUES (%s, %s, %s, %s, %s) "
+                "(asset, trade_value_usd, cost_price_usd, commission_usd, position_qty, updated_by) "
+                "VALUES (%s, %s, %s, %s, %s, %s) "
                 "ON CONFLICT (asset) DO UPDATE SET "
                 "trade_value_usd=EXCLUDED.trade_value_usd, "
+                "cost_price_usd=EXCLUDED.cost_price_usd, "
                 "commission_usd=EXCLUDED.commission_usd, "
                 "position_qty=EXCLUDED.position_qty, updated_by=EXCLUDED.updated_by, "
-                "updated_at=now() RETURNING asset, trade_value_usd, commission_usd, "
+                "updated_at=now() RETURNING asset, cost_price_usd, commission_usd, "
                 "position_qty, updated_by, updated_at",
-                (asset.upper(), trade_value_usd, commission_usd, position_qty, updated_by),
+                (asset.upper(), cost_price_usd * position_qty, cost_price_usd,
+                 commission_usd, position_qty, updated_by),
             ).fetchone()
         return dict(row)
 

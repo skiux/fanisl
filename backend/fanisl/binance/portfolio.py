@@ -301,7 +301,7 @@ EQUITY_ASSET_PREFIX = "EQ_"
 STOCKS_COVERAGE = (
     "Binance Stocks 没有持仓查询接口。正股持仓取自钱包明细里 EQ_ 开头的资产，"
     "数量与钱包一致；市值沿用 Binance 钱包估值。Binance 暂未提供完整成本与手续费，"
-    "由管理员为当前持仓录入交易价值和手续费；持仓数量变化后需重新录入。"
+    "由管理员为当前持仓录入单位成本价和手续费；持仓数量变化后需重新录入。"
 )
 
 
@@ -382,10 +382,10 @@ def _stock_positions(equities: list[dict], assets: list[dict],
         saved_qty = dec(saved.get("position_qty")) if saved else None
         matches = saved_qty is not None and abs(saved_qty - total_qty) <= tolerance
         status = "manual" if matches else "stale" if saved else "missing"
-        trade_value = dec(saved.get("trade_value_usd")) if saved else None
+        cost_price = dec(saved.get("cost_price_usd")) if saved else None
         commission = dec(saved.get("commission_usd")) if saved else None
-        cost_basis = (trade_value + commission
-                      if matches and trade_value is not None and commission is not None else None)
+        cost_basis = (cost_price * total_qty + commission
+                      if matches and cost_price is not None and commission is not None else None)
         average = cost_basis / total_qty if cost_basis is not None and total_qty > 0 else None
         unrealized = (mark * total_qty - cost_basis
                       if mark is not None and cost_basis is not None else None)
@@ -412,7 +412,7 @@ def _stock_positions(equities: list[dict], assets: list[dict],
             "extended_session": bool(metadata.get("extendedSession", False)),
             "overnight_supported": bool(metadata.get("overnightSupported", False)),
             "cost_status": status,
-            "trade_value_usd": trade_value,
+            "cost_price_usd": cost_price,
             "commission_usd": commission,
             "cost_position_qty": saved_qty,
             "cost_updated_at": updated_at.isoformat() if isinstance(updated_at, datetime) else None,
@@ -1407,7 +1407,7 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "spot_costs": {
             asset: {
                 "asset": asset,
-                "trade_value_usd": float(row["trade_value_usd"]),
+                "cost_price_usd": float(row["cost_price_usd"]),
                 "commission_usd": float(row["commission_usd"]),
                 "position_qty": float(row["position_qty"]),
                 "updated_at": row["updated_at"].isoformat(),
