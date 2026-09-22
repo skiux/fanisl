@@ -80,8 +80,9 @@ export type SpotHoldingRow = SpotAsset & {
   cost_position_qty: number | null
   avg_cost_usd: number | null
   cost_basis_usd: number | null
-  unrealized_pnl_usd: number | null
-  unrealized_pnl_pct: number | null
+  /** 市值 − 录入成本。现货只是拿着，没有"未实现"那一说，别处也不要再叫未实现盈亏 */
+  pnl_usd: number | null
+  pnl_pct: number | null
 }
 
 export function spotHoldings(snapshot: PortfolioSnapshot): SpotHoldingRow[] {
@@ -153,8 +154,8 @@ export function spotHoldings(snapshot: PortfolioSnapshot): SpotHoldingRow[] {
       cost_position_qty: saved?.position_qty ?? null,
       avg_cost_usd: cost !== null ? cost / row.total : null,
       cost_basis_usd: cost,
-      unrealized_pnl_usd: pnl,
-      unrealized_pnl_pct: pnl !== null && cost !== null ? pnl / cost : null,
+      pnl_usd: pnl,
+      pnl_pct: pnl !== null && cost !== null ? pnl / cost : null,
     } satisfies SpotHoldingRow
   }).sort((a, b) => (b.value_usd ?? -1) - (a.value_usd ?? -1))
 }

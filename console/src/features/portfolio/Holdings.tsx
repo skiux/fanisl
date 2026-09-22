@@ -8,7 +8,7 @@ import type { EarnPosition, EquityHolding, TokenizedStockAsset } from '../../api
 import type { CashRow, SpotHoldingRow } from '../../lib/holdings'
 import { PositionCostEditor } from './StockCostEditor'
 
-const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_112px]'
+const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 sm:grid-cols-[minmax(0,1.7fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_112px]'
 
 /** 合并后仍保留资产所在钱包与锁定原因，否则总数无法核对。 */
 function rowNote(item: SpotHoldingRow) {
@@ -22,6 +22,46 @@ function rowNote(item: SpotHoldingRow) {
   return parts.length > 0 ? parts.join(' · ') : null
 }
 
+/**
+ * 成本价那一格同时是管理员的入口。原先「录入成本 / 修正成本」是每行下面单起一行的
+ * 链接，十二个币种就是十二条悬着的下划线，加上另一行成本价与盈亏，整张表糊成一片。
+ * 现在它们各归各列，行里不再多出第三行。
+ */
+function CostCell({ item, canEdit, onEdit }: {
+  item: SpotHoldingRow
+  canEdit: boolean
+  onEdit: () => void
+}) {
+  const known = item.cost_status === 'manual'
+  if (!canEdit) {
+    return known
+      ? <span className="tnum text-sm text-ink-2"><MobileLabel />{price(item.cost_price_usd)}</span>
+      // 窄屏没有列头，一个孤零零的破折号读不出是什么，那里索性不占位
+      : <span className="hidden text-sm text-ink-3 sm:block">—</span>
+  }
+  return (
+    <button
+      // 已录入的成本先当数字看，下划线只在悬停时出现；缺成本那一格才常驻下划线，
+      // 它是这一列里唯一需要被找到的东西
+      className={cn('tnum text-sm decoration-rule-strong underline-offset-4 transition-colors duration-150 hover:underline hover:text-ink',
+        known ? 'text-ink-2' : 'text-ink-3 underline')}
+      onClick={onEdit}
+      title={known ? '修正成本'
+        : item.cost_status === 'stale' ? '持仓数量已变化，需要重新录入成本' : '录入成本'}
+      type="button"
+    >
+      {known ? <><MobileLabel />{price(item.cost_price_usd)}</>
+        : item.cost_status === 'stale' ? '待更新'
+        : <>录入<span className="sm:hidden">成本</span></>}
+    </button>
+  )
+}
+
+/** 窄屏把成本收到资产下面那一行，那里没有列头，得自己带一个 */
+function MobileLabel() {
+  return <span className="text-micro text-ink-3 sm:hidden">成本 </span>
+}
+
 function SpotRow({ item, share, canEditCost, onSaveCost }: {
   item: SpotHoldingRow
   share: number
@@ -30,6 +70,8 @@ function SpotRow({ item, share, canEditCost, onSaveCost }: {
 }) {
   const [editing, setEditing] = useState(false)
   const note = rowNote(item)
+  // 余额来源不可用时录入没有意义：存下的数量对不上当前持仓，存进去就是一条错记录
+  const canEdit = canEditCost && Boolean(onSaveCost) && item.cost_status !== 'unavailable'
   return (
     <li className="py-3.5 transition-colors duration-200 hover:bg-sheet-2/45" data-spot-position={item.asset}>
       <div className={ROW}>
@@ -42,10 +84,24 @@ function SpotRow({ item, share, canEditCost, onSaveCost }: {
         </div>
         <div className="tnum hidden text-sm text-ink-2 sm:block">{amount(item.total)}</div>
         <div className="tnum hidden text-sm text-ink-3 sm:block">{price(item.price_usd)}</div>
-        <div className="text-right sm:text-left">
+        {/* 窄屏只剩资产与价值两列，成本落到资产下面那一行，而不是跟着列一起消失 */}
+        <div className="col-start-1 row-start-2 min-w-0 sm:col-auto sm:row-auto">
+          <CostCell canEdit={canEdit} item={item} onEdit={() => setEditing(true)} />
+        </div>
+        <div className="col-start-2 row-start-1 text-right sm:col-auto sm:row-auto sm:text-left">
           {item.value_usd === null
             ? <span className="text-xs text-ink-3">无报价</span>
             : <span className="tnum text-sm text-ink">{money(item.value_usd)}</span>}
+          {/* 盈亏挂在市值下面：它就是市值减录入成本，不是另立的一笔数。
+              现货只是拿着，不写"未实现"——那是合约仓位才有的说法。 */}
+          {item.pnl_usd !== null && (
+            <div className="tnum text-micro">
+              <span className={item.pnl_usd >= 0 ? 'text-gain' : 'text-loss'}>
+                {signedMoney(item.pnl_usd)}
+              </span>
+              <span className="text-ink-3"> {signedPercent(item.pnl_pct)}</span>
+            </div>
+          )}
           <div className="tnum text-micro text-ink-3 sm:hidden">{amount(item.total)}</div>
         </div>
         <div className="hidden items-center gap-2 sm:flex">
@@ -60,37 +116,16 @@ function SpotRow({ item, share, canEditCost, onSaveCost }: {
           </span>
         </div>
       </div>
-      {(item.cost_status === 'manual' || (canEditCost && onSaveCost && item.cost_status !== 'unavailable')) && (
-        <div className="mt-2.5 sm:pl-[34px]">
-          <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1.5">
-            {item.cost_status === 'manual' && (
-              <dl className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
-                <div><dt className="inline text-ink-3">成本价 </dt><dd className="tnum inline text-ink-2">{price(item.cost_price_usd)}</dd></div>
-                <div><dt className="inline text-ink-3">未实现 </dt><dd className={cn('tnum inline', item.unrealized_pnl_usd === null ? 'text-ink-3' : item.unrealized_pnl_usd >= 0 ? 'text-gain' : 'text-loss')}>
-                  {signedMoney(item.unrealized_pnl_usd)} <span className="text-micro">{signedPercent(item.unrealized_pnl_pct)}</span>
-                </dd></div>
-              </dl>
-            )}
-            {canEditCost && onSaveCost && !editing && (
-              <button
-                className="shrink-0 text-xs text-ink-3 underline decoration-rule-strong underline-offset-4 transition-colors duration-150 hover:text-ink"
-                onClick={() => setEditing(true)}
-                type="button"
-              >
-                {item.cost_status === 'missing' ? '录入成本' : '修正成本'}
-              </button>
-            )}
-          </div>
-          {canEditCost && onSaveCost && editing && (
-            <PositionCostEditor
-              asset={item.asset} kind="spot" quantity={item.total} row={item} unit={item.asset}
-              onCancel={() => setEditing(false)}
-              onSave={async (input) => {
-                await onSaveCost(item.asset, input)
-                setEditing(false)
-              }}
-            />
-          )}
+      {canEdit && onSaveCost && editing && (
+        <div className="sm:pl-[34px]">
+          <PositionCostEditor
+            asset={item.asset} kind="spot" quantity={item.total} row={item} unit={item.asset}
+            onCancel={() => setEditing(false)}
+            onSave={async (input) => {
+              await onSaveCost(item.asset, input)
+              setEditing(false)
+            }}
+          />
         </div>
       )}
     </li>
@@ -125,6 +160,7 @@ export function SpotTable({ spot, canEditCost = false, onSaveCost }: {
         <span>资产</span>
         <span className="hidden sm:block">数量</span>
         <span className="hidden sm:block">现价</span>
+        <span className="hidden sm:block">成本价</span>
         <span className="text-right sm:text-left">价值</span>
         <span className="hidden text-right sm:block">占比</span>
       </div>

@@ -5,7 +5,7 @@ export type StockSort = 'value' | 'pnl' | 'cost' | 'symbol'
 
 export const STOCK_SORT_KEYS: SortKey<StockSort>[] = [
   { value: 'value', label: '市值', initial: 'desc' },
-  { value: 'pnl', label: '未实现', initial: 'desc' },
+  { value: 'pnl', label: '盈亏', initial: 'desc' },
   { value: 'cost', label: '成本价', initial: 'desc' },
   { value: 'symbol', label: '标的', initial: 'asc' },
 ]

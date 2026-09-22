@@ -79,7 +79,7 @@ function StockPositionRow({ row, canEditCost, onSaveCost }: {
                 </div>
               </>
             ) : (
-              <span aria-label="未实现盈亏暂无数据" className="tnum text-sm text-ink-3">—</span>
+              <span aria-label="盈亏暂无数据" className="tnum text-sm text-ink-3">—</span>
             )}
           </div>
         </div>

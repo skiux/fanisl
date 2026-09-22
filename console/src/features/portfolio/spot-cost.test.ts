@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildSnapshot } from '../../api/fixtures'
 import { markAnonymous, refreshSession } from '../../api/session'
 import { spotHoldings } from '../../lib/holdings'
-import { price } from '../../lib/format'
+import { price, signedMoney } from '../../lib/format'
 import { HoldingsView } from './views'
 
 let host: HTMLDivElement
@@ -33,7 +33,7 @@ async function setRole(role: 'admin' | 'member') {
 }
 
 describe('现货人工成本', () => {
-  it('现货持仓显示录入的成本价和未实现盈亏，不重复显示总成本', () => {
+  it('成本价自成一列，盈亏跟着市值，不叫未实现也不重复总成本', () => {
     const base = buildSnapshot(new Date('2026-09-19T12:00:00Z'))
     const row = spotHoldings(base).find((item) => item.asset === 'BNB')!
     const snapshot = { ...base, spot_costs: { BNB: {
@@ -42,12 +42,15 @@ describe('现货人工成本', () => {
     } } }
     act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
     const bnb = host.querySelector('[data-spot-position="BNB"]')!
-    expect(bnb.textContent).toContain(`成本价 ${price(900 / row.total)}`)
+    expect(bnb.textContent).toContain(price(900 / row.total))
+    expect(bnb.textContent).toContain(signedMoney(row.value_usd! - 903))
     expect(bnb.textContent).not.toContain('平均成本')
     expect(bnb.textContent).not.toContain('总成本')
     expect(bnb.textContent).not.toContain('$903.00')
-    expect(bnb.textContent).toContain('未实现')
+    // 现货只是拿着，没有未实现一说；那是合约仓位的词
+    expect(bnb.textContent).not.toContain('未实现')
     expect(host.textContent).toContain('现价')
+    expect(host.textContent).toContain('成本价')
   })
 
   it('只有管理员能录入，旧数量的成本不再显示为当前成本', async () => {
@@ -71,15 +74,19 @@ describe('现货人工成本', () => {
     act(() => root.render(createElement(HoldingsView, {
       snapshot, veiled: false, onSaveSpotCost: vi.fn(),
     })))
-    const button = [...bnb.querySelectorAll('button')]
-      .find((item) => item.textContent === '修正成本')!
-    expect(button).toBeDefined()
+    const button = bnb.querySelector('button')!
+    expect(button).not.toBeNull()
+    expect(button.textContent).toBe('待更新')
+    expect(button.title).toContain('重新录入')
+    // 录入入口就在成本价那一格里，不再是行下面单起一行的链接
+    expect(bnb.firstElementChild!.contains(button)).toBe(true)
+    expect(bnb.textContent).not.toContain('$900')
     act(() => button.click())
     expect(bnb.querySelector('[data-spot-cost-editor="BNB"]')).not.toBeNull()
     expect(bnb.textContent).toContain('原记录 0.5')
   })
 
-  it('余额来源不可用时禁用成本录入与未实现盈亏', async () => {
+  it('余额来源不可用时禁用成本录入与盈亏', async () => {
     await setRole('admin')
     const base = buildSnapshot(new Date('2026-09-19T12:00:00Z'))
     const snapshot = { ...base, sources: base.sources.map((source) =>
