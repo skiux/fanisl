@@ -331,9 +331,9 @@ export function RiskControlView({ snapshot, veiled }: {
                   假设所有合约标记价同时下跌。保证金率升至 100% 时开始强平；数值越高，缓冲越大。
                 </p>
                 <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-                  <Figure label="不补现金" value={percent(edge, 1)} />
+                  <Figure label="未补现金" value={percent(edge, 1)} />
                   <Figure
-                    label="补上现货现金后"
+                    label="补入现货现金后"
                     note={spare > 0 ? money(spare) : undefined}
                     value={edgeWithCash === null ? '不会强平' : percent(edgeWithCash, 1)}
                   />
@@ -363,8 +363,8 @@ export function RiskControlView({ snapshot, veiled }: {
             ) : (
               <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
                 <Figure label="现货 · 可直接划转" value={money(spare)} />
-                <Figure label="理财 · 要先赎回" value={money(parked)} />
-                <Figure label="已经是保证金" value={money(asMargin)} />
+                <Figure label="理财 · 需赎回" value={money(parked)} />
+                <Figure label="已作保证金" value={money(asMargin)} />
                 <Figure
                   label="占净值"
                   value={percent(equity > 0 ? cashTotal / equity : null, 1)}

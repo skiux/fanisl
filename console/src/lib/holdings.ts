@@ -72,8 +72,6 @@ export function exposures(snapshot: PortfolioSnapshot, equity: number): Exposure
 }
 
 export type SpotHoldingRow = SpotAsset & {
-  /** 同一种币可能分散在多个钱包；主表合并数量，但保留位置提示。 */
-  locations: string[]
   cost_status: 'manual' | 'missing' | 'stale' | 'unavailable'
   cost_price_usd: number | null
   commission_usd: number | null
@@ -86,15 +84,15 @@ export type SpotHoldingRow = SpotAsset & {
 }
 
 export function spotHoldings(snapshot: PortfolioSnapshot): SpotHoldingRow[] {
-  type Pending = SpotAsset & { locations: string[]; known_value: number; value_complete: boolean }
+  type Pending = SpotAsset & { known_value: number; value_complete: boolean }
   const stable = new Set(snapshot.stable_assets)
   const byAsset = new Map<string, Pending>()
-  const add = (asset: string, quantity: number, value: number | null, location: string,
+  const add = (asset: string, quantity: number, value: number | null,
                locks: Pick<SpotAsset, 'free' | 'locked' | 'freeze' | 'withdrawing'>) => {
     if (!asset || quantity <= 0) return
     const row: Pending = byAsset.get(asset) ?? {
       asset, free: 0, locked: 0, freeze: 0, withdrawing: 0, total: 0,
-      price_usd: null, value_usd: null, locations: [], known_value: 0,
+      price_usd: null, value_usd: null, known_value: 0,
       value_complete: true,
     }
     row.free += locks.free
@@ -104,23 +102,22 @@ export function spotHoldings(snapshot: PortfolioSnapshot): SpotHoldingRow[] {
     row.total += quantity
     if (value === null) row.value_complete = false
     else row.known_value += value
-    if (!row.locations.includes(location)) row.locations.push(location)
     byAsset.set(asset, row)
   }
 
   for (const row of snapshot.spot) {
-    if (!stable.has(row.asset)) add(row.asset, row.total, row.value_usd, '现货', row)
+    if (!stable.has(row.asset)) add(row.asset, row.total, row.value_usd, row)
   }
   for (const row of snapshot.futures?.assets ?? []) {
     if (!stable.has(row.asset)) {
-      add(row.asset, row.wallet_balance, row.value_usd, '合约钱包', {
+      add(row.asset, row.wallet_balance, row.value_usd, {
         free: row.wallet_balance, locked: 0, freeze: 0, withdrawing: 0,
       })
     }
   }
   for (const row of snapshot.margin?.assets ?? []) {
     if (!stable.has(row.asset)) {
-      add(row.asset, row.net, row.value_usd, '全仓杠杆', {
+      add(row.asset, row.net, row.value_usd, {
         free: row.net, locked: 0, freeze: 0, withdrawing: 0,
       })
     }

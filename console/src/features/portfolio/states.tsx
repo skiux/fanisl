@@ -156,9 +156,9 @@ export function NoOrdersState() {
 export function EmptyLedgerState({ days }: { days: number }) {
   return (
     <Frame
-      body={`最近 ${days} 天里，八个来源都没有返回任何记录：没有充提、没有派息、也没有合约收支。换一个更长的区间可以看更早的。`}
+      body={`最近 ${days} 天里，八个来源都没有返回任何记录：没有充提、没有派息、也没有合约收支。可以换一个更长的区间查看更早的记录。`}
       icon={<Receipt aria-hidden="true" size={19} />}
-      title="这段区间里没有流水"
+      title="该区间没有流水"
     />
   )
 }
@@ -172,9 +172,9 @@ export function UnauthorizedState({ sources, onRetry }: { sources: SourceState[]
   if (!isAdmin) {
     return (
       <Frame
-        body="连接交易所的凭据还没配好或已失效，这里暂时读不到数据。找管理员处理。"
+        body="连接交易所的凭据尚未配置或已失效，暂时无法读取数据。请联系管理员处理。"
         icon={<Key aria-hidden="true" size={19} />}
-        title="暂时读不到账户数据"
+        title="暂时无法读取账户数据"
       />
     )
   }
@@ -218,7 +218,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
         </>
       }
       icon={<PlugsConnected aria-hidden="true" size={19} />}
-      title="读不到账户数据"
+      title="无法读取账户数据"
     />
   )
 }

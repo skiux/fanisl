@@ -139,7 +139,7 @@ export function PnlDetail({ topic, pnl, onClose }: {
           </div>
 
           {pnl === null ? (
-            <p className="text-sm text-ink-3">取不到。</p>
+            <p className="text-sm text-ink-3">未取到。</p>
           ) : (
             <>
               <ul className="divide-y divide-rule/60 border-y border-rule">
@@ -155,7 +155,7 @@ export function PnlDetail({ topic, pnl, onClose }: {
                 <p className="mt-3 text-micro leading-relaxed text-ink-3">
                   正股昨收：{pnl.equity_close_source}
                   {pnl.equity_missing.length > 0
-                    && ` · ${pnl.equity_missing.join('、')} 取不到昨收，未计入`}
+                    && ` · ${pnl.equity_missing.join('、')} 未取到昨收，未计入`}
                 </p>
               )}
             </>
@@ -175,7 +175,7 @@ function Row({ label, detail, value, mark }: Omit<DetailRow, 'key'>) {
       </span>
       <span className="tnum truncate text-[11px] text-ink-3">{detail ?? ''}</span>
       {/* 取不到与本来没有是两回事：前者写「取不到」，后者不会走到这里 */}
-      <Amount blank="取不到" className="text-xs" value={value} />
+      <Amount blank="未取到" className="text-xs" value={value} />
     </li>
   )
 }

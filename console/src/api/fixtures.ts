@@ -568,6 +568,8 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
       ...([
         'prices', 'wallets', 'spot', 'stocks', 'futures', 'account', 'earn', 'bfusd', 'margin',
         'isolated_margin', 'liquidation_loan', 'income', 'transfers',
+        // 派息与利息是「今日盈亏」里的独立一项，取不到要能在状态里看见
+        'earn_rewards', 'margin_interest',
       ] as const).map((key) => okSource(key, iso)),
       {
         key: 'portfolio_margin', status: 'unsupported', as_of: iso,

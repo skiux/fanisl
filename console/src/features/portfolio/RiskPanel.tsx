@@ -168,9 +168,9 @@ export function RiskGauges({ futures, margin, exposureRatio, concentration, unav
   if (unavailable) {
     return (
       <div className="mt-3.5 flex flex-col">
-        <p className="text-sm text-ink-2">合约数据本次没有取到</p>
+        <p className="text-sm text-ink-2">本次未取到合约数据</p>
         <p className="mt-1.5 text-xs leading-relaxed text-ink-3">
-          保证金率与强平距离都算不出来，这一节不猜。
+          保证金率与强平距离都无法计算，这一节不做估算。
         </p>
       </div>
     )
@@ -254,7 +254,7 @@ export function PositionsList({ futures, unavailable }: {
   unavailable: boolean
 }) {
   if (unavailable) {
-    return <p className="py-10 text-center text-sm text-ink-3">合约数据本次没有取到。</p>
+    return <p className="py-10 text-center text-sm text-ink-3">本次未取到合约数据。</p>
   }
   if (!futures || futures.positions.length === 0) {
     return <p className="py-10 text-center text-sm text-ink-3">当前没有合约持仓。</p>

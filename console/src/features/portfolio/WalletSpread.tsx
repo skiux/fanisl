@@ -41,7 +41,7 @@ export function WalletSpread({ wallets, veiled }: { wallets: WalletBucket[]; vei
                 />
               </span>
               {missing ? (
-                <span className="shrink-0 whitespace-nowrap text-right text-xs text-loss">取不到</span>
+                <span className="shrink-0 whitespace-nowrap text-right text-xs text-loss">未取到</span>
               ) : (
                 <>
                   <span className="tnum ml-auto shrink-0 whitespace-nowrap text-right text-xs text-ink">

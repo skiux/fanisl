@@ -90,7 +90,7 @@ export function AccountPage() {
                   title="活跃会话"
                 >
                   {failed ? (
-                    <p className="py-6 text-center text-sm text-ink-3">这次没读到。</p>
+                    <p className="py-6 text-center text-sm text-ink-3">本次未取到。</p>
                   ) : rows === null ? (
                     <p className="py-6 text-center text-sm text-ink-3">正在读取…</p>
                   ) : (

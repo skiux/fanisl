@@ -61,7 +61,7 @@ describe('今日盈亏明细', () => {
   it('取不到昨收的股票被点名，而不是悄悄少一块', () => {
     const base = snapshot().pnl!
     const text = render({ ...base, stock_marks: [], equity_missing: ['SOXL'] })
-    expect(text).toContain('SOXL 取不到昨收')
+    expect(text).toContain('SOXL 未取到昨收')
   })
 
   it('合计就是接口给的那个数，不在前端另加一遍', () => {

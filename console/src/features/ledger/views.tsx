@@ -101,7 +101,7 @@ export function LedgerView({ snapshot, veiled, filter }: {
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>
-          <Module span="lg:col-span-7" title="流水取不到">
+          <Module span="lg:col-span-7" title="流水未取到">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
               这一页没有单一的数据源，时间线是下面这些端点各拉一段拼出来的。
               相关的几个这次都没返回，所以这里既不给记录也不给合计——
@@ -190,7 +190,7 @@ export function LedgerView({ snapshot, veiled, filter }: {
                   )
                 })}
               </ul>
-            ) : <p className="text-sm text-ink-3">这段区间里没有记录。</p>}
+            ) : <p className="text-sm text-ink-3">该区间没有记录。</p>}
           </Module>
         </Stack>
 

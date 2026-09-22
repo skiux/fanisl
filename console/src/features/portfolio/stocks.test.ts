@@ -253,7 +253,9 @@ describe('持仓页的股票', () => {
     act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
 
     expect(host.textContent).not.toContain('合约中的现货持仓')
-    expect(host.textContent).toContain('现货 · 合约钱包 · 全仓杠杆')
+    // 行里不再列这个币在哪几个钱包：表本来就是跨钱包合并的，钱在哪由
+    // 「资产分布」与「现金」回答
+    expect(host.textContent).not.toContain('合约钱包 · 全仓杠杆')
     expect(host.textContent).toContain('现货钱包可用')
   })
 })

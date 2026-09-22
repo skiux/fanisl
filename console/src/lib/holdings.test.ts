@@ -11,7 +11,6 @@ describe('持仓跨钱包归并', () => {
       + snapshot.margin!.assets.find((row) => row.asset === 'BNB')!.net
 
     expect(bnb.total).toBeCloseTo(expected)
-    expect(bnb.locations).toEqual(['现货', '合约钱包', '全仓杠杆'])
   })
 
   it('稳定币只归入现金，不在现货持仓重复出现', () => {

@@ -115,7 +115,7 @@ function UserTable({ users, failed, meId, busy, onAct }: {
   busy: boolean
   onAct: (fn: () => Promise<unknown>) => Promise<void>
 }) {
-  if (failed) return <p className="py-10 text-center text-sm text-ink-3">这次没读到。</p>
+  if (failed) return <p className="py-10 text-center text-sm text-ink-3">本次未取到。</p>
   if (users === null) return <p className="py-10 text-center text-sm text-ink-3">正在读取…</p>
   if (users.length === 0) return <p className="py-10 text-center text-sm text-ink-3">还没有用户。</p>
 
@@ -226,7 +226,7 @@ function RowActions({ user, isMe, busy, onAct }: {
   if (mode === 'delete') {
     return (
       <div className="flex flex-wrap items-center justify-start gap-2.5 sm:justify-end">
-        <span className="text-xs text-ink-2">删了不能恢复。</span>
+        <span className="text-xs text-ink-2">删除后无法恢复。</span>
         <TextAction busy={busy} label="确认删除" onClick={() => run(() => deleteUser(user.id))} tone="loss" />
         <TextAction busy={false} label="取消" onClick={close} />
       </div>

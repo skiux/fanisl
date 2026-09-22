@@ -170,7 +170,7 @@ function BucketRow({ bucket }: { bucket: Bucket }) {
 export function Timeline({ entries }: { entries: LedgerEntry[] }) {
   const days = useMemo(() => groupByDay(entries), [entries])
   if (days.length === 0) {
-    return <p className="py-10 text-center text-sm text-ink-3">这段区间里没有记录。</p>
+    return <p className="py-10 text-center text-sm text-ink-3">该区间没有记录。</p>
   }
   return (
     <div>

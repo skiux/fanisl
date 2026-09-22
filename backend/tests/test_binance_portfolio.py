@@ -82,10 +82,28 @@ def test_snapshot_shape_matches_contract(cache):
     assert {s["key"] for s in snap["sources"]} == {
         "prices", "wallets", "spot", "futures", "earn", "margin",
         "income", "transfers", "stocks", "account", "isolated_margin",
-        "liquidation_loan", "portfolio_margin", "bfusd"}
+        "liquidation_loan", "portfolio_margin", "bfusd",
+        # 派息与利息是「今日盈亏」里的独立一项，取不到必须报出来，
+        # 否则那一项悄悄变成 0
+        "earn_rewards", "margin_interest"}
     states = {s["key"]: s for s in snap["sources"]}
     assert all(states[key]["status"] == "ok" for key in states if key != "portfolio_margin")
     assert states["portfolio_margin"]["status"] == "unsupported"
+
+
+def test_a_failed_rewards_source_is_reported_not_silently_zero(cache):
+    """派息取不到时，「今日盈亏」里那一项会变成 0——**那一定要在状态里看得见**。
+
+    这几个来源原先不进状态表（它们只影响持仓量回滚的完整性）。现在派息与利息各自
+    成项，静默失败等于账面上凭空少一块钱。
+    """
+    snap = build_replacing(cache, {
+        "/sapi/v1/simple-earn/flexible/history/rewardsRecord":
+            lambda: httpx.Response(500, json={"code": -1000, "msg": "boom"}),
+    })
+    states = {s["key"]: s for s in snap["sources"]}
+    assert states["earn_rewards"]["status"] == "unreachable"
+    assert snap["pnl"]["today"]["earn_usd"] == 0
 
 
 def test_capabilities_gate_margin_risk_sources(cache):

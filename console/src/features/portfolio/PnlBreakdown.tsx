@@ -33,7 +33,7 @@ export function PnlBreakdown({ pnl }: { pnl: Pnl | null }) {
   const known = rows.filter((row) => row.value !== null)
 
   if (known.length === 0) {
-    return <p className="py-10 text-sm text-ink-3">合约收支取不到。</p>
+    return <p className="py-10 text-sm text-ink-3">合约收支未取到。</p>
   }
 
   const scale = Math.max(...known.map((row) => Math.abs(row.value ?? 0)), 1)
@@ -54,7 +54,7 @@ export function PnlBreakdown({ pnl }: { pnl: Pnl | null }) {
               <td className={cn('tnum py-2.5 text-right text-sm',
                 row.value === null ? 'text-ink-3'
                   : row.value >= 0 ? 'text-gain' : 'text-loss')}>
-                {row.value === null ? '取不到' : signedMoney(row.value)}
+                {row.value === null ? '未取到' : signedMoney(row.value)}
               </td>
             </tr>
           ))}

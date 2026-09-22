@@ -157,7 +157,7 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
       const base = fx.buildSnapshot(minutesAgo(1))
       return {
         ...base,
-        sources: degrade(base, ['income'], 'unreachable', '合约损益接口暂时取不到', null),
+        sources: degrade(base, ['income'], 'unreachable', '合约损益接口暂时未取到', null),
         // 只有 income 挂了。合约未实现来自 positionRisk、现货涨跌来自行情与余额，
         // 两样都还在——挂掉的是当日结算、合约已实现与三类合约收支。
         pnl: base.pnl && {
@@ -427,7 +427,7 @@ function scenarioOrders(scenario: Scenario): OrdersSnapshot {
         ...base,
         sources: base.sources.map((source) => (
           source.key === 'order_history' || source.key === 'trade_history'
-            ? { ...source, status: 'unreachable' as const, as_of: null, detail: '历史接口暂时取不到' }
+            ? { ...source, status: 'unreachable' as const, as_of: null, detail: '历史接口暂时未取到' }
             : source
         )),
         query: null, history: [], fills: [],
@@ -531,7 +531,7 @@ function scenarioLedger(scenario: Scenario, days: number): LedgerSnapshot {
       return degradeLedger(
         lfx.buildLedgerSnapshot(minutesAgo(1), days),
         CAPPED_LEDGER_SOURCES,
-        '这一组接口暂时取不到',
+        '这一组接口暂时未取到',
         null,
       )
 

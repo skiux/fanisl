@@ -69,10 +69,10 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>
-          <Module span="lg:col-span-7" title="挂单取不到">
+          <Module span="lg:col-span-7" title="挂单未取到">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
               现货、合约与杠杆的挂单各走一个接口，本次一个都没取到。
-              这里不写「0 笔」——取不到和没有挂单是两回事。
+              这里不写「0 笔」：未取到与没有挂单是两回事。
             </p>
             <ul className="mt-5 divide-y divide-rule border-t border-rule">
               {snapshot.sources.filter((source) => source.status !== 'ok').map((source) => (
@@ -114,7 +114,7 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
       <ViewGrid>
         <Module
           figure={money(rows.reduce((sum, order) => sum + (order.notional_usd ?? 0), 0))}
-          note={downVenues.length > 0 ? '不含取不到的账户' : '名义合计'}
+          note={downVenues.length > 0 ? '不含未取到的账户' : '名义合计'}
           span="lg:col-span-12"
           title="挂单"
         >
@@ -126,7 +126,7 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
         <Module
           note={nearest ? `离成交最近的是 ${baseOf(nearest.order.symbol)}` : '没有可比对的报价'}
           span="lg:col-span-4"
-          title="挂了多久"
+          title="挂单时长"
         >
           <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
             <Figure
@@ -194,7 +194,7 @@ function VenueBreakdown({ rows, notional, span }: {
                 />
               </span>
               {row.down ? (
-                <span className="ml-auto whitespace-nowrap text-xs text-loss">取不到</span>
+                <span className="ml-auto whitespace-nowrap text-xs text-loss">未取到</span>
               ) : (
                 <>
                   <span className="tnum ml-auto whitespace-nowrap text-sm text-ink">{money(row.notional)}</span>
@@ -303,7 +303,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
       <ViewGrid>
         <Module
           figure={String(history.length)}
-          note={down.length > 0 ? '不含取不到的交易对' : scope}
+          note={down.length > 0 ? '不含未取到的交易对' : scope}
           span="lg:col-span-7"
           title="委托历史"
         >
@@ -343,7 +343,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
                   <Figure
                     label="手续费"
                     tone="loss"
-                    value={fees === null ? '取不到' : signedMoney(-fees)}
+                    value={fees === null ? '未取到' : signedMoney(-fees)}
                   />
                   <Figure
                     label="费率"
@@ -351,7 +351,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
                   />
                 </dl>
               </>
-            ) : <p className="text-sm text-ink-3">这段区间里没有成交。</p>}
+            ) : <p className="text-sm text-ink-3">该区间没有成交。</p>}
           </Module>
         </Stack>
 

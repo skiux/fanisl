@@ -204,7 +204,7 @@ const HISTORY_ROW = 'grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-center
  * 再挤一列进去谁都放不下，而"哪个标的"和"多久以前"本来就是同一个位置的补充。
  */
 export function HistoryTable({ orders, showSymbol }: { orders: Order[]; showSymbol?: boolean }) {
-  if (orders.length === 0) return <Empty>这段区间里没有委托记录。</Empty>
+  if (orders.length === 0) return <Empty>该区间没有委托记录。</Empty>
   return (
     <>
       <div className={cn(HISTORY_ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
@@ -245,7 +245,7 @@ export function HistoryTable({ orders, showSymbol }: { orders: Order[]; showSymb
 const FILL_ROW = 'grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
 
 export function FillTable({ fills, showSymbol }: { fills: Fill[]; showSymbol?: boolean }) {
-  if (fills.length === 0) return <Empty>这段区间里没有成交。</Empty>
+  if (fills.length === 0) return <Empty>该区间没有成交。</Empty>
   return (
     <>
       <div className={cn(FILL_ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>

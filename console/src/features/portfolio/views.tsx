@@ -115,7 +115,7 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
                   </li>
                 ))}
               </ul>
-            ) : <p className="text-sm text-ink-3">充提记录取不到。</p>}
+            ) : <p className="text-sm text-ink-3">充提记录未取到。</p>}
           </Module>
         </Stack>
 
@@ -126,7 +126,7 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
           <Module
             figure={`${missingCount} 项缺失`}
             span="lg:col-span-12"
-            title="下面的数字不完整"
+            title="数据不完整"
             tone="muted"
           >
             <SourceHealth sources={snapshot.sources} />
@@ -559,7 +559,7 @@ function MarginAccountModule({ margin, liability, span, dense }: {
           <Figure label="净值" value={money(margin.total_net_asset_usd)} />
           <Figure label="负债率" value={percent(liability, 1)} />
         </dl>
-      ) : <p className="text-sm text-ink-3">杠杆账户数据取不到。</p>}
+      ) : <p className="text-sm text-ink-3">杠杆账户数据未取到。</p>}
     </Module>
   )
 }

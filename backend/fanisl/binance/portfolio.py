@@ -331,6 +331,10 @@ _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
     "portfolio_margin": ("portfolio_margin", ()),
     "income": ("income", ()),
     "transfers": ("transfers.deposits", ("transfers.withdrawals",)),
+    # 派息与利息**现在是「今日盈亏」里的独立一项**，取不到就等于那一项悄悄变成 0。
+    # 原先这几个来源不进状态表（它们只影响回滚的完整性），现在必须报出来。
+    "earn_rewards": ("flows.earn_flexible", ("flows.earn_locked",)),
+    "margin_interest": ("flows.interest", ()),
 }
 
 
@@ -355,7 +359,7 @@ def _states(results: dict[str, SourceResult],
             else:
                 missing = [k for k in extras if results.get(k) is None or not results[k].ok]
                 if missing:
-                    state["detail"] = "部分补充数据取不到：" + "、".join(missing)
+                    state["detail"] = "部分补充数据未取到：" + "、".join(missing)
         out.append(state)
     return out
 

@@ -10,12 +10,16 @@ import { PositionCostEditor } from './StockCostEditor'
 
 const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 sm:grid-cols-[minmax(0,1.7fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_112px]'
 
-/** 合并后仍保留资产所在钱包与锁定原因，否则总数无法核对。 */
+/**
+ * 行下面那一行小字**只留占用原因**。
+ *
+ * 原先它还列出这个币在哪几个钱包（"现货 · 合约钱包 · 全仓杠杆"）。那是一句解释——
+ * 解释这一行的数量为什么比现货余额大；而这张表本来就是跨钱包合并的，钱在哪儿
+ * 由「资产分布」与「现金」两处回答，不必每一行再说一遍。占用则不同：它是这笔数量
+ * 里动不了的那部分，与数量本身不是一回事。
+ */
 function rowNote(item: SpotHoldingRow) {
   const parts: string[] = []
-  if (item.locations.length > 1 || item.locations[0] !== '现货') {
-    parts.push(item.locations.join(' · '))
-  }
   if (item.locked > 0) parts.push(`${amount(item.locked)} 挂单`)
   if (item.freeze > 0) parts.push(`${amount(item.freeze)} 冻结`)
   if (item.withdrawing > 0) parts.push(`${amount(item.withdrawing)} 提现中`)
@@ -176,7 +180,7 @@ export function SpotTable({ spot, canEditCost = false, onSaveCost }: {
             type="button"
           >
             <CaretDown aria-hidden="true" className={cn('shrink-0 text-ink-3 transition-transform duration-300', dustOpen && 'rotate-180')} size={13} />
-            <span className="text-xs text-ink-2">{dust.length} 项灰尘余额</span>
+            <span className="text-xs text-ink-2">{dust.length} 项小额余额</span>
             <span className="tnum ml-auto text-xs text-ink-3">{money(dustValue)}</span>
           </button>
           <div className="collapsible" data-open={dustOpen}>
@@ -326,7 +330,7 @@ export function CashTable({ rows }: { rows: CashRow[] }) {
     <>
       <div className={cn(CASH_ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
         <span>资产</span>
-        <span className="hidden sm:block">在哪</span>
+        <span className="hidden sm:block">账户</span>
         <span className="hidden sm:block">年化</span>
         <span className="text-right">价值</span>
       </div>
