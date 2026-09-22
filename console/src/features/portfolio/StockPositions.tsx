@@ -78,18 +78,8 @@ function StockPositionRow({ row, canEditCost, onSaveCost }: {
                   {signedPercent(row.unrealized_pnl_pct)}
                 </div>
               </>
-            ) : row.cost_status === 'stale' ? (
-              <>
-                <div className="text-xs text-ink-2">持仓数量已变化</div>
-                <div className="mt-0.5 text-micro text-ink-3">需按当前仓位重新录入</div>
-              </>
             ) : (
-              <>
-                <div className="text-xs text-ink-2">
-                  {canEditCost ? '待录入成本' : '管理员尚未录入'}
-                </div>
-                <div className="mt-0.5 text-micro text-ink-3">暂不合计盈亏</div>
-              </>
+              <span aria-label="未实现盈亏暂无数据" className="tnum text-sm text-ink-3">—</span>
             )}
           </div>
         </div>
@@ -219,11 +209,8 @@ export function StockSummary({ stocks, equityUsd }: {
   const totals = stockTotals(stocks)
   const unresolved = stocks.tokenized_assets.filter((row) => !row.multiplier_valid).length
   const available = stocks.cost_coverage.manual
-  const incomplete = stocks.cost_coverage.total - available
   const costTotal = stocks.cost_coverage.total + unresolved
-  const pending = incomplete + unresolved
-  const allCovered = costTotal > 0 && pending === 0
-  const exact = allCovered
+  const allCovered = costTotal > 0 && available === costTotal
   const allValued = totals.total !== null
   return (
     <div className="flex flex-col gap-9 lg:col-span-4" data-stock-summary>
@@ -258,10 +245,9 @@ export function StockSummary({ stocks, equityUsd }: {
 
       <Module
         figure={`${available} / ${costTotal}`}
-        note={allCovered ? '全部已录入' : `${pending} 项待录入`}
         span=""
         title="成本覆盖"
-        tone={exact ? 'gain' : 'muted'}
+        tone={allCovered ? 'gain' : 'muted'}
       >
         <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
           <Figure
@@ -276,17 +262,6 @@ export function StockSummary({ stocks, equityUsd }: {
             value={signedMoney(totals.knownPnl)}
           />
         </dl>
-        {stocks.cost_coverage.stale > 0 && (
-          <p className="mt-4 border-t border-rule pt-3 text-xs leading-relaxed text-ink-3">
-            {stocks.cost_coverage.stale} 项持仓数量已变化，原成本不再用于平均成本和盈亏。
-          </p>
-        )}
-        {pending > 0 && (
-          <p className="mt-4 border-t border-rule pt-3 text-xs leading-relaxed text-ink-3">
-            Binance 暂未提供完整成本和手续费。管理员录入当前持仓的平均成本价与手续费后，
-            才会显示平均成本和未实现盈亏。
-          </p>
-        )}
       </Module>
     </div>
   )

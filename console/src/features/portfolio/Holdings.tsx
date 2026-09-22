@@ -60,42 +60,40 @@ function SpotRow({ item, share, canEditCost, onSaveCost }: {
           </span>
         </div>
       </div>
-      <div className="mt-2.5 sm:pl-[34px]">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1.5">
-          {item.cost_status === 'manual' ? (
-            <dl className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
-              <div><dt className="inline text-ink-3">平均成本 </dt><dd className="tnum inline text-ink-2">{price(item.avg_cost_usd)}</dd></div>
-              <div><dt className="inline text-ink-3">总成本 </dt><dd className="tnum inline text-ink-2">{money(item.cost_basis_usd)}</dd></div>
-              <div><dt className="inline text-ink-3">未实现 </dt><dd className={cn('tnum inline', item.unrealized_pnl_usd === null ? 'text-ink-3' : item.unrealized_pnl_usd >= 0 ? 'text-gain' : 'text-loss')}>
-                {signedMoney(item.unrealized_pnl_usd)} <span className="text-micro">{signedPercent(item.unrealized_pnl_pct)}</span>
-              </dd></div>
-            </dl>
-          ) : <p className="text-xs text-ink-3">
-            {item.cost_status === 'stale' ? '持仓数量已变化 · 原成本不再用于计算'
-              : item.cost_status === 'unavailable' ? '余额来源不可用 · 暂不计算成本'
-              : canEditCost ? '平均成本 — · 未实现 —' : '管理员尚未录入成本'}
-          </p>}
-          {canEditCost && onSaveCost && item.cost_status !== 'unavailable' && !editing && (
-            <button
-              className="shrink-0 text-xs text-ink-3 underline decoration-rule-strong underline-offset-4 transition-colors duration-150 hover:text-ink"
-              onClick={() => setEditing(true)}
-              type="button"
-            >
-              {item.cost_status === 'missing' ? '录入成本' : '修正成本'}
-            </button>
+      {(item.cost_status === 'manual' || (canEditCost && onSaveCost && item.cost_status !== 'unavailable')) && (
+        <div className="mt-2.5 sm:pl-[34px]">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1.5">
+            {item.cost_status === 'manual' && (
+              <dl className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
+                <div><dt className="inline text-ink-3">平均成本 </dt><dd className="tnum inline text-ink-2">{price(item.avg_cost_usd)}</dd></div>
+                <div><dt className="inline text-ink-3">总成本 </dt><dd className="tnum inline text-ink-2">{money(item.cost_basis_usd)}</dd></div>
+                <div><dt className="inline text-ink-3">未实现 </dt><dd className={cn('tnum inline', item.unrealized_pnl_usd === null ? 'text-ink-3' : item.unrealized_pnl_usd >= 0 ? 'text-gain' : 'text-loss')}>
+                  {signedMoney(item.unrealized_pnl_usd)} <span className="text-micro">{signedPercent(item.unrealized_pnl_pct)}</span>
+                </dd></div>
+              </dl>
+            )}
+            {canEditCost && onSaveCost && !editing && (
+              <button
+                className="shrink-0 text-xs text-ink-3 underline decoration-rule-strong underline-offset-4 transition-colors duration-150 hover:text-ink"
+                onClick={() => setEditing(true)}
+                type="button"
+              >
+                {item.cost_status === 'missing' ? '录入成本' : '修正成本'}
+              </button>
+            )}
+          </div>
+          {canEditCost && onSaveCost && editing && (
+            <PositionCostEditor
+              asset={item.asset} kind="spot" quantity={item.total} row={item} unit={item.asset}
+              onCancel={() => setEditing(false)}
+              onSave={async (input) => {
+                await onSaveCost(item.asset, input)
+                setEditing(false)
+              }}
+            />
           )}
         </div>
-        {canEditCost && onSaveCost && editing && (
-          <PositionCostEditor
-            asset={item.asset} kind="spot" quantity={item.total} row={item} unit={item.asset}
-            onCancel={() => setEditing(false)}
-            onSave={async (input) => {
-              await onSaveCost(item.asset, input)
-              setEditing(false)
-            }}
-          />
-        )}
-      </div>
+      )}
     </li>
   )
 }

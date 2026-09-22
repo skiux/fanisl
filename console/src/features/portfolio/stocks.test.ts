@@ -148,7 +148,8 @@ describe('持仓页的股票', () => {
     expect(text).toContain('$28.45 / $28.55')
     expect(text).toContain('钱包估值')
     expect(text).toContain('+$178.40')
-    expect(text).toContain('管理员尚未录入')
+    expect(text).not.toContain('管理员尚未录入')
+    expect(text).not.toContain('暂不合计盈亏')
     expect(text).toContain('暂停交易')
     expect(text).toContain('常规时段可买碎股')
     expect(text).toContain('成本覆盖')
@@ -182,7 +183,7 @@ describe('持仓页的股票', () => {
       .toEqual([...rows().map((row) => row.dataset.stockPosition)].sort())
   })
 
-  it('持仓股数变化后停用旧成本并明确要求重新录入', () => {
+  it('持仓股数变化后停用旧成本，主视图不显示录入状态说明', () => {
     const base = buildSnapshot(new Date('2026-09-17T12:00:00Z'))
     const stale = {
       ...base.stocks.positions[0],
@@ -204,12 +205,12 @@ describe('持仓页的股票', () => {
 
     act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
 
-    expect(host.textContent).toContain('持仓数量已变化')
-    expect(host.textContent).toContain('需按当前仓位重新录入')
-    expect(host.textContent).toContain('原成本不再用于平均成本和盈亏')
+    expect(host.querySelector('[data-stock-position="SOXL"]')?.textContent).toContain('平均成本—')
+    expect(host.textContent).not.toContain('需按当前仓位重新录入')
+    expect(host.textContent).not.toContain('原成本不再用于平均成本和盈亏')
   })
 
-  it('只有管理员能打开成本录入，成员只看到缺失说明', async () => {
+  it('只有管理员能打开成本录入，成员不看到权限与录入状态说明', async () => {
     const base = buildSnapshot(new Date('2026-09-17T12:00:00Z'))
     const missing = {
       ...base.stocks.positions[0], cost_status: 'missing' as const,
@@ -231,7 +232,8 @@ describe('持仓页的股票', () => {
     act(() => root.render(createElement(HoldingsView, {
       snapshot, veiled: false, onSaveStockCost: vi.fn(),
     })))
-    expect(host.textContent).toContain('管理员尚未录入')
+    expect(host.textContent).not.toContain('管理员尚未录入')
+    expect(host.textContent).not.toContain('暂不合计盈亏')
     expect(host.querySelector('[data-stock-position="SOXL"] button')).toBeNull()
 
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json('admin')))

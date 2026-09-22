@@ -59,8 +59,9 @@ describe('现货人工成本', () => {
       snapshot, veiled: false, onSaveSpotCost: vi.fn(),
     })))
     const bnb = host.querySelector('[data-spot-position="BNB"]')!
-    expect(bnb.textContent).toContain('持仓数量已变化')
+    expect(bnb.textContent).not.toContain('持仓数量已变化')
     expect(bnb.textContent).not.toContain('$903.00')
+    expect(bnb.textContent).not.toContain('管理员尚未录入')
     expect(bnb.querySelector('button')).toBeNull()
 
     await setRole('admin')
@@ -84,7 +85,7 @@ describe('现货人工成本', () => {
       snapshot, veiled: true, onSaveSpotCost: vi.fn(),
     })))
     const bnb = host.querySelector('[data-spot-position="BNB"]')!
-    expect(bnb.textContent).toContain('余额来源不可用')
+    expect(bnb.textContent).not.toContain('余额来源不可用')
     expect(bnb.querySelector('button')).toBeNull()
   })
 })
