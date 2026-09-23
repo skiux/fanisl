@@ -156,3 +156,11 @@ PICK、IWD、USMV、GUNR、URA、SETM、CRDO、PANW、DELL、XLP。
 高 1.1%）。本批的 B/C 级改为在导入时显式写参考价：取作者说话前最近的收盘（§5 ② pit.asof），并在
 success_def 里注明。要不要把评分器的默认口径改成「说话时点」（需要每期的录制日期）待定；改之前，
 短期限的判断尤其要显式写参考价。
+
+## 9. 归并（K5）积压
+
+最后一次归并是 2026-08-19。之后提取的 c67–c128 里，method/concept 共 504 条没有挂到任何节点
+（2026-09-23 实测，#1086–#1815），节点层的「重申 / 跨信源印证」计数因此停在 8 月中。流程见
+`README.md`「日常运转」：`nodes export` → 按 merge-guide 逐条判 → `nodes import` → 最后才
+`seed-singletons --commit`（顺序不能反，种单例不可逆）。量大，适合单独开一轮做。
+
