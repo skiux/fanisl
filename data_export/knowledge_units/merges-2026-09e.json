@@ -1,0 +1,199 @@
+{
+ "merger_version": "merge-v1",
+ "nodes": [
+  {
+   "kind": "concept",
+   "title": "闭源模型公司推动 AI 监管，实质是挤出开源模型",
+   "canonical": "Anthropic 一类闭源模型公司毛利约 90%，开源模型正在把 coding 商品化、压低这块利润率；行业领先者主动呼吁监管自己，只有在监管按其设计落地会巩固领先地位时才会有这么强的意愿——作者读作监管捕获，最终目的是限制（中国的）开源模型。作者自陈这是主观看法，David Sacks 等人持相同看法。",
+   "tags": [
+    "ai-agent",
+    "compute-pricing"
+   ],
+   "notes": "TALK君 c120 同一期的三段。2026-09-24 归并",
+   "units": [
+    {
+     "id": 1645,
+     "relation": "restates"
+    },
+    {
+     "id": 1644,
+     "relation": "refines",
+     "note": "监管捕获的一般读法"
+    },
+    {
+     "id": 1643,
+     "relation": "refines",
+     "note": "作者自陈主观看法：目的是限制中国开源模型"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "title": "可口可乐的增长处在常态：有机营收约 5%，EPS 7%-10%",
+   "canonical": "可口可乐有机营收增长 = 单量 + price/mix；2022-2024 年的高增长主要来自涨价（price/mix 11%、10%、11%，单量 5%、2%、1%），市场预期未来四年涨价与单量各 2%-3%、有机增长约 5%。这样稳的公司加上运营效率，EPS 增速好是 9%-10%、差是 7%-8%；按当前预期它没有走出以往的常态，基本面没有明显变好或变糟。",
+   "tags": [
+    "ko",
+    "consumer"
+   ],
+   "notes": "TALK君 c127。2026-09-24 归并",
+   "units": [
+    {
+     "id": 1801,
+     "relation": "restates"
+    },
+    {
+     "id": 1800,
+     "relation": "refines",
+     "note": "有机增长的拆分与历年数字"
+    }
+   ]
+  },
+  {
+   "kind": "method",
+   "title": "个股加仓的共振：基本面不变、估值到低位、技术面超卖",
+   "canonical": "加仓或左侧买入一只个股时看三件事是否同时成立：基本面没有变坏（或相信管理层能把它带回来）、估值回到过去一年的低位区间、技术指标超卖（周线 RSI 超卖，日线也超卖更好）。三者齐备才动手；基本面尚未回归时买入是在等共振。",
+   "tags": [
+    "valuation",
+    "oversold",
+    "position-sizing"
+   ],
+   "notes": "TALK君 c122（GE）与 c125（麦当劳）。2026-09-24 归并",
+   "units": [
+    {
+     "id": 1685,
+     "relation": "restates"
+    },
+    {
+     "id": 1760,
+     "relation": "refines",
+     "note": "c125：价值股左侧买点，周线超卖为主、日线超卖更好"
+    }
+   ]
+  },
+  {
+   "kind": "method",
+   "title": "估值分档建仓：现价建一档，下一档估值再加",
+   "canonical": "基本面不变坏的前提下，先估估值最坏还能跌到哪（下一个历史低点），现价建仓，加仓位放在更低一档估值；估值没到下一档就不加（Adobe 约 10 倍买入，到 9 倍或 8 倍才加）。",
+   "tags": [
+    "valuation",
+    "position-sizing"
+   ],
+   "notes": "TALK君 c116（Adobe）与 c125（麦当劳）。2026-09-24 归并",
+   "units": [
+    {
+     "id": 1757,
+     "relation": "restates"
+    },
+    {
+     "id": 1566,
+     "relation": "refines",
+     "note": "c116：Adobe 的具体档位"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 587,
+   "units": [
+    {
+     "id": 1755,
+     "relation": "restates",
+     "note": "c125"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 338,
+   "units": [
+    {
+     "id": 1544,
+     "relation": "restates",
+     "note": "c116：美光财报好仍下跌；猜对 CPI 不等于猜对方向"
+    },
+    {
+     "id": 1790,
+     "relation": "refines",
+     "note": "c127：多个模糊正确的指标都显示情绪低、估值便宜时，不去担心宏观风险"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 1,
+   "units": [
+    {
+     "id": 1680,
+     "relation": "refines",
+     "note": "TALK君 c122：只对应『地缘政治不作仓位依据』这一半；TALK君的替代依据是估值，不是价格行为"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 572,
+   "units": [
+    {
+     "id": 1733,
+     "relation": "refines",
+     "note": "c124：沃什两次提到地缘政治；作者读作油价下跌会降低继续加息的概率"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 221,
+   "units": [
+    {
+     "id": 1743,
+     "relation": "refines",
+     "note": "c124：估值没有泡沫，争论在盈利是否有泡沫"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 352,
+   "units": [
+    {
+     "id": 1692,
+     "relation": "refines",
+     "note": "c122：美欧加三地；政府要向居民证明没有用电网补贴数据中心"
+    }
+   ]
+  },
+  {
+   "kind": "method",
+   "node_id": 209,
+   "units": [
+    {
+     "id": 1796,
+     "relation": "refines",
+     "note": "c127：Costco 日线 RSI 在 30 附近即阶段性底部"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 436,
+   "units": [
+    {
+     "id": 1672,
+     "relation": "refines",
+     "note": "c121：8 月读数 +4%，低于 4.5%-5% 的常态"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 220,
+   "units": [
+    {
+     "id": 1742,
+     "relation": "refines",
+     "note": "c124：9-16 跌到 18.9 倍，与 2026 年 3 月相同；2025 年 3 月为 18 倍"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,240 @@
+{
+ "merger_version": "merge-v1",
+ "nodes": [
+  {
+   "kind": "concept",
+   "title": "不同维度的指标共振时胜率更高",
+   "canonical": "基本面、宏观、技术面（参与度、VIX 等）属于不同维度，它们同时指向超卖时胜率更高；把加仓条件拆成这几个角度分别读，等它们共振（2026-09-01 前后基本面与宏观已到位，只差参与度还没到非常低）。不共振时要判断哪个指标对自己更有参考意义。",
+   "tags": [
+    "position-sizing",
+    "market-breadth"
+   ],
+   "notes": "TALK君 c107 与 c116。2026-09-24 归并（seed 前复核补并）",
+   "units": [
+    {
+     "id": 1546,
+     "relation": "restates"
+    },
+    {
+     "id": 1323,
+     "relation": "refines",
+     "note": "c107：基本面、宏观、参与度三角度的当期读数"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "title": "当前通胀的主要来源，加息压不下",
+   "canonical": "2026 年核心通胀增速最高的几项加息都压不下：机票跟着油价、油价跟着战争，通信与保险也不受利率驱动，AI 开支不会因加一两次息放缓；唯一可能被压下的是随股市上涨的资产管理费，那要激进加息让股市回调才行。美联储的工具箱本来粗糙，明知如此，数据高于预期时仍会加息。",
+   "tags": [
+    "inflation",
+    "fed-policy"
+   ],
+   "notes": "TALK君 c116 与 c122。2026-09-24 归并（seed 前复核补并）",
+   "units": [
+    {
+     "id": 1556,
+     "relation": "restates"
+    },
+    {
+     "id": 1691,
+     "relation": "refines",
+     "note": "c122：通信、保险、机票；明知压不下，数据高于预期仍得加"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "title": "Agent 落地的下一步是 agent 与 agent 之间直接沟通",
+   "canonical": "Agent 之后的形态是 agent 对 agent：我的 agent 向同事的 agent 调数据，个人智能体向亚马逊、沃尔玛各自的购物 agent 发请求、各拿一个答案再替用户选择，每个请求都应付费；agent 之间的沟通与支付会被重新定义，这套基建由谁掌握会成为讨论点。这个场景还有一段距离，市场已经在线性外推。",
+   "tags": [
+    "ai-agent"
+   ],
+   "notes": "TALK君 c114 与 c128。2026-09-24 归并（seed 前复核补并）",
+   "units": [
+    {
+     "id": 1510,
+     "relation": "restates"
+    },
+    {
+     "id": 1814,
+     "relation": "refines",
+     "note": "c128：购物场景；距离还远，市场在线性外推"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "title": "MOAT 的回调是风格信号：高相关持仓的回调可能未结束",
+   "canonical": "很多个股、板块、指数与 MOAT（宽护城河 ETF）的相关性在 0.7 以上，MOAT 的回调因此是当前的风格信号：拿持仓与 MOAT 比对，走势相似就要意识到回调可能还没结束，用一个高相关的因子代理覆盖全部持仓。2026-09 上旬的判断（MOAT 短期见顶、回调未结束）一周后得到印证，相关板块与个股整体偏弱。",
+   "tags": [
+    "moat",
+    "rotation"
+   ],
+   "notes": "Andy c108 与 c113。2026-09-24 归并（seed 前复核补并）",
+   "units": [
+    {
+     "id": 1343,
+     "relation": "restates"
+    },
+    {
+     "id": 1476,
+     "relation": "refines",
+     "note": "c113：一周后的印证"
+    }
+   ]
+  },
+  {
+   "kind": "method",
+   "title": "宏观风险分层，只应对会改变长期价值的那一类",
+   "canonical": "同时出现多个宏观风险时先分类：纯资金面扰动是噪音，只起导火索作用的不值得择时去躲，短期波动、长期不改趋势的不必应对；只把会改变企业长期价值（基本面或资金价格）的列为真风险。判断一个冲击要不要动仓位，看可控性、是否一次性重定价、是否影响企业长期价值——都属于可忽略一类时，下跌反而是买点。",
+   "tags": [
+    "risk-mgmt",
+    "psychology"
+   ],
+   "notes": "美投君 c97 与 c119。2026-09-24 归并（seed 前复核补并）",
+   "units": [
+    {
+     "id": 1628,
+     "relation": "restates"
+    },
+    {
+     "id": 1111,
+     "relation": "refines",
+     "note": "c97：三条判据；都满足则下跌是买点"
+    }
+   ]
+  },
+  {
+   "kind": "method",
+   "node_id": 332,
+   "units": [
+    {
+     "id": 1500,
+     "relation": "restates",
+     "note": "c114：同一组数据的风险取决于进场前的状态"
+    }
+   ]
+  },
+  {
+   "kind": "method",
+   "node_id": 342,
+   "units": [
+    {
+     "id": 1543,
+     "relation": "restates",
+     "note": "c116"
+    }
+   ]
+  },
+  {
+   "kind": "method",
+   "node_id": 417,
+   "units": [
+    {
+     "id": 1503,
+     "relation": "restates",
+     "note": "c114"
+    }
+   ]
+  },
+  {
+   "kind": "method",
+   "node_id": 194,
+   "units": [
+    {
+     "id": 1589,
+     "relation": "refines",
+     "note": "c117：从高点回调多少说明不了贵或便宜"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 348,
+   "units": [
+    {
+     "id": 1522,
+     "relation": "refines",
+     "note": "c115：SOX 回到 3 月低点 17 倍对应 -13%，是刻度不是预测"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 388,
+   "units": [
+    {
+     "id": 1559,
+     "relation": "refines",
+     "note": "TALK君 c116：甲骨文四年以上 GPU 订单续约涨价 20%"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 259,
+   "units": [
+    {
+     "id": 1439,
+     "relation": "refines",
+     "note": "美投君 c112：此前软件下跌是无差别扫射，无差别定价本身是后续分化的来源"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 2,
+   "units": [
+    {
+     "id": 1428,
+     "relation": "refines",
+     "note": "TALK君 c111：K 型落到品类层面，新款需求极好、旧款卖不动"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 606,
+   "units": [
+    {
+     "id": 1413,
+     "relation": "refines",
+     "note": "c110：新款依据——Running 系列与中国端重做 Premium"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 39,
+   "units": [
+    {
+     "id": 1622,
+     "relation": "refines",
+     "note": "美投君 c119：沃什减少与市场沟通、让美联储跟着市场走"
+    },
+    {
+     "id": 1105,
+     "relation": "refines",
+     "note": "美投君 c97：市场转向替代信息去猜，利率不确定性与期限溢价上升"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 1,
+   "units": [
+    {
+     "id": 1697,
+     "relation": "refines",
+     "note": "c123：价格在前、政策在后，先看价格再看美联储"
+    },
+    {
+     "id": 1713,
+     "relation": "refines",
+     "note": "c123：为每次涨跌找理由会陷入频繁交易，应由价格反推故事"
+    }
+   ]
+  }
+ ]
+}

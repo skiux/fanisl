@@ -1,0 +1,220 @@
+{
+ "merger_version": "merge-v1",
+ "nodes": [
+  {
+   "kind": "concept",
+   "title": "英伟达提前给下一财年指引，是为了让供应链放心扩产",
+   "canonical": "英伟达罕见地在年中给出下一财年全年指引（FY28 营收增速 70%，市场预期 45%），目的不是留超预期空间，而是让供应链放心扩产：市场担心 AI 投入能否持续，供应商迟迟不敢扩产、反过来限制英伟达出货；先例是早先带着美光一起扩产，否则存储短缺与涨价会更严重。",
+   "tags": [
+    "nvda",
+    "ai-capex",
+    "memory-storage",
+    "semiconductor-cycle"
+   ],
+   "notes": "跨信源（美投君 c105、TALK君 c102）对同一份财报会的同一解读。2026-09-24 归并",
+   "units": [
+    {
+     "id": 1288,
+     "relation": "restates"
+    },
+    {
+     "id": 1163,
+     "relation": "restates",
+     "note": "TALK君补充：70% 是在供给受限下给的"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "title": "英伟达循环融资：财务兜得住，风险结构变了",
+   "canonical": "英伟达的循环融资相当于给自己的业务加杠杆，放大 AI 的成功也放大失败。财务上兜得住（摩根士丹利估 2028 年底总信用敞口约 2000 亿美元、净现金约 3500 亿），真正的问题是风险结构改变：难以分清收入里多少是真实需求、多少被融资放大，收入质量下降，估值应做一次结构性下调。",
+   "tags": [
+    "nvda",
+    "capital-raise",
+    "datacenter-financing"
+   ],
+   "notes": "美投君 c105 同一论证的两段（杠杆与风险结构 / 财务与结构分开算）。2026-09-24 归并",
+   "units": [
+    {
+     "id": 1292,
+     "relation": "restates"
+    },
+    {
+     "id": 1293,
+     "relation": "refines",
+     "note": "把财务风险与结构性风险分开算，并列出英伟达的三条辩护"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "title": "软件自建 Agent 的上下文优势压低 token 成本",
+   "canonical": "软件公司自建的 Agent 已掌握用户的全部足迹与任务关联，能直接定位关键信息，而外部大模型要先搜索全部信息再判断关联；这种上下文优势让 token 成本大降，是软件相对大模型的关键壁垒（Atlassian：用 Teamwork Graph 做上下文 grounding 后，准确率最高提高 44%、token 消耗最高减少 48%）。",
+   "tags": [
+    "software",
+    "ai-agent",
+    "compute-pricing",
+    "team"
+   ],
+   "notes": "美投君 c112：论点与 Atlassian 的实测数字。2026-09-24 归并",
+   "units": [
+    {
+     "id": 1443,
+     "relation": "restates"
+    },
+    {
+     "id": 1444,
+     "relation": "refines",
+     "note": "Atlassian 披露的实测数字"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "title": "模型中立：软件公司做多模型平台压低成本",
+   "canonical": "软件公司把自己建成多模型平台、按任务调用最合适的模型来压低整体 token 成本（微软 copilot 最早，Workday、Snowflake Cortex AI Gateway 跟进）；省成本的关键不是接了多少模型，而是软件公司比用户更清楚用户的工作流、更知道该调用哪个模型——这是用户自己在大模型上难以复现的壁垒。",
+   "tags": [
+    "software",
+    "ai-agent",
+    "compute-pricing",
+    "snow"
+   ],
+   "notes": "美投君 c112 同一论点的做法与原因两段。2026-09-24 归并",
+   "units": [
+    {
+     "id": 1445,
+     "relation": "restates"
+    },
+    {
+     "id": 1446,
+     "relation": "refines",
+     "note": "省成本的原因是更懂用户工作流"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "title": "AI 与软件是分工共存，不是替代",
+   "canonical": "AI 与软件公司的关系是按任务分工而非取代：大模型负责大脑层与入口、跨系统的大型任务，软件负责工具层、垂域与强上下文、对 token 成本敏感的任务，互相调用（样本：CRM 与 Anthropic 合作，在 Claude 里开发 37 个 CRM skills）。",
+   "tags": [
+    "software",
+    "ai-agent",
+    "crm"
+   ],
+   "notes": "跨信源（美投君 c112、TALK君 c102）同一判断。TALK君另论微软盘后下跌合理但破坏不大。2026-09-24 归并",
+   "units": [
+    {
+     "id": 1451,
+     "relation": "restates"
+    },
+    {
+     "id": 1169,
+     "relation": "restates",
+     "note": "TALK君以 CRM 与 Anthropic 合作为首个样本"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "title": "美联储首次加息后股市的表现",
+   "canonical": "美联储首次加息后的一个多月里股市通常回撤（1988 年以来 7 次加息周期的均值与中位数）；快速、缓慢、非周期性三种加息在首次加息后股市都表现差，普遍是上一轮牛市的拐点，但真正让股市进入熊市的只有快速加息，另两种横盘后恢复上行。",
+   "tags": [
+    "fed-policy",
+    "spx"
+   ],
+   "notes": "美投君 c119 同一历史统计的两段。2026-09-24 归并",
+   "units": [
+    {
+     "id": 1623,
+     "relation": "restates"
+    },
+    {
+     "id": 1632,
+     "relation": "refines",
+     "note": "按加息节奏分三种情形"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "title": "本轮美债抛售的主因是沃什的新班底，不是债务规模",
+   "canonical": "本轮长端美债收益率飙升的原因里，真正重要的变量是新任美联储主席沃什的政策主张与改革派班底带来的不确定性；AI 融资挤占国债短期难缓解但影响有限、会从变量变成恒量，地缘带来的通胀威胁大概率逐渐释放，债务规模更不是突变的原因。",
+   "tags": [
+    "bond-yields",
+    "fed-policy",
+    "us30y"
+   ],
+   "notes": "美投君 c97 与 c119 两次给出同一判断。2026-09-24 归并",
+   "units": [
+    {
+     "id": 1104,
+     "relation": "restates"
+    },
+    {
+     "id": 1630,
+     "relation": "restates"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 79,
+   "units": [
+    {
+     "id": 1440,
+     "relation": "restates",
+     "note": "美投君 c112：优势是定义需求与流程的能力，流程固定后 token 消耗大降"
+    },
+    {
+     "id": 1452,
+     "relation": "refines",
+     "note": "美投君 c112：大模型多数是商品，只有少数有生态与入口者有议价权"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 99,
+   "units": [
+    {
+     "id": 1449,
+     "relation": "refines",
+     "note": "美投君 c112：开放数据反而换来更强粘性，垂域细节大模型没能力也没意愿接管"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 20,
+   "units": [
+    {
+     "id": 1620,
+     "relation": "restates",
+     "note": "美投君 c119：9、10 月最差，中期选举年更差"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 219,
+   "units": [
+    {
+     "id": 1639,
+     "relation": "restates",
+     "note": "美投君 c119：forward PE 约 19 倍配合高速盈利增长，估值相当合理"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 90,
+   "units": [
+    {
+     "id": 1627,
+     "relation": "refines",
+     "note": "美投君 c119：虹吸大小取决于机构想不想配置它（SpaceX 影响小，Anthropic 更值得警惕）"
+    }
+   ]
+  }
+ ]
+}

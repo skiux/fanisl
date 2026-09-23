@@ -10,10 +10,10 @@
 2. ~~评分作废（留痕）~~ —— `review void`，#314 的 8-29、#937 的 5-12 与 7-11 已作废（作废记录 #1–#3）
 3. ~~规范升 v3 并按 v3 重判核查 #1 那 4 条~~ —— 见下面第 3 条
 4. ~~体检命令~~ —— `python -m fanisl.knowledge.audit`，见第 5 条；首次运行查出的问题已全部处理，现四项为 0
-5. **归并积压 504 条**（第 9 条）：分批做，每批报进度
+5. ~~归并积压 504 条~~ —— 2026-09-24 清零，见第 9 条
 
 ## Next
-- 第 1 条剩下的登记缺口（LULU 等）
+- 第 1 条剩下的登记缺口（D 级 claim 里的 PICK、IWD 等）
 - 第 2 条抽查欠账（历史存量）
 - Andy 回填 25 期：用户 2026-09-10 说暂不做
 
@@ -36,13 +36,11 @@
 
 ## 1. 标的登记缺口
 
-当前 active claim 里 `asset_symbol` 未登记的：
+active claim 的 `asset_symbol` 已全部登记（体检第 3 项为 0）。LULU、CRDO 于 2026-09-24 登记并回填日线；
+DFEDTARU 是 FRED 序列，以 rate 类登记（与 T10Y2Y、T10YIE 同）。
 
-- **LULU** —— 16 条单元带 `lulu` 标签，因未登记而在标的页上不可见
-- **DFEDTARU** —— FRED 序列，已在 `assets.py` 以 rate 类登记（与 T10Y2Y、T10YIE 同）
-
-另有一批只出现在 D 级 claim 的 `asset_text` 里、没填 symbol 的：
-PICK、IWD、USMV、GUNR、URA、SETM、CRDO、PANW、DELL、XLP。登记之后这些 claim 才可能升到 D 以上。
+剩下的是只出现在 D 级 claim 的 `asset_text` 里、没填 symbol 的：
+PICK、IWD、USMV、GUNR、URA、SETM、PANW、DELL、XLP。登记之后这些 claim 才可能升到 D 以上。
 
 2026-09-23：COST、KO、PG、VIK、ADBE、ARM 与 FRED 的 T10YIE 已登记并回填日线；D 级 claim 漏填
 asset_symbol 而标的已登记的单一标的 7 条已补（#1188 #1203 #1218 #1219 #519 #520 #565；修改记录 #6–#12），
@@ -112,7 +110,16 @@ v1/v2 缺参考价时评分器回填**发布日**收盘，对收盘后或周末�
 
 ## 9. 归并（K5）积压
 
-最后一次归并是 2026-08-19。之后提取的 c67–c128 里，method/concept 共 504 条没有挂到任何节点
-（2026-09-23 实测，#1086–#1815），节点层的「重申 / 跨信源印证」计数因此停在 8 月中。流程见
-`README.md`「日常运转」：`nodes export` → 按 merge-guide 逐条判 → `nodes import` → 最后才
-`seed-singletons --commit`（顺序不能反，种单例不可逆）。Now 第 5 步，分批做。
+2026-08-19 之后提取的 c67–c128 里，method/concept 有 504 条没挂节点（#1086–#1815），节点层的「重申 /
+跨信源印证」计数停在 8 月中。**2026-09-24 清零**：
+
+- 按信源分批判：Andy、美投君、TALK君 c69–c109、c110–c117、c118–c128，最后对 seed 预览的 366 条再复核一遍，
+  补出 23 条该并未并的。归并文件 `data_export/knowledge_units/merges-2026-09a.json` 至 `09f.json`
+- 161 条进了多提及节点（新建 38 个，挂到既有节点 54 处），其余 343 条种为单例
+- 现状：method/concept 节点 940 个，其中多提及 123 个、跨信源 19 个；待归并 0
+- 没用 contradicts：#1689（机构会议观点「近期真实利率上涨多反映高增速」）与 N448 方向相反，但属作者转述、
+  时点不同，按 merge-guide §2 不构成同一命题被否定，作单例
+
+以后每批提取后接着归并，流程见 `README.md`「日常运转」：`nodes export` → 按 merge-guide 逐条判 →
+`nodes import` → 最后才 `seed-singletons --commit`（顺序不能反，种单例不可逆）。候选可按文本相似度先筛，
+seed 前把预览再过一遍——这次复核补出的 23 条，都是相似度筛不出、看标题才发现的。
