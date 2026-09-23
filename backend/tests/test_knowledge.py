@@ -238,6 +238,43 @@ def test_scorers_all_methods(pool, monkeypatch):
     assert scorers.score_unit_at(ps, _unit({"asset_symbol": "NOPE"}), L)[0] == "unpriceable"
 
 
+def test_scorer_run_isolates_a_bad_unit(pool, monkeypatch):
+    """一条解析不了的单元只让自己失败：id 比它大的照常评分，失败在全部评完后抛出。
+
+    2026-08-29 至 09-23，几条 range_hold 的配置与 success_def 对不上（#1230、#799 等），每天在
+    run() 里抛错，id 更大的单元一条新评分都没有，而外层 daily 只记一行日志。"""
+    import datetime as dt
+    from fanisl.knowledge import scorers
+    from fanisl.knowledge.prices import PriceStore
+    from fanisl.knowledge.store import KnowledgeStore
+    # 测试库的单元 id 从 1 起，会撞上真实 scoring_overrides.json 里的 #1、#2
+    monkeypatch.setattr(scorers, "OVERRIDES", {})
+    with pool.connection() as conn:
+        conn.execute("TRUNCATE creators, creator_handles, contents, extraction_runs, knowledge_units, "
+                     "claim_scores RESTART IDENTITY CASCADE")
+        conn.execute("DELETE FROM daily_bars WHERE symbol='WTI'")
+    PriceStore(pool).upsert("WTI", [(dt.date(2026, 7, 1), 70, 70, 70, 70),
+                                    (dt.date(2026, 7, 8), 71, 72, 70, 71)], "test")
+    ks = KnowledgeStore(pool)
+    cid, _ = ks.upsert_content(ks.ensure_creator("t"), platform="youtube", url="https://y/iso",
+                               content_type="video", title="t",
+                               published_at=datetime(2026, 7, 1, tzinfo=timezone.utc), raw="原油会去测 75")
+    spec = {"eval_ladder": ["2026-07-08"], "success_def": "t"}
+    bad = _claim(asset_symbol="WTI", direction="range", magnitude=None,
+                 scoring_spec={"method": "range_hold", **spec})
+    good = _claim(asset_symbol="WTI", magnitude=None, scoring_spec={"method": "sign", **spec})
+    bad_id, good_id = ks.record_extraction(cid, extractor_version="v2", model="m", units=[
+        KnowledgeUnit(kind="claim", quote="原油会去测 75", payload=bad),
+        KnowledgeUnit(kind="claim", quote="原油会去测 75", payload=good)])
+    assert bad_id < good_id
+
+    with pytest.raises(RuntimeError, match=f"#{bad_id}@2026-07-08"):
+        scorers.run(dry=False)
+    with pool.connection() as conn:
+        scored = conn.execute("SELECT unit_id, outcome FROM claim_scores").fetchall()
+    assert [(r["unit_id"], r["outcome"]) for r in scored] == [(good_id, "hit")]
+
+
 # --- K5：归并层（节点/提及/生命周期）------------------------------------------
 
 def _seed_units(kstore, n=3):

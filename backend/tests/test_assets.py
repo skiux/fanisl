@@ -12,7 +12,7 @@ from fanisl import assets
 from fanisl.data import instruments
 from fanisl.knowledge import prices
 
-# --- 冻结：daily_bars 的采集口径（2026-08-29 快照，85 个符号）------------------
+# --- 冻结：daily_bars 的采集口径（2026-09-23 快照，96 个 yfinance 符号 + 3 条 FRED）---
 
 # 非同名映射（代理关系/指数代码），逐条写死
 _EXPLICIT_YF = {
@@ -42,11 +42,12 @@ _SELF_YF = {
     "MRVL", "MSFT", "MU", "NBIS", "NEE", "NET", "NFLX", "NOK", "NOW", "NVDA", "OKTA",
     "ORCL", "PCOR", "PLTR", "PYPL", "QCOM", "RSP", "SEMI", "SHOP", "SMH", "SNDK", "SNOW",
     "MCD", "NKE", "WMT",
+    "COST", "KO", "PG", "VIK", "ADBE", "ARM",
     "SOXX", "SPCX", "TEAM", "TLT", "TSLA", "TSM", "TWLO", "UBER", "UFOX", "UNH", "V",
     "VST", "XLI", "XLU", "XLV",
 }
 
-_EXPECTED_FRED = {"DFEDTARU", "T10Y2Y"}
+_EXPECTED_FRED = {"DFEDTARU", "T10Y2Y", "T10YIE"}
 
 
 def test_daily_bar_coverage_matches_frozen_snapshot():

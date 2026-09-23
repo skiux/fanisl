@@ -21,7 +21,7 @@
 4. **备份的 systemd 单元不在仓库里**：只写在 `deploy/README.md` §8 的 heredoc 里，漂移检测
    管不到。先从服务器取回线上那份再入库，否则一入库就报漂移
 5. auto-update 与 sudoers 只重启 api、collector。trader 哪天启用，后端更新不会重启它
-6. `docs/data/` 六份停在 2026-07-13，与现状（90 符号、eps_estimates、daily_bars）
+6. `docs/data/` 六份停在 2026-07-13，与现状（96 个日线符号加 3 条 FRED 序列、eps_estimates、daily_bars）
    可能已经脱节，引用前先核
 
 ## Blocked on
@@ -42,6 +42,9 @@
     `docs/decisions/`。席位表里的 `tools/` 分不清是 `backend/tools/` 还是 `backend/fanisl/tools/`
 
 ## Requests in
+- **knowledge 席位（2026-09-23）**：`tests/test_api_doc.py` 两条失败——console 席位 9-21 起加的
+  `/admin/stock-costs/{symbol}`、`/admin/spot-costs/{asset}` 没写进 `backend/api.md`，头部端点数仍是 81、
+  路由表实际 83。全量 620 过、这 2 条失败，与知识侧改动无关
 - **console 席位（2026-09-22，今日盈亏改口径）**：`GET /portfolio` 的 `pnl` 一节请补齐：
   `today` 增加 `stock_usd`（正股当天涨跌）、`earn_usd`（理财派息）、
   `interest_usd`（杠杆利息，负数）；`daily[]` 的每一格同样多这三项，

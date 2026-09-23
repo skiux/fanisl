@@ -100,6 +100,10 @@ _ASSETS: list[Asset] = [
           yf_note="联邦基金目标区间上限%"),
     Asset("T10Y2Y", "rate", "10年期减2年期国债利差", fred="T10Y2Y",
           yf_note="10年期减2年期国债利差%（牛陡/熊陡/倒挂的经典口径）"),
+    # 2026-09-23 加：投资TALK君反复对 10 年期通胀预期（break-even）给方向判断（c124、c125），
+    # 没有序列时只能判 D。作者屏上用的是彭博 USGGBE10，与 FRED 口径同义、差几个基点。
+    Asset("T10YIE", "rate", "10年期盈亏平衡通胀率", fred="T10YIE",
+          yf_note="10年期盈亏平衡通胀率%（FRED；与彭博 USGGBE10 同义，数值差几个基点）"),
 
     # --- 贵金属 / 商品 ----------------------------------------------------
     Asset("XAUUSD", "metal", "黄金", aliases=("XAU", "XAU/USD", "GOLD"),
@@ -180,6 +184,14 @@ _ASSETS: list[Asset] = [
     _s("NKE", "耐克"),
     _s("MCD", "麦当劳"),
     _s("WMT", "沃尔玛"),
+    # 2026-09-23 语料带入（c125–c128）：投资TALK君的必需消费估值区间（COST/KO/PG）、美投君的
+    # 维京邮轮、作者持仓 Adobe、CPU 故事线里的 Arm。加日线源的理由同上一段。
+    _s("COST", "Costco"),
+    _s("KO", "可口可乐"),
+    _s("PG", "宝洁"),
+    _s("VIK", "维京邮轮"),
+    _s("ADBE", "Adobe"),
+    _s("ARM", "Arm"),
     # 伯克希尔：id 不带点号（URL 安全），yf 用交易所写法 BRK-B。
     Asset("BRKB", "stock", "伯克希尔 B 类", yf="BRK-B",
           aliases=("BRK.B", "BRK-B", "BRK/B")),

@@ -252,13 +252,22 @@ def run(*, dry: bool) -> None:
                 f"ORDER BY u.id").fetchall()
         n_new = n_skip = n_pending = 0
         counts: dict[str, int] = {}
+        failed: list[str] = []
         for u in units:
             for lad in u["payload"]["scoring_spec"]["eval_ladder"]:
                 lad_d = dt.date.fromisoformat(lad)
                 if store.score_exists(u["id"], lad, SCORER_VERSION):
                     n_skip += 1
                     continue
-                res = score_unit_at(ps, u, lad_d)
+                # 逐个时点隔离：一条单元的 spec 解析不了，不能拖停 id 比它大的所有单元。
+                # 2026-08-29 至 09-23，8 条 range_hold 的机器配置与 success_def 对不上（先是 #1230，
+                # 9-05 起是 #799），每天在这里抛错，daily 只记一行日志，id 更大的单元一律没有新评分。
+                # 失败照样要响：全部评完再抛。
+                try:
+                    res = score_unit_at(ps, u, lad_d)
+                except Exception as e:  # noqa: BLE001
+                    failed.append(f"#{u['id']}@{lad} {type(e).__name__}: {e}")
+                    continue
                 if res is None:
                     n_pending += 1
                     continue
@@ -279,6 +288,11 @@ def run(*, dry: bool) -> None:
                     n_new += 1
         print(f"\n{'dry-run：' if dry else ''}新评 {sum(counts.values())}（{counts}）"
               f"，已存在跳过 {n_skip}，未到期 {n_pending}")
+        if failed:
+            print(f"\n评分失败 {len(failed)} 个时点（其余照常评完）：")
+            for f in failed:
+                print(f"  {f}")
+            raise RuntimeError(f"评分失败 {len(failed)} 个时点，首个：{failed[0]}")
     finally:
         pool.close()
 

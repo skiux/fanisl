@@ -1,0 +1,596 @@
+{
+  "content_id": 127,
+  "extractor_version": "pending-v2",
+  "model": "claude-session",
+  "units": [
+    {
+      "kind": "claim",
+      "quote": "随着接下去加息的这个预期，长端这一块，我的一个期待是短期之内是会往下降的，包括倍增特在中期选举之前的这个布局。短期之内，长债这一块的利率有下降的这个动力在那边。把时间线拉长，从一个长期的角度去看看的话，无论是美国国债这一块的一个增发也好，整个市场，长期的的一个方向，美国国债的利率应该是往上的。那么但是加息本身或者一个激进的美联储本身，无论是对于长端这一块的通胀也好，还是未来 GDP 的这个增速也好，都是一个抑制的作用。抑制的作用就会使得长端短期之内这个利率会往下降。",
+      "locator": "01:15",
+      "tags": [
+        "us10y",
+        "bond-yields",
+        "fed-policy",
+        "fiscal-policy"
+      ],
+      "payload": {
+        "asset_text": "长端美债利率（原文『长端』『长债这一块的利率』；我方以 10 年期收益率 US10Y 代理；『倍增特』即贝森特）",
+        "asset_symbol": "US10Y",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "down",
+        "magnitude": null,
+        "horizon": {
+          "type": "within_duration",
+          "duration_days": 7
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": [
+            "2026-09-28"
+          ],
+          "success_def": "2026-09-28（或此前最近交易日）US10Y 收盘 < 参考价 4.998 = hit。参考价取作者说话前最近的收盘（9-18 周五；本期 9-20 录、9-21 周一发布，发布日收盘在说话之后）。原文期限词『短期之内』按 §3 映射 7 天；『长端』未指明期限品种，以 10 年期代理，系我方指定故为 C。"
+        }
+      },
+      "ref_price": 4.998
+    },
+    {
+      "kind": "claim",
+      "quote": "把时间线拉长，从一个长期的角度去看看的话，无论是美国国债这一块的一个增发也好，整个市场，长期的的一个方向，美国国债的利率应该是往上的。",
+      "locator": "01:26",
+      "tags": [
+        "us10y",
+        "bond-yields",
+        "fiscal-policy"
+      ],
+      "payload": {
+        "asset_text": "美国国债利率的长期方向（原文因国债增发等看长期往上；我方以 10 年期收益率 US10Y 代理）",
+        "asset_symbol": "US10Y",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {
+          "type": "within_duration",
+          "duration_days": 365
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": [
+            "2027-09-21"
+          ],
+          "success_def": "2027-09-21（或此前最近交易日）US10Y 收盘 >= 参考价 4.998 = hit。参考价取作者说话前最近的收盘（9-18 周五；本期 9-20 录、9-21 周一发布，发布日收盘在说话之后）。原文期限词『长期』按 §3 映射 365 天；『美国国债的利率』未指明期限品种，以 10 年期代理，系我方指定故为 C。"
+        }
+      },
+      "ref_price": 4.998
+    },
+    {
+      "kind": "concept",
+      "quote": "从板块这个角度去看，银行板块下跌了将近 5%。我这边画了一个箭头，为什么？市场的一个交易的逻辑线就是，如果当美联储开始进入加息的这个周期，无论是加息两次还是三次也好，对于银行板块来说，应该是一个利空。为什么？它会降低银行，因为银行板块是靠利差。你短端这一块，短端就是银行板块借钱的这个成本。当你短端这一块的利率出现上升的时候，对于银行的盈利模式来说是一个利空，那所以银行板块下跌了 5%。",
+      "locator": "02:52",
+      "tags": [
+        "kbwb",
+        "fed-policy",
+        "bond-yields"
+      ],
+      "payload": {
+        "canonical_statement": "作者转述并解释市场的交易逻辑：美联储进入加息周期（无论加两次还是三次）对银行板块是利空——银行靠利差，短端是银行借钱的成本，短端利率上升对其盈利模式是利空；上周银行板块跌近 5%。",
+        "category": "macro_framework",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "所以我这边聊的或者我们今年下半年所看到的走得好的一些标的全都是今年上半年市场所唾弃的这些标的。黄金也好，比特币也好，软件也好，包括大科技也好。所以会你再回过头，你把下半年利率的这个上涨，然后和这些标的一个上涨结合在一起，你会发现宏观是没有办法去解释的。那唯一的一个解释是什么？就是真的是非常超买，在这些标的身上已经没有仓位了。那只要标这些标的有这个基本面，在没有仓位的情况下，你出现其他任何的一些消息都可以把这些标的给带回来。",
+      "locator": "06:37",
+      "tags": [
+        "positioning",
+        "xauusd",
+        "btcusdt",
+        "igv",
+        "mag7"
+      ],
+      "payload": {
+        "canonical_statement": "仓位比宏观更能解释走势：下半年表现好的恰是上半年被市场唾弃的标的（黄金、比特币、软件、大科技），把下半年利率上涨和它们的上涨放在一起，宏观解释不了；唯一的解释是这些标的上已经没有仓位（原文先说『非常超买』，紧接着说『已经没有仓位了』）——只要基本面在，没有仓位时任何消息都能把它们带回来。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "我认为硬件板块这一波的调整可能已经接近于一步，甚至于从比较短这个角度去看，我认为市场最悲观的时间点可能就是上周一。上周一就是上周末说 AI 要放缓的这一波恐慌带来周一的这个下跌，非常有可能就是短期之内的一个低点。",
+      "locator": "07:11",
+      "tags": [
+        "soxx",
+        "semiconductor-cycle",
+        "price-action"
+      ],
+      "payload": {
+        "asset_text": "硬件（半导体）板块：上周一（9-14）AI 放缓恐慌带来的下跌很可能是短期低点（原文『硬件板块』，我方以 SOXX 代理；『接近于一步』应为『接近尾声』的口误或转写误差）",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": "range",
+        "magnitude": {
+          "low": 497.4
+        },
+        "horizon": {
+          "type": "within_duration",
+          "duration_days": 7
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "range_hold",
+          "eval_ladder": [
+            "2026-09-28"
+          ],
+          "success_def": "发布次日（9-22）至 2026-09-28，SOXX 日收盘始终 >= 9-14 收盘 497.4 = hit；盘中跌破但收盘收回 = partial；任一日收盘跌破 = miss。原文『短期之内的一个低点』按 §3『短期』映射 7 天；『硬件板块』以 SOXX 代理、低点取 9-14 收盘，均系我方指定故为 C。"
+        }
+      },
+      "ref_price": 533.07
+    },
+    {
+      "kind": "claim",
+      "quote": "那所以也可以理解为硬件板块的一个调整带来了软件板块这个反弹，但是我认为软件板块这一波的反弹还是可以持续的，甚至于我认为今年的下半年我们可能会看到软件和硬件同时出现上升。所以我认为软件板块这一波的反弹并没有结束，因为接下去还会发真正发现 AI 的这个落地在软件板块这些标的身上的这个体现。",
+      "locator": "05:31",
+      "tags": [
+        "igv",
+        "software",
+        "ai-agent"
+      ],
+      "payload": {
+        "asset_text": "软件板块（IGV；作者判这一波反弹可以持续、没有结束，理由是 AI 在软件公司身上的落地接下来会体现出来）",
+        "asset_symbol": "IGV",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {
+          "type": "by_date",
+          "deadline": "2026-12-31"
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "B",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": [
+            "2026-12-31"
+          ],
+          "success_def": "2026-12-31（或此前最近交易日）IGV 收盘 >= 参考价 104.35 = hit。参考价取作者说话前最近的收盘（9-18 周五；本期 9-20 录、9-21 周一发布，发布日收盘在说话之后）。期限取同一句里的『今年的下半年』（§3：同句派生的 claim 期限口径一致）。"
+        }
+      },
+      "ref_price": 104.35
+    },
+    {
+      "kind": "claim",
+      "quote": "那所以也可以理解为硬件板块的一个调整带来了软件板块这个反弹，但是我认为软件板块这一波的反弹还是可以持续的，甚至于我认为今年的下半年我们可能会看到软件和硬件同时出现上升。所以我认为软件板块这一波的反弹并没有结束，因为接下去还会发真正发现 AI 的这个落地在软件板块这些标的身上的这个体现。",
+      "locator": "05:31",
+      "tags": [
+        "soxx",
+        "semiconductor-cycle",
+        "igv"
+      ],
+      "payload": {
+        "asset_text": "硬件（半导体）板块（原文『今年的下半年我们可能会看到软件和硬件同时出现上升』；我方以 SOXX 代理硬件）",
+        "asset_symbol": "SOXX",
+        "priceable": true,
+        "claim_class": "directional",
+        "direction": "up",
+        "magnitude": null,
+        "horizon": {
+          "type": "by_date",
+          "deadline": "2026-12-31"
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "C",
+        "scoring_spec": {
+          "method": "sign",
+          "eval_ladder": [
+            "2026-12-31"
+          ],
+          "success_def": "2026-12-31（或此前最近交易日）SOXX 收盘 >= 参考价 533.07 = hit。参考价取作者说话前最近的收盘（9-18 周五；本期 9-20 录、9-21 周一发布，发布日收盘在说话之后）。期限取原文『今年的下半年』；『硬件』以 SOXX 代理，系我方指定故为 C。只评硬件一侧，软件一侧见同句的 IGV 单元。"
+        }
+      },
+      "ref_price": 533.07
+    },
+    {
+      "kind": "claim",
+      "quote": "那其实在整个九月份我们看到了 Meta 推出了一个 AI Agent 之后，我认为接下去 AI Agent 就起码在今年的下半年，包括在 27 年的上半年，我们将看到更多和 AI Agent 相关的这个故事线所产生，无论是在 CPU 身上还是在这些模型公司身上。所以在最近这段时间，因为整个 Agent 的想一想，如果是 Muse 是一个落地点的，就 Meta 的 Muse 是一个落地地的话，上一次一个落地是什么时候？是年初的时候，年初的一个龙虾。龙虾到 Muse 中间有七八一七八个月的一个真空时间，那么整个 AI Agent 是没有任何的一些消息。直到 Muse 落地之后，我的期待是接下去在 AI Agent 这一块，可能也看到慢慢的一个加速。",
+      "locator": "07:35",
+      "tags": [
+        "ai-agent",
+        "meta"
+      ],
+      "payload": {
+        "asset_text": "AI Agent 相关的故事线（作者判 Meta 9 月推出 Muse 之后，至少今年下半年到 2027 年上半年会有更多，无论在 CPU 还是模型公司身上；上一个落地点是年初的『龙虾』，中间七八个月真空，Muse 之后期待慢慢加速）。非价格判断，没有可机械判定的口径",
+        "asset_symbol": null,
+        "priceable": false,
+        "claim_class": "event_outcome",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {
+          "type": "by_date",
+          "deadline": "2027-06-30"
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那硬件板块的一个 setup 就是，你去看看半导体的估值，半导体估值现在就是在一些相对低的这个位置。其实从三大指数去看嘛，无论是标普也好，纳指也好，半导体也好，其实现在都是在一个相对比较低的位置。那么那估值本身就是一个 setup，然后那估值是一个模糊正确，是一个相对长期这个概念，起码是三个月对吧，两到三个月左右了，因为半导体估值最高的时候是在六月底的时候，六月底七月初的时候当时在 28 倍，29 倍左右，当时是在一个高位，然后就经过一个多月的一个回调之后，现在来到多少？18 倍，18 倍左右吧。这是一个 setup。就估值在低点是一个 setup，另外一个 setup 是什么？市场的参与度。你去看看标普 500 上周五市场的一个参与度，20 日均线才 19%，连 20% 都不到，50 日均线也是停在 28%。那所以从参与度这个角度，我一直和大家说参与度是一个模糊正确。但是从参与度这个模糊正确的一个指标也告诉我们当下的情绪面，就是在一个低点。",
+      "locator": "08:20",
+      "tags": [
+        "positioning",
+        "valuation",
+        "market-breadth",
+        "soxx"
+      ],
+      "payload": {
+        "canonical_statement": "setup 由估值与参与度构成：估值是模糊正确、相对长期（起码两三个月）的指标——半导体估值 6 月底 7 月初约 28-29 倍，一个多月回调后约 18 倍；参与度是另一个 setup——上周五标普 500 站上 20 日均线的比例只有 19%，50 日 28%，说明情绪面在低点。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "我个人认为我们在看美股的时候，尽量去避开这个指数，尽量去避开指数从最高点下跌了多少，然后认为可能指数还会有 15% 10% 的这种下跌幅度。我不认为这是一个比较好的角度，特别是如果大家是从币圈转移过来的话。因为币圈你没有基本面，你无论任何一个标的都没有基本面。但是美股是有基本面的。美股的基本面是 EPS 的这个增速。之所以有了 EPS 才会由 PE，才会有估值这个概念在里面。所以看美股的话，我个人认为到底是有贵还是便宜、是高还是低，比起指数、比起这一个价格本身，更加应该去看的是一个估值。或者从参与度，从参与度这个角度也可以去理解，那一个是相对比较短期的，参与度是比较短期的，估值的话可能会相对长期一些。",
+      "locator": "09:18",
+      "tags": [
+        "valuation",
+        "market-breadth"
+      ],
+      "payload": {
+        "canonical_statement": "判断美股贵还是便宜，看估值而不是指数离高点跌了多少、还会不会再跌 10%-15%：美股有基本面（EPS 增速，有了 EPS 才有 PE），币圈的标的没有基本面。参与度偏短期，估值偏长期。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那所以把这些东西全部结合在一起，包括我在上周和大家分享另外一个指标 AAII 投资者这个情绪面指标，你会发现从很多的一些指标可以看到，一个模糊正确的一个角度可以看到当下的市场情绪面就是低的。估值也是在一个便宜的阶段。这就是一个 setup。那在在这种 setup 这种情况下，你说我还会去花非常多的些精力去担心宏观这一块有没有一些风险吗？我不会。好吧。所以 setup，仓位本身，市场的这个仓位，情绪面本身是非常的重要，比起这一个事件和数据来说，会显得更加的重要。",
+      "locator": "10:00",
+      "tags": [
+        "positioning",
+        "psychology",
+        "valuation"
+      ],
+      "payload": {
+        "canonical_statement": "setup（市场的仓位与情绪面）比事件和数据本身更重要：估值、参与度、AAII 情绪等多个模糊正确的指标都显示情绪低、估值便宜时，作者不会花精力去担心宏观风险。",
+        "category": "psychology",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "然后我再把这个概念稍微聊得笼统一点，因为我们在聊美股的时候，美股是有基本面的。个股也是有基本面，然后指数本身也是有基本面，很简单，就是个股和指数本身，它的基本面没有变糟糕或者在持续变好的情况下，短期之内无非就是涨多了就跌，跌多了就涨。但是从长期这个角度去看，就是一个向上的趋势。所以我们从一个市场参与者这个角度去看看，长期就是应该去多做，然后短期根据不同的一些指标去判断，进行在标的之上的加仓和减仓，但并不是 all in 或者轻仓。",
+      "locator": "10:32",
+      "tags": [
+        "position-sizing",
+        "risk-mgmt"
+      ],
+      "payload": {
+        "name": "长期做多，短期按指标加减仓",
+        "summary": "个股与指数的基本面没有变糟或在持续变好时，短期涨多就跌、跌多就涨，长期向上；所以长期做多，短期按指标在标的上加仓减仓，但不 all in、也不轻仓。",
+        "family": "positioning",
+        "rules": [
+          "前提：个股或指数的基本面没有变糟糕，或在持续变好",
+          "短期之内无非涨多了就跌、跌多了就涨；长期是向上的趋势",
+          "长期应该做多",
+          "短期根据不同指标判断，在标的上加仓或减仓",
+          "不是 all in，也不是轻仓"
+        ],
+        "claimed_performance": null,
+        "data_requirements": [],
+        "overlap_with_killed": [],
+        "testability": "C"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那 39 倍是什么概念？我们没办法拿 Costco，这我强调，我们没办法拿 Costco 的这个估值和它的一個增速，你去和比如科技公司做对比，你没办法对比的。就市场愿意给 Costco 这类的公司，一个相对来说的一个溢价，你也没有办法拿一个 PEG Ratio 去衡量 Costco，这也是一个非常错误的一个视角。你说 PEG Costco 的 PEG Ratio 是三倍，那么所以 Costco 的这个估值就比如说你你和 AMD 去做对比的话，就比 AMD 的估值要贵，不是不不可以这么去做纵向的这个对比。是没办法去做这样一个纵向的这个对比。你在同一个板块里面你可以拿 PEG Ratio 去做对比。在不同的板块里面不能这样去做一个对比。所以 Costco 是一个比较好的、拿可以和它估值本身、可以和历史的一个估值去做一个横向的这个对比。",
+      "locator": "11:13",
+      "tags": [
+        "valuation",
+        "cost"
+      ],
+      "payload": {
+        "name": "PEG 只在同板块内比，跨板块比自身历史估值",
+        "summary": "不能拿 Costco 的估值与增速去和科技公司比（Costco PEG 3 倍不代表比 AMD 贵），市场愿意给这类公司溢价；PEG 只能在同一板块里比，Costco 这类要和自己的历史估值比。",
+        "family": "other",
+        "rules": [
+          "不同板块之间不用 PEG 比较（例：不能用 PEG 说 Costco 比 AMD 贵）",
+          "同一板块内可以用 PEG 比",
+          "Costco 这类公司市场愿意给溢价，拿它和自己的历史估值比"
+        ],
+        "claimed_performance": null,
+        "data_requirements": [
+          "forward PE 历史序列",
+          "EPS 增速预期"
+        ],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "39.29 倍的这个估值，我这边画了一个，画两条红线，一个是上区间，一个下区间。我觉得有两个阶段。第一个阶段就是 2019 年到 2023 年。在这个阶段里面，我们可以看到 Costco 的估值，它就是在 30 倍至 39 倍这一个区间里面波动。那么短期之内可能在 21 年底、22 年初的时候可能会去到一个 45 倍左右。但是你会发现，在 22 年 23 年还是回来了。那所以，第一个阶段 Costco 的估值就是在 30 至 39 倍里面，四年左右的时间在这估值区间里面去横动，去去变化。然后第二个阶段就是从 2024 年到现在。然后 2024 年开始估值不断的上升，2025 年见底，2025 年年初的时候见底，然后 25 年 26 年其实都是在修复估值的过程之中。",
+      "locator": "11:13",
+      "tags": [
+        "cost",
+        "valuation"
+      ],
+      "payload": {
+        "canonical_statement": "Costco forward PE 9-18 收盘 39.29 倍。历史分两段：2019-2023 年在 30-39 倍区间波动（21 年底 22 年初一度到约 45 倍，22、23 年又回来）；2024 年起估值不断上升，2025 年初到顶（原文说『见底』，但前后文是估值一路上升、之后在修复，指的是高点），2025、2026 年都在修复估值。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那么现在这个估值在 39 倍，去到了第一个阶段的一个上区间，我认为已经进入了一个合理的区间。如果再往下的话，一个更加合理或者更加低估的估值是在 35 倍，我并不认为 Costco 的估值可以跌到 30 倍。那么所以，从这个角度，当然这是一个比较主观的看法。那所以，从这个角度看，Costco 现在这个价格本身已经进入了一个积蓄区间。",
+      "locator": "13:14",
+      "tags": [
+        "cost",
+        "valuation",
+        "consumer"
+      ],
+      "payload": {
+        "asset_text": "Costco（作者判估值 39 倍回到第一阶段区间上沿、已进入合理区间，价格进入『积蓄区间』；更低估在 35 倍，不认为会跌到 30 倍，自称主观看法）。估值判断，未对价格给出方向或目标",
+        "asset_symbol": "COST",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended"
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "然后我们把沃尔玛的估值加进来，你会发现第一个马上会发现白色这条线一直是高于蓝色这条线。市场一直是愿意给 Costco 更高的这个估值。第二点，沃尔玛的估值上周五的收盘 34.42 倍。你会发现从四五月份以来，白色和蓝色这条线都出现了下降。其实市场是在杀跌整个必需品消费板块。然后沃尔玛本身你会发现在 2025 年的 3 月份，当时是一个相对估值的低点，是在 30 倍。那所以，沃尔玛和 Costco 本身，我认为这两两个标的或这两家公司都进入了一个积蓄区间。从这个位置开始都进入积蓄区间。再下面的一个估值就是从现在这个点位下去 10% 左右。",
+      "locator": "13:29",
+      "tags": [
+        "wmt",
+        "cost",
+        "valuation",
+        "consumer"
+      ],
+      "payload": {
+        "asset_text": "沃尔玛（作者判与 Costco 一样已进入『积蓄区间』；估值 9-18 收盘 34.42 倍，2025 年 3 月低点 30 倍，4、5 月以来市场在杀跌整个必需品消费板块；再下一档估值在现价下方约 10%）。估值判断，未对价格给出方向或目标",
+        "asset_symbol": "WMT",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended"
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "然后是 Costco 的技术面。我这边看的是日 K线。日 K 线，然后结合下面的 RSI，我看到多少？2025 年，整个 2025 年 2026 年，我下面有 12345，五个箭头。这五个箭头你会发现，从日 K 线 RSI 这个角度去看，Costco 其实，很少会去碰到，它会碰到 RSI 30。在 30 下面的话，它不会去到很低，它不会去到 20 或者十几。基本上就是在 30，正好碰到 30，在 31 或者说 28、26 左右，RSI 就会进入一个阶段性的底部。那所以，截止到上周五的收盘差不多是在 35、36，应该 30、35 至 40 之间嘛，所以你说下跌还有没有空间？也许多多少少还有一些空间。那但是，已经进入了一个积蓄区间了。",
+      "locator": "14:06",
+      "tags": [
+        "cost",
+        "oversold",
+        "price-action"
+      ],
+      "payload": {
+        "name": "Costco 日线 RSI 碰到 30 附近即阶段性底部",
+        "summary": "2025-2026 年 Costco 日线 RSI 很少跌破 30、不会到 20 或十几，碰到 30 附近（31、28、26）就是阶段性底部，共五次；9-18 收盘 RSI 约 35-36，也许还有些下跌空间。",
+        "family": "reversion",
+        "rules": [
+          "看日 K 线与下方 RSI",
+          "Costco 日线 RSI 很少跌破 30，不会去到 20 或十几",
+          "RSI 碰到 30 附近（31、28、26 左右）就进入阶段性底部（2025-2026 年五次）",
+          "9-18 收盘 RSI 在 35-36，下跌也许多多少少还有一些空间"
+        ],
+        "claimed_performance": null,
+        "data_requirements": [
+          "COST 日线"
+        ],
+        "overlap_with_killed": [
+          "H6"
+        ],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "然后我们来看下一个标的可口可乐。可口可乐也非常的有意思。它是必需品消费里面的第三大权重股。可口可乐的估值就明显比前两家公司强很多。你可以看一下我从 2014 年到现在过去十几年，将近要 16 年左右的一个 PE。在从 2014 年到现在我画了一个上区间和下区间。上区间是在 26 倍，下区间是在 20 倍。非常的明显对吗？估值就是在这一个区间里面去进行波动。当然啦，短期之内因为一些事件，比如说 2020 年估值一度跌到了 17 倍。那这种事件，它不是一个我们我们不应该期待疫情这种事件会经常发生。所以不能不能够把 17 倍的估值当做是一个可口可乐的一个地基线，你不能这么去做到纵向的这个对比。那么所以，一个合理的低区间就是在 20 倍左右。在没有非常重大的事件出来的情况下。上区间也非常明显的，曾经有三次碰到过，就是在 26 倍。",
+      "locator": "14:47",
+      "tags": [
+        "ko",
+        "valuation"
+      ],
+      "payload": {
+        "canonical_statement": "可口可乐 forward PE 自 2014 年以来在 20-26 倍区间波动（26 倍上沿碰过三次）；2020 年疫情一度跌到 17 倍，这类事件不该期待经常发生，不能把 17 倍当地板，没有重大事件时合理下沿约 20 倍。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "那现在的估值在多少？现在的估值在 25.5 倍。那所以，现在可口可乐的估值明显是在一个上区间。所以在这种时候，可口可乐你应不应该去追，绝对不应该去追的，你可以继续持有。甚至于你在这个位置如果仓位比较大的话，其实可口可乐应该去做一些减仓的。",
+      "locator": "15:48",
+      "tags": [
+        "ko",
+        "valuation",
+        "position-sizing"
+      ],
+      "payload": {
+        "asset_text": "可口可乐（作者判估值 25.5 倍在区间上沿，绝对不应该追，可以继续持有，仓位大的应该减一些）。估值与仓位判断，未对价格给出方向或目标",
+        "asset_symbol": "KO",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended"
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "当然很多时候我们看到一个标的或者一家公司，它的估值去到了历史比较高的这个位置，我们必须要去关注它的基本面有没有变好。有没有改变？如果基本面真的有变好、有改变的话，那是值得市场去给它一个比以前还要高的这个估值，或者说可以突破前面的 26 倍。",
+      "locator": "16:05",
+      "tags": [
+        "valuation",
+        "ko"
+      ],
+      "payload": {
+        "name": "估值到历史高位时先看基本面有没有变",
+        "summary": "估值到了历史较高的位置，要看基本面有没有变好：真的变好了，才值得比以前更高的估值、突破前高（可口可乐是 26 倍）。",
+        "family": "reversion",
+        "rules": [
+          "估值到历史高位时，检查基本面有没有变好、有没有改变",
+          "基本面真的变好，才值得给比以前更高的估值，或突破前面的区间上沿"
+        ],
+        "claimed_performance": null,
+        "data_requirements": [
+          "forward PE 历史序列",
+          "营收与 EPS 增速预期"
+        ],
+        "overlap_with_killed": [],
+        "testability": "B"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "比如说 organic revenue growth。22 年到 25 年，同比增速 16%、12%、12% 和 5%。而在过去，特别是 23 年、22 年至 24 年这段时间，它的营收增速非常的高。来自哪里？主要是来自于涨价：price and mix。那三年涨价，涨价分别是 11%、10% 和 11%。三年的涨价幅度非常的高，但是未来四年你可以看一下，市场的预期每年的涨价就是在 2% 左右。2% 至 3%。那因为在没有通胀的情况下，每年的涨价幅度自然就不会有。但是每年都会涨价，最终营收的这个增速来自于哪？来自于涨价和他们的 unit case。就是你卖出了多少个 case，你卖出了多少个 unit，你卖出了多少个单量，对吧。那单量这个角度去，单量的这个增速，22 年至 24 年每一年 5%、2%、1%，其实就是一个低增速。然后未来的四年是多少？3%、2%，基本上在 2% 至 3% 之间。你把单量的这个增速，加上它的一个 price mix，加上它通胀的这个涨幅，加在一起差不多就是在 5%。所以在未来四年你可以看一下 organic revenue growth。平均每年就是在 5%。",
+      "locator": "16:40",
+      "tags": [
+        "ko",
+        "consumer"
+      ],
+      "payload": {
+        "canonical_statement": "可口可乐的有机营收增长 = 单量 + price/mix：2022-2025 年有机增长 16%、12%、12%、5%，2022-2024 年的高增长主要来自涨价（price/mix 11%、10%、11%），单量只有 5%、2%、1%；市场预期未来四年涨价 2%-3%、单量 2%-3%，有机营收增长平均约 5%。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "那 5% 就是过去这段时间的一个常态。那所以像可口可乐这一类基本面非常稳的这一类的公司，你想它的一个营收增速，它的 organic growth，organic revenue growth 就是 5%，加上它一部分的些运营效率。那它每一年 EPS 这个增速就会停在 4%，就会停在 9% 至 10% 左右。那这已经是最好状态了。差一点的话就是 7% 至 8%，营收增速 5%，然后你的 EPS 增速就是在 7% 至 8%。那么所以看现在，就根据现在市场的预期去看的话，其实市场也并不预期可口可乐走出了以前的这种营收或者盈利增速的一个常态，就还是和以前一样。所以它的基本面并没有出现非常大的一个变好或者变糟糕。",
+      "locator": "18:07",
+      "tags": [
+        "ko",
+        "consumer"
+      ],
+      "payload": {
+        "canonical_statement": "像可口可乐这样基本面很稳的公司，有机营收增长 5% 加上部分运营效率，EPS 增速最好是 9%-10%，差一点是 7%-8%；按现在的市场预期，它没有走出以往营收与盈利增速的常态，基本面没有明显变好或变糟。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    },
+    {
+      "kind": "method",
+      "quote": "那有了这样一个模糊正确，然后在匹配自己的这个仓位就应该知道自己的仓位应该怎么去做了。就像我前面说，如果仓位非常大的话，像可口可乐现在在比较高的估值区间就是应该去进行减仓。但是你仓位比较小的时候，你就可以继续持有，或者说去去做一些移动止盈。对吧。那说到移动止盈，因为这些是价值股，价值股的波动本身就小。那么所以价值股你在做移动止盈的时候，你和一些成长股和半导体你在做移动止盈的时候，这个波动和范围一定是不一样的。半导体的话，比如说你去作 10% 的这个移动止盈。你这些价值股身上，你最多只能作 4% 至 5%。你要这些价值股你去作 10% 的移动止盈，可能就会把你以前非常大的这一波涨幅全部擦掉了。因为价值股的波动本身就小。",
+      "locator": "18:59",
+      "tags": [
+        "risk-mgmt",
+        "position-sizing",
+        "ko"
+      ],
+      "payload": {
+        "name": "按估值区间与仓位大小处理；价值股移动止盈要窄",
+        "summary": "估值在区间高位时，仓位大就减仓，仓位小可以继续持有或做移动止盈；价值股波动小，移动止盈最多 4%-5%，半导体可以用 10%，价值股用 10% 可能把一大波涨幅全擦掉。",
+        "family": "trend",
+        "rules": [
+          "估值在较高区间：仓位非常大就减仓",
+          "仓位比较小：继续持有，或做移动止盈",
+          "价值股波动小，移动止盈最多 4%-5%",
+          "半导体这类可以用 10% 的移动止盈",
+          "价值股用 10% 的移动止盈，可能把之前非常大的一波涨幅全部擦掉"
+        ],
+        "claimed_performance": null,
+        "data_requirements": [
+          "日线"
+        ],
+        "overlap_with_killed": [],
+        "testability": "A"
+      }
+    },
+    {
+      "kind": "claim",
+      "quote": "最后是宝洁。那宝洁这也是类似的。宝洁的话当下估值是在 20.74 倍。那这个估值其实离最高点 26 倍其实是有段距离。然后下区间我这边画了两条线，分别是在 20 倍和 18 倍。那么我认为 20 倍是便宜的，如果去到 18 倍的话就是非常便宜。宝洁的这个估值现在也是在一个相对比较低这个位置。",
+      "locator": "19:24",
+      "tags": [
+        "pg",
+        "valuation",
+        "consumer"
+      ],
+      "payload": {
+        "asset_text": "宝洁（作者判估值 20.74 倍离最高点 26 倍有一段距离，20 倍是便宜、18 倍非常便宜，现在在相对低位）。估值判断，未对价格给出方向或目标",
+        "asset_symbol": "PG",
+        "priceable": true,
+        "claim_class": "price_target",
+        "direction": null,
+        "magnitude": null,
+        "horizon": {
+          "type": "open_ended"
+        },
+        "condition_text": null,
+        "condition_observable": false,
+        "stance_strength": "explicit",
+        "verifiability": "D"
+      }
+    },
+    {
+      "kind": "concept",
+      "quote": "估值本身它是一个模糊正确。我一直是聊。它没办法告诉我们，帮我们去判断短期之内一个低点或者高点。但是当估值在一个相对比较低位的时候，我们去买入这些标的，我们下面的一个安全边际就会比较的大。并且如果我们买在估值的一个低位，我们要知道，因为这些公司它的 EPS 增速都是正的，那未来我们可以获得的这个价格上的一个回报，可以来自于第一点，估值上的这个回归。那我也举个例子宝洁。我不是建议大家去买宝洁，我自已也没有。比如说宝洁的估值如果从现在的 20.7 倍反弹到了原来的 23 倍。那就是你估值就带给你 10% 的价格上的一个反弹。在这个基础上，我们假设它花一年的这个时间，那么从 20.7 倍到 23 倍。在这个基础上它的 EPS 这个增速如果还能有 5% 到 10%，那全部加在一起你价格上的这个回报就是在 15% 到 20%。那那么对于一个价值股来说，一年比如说能给出这样的一个回报，已经是非常好的一种结果了。",
+      "locator": "20:03",
+      "tags": [
+        "valuation",
+        "pg"
+      ],
+      "payload": {
+        "canonical_statement": "估值是模糊正确，判断不了短期高点低点，但在估值低位买入，下方安全边际大；EPS 增速为正的公司，价格回报来自估值回归加 EPS 增长。例：宝洁估值若一年内从 20.7 倍回到 23 倍，估值带来约 10%，再加 EPS 增速 5%-10%，合计 15%-20%，对价值股已是很好的结果（作者说明不是建议买宝洁，自己也没有）。",
+        "category": "market_structure",
+        "stance": "assert",
+        "regime_qualifier": null
+      }
+    }
+  ]
+}

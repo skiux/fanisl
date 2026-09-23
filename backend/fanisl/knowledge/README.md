@@ -36,7 +36,7 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `backfill_creator.py` | 单信源历史内容登记辅助 |
 | `import_units.py` | L1 单元导入 CLI（PendingBackend 的入库端）：JSON → pydantic 校验 + quote∈原文校验 → record_extraction；`--dry-run` 只验不写 |
 | `prices.py` | K4 价格层：daily_bars 表 + SYMBOL_MAP（美股/ETF/指数/期货/汇率/加密 + FRED 序列；期货代理现货者已注明）：`python -m fanisl.knowledge.prices`（幂等 upsert） |
-| `scorers.py` | K4 评分器：按冻结 ScoringSpec 到期机械评分（sign/target_touch/target_close/range_hold/relative_return + 条件解析），`python -m fanisl.knowledge.scorers [--dry-run]`（幂等）；口径细节见模块 docstring |
+| `scorers.py` | K4 评分器：按冻结 ScoringSpec 到期机械评分（sign/target_touch/target_close/range_hold/relative_return + 条件解析），`python -m fanisl.knowledge.scorers [--dry-run]`（幂等）；口径细节见模块 docstring。**逐个时点隔离异常**：一条单元解析不了只记失败、其余照评，评完再抛出失败清单（2026-09-23；此前一条坏单元会让 id 更大的全部停评，8-29 至 9-23 实际停了） |
 | `scoring_overrides.json` | success_def 的机械化编译：条件结构化/判界修正/组合定义，语义仲裁=success_def。主体是 pending-v1 存量；**对 v2 也适用的例外**是阶梯函数标的的比较符（extraction-guide §4）——ScoringSpec 没有承载比较符的字段，`>`/`>=`/`<`/`<=`/`==` 只能在此登记。议息类 claim 常用的两种写法（2026-09-17 起）：`condition.after` 把条件搜索起点推到议息之后（「不加息」＝`close_below DFEDTARU 3.76, after <会后一日>`）；`baseline_date` + `op` 只检验某一次会议（「12 月加息」＝12-31 的值 `>` 11-30 的值） |
 | `nodes.py` | K5 归并层：knowledge_nodes/node_attestations 两表 + 生命周期重算 + CLI（export/import/seed-singletons/recompute/retire），判据见 merge-guide.md |
 | `estimates.py` | 盈利预期修正：eps_estimates 表 + yfinance eps_trend（0q/+1q/0y/+1y × current/7d/30d/60d/90d）；`estimates --screen` 出横截面。**每日快照不可回填**——yfinance 只给当天，断一天少一天 |
