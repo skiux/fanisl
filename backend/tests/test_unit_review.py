@@ -171,3 +171,29 @@ def test_review_cli_end_to_end(ks, unit_id, pool, monkeypatch, capsys, tmp_path)
 
     out = cli("show", r["id"])
     assert "[extractor]" in out and "WTI 原油" in out and "沿用了上一期的写法" in out
+
+
+def test_void_score_keeps_the_row_and_blocks_rescoring(ks, unit_id):
+    """作废 = 整行搬进 claim_score_voids；统计不再计它，评分器也不会把这个时点评回来。"""
+    ks.record_score(unit_id, eval_ts=datetime(2026, 9, 1, tzinfo=timezone.utc), horizon_label="2026-08-31",
+                    outcome="hit", realized={"ref": 70.0}, scorer_version="v1")
+    with pytest.raises(ValueError, match="reason"):
+        ks.void_score(unit_id, "2026-08-31", reason=" ", author="claude-session")
+    with pytest.raises(LookupError):
+        ks.void_score(unit_id, "2026-09-30", reason="不存在的时点", author="claude-session")
+
+    v = ks.void_score(unit_id, "2026-08-31", reason="期限应为 2 天，此阶梯不该存在", author="claude-session")
+    assert v["score"]["outcome"] == "hit" and v["score"]["realized"] == {"ref": 70.0}
+    with ks.pool.connection() as conn:
+        assert conn.execute("SELECT count(*) AS n FROM claim_scores").fetchone()["n"] == 0
+    assert ks.score_exists(unit_id, "2026-08-31", "v1")          # 评分器会跳过它
+    assert [x["horizon_label"] for x in ks.score_voids(unit_id)] == ["2026-08-31"]
+    with pytest.raises(LookupError):                               # 不能作废两次
+        ks.void_score(unit_id, "2026-08-31", reason="再来一次", author="claude-session")
+
+    # 作废过也算评过：评分字段仍然锁定，不能先作废再改判据
+    with pytest.raises(ReviewConflict):
+        ks.amend_unit(unit_id, reason="改期限", author="claude-session",
+                      payload=_claim(horizon={"type": "by_date", "deadline": "2026-09-30"},
+                                     scoring_spec={"method": "target_touch", "eval_ladder": ["2026-09-30"],
+                                                   "success_def": "截止日前任意日高点≥75"}))

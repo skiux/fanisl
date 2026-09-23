@@ -88,6 +88,7 @@ python -m fanisl.knowledge.review amend <unit_id> --review <review_id> --reason 
     [--payload-file new_payload.json] [--quote "…"] [--tags a,b]
 python -m fanisl.knowledge.review answer <review_id> --outcome fixed|no_change|needs_info \
     --body "…" [--root-cause "…"] [--sweep "…"] [--followup "…"]
+python -m fanisl.knowledge.review void <unit_id> <horizon_label> --reason "…"   # 作废本不该存在的评分时点
 ```
 
 状态：`open`（待知识席位答复）→ `answered`（待用户确认）→ `closed`；用户在 `answered` 或
@@ -100,6 +101,9 @@ python -m fanisl.knowledge.review answer <review_id> --outcome fixed|no_change|n
 - **已有评分记录的单元不许改评分相关字段**（verifiability / scoring_spec / asset_symbol /
   direction / magnitude / horizon / condition_*）——历史评分会对不上单元，真要改就升版重提。
 - 答复没有 HTTP 接口，站上无法以知识席位的身份发言。
+- **作废评分**（2026-09-24）：只用于本不该存在的评分时点（例：期限判错，多出来的阶梯被评了）。整行原样
+  搬进 `claim_score_voids`、从 `claim_scores` 移走，所有统计自动不再计它；`score_exists` 同时查作废表，
+  评分器不会把它评回来。**作废过也算评过**：评分字段照样锁定，不能先作废再改判据。
 
 **不写 `spot_checks`**：那是 §10 的随机抽样，用户挑出来的单元混进去会让忠实率失去随机性。
 **不回写 `data_export/knowledge_units/*.json`**：JSON 是入库那一刻的快照，修改的真相在

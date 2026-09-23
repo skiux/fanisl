@@ -10,6 +10,8 @@
       [--payload-file new_payload.json] [--quote "…"] [--tags a,b,c]
   python -m fanisl.knowledge.review answer <review_id> --outcome fixed|no_change|needs_info \\
       --body "…" [--root-cause "…"] [--sweep "…"] [--followup "…"]
+  python -m fanisl.knowledge.review void <unit_id> <horizon_label> --reason "…"
+      # 作废本不该存在的评分时点（原样留在 claim_score_voids，统计不再计）
 """
 
 from __future__ import annotations
@@ -54,6 +56,8 @@ def _cmd_show(store: KnowledgeStore, review_id: int) -> None:
     print(f"payload：\n{_dump(u['payload'])}")
     if u.get("scores"):
         print(f"评分记录：{_dump(u['scores'])}")
+    for v in store.score_voids(u["id"]):
+        print(f"作废的评分 {v['horizon_label']}（{v['score'].get('outcome')}）：{v['reason']}")
     print("\n对话：")
     for m in r["messages"]:
         print(f"  [{m['role']}] {m['author']}  {str(m['created_at'])[:16]}")
@@ -83,6 +87,12 @@ def _cmd_answer(store: KnowledgeStore, args: argparse.Namespace) -> None:
     print(f"已答复核查 #{r['id']}，状态 → {r['status']}")
 
 
+def _cmd_void(store: KnowledgeStore, args: argparse.Namespace) -> None:
+    v = store.void_score(args.unit_id, args.horizon_label, reason=args.reason, author=args.author)
+    print(f"已作废单元 #{args.unit_id} 在 {args.horizon_label} 的评分（原为 {v['score'].get('outcome')}），"
+          f"作废记录 #{v['id']}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(prog="python -m fanisl.knowledge.review")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -106,6 +116,11 @@ def main() -> None:
     p.add_argument("--sweep", help="同类单元查了哪些、结果如何（outcome=fixed 必填）")
     p.add_argument("--followup", help="系统性的后续：规范条款 / 机械检查 / 计划条目")
     p.add_argument("--author", default=AUTHOR)
+    p = sub.add_parser("void")
+    p.add_argument("unit_id", type=int)
+    p.add_argument("horizon_label")
+    p.add_argument("--reason", required=True)
+    p.add_argument("--author", default=AUTHOR)
     args = ap.parse_args()
 
     pool = make_pool(get_settings().pg_knowledge_conninfo)
@@ -117,6 +132,8 @@ def main() -> None:
             _cmd_show(store, args.review_id)
         elif args.cmd == "amend":
             _cmd_amend(store, args)
+        elif args.cmd == "void":
+            _cmd_void(store, args)
         else:
             _cmd_answer(store, args)
     except (ValueError, LookupError, ReviewConflict) as e:

@@ -54,6 +54,11 @@ For each open review:
      found). The store rejects the answer without all three.
    - `no_change` must cite the passage and the rule that support the original.
    - `needs_info` must state exactly what is missing.
+   If a scored ladder point should never have existed (the horizon was misread and an
+   extra ladder got scored), void it with `review void <unit_id> <horizon_label> --reason …`.
+   The row moves to `claim_score_voids` intact and drops out of every statistic. Voiding is
+   not a way to fix a wrong outcome, and a unit with voided scores still counts as scored:
+   its scoring fields stay locked.
 5. If the cause is systematic — a spec gap, a pattern that recurs across units —
    write it in `--followup` and add it to `docs/plans/active/knowledge.md`.
    Fixing only the unit the user happened to see is the failure this workflow
