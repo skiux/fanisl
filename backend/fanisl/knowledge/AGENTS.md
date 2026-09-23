@@ -6,7 +6,7 @@ knowledge-engine session**, as is `backend/fanisl/assets.py`.
 ## Read these first
 
 1. `README.md` — module map: what each file does, the data flow, daily operation
-2. `extraction-guide.md` — L1 extraction spec, **v2, frozen**. Changing it
+2. `extraction-guide.md` — L1 extraction spec, **v3, frozen**. Changing it
    requires bumping `extractor_version`
 3. `merge-guide.md` — K5 merge spec v1, also frozen
 4. `../../../docs/knowledge-engine-design.md` — layered design and phase criteria
@@ -24,11 +24,17 @@ meaning. Read them as-is.
   (enforced in `models.py`). The D share is itself a source-quality metric.
 - **Non-price judgements must not be mechanised into price claims.** The test
   question: did the author actually say what the price would do?
-- **Spot checks settle per batch:** 20% of every batch (§10). Do not start the
-  next batch before the current one is settled.
-- Semantics the five scorers cannot express (resistance-holds, comparison
-  operators for step-function series) are registered in
-  `scoring_overrides.json`; `success_def` remains the semantic arbiter.
+- **Spot checks settle per batch:** 20% of every batch (§10), with every A/B/C
+  claim in the batch included. Do not start the next batch before the current
+  one is settled.
+- **Machine scoring rules live in the unit's `scoring_spec`** (v3: `bounds`, `op`,
+  `baseline_date`, `condition`, `vs`). Import rejects a file whose A/B/C specs the
+  scorer cannot parse. `scoring_overrides.json` holds the same rules for v1/v2
+  units only; `success_def` remains the semantic arbiter.
+- **Look back when an episode refers to an earlier one.** Find the older units on
+  the same asset and classify: misread → `review amend`; detail added before the
+  outcome was known → may inform the old unit, cite it; changed view → new unit;
+  after-the-fact self-review → not extracted, but check the old unit anyway.
 
 ## Processing unit reviews
 

@@ -4,6 +4,10 @@ PendingBackend 工作流的入库端：Claude 会话按 extraction-guide.md 产�
 校验后写库——与未来 ClaudeBackend 走同一校验，产出只差 extractor_version。
 校验失败整文件拒绝（不半入库）。
 
+v3 起（2026-09-24）导入时还做两件事：A/B/C 的判据先过 `scorers.spec_problems`，评分器解析
+不了就拒绝——此前这类问题要到期那天才在评分器里抛错，还会拖停其后所有单元；可定价的 claim
+没写 ref_price 的，按规范 §5 补上作者说话前最近的收盘（`scorers.pre_publication_close`）。
+
 用法：python -m fanisl.knowledge.import_units <units.json> [--dry-run]
       python -m fanisl.knowledge.import_units --runs <content_id>      # 看有哪些提取版本
       python -m fanisl.knowledge.import_units --activate <run_id>      # 换生效版本
@@ -26,6 +30,8 @@ from .. import assets
 from ..config import get_settings
 from ..db import make_pool
 from .models import KnowledgeUnit
+from .prices import PriceStore
+from .scorers import pre_publication_close, spec_problems
 from .store import KnowledgeStore, quote_in_source
 
 
@@ -88,6 +94,32 @@ def check_vocabulary(store: KnowledgeStore, units: list[KnowledgeUnit]) -> list[
     return warnings
 
 
+def check_specs(units: list[KnowledgeUnit]) -> list[str]:
+    """A/B/C 的判据评分器能否解析。有问题整文件拒绝。"""
+    out = []
+    for i, u in enumerate(units):
+        if u.kind == "claim" and u.payload["verifiability"] in ("A", "B", "C"):
+            out += [f"units[{i}] {msg}" for msg in spec_problems(u.payload)]
+    return out
+
+
+def fill_ref_prices(ps: PriceStore, published_at, units: list[KnowledgeUnit],
+                    ref_prices: dict[int, float]) -> list[str]:
+    """可定价、带标的、文件里没给参考价的 claim：补上作者说话前最近的收盘（§5）。原地改 ref_prices。"""
+    notes = []
+    for i, u in enumerate(units):
+        sym = u.payload.get("asset_symbol") if u.kind == "claim" else None
+        if i in ref_prices or not sym or not u.payload.get("priceable"):
+            continue
+        row = pre_publication_close(ps, sym, published_at)
+        if row is None:
+            notes.append(f"units[{i}] {sym} 发布前没有行情，参考价留空")
+            continue
+        ref_prices[i] = round(float(row[1]), 4)
+        notes.append(f"units[{i}] {sym} 参考价 ← {row[0]} 收盘 {ref_prices[i]}")
+    return notes
+
+
 def _cmd_runs(store: KnowledgeStore, content_id: int) -> None:
     rows = store.runs_for_content(content_id)
     if not rows:
@@ -135,8 +167,16 @@ def main() -> None:
                 print(f"  units[{i}] quote 不在原文中：{units[i].quote[:50]}…")
             raise SystemExit("quote 校验失败，整文件拒绝")
 
+        problems = check_specs(units)
+        if problems:
+            for msg in problems:
+                print(f"  {msg}")
+            raise SystemExit("判据评分器解析不了，整文件拒绝（规范 §4 / scoring_spec 的机器字段）")
+
         for w in check_vocabulary(store, units):
             print(f"  ⚠ {w}")
+        for note in fill_ref_prices(PriceStore(pool), content["published_at"], units, ref_prices):
+            print(f"  {note}")
 
         kinds = Counter(u.kind for u in units)
         grades = Counter(u.payload["verifiability"] for u in units if u.kind == "claim")

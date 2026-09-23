@@ -909,3 +909,63 @@ def test_ingest_window_covers_the_whole_gap(kstore):
 
     # 库里没有该信源的内容时给一个有限的起步窗口，而不是 0 或无穷
     assert dailymod.ingest_since_days(kstore.pool, "@never-seen", now=now) == 30
+
+
+def test_v3_spec_problems_catch_what_used_to_fail_on_the_due_date():
+    """v3：判据评分器解析不了的，导入时就拒绝（此前要到期那天才抛错，还拖停其后所有单元）。"""
+    from fanisl.knowledge.scorers import spec_problems
+    spec = {"method": "range_hold", "eval_ladder": ["2026-07-08"], "success_def": "t"}
+    base = _claim(asset_symbol="WTI", direction="range", magnitude={"low": 66, "high": 70}, scoring_spec=spec)
+    assert any("bounds" in m for m in spec_problems(base))                     # #1127 那一类
+    assert spec_problems({**base, "scoring_spec": {**spec, "bounds": "low_only"}}) == []
+    assert any("low 或 high" in m for m in spec_problems({**base, "magnitude": None}))   # #799 那一类
+    touch = {"method": "target_touch", "eval_ladder": ["2026-07-08", "2026-07-31"], "success_def": "t"}
+    assert any("target" in m for m in spec_problems(_claim(asset_symbol="WTI", scoring_spec=touch,
+                                                           magnitude={"target": {"2026-07-08": 75}})))
+    assert spec_problems(_claim(asset_symbol="WTI", scoring_spec=touch,
+                                magnitude={"target": {"2026-07-08": 75, "2026-07-31": 78}})) == []
+    assert any("日线序列" in m for m in spec_problems(_claim(asset_symbol="CL")))     # 别名不是日线符号
+    cond = _claim(asset_symbol="WTI", condition_text="站住 70", condition_observable=True, verifiability="C")
+    assert any("condition" in m for m in spec_problems(cond))
+
+
+def test_v3_scorer_reads_machine_rules_from_the_spec(pool):
+    import datetime as dt
+    from fanisl.knowledge import scorers
+    from fanisl.knowledge.models import KnowledgeUnit
+    from fanisl.knowledge.prices import PriceStore
+    ps = PriceStore(pool)
+    with pool.connection() as conn:
+        conn.execute("DELETE FROM daily_bars WHERE symbol IN ('WTI','KOSPI')")
+    bars = [(dt.date(2026, 7, 1), 70, 70, 70, 70), (dt.date(2026, 7, 2), 70, 74, 70, 73),
+            (dt.date(2026, 7, 3), 73, 75, 72, 74), (dt.date(2026, 7, 6), 74, 76, 67, 68),
+            (dt.date(2026, 7, 7), 68, 69, 66, 66.5), (dt.date(2026, 7, 8), 66, 72, 66, 71)]
+    ps.upsert("WTI", bars, "test")
+    ps.upsert("KOSPI", bars, "test")
+    L = dt.date(2026, 7, 8)
+    rh = {"method": "range_hold", "eval_ladder": ["2026-07-08"], "benchmark": None, "success_def": "t"}
+    # 双边 magnitude，判哪一边写在 spec 里。只判下沿 66.2：7/7 盘中 66 跌破、收 66.5 收回 → partial；
+    # 双边都判：7/2 起收盘高于上沿 70 → miss
+    u = _unit({"scoring_spec": {**rh, "bounds": "low_only"}, "direction": "range",
+               "magnitude": {"low": 66.2, "high": 70}})
+    assert scorers.score_unit_at(ps, u, L)[0] == "partial"
+    u = _unit({"scoring_spec": {**rh, "bounds": "both"}, "direction": "range", "magnitude": {"low": 60, "high": 70}})
+    assert scorers.score_unit_at(ps, u, L)[0] == "miss"
+    # 按阶梯日分别给下沿
+    u = _unit({"scoring_spec": rh, "direction": "range", "magnitude": {"low": {"2026-07-08": 65}}})
+    assert scorers.score_unit_at(ps, u, L)[0] == "hit"
+    # sign 的比较符与基准日写在 spec：7/8 收 71 > 7/3 收 74？否 → miss
+    sg = {"method": "sign", "eval_ladder": ["2026-07-08"], "benchmark": None, "success_def": "t",
+          "op": ">", "baseline_date": "2026-07-03"}
+    assert scorers.score_unit_at(ps, _unit({"scoring_spec": sg}), L)[0] == "miss"
+
+    # 说话前最近的收盘：12:00 UTC 发布 = 美东开盘前 → 前一交易日；韩股当日收盘早于正午 UTC
+    pub = datetime(2026, 7, 6, 12, tzinfo=timezone.utc)
+    assert scorers.pre_publication_close(ps, "WTI", pub) == (dt.date(2026, 7, 3), 74)
+    assert scorers.pre_publication_close(ps, "KOSPI", pub) == (dt.date(2026, 7, 6), 68)
+
+    # 空的 v3 字段不写进载荷；grade_note 有值时保留
+    k = KnowledgeUnit(kind="claim", quote="q", payload=_claim())
+    assert "bounds" not in k.payload["scoring_spec"] and "grade_note" not in k.payload
+    k = KnowledgeUnit(kind="claim", quote="q", payload=_claim(grade_note="期限系我方指定"))
+    assert k.payload["grade_note"] == "期限系我方指定"

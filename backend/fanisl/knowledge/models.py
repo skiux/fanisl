@@ -31,12 +31,37 @@ class Horizon(BaseModel):
         return self
 
 
+class Condition(BaseModel):
+    """前置条件的机器写法（与 scoring_overrides.json 里的 condition 同构）。"""
+    type: Literal["close_below", "close_above", "close_above_eq", "touch_below",
+                  "touch_above_close_below", "dip_hold", "guard_hold", "breakout_retest"]
+    symbol: str | None = None          # 省略 = 本条的 asset_symbol
+    level: float | None = None
+    after: str | None = None           # ISO 日期：条件搜索起点推迟到该日（挂在已排期事件上时）
+    touch_below: float | None = None   # dip_hold 用
+    close_at_least: float | None = None
+    breakout_close: float | None = None  # breakout_retest 用
+    retest_floor: float | None = None
+
+
 class ScoringSpec(BaseModel):
-    """提取时冻结的评分规格——评分器唯一的输入约定。"""
+    """提取时冻结的评分规格——评分器唯一的输入约定。
+
+    v3 起（2026-09-24）机器判据全部写在这里：区间判哪一边、比较符、基准日、前置条件。
+    此前它们按单元 id 登记在 scoring_overrides.json，导入时没有 id、验不了，漏配就是到期那天抛错。
+    覆盖表只留给 v1/v2 的存量单元；两处都写了，以覆盖表为准。
+    """
     method: ScoringMethod
     eval_ladder: list[str] = Field(description="评分时点 ISO 日期列表（open_ended 用默认阶梯并注明系我方指定）")
     benchmark: str | None = Field(default=None, description="relative_return 的基准符号")
     success_def: str = Field(description="一句话成功定义（评分争议时的仲裁依据）")
+    bounds: Literal["low_only", "high_only", "both"] | None = Field(
+        default=None, description="range_hold 判哪一边；magnitude 同时有 low 与 high 时必填")
+    op: Literal[">", ">=", "<", "<=", "=="] | None = Field(
+        default=None, description="sign 的显式比较符（阶梯函数标的用严格号，§4）")
+    baseline_date: str | None = Field(default=None, description="起点改用该日收盘（只检验某一次事件）")
+    condition: Condition | None = None
+    vs: Literal["condition_close"] | None = Field(default=None, description="方向对条件成立日收盘判")
 
 
 class ClaimPayload(BaseModel):
@@ -52,6 +77,8 @@ class ClaimPayload(BaseModel):
     stance_strength: Literal["explicit", "hedged", "speculative"]
     verifiability: Verifiability
     scoring_spec: ScoringSpec | None = None
+    grade_note: str | None = Field(
+        default=None, description="定级说明：为什么判这一级、代理与口径怎么定（v3 起；asset_text 只写原文的资产表述）")
 
     @model_validator(mode="after")
     def _check(self):
@@ -97,5 +124,23 @@ class KnowledgeUnit(BaseModel):
 
     @model_validator(mode="after")
     def _validate_payload(self):
-        self.payload = _PAYLOADS[self.kind].model_validate(self.payload).model_dump()
+        self.payload = _drop_empty_v3(_PAYLOADS[self.kind].model_validate(self.payload).model_dump())
         return self
+
+
+# v3 新增的字段为空时不写进载荷：存量单元重新过模型（修改、重验）时不应平白多出一串 null，
+# 否则修改记录会把它们报成改动。
+_V3_SPEC_KEYS = ("bounds", "op", "baseline_date", "condition", "vs")
+
+
+def _drop_empty_v3(payload: dict) -> dict:
+    if payload.get("grade_note") is None:
+        payload.pop("grade_note", None)
+    spec = payload.get("scoring_spec")
+    if isinstance(spec, dict):
+        for k in _V3_SPEC_KEYS:
+            if spec.get(k) is None:
+                spec.pop(k, None)
+        if isinstance(spec.get("condition"), dict):
+            spec["condition"] = {k: v for k, v in spec["condition"].items() if v is not None}
+    return payload

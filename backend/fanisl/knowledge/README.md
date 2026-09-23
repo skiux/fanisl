@@ -3,7 +3,7 @@
 持续学习、持续验证、持续沉淀投资知识的引擎（定位与分期见 `docs/knowledge-engine-design.md`）。
 本 README 是模块地图：文件职责、数据流、常用命令。规范类文档同放本目录：
 
-- `extraction-guide.md` — L1 提取规范 **v2**（冻结；判断规则 + 期限映射 + 标签受控词表；v1→v2 改动见其 §11）
+- `extraction-guide.md` — L1 提取规范 **v3**（冻结；判断规则 + 期限映射 + 幅度词表 + 标签受控词表；v1→v2、v2→v3 改动见其 §11、§12）
 - `merge-guide.md` — K5 归并规范 v1（节点判据 + 提及关系 + 生命周期状态规则 + 执行流程）
 
 ## 数据流
@@ -34,10 +34,10 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `transcribe_video.py` | 单视频转录 CLI：`python -m fanisl.knowledge.transcribe_video <handle> <video_id>` |
 | `backfill_transcripts.py` | 批量转录回填 CLI（幂等、限速、429/5xx 退避）：`python -m fanisl.knowledge.backfill_transcripts <handle> --since-days 60` |
 | `backfill_creator.py` | 单信源历史内容登记辅助 |
-| `import_units.py` | L1 单元导入 CLI（PendingBackend 的入库端）：JSON → pydantic 校验 + quote∈原文校验 → record_extraction；`--dry-run` 只验不写 |
+| `import_units.py` | L1 单元导入 CLI（PendingBackend 的入库端）：JSON → pydantic 校验 + quote∈原文校验 + A/B/C 判据可解析性校验（v3）→ 没写参考价的补作者说话前的收盘（v3）→ record_extraction；`--dry-run` 只验不写 |
 | `prices.py` | K4 价格层：daily_bars 表 + SYMBOL_MAP（美股/ETF/指数/期货/汇率/加密 + FRED 序列；期货代理现货者已注明）：`python -m fanisl.knowledge.prices`（幂等 upsert） |
 | `scorers.py` | K4 评分器：按冻结 ScoringSpec 到期机械评分（sign/target_touch/target_close/range_hold/relative_return + 条件解析），`python -m fanisl.knowledge.scorers [--dry-run]`（幂等）；口径细节见模块 docstring。**逐个时点隔离异常**：一条单元解析不了只记失败、其余照评，评完再抛出失败清单（2026-09-23；此前一条坏单元会让 id 更大的全部停评，8-29 至 9-23 实际停了） |
-| `scoring_overrides.json` | success_def 的机械化编译：条件结构化/判界修正/组合定义，语义仲裁=success_def。主体是 pending-v1 存量；**对 v2 也适用的例外**是阶梯函数标的的比较符（extraction-guide §4）——ScoringSpec 没有承载比较符的字段，`>`/`>=`/`<`/`<=`/`==` 只能在此登记。议息类 claim 常用的两种写法（2026-09-17 起）：`condition.after` 把条件搜索起点推到议息之后（「不加息」＝`close_below DFEDTARU 3.76, after <会后一日>`）；`baseline_date` + `op` 只检验某一次会议（「12 月加息」＝12-31 的值 `>` 11-30 的值） |
+| `scoring_overrides.json` | success_def 的机械化编译：条件结构化/判界修正/组合定义，语义仲裁=success_def。**只管 v1/v2 存量**：v3 起这些机器判据（bounds / op / baseline_date / condition / vs）写在单元自己的 `scoring_spec` 里，导入时由 `scorers.spec_problems` 验可解析性；两处都写了以覆盖表为准。议息类 claim 常用的两种写法（2026-09-17 起）：`condition.after` 把条件搜索起点推到议息之后（「不加息」＝`close_below DFEDTARU 3.76, after <会后一日>`）；`baseline_date` + `op` 只检验某一次会议（「12 月加息」＝12-31 的值 `>` 11-30 的值） |
 | `nodes.py` | K5 归并层：knowledge_nodes/node_attestations 两表 + 生命周期重算 + CLI（export/import/seed-singletons/recompute/retire），判据见 merge-guide.md |
 | `estimates.py` | 盈利预期修正：eps_estimates 表 + yfinance eps_trend（0q/+1q/0y/+1y × current/7d/30d/60d/90d）；`estimates --screen` 出横截面。**每日快照不可回填**——yfinance 只给当天，断一天少一天 |
 | `league.py` | 联赛表的显著性口径：零假设取**各标的自身的无条件漂移**而非 50%，用泊松二项精确尾概率（各时点成功概率不等）；返回 excluded_hits/excluded_misses 以暴露排除偏差 |

@@ -42,6 +42,11 @@
     `docs/decisions/`。席位表里的 `tools/` 分不清是 `backend/tools/` 还是 `backend/fanisl/tools/`
 
 ## Requests in
+- **knowledge 席位（2026-09-24，提取规范 v3）**：`backend/api.md` §5.0 的 claim payload 请补三处，都是新增、
+  旧字段不变：① `grade_note|null`（定级说明；v3 起 D 级的理由写这里，`asset_text` 只写原文的资产表述）；
+  ② `magnitude` 的 `target / low / high` 可以是数字，也可以是按阶梯日给值的对象 `{"YYYY-MM-DD": 数字}`；
+  ③ `scoring_spec` 可带 `bounds` `op` `baseline_date` `condition` `vs`（评分器的机器判据，前端一般不用显示）。
+  现存实例：#1596 的 `magnitude.low` 是按日期的对象。模型见 `backend/fanisl/knowledge/models.py`
 - **frontend 席位（2026-09-23，线上加载慢）**：请给 nginx 开 gzip，覆盖 API 的 JSON 与前端的 JS/CSS。
   实测线上（本机经代理访问 fanisl.skiuo.com）：只有 `index.html` 带 `Content-Encoding: gzip`，
   `/assets/index-*.js`（240KB）与 API 的 JSON 都是原样传；到服务器往返约 0.35s、下载 230–390KB/s。

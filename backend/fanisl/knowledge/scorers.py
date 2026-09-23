@@ -41,6 +41,41 @@ def _pub_close(ps: PriceStore, sym: str, pub: dt.date) -> float | None:
     return row[1] if row else None
 
 
+# 收盘早于 12:00 UTC 的市场：发布当天的收盘已经在发布之前（韩股收盘 06:30 UTC）。
+_CLOSES_BEFORE_NOON_UTC = {"KOSPI"}
+
+
+def pre_publication_close(ps: PriceStore, sym: str, published_at: dt.datetime) -> tuple[dt.date, float] | None:
+    """作者说话前最近的收盘（规范 v3 §5 的参考价）。
+
+    `published_at` 只有日期可信，时刻一律记 12:00 UTC，即美东开盘前——所以美股、欧洲、商品、
+    加密（yfinance 按 UTC 日切）、FRED 序列都取发布日**前一个**交易日的收盘；收盘早于正午 UTC 的
+    亚洲市场取当日。评分器缺参考价时的回填（`_pub_close`）仍是发布日收盘，那是 v1/v2 的口径，
+    存量单元不改；v3 的单元在导入时就按这里写好参考价。
+    """
+    pub = published_at.date()
+    if sym in _CLOSES_BEFORE_NOON_UTC:
+        return ps.close_on_or_before(sym, pub)
+    return ps.close_on_or_before(sym, pub - dt.timedelta(days=1))
+
+
+def _at(value, ladder_date: dt.date):
+    """magnitude 的值可以按阶梯日分别给（{日期: 值}），幅度词表按期限分档时用（v3）。"""
+    if isinstance(value, dict):
+        return value.get(str(ladder_date))
+    return value
+
+
+_SPEC_KNOBS = ("bounds", "op", "baseline_date", "condition", "vs")
+
+
+def _knobs(unit: dict) -> dict:
+    """机器判据：v3 写在 scoring_spec 里，v1/v2 登记在覆盖表；两处都有时覆盖表为准。"""
+    spec = unit["payload"]["scoring_spec"]
+    base = {k: spec[k] for k in _SPEC_KNOBS if spec.get(k) is not None}
+    return {**base, **OVERRIDES.get(str(unit["id"]), {})}
+
+
 def _resolve_condition(ps: PriceStore, cond: dict, own_sym: str, pub: dt.date,
                        until: dt.date) -> tuple[dt.date | None, str | None]:
     """在 [pub+1, until] 内找条件成立日。返回 (成立日|None, 失败态|None)。
@@ -121,7 +156,7 @@ def _score_range(bars: list[dict], low, high, floor, bounds: str) -> str:
 def score_unit_at(ps: PriceStore, unit: dict, ladder_date: dt.date) -> tuple[str, dict] | None:
     """对单元在一个阶梯时点评分。未到期返回 None；否则 (outcome, realized)。"""
     p = unit["payload"]
-    spec, ov = p["scoring_spec"], OVERRIDES.get(str(unit["id"]), {})
+    spec, ov = p["scoring_spec"], _knobs(unit)
     ov = {**ov, **ov.get("per_ladder", {}).get(str(ladder_date), {})}
     if ov.get("manual"):
         return "condition_unverifiable", {"note": ov["manual"]}
@@ -193,7 +228,7 @@ def score_unit_at(ps: PriceStore, unit: dict, ladder_date: dt.date) -> tuple[str
         return _score_sign(direction, eval_close, ref, ov), realized
 
     if method == "target_touch":
-        t = mag["target"]
+        t = _at(mag["target"], ladder_date)
         if direction == "down":
             touched = any(b["low"] <= t for b in bars)
         else:
@@ -201,7 +236,7 @@ def score_unit_at(ps: PriceStore, unit: dict, ladder_date: dt.date) -> tuple[str
         return ("hit" if touched else "miss"), realized
 
     if method == "target_close":
-        t = mag["target"]
+        t = _at(mag["target"], ladder_date)
         dev = abs(eval_close - t) / t
         if dev <= 0.02:
             return "hit", realized
@@ -209,7 +244,8 @@ def score_unit_at(ps: PriceStore, unit: dict, ladder_date: dt.date) -> tuple[str
         return ("partial" if right_dir and dev <= 0.05 else "miss"), realized
 
     if method == "range_hold":
-        low, high, floor = mag.get("low"), ov.get("level_high", mag.get("high")), ov.get("floor")
+        low = _at(mag.get("low"), ladder_date)
+        high, floor = ov.get("level_high", _at(mag.get("high"), ladder_date)), ov.get("floor")
         if ov.get("high_from_pub_plus") is not None:
             high, low = _pub_close(ps, syms[0], pub) + ov["high_from_pub_plus"], None
         bounds = ov.get("bounds") or ("low_only" if low is not None and high is None
@@ -221,7 +257,9 @@ def score_unit_at(ps: PriceStore, unit: dict, ladder_date: dt.date) -> tuple[str
     if method == "relative_return":
         bench = spec["benchmark"]
         def ret(s: str) -> float | None:
-            p0 = _pub_close(ps, s, pub)
+            base = ps.close_on_or_before(s, dt.date.fromisoformat(ov["baseline_date"])) \
+                if ov.get("baseline_date") else None
+            p0 = base[1] if base else _pub_close(ps, s, pub)
             p1 = ps.close_on_or_before(s, ladder_date)
             return None if (p0 is None or p1 is None) else p1[1] / p0 - 1
         rs = [ret(s) for s in syms]
@@ -238,6 +276,53 @@ def score_unit_at(ps: PriceStore, unit: dict, ladder_date: dt.date) -> tuple[str
         return ("hit" if diff >= margin else "miss"), realized  # flat
 
     raise ValueError(f"未知 method: {method}")
+
+
+_METHOD_NEEDS = {"target_touch": "target", "target_close": "target"}
+
+
+def spec_problems(payload: dict) -> list[str]:
+    """一条 A/B/C claim 的判据评分器能不能解析——导入时就验，不等到期那天抛错（v3）。
+
+    只看载荷本身：v3 的机器判据都在 scoring_spec 里。存量单元靠覆盖表补的配置不在此列。
+    """
+    spec = payload.get("scoring_spec") or {}
+    method, mag = spec.get("method"), payload.get("magnitude") or {}
+    ladder = spec.get("eval_ladder") or []
+    out: list[str] = []
+    sym = payload.get("asset_symbol")
+    if not sym or (sym not in SYMBOL_MAP and sym not in FRED_SERIES):
+        out.append(f"asset_symbol={sym!r} 没有日线序列，评分器只会判 unpriceable")
+    try:
+        dates = [dt.date.fromisoformat(d) for d in ladder]
+        if not dates or dates != sorted(dates):
+            out.append("eval_ladder 须为非空、升序的 ISO 日期")
+    except (TypeError, ValueError):
+        out.append("eval_ladder 须为 ISO 日期")
+
+    def covered(key: str) -> bool:
+        v = mag.get(key)
+        if isinstance(v, dict):
+            return all(isinstance(v.get(d), (int, float)) for d in ladder)
+        return isinstance(v, (int, float))
+
+    if method in _METHOD_NEEDS and not covered("target"):
+        out.append(f"{method} 需要 magnitude.target（按阶梯给时每个阶梯日都要有）")
+    if method == "range_hold":
+        has_low, has_high = covered("low"), covered("high")
+        if not (has_low or has_high):
+            out.append("range_hold 需要 magnitude.low 或 high")
+        elif has_low and has_high and not spec.get("bounds"):
+            out.append("magnitude 同时有 low 与 high，须在 scoring_spec.bounds 写明判哪一边")
+    if method == "relative_return":
+        b = spec.get("benchmark")
+        if not b or (b not in SYMBOL_MAP and b not in FRED_SERIES):
+            out.append(f"relative_return 的 benchmark={b!r} 没有日线序列")
+    if method == "sign" and payload.get("direction") not in ("up", "down", "flat") and not spec.get("op"):
+        out.append("sign 需要 direction 为 up/down/flat，或 scoring_spec.op")
+    if payload.get("condition_observable") and not spec.get("condition"):
+        out.append("condition_observable=true 须在 scoring_spec.condition 写出机器条件，否则评分器会忽略条件")
+    return out
 
 
 def run(*, dry: bool) -> None:
