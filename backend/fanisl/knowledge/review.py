@@ -10,8 +10,9 @@
       [--payload-file new_payload.json] [--quote "…"] [--tags a,b,c]
   python -m fanisl.knowledge.review answer <review_id> --outcome fixed|no_change|needs_info \\
       --body "…" [--root-cause "…"] [--sweep "…"] [--followup "…"]
-  python -m fanisl.knowledge.review void <unit_id> <horizon_label> --reason "…"
-      # 作废本不该存在的评分时点（原样留在 claim_score_voids，统计不再计）
+  python -m fanisl.knowledge.review void <unit_id> <horizon_label> --reason "…" [--rescore]
+      # 作废本不该存在的评分时点（原样留在 claim_score_voids，统计不再计）；
+      # --rescore：评分器没按冻结的判据执行，配置修好后重评
 """
 
 from __future__ import annotations
@@ -57,7 +58,8 @@ def _cmd_show(store: KnowledgeStore, review_id: int) -> None:
     if u.get("scores"):
         print(f"评分记录：{_dump(u['scores'])}")
     for v in store.score_voids(u["id"]):
-        print(f"作废的评分 {v['horizon_label']}（{v['score'].get('outcome')}）：{v['reason']}")
+        tag = "待重评" if v["rescore"] else "作废"
+        print(f"{tag}的评分 {v['horizon_label']}（{v['score'].get('outcome')}）：{v['reason']}")
     print("\n对话：")
     for m in r["messages"]:
         print(f"  [{m['role']}] {m['author']}  {str(m['created_at'])[:16]}")
@@ -88,9 +90,10 @@ def _cmd_answer(store: KnowledgeStore, args: argparse.Namespace) -> None:
 
 
 def _cmd_void(store: KnowledgeStore, args: argparse.Namespace) -> None:
-    v = store.void_score(args.unit_id, args.horizon_label, reason=args.reason, author=args.author)
+    v = store.void_score(args.unit_id, args.horizon_label, reason=args.reason, author=args.author,
+                         rescore=args.rescore)
     print(f"已作废单元 #{args.unit_id} 在 {args.horizon_label} 的评分（原为 {v['score'].get('outcome')}），"
-          f"作废记录 #{v['id']}")
+          f"作废记录 #{v['id']}{'，待重评' if args.rescore else ''}")
 
 
 def main() -> None:
@@ -120,6 +123,7 @@ def main() -> None:
     p.add_argument("unit_id", type=int)
     p.add_argument("horizon_label")
     p.add_argument("--reason", required=True)
+    p.add_argument("--rescore", action="store_true", help="评分器没按冻结的判据执行，配置修好后重评")
     p.add_argument("--author", default=AUTHOR)
     args = ap.parse_args()
 

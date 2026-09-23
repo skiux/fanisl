@@ -197,3 +197,17 @@ def test_void_score_keeps_the_row_and_blocks_rescoring(ks, unit_id):
                       payload=_claim(horizon={"type": "by_date", "deadline": "2026-09-30"},
                                      scoring_spec={"method": "target_touch", "eval_ladder": ["2026-09-30"],
                                                    "success_def": "截止日前任意日高点≥75"}))
+
+
+def test_void_for_rescore_lets_the_scorer_score_again(ks, unit_id):
+    """配置漏了条件、评分没按冻结的判据执行：原行留档，时点放回给评分器重评。"""
+    ks.record_score(unit_id, eval_ts=datetime(2026, 9, 1, tzinfo=timezone.utc), horizon_label="2026-08-31",
+                    outcome="hit", realized={}, scorer_version="v1")
+    ks.void_score(unit_id, "2026-08-31", reason="漏了前置条件，重评", author="claude-session", rescore=True)
+    assert not ks.score_exists(unit_id, "2026-08-31", "v1")
+    ks.record_score(unit_id, eval_ts=datetime(2026, 9, 2, tzinfo=timezone.utc), horizon_label="2026-08-31",
+                    outcome="condition_not_met", realized={}, scorer_version="v1")
+    assert ks.score_exists(unit_id, "2026-08-31", "v1")
+    # 重评出来的这一条日后也还能作废（同一时点可以有多条作废记录）
+    ks.void_score(unit_id, "2026-08-31", reason="再作废", author="claude-session")
+    assert [v["rescore"] for v in ks.score_voids(unit_id)] == [True, False]

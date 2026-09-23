@@ -34,9 +34,10 @@ class Horizon(BaseModel):
 class Condition(BaseModel):
     """前置条件的机器写法（与 scoring_overrides.json 里的 condition 同构）。"""
     type: Literal["close_below", "close_above", "close_above_eq", "touch_below",
-                  "touch_above_close_below", "dip_hold", "guard_hold", "breakout_retest"]
+                  "touch_above_close_below", "dip_hold", "guard_hold", "guard_cap", "breakout_retest"]
     symbol: str | None = None          # 省略 = 本条的 asset_symbol
     level: float | None = None
+    dates: list[str] | None = None     # 只看这几个交易日的收盘（close_below / close_above / close_above_eq）
     after: str | None = None           # ISO 日期：条件搜索起点推迟到该日（挂在已排期事件上时）
     touch_below: float | None = None   # dip_hold 用
     close_at_least: float | None = None

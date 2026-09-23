@@ -82,6 +82,7 @@ python -m fanisl.knowledge.import_units <file.json> --dry-run               # va
 python -m fanisl.knowledge.scorers --freeze-refs
 python -m fanisl.knowledge.spotcheck sample 10
 python -m fanisl.knowledge.review list                                      # open reviews = this seat's queue
+python -m fanisl.knowledge.audit                                            # read-only health check; run after every batch
 ```
 
 Ingestion runs automatically in the collector's daily job (24-hour interval), so

@@ -85,6 +85,21 @@ def _resolve_condition(ps: PriceStore, cond: dict, own_sym: str, pub: dt.date,
     会前那几天利率本来就是 3.75，条件在发布次日就被误判为成立（2026-09-17 新增）。
     """
     sym = cond.get("symbol", own_sym)
+    if cond.get("dates"):
+        # 只看指定的几个交易日（例：「下一个交易日收盘站稳 53000」「这两个交易日收盘都低于 53000」），
+        # 全部满足才成立，成立日取最后一个（2026-09-24 新增）
+        for d in cond["dates"]:
+            day = _bars(ps, sym, dt.date.fromisoformat(d), dt.date.fromisoformat(d))
+            if not day:
+                return None, "condition_unverifiable"
+            c = day[0]["close"]
+            ok = {"close_below": c < cond["level"], "close_above": c > cond["level"],
+                  "close_above_eq": c >= cond["level"]}.get(cond["type"])
+            if ok is None:
+                raise ValueError(f"dates 条件不支持 type={cond['type']}")
+            if not ok:
+                return None, "condition_not_met"
+        return dt.date.fromisoformat(cond["dates"][-1]), None
     start = pub + dt.timedelta(days=1)
     if cond.get("after"):
         start = max(start, dt.date.fromisoformat(cond["after"]))
@@ -95,6 +110,11 @@ def _resolve_condition(ps: PriceStore, cond: dict, own_sym: str, pub: dt.date,
     if t == "guard_hold":  # 持续守护：任一收盘破位=条件失败；否则视为始终成立（成立日=起点）
         for b in bars:
             if b["close"] < cond["level"]:
+                return None, "condition_not_met"
+        return bars[0]["ts"], None
+    if t == "guard_cap":  # 始终没站上：任一收盘 >= level = 条件失败（例：「过不去 4700」，2026-09-24 新增）
+        for b in bars:
+            if b["close"] >= cond["level"]:
                 return None, "condition_not_met"
         return bars[0]["ts"], None
     if t == "breakout_retest":  # 收盘突破后回踩不破 retest_floor；破=确认失败
@@ -200,7 +220,7 @@ def score_unit_at(ps: PriceStore, unit: dict, ladder_date: dt.date) -> tuple[str
         if ov.get("vs") == "condition_close":
             ref = _pub_close(ps, sym, c_date)
             realized["ref"] = round(float(ref), 4)
-        if ov["condition"]["type"] != "guard_hold":
+        if ov["condition"]["type"] not in ("guard_hold", "guard_cap"):
             if c_date >= ladder_date and ov.get("mode") != "touch" and method != "range_hold":
                 return "condition_not_met", realized
             win_start = c_date + dt.timedelta(days=1)
@@ -219,6 +239,15 @@ def score_unit_at(ps: PriceStore, unit: dict, ladder_date: dt.date) -> tuple[str
     if mode == "touch":
         touched = any(b["low"] <= ov["touch_level"] for b in bars)
         return ("hit" if touched else "miss"), realized
+    if mode == "race":
+        # 竞速：上方先被触及 = hit；收盘先跌破下方 = miss；都没发生时盘中破过下方 = partial，否则 hit
+        # （unit 1133：「4600 在抵达 4700 前不易破」，2026-09-24 新增）
+        for b in bars:
+            if b["high"] >= ov["up_touch"]:
+                return "hit", realized
+            if b["close"] < ov["down_close"]:
+                return "miss", realized
+        return ("partial" if any(b["low"] < ov["down_close"] for b in bars) else "hit"), realized
     if mode == "max_drawdown_lt":
         dd = min((b["close"] / ref - 1 for b in bars), default=0.0)
         realized["max_dd"] = round(dd, 4)
@@ -281,18 +310,24 @@ def score_unit_at(ps: PriceStore, unit: dict, ladder_date: dt.date) -> tuple[str
 _METHOD_NEEDS = {"target_touch": "target", "target_close": "target"}
 
 
-def spec_problems(payload: dict) -> list[str]:
+def spec_problems(payload: dict, knobs: dict | None = None) -> list[str]:
     """一条 A/B/C claim 的判据评分器能不能解析——导入时就验，不等到期那天抛错（v3）。
 
-    只看载荷本身：v3 的机器判据都在 scoring_spec 里。存量单元靠覆盖表补的配置不在此列。
+    `knobs` 省略时只看载荷（导入时还没有单元 id，v3 的机器判据都在 scoring_spec 里）；
+    体检存量单元时传 `_knobs(unit)`，把覆盖表里的配置一起算上。
     """
     spec = payload.get("scoring_spec") or {}
+    if knobs is None:
+        knobs = {k: spec[k] for k in _SPEC_KNOBS if spec.get(k) is not None}
+    if knobs.get("manual"):
+        return []                      # 人工判定为不可评，评分器直接记 condition_unverifiable
     method, mag = spec.get("method"), payload.get("magnitude") or {}
     ladder = spec.get("eval_ladder") or []
     out: list[str] = []
-    sym = payload.get("asset_symbol")
-    if not sym or (sym not in SYMBOL_MAP and sym not in FRED_SERIES):
-        out.append(f"asset_symbol={sym!r} 没有日线序列，评分器只会判 unpriceable")
+    syms = knobs.get("basket") or [payload.get("asset_symbol")]
+    for sym in syms:
+        if not sym or (sym not in SYMBOL_MAP and sym not in FRED_SERIES):
+            out.append(f"asset_symbol={sym!r} 没有日线序列，评分器只会判 unpriceable")
     try:
         dates = [dt.date.fromisoformat(d) for d in ladder]
         if not dates or dates != sorted(dates):
@@ -306,21 +341,37 @@ def spec_problems(payload: dict) -> list[str]:
             return all(isinstance(v.get(d), (int, float)) for d in ladder)
         return isinstance(v, (int, float))
 
-    if method in _METHOD_NEEDS and not covered("target"):
+    mode = knobs.get("mode")
+    if mode == "close_at_eval":
+        if knobs.get("op") not in _CMP or not isinstance(knobs.get("level"), (int, float)):
+            out.append("mode=close_at_eval 需要 op 与 level")
+    elif mode == "touch":
+        if not isinstance(knobs.get("touch_level"), (int, float)):
+            out.append("mode=touch 需要 touch_level")
+    elif mode == "max_drawdown_lt":
+        if not isinstance(knobs.get("pct"), (int, float)):
+            out.append("mode=max_drawdown_lt 需要 pct")
+    elif mode == "race":
+        if not all(isinstance(knobs.get(k), (int, float)) for k in ("up_touch", "down_close")):
+            out.append("mode=race 需要 up_touch 与 down_close")
+    elif method in _METHOD_NEEDS and not covered("target"):
         out.append(f"{method} 需要 magnitude.target（按阶梯给时每个阶梯日都要有）")
-    if method == "range_hold":
-        has_low, has_high = covered("low"), covered("high")
+    elif method == "range_hold":
+        has_low = covered("low")
+        has_high = covered("high") or "level_high" in knobs or "high_from_pub_plus" in knobs
         if not (has_low or has_high):
             out.append("range_hold 需要 magnitude.low 或 high")
-        elif has_low and has_high and not spec.get("bounds"):
+        elif has_low and has_high and not knobs.get("bounds") and "high_from_pub_plus" not in knobs:
             out.append("magnitude 同时有 low 与 high，须在 scoring_spec.bounds 写明判哪一边")
     if method == "relative_return":
         b = spec.get("benchmark")
         if not b or (b not in SYMBOL_MAP and b not in FRED_SERIES):
             out.append(f"relative_return 的 benchmark={b!r} 没有日线序列")
-    if method == "sign" and payload.get("direction") not in ("up", "down", "flat") and not spec.get("op"):
-        out.append("sign 需要 direction 为 up/down/flat，或 scoring_spec.op")
-    if payload.get("condition_observable") and not spec.get("condition"):
+    # direction 不是 up/down 的一律按 flat（±band）评；range 本就是这个意思，vol_up / 空值则是配置漏了
+    if (method == "sign" and not mode and payload.get("direction") not in ("up", "down", "flat", "range")
+            and knobs.get("op") not in _CMP):
+        out.append("sign 的 direction 不是 up/down/flat，会被当成持平评；写明 scoring_spec.op")
+    if payload.get("condition_observable") and not knobs.get("condition") and mode != "race":  # 竞速自带条件
         out.append("condition_observable=true 须在 scoring_spec.condition 写出机器条件，否则评分器会忽略条件")
     return out
 

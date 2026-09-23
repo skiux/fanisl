@@ -192,6 +192,9 @@ _ASSETS: list[Asset] = [
     _s("VIK", "维京邮轮"),
     _s("ADBE", "Adobe"),
     _s("ARM", "Arm"),
+    # 2026-09-24 体检补登：语料早已出现、一直漏登记（LULU 16 条单元、CRDO 2 条）
+    _s("LULU", "露露乐蒙"),
+    _s("CRDO", "Credo"),
     # 伯克希尔：id 不带点号（URL 安全），yf 用交易所写法 BRK-B。
     Asset("BRKB", "stock", "伯克希尔 B 类", yf="BRK-B",
           aliases=("BRK.B", "BRK-B", "BRK/B")),

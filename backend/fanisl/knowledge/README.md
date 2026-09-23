@@ -37,7 +37,7 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `import_units.py` | L1 单元导入 CLI（PendingBackend 的入库端）：JSON → pydantic 校验 + quote∈原文校验 + A/B/C 判据可解析性校验（v3）→ 没写参考价的补作者说话前的收盘（v3）→ record_extraction；`--dry-run` 只验不写 |
 | `prices.py` | K4 价格层：daily_bars 表 + SYMBOL_MAP（美股/ETF/指数/期货/汇率/加密 + FRED 序列；期货代理现货者已注明）：`python -m fanisl.knowledge.prices`（幂等 upsert） |
 | `scorers.py` | K4 评分器：按冻结 ScoringSpec 到期机械评分（sign/target_touch/target_close/range_hold/relative_return + 条件解析），`python -m fanisl.knowledge.scorers [--dry-run]`（幂等）；口径细节见模块 docstring。**逐个时点隔离异常**：一条单元解析不了只记失败、其余照评，评完再抛出失败清单（2026-09-23；此前一条坏单元会让 id 更大的全部停评，8-29 至 9-23 实际停了） |
-| `scoring_overrides.json` | success_def 的机械化编译：条件结构化/判界修正/组合定义，语义仲裁=success_def。**只管 v1/v2 存量**：v3 起这些机器判据（bounds / op / baseline_date / condition / vs）写在单元自己的 `scoring_spec` 里，导入时由 `scorers.spec_problems` 验可解析性；两处都写了以覆盖表为准。议息类 claim 常用的两种写法（2026-09-17 起）：`condition.after` 把条件搜索起点推到议息之后（「不加息」＝`close_below DFEDTARU 3.76, after <会后一日>`）；`baseline_date` + `op` 只检验某一次会议（「12 月加息」＝12-31 的值 `>` 11-30 的值） |
+| `scoring_overrides.json` | success_def 的机械化编译：条件结构化/判界修正/组合定义，语义仲裁=success_def。**只管 v1/v2 存量**：v3 起这些机器判据（bounds / op / baseline_date / condition / vs）写在单元自己的 `scoring_spec` 里，导入时由 `scorers.spec_problems` 验可解析性；两处都写了以覆盖表为准。2026-09-24 补了三种写法：条件的 `dates`（只看某几个交易日的收盘）、`guard_cap`（期间始终没站上某价位）、`mode: race`（上方先触及算对、收盘先破下方算错）。议息类 claim 常用的两种写法（2026-09-17 起）：`condition.after` 把条件搜索起点推到议息之后（「不加息」＝`close_below DFEDTARU 3.76, after <会后一日>`）；`baseline_date` + `op` 只检验某一次会议（「12 月加息」＝12-31 的值 `>` 11-30 的值） |
 | `nodes.py` | K5 归并层：knowledge_nodes/node_attestations 两表 + 生命周期重算 + CLI（export/import/seed-singletons/recompute/retire），判据见 merge-guide.md |
 | `estimates.py` | 盈利预期修正：eps_estimates 表 + yfinance eps_trend（0q/+1q/0y/+1y × current/7d/30d/60d/90d）；`estimates --screen` 出横截面。**每日快照不可回填**——yfinance 只给当天，断一天少一天 |
 | `league.py` | 联赛表的显著性口径：零假设取**各标的自身的无条件漂移**而非 50%，用泊松二项精确尾概率（各时点成功概率不等）；返回 excluded_hits/excluded_misses 以暴露排除偏差 |
@@ -45,6 +45,7 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `overview.py` | 知识引擎总览计数（前端入口页用） |
 | `daily.py` | 每日维护封装（**自动摄取三个信源**→行情→盈利预期→评分→节点状态→补齐缺帧，best-effort）：`python -m fanisl.knowledge.daily`；已挂 collector 调度（knowledge_daily_interval_s，默认 86400s）。**摄取窗口按缺口算**：每源回看"最新一期距今多少天"（`ingest_since_days`，库里没有该源时回看 30 天），固定窗口在断更/断网后会漏掉中间几期 |
 | `discovery.py` | K6 发现层：harness 候选（testability=A 的 method 节点，`discovery harness`）+ 周报生成（`discovery weekly [--days 7]`，落 data_export/reports/，collector 每周自动跑） |
+| `audit.py` | 体检（只读）：`python -m fanisl.knowledge.audit`，报出评分器解析不了的 A/B/C（v1/v2 连同覆盖表一起验）、到期未评的时点、未登记的标的与词表外标签、疑似漏填 asset_symbol。前两项非空时退出码 1。导入时的警告只响一次、没人汇总，这里一次报全（2026-09-24） |
 | `spotcheck.py` | K6 抽查队列（spot_checks 启用）：`spotcheck sample [n]` 随机抽未查单元 / `spotcheck record <unit_id> <verdict> [note]` / `spotcheck stats` |
 | `review.py` | 单元核查的知识席位端：站上用户在单元详情里提意见（HTTP 接口归 base 席位），知识席位用 `review list / show / amend / answer` 处理。**答复只走这里**，网站写不了。见下方「单元核查」 |
 | `keyframes.py` | 提帧（ffmpeg 对直链输入级 seek，不下载全片）：`keyframes <video_id> <MM:SS…> [--height 1080]`。客户端梯队 android_vr→tv→ios→web_safari→web，逐个试到解析出流，用了哪个记进 `source`。墙会来回动，当前状态见下方"提帧的墙" |
@@ -88,7 +89,8 @@ python -m fanisl.knowledge.review amend <unit_id> --review <review_id> --reason 
     [--payload-file new_payload.json] [--quote "…"] [--tags a,b]
 python -m fanisl.knowledge.review answer <review_id> --outcome fixed|no_change|needs_info \
     --body "…" [--root-cause "…"] [--sweep "…"] [--followup "…"]
-python -m fanisl.knowledge.review void <unit_id> <horizon_label> --reason "…"   # 作废本不该存在的评分时点
+python -m fanisl.knowledge.review void <unit_id> <horizon_label> --reason "…" [--rescore]
+    # 作废本不该存在的评分时点；--rescore：评分器没按冻结的判据执行（配置漏了条件），修好后重评
 ```
 
 状态：`open`（待知识席位答复）→ `answered`（待用户确认）→ `closed`；用户在 `answered` 或

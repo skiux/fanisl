@@ -969,3 +969,36 @@ def test_v3_scorer_reads_machine_rules_from_the_spec(pool):
     assert "bounds" not in k.payload["scoring_spec"] and "grade_note" not in k.payload
     k = KnowledgeUnit(kind="claim", quote="q", payload=_claim(grade_note="期限系我方指定"))
     assert k.payload["grade_note"] == "期限系我方指定"
+
+
+def test_scorer_conditions_on_dates_cap_guard_and_race(pool, monkeypatch):
+    """2026-09-24 补的三种写法：只看某几个交易日的条件、始终没站上的条件、先到先判的竞速。"""
+    import datetime as dt
+    from fanisl.knowledge import scorers
+    from fanisl.knowledge.prices import PriceStore
+    ps = PriceStore(pool)
+    with pool.connection() as conn:
+        conn.execute("DELETE FROM daily_bars WHERE symbol='WTI'")
+    ps.upsert("WTI", [(dt.date(2026, 7, 1), 70, 70, 70, 70), (dt.date(2026, 7, 2), 70, 74, 70, 73),
+                      (dt.date(2026, 7, 3), 73, 75, 72, 74), (dt.date(2026, 7, 6), 74, 76, 67, 68),
+                      (dt.date(2026, 7, 7), 68, 69, 66, 66.5), (dt.date(2026, 7, 8), 66, 72, 66, 71)], "test")
+    L = dt.date(2026, 7, 8)
+    ov = lambda cfg: monkeypatch.setitem(scorers.OVERRIDES, "99999", cfg)
+    # 只看 7/2 与 7/3 两天：收盘都 > 72 → 条件成立（成立日 7/3），之后按 sign up 评 → 71 >= 70 hit
+    ov({"condition": {"type": "close_above", "level": 72, "dates": ["2026-07-02", "2026-07-03"]}})
+    out, real = scorers.score_unit_at(ps, _unit({}), L)
+    assert out == "hit" and real["cond_date"] == "2026-07-03"
+    ov({"condition": {"type": "close_above", "level": 73.5, "dates": ["2026-07-02", "2026-07-03"]}})
+    assert scorers.score_unit_at(ps, _unit({}), L)[0] == "condition_not_met"      # 7/2 收 73 不满足
+    # 始终没站上 75：期间最高收盘 74 → 成立；站上限改成 74 → 7/3 收 74 >= 74 失败
+    ov({"condition": {"type": "guard_cap", "level": 75}})
+    assert scorers.score_unit_at(ps, _unit({}), L)[0] == "hit"
+    ov({"condition": {"type": "guard_cap", "level": 74}})
+    assert scorers.score_unit_at(ps, _unit({}), L)[0] == "condition_not_met"
+    # 竞速：7/3 高点 75 先触及 → hit；上方改 77（没触及）、下方收盘 67 → 7/7 收 66.5 先破 → miss
+    ov({"mode": "race", "up_touch": 75, "down_close": 67})
+    assert scorers.score_unit_at(ps, _unit({}), L)[0] == "hit"
+    ov({"mode": "race", "up_touch": 77, "down_close": 67})
+    assert scorers.score_unit_at(ps, _unit({}), L)[0] == "miss"
+    ov({"mode": "race", "up_touch": 77, "down_close": 66.2})
+    assert scorers.score_unit_at(ps, _unit({}), L)[0] == "partial"                 # 盘中破 66.2、收盘都在上方
