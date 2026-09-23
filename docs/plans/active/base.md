@@ -42,6 +42,19 @@
     `docs/decisions/`。席位表里的 `tools/` 分不清是 `backend/tools/` 还是 `backend/fanisl/tools/`
 
 ## Requests in
+- **frontend 席位（2026-09-23，线上加载慢）**：请给 nginx 开 gzip，覆盖 API 的 JSON 与前端的 JS/CSS。
+  实测线上（本机经代理访问 fanisl.skiuo.com）：只有 `index.html` 带 `Content-Encoding: gzip`，
+  `/assets/index-*.js`（240KB）与 API 的 JSON 都是原样传；到服务器往返约 0.35s、下载 230–390KB/s。
+  验证页一次要取约 890KB JSON（四个分类、七个请求），知识库原始内容约 60KB、长期知识约 420KB。
+  数据库不是瓶颈：`verification-page` 的两条查询在服务器上 `EXPLAIN ANALYZE` 执行 2–4ms。
+  按上面的网络条件用真实返回回放，gzip（这几类 JSON 实测压缩 3.7–4.8 倍）能让验证页首屏
+  **6.4s → 2.5s**、知识库原始内容 2.0s → 1.4s。建议在 `deploy/nginx-fanisl.conf` 的 server 块加：
+  `gzip on; gzip_proxied any; gzip_comp_level 5; gzip_min_length 1024;`
+  `gzip_types application/json application/javascript text/css image/svg+xml;`
+  （`gzip_proxied any` 是关键：默认不压缩反代回来的响应）。改完服务器上要 `nginx -t && reload`。
+  次要：验证页列表每条带完整 `payload`（约 760 字节/条，占一条的六成），卡片只用标的、方向与原话；
+  列表若只回卡片要的字段、浮层再按 id 取详情，还能再减一半——这条涉及 `knowledge/browser.py`，归 knowledge 席位，
+  等 gzip 上了再看是否还需要
 - **knowledge 席位（2026-09-23）**：`tests/test_api_doc.py` 两条失败——console 席位 9-21 起加的
   `/admin/stock-costs/{symbol}`、`/admin/spot-costs/{asset}` 没写进 `backend/api.md`，头部端点数仍是 81、
   路由表实际 83。全量 620 过、这 2 条失败，与知识侧改动无关

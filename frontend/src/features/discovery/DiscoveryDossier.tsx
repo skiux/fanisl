@@ -113,7 +113,7 @@ function NodeProposition({
   return (
     <section className={`discovery-proposition proposition-${position}`}>
       <header>
-        <span>PROPOSITION / {position.toUpperCase()}</span>
+        <span>命题 {position.toUpperCase()}</span>
         <div>
           <b>{kindLabels[detail.kind]}</b>
           <em>{statusLabels[detail.status]}</em>
@@ -193,9 +193,7 @@ export function RelationDossier({
   if (state === 'error' || !pair) {
     return (
       <div className="discovery-resource-error">
-        <span>RELATION EVIDENCE UNAVAILABLE</span>
         <strong>两侧节点档案暂时没有载入</strong>
-        <p>关系边仍保留；重试只重新读取节点证据。</p>
         <button onClick={() => setRequestKey((value) => value + 1)} type="button">重新读取证据</button>
       </div>
     )
@@ -206,14 +204,13 @@ export function RelationDossier({
       <article className={`relation-dossier relation-${relation.relation}`}>
         <header className="relation-dossier-head">
           <div>
-            <span>RELATION / {String(relation.id).padStart(2, '0')}</span>
-            <b>{relation.relation === 'conflicts' ? 'CONFLICT / CANNOT BOTH HOLD' : 'RELATED / READ TOGETHER'}</b>
+            <b>{relation.relation === 'conflicts' ? '对立 · 不能同时成立' : '关联 · 需要合读'}</b>
           </div>
           <time>{formatDate(relation.created_at)}</time>
         </header>
 
         <section className="relation-thesis">
-          <span>{relation.relation === 'conflicts' ? '对立点是正文' : '合读理由是正文'}</span>
+          <span>{relation.relation === 'conflicts' ? '对立点' : '合读理由'}</span>
           <p>{relationSummary(relation)}</p>
         </section>
 
@@ -244,7 +241,7 @@ export function RelationDossier({
           <div className="relation-evidence-columns">
             {[pair[0], pair[1]].map((detail, index) => (
               <section key={detail.id}>
-                <header><span>PROPOSITION / {index === 0 ? 'A' : 'B'}</span><b>{detail.attestations.length} 条证据</b></header>
+                <header><span>命题 {index === 0 ? 'A' : 'B'}</span><b>{detail.attestations.length} 条证据</b></header>
                 <h2>{detail.title}</h2>
                 {detail.attestations.map((attestation) => (
                   <NodeEvidenceTrail attestation={attestation} key={`${detail.id}-${attestation.unit_id}`} onOpenEvidence={setEvidenceUnitId} />
@@ -261,7 +258,7 @@ export function RelationDossier({
               const total = stats.hit + stats.partial + stats.miss
               return (
                 <section className={index === 0 ? 'verdict-a' : 'verdict-b'} key={detail.id}>
-                  <header><span>PROPOSITION / {index === 0 ? 'A' : 'B'}</span><b>{total > 0 ? scoredSummary(detail) : '尚待裁决'}</b></header>
+                  <header><span>命题 {index === 0 ? 'A' : 'B'}</span><b>{total > 0 ? scoredSummary(detail) : '尚待裁决'}</b></header>
                   <h2>{detail.title}</h2>
                   <div><span><strong>{stats.hit}</strong><small>命中</small></span><span><strong>{stats.partial}</strong><small>部分</small></span><span><strong>{stats.miss}</strong><small>未中</small></span></div>
                   <p>{total > 0 ? `当前结果来自 ${total} 个评分时点。样本量仍需与结论同时阅读。` : '当前没有完成机械评分，不能据此选择一方。'}</p>
@@ -277,7 +274,7 @@ export function RelationDossier({
             <div className="relation-context-grid">
               {[pair[0], pair[1]].map((detail, index) => (
                 <section key={detail.id}>
-                  <header><span>PROPOSITION / {index === 0 ? 'A' : 'B'}</span><b>{statusLabels[detail.status]}</b></header>
+                  <header><span>命题 {index === 0 ? 'A' : 'B'}</span><b>{statusLabels[detail.status]}</b></header>
                   <h2>{detail.title}</h2>
                   <p>{detail.notes ?? '该节点没有额外归并说明。'}</p>
                   <div>{detail.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
@@ -294,7 +291,7 @@ export function RelationDossier({
           <EvidenceDossier
             backLabel="返回关系档案"
             onClose={() => setEvidenceUnitId(null)}
-            parentLabel={relation.relation === 'conflicts' ? 'CONFLICT' : 'RELATION'}
+            parentLabel={relation.relation === 'conflicts' ? '对立' : '关系'}
             parentTitle={`#${relation.id}`}
             unitId={evidenceUnitId}
           />
@@ -336,7 +333,6 @@ export function ConsensusDossier({
   if (state === 'error' || !detail) {
     return (
       <div className="discovery-resource-error">
-        <span>CONSENSUS EVIDENCE UNAVAILABLE</span>
         <strong>共识节点暂时没有载入</strong>
         <button onClick={() => setRequestKey((value) => value + 1)} type="button">重新读取节点</button>
       </div>
@@ -350,7 +346,7 @@ export function ConsensusDossier({
     <>
       <article className="consensus-dossier">
         <header className="consensus-dossier-head">
-          <div><span>CONSENSUS / NODE {String(detail.id).padStart(3, '0')}</span><b>{statusLabels[detail.status]}</b></div>
+          <div><b>{statusLabels[detail.status]}</b></div>
           <p>{kindLabels[detail.kind]} · {detail.n_creators} 个独立信源</p>
         </header>
         <section className="consensus-statement">
@@ -388,7 +384,7 @@ export function ConsensusDossier({
           <EvidenceDossier
             backLabel="返回共识档案"
             onClose={() => setEvidenceUnitId(null)}
-            parentLabel="CONSENSUS"
+            parentLabel="共识"
             parentTitle={`#${detail.id}`}
             unitId={evidenceUnitId}
           />
@@ -416,11 +412,10 @@ export function HarnessDossier({ candidate }: { candidate: HarnessCandidate }) {
   return (
     <article className="harness-dossier">
       <header className="harness-dossier-head">
-        <div><span>METHOD / NODE {String(candidate.node_id).padStart(3, '0')}</span><b>CANDIDATE · NOT PREREGISTERED</b></div>
-        <p>可回测不等于已经成立</p>
+        <div><b>候选 · 尚未预注册</b></div>
       </header>
       <section className="harness-lead">
-        <span>{familyLabels[payload.family ?? 'other'] ?? payload.family} / TESTABILITY A</span>
+        <span>{familyLabels[payload.family ?? 'other'] ?? payload.family} · 可测性 A</span>
         <h2>{candidate.title}</h2>
         <p>{payload.summary ?? candidate.canonical}</p>
       </section>
@@ -429,7 +424,6 @@ export function HarnessDossier({ candidate }: { candidate: HarnessCandidate }) {
           <span>进入研究管线前</span>
           <strong>仍需冻结假设、样本、成本与否证条件。</strong>
         </div>
-        <b>PREREG REQUIRED</b>
       </section>
       <section className="harness-rules">
         <header><span>原始规则</span><b>{rules.length} 条</b></header>

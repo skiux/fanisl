@@ -111,7 +111,7 @@ function StaticJourney({ openSearch }: { openSearch: () => void }) {
       {chapters.map((chapter, index) => (
         <section className={`static-chapter static-${chapter.id}`} id={chapter.id} key={chapter.id}>
           <span className="static-index" aria-hidden="true">{chapter.index}</span>
-          <p>{chapter.index} · {chapter.english}</p>
+          <p>{chapter.index} · {chapter.label}</p>
           <h1>{chapter.title}</h1>
           <div><span>{chapter.description}</span>{index === 5 && <button onClick={openSearch} type="button">搜索当前知识库 ↗</button>}</div>
         </section>
@@ -279,8 +279,8 @@ function App() {
             </button>
           ))}
         </aside>
-        <div className="journey-hud" aria-hidden="true"><div><span>{chapters[active].index}</span><strong>{chapters[active].english}</strong></div><div className="progress-rule"><span ref={progressBar} /></div><span ref={progressNumber}>00%</span></div>
-        <div className="scroll-cue" aria-hidden="true"><span>{active === 0 ? 'SCROLL TO ENTER' : active === 5 ? 'KNOWLEDGE, WITH A MEMORY' : 'MOVE THROUGH THE ARCHIVE'}</span><i /></div>
+        <div className="journey-hud" aria-hidden="true"><div><span>{chapters[active].index}</span><strong>{chapters[active].label}</strong></div><div className="progress-rule"><span ref={progressBar} /></div><span ref={progressNumber}>00%</span></div>
+        <div className="scroll-cue" aria-hidden="true"><span>{active === 0 ? '向下滚动' : active === 5 ? '' : '继续向下'}</span><i /></div>
       </div>
       {searchOpen && <SearchPanel close={() => setSearchOpen(false)} restoreRef={searchTriggerRef} />}
     </div>

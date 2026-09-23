@@ -40,7 +40,7 @@
   border-radius: 99px;
   color: #fff;
   background: #a86e5b;
-  font: 650 .75rem/20px ui-monospace, monospace;
+  font: 650 .75rem/20px var(--font-mono);
   text-align: center;
 }
 
@@ -127,8 +127,8 @@
 .review-inbox-meta time {
   flex: 0 0 auto;
   margin-left: auto;
-  color: #8a9289;
-  font: .75rem ui-monospace, monospace;
+  color: var(--faint);
+  font: .75rem var(--font-mono);
 }
 
 .review-inbox-panel strong {

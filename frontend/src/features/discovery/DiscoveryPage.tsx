@@ -196,25 +196,20 @@ function LoadingBlock({ label }: { label: string }) {
 function ErrorBlock({ label, retry }: { label: string; retry: () => void }) {
   return (
     <div className="discovery-v2-error">
-      <span>DISCOVERY SOURCE UNAVAILABLE</span>
       <strong>{label}暂时没有载入</strong>
-      <p>页面不会用示例数据替代真实知识。</p>
       <button onClick={retry} type="button">重新读取</button>
     </div>
   )
 }
 
-function LocalNavigation({ current, openDelta }: { current: DiscoveryView; openDelta: () => void }) {
+function LocalNavigation({ current }: { current: DiscoveryView }) {
   return (
-    <nav aria-label="发现页局部导航" className="discovery-local-nav">
-      <div>
-        {(Object.keys(viewLabels) as DiscoveryView[]).map((view) => (
-          <a aria-current={current === view ? 'page' : undefined} href={discoveryHref(view)} key={view}>
-            {viewLabels[view]}
-          </a>
-        ))}
-      </div>
-      <button aria-label="本期变化" onClick={openDelta} type="button"><span>本期变化</span><b>↗</b></button>
+    <nav aria-label="发现页局部导航" className="page-tabs">
+      {(Object.keys(viewLabels) as DiscoveryView[]).map((view) => (
+        <a aria-current={current === view ? 'page' : undefined} href={discoveryHref(view)} key={view}>
+          {viewLabels[view]}
+        </a>
+      ))}
     </nav>
   )
 }
@@ -232,7 +227,6 @@ function FeaturedConflict({
     <article className="discovery-featured-conflict">
       <header>
         <div><span>重点发现</span><b>{relationScope(profile)}</b></div>
-        <p>RELATION / {String(relation.id).padStart(2, '0')}</p>
       </header>
       <section className="discovery-featured-thesis">
         <span>争点</span>
@@ -240,16 +234,16 @@ function FeaturedConflict({
       </section>
       <div className="discovery-featured-pair">
         <section>
-          <span>PROPOSITION / A</span>
+          <span>命题 A</span>
           <h3>{relation.a_title}</h3>
           <footer>
             <b>{aScore?.rate === null || aScore === null ? '尚待裁决' : `${aScore.rate}%`}</b>
             <p>{aScore ? `${aScore.contents} 份内容 · ${aScore.creators} 个信源 · n=${aScore.total}` : '正在读取证据'}</p>
           </footer>
         </section>
-        <i aria-hidden="true">VS</i>
+        <i aria-hidden="true">↔</i>
         <section>
-          <span>PROPOSITION / B</span>
+          <span>命题 B</span>
           <h3>{relation.b_title}</h3>
           <footer>
             <b>{bScore?.rate === null || bScore === null ? '尚待裁决' : `${bScore.rate}%`}</b>
@@ -355,7 +349,7 @@ function DeltaDialog({
     <div className="discovery-delta-overlay" onMouseDown={close} role="presentation">
       <section aria-label="本期知识变化" aria-modal="true" className="discovery-delta-dialog" onMouseDown={(event) => event.stopPropagation()} ref={dialogRef} role="dialog">
         <header>
-          <div><span>KNOWLEDGE DELTA / 7 DAYS</span><h2>本期变化</h2></div>
+          <div><h2>本期变化 <small>近 7 天</small></h2></div>
           <button aria-label="关闭本期变化" autoFocus onClick={close} type="button">×</button>
         </header>
         {state === 'loading' && <LoadingBlock label="本期变化" />}
@@ -377,7 +371,7 @@ function DeltaDialog({
                 ))}
               </section>
               <section>
-                <header><span>需要继续处理</span><b>NEXT</b></header>
+                <header><span>需要继续处理</span></header>
                 <a href="#/verification"><strong>{summary.due_next.length} 个时点将在未来 7 天到期</strong><span>进入验证中心 →</span></a>
                 <a href="#/verification"><strong>{summary.new_scores.length} 个评分时点已经写入</strong><span>查看验证记录 →</span></a>
                 <p><strong>人工抽查 {spotChecks?.checked ?? summary.spot_check.checked}/{spotChecks?.total ?? summary.spot_check.total}</strong><span>{spotChecks ? `${spotChecks.unfaithful} 不忠实 · ${spotChecks.unclear} 不明确` : '查看覆盖状态'}</span></p>
@@ -556,7 +550,7 @@ function DiscoveryPage() {
   if (location.relationId !== null) {
     const index = relations.findIndex((row) => row.id === location.relationId)
     return (
-      <div className="discovery-record-page">
+      <div className="discovery-record-page app-page">
         <RecordNavigation
           backView={location.from}
           current={index >= 0 ? `${String(index + 1).padStart(2, '0')} / ${String(relations.length).padStart(2, '0')}` : '—'}
@@ -577,7 +571,7 @@ function DiscoveryPage() {
   if (location.consensusId !== null) {
     const index = consensus.findIndex((row) => row.id === location.consensusId)
     return (
-      <div className="discovery-record-page">
+      <div className="discovery-record-page app-page">
         <RecordNavigation
           backView={location.from}
           current={index >= 0 ? `${String(index + 1).padStart(2, '0')} / ${String(consensus.length).padStart(2, '0')}` : '—'}
@@ -598,7 +592,7 @@ function DiscoveryPage() {
   if (location.candidateId !== null) {
     const index = candidates.findIndex((row) => row.node_id === location.candidateId)
     return (
-      <div className="discovery-record-page">
+      <div className="discovery-record-page app-page">
         <RecordNavigation
           backView={location.from}
           current={index >= 0 ? `${String(index + 1).padStart(2, '0')} / ${String(candidates.length).padStart(2, '0')}` : '—'}
@@ -617,30 +611,32 @@ function DiscoveryPage() {
   }
 
   return (
-    <div className="discovery-page discovery-v2">
+    <div className="discovery-page discovery-v2 app-page">
       <AppHeader current="discovery" onSearch={() => { window.location.hash = '#/knowledge?search=1' }} />
       <main className="discovery-v2-stage">
-        <header className="discovery-v2-masthead">
-          <div>
-            <span>03 / DISCOVERY</span>
-            <h1>发现</h1>
+        <header className="page-head">
+          <h1>发现</h1>
+          <LocalNavigation current={location.view} />
+          <div className="page-head-actions">
+            <dl aria-label="发现规模" className="page-stats">
+              <div><dt>对立</dt><dd>{relationState === 'loaded' ? conflicts.length : '—'}</dd></div>
+              <div><dt>连接</dt><dd>{relationState === 'loaded' ? related.length : '—'}</dd></div>
+              <div><dt>跨源共识</dt><dd>{consensusState === 'loaded' ? consensus.length : '—'}</dd></div>
+              <div><dt>研究候选</dt><dd>{candidateState === 'loaded' ? candidates.length : '—'}</dd></div>
+            </dl>
+            <button
+              aria-label="本期变化"
+              className="btn"
+              onClick={() => {
+                deltaTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+                setDeltaOpen(true)
+              }}
+              type="button"
+            >
+              本期变化 <span aria-hidden="true">↗</span>
+            </button>
           </div>
-          <section>
-            <h2>知识相遇以后，<br />出现的张力、汇合与下一步。</h2>
-            <p>不抹平分歧，也不把候选包装成结论。每一次发现都能回到节点、逐字证据和市场裁决。</p>
-          </section>
-          <p className="discovery-v2-counts">
-            <span><b>{relationState === 'loaded' ? conflicts.length : '—'}</b> 个对立</span>
-            <span><b>{relationState === 'loaded' ? related.length : '—'}</b> 条连接</span>
-            <span><b>{consensusState === 'loaded' ? consensus.length : '—'}</b> 个跨源共识</span>
-            <span><b>{candidateState === 'loaded' ? candidates.length : '—'}</b> 个研究候选</span>
-          </p>
         </header>
-
-        <LocalNavigation current={location.view} openDelta={() => {
-          deltaTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-          setDeltaOpen(true)
-        }} />
 
         {location.view === 'briefing' && (
           <div className="discovery-briefing">
@@ -651,7 +647,7 @@ function DiscoveryPage() {
             )}
 
             <section className="discovery-brief-section discovery-open-conflicts">
-              <header><div><span>01 / TENSION</span><h2>尚待继续裁决的张力</h2></div><a href="#/discovery?view=relations">查看全部对立 →</a></header>
+              <header><div><h2>尚待继续裁决的张力</h2></div><a href="#/discovery?view=relations">查看全部对立 →</a></header>
               <div>
                 {conflicts.filter((row) => row.id !== featuredRelation?.id).slice(0, 3).map((relation, index) => (
                   <ConflictRow from="briefing" index={index} key={relation.id} relation={relation} />
@@ -660,17 +656,17 @@ function DiscoveryPage() {
             </section>
 
             <section className="discovery-brief-section discovery-cluster-preview">
-              <header><div><span>02 / CONNECTION</span><h2>正在形成的连接簇</h2></div><a href="#/discovery?view=relations">进入关系场 →</a></header>
+              <header><div><h2>正在形成的连接簇</h2></div><a href="#/discovery?view=relations">进入关系场 →</a></header>
               <div>{clusters.slice(0, 2).map((cluster) => <ClusterCard cluster={cluster} compact key={cluster.id} />)}</div>
             </section>
 
             <section className="discovery-brief-section discovery-consensus-preview">
-              <header><div><span>03 / CONVERGENCE</span><h2>跨来源的汇合</h2></div><a href="#/discovery?view=consensus">查看全部共识 →</a></header>
+              <header><div><h2>跨来源的汇合</h2></div><a href="#/discovery?view=consensus">查看全部共识 →</a></header>
               <div>{consensus.slice(0, 3).map((node) => <ConsensusCard from="briefing" key={node.id} node={node} />)}</div>
             </section>
 
             <section className="discovery-brief-section discovery-candidate-preview">
-              <header><div><span>04 / RESEARCH INTAKE</span><h2>可进入研究准备的候选</h2></div><a href="#/discovery?view=harness">查看候选池 →</a></header>
+              <header><div><h2>可进入研究准备的候选</h2></div><a href="#/discovery?view=harness">查看候选池 →</a></header>
               <div>{candidates.slice(0, 3).map((candidate) => <CandidateRow candidate={candidate} from="briefing" key={candidate.node_id} />)}</div>
             </section>
           </div>
@@ -679,13 +675,12 @@ function DiscoveryPage() {
         {location.view === 'relations' && (
           <section className="discovery-index-view">
             <header className="discovery-index-head">
-              <div><span>RELATION FIELD</span><h2>知识之间，不只有相似。</h2><p>对立需要裁决，连接需要合读。关系理由本身就是正文。</p></div>
-              <label><span>⌕</span><input aria-label="检索关系" onChange={(event) => setQuery(event.target.value)} placeholder="检索命题或关系理由" value={query} />{query && <button aria-label="清空检索" onClick={() => setQuery('')} type="button">×</button>}</label>
+              <div aria-label="关系类型" className="chips" role="group">
+                <button aria-pressed={relationMode === 'conflicts'} onClick={() => setRelationMode('conflicts')} type="button">对立<small>{conflicts.length}</small></button>
+                <button aria-pressed={relationMode === 'relates'} onClick={() => { setRelationMode('relates'); setClusterLimit(window.matchMedia('(max-width: 760px)').matches ? 4 : 8) }} type="button">连接簇<small>{clusters.length}</small></button>
+              </div>
+              <label className="field-search"><span aria-hidden="true">⌕</span><input aria-label="检索关系" onChange={(event) => setQuery(event.target.value)} placeholder="命题或关系理由" value={query} />{query && <button aria-label="清空检索" onClick={() => setQuery('')} type="button">×</button>}</label>
             </header>
-            <div className="discovery-segmented" role="group" aria-label="关系类型">
-              <button aria-pressed={relationMode === 'conflicts'} onClick={() => setRelationMode('conflicts')} type="button">对立 <b>{conflicts.length}</b></button>
-              <button aria-pressed={relationMode === 'relates'} onClick={() => { setRelationMode('relates'); setClusterLimit(window.matchMedia('(max-width: 760px)').matches ? 4 : 8) }} type="button">连接簇 <b>{clusters.length}</b></button>
-            </div>
             {relationState === 'loading' && <LoadingBlock label="关系" />}
             {relationState === 'error' && <ErrorBlock label="关系" retry={() => setRelationRequest((value) => value + 1)} />}
             {relationState === 'loaded' && relationMode === 'conflicts' && <div className="discovery-conflict-index">{visibleConflicts.map((relation, index) => <ConflictRow index={index} key={relation.id} relation={relation} />)}</div>}
@@ -702,8 +697,7 @@ function DiscoveryPage() {
         {location.view === 'consensus' && (
           <section className="discovery-index-view">
             <header className="discovery-index-head">
-              <div><span>CROSS-SOURCE CONSENSUS</span><h2>多源重复，不等于多数裁决。</h2><p>这里检查独立来源如何汇合，以及它们仍保留哪些差异。</p></div>
-              <label><span>⌕</span><input aria-label="检索共识" onChange={(event) => setQuery(event.target.value)} placeholder="检索共识与主题" value={query} />{query && <button aria-label="清空检索" onClick={() => setQuery('')} type="button">×</button>}</label>
+              <label className="field-search"><span aria-hidden="true">⌕</span><input aria-label="检索共识" onChange={(event) => setQuery(event.target.value)} placeholder="共识与主题" value={query} />{query && <button aria-label="清空检索" onClick={() => setQuery('')} type="button">×</button>}</label>
             </header>
             {consensusState === 'loading' && <LoadingBlock label="跨源共识" />}
             {consensusState === 'error' && <ErrorBlock label="跨源共识" retry={() => setConsensusRequest((value) => value + 1)} />}
@@ -715,8 +709,7 @@ function DiscoveryPage() {
         {location.view === 'harness' && (
           <section className="discovery-index-view">
             <header className="discovery-index-head">
-              <div><span>RESEARCH INTAKE</span><h2>可测试，只是研究的起点。</h2><p>候选尚未预注册，也没有被包装成已经成立的方法。</p></div>
-              <label><span>⌕</span><input aria-label="检索研究候选" onChange={(event) => setQuery(event.target.value)} placeholder="检索方法、规则或数据需求" value={query} />{query && <button aria-label="清空检索" onClick={() => setQuery('')} type="button">×</button>}</label>
+              <label className="field-search"><span aria-hidden="true">⌕</span><input aria-label="检索研究候选" onChange={(event) => setQuery(event.target.value)} placeholder="方法、规则或数据需求" value={query} />{query && <button aria-label="清空检索" onClick={() => setQuery('')} type="button">×</button>}</label>
             </header>
             {candidateState === 'loading' && <LoadingBlock label="研究候选" />}
             {candidateState === 'error' && <ErrorBlock label="研究候选" retry={() => setCandidateRequest((value) => value + 1)} />}
@@ -748,7 +741,6 @@ function DiscoveryPage() {
         )}
       </main>
 
-      <footer className="discovery-v2-footer"><span>FANISL / DISCOVERY</span><p>分歧不被抹平，候选不被包装成结论，每条发现都回到证据。</p></footer>
 
       {deltaOpen && <DeltaDialog close={() => setDeltaOpen(false)} report={weekly} restoreRef={deltaTriggerRef} retry={() => setWeeklyRequest((value) => value + 1)} spotChecks={spotChecks} state={weeklyState} />}
     </div>

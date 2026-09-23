@@ -28,6 +28,48 @@ anything under `backend/`.
 - `../shared/` is included by both apps' tsconfigs — editing it also changes
   `console/`, so say so in your report
 
+## Visual system
+
+Every colour, font and frame measure comes from the `:root` block in
+`src/index.css`; the five app pages (asset, knowledge, verification,
+discovery, archive) share its page shell and controls. Before 2026-09-23 each
+page carried its own palette, head, width and background — 904 distinct
+colour literals, seven title sizes (30–72px), six content widths — and it
+showed. Keep it from drifting back:
+
+- Colours: `--ink` `--ink-soft` `--muted` `--faint` for text, `--line`
+  `--line-soft` for rules, `--hit` / `--miss` / `--partial` / `--wait` /
+  `--void` (each with `-line` and `-tint`) for outcomes, `--kind-claim` /
+  `--kind-method` / `--kind-concept` for unit kinds, `--chart-line` for price
+  lines. Do not add page-local palettes or hard-coded greys.
+- Fonts: `var(--font-sans)`, `var(--font-serif)` (verbatim quotes and long
+  reading), `var(--font-mono)`. Never write `ui-monospace, monospace` on its
+  own: Chrome ignores `ui-monospace` and falls back to Courier.
+- Frame: the page root gets `app-page` (background and horizontal clipping;
+  no texture images on app pages — only the home page keeps its artwork);
+  the main column is `width: var(--site-width)` with `padding-top:
+  var(--page-top)`, so every page lines up with the nav bar.
+- Head: `.page-head` with an `h1`, optional `.page-tabs` (view switch),
+  optional `.page-head-actions` holding `.page-stats`, `.page-count`,
+  `.field-search`, `.field-select` or `.btn`.
+- Minimal: no English labels anywhere in the UI (`UNIT / FILTER`,
+  `01 / TENSION`, `L1 / EVIDENCE`, `READ ONLY`…), no eyebrow labels, slogans,
+  descriptive sub-lines under section titles, doctrine blocks or slogan
+  footers, and no wide letter-spacing on Chinese text. Empty and error states
+  are one sentence plus a button. The user asked for all of this on
+  2026-09-23; label text is Chinese and says what the thing is, not why.
+- Filters above a list use `.chips`.
+
+## Loading lists
+
+Paged endpoints are read in full with `fetchAllPages` (`src/shared/api/pages.ts`):
+first page, then the rest in parallel. Do not fire every page up front from a
+remembered total — replayed under production conditions (≈0.35s round trip,
+≈300KB/s) it made the verification page slower (6.4s → 7.4s): the link is
+bandwidth-bound, and extra parallel requests only compete for it. For the same
+reason the knowledge page fetches its 500+ nodes after the content list, unless
+the nodes view is what is being opened.
+
 ## Working on anything visual
 
 **Look at the page. Do not iterate blind.**
@@ -67,10 +109,12 @@ first — one component, one state — and confirm that before wiring it in.
   buckets, moves the card window so the record is on screen and opens the
   dialog. `?day=YYYY-MM-DD` sets where the card window starts. All of these use
   `replaceState`, so they never add history entries.
-- **The verification page must not scroll.** Cards have a fixed height
-  (`--verify-card-h`); cards per screen = columns × rows measured from the card
-  area. Adding anything of variable height to a card breaks the arithmetic.
-  `e2e/verification.spec.ts` asserts the page has no vertical scroll.
+- **The verification page must not scroll.** Rows per screen = card-area
+  height ÷ `CARD_MIN_HEIGHT` (`VerificationPage.tsx`); the rows then share the
+  height, and the quote shows as many lines as the card has room for. The
+  card's fixed parts are budgeted in `CARD_CHROME`; adding a line to the card
+  means updating it. `e2e/verification.spec.ts` asserts the page has no
+  vertical scroll.
 - **e2e runs on a fixed clock** (`FIXTURE_NOW` in `e2e/api-fixture.ts`). Derive
   fixture dates from it, never from `Date.now()`, or screenshot baselines drift
   every day.

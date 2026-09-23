@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { apiJson } from '../../shared/api/client'
 import { isKnowledgeNodePage, isKnowledgeUnitPage } from '../../shared/api/contracts'
+import { fetchAllPages } from '../../shared/api/pages'
 import {
   attestationLabels, categoryLabels, contentStatusLabels, directionLabels, kindLabels,
   nodeStatusLabels as statusLabels, outcomeLabels, relationLabels,
@@ -22,7 +23,6 @@ import type {
   KnowledgeKind,
   KnowledgeNode,
   KnowledgeNodeDetail,
-  KnowledgeNodePage,
   KnowledgeUnitPage,
   UnitScore,
 } from './types'
@@ -186,25 +186,13 @@ function compareEvidence(a: KnowledgeNode, b: KnowledgeNode) {
 
 const NODE_PAGE_SIZE = 200
 
-// 首页拿到 total 之后剩下的几页并发取，不再一页等一页——节点上到数百条时
-// 串行往返会直接体现在首屏时间上。
-async function loadAllNodes(signal: AbortSignal) {
-  const first = await apiJson<KnowledgeNodePage>(
-    `/knowledge/nodes-page?limit=${NODE_PAGE_SIZE}&offset=0`,
+function loadAllNodes(signal: AbortSignal) {
+  return fetchAllPages<KnowledgeNode>(
+    (offset) => `/knowledge/nodes-page?limit=${NODE_PAGE_SIZE}&offset=${offset}`,
+    NODE_PAGE_SIZE,
     { signal },
     isKnowledgeNodePage,
   )
-  if (!first.has_more || first.items.length === 0) return first.items
-  const offsets: number[] = []
-  for (let offset = first.items.length; offset < first.total; offset += NODE_PAGE_SIZE) {
-    offsets.push(offset)
-  }
-  const rest = await Promise.all(offsets.map((offset) => apiJson<KnowledgeNodePage>(
-    `/knowledge/nodes-page?limit=${NODE_PAGE_SIZE}&offset=${offset}`,
-    { signal },
-    isKnowledgeNodePage,
-  )))
-  return [...first.items, ...rest.flatMap((page) => page.items)]
 }
 
 function KnowledgeTrace({ node }: { node: KnowledgeNode }) {
@@ -231,6 +219,8 @@ function KnowledgePage() {
   const [nodes, setNodes] = useState<KnowledgeNode[]>([])
   const [creators, setCreators] = useState<KnowledgeCreator[]>([])
   const [loadMode, setLoadMode] = useState<LoadMode>('loading')
+  // 节点单独一条加载线：原始内容首屏只要内容与信源，不该等 500 多个节点（三页、四百多 KB）
+  const [nodesMode, setNodesMode] = useState<LoadMode>('loading')
   const [contentId, setContentId] = useState<number | null>(initial.contentId)
   const [contentPayload, setContentPayload] = useState<ContentBundle | null>(null)
   const [contentMode, setContentMode] = useState<ReaderMode>('idle')
@@ -260,27 +250,38 @@ function KnowledgePage() {
 
   useEffect(() => {
     const controller = new AbortController()
+    const loadNodes = () => loadAllNodes(controller.signal).then((nodeRows) => {
+      setNodes(nodeRows)
+      setNodesMode('live')
+    }).catch(() => {
+      if (controller.signal.aborted) return
+      setNodes(previewNodes)
+      setNodesMode('preview')
+    })
+    // 直接打开长期知识（或某个节点）时节点就是首屏，与内容一起取；其余情况等内容到了再取，
+    // 免得四百多 KB 的节点和内容列表抢带宽（线上条件回放：原始内容首屏 4.0s → 2.4s）
+    const nodesFirst = initial.view === 'nodes' || initial.nodeId !== null || initial.peekNodeId !== null
+    if (nodesFirst) void loadNodes()
     Promise.all([
       apiJson<KnowledgeContentSummary[]>('/knowledge/contents?limit=200', { signal: controller.signal }),
-      loadAllNodes(controller.signal),
       apiJson<KnowledgeCreator[]>('/knowledge/creators', { signal: controller.signal }),
-    ]).then(([contentRows, nodeRows, creatorRows]) => {
+    ]).then(([contentRows, creatorRows]) => {
       setContents(contentRows)
-      setNodes(nodeRows)
       setCreators(creatorRows)
       setLoadMode('live')
     }).catch(() => {
       if (controller.signal.aborted) return
       setContents(previewSourceContents)
-      setNodes(previewNodes)
       setCreators([
         { id: 1, name: 'Andy Lee 财经', lang: 'zh', focus: null, notes: null, active: true, created_at: '' },
         { id: 2, name: '美投君', lang: 'zh', focus: null, notes: null, active: true, created_at: '' },
       ])
       setLoadMode('preview')
+    }).finally(() => {
+      if (!nodesFirst && !controller.signal.aborted) void loadNodes()
     })
     return () => controller.abort()
-  }, [])
+  }, [initial])
 
   const selectedContent = contents.find((content) => content.id === contentId) ?? null
   const requestedNodeId = nodeId ?? peekNodeId
@@ -328,7 +329,7 @@ function KnowledgePage() {
   }, [contentId, contentRequestKey, loadMode, selectedContent])
 
   useEffect(() => {
-    if (requestedNodeId === null || loadMode === 'loading') {
+    if (requestedNodeId === null || nodesMode === 'loading') {
       setNodeDetail(null)
       setNodeMode('idle')
       return
@@ -339,7 +340,7 @@ function KnowledgePage() {
       window.history.replaceState(null, '', contentId !== null ? `#/knowledge?content=${contentId}` : '#/knowledge?view=nodes')
       return
     }
-    if (loadMode === 'preview') {
+    if (nodesMode === 'preview') {
       setNodeDetail({ ...selectedNode, attestations: [], relations: [] })
       setNodeMode('preview')
       return
@@ -364,7 +365,7 @@ function KnowledgePage() {
         if (!controller.signal.aborted) setNodeMode('error')
       })
     return () => controller.abort()
-  }, [contentId, loadMode, nodeId, nodeRequestKey, peekNodeId, requestedNodeId, selectedNode])
+  }, [contentId, nodeId, nodeRequestKey, nodesMode, peekNodeId, requestedNodeId, selectedNode])
 
   useEffect(() => {
     if (view !== 'evidence' || unitsLoaded || loadMode === 'loading') return
@@ -558,7 +559,7 @@ function KnowledgePage() {
 
   if (contentId !== null && selectedContent) {
     return (
-      <div className="knowledge-page source-document-page">
+      <div className="knowledge-page source-document-page app-page">
         {evidenceUnitId === null && <AppHeader current="knowledge" onSearch={headerSearch} />}
         <main className="source-document-stage">
           <button className="reader-back" onClick={closeReader} type="button">← 返回原始内容</button>
@@ -592,7 +593,7 @@ function KnowledgePage() {
               <EvidenceDossier
                 backLabel={peekNodeId !== null ? '返回关联知识' : '返回本期内容'}
                 onClose={closeEvidence}
-                parentLabel={peekNodeId !== null ? 'KNOWLEDGE' : 'CONTENT'}
+                parentLabel={peekNodeId !== null ? '长期知识' : '内容'}
                 parentTitle={evidenceParentTitle ?? selectedContent.title}
                 unitId={evidenceUnitId}
               />
@@ -605,7 +606,7 @@ function KnowledgePage() {
 
   if (nodeId !== null && selectedStandaloneNode) {
     return (
-      <div className="knowledge-page node-document-page">
+      <div className="knowledge-page node-document-page app-page">
         {evidenceUnitId === null && <AppHeader current="knowledge" onSearch={headerSearch} />}
         <main className="node-document-stage">
           <NodeContextPreview
@@ -636,14 +637,10 @@ function KnowledgePage() {
 
   if (view === 'evidence') {
     return (
-      <div className="knowledge-page knowledge-evidence-page">
+      <div className="knowledge-page knowledge-evidence-page app-page">
         <AppHeader current="knowledge" onSearch={headerSearch} />
         <main className="evidence-search-stage">
-          <header className="utility-lead">
-            <button onClick={() => switchView('sources')} type="button">← 返回原始内容</button>
-            <div><span>EVIDENCE / SEARCH</span><h1>逐字证据</h1></div>
-            <p>跨内容检索判断、方法与认知。结果直接落到原文引文和冻结判据，不把搜索结果伪装成长期结论。</p>
-          </header>
+          <KnowledgeHead onSwitch={switchView} view="evidence" />
           <section className="evidence-search-frame">
             <button
               aria-label="关闭当前面板"
@@ -677,17 +674,16 @@ function KnowledgePage() {
 
   if (view === 'nodes') {
     return (
-      <div className="knowledge-page node-library-page">
-        <div aria-hidden="true" className="knowledge-material" />
+      <div className="knowledge-page node-library-page app-page">
         <AppHeader current="knowledge" onSearch={headerSearch} />
         <NodeLibrary
           kind={nodeKind}
-          loadMode={loadMode}
+          loadMode={nodesMode}
           nodes={nodes}
           onChangeKind={setNodeKind}
           onChangeQuery={setNodeQuery}
           onOpenNode={openNode}
-          onShowSources={() => switchView('sources')}
+          onSwitch={switchView}
           query={nodeQuery}
           visibleNodes={visibleNodes}
         />
@@ -696,24 +692,42 @@ function KnowledgePage() {
   }
 
   return (
-    <div className="knowledge-page source-library-page">
-      <div aria-hidden="true" className="knowledge-material" />
+    <div className="knowledge-page source-library-page app-page">
       <AppHeader current="knowledge" onSearch={headerSearch} />
       <SourceLibrary
         contents={contents}
         creatorId={creatorId}
         creators={creators}
         loadMode={loadMode}
-        nodes={nodes}
         onChangeCreator={setCreatorId}
         onChangeQuery={setSourceQuery}
         onOpenContent={openContent}
-        onShowEvidence={() => switchView('evidence')}
-        onShowNodes={() => switchView('nodes')}
+        onSwitch={switchView}
         query={sourceQuery}
         visibleContents={visibleContents}
       />
     </div>
+  )
+}
+
+const knowledgeViews: Array<[KnowledgeView, string]> = [['sources', '原始内容'], ['nodes', '长期知识'], ['evidence', '逐字证据']]
+
+/** 知识库三个视图共用的页头：标题 + 视图切换，右侧放各视图自己的搜索 */
+function KnowledgeHead({ children, onSwitch, view }: {
+  children?: ReactNode
+  onSwitch: (view: KnowledgeView) => void
+  view: KnowledgeView
+}) {
+  return (
+    <header className="page-head">
+      <h1>知识库</h1>
+      <nav aria-label="知识库视图" className="page-tabs">
+        {knowledgeViews.map(([key, label]) => (
+          <button aria-pressed={view === key} key={key} onClick={() => onSwitch(key)} type="button">{label}</button>
+        ))}
+      </nav>
+      {children && <div className="page-head-actions">{children}</div>}
+    </header>
   )
 }
 
@@ -722,12 +736,10 @@ function SourceLibrary({
   creatorId,
   creators,
   loadMode,
-  nodes,
   onChangeCreator,
   onChangeQuery,
   onOpenContent,
-  onShowEvidence,
-  onShowNodes,
+  onSwitch,
   query,
   visibleContents,
 }: {
@@ -735,51 +747,34 @@ function SourceLibrary({
   creatorId: number | null
   creators: KnowledgeCreator[]
   loadMode: LoadMode
-  nodes: KnowledgeNode[]
   onChangeCreator: (id: number | null) => void
   onChangeQuery: (value: string) => void
   onOpenContent: (id: number) => void
-  onShowEvidence: () => void
-  onShowNodes: () => void
+  onSwitch: (view: KnowledgeView) => void
   query: string
   visibleContents: KnowledgeContentSummary[]
 }) {
-  const totals = contents.reduce((acc, content) => ({
-    raw: acc.raw + content.raw_len,
-    units: acc.units + content.n_units,
-    scores: acc.scores + content.n_hit + content.n_partial + content.n_miss,
-  }), { raw: 0, units: 0, scores: 0 })
-
   return (
     <main className="source-library-stage">
-      <header className="source-library-lead">
-        <div>
-          <span>KNOWLEDGE LIBRARY</span>
-          <h1>原始内容</h1>
-          <p>从每期视频进入，阅读原文、知识提取与后续裁决。</p>
-        </div>
-        <div className="source-lead-actions">
-          <label>
-            <span aria-hidden="true">⌕</span>
-            <input
-              aria-label="搜索内容"
-              onChange={(event) => onChangeQuery(event.target.value)}
-              placeholder="搜索视频标题或创作者"
-              value={query}
-            />
-            {query && <button aria-label="清空搜索" onClick={() => onChangeQuery('')} type="button">×</button>}
-          </label>
-          <button onClick={onShowNodes} type="button">长期知识</button>
-          <button onClick={onShowEvidence} type="button">逐字证据</button>
-        </div>
-      </header>
+      <KnowledgeHead onSwitch={onSwitch} view="sources">
+        <label className="field-search">
+          <span aria-hidden="true">⌕</span>
+          <input
+            aria-label="搜索内容"
+            onChange={(event) => onChangeQuery(event.target.value)}
+            placeholder="视频标题或创作者"
+            value={query}
+          />
+          {query && <button aria-label="清空搜索" onClick={() => onChangeQuery('')} type="button">×</button>}
+        </label>
+      </KnowledgeHead>
 
       {loadMode === 'preview' && (
         <div className="preview-notice"><i /><span>后端未连接，当前显示仓库内的真实内容样本。</span></div>
       )}
 
       <section className="video-library">
-        <div className="video-library-tabs" aria-label="按信源筛选">
+        <div aria-label="按信源筛选" className="chips video-library-tabs" role="group">
           <button aria-pressed={creatorId === null} onClick={() => onChangeCreator(null)} type="button">全部信源 <small>{contents.length}</small></button>
           {creators.map((creator) => {
             const count = contents.filter((content) => content.creator_id === creator.id).length
@@ -832,20 +827,12 @@ function SourceLibrary({
             )
           })}
           {loadMode !== 'loading' && visibleContents.length === 0 && (
-            <div className="source-empty"><span>NO MATCHED VIDEO</span><strong>没有匹配的视频内容</strong><button onClick={() => { onChangeQuery(''); onChangeCreator(null) }} type="button">清除条件</button></div>
+            <div className="source-empty"><strong>没有匹配的视频内容</strong><button onClick={() => { onChangeQuery(''); onChangeCreator(null) }} type="button">清除条件</button></div>
           )}
         </div>
       </section>
 
-      <section className="source-library-summary">
-        <div><strong>{contents.length}</strong><span>收录内容</span></div>
-        <div><strong>{compactNumber(totals.raw)}</strong><span>原文总字数</span></div>
-        <div><strong>{totals.units}</strong><span>提取单元</span></div>
-        <div><strong>{nodes.length}</strong><span>长期知识</span></div>
-        <div><strong>{totals.scores}</strong><span>到期裁决</span></div>
-      </section>
 
-      <footer className="knowledge-footer"><span>FANISL / SOURCE PRESERVED</span><p>原文不可变，结论可以随新证据继续修正。</p></footer>
     </main>
   )
 }
@@ -889,19 +876,15 @@ function SourceDocument({
 
   if (mode === 'loading' || mode === 'idle') return <SourceReaderSkeleton content={content} />
   if (mode === 'error' || !bundle || !raw) {
-    return <div className="reader-error"><span>CONTENT UNAVAILABLE</span><strong>这期原始内容暂时没有载入</strong><p>来源索引仍可使用，重试不会改变内容记录。</p><button onClick={onRetry} type="button">重新读取</button></div>
+    return <div className="reader-error"><strong>这期原始内容暂时没有载入</strong><button onClick={onRetry} type="button">重新读取</button></div>
   }
 
   return (
     <article className="source-workspace">
       <header className="source-workspace-head">
-        <div className="source-workspace-kicker">
-          <span>CONTENT / {String(content.id).padStart(3, '0')}</span>
-          <b>{platformLabels[content.platform] ?? content.platform}</b>
-        </div>
         <div className="source-workspace-title">
           <h1>{content.title}</h1>
-          <p>{content.creator} · {formatDate(content.published_at, true)} · {contentStatusLabels[content.status] ?? content.status}</p>
+          <p>{content.creator} · {formatDate(content.published_at, true)} · {platformLabels[content.platform] ?? content.platform} · {contentStatusLabels[content.status] ?? content.status}</p>
         </div>
         {content.url && <a className="source-external-link" href={content.url} rel="noreferrer" target="_blank">打开原始视频 ↗</a>}
       </header>
@@ -923,10 +906,6 @@ function SourceDocument({
               <span aria-hidden="true">▶</span>
             </a>
           )}
-          <section className="source-context-summary">
-            <div><span>本期内容</span><b>原文与知识结构</b></div>
-            <p>左侧保留来源身份，右侧分别阅读原文、提取结果、长期知识和市场裁决。</p>
-          </section>
           <dl className="source-context-stats">
             <div><dt>原文</dt><dd>{compactNumber(content.raw_len)} 字</dd></div>
             <div><dt>提取</dt><dd>{content.n_units} 单元</dd></div>
@@ -980,7 +959,7 @@ function SourceDocument({
           <div aria-labelledby={`content-${content.id}-tab-${activeView}`} aria-live="polite" className="source-view-scroll" id={`content-${content.id}-panel-${activeView}`} ref={viewScrollRef} role="tabpanel" tabIndex={0}>
             {activeView === 'original' && (
               <section className="source-original-view">
-                <header><div><span>L0 / IMMUTABLE SOURCE</span><h2>逐字原文</h2></div><p>原始表达不被覆盖；提取和裁决必须能回到这里。</p></header>
+                <header><div><h2>逐字原文</h2></div></header>
                 <article>{raw.transcript}</article>
                 {raw.visualNotes && <section className="source-visual-notes"><span>画面信息与图表笔记</span><p>{raw.visualNotes}</p></section>}
               </section>
@@ -988,7 +967,7 @@ function SourceDocument({
 
             {activeView === 'units' && (
               <section className="source-units-view">
-                <header className="source-view-heading"><div><span>L1 / EXTRACTION</span><h2>提取单元</h2></div><p>每个单元保留原句和发布时冻结的口径。</p></header>
+                <header className="source-view-heading"><div><h2>提取单元</h2></div></header>
                 <div className="source-unit-filters">
                   {(['all', 'claim', 'method', 'concept'] as const).map((value) => (
                     <button aria-pressed={kind === value} key={value} onClick={() => setKind(value)} type="button">
@@ -1019,7 +998,7 @@ function SourceDocument({
 
             {activeView === 'nodes' && (
               <section className="source-nodes-view">
-                <header className="source-view-heading"><div><span>L3 / CANONICAL KNOWLEDGE</span><h2>同主题的长期知识</h2></div><p>共同标签只用于发现路径，具体归并仍以提及关系为准。</p></header>
+                <header className="source-view-heading"><div><h2>同主题的长期知识</h2></div></header>
                 <div className="source-node-list">
                   {relatedNodes.map(({ node }, index) => (
                     <button key={node.id} onClick={() => onOpenNode(node.id)} type="button">
@@ -1035,14 +1014,14 @@ function SourceDocument({
 
             {activeView === 'verdicts' && (
               <section className="source-verdicts-view">
-                <header className="source-view-heading"><div><span>L2 / MARKET VERDICT</span><h2>市场裁决</h2></div><p>只显示按照发布时冻结判据机械执行的结果。</p></header>
+                <header className="source-view-heading"><div><h2>市场裁决</h2></div></header>
                 <div className="source-workspace-verdicts">
                   {scoreEntries.map(({ score, unit }, index) => (
                     <button className={`outcome-${score.outcome}`} disabled={isPreview} key={`${unit.id}-${score.horizon_label}-${index}`} onClick={() => onOpenUnit(unit.id)} type="button">
                       <span>{outcomeLabels[score.outcome] ?? score.outcome}</span><time>{score.horizon_label}</time><strong>{unitStatement(unit)}</strong><p>{unit.quote}</p><i>{isPreview ? '预览结果' : '核查 ↗'}</i>
                     </button>
                   ))}
-                  {!scoreEntries.length && <div className="source-pending-state"><span>WAITING FOR MATURITY</span><strong>判断尚未到达裁决时点</strong><p>没有提前汇总的命中率；冻结判据到期后，结果才会出现在这里。</p></div>}
+                  {!scoreEntries.length && <div className="source-pending-state"><strong>判断尚未到达裁决时点</strong></div>}
                 </div>
               </section>
             )}
@@ -1059,7 +1038,7 @@ function UnitScores({ scores }: { scores: UnitScore[] }) {
 }
 
 function SourceReaderSkeleton({ content }: { content: KnowledgeContentSummary }) {
-  return <article className="source-workspace source-reader-skeleton"><span>CONTENT / {String(content.id).padStart(3, '0')}</span><h1>{content.title}</h1><i /><i /><i /><i /></article>
+  return <article className="source-workspace source-reader-skeleton"><h1>{content.title}</h1><i /><i /><i /><i /></article>
 }
 
 function NodeLibrary({
@@ -1069,7 +1048,7 @@ function NodeLibrary({
   onChangeKind,
   onChangeQuery,
   onOpenNode,
-  onShowSources,
+  onSwitch,
   query,
   visibleNodes,
 }: {
@@ -1079,7 +1058,7 @@ function NodeLibrary({
   onChangeKind: (kind: KindFilter) => void
   onChangeQuery: (value: string) => void
   onOpenNode: (id: number) => void
-  onShowSources: () => void
+  onSwitch: (view: KnowledgeView) => void
   query: string
   visibleNodes: KnowledgeNode[]
 }) {
@@ -1094,18 +1073,17 @@ function NodeLibrary({
 
   return (
     <main className="node-library-stage">
-      <header className="node-library-lead">
-        <button onClick={onShowSources} type="button">← 回到原始内容</button>
-        <div><span>KNOWLEDGE / SETTLED</span><h1>长期知识</h1></div>
-        <p>这里不是第二份内容列表。只有能够跨内容复用、保留演进关系并持续接受证据修正的表述，才成为节点。</p>
-      </header>
+      <KnowledgeHead onSwitch={onSwitch} view="nodes">
+        <span className="page-count"><b>{visibleNodes.length}</b> / {nodes.length}</span>
+        <label className="field-search">
+          <span aria-hidden="true">⌕</span>
+          <input aria-label="搜索长期知识" onChange={(event) => onChangeQuery(event.target.value)} placeholder="主题、标的或规范陈述" value={query} />
+          {query && <button aria-label="清空搜索" onClick={() => onChangeQuery('')} type="button">×</button>}
+        </label>
+      </KnowledgeHead>
       {loadMode === 'preview' && <div className="preview-notice"><i /><span>后端未连接，当前显示仓库内的真实归并样本。</span></div>}
       <section className="node-index">
-        <header>
-          <label><span aria-hidden="true">⌕</span><input aria-label="搜索长期知识" onChange={(event) => onChangeQuery(event.target.value)} placeholder="搜索主题、标的或规范陈述" value={query} />{query && <button onClick={() => onChangeQuery('')} type="button">×</button>}</label>
-          <p><b>{visibleNodes.length}</b> / {nodes.length}</p>
-        </header>
-        <div className="node-kind-switch">
+        <div aria-label="按类型筛选" className="chips node-kind-switch" role="group">
           {(['all', 'concept', 'method', 'claim'] as const).map((value) => <button aria-pressed={kind === value} key={value} onClick={() => onChangeKind(value)} type="button">{value === 'all' ? '全部' : kindLabels[value]} <small>{value === 'all' ? nodes.length : nodes.filter((node) => node.kind === value).length}</small></button>)}
         </div>
         <div className="node-list" aria-busy={loadMode === 'loading'}>
@@ -1127,7 +1105,6 @@ function NodeLibrary({
           </footer>
         )}
       </section>
-      <footer className="knowledge-footer"><span>FANISL / SETTLED KNOWLEDGE</span><p>每条节点仍能回到其原始内容和逐字证据。</p></footer>
     </main>
   )
 }
@@ -1177,7 +1154,7 @@ function NodeContextPreview({
         </header>
         <div className="node-context-body">
           <aside className="node-context-summary">
-            <div><span>KNOWLEDGE / {String(node.id).padStart(3, '0')}</span><b>{kindLabels[node.kind]} · {statusLabels[node.status]}</b></div>
+            <div><b>{kindLabels[node.kind]} · {statusLabels[node.status]}</b></div>
             <h2 id="node-context-title">{node.title}</h2>
             <blockquote>{node.canonical}</blockquote>
             <span className="node-document-tags">{node.tags.map((tag) => <i key={tag}>{tag}</i>)}</span>
@@ -1205,16 +1182,16 @@ function NodeContextPreview({
               ] as const).map(([value, label, count]) => <button aria-controls={`node-${node.id}-panel-${value}`} aria-selected={activeView === value} id={`node-${node.id}-tab-${value}`} key={value} onClick={() => setActiveView(value)} role="tab" tabIndex={activeView === value ? 0 : -1} type="button"><span>{label}</span><b>{count}</b></button>)}
             </nav>
             <div aria-labelledby={`node-${node.id}-tab-${activeView}`} className="node-context-scroll" id={`node-${node.id}-panel-${activeView}`} role="tabpanel" tabIndex={0}>
-              {activeView === 'overview' && <section className="node-context-overview"><span>01 / SYNTHESIS</span><h3>这条知识如何形成</h3><blockquote>{node.notes || '该节点由单次提及建立，尚未形成归并注记。'}</blockquote><KnowledgeTrace node={node} /></section>}
-              {activeView === 'evidence' && <section className="node-context-evidence"><span>02 / PROVENANCE</span><h3>从哪些原始内容形成</h3>
+              {activeView === 'overview' && <section className="node-context-overview"><h3>这条知识如何形成</h3><blockquote>{node.notes || '该节点由单次提及建立，尚未形成归并注记。'}</blockquote><KnowledgeTrace node={node} /></section>}
+              {activeView === 'evidence' && <section className="node-context-evidence"><h3>从哪些原始内容形成</h3>
                 {mode === 'loading' && <p className="section-empty">正在读取完整提及链…</p>}
                 {mode === 'error' && <p className="section-empty">完整提及链暂时没有载入。 <button onClick={onRetry} type="button">重新读取</button></p>}
                 {mode === 'preview' && <p className="section-empty">预览样本只包含节点摘要。</p>}
                 {mode === 'loaded' && resolvedDetail?.attestations.map((item, index) => <article key={`${item.unit_id}-${index}`}><div><time>{formatDate(item.published_at, true)}</time><b>{attestationLabels[item.relation]}</b></div><span>{item.creator} · {item.content_title}</span><blockquote>{item.quote}</blockquote>{item.note && <p>{item.note}</p>}<button onClick={() => onOpenUnit(item.unit_id)} type="button">核查逐字证据 #{item.unit_id} ↗</button></article>)}
                 {mode === 'loaded' && resolvedDetail?.attestations.length === 0 && <p className="section-empty">该节点尚未返回提及记录。</p>}
               </section>}
-              {activeView === 'verdicts' && <section className="node-context-verdict"><span>03 / VERDICT</span><h3>市场裁决</h3>{hitRate === null ? <p className="section-empty">尚未形成足够的到期评分，不显示 0%。</p> : <div><strong>{hitRate}%</strong><span>加权命中率 · n={scoreCount}</span><p>命中 {node.hit} · 部分 {node.partial} · 未中 {node.miss}</p></div>}</section>}
-              {activeView === 'relations' && <section className="node-context-relations"><span>04 / RELATIONS</span><h3>继续阅读</h3><div>{mode === 'loaded' && resolvedDetail?.relations.map((relation) => <button key={`${relation.relation}-${relation.other_id}`} onClick={() => onOpenNode(relation.other_id)} type="button"><span>{relationLabels[relation.relation]}</span><strong>{relation.other_title}</strong><p>{relation.note}</p><i>在当前内容中预览 ↗</i></button>)}{mode === 'loaded' && resolvedDetail?.relations.length === 0 && <p className="section-empty">当前没有经过人工确认的对立或互补关系。</p>}</div></section>}
+              {activeView === 'verdicts' && <section className="node-context-verdict"><h3>市场裁决</h3>{hitRate === null ? <p className="section-empty">尚未形成足够的到期评分，不显示 0%。</p> : <div><strong>{hitRate}%</strong><span>加权命中率 · n={scoreCount}</span><p>命中 {node.hit} · 部分 {node.partial} · 未中 {node.miss}</p></div>}</section>}
+              {activeView === 'relations' && <section className="node-context-relations"><h3>继续阅读</h3><div>{mode === 'loaded' && resolvedDetail?.relations.map((relation) => <button key={`${relation.relation}-${relation.other_id}`} onClick={() => onOpenNode(relation.other_id)} type="button"><span>{relationLabels[relation.relation]}</span><strong>{relation.other_title}</strong><p>{relation.note}</p><i>在当前内容中预览 ↗</i></button>)}{mode === 'loaded' && resolvedDetail?.relations.length === 0 && <p className="section-empty">当前没有经过人工确认的对立或互补关系。</p>}</div></section>}
             </div>
           </section>
         </div>

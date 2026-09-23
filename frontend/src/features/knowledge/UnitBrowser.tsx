@@ -281,7 +281,7 @@ function UnitBrowser({
     <>
       <aside className="unit-filter-rail" data-open={filtersOpen}>
         <header>
-          <span>UNIT / FILTER</span>
+          <span>筛选</span>
           <button onClick={onCloseFilters} type="button">完成</button>
         </header>
 
@@ -357,7 +357,7 @@ function UnitBrowser({
 
         <footer>
           <span>{activeFilterCount ? `${activeFilterCount} 个条件` : `${page?.total ?? 0} 个全库单元`}</span>
-          {activeFilterCount ? <button onClick={resetFilters} type="button">清除</button> : <b>L1 EVIDENCE</b>}
+          {activeFilterCount ? <button onClick={resetFilters} type="button">清除</button> : null}
         </footer>
       </aside>
 
@@ -408,9 +408,7 @@ function UnitBrowser({
 
           {searchState === 'error' && units.length === 0 && (
             <div className="unit-search-error">
-              <span>SEARCH UNAVAILABLE</span>
               <strong>单元检索暂时不可用</strong>
-              <p>筛选条件已保留，重试不会清空当前检索词。</p>
               <button onClick={() => setRequestKey((value) => value + 1)} type="button">重新检索</button>
             </div>
           )}
@@ -458,9 +456,7 @@ function UnitBrowser({
 
           {searchState === 'loaded' && visibleUnits.length === 0 && (
             <div className="unit-list-empty">
-              <span>NO MATCHED UNIT</span>
               <strong>没有匹配的知识单元</strong>
-              <p>当前条件会同时作用于逐字引文和结构字段。</p>
               <button onClick={resetFilters} type="button">清除全部条件</button>
             </div>
           )}
@@ -477,7 +473,7 @@ function UnitBrowser({
             focusReviewId={readerUnitId === linkedUnitId ? linkedReviewId : null}
             initialView={readerUnitId === linkedUnitId ? linkedTab ?? undefined : undefined}
             onClose={onCloseReader}
-            parentLabel="UNIT"
+            parentLabel="单元"
             parentTitle={listedSelection?.quote ?? `#${readerUnitId}`}
             unitId={readerUnitId}
           />

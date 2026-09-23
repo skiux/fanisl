@@ -95,7 +95,7 @@ const ArchiveScene = forwardRef<ArchiveSceneHandle, ArchiveSceneProps>(function 
         ref={(element) => { stageRefs.current[0] = element }}
       >
         <div className="entry-copy">
-          <StageLabel index="00" label="KNOWLEDGE, WITH A MEMORY" />
+          <StageLabel index="00" label="入口" />
           <h1>
             <span data-animate style={motionStyle(0.02)}>把一段观点，</span>
             <span data-animate style={motionStyle(0.1)}>带进长期知识。</span>
@@ -129,7 +129,7 @@ const ArchiveScene = forwardRef<ArchiveSceneHandle, ArchiveSceneProps>(function 
         ref={(element) => { stageRefs.current[1] = element }}
       >
         <div className="source-copy">
-          <StageLabel index="01" label="SOURCE / 原始内容" />
+          <StageLabel index="01" label="原始内容" />
           <h2 data-animate style={motionStyle(0.06)}>知识先保留来处。</h2>
           <p data-animate style={motionStyle(0.16)}>
             转录、发布时间、作者和逐字引文一起保存。任何结构化结果，都能退回它的原始语境。
@@ -137,7 +137,7 @@ const ArchiveScene = forwardRef<ArchiveSceneHandle, ArchiveSceneProps>(function 
         </div>
         <article className="source-sheet" data-animate style={motionStyle(0.08)}>
           <header>
-            <span>CONTENT · 2026.05.31</span>
+            <span>内容 · 2026.05.31</span>
             <b>已归档</b>
           </header>
           <div className="source-author">
@@ -162,22 +162,22 @@ const ArchiveScene = forwardRef<ArchiveSceneHandle, ArchiveSceneProps>(function 
         ref={(element) => { stageRefs.current[2] = element }}
       >
         <div className="units-heading">
-          <StageLabel index="02" label="EXTRACT / 知识单元" />
+          <StageLabel index="02" label="知识单元" />
           <h2 data-animate style={motionStyle(0.04)}>一篇内容，拆成三种可用的知识。</h2>
         </div>
         <div className="unit-deck">
           <article className="unit-card judgment-card" data-animate style={motionStyle(0.09)}>
-            <header><span>判断</span><b>CLAIM</b></header>
+            <header><span>判断</span></header>
             <strong>标普 500<br />2026 年底 8200 点</strong>
             <footer><i /> 可被时间验证</footer>
           </article>
           <article className="unit-card method-card" data-animate style={motionStyle(0.17)}>
-            <header><span>方法</span><b>METHOD</b></header>
+            <header><span>方法</span></header>
             <strong>EMA 隧道识别<br />趋势与防守位</strong>
             <footer><i /> 可以重复执行</footer>
           </article>
           <article className="unit-card concept-card" data-animate style={motionStyle(0.25)}>
-            <header><span>认知</span><b>CONCEPT</b></header>
+            <header><span>认知</span></header>
             <strong>软件收费<br />席位 → 按量 → 按结果</strong>
             <footer><i /> 可以持续演进</footer>
           </article>
@@ -192,13 +192,13 @@ const ArchiveScene = forwardRef<ArchiveSceneHandle, ArchiveSceneProps>(function 
         className={`space-stage node-stage ${active === 3 ? 'is-active' : ''}`}
         ref={(element) => { stageRefs.current[3] = element }}
       >
-        <StageLabel index="03" label="MERGE / 长期节点" />
+        <StageLabel index="03" label="长期节点" />
         <div className="node-copy">
           <h2 data-animate style={motionStyle(0.04)}>新的表达，不再成为新的孤岛。</h2>
           <p data-animate style={motionStyle(0.14)}>同一知识被重申、细化或修正时，时间线增长，节点不重复堆积。</p>
         </div>
         <article className="canonical-node" data-animate style={motionStyle(0.08)}>
-          <header><span>KNOWLEDGE NODE · 047</span><b>认知</b></header>
+          <header><span>长期节点 · 047</span><b>认知</b></header>
           <h3>AI 时代的软件收费：<br />席位 → 按量 → 按结果</h3>
           <div className="node-timeline">
             <span data-animate style={motionStyle(0.18)}><i>05.31</i><b>首次提出</b><em>按量收费是唯一出路</em></span>
@@ -216,7 +216,7 @@ const ArchiveScene = forwardRef<ArchiveSceneHandle, ArchiveSceneProps>(function 
         ref={(element) => { stageRefs.current[4] = element }}
       >
         <div className="relation-heading">
-          <StageLabel index="04" label="DISCOVER / 知识关系" />
+          <StageLabel index="04" label="知识关系" />
           <h2 data-animate style={motionStyle(0.04)}>知识连接之后，分歧才变得可见。</h2>
           <p data-animate style={motionStyle(0.13)}>系统发现对立、互补与跨源共识；关系必须回到两端证据，而不是凭空生成结论。</p>
         </div>
@@ -230,7 +230,7 @@ const ArchiveScene = forwardRef<ArchiveSceneHandle, ArchiveSceneProps>(function 
             <path d="M18 78 C150 18 344 142 482 78" data-animate pathLength="1" style={motionStyle(0.18)} />
           </svg>
           <div className="relation-verdict" data-animate style={motionStyle(0.25)}>
-            <span>CONFLICT</span><b>解释冲突</b><small>1 条已发现</small>
+            <b>解释冲突</b><small>1 条已发现</small>
           </div>
           <article className="relation-node relation-right" data-animate style={motionStyle(0.16)}>
             <small>认知 · 半导体</small>
@@ -246,7 +246,7 @@ const ArchiveScene = forwardRef<ArchiveSceneHandle, ArchiveSceneProps>(function 
         ref={(element) => { stageRefs.current[5] = element }}
       >
         <div className="library-copy">
-          <StageLabel index="05" label="REMEMBER / 个人知识库" />
+          <StageLabel index="05" label="个人知识库" />
           <h2>
             <span data-animate style={motionStyle(0.03)}>抵达的不是终点，</span>
             <span data-animate style={motionStyle(0.1)}>而是一座继续生长的知识库。</span>
@@ -270,7 +270,7 @@ const ArchiveScene = forwardRef<ArchiveSceneHandle, ArchiveSceneProps>(function 
           </button>
         ) : (
           <div className="library-status" data-animate style={motionStyle(0.36)}>
-            <i /> {statsState === 'loading' ? 'KNOWLEDGE BASE · CONNECTING' : 'KNOWLEDGE BASE · ACTIVE'}
+            <i /> {statsState === 'loading' ? '知识库 · 连接中' : '知识库 · 已连接'}
           </div>
         )}
       </section>

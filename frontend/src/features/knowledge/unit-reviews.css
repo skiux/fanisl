@@ -2,8 +2,6 @@
    证据档案也会被验证中心与发现页打开，那两页不加载 knowledge.css，所以线色都带兜底值。 */
 
 .unit-review-section {
-  --review-line: var(--library-line, rgba(43, 52, 44, .16));
-  --review-line-soft: var(--library-line-soft, rgba(43, 52, 44, .085));
 }
 
 .unit-review-section > header {
@@ -15,7 +13,7 @@
 
 .unit-review-section > header p {
   margin: 0;
-  color: #445145;
+  color: var(--ink-soft);
   font-size: var(--text-ui);
   font-weight: 660;
 }
@@ -23,15 +21,15 @@
 .unit-review-section > header span {
   display: block;
   margin-top: 4px;
-  color: #727c72;
+  color: var(--muted);
   font-size: var(--text-ui);
   line-height: 1.5;
 }
 
 .unit-review-section > header > b {
   flex: 0 0 auto;
-  color: #788278;
-  font: 600 var(--text-meta) ui-monospace, monospace;
+  color: var(--muted);
+  font: 600 var(--text-meta) var(--font-mono);
   white-space: nowrap;
 }
 
@@ -84,7 +82,7 @@
   margin: 16px 0 0;
   padding-left: 13px;
   border-left: 2px solid rgba(91, 105, 91, .35);
-  color: #626d62;
+  color: var(--muted);
   font-size: var(--text-meta);
   line-height: 1.62;
 }
@@ -97,7 +95,7 @@
   margin-top: 16px;
   border: 1px dashed rgba(72, 84, 70, .3);
   border-radius: 10px;
-  color: #4d5a4e;
+  color: var(--ink-soft);
   background: rgba(250, 248, 241, .5);
   cursor: pointer;
   font-size: var(--text-ui);
@@ -106,13 +104,13 @@
 
 .review-compose-open:hover {
   border-color: var(--unit-accent, #647657);
-  color: #2f3a30;
+  color: var(--ink);
 }
 
 .review-composer {
   margin-top: 16px;
   padding: 15px 16px 16px;
-  border: 1px solid var(--review-line);
+  border: 1px solid var(--line);
   border-radius: 12px;
   background: rgba(252, 251, 246, .74);
 }
@@ -125,7 +123,7 @@
 
 .review-composer > header p {
   margin: 0;
-  color: #3f4b40;
+  color: var(--ink-soft);
   font-size: var(--text-ui);
   font-weight: 660;
 }
@@ -133,7 +131,7 @@
 .review-composer > header button {
   padding: 0;
   border: 0;
-  color: #6f7a6f;
+  color: var(--muted);
   background: transparent;
   cursor: pointer;
   font-size: var(--text-meta);
@@ -149,7 +147,7 @@
 .review-composer legend,
 .review-textarea label > span {
   padding: 0;
-  color: #717b71;
+  color: var(--muted);
   font-size: var(--text-meta);
   font-weight: 620;
 }
@@ -178,7 +176,7 @@
   padding: 6px 11px;
   border: 1px solid rgba(72, 84, 70, .18);
   border-radius: 99px;
-  color: #556156;
+  color: var(--ink-soft);
   background: rgba(255, 255, 252, .62);
   font-size: var(--text-meta);
   transition: border-color .15s ease, background .15s ease;
@@ -190,7 +188,7 @@
 
 .review-category-options label[data-checked="true"] span {
   border-color: var(--unit-accent, #647657);
-  color: #2f3a30;
+  color: var(--ink);
   background: color-mix(in srgb, var(--unit-tint, rgba(220, 230, 198, .62)) 72%, #fff);
   font-weight: 640;
 }
@@ -218,7 +216,7 @@
   resize: vertical;
   border: 1px solid rgba(72, 84, 70, .2);
   border-radius: 8px;
-  color: #303b31;
+  color: var(--ink);
   background: #fdfcf8;
   font: inherit;
   font-size: var(--text-ui);
@@ -226,7 +224,7 @@
 }
 
 .review-textarea textarea::placeholder {
-  color: #9aa198;
+  color: var(--faint);
 }
 
 .review-textarea textarea:focus {
@@ -238,8 +236,8 @@
 .review-textarea small {
   display: block;
   margin-top: 5px;
-  color: #8a9289;
-  font: var(--text-caption) ui-monospace, monospace;
+  color: var(--faint);
+  font: var(--text-caption) var(--font-mono);
   text-align: right;
 }
 
@@ -256,7 +254,7 @@
 }
 
 .review-composer > footer span {
-  color: #6f7a6f;
+  color: var(--muted);
   font-size: var(--text-meta);
   line-height: 1.5;
 }
@@ -270,7 +268,7 @@
   padding: 0 14px;
   border: 1px solid rgba(72, 84, 70, .24);
   border-radius: 8px;
-  color: #3f4b40;
+  color: var(--ink-soft);
   background: rgba(255, 255, 252, .66);
   cursor: pointer;
   font-size: var(--text-ui);
@@ -319,7 +317,7 @@
   --review-accent: #647657;
   margin-top: 14px;
   overflow: hidden;
-  border: 1px solid var(--review-line);
+  border: 1px solid var(--line);
   border-left: 3px solid var(--review-accent);
   border-radius: 10px;
   background: rgba(252, 251, 246, .7);
@@ -345,7 +343,7 @@
   align-items: center;
   gap: 6px 10px;
   padding: 11px 14px;
-  border-bottom: 1px solid var(--review-line-soft);
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .review-status {
@@ -358,20 +356,20 @@
 }
 
 .review-card[data-status="closed"] .review-status {
-  color: #5d665d;
+  color: var(--muted);
   background: rgba(72, 84, 70, .1);
 }
 
 .review-card > header b {
-  color: #3f4b40;
+  color: var(--ink-soft);
   font-size: var(--text-meta);
   font-weight: 650;
 }
 
 .review-card > header time {
   margin-left: auto;
-  color: #7b847b;
-  font: var(--text-caption) ui-monospace, monospace;
+  color: var(--faint);
+  font: var(--text-caption) var(--font-mono);
 }
 
 .review-thread {
@@ -382,7 +380,7 @@
 
 .review-thread li {
   padding: 12px 14px;
-  border-bottom: 1px solid var(--review-line-soft);
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .review-thread li[data-role="extractor"] {
@@ -397,7 +395,7 @@
 }
 
 .review-message-meta b {
-  color: #3f4b40;
+  color: var(--ink-soft);
   font-size: var(--text-meta);
   font-weight: 680;
 }
@@ -407,19 +405,19 @@
 }
 
 .review-message-meta span {
-  color: #7b847b;
+  color: var(--faint);
   font-size: var(--text-caption);
 }
 
 .review-message-meta time {
   margin-left: auto;
-  color: #8a9289;
-  font: var(--text-caption) ui-monospace, monospace;
+  color: var(--faint);
+  font: var(--text-caption) var(--font-mono);
 }
 
 .review-message-body {
   margin: 7px 0 0;
-  color: #344035;
+  color: var(--ink);
   font-size: var(--text-ui);
   line-height: 1.7;
   white-space: pre-wrap;
@@ -428,7 +426,7 @@
 
 .review-resolution {
   margin: 12px 0 0;
-  border: 1px solid var(--review-line-soft);
+  border: 1px solid var(--line-soft);
   border-radius: 8px;
   background: rgba(255, 255, 252, .74);
 }
@@ -438,7 +436,7 @@
   grid-template-columns: 72px minmax(0, 1fr);
   gap: 12px;
   padding: 9px 12px;
-  border-top: 1px solid var(--review-line-soft);
+  border-top: 1px solid var(--line-soft);
 }
 
 .review-resolution > div:first-child {
@@ -446,13 +444,13 @@
 }
 
 .review-resolution dt {
-  color: #717b71;
+  color: var(--muted);
   font-size: var(--text-meta);
 }
 
 .review-resolution dd {
   margin: 0;
-  color: #344035;
+  color: var(--ink);
   font-size: var(--text-meta);
   line-height: 1.66;
   white-space: pre-wrap;
@@ -464,14 +462,14 @@
 }
 
 .review-resolution[data-outcome="fixed"] dd b { color: #4c6243; }
-.review-resolution[data-outcome="no_change"] dd b { color: #5d665d; }
+.review-resolution[data-outcome="no_change"] dd b { color: var(--muted); }
 .review-resolution[data-outcome="needs_info"] dd b { color: #9a6c57; }
 
 /* ---- 修改记录 ---- */
 
 .review-amendments {
   padding: 12px 14px 14px;
-  border-bottom: 1px solid var(--review-line-soft);
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .review-amendments > header {
@@ -483,13 +481,13 @@
 
 .review-amendments > header p {
   margin: 0;
-  color: #3f4b40;
+  color: var(--ink-soft);
   font-size: var(--text-meta);
   font-weight: 680;
 }
 
 .review-amendments > header span {
-  color: #7b847b;
+  color: var(--faint);
   font-size: var(--text-caption);
 }
 
@@ -499,7 +497,7 @@
 
 .review-amendment + .review-amendment {
   padding-top: 10px;
-  border-top: 1px dashed var(--review-line);
+  border-top: 1px dashed var(--line);
 }
 
 .review-amendment > header {
@@ -507,8 +505,8 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 2px 10px;
-  color: #6f7a6f;
-  font: var(--text-caption) ui-monospace, monospace;
+  color: var(--muted);
+  font: var(--text-caption) var(--font-mono);
 }
 
 .review-amendment > header span {
@@ -517,7 +515,7 @@
 
 .review-amendment-reason {
   margin: 6px 0 0;
-  color: #3f4b40;
+  color: var(--ink-soft);
   font-size: var(--text-meta);
   line-height: 1.62;
   white-space: pre-wrap;
@@ -526,7 +524,7 @@
 
 .review-amendment-reason b {
   margin-right: 8px;
-  color: #717b71;
+  color: var(--muted);
   font-weight: 620;
 }
 
@@ -545,14 +543,14 @@
   gap: 6px;
   padding: 3px 8px;
   border-radius: 6px;
-  color: #3f4b40;
+  color: var(--ink-soft);
   background: rgba(72, 84, 70, .07);
   font-size: var(--text-caption);
 }
 
 .review-changed code {
-  color: #7b847b;
-  font: var(--text-caption) ui-monospace, monospace;
+  color: var(--faint);
+  font: var(--text-caption) var(--font-mono);
 }
 
 .review-diff {
@@ -568,7 +566,7 @@
 
 .review-diff-side > span {
   display: block;
-  color: #7b847b;
+  color: var(--faint);
   font-size: var(--text-caption);
 }
 
@@ -591,25 +589,25 @@
 
 .review-diff-side.is-before p,
 .review-diff-side.is-before pre {
-  color: #6b5a52;
+  color: var(--muted);
 }
 
 .review-diff-side.is-after p,
 .review-diff-side.is-after pre {
-  color: #2f3a30;
+  color: var(--ink);
 }
 
 .review-diff-side pre {
   max-height: 260px;
   overflow: auto;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-caption);
 }
 
 .review-diff-empty {
   display: block;
   margin-top: 4px;
-  color: #8a9289;
+  color: var(--faint);
   font-size: var(--text-meta);
   font-style: normal;
 }
@@ -629,7 +627,7 @@
 
 .review-action-row p {
   margin: 0;
-  color: #626d62;
+  color: var(--muted);
   font-size: var(--text-meta);
   line-height: 1.55;
 }

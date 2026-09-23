@@ -280,8 +280,7 @@ function ArchivePage() {
     : summaries.filter((summary) => documentMeta[summary.name].category === filter).length
 
   return (
-    <div className="archive-page">
-      <div aria-hidden="true" className="archive-material" />
+    <div className="archive-page app-page">
       <AppHeader
         current="archive"
         onSearch={() => {
@@ -290,29 +289,14 @@ function ArchivePage() {
       />
 
       <main className="archive-stage">
-        <header className="archive-masthead">
-          <div className="archive-title">
-            <span>06 / RESEARCH ARCHIVE</span>
-            <h1>档案</h1>
-            <p><i />只读 · 研究收官陈列</p>
-          </div>
-          <div className="archive-statement">
-            <strong>让负结果留下尊严，<br />也留下不能再越过的边界。</strong>
-            <p>这里保存已经被证伪的路径、方法纪律与产品转向；它们不是失败记录，而是下一次研究的先验。</p>
-          </div>
-          <div aria-label="研究档案规模" className="archive-ledger">
-            <span>
-              <strong>{loadState === 'loaded' ? summaries.length : '—'}</strong>
-              <small>白名单文档</small>
-            </span>
-            <span>
-              <strong>{capstoneStats?.verdicts ?? '—'}</strong>
-              <small>预注册裁决</small>
-            </span>
-            <span>
-              <strong>{sourceLines ? formatCount(sourceLines) : '—'}</strong>
-              <small>源文档行</small>
-            </span>
+        <header className="page-head">
+          <h1>档案</h1>
+          <div className="page-head-actions">
+            <dl aria-label="研究档案规模" className="page-stats">
+              <div><dt>白名单文档</dt><dd>{loadState === 'loaded' ? summaries.length : '—'}</dd></div>
+              <div><dt>预注册裁决</dt><dd>{capstoneStats?.verdicts ?? '—'}</dd></div>
+              <div><dt>源文档行</dt><dd>{sourceLines ? formatCount(sourceLines) : '—'}</dd></div>
+            </dl>
           </div>
         </header>
 
@@ -327,7 +311,7 @@ function ArchivePage() {
 
           <aside className="archive-rail" data-open={railOpen}>
             <header>
-              <span>ARCHIVE / REGISTER</span>
+              <span>分类</span>
               <button onClick={() => setRailOpen(false)} type="button">完成</button>
             </header>
             <nav aria-label="档案分类">
@@ -345,21 +329,6 @@ function ArchivePage() {
                 </button>
               ))}
             </nav>
-            <section className="archive-principle">
-              <span>ARCHIVAL RULE</span>
-              <strong>负结果是一等资产</strong>
-              <p>预注册判据不可事后移动；KILLED 照实保存，线索只能以新编号重新接受样本外裁决。</p>
-            </section>
-            <section className="archive-sequence">
-              <span>RESEARCH SEQUENCE</span>
-              <ol>
-                <li><i /><span>预注册<small>锁死判据</small></span></li>
-                <li><i /><span>时点审计<small>阻断未来函数</small></span></li>
-                <li><i /><span>样本外裁决<small>保留完整边界</small></span></li>
-                <li><i /><span>收官陈列<small>转化为先验</small></span></li>
-              </ol>
-            </section>
-            <footer><span><i />READ ONLY</span><b>FANISL / 06</b></footer>
           </aside>
 
           <section className="archive-index">
@@ -373,7 +342,6 @@ function ArchivePage() {
               </button>
               <div>
                 <strong>研究档案索引</strong>
-                <span>白名单源文件 · 原文保真渲染</span>
               </div>
               <p>
                 <b>{loadState === 'loaded' ? visibleSummaries.length : '—'}</b>
@@ -403,7 +371,6 @@ function ArchivePage() {
 
               {loadState === 'error' && (
                 <div className="archive-index-state">
-                  <span>ARCHIVE INDEX UNAVAILABLE</span>
                   <strong>档案索引暂时没有载入</strong>
                   <p>页面没有用本地假数据替代接口内容。</p>
                   <button onClick={() => setRequestKey((value) => value + 1)} type="button">
@@ -414,7 +381,6 @@ function ArchivePage() {
 
               {loadState === 'loaded' && visibleSummaries.length === 0 && (
                 <div className="archive-index-state">
-                  <span>NO MATCH IN ARCHIVE</span>
                   <strong>没有与当前条件相符的档案</strong>
                   <p>检索只作用于四份白名单原文，不扩展到未陈列的内部文档。</p>
                   <button
@@ -446,13 +412,13 @@ function ArchivePage() {
                   >
                     <span className="archive-document-code">{meta.code}</span>
                     <div>
-                      <small>{meta.category === 'closure' ? 'RESEARCH CLOSURE' : 'METHOD LEGACY'}</small>
+                      <small>{categoryLabels[meta.category]}</small>
                       <strong>{meta.label}</strong>
                       <p>{document ? extractDocumentExcerpt(document.content) : meta.note}</p>
                       <footer>
                         <span>{failed ? '原文读取失败' : `${stats?.minutes ?? '—'} 分钟`}</span>
                         <span>{stats ? `${stats.headings} 章节` : '等待原文'}</span>
-                        <b>{failed ? 'RETRY' : 'READ →'}</b>
+                        <b>{failed ? '重试' : '阅读 →'}</b>
                       </footer>
                     </div>
                   </button>
@@ -485,8 +451,7 @@ function ArchivePage() {
                   <article className="archive-document">
                     <header className="archive-document-jacket">
                       <div className="archive-jacket-topline">
-                        <span>{selectedMeta.code} / {selectedMeta.category === 'closure' ? 'CLOSURE' : 'METHOD'}</span>
-                        <b><i />READ ONLY</b>
+                        <span>{selectedMeta.code} · {categoryLabels[selectedMeta.category]}</span>
                       </div>
                       <p>{selectedDocument.path}</p>
                       <h2>{selectedMeta.label}</h2>
@@ -524,16 +489,11 @@ function ArchivePage() {
                       onDocumentSelect={(name) => selectDocument(name, false)}
                     />
 
-                    <footer className="archive-document-end">
-                      <span>END OF SOURCE DOCUMENT</span>
-                      <i />
-                      <p>原文由后端白名单读取；页面不改写裁决，也不提供编辑入口。</p>
-                    </footer>
                   </article>
 
                   <aside className="archive-toc">
                     <header>
-                      <span>DOCUMENT / CONTENTS</span>
+                      <span>目录</span>
                       <b>{String(sectionHeadings.length).padStart(2, '0')}</b>
                     </header>
                     <nav aria-label="文档目录">
@@ -551,7 +511,7 @@ function ArchivePage() {
                       ))}
                     </nav>
                     <footer>
-                      <span>READING</span>
+                      <span>已读</span>
                       <b>{String(Math.round(progress * 100)).padStart(2, '0')}%</b>
                     </footer>
                   </aside>
@@ -559,7 +519,6 @@ function ArchivePage() {
               </div>
             ) : (
               <div className="archive-reader-state">
-                <span>DOCUMENT SOURCE UNAVAILABLE</span>
                 <strong>{selectedMeta.label}暂时没有载入</strong>
                 <p>{loadState === 'error'
                   ? '档案索引尚未可用；页面不会用本地副本冒充接口原文。'
@@ -575,11 +534,6 @@ function ArchivePage() {
         </section>
       </main>
 
-      <footer className="archive-page-footer">
-        <span>FANISL / RESEARCH ARCHIVE</span>
-        <p>预注册 → 时点正确 → 样本外裁决 → 研究遗产</p>
-        <b>NEGATIVE RESULTS ARE ASSETS</b>
-      </footer>
     </div>
   )
 }

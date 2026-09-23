@@ -5,9 +5,9 @@ test.beforeEach(async ({ page }) => {
   await mockApi(page)
 })
 
-test('knowledge masthead visual baseline', async ({ page }) => {
+test('knowledge head visual baseline', async ({ page }) => {
   await page.goto('/#/knowledge')
-  await expect(page.locator('.source-library-lead')).toHaveScreenshot('knowledge-masthead.png', {
+  await expect(page.locator('.source-library-stage > .page-head')).toHaveScreenshot('knowledge-head.png', {
     animations: 'disabled',
     caret: 'hide',
   })

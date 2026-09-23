@@ -192,17 +192,14 @@ const ResearchBackdrop = forwardRef<ResearchBackdropHandle>(function ResearchBac
           <g className="research-note note-method">
             <path d="M692 82 C730 52 769 47 811 58" pathLength="1" />
             <circle cx="689" cy="83" r="4" />
-            <text x="820" y="60">METHOD / EMA 12·26</text>
           </g>
           <g className="research-note note-evidence">
             <path d="M332 311 C293 344 249 356 204 351" pathLength="1" />
             <circle cx="334" cy="309" r="4" />
-            <text x="76" y="357">RAW EVIDENCE / 021</text>
           </g>
           <g className="research-note note-review">
             <path d="M957 237 C1013 228 1050 245 1080 275" pathLength="1" />
             <circle cx="954" cy="237" r="4" />
-            <text x="1013" y="296">REVIEW / OPEN</text>
           </g>
 
           <line className="research-trace" ref={trace} y1="38" y2="500" />
@@ -212,11 +209,6 @@ const ResearchBackdrop = forwardRef<ResearchBackdropHandle>(function ResearchBac
             <path d="M-27 0 H-8 M8 0 H27 M0 -27 V-8 M0 8 V27" />
           </g>
 
-          <g className="research-axis">
-            <text x="31" y="28">ILLUSTRATIVE SERIES · NORMALIZED</text>
-            <text x="31" y="517">VOLUME / SOURCE DENSITY</text>
-            <text textAnchor="end" x="1169" y="517">FANISL RESEARCH FIELD · 01</text>
-          </g>
         </svg>
       </div>
 

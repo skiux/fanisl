@@ -71,25 +71,23 @@ function DeskOverview({ onOpenAsset }: { onOpenAsset: (asset: string) => void })
 
   return (
     <div className="asset-desk-home">
-      <header>
-        <div>
-          <span>ASSET DESK</span>
-          <h1>先看还有什么没兑现</h1>
-          <p>左边选一个标的读它的全部证据；这里是跨标的的到期日程与最近裁决。</p>
-        </div>
+      <header className="page-head">
+        <h1>先看还有什么没兑现</h1>
         {overview && (
-          <dl>
-            <div><dt>21 天内到期</dt><dd>{overview.due ?? '—'}</dd></div>
-            <div><dt>近期已判定</dt><dd>{overview.completed ?? '—'}</dd></div>
-            <div><dt>条件待观察</dt><dd>{overview.review ?? '—'}</dd></div>
-            <div><dt>不可机械验</dt><dd>{overview.unavailable ?? '—'}</dd></div>
-          </dl>
+          <div className="page-head-actions">
+            <dl aria-label="跨标的概况" className="page-stats">
+              <div><dt>21 天内到期</dt><dd>{overview.due ?? '—'}</dd></div>
+              <div><dt>近期已判定</dt><dd>{overview.completed ?? '—'}</dd></div>
+              <div><dt>条件待观察</dt><dd>{overview.review ?? '—'}</dd></div>
+              <div><dt>不可机械验</dt><dd>{overview.unavailable ?? '—'}</dd></div>
+            </dl>
+          </div>
         )}
       </header>
 
       <div className="asset-desk-columns">
         <section aria-label="接下来要交卷">
-          <header><p>接下来要交卷</p><span>判据早已冻结，到期只做机械执行</span></header>
+          <header><p>接下来要交卷</p></header>
           {state === 'loading' && <div className="asset-desk-skeleton">{[0, 1, 2, 3].map((k) => <i key={k} />)}</div>}
           {state === 'error' && <p className="asset-empty">验证队列暂时不可用。</p>}
           {state === 'loaded' && due.length === 0 && (
@@ -118,7 +116,7 @@ function DeskOverview({ onOpenAsset }: { onOpenAsset: (asset: string) => void })
         </section>
 
         <section aria-label="最近裁决">
-          <header><p>最近裁决</p><span>市场刚刚给出的结果</span></header>
+          <header><p>最近裁决</p></header>
           {state === 'loading' && <div className="asset-desk-skeleton">{[0, 1, 2, 3].map((k) => <i key={k} />)}</div>}
           {state === 'loaded' && scores.length === 0 && <p className="asset-empty">最近 21 天没有新的判定。</p>}
           <ol>

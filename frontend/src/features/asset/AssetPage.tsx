@@ -98,8 +98,7 @@ function AssetPage() {
   const next = position >= 0 && position < rows.length - 1 ? rows[position + 1] : null
 
   return (
-    <div className="asset-page" data-mode={selected ? 'asset' : 'desk'}>
-      <div aria-hidden="true" className="asset-material" />
+    <div className="asset-page app-page" data-mode={selected ? 'asset' : 'desk'}>
       <AppHeader current="asset" onSearch={() => { window.location.hash = '#/knowledge?search=1' }} />
 
       <div className="asset-desk">

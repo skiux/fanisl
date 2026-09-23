@@ -100,7 +100,8 @@ test('深链到不在首页那 100 条里的旧单元，打开的就是它，不
   await mockApi(page)
   await page.goto('/#/knowledge?unit=115&view=evidence')
 
-  await expect(reader(page).locator('.unit-lead')).toContainText('UNIT / 115')
+  // 页面上不再印单元编号，按证据区的无障碍名与引文判断打开的是哪一条
+  await expect(reader(page).getByRole('region', { name: '证据单元 115' })).toContainText('115 号填充引文')
   // 窄屏的阅读区是抽屉，深链进来要直接打开
   if ((page.viewportSize()?.width ?? 0) <= 900) {
     await expect(reader(page)).toHaveAttribute('data-open', 'true')

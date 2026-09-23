@@ -110,9 +110,7 @@ function ClaimContract({ unit }: { unit: KnowledgeUnitDetail }) {
       <header>
         <div>
           <p>冻结判据</p>
-          <span>发布时确定，评分时不再解释</span>
         </div>
-        <b>SCORING CONTRACT</b>
       </header>
 
       <div className="contract-facts">
@@ -181,9 +179,7 @@ function MethodStructure({ unit }: { unit: KnowledgeUnitDetail }) {
       <header>
         <div>
           <p>方法结构</p>
-          <span>把口头经验保留为可复述规则</span>
         </div>
-        <b>METHOD SPEC</b>
       </header>
 
       <div className="contract-facts">
@@ -226,9 +222,7 @@ function ConceptStructure({ unit }: { unit: KnowledgeUnitDetail }) {
       <header>
         <div>
           <p>认知结构</p>
-          <span>原始表达之外的归一化检索抓手</span>
         </div>
-        <b>CONCEPT FRAME</b>
       </header>
 
       <div className="contract-facts">
@@ -272,7 +266,6 @@ function ScoreSection({ unit }: { unit: KnowledgeUnitDetail }) {
       <header>
         <div>
           <p>市场裁决</p>
-          <span>机械执行冻结判据，不在到期后重新解释</span>
         </div>
         <b>{unit.scores.length} 个时点</b>
       </header>
@@ -361,7 +354,6 @@ function PriceEvidence({ unit }: { unit: KnowledgeUnitDetail }) {
       <header>
         <div>
           <p>价格证据</p>
-          <span>发布参考价、到期时点与真实日线窗口</span>
         </div>
         <b>{symbol}</b>
       </header>
@@ -516,9 +508,7 @@ function ContentGateway({ unit }: { unit: KnowledgeUnitDetail }) {
       <header>
         <div>
           <p>原始内容</p>
-          <span>L0 不可变来源</span>
         </div>
-        <b>CONTENT / {String(unit.content_id).padStart(3, '0')}</b>
       </header>
 
       <article>
@@ -564,7 +554,7 @@ function EvidenceDossier({
   focusReviewId = null,
   initialView = 'structure',
   onClose,
-  parentLabel = 'NODE',
+  parentLabel = '节点',
   parentTitle,
   unitId,
 }: {
@@ -678,9 +668,7 @@ function EvidenceDossier({
         {state === 'loading' && <DossierSkeleton />}
         {state === 'error' && (
           <div className="dossier-error">
-            <span>EVIDENCE UNAVAILABLE</span>
             <strong>证据单元暂时没有载入</strong>
-            <p>节点和提及仍然保留在上一层，重试不会改变当前阅读位置。</p>
             <button onClick={() => setRequestKey((value) => value + 1)} type="button">重新读取单元</button>
           </div>
         )}
@@ -688,10 +676,6 @@ function EvidenceDossier({
         {state === 'loaded' && unit && (
           <article className={`unit-dossier kind-${unit.kind}`}>
             <header className="unit-lead">
-              <div>
-                <span>UNIT / {String(unit.id).padStart(3, '0')}</span>
-                <b>L1 / EVIDENCE</b>
-              </div>
               <p>
                 <em>{kindLabels[unit.kind]}</em>
                 <strong>{unit.creator}</strong>
@@ -712,7 +696,7 @@ function EvidenceDossier({
                 <footer className="unit-provenance">
                   <div><span>提取版本</span><b>{unit.extractor_version}</b></div>
                   <div><span>提取模型</span><b>{unit.model ?? '未记录'}</b></div>
-                  <strong>QUOTE VERIFIED IN SOURCE</strong>
+                  <strong>已与原文逐字核对</strong>
                 </footer>
               </aside>
 

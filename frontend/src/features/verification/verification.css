@@ -1,23 +1,6 @@
 /* 验证页：整页不滚动。上面一条判决时间轴，下面摊开选中那天的判断；记录在浮层里看 */
 
 .verify-page {
-  --v-ink: #283127;
-  --v-ink-soft: #465047;
-  --v-muted: #687267;
-  --v-faint: #8a9289;
-  --v-line: rgba(40, 49, 39, .13);
-  --v-line-soft: rgba(40, 49, 39, .075);
-  --v-surface: rgba(255, 255, 251, .56);
-  --v-hit: #4f6b40;
-  --v-hit-line: #86a174;
-  --v-miss: #a1633f;
-  --v-miss-line: #cf9f84;
-  --v-partial: #6f6a86;
-  --v-partial-line: #aaa5bd;
-  --v-wait: #86754a;
-  --v-wait-line: #c4b48b;
-  --v-void: #7b8079;
-  --v-void-line: #b9bdb6;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -25,66 +8,35 @@
   /* 矮到连一行卡片都放不下时才让整页滚 */
   min-height: 560px;
   overflow: hidden;
-  color: var(--v-ink);
-  background:
-    radial-gradient(circle at 16% 0%, rgba(251, 249, 241, .9), transparent 34%),
-    linear-gradient(180deg, #ebe8de 0%, #e9e6dc 40%, #efede5 100%);
-  isolation: isolate;
-}
-
-.verify-page .spatial-nav {
-  position: fixed;
-}
-
-.verify-page button,
-.verify-page input,
-.verify-page select {
-  color: inherit;
-  font: inherit;
 }
 
 /* 结果配色：命中绿、未中赭、部分灰紫、需复核与待到期暗黄、不可判灰 */
 .verify-page .outcome-hit,
-.verify-page .kind-hit { --tone: var(--v-hit); --tone-line: var(--v-hit-line); }
+.verify-page .kind-hit { --tone: var(--hit); --tone-line: var(--hit-line); --tone-tint: var(--hit-tint); }
 .verify-page .outcome-miss,
-.verify-page .kind-miss { --tone: var(--v-miss); --tone-line: var(--v-miss-line); }
+.verify-page .kind-miss { --tone: var(--miss); --tone-line: var(--miss-line); --tone-tint: var(--miss-tint); }
 .verify-page .outcome-partial,
-.verify-page .kind-partial { --tone: var(--v-partial); --tone-line: var(--v-partial-line); }
+.verify-page .kind-partial { --tone: var(--partial); --tone-line: var(--partial-line); --tone-tint: var(--partial-tint); }
 .verify-page .outcome-condition_not_met,
 .verify-page .outcome-pending,
 .verify-page .outcome-due,
 .verify-page .kind-review,
-.verify-page .kind-due { --tone: var(--v-wait); --tone-line: var(--v-wait-line); }
+.verify-page .kind-due { --tone: var(--wait); --tone-line: var(--wait-line); --tone-tint: var(--wait-tint); }
 .verify-page .outcome-condition_unverifiable,
 .verify-page .outcome-unpriceable,
-.verify-page .kind-void { --tone: var(--v-void); --tone-line: var(--v-void-line); }
+.verify-page .kind-void { --tone: var(--void); --tone-line: var(--void-line); --tone-tint: var(--void-tint); }
 
 .verify-stage {
   display: flex;
   flex: 1;
   flex-direction: column;
-  width: min(1200px, calc(100% - 48px));
+  width: var(--site-width);
   min-height: 0;
   margin: 0 auto;
-  padding: 100px 0 18px;
+  padding: var(--page-top) 0 18px;
 }
 
 /* --- 标题、图例与筛选 ------------------------------------------------------ */
-
-.verify-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 18px;
-}
-
-.verify-head h1 {
-  margin: 0;
-  font-size: 30px;
-  font-weight: 660;
-  letter-spacing: -.04em;
-  line-height: 1.2;
-}
 
 /* 图例同时是筛选：点一下，这一类在时间轴和卡片里一起隐去 */
 .verify-legend {
@@ -101,7 +53,7 @@
   padding: 0 10px;
   border: 0;
   border-radius: 99px;
-  color: var(--v-ink-soft);
+  color: var(--ink-soft);
   background: transparent;
   cursor: pointer;
   font-size: var(--text-caption);
@@ -148,63 +100,8 @@
 }
 
 .verify-legend small {
-  color: var(--v-faint);
-  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.verify-filters {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-}
-
-.verify-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 200px;
-  height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--v-line-soft);
-  border-radius: 10px;
-  background: var(--v-surface);
-}
-
-.verify-search:focus-within,
-.verify-filters select:focus-visible {
-  border-color: rgba(40, 49, 39, .32);
-  outline: none;
-}
-
-.verify-search span {
-  color: var(--v-faint);
-}
-
-.verify-search input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  font-size: var(--text-ui);
-}
-
-.verify-search input::placeholder {
-  color: var(--v-faint);
-}
-
-.verify-filters select {
-  height: 36px;
-  padding: 0 30px 0 12px;
-  border: 1px solid var(--v-line-soft);
-  border-radius: 10px;
-  background:
-    linear-gradient(45deg, transparent 50%, var(--v-muted) 50%) calc(100% - 15px) 16px / 5px 5px no-repeat,
-    linear-gradient(135deg, var(--v-muted) 50%, transparent 50%) calc(100% - 10px) 16px / 5px 5px no-repeat,
-    var(--v-surface);
-  appearance: none;
-  cursor: pointer;
-  font-size: var(--text-ui);
+  color: var(--faint);
+  font: 12px var(--font-mono);
 }
 
 .verify-notice {
@@ -214,15 +111,15 @@
   margin: 12px 0 0;
   padding: 8px 14px;
   border-radius: 10px;
-  color: var(--v-muted);
-  background: var(--v-surface);
+  color: var(--muted);
+  background: var(--surface);
   font-size: var(--text-caption);
 }
 
 .verify-notice button {
   margin-left: auto;
   border: 0;
-  color: var(--v-ink);
+  color: var(--ink);
   background: transparent;
   cursor: pointer;
   text-decoration: underline;
@@ -239,7 +136,7 @@
   -webkit-user-select: none;
   height: clamp(124px, 21vh, 190px);
   margin-top: 14px;
-  border: 1px solid var(--v-line-soft);
+  border: 1px solid var(--line-soft);
   border-radius: 14px;
   background: rgba(255, 255, 251, .45);
 }
@@ -275,13 +172,13 @@
 .verify-timeline-future { fill: rgba(255, 255, 251, .55); }
 .verify-timeline-axis { stroke: rgba(40, 49, 39, .28); }
 .verify-timeline-month line { stroke: rgba(40, 49, 39, .22); }
-.verify-timeline-month text { fill: var(--v-faint); font: 10.5px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.verify-timeline-month text { fill: var(--faint); font: 10.5px var(--font-mono); }
 .verify-timeline-today line { stroke: #66785b; stroke-dasharray: 2 3; }
-.verify-timeline-today text { fill: var(--v-hit); font: 600 10.5px system-ui, sans-serif; text-anchor: middle; }
+.verify-timeline-today text { fill: var(--hit); font: 600 10.5px system-ui, sans-serif; text-anchor: middle; }
 .verify-timeline-lens { fill: rgba(40, 49, 39, .07); stroke: rgba(40, 49, 39, .22); }
 .verify-timeline-hover { stroke: rgba(40, 49, 39, .3); }
 .verify-timeline-mark line { stroke: rgba(40, 49, 39, .55); stroke-dasharray: 2 2; }
-.verify-timeline-mark circle { fill: var(--v-ink); }
+.verify-timeline-mark circle { fill: var(--ink); }
 
 .verify-timeline-funnel {
   position: absolute;
@@ -299,10 +196,10 @@
 .tl-void { fill: #fbfaf5; stroke: #9ba09a; stroke-width: 1.4; }
 
 /* 放大镜里的那几天用各自的深色，和下面的卡片对上 */
-.is-selected .tl-hit { fill: var(--v-hit); }
-.is-selected .tl-partial { fill: var(--v-partial); }
-.is-selected .tl-miss { fill: var(--v-miss); }
-.is-selected .tl-due { fill: #eadfbd; stroke: var(--v-wait); }
+.is-selected .tl-hit { fill: var(--hit); }
+.is-selected .tl-partial { fill: var(--partial); }
+.is-selected .tl-miss { fill: var(--miss); }
+.is-selected .tl-due { fill: #eadfbd; stroke: var(--wait); }
 
 .verify-timeline-tip {
   position: absolute;
@@ -359,7 +256,7 @@
 
 .verify-window h2 span {
   overflow: hidden;
-  color: var(--v-muted);
+  color: var(--muted);
   font-size: var(--text-caption);
   font-weight: 400;
   letter-spacing: 0;
@@ -375,39 +272,18 @@
 
 .verify-window nav small {
   margin-right: 6px;
-  color: var(--v-faint);
-  font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--faint);
+  font: 12.5px var(--font-mono);
 }
 
-.verify-window nav button {
-  min-width: 76px;
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--v-line);
-  border-radius: 9px;
-  background: var(--v-surface);
-  cursor: pointer;
-  font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace;
-}
 
-.verify-window nav button:hover:not(:disabled) {
-  border-color: rgba(40, 49, 39, .3);
-}
-
-.verify-window nav button:disabled {
-  opacity: .35;
-  cursor: default;
-}
-
-/* 卡片定高：一屏放几张由卡片区的高度除以卡片高度，放不下的在下面翻组 */
+/* 行数由卡片区的高度除以卡片最小高度（见 VerificationPage 的 CARD_MIN_HEIGHT），各行平分剩下的高度 */
 .verify-cards {
-  --verify-card-h: 148px;
   display: grid;
   flex: 1;
   grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
-  grid-auto-rows: var(--verify-card-h);
-  align-content: start;
-  gap: 12px;
+  grid-template-rows: repeat(var(--rows, 2), minmax(0, 1fr));
+  gap: 16px;
   min-height: 0;
   margin: 0;
   padding: 0;
@@ -418,91 +294,82 @@
 .verify-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   width: 100%;
   height: 100%;
-  padding: 14px 16px 12px 18px;
-  border: 1px solid var(--v-line-soft);
-  border-radius: 12px;
-  background: rgba(255, 255, 251, .66);
-  box-shadow: inset 3px 0 0 var(--tone-line);
+  padding: 16px 20px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: rgba(252, 251, 246, .78);
+  box-shadow: var(--shadow-card);
   cursor: pointer;
   text-align: left;
-  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
 
 .verify-card:hover {
-  border-color: rgba(40, 49, 39, .2);
-  box-shadow: inset 3px 0 0 var(--tone), 0 12px 28px -20px rgba(40, 49, 39, .45);
-  transform: translateY(-1px);
+  border-color: var(--line);
+  box-shadow: 0 1px 2px rgba(40, 49, 39, .05), 0 18px 36px -24px rgba(40, 49, 39, .5);
+  transform: translateY(-2px);
 }
 
 .verify-card:focus-visible {
-  outline: 2px solid #66785b;
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
 .verify-card[aria-current="true"] {
   border-color: var(--tone-line);
-  background: #fff;
+  background: var(--surface-strong);
+  box-shadow: 0 0 0 3px var(--tone-tint), var(--shadow-card);
 }
 
-.verify-card-top {
+.verify-card-head {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
   white-space: nowrap;
 }
 
-.verify-card-top b {
+/* 结果标签：各类自己的颜色，浅底深字 */
+.verify-badge {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border-radius: 99px;
   color: var(--tone);
-  font: 650 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.verify-card-top em {
-  color: var(--tone);
-  font-size: 12.5px;
+  background: var(--tone-tint);
+  font-size: 12px;
   font-style: normal;
-  font-weight: 600;
+  font-weight: 620;
+  line-height: 1.4;
 }
 
-.verify-card-top strong {
-  margin-left: 4px;
-  font: 650 13px ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.verify-card-top span {
+.verify-card-head strong {
   min-width: 0;
   overflow: hidden;
-  color: var(--v-muted);
-  font-size: 12.5px;
+  font: 650 14px var(--font-mono);
+  letter-spacing: .01em;
   text-overflow: ellipsis;
 }
 
-.verify-card-top time {
+.verify-card-head time {
   flex: 0 0 auto;
   margin-left: auto;
-  padding-left: 6px;
-  color: var(--v-faint);
-  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--faint);
+  font: 12px var(--font-mono);
 }
 
-/* 未到期的卡片：边框换成虚线、不画左边的色条，和已经判过的分开 */
-.verify-card.kind-due {
-  border-style: dashed;
-  background: rgba(255, 255, 251, .42);
-  box-shadow: none;
-}
-
+/* 原话用衬线体：全站的逐字引文都是这个字体，和知识库的证据单元对得上 */
 .verify-card-quote {
   display: -webkit-box;
+  margin-top: 14px;
   overflow: hidden;
-  color: #3f493e;
-  font-size: 14.5px;
-  line-height: 1.6;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 15.5px;
+  line-height: 1.75;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: var(--quote-lines, 3);
 }
 
 .verify-card-foot {
@@ -512,22 +379,31 @@
   gap: 10px;
   min-width: 0;
   margin-top: auto;
+  padding-top: 12px;
 }
 
 .verify-card-foot small {
   overflow: hidden;
-  color: var(--v-faint);
+  color: var(--faint);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* 同一条判断的评分阶梯：一个点一个时点，实心是已判定，空心是未到期，带圈的是这一张 */
+/* 未到期：虚线边、底色更淡，和已经有结果的分开 */
+.verify-card.kind-due {
+  border-style: dashed;
+  border-color: var(--line);
+  background: rgba(252, 251, 246, .5);
+  box-shadow: none;
+}
+
+/* 同一条判断的评分阶梯：一个点一个时点，实心是有结果的，空心是没结果的，带圈的是这一张 */
 .verify-card-ladder {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .verify-card-ladder i {
@@ -545,7 +421,7 @@
 }
 
 .verify-card-ladder i.is-this {
-  box-shadow: 0 0 0 2px #fbfaf5, 0 0 0 3px var(--tone);
+  box-shadow: 0 0 0 2px var(--surface-strong), 0 0 0 3px var(--tone);
 }
 
 .verify-card-skeleton {
@@ -558,10 +434,11 @@
 .verify-empty {
   display: flex;
   grid-column: 1 / -1;
+  align-self: start;
   align-items: center;
   gap: 14px;
   padding: 18px 4px;
-  color: var(--v-muted);
+  color: var(--muted);
   font-size: var(--text-meta);
 }
 
@@ -572,9 +449,9 @@
 .verify-empty button {
   height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--v-line);
+  border: 1px solid var(--line);
   border-radius: 9px;
-  background: var(--v-surface);
+  background: var(--surface);
   cursor: pointer;
 }
 
@@ -598,7 +475,7 @@
   overflow-y: auto;
   border-radius: 16px;
   outline: none;
-  color: var(--v-ink);
+  color: var(--ink);
   background: #f7f6f0;
   box-shadow: 0 30px 90px rgba(35, 40, 34, .22);
 }
@@ -620,13 +497,13 @@
 
 .verify-dialog > header b {
   flex: 0 0 auto;
-  font: 650 15px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 650 15px/1.4 var(--font-mono);
 }
 
 .verify-dialog > header p span {
   min-width: 0;
   overflow: hidden;
-  color: var(--v-ink-soft);
+  color: var(--ink-soft);
   font-size: var(--text-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -634,7 +511,7 @@
 
 .verify-dialog > header small {
   flex: 0 0 auto;
-  color: var(--v-faint);
+  color: var(--faint);
   font-size: 12.5px;
 }
 
@@ -647,8 +524,8 @@
 
 .verify-dialog > header nav span {
   min-width: 76px;
-  color: var(--v-faint);
-  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--faint);
+  font: 12px var(--font-mono);
   text-align: center;
 }
 
@@ -657,7 +534,7 @@
   place-items: center;
   width: 32px;
   height: 32px;
-  border: 1px solid var(--v-line);
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: transparent;
   cursor: pointer;
@@ -684,10 +561,12 @@
   margin-left: 6px;
 }
 
+/* 逐字原话：与卡片、知识库证据单元一样用衬线体 */
 .verify-dialog > blockquote {
   margin: 14px 0 16px;
-  font-size: 18px;
-  font-weight: 560;
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 600;
   line-height: 1.7;
 }
 
@@ -705,8 +584,8 @@
 }
 
 .verify-verdict span {
-  color: var(--v-muted);
-  font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+  font: 12.5px var(--font-mono);
 }
 
 .verify-ladder {
@@ -721,9 +600,9 @@
   gap: 6px;
   height: 28px;
   padding: 0 10px;
-  border: 1px solid var(--v-line-soft);
+  border: 1px solid var(--line-soft);
   border-radius: 99px;
-  color: var(--v-muted);
+  color: var(--muted);
   background: transparent;
   font-size: 12.5px;
   white-space: nowrap;
@@ -734,22 +613,22 @@
 }
 
 .verify-ladder button:hover {
-  color: var(--v-ink);
+  color: var(--ink);
 }
 
 .verify-ladder button[aria-current="true"] {
   border-color: var(--tone-line);
-  color: var(--v-ink);
+  color: var(--ink);
   background: #fff;
 }
 
 .verify-ladder span {
-  color: var(--v-faint);
+  color: var(--faint);
 }
 
 .verify-ladder i {
-  color: var(--tone, var(--v-faint));
-  font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--tone, var(--faint));
+  font: 600 12px var(--font-mono);
   font-style: normal;
 }
 
@@ -766,7 +645,7 @@
 
 .verify-body-text h4 {
   margin: 0 0 5px;
-  color: var(--v-faint);
+  color: var(--faint);
   font-size: 12px;
   font-weight: 600;
 }
@@ -777,14 +656,14 @@
 
 .verify-body-text p {
   margin: 0;
-  color: var(--v-ink-soft);
+  color: var(--ink-soft);
   font-size: var(--text-caption);
   line-height: 1.75;
 }
 
 .verify-body-text .verify-body-note {
   margin-top: 16px;
-  color: var(--v-muted);
+  color: var(--muted);
 }
 
 .verify-numbers {
@@ -795,13 +674,13 @@
 }
 
 .verify-numbers dt {
-  color: var(--v-faint);
+  color: var(--faint);
   font-size: 12px;
 }
 
 .verify-numbers dd {
   margin: 3px 0 0;
-  font: 600 15px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 600 15px/1.3 var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -812,7 +691,7 @@
   gap: 16px;
   margin-top: 18px;
   padding-top: 14px;
-  border-top: 1px solid var(--v-line-soft);
+  border-top: 1px solid var(--line-soft);
 }
 
 .verify-body-foot p {
@@ -821,18 +700,18 @@
   gap: 2px 12px;
   min-width: 0;
   margin: 0;
-  color: var(--v-muted);
+  color: var(--muted);
   font-size: var(--text-caption);
 }
 
 .verify-body-foot a {
   text-decoration: underline;
-  text-decoration-color: var(--v-line);
+  text-decoration-color: var(--line);
   text-underline-offset: 3px;
 }
 
 .verify-body-foot a:hover {
-  color: var(--v-ink);
+  color: var(--ink);
   text-decoration-color: currentColor;
 }
 
@@ -840,7 +719,7 @@
   flex: 0 0 auto;
   height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--v-line);
+  border: 1px solid var(--line);
   border-radius: 9px;
   background: #fff;
   cursor: pointer;
@@ -857,13 +736,13 @@
 
 .verify-body-more summary {
   width: max-content;
-  color: var(--v-faint);
+  color: var(--faint);
   cursor: pointer;
   font-size: 12.5px;
 }
 
 .verify-body-more summary:hover {
-  color: var(--v-ink);
+  color: var(--ink);
 }
 
 .verify-body-more dl {
@@ -874,7 +753,7 @@
 }
 
 .verify-body-more dt {
-  color: var(--v-faint);
+  color: var(--faint);
   font-size: 12px;
 }
 
@@ -887,12 +766,12 @@
 .verify-body-more dd a {
   display: block;
   text-decoration: underline;
-  text-decoration-color: var(--v-line);
+  text-decoration-color: var(--line);
   text-underline-offset: 3px;
 }
 
 .verify-body-more dd small {
-  color: var(--v-faint);
+  color: var(--faint);
 }
 
 /* --- 价格图 ---------------------------------------------------------------- */
@@ -915,14 +794,14 @@
 
 .verify-chart-grid line { stroke: rgba(52, 62, 51, .09); }
 .verify-chart-grid text,
-.verify-chart-date { fill: var(--v-faint); font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.verify-chart-date { fill: var(--faint); font: 10px var(--font-mono); }
 .verify-chart-grid text { text-anchor: end; }
 .verify-chart-threshold line { stroke: #b0935f; stroke-dasharray: 3 4; }
-.verify-chart-threshold text { fill: #8b7554; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.verify-chart-threshold text { fill: #8b7554; font: 10px var(--font-mono); }
 .verify-chart-reference line { stroke: #7f8b98; stroke-dasharray: 4 4; }
 .verify-chart-reference circle { fill: #7f8b98; }
-.verify-chart-reference text { fill: #6f7a86; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; text-anchor: end; }
-.verify-chart-line { fill: none; stroke: #5a714c; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.verify-chart-reference text { fill: #6f7a86; font: 10px var(--font-mono); text-anchor: end; }
+.verify-chart-line { fill: none; stroke: var(--chart-line); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .verify-chart-verdict line { stroke: var(--tone-line); }
 .verify-chart-verdict circle { fill: #fbfaf5; stroke: var(--tone); stroke-width: 2; }
 .verify-chart-verdict text { fill: var(--tone); font: 600 11px system-ui, sans-serif; }
@@ -939,7 +818,7 @@
 
 .verify-chart figcaption {
   margin-top: 4px;
-  color: var(--v-faint);
+  color: var(--faint);
   font-size: 12px;
   text-align: right;
 }
@@ -958,7 +837,7 @@
   height: 100%;
   margin: 0;
   border-radius: 10px;
-  color: var(--v-faint);
+  color: var(--faint);
   background: rgba(40, 49, 39, .03);
   font-size: var(--text-caption);
 }
@@ -1004,25 +883,10 @@
 
 @media (max-width: 640px) {
   .verify-stage {
-    width: calc(100% - 32px);
-    padding: 90px 0 10px;
+    padding: var(--page-top) 0 10px;
   }
 
-  .verify-head h1 {
-    font-size: 26px;
-  }
-
-  .verify-filters {
-    flex: 1 1 100%;
-    margin-left: 0;
-  }
-
-  .verify-search {
-    flex: 1;
-    width: auto;
-  }
-
-  .verify-filters select {
+  .verify-page .field-select {
     max-width: 44%;
   }
 
@@ -1068,24 +932,22 @@
     display: none;
   }
 
-  .verify-window nav button {
-    min-width: 0;
+  .verify-window nav .btn {
     padding: 0 10px;
   }
 
   .verify-cards {
-    --verify-card-h: 116px;
     gap: 10px;
   }
 
   .verify-card {
-    gap: 6px;
-    padding: 11px 13px 10px 15px;
+    padding: 13px 15px;
   }
 
   .verify-card-quote {
-    font-size: 14px;
-    -webkit-line-clamp: 2;
+    margin-top: 10px;
+    font-size: 15px;
+    line-height: 1.65;
   }
 
   .verify-dialog-layer {

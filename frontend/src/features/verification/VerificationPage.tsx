@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { apiJson } from '../../shared/api/client'
 import { isVerificationPage } from '../../shared/api/contracts'
-import { outcomeLabels, outcomeMarks } from '../../shared/domain/labels'
+import { fetchAllPages } from '../../shared/api/pages'
+import { outcomeLabels } from '../../shared/domain/labels'
 import AppHeader from '../../shared/navigation/AppHeader'
-import { asText, claimHeadline, countdown } from '../asset/format'
+import { asText, countdown } from '../asset/format'
 import EvidenceDossier from '../knowledge/EvidenceDossier'
 import RecordDialog from './RecordDialog'
 import Timeline from './Timeline'
@@ -12,26 +12,28 @@ import {
   matchesQuery, matchesRoute, parseDay, parseRoute, recordKey, routeFor, shortDay, summarizeDays, todayKey,
   type QueueItem, type QueueView, type RecordKind, type RecordRoute,
 } from './records'
-import type { VerificationPageData } from './types'
 import './verification.css'
 
 const PAGE_SIZE = 200
 // 即将到期不再分 7/14/30/90 天：2026-09-17 实测 90 天与 365 天都是 198 条，一次取完画在时间轴上
 const DUE_DAYS = 365
-const CARD_GAP = 12
+const CARD_GAP = 16
+// 卡片的最小高度：放不下一整行就少放一行，剩下的高度由各行平分，卡片区底下不留一截空白
+const CARD_MIN_HEIGHT = 168
+const CARD_MIN_HEIGHT_NARROW = 132
+// 卡片里除原话以外占的高度（上下内边距、标题行、页脚），与 verification.css 对应
+const CARD_CHROME = 118
+const CARD_CHROME_NARROW = 96
 
 type Bucket = { request: number; items: QueueItem[] | null }
 
-async function loadBucket(view: QueueView, signal: AbortSignal) {
-  const url = (offset: number) => `/knowledge/verification-page?bucket=${view}&days=${DUE_DAYS}&limit=${PAGE_SIZE}&offset=${offset}`
-  const first = await apiJson<VerificationPageData>(url(0), { signal }, isVerificationPage)
-  const offsets: number[] = []
-  for (let offset = first.items.length; first.has_more && first.items.length > 0 && offset < first.total; offset += PAGE_SIZE) {
-    offsets.push(offset)
-  }
-  // 剩余页并发取：串行会让记录一多就变成 N 次往返
-  const rest = await Promise.all(offsets.map((offset) => apiJson<VerificationPageData>(url(offset), { signal }, isVerificationPage)))
-  return [...first.items, ...rest.flatMap((page) => page.items)]
+function loadBucket(view: QueueView, signal: AbortSignal) {
+  return fetchAllPages<QueueItem>(
+    (offset) => `/knowledge/verification-page?bucket=${view}&days=${DUE_DAYS}&limit=${PAGE_SIZE}&offset=${offset}`,
+    PAGE_SIZE,
+    { signal },
+    isVerificationPage,
+  )
 }
 
 function shiftDay(day: string, days: number) {
@@ -49,7 +51,6 @@ function DayCard({ current, item, onMark, onOpen, siblings }: {
 }) {
   const kind = kindOf(item)
   const symbol = asText(item.payload.asset_symbol)
-  const headline = claimHeadline(item.payload)
   return (
     <li>
       <button
@@ -62,11 +63,10 @@ function DayCard({ current, item, onMark, onOpen, siblings }: {
         onMouseLeave={() => onMark(null)}
         type="button"
       >
-        <span className="verify-card-top">
-          <b aria-hidden="true">{isScored(item) ? outcomeMarks[item.outcome] : '·'}</b>
-          <em>{isScored(item) ? outcomeLabels[item.outcome] : countdown(dayOf(item))}</em>
+        {/* 方向、价位与条件留给浮层：卡片只回答"谁、说了什么、结果如何" */}
+        <span className="verify-card-head">
+          <em className="verify-badge">{isScored(item) ? outcomeLabels[item.outcome] : countdown(dayOf(item))}</em>
           <strong>{symbol ?? '—'}</strong>
-          {headline && <span>{headline}</span>}
           <time dateTime={dayOf(item)}>{shortDay(dayOf(item))}</time>
         </span>
         <span className="verify-card-quote">{item.quote}</span>
@@ -104,7 +104,8 @@ function VerificationPage() {
   const [hidden, setHidden] = useState<Set<RecordKind>>(() => new Set())
   // 窗口停在序列的第几条；key 记下当时的筛选条件，条件一变就回到默认位置
   const [cursor, setCursor] = useState<{ key: string; index: number } | null>(null)
-  const [grid, setGrid] = useState({ cols: 3, rows: 3 })
+  // 原话能显示几行跟着卡片高度走：卡片高就把原话多露几行，而不是在底下留空
+  const [grid, setGrid] = useState({ cols: 3, rows: 2, lines: 3 })
   const [evidenceUnit, setEvidenceUnit] = useState<number | null>(null)
   const [markedDay, setMarkedDay] = useState<string | null>(null)
   const cardsRef = useRef<HTMLOListElement>(null)
@@ -138,10 +139,13 @@ function VerificationPage() {
     const element = cardsRef.current
     if (!element || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(() => {
-      const cardHeight = parseFloat(getComputedStyle(element).getPropertyValue('--verify-card-h')) || 148
       const cols = element.clientWidth >= 900 ? 3 : element.clientWidth >= 560 ? 2 : 1
-      const rows = Math.max(1, Math.floor((element.clientHeight + CARD_GAP) / (cardHeight + CARD_GAP)))
-      setGrid((current) => (current.cols === cols && current.rows === rows ? current : { cols, rows }))
+      const minHeight = cols === 1 ? CARD_MIN_HEIGHT_NARROW : CARD_MIN_HEIGHT
+      const rows = Math.max(1, Math.floor((element.clientHeight + CARD_GAP) / (minHeight + CARD_GAP)))
+      const rowHeight = (element.clientHeight - CARD_GAP * (rows - 1)) / rows
+      const lineHeight = cols === 1 ? 15 * 1.65 : 15.5 * 1.75
+      const lines = Math.min(8, Math.max(2, Math.floor((rowHeight - (cols === 1 ? CARD_CHROME_NARROW : CARD_CHROME)) / lineHeight)))
+      setGrid((current) => (current.cols === cols && current.rows === rows && current.lines === lines ? current : { cols, rows, lines }))
     })
     observer.observe(element)
     return () => observer.disconnect()
@@ -264,11 +268,11 @@ function VerificationPage() {
   const windowNote = RECORD_KINDS.filter((kind) => windowCounts[kind] > 0).map((kind) => `${kindLabels[kind]} ${windowCounts[kind]}`).join(' · ')
 
   return (
-    <div className="verify-page">
+    <div className="verify-page app-page">
       <AppHeader current="verification" onSearch={() => { window.location.hash = '#/knowledge?search=1' }} />
 
       <main className="verify-stage">
-        <header className="verify-head">
+        <header className="page-head">
           <h1>验证</h1>
           <div aria-label="按类别显示" className="verify-legend" role="group">
             {RECORD_KINDS.map((kind) => (
@@ -277,8 +281,8 @@ function VerificationPage() {
               </button>
             ))}
           </div>
-          <div className="verify-filters">
-            <label className="verify-search">
+          <div className="page-head-actions">
+            <label className="field-search">
               <span aria-hidden="true">⌕</span>
               <input
                 aria-label="搜索验证记录"
@@ -289,7 +293,7 @@ function VerificationPage() {
                 value={query}
               />
             </label>
-            <select aria-label="信源" onChange={(event) => setCreator(event.target.value)} value={creator}>
+            <select aria-label="信源" className="field-select" onChange={(event) => setCreator(event.target.value)} value={creator}>
               <option value="">全部信源</option>
               {creators.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
@@ -335,13 +339,13 @@ function VerificationPage() {
             {sequence.length > capacity && (
               <nav aria-label="沿时间轴翻看">
                 <small>{start + 1}–{start + windowItems.length} / {sequence.length}</small>
-                <button disabled={start === 0} onClick={() => moveTo(start - capacity)} type="button">‹ 更早</button>
-                <button disabled={start >= maxStart} onClick={() => moveTo(start + capacity)} type="button">更晚 ›</button>
+                <button className="btn" disabled={start === 0} onClick={() => moveTo(start - capacity)} type="button">‹ 更早</button>
+                <button className="btn" disabled={start >= maxStart} onClick={() => moveTo(start + capacity)} type="button">更晚 ›</button>
               </nav>
             )}
           </header>
 
-          <ol className="verify-cards" ref={cardsRef} style={{ '--cols': grid.cols } as React.CSSProperties}>
+          <ol className="verify-cards" ref={cardsRef} style={{ '--cols': grid.cols, '--rows': grid.rows, '--quote-lines': grid.lines } as React.CSSProperties}>
             {loading && Array.from({ length: Math.min(capacity, 6) }, (_, index) => <li className="verify-card-skeleton" key={index} />)}
             {!loading && windowItems.map((item) => (
               <DayCard
@@ -381,7 +385,7 @@ function VerificationPage() {
           <EvidenceDossier
             backLabel="返回验证记录"
             onClose={() => setEvidenceUnit(null)}
-            parentLabel="VERDICT"
+            parentLabel="判定"
             parentTitle={openItem && isScored(openItem) ? `#${openItem.score_id}` : openItem?.horizon_label ?? ''}
             unitId={evidenceUnit}
           />

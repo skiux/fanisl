@@ -23,7 +23,6 @@ class ErrorBoundary extends Component<Props, State> {
     if (!this.state.error) return this.props.children
     return (
       <main className="route-error" role="alert">
-        <span>WORKSPACE UNAVAILABLE</span>
         <h1>当前页面没有正确载入</h1>
         <p>已保留当前位置。可以重新载入本页，或先返回首页。</p>
         <div>
