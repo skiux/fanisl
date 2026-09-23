@@ -56,7 +56,7 @@
   **6.4s → 2.5s**、知识库原始内容 2.0s → 1.4s。建议在 `deploy/nginx-fanisl.conf` 的 server 块加：
   `gzip on; gzip_proxied any; gzip_comp_level 5; gzip_min_length 1024;`
   `gzip_types application/json application/javascript text/css image/svg+xml;`
-  （`gzip_proxied any` 是关键：默认不压缩反代回来的响应）。改完服务器上要 `nginx -t && reload`。
+  （关键是 `gzip_types`：只开 `gzip on` 时默认只压 `text/html`，与现在只有首页被压缩的现象一致；仓库的 `deploy/nginx-fanisl.conf` 没有任何 gzip 配置，首页那份压缩应来自服务器 `/etc/nginx/nginx.conf` 的发行版默认，未登服务器核实。`gzip_proxied` 只管带 `Via` 头、经 CDN 或代理转来的请求，写 `any` 无害）。改完服务器上要 `nginx -t && reload`。
   次要：验证页列表每条带完整 `payload`（约 760 字节/条，占一条的六成），卡片只用标的、方向与原话；
   列表若只回卡片要的字段、浮层再按 id 取详情，还能再减一半——这条涉及 `knowledge/browser.py`，归 knowledge 席位，
   等 gzip 上了再看是否还需要
