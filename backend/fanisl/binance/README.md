@@ -516,8 +516,8 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | | `GET /sapi/v1/capital/withdraw/history` | **18000** | 900s | UID 限速 10 次/秒，最贵的一个 |
 | `trades.*` | `GET /api/v3/myTrades` | 20 / 交易对 | 6h | `fromId` 翻页，**无时间上限** |
 | `close.*` | `GET /api/v3/klines` | 2 / 交易对 | 900s | 日线收盘，不签名；`limit=WINDOW_DAYS+2` |
-| `flows.earn_flexible` | `GET /sapi/v1/simple-earn/flexible/history/rewardsRecord` | 150 | 1800s | UID 限速；`type=ALL`，只问 `REWARDS` 会漏掉阶梯奖励 |
-| `flows.earn_locked` | `GET /sapi/v1/simple-earn/locked/history/rewardsRecord` | 150 | 1800s | UID 限速 |
+| `flows.earn_flexible` | `GET /sapi/v1/simple-earn/flexible/history/rewardsRecord` | 150 × 窗 × 页 | 1800s | UID 限速；`type=ALL`，只问 `REWARDS` 会漏掉阶梯奖励。**单次最多 30 天**，90 天窗按 ≤30 天切三段、每段翻页（`client.earn_rewards_history`）；2026-09-05 至 09-25 直接问 90 天，每次 -6021，派息没进逐日盈亏 |
+| `flows.earn_locked` | `GET /sapi/v1/simple-earn/locked/history/rewardsRecord` | 150 × 窗 × 页 | 1800s | UID 限速；切窗与翻页同上 |
 | `flows.interest` | `GET /sapi/v1/margin/interestHistory` | 1 | 1800s | 杠杆利息 |
 | `flows.convert` | `GET /sapi/v1/convert/tradeFlow` | **3000** | 1800s | **只回 30 天** |
 | `flows.dust` | `GET /sapi/v1/asset/dribblet` | 1 | 1800s | **只回 30 天** |

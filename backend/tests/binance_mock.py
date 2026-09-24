@@ -631,6 +631,26 @@ _BY_SYMBOL = {
 }
 
 
+# 派息记录按请求的时间窗过滤，与真接口一致。逐日盈亏把 90 天切成三段问（单次上限 30 天），
+# 不过滤的话每段都回同一批行，同一笔派息会被算三遍。
+_TIME_WINDOWED = {
+    "/sapi/v1/simple-earn/flexible/history/rewardsRecord",
+    "/sapi/v1/simple-earn/locked/history/rewardsRecord",
+}
+
+
+def windowed(request: httpx.Request, response: httpx.Response) -> httpx.Response:
+    params = dict(request.url.params)
+    if request.url.path not in _TIME_WINDOWED or "startTime" not in params:
+        return response
+    body = response.json()
+    if not isinstance(body, dict) or not isinstance(body.get("rows"), list):
+        return response
+    start, end = int(params["startTime"]), int(params.get("endTime", 2**63))
+    rows = [r for r in body["rows"] if start <= int(r.get("time", 0)) <= end]
+    return httpx.Response(response.status_code, json={**body, "rows": rows, "total": len(rows)})
+
+
 def make_transport(*, fail: dict[str, int] | None = None, calls: list | None = None,
                    ledger: bool = False):
     """按路径分发的假 Binance。
@@ -672,7 +692,7 @@ def make_transport(*, fail: dict[str, int] | None = None, calls: list | None = N
         if ledger and path in LEDGER_ROUTES:
             return httpx.Response(200, json=LEDGER_ROUTES[path])
         if path in ROUTES:
-            return httpx.Response(200, json=ROUTES[path])
+            return windowed(request, httpx.Response(200, json=ROUTES[path]))
         return httpx.Response(404, json={"code": -1121, "msg": f"no mock for {path}"})
 
     return httpx.MockTransport(handler)

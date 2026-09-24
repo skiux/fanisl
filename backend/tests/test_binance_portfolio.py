@@ -23,7 +23,7 @@ from fanisl.binance.portfolio import (
 
 from binance_mock import (
     BTC, EQUITY_PRICE, FUT_RISK, LIQUIDATION_LOAN, NOW, PREV_CLOSE_RATIO, _day,
-    equity_daily, make_transport,
+    equity_daily, make_transport, windowed,
 )
 
 
@@ -59,7 +59,7 @@ def build_replacing(cache, responses):
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path in responses:
-            return responses[request.url.path]()
+            return windowed(request, responses[request.url.path]())
         return base.handler(request)
 
     client = BinanceClient("k", "s", client=httpx.Client(

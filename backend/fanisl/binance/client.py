@@ -35,6 +35,10 @@ PAPI_BASE = "https://papi.binance.com"
 ErrorKind = Literal["unauthorized", "unreachable", "rate_limited", "unsupported"]
 
 
+# 理财派息记录单次查询的最长跨度（超了回 -6021；流水页按正好 30 天问，线上一直正常）
+EARN_REWARDS_WINDOW_MS = 30 * 86_400_000
+
+
 class BinanceError(Exception):
     def __init__(self, kind: ErrorKind, detail: str, *,
                  status: int | None = None, code: int | None = None) -> None:
@@ -535,7 +539,7 @@ class BinanceClient:
                                 "size": size})
 
     def earn_flexible_rewards(self, *, start_ms: int, end_ms: int,
-                              kind: str = "ALL", size: int = 100) -> Any:
+                              kind: str = "ALL", size: int = 100, current: int = 1) -> Any:
         """活期派息记录。**type 要 ALL**：活期的收益分成实时年化（`REALTIME`）与
         阶梯年化奖励（`BONUS`）两类，另有历史奖励（`REWARDS`）。这里原先只问
         `REWARDS`，于是阶梯那部分——也就是小额活期里占比最大的一块——从来没被取到。
@@ -543,11 +547,46 @@ class BinanceClient:
         """
         return self.signed_get(SPOT_BASE, "/sapi/v1/simple-earn/flexible/history/rewardsRecord",
                                {"type": kind, "startTime": start_ms, "endTime": end_ms,
-                                "size": size})
+                                "size": size, "current": current})
 
-    def earn_locked_rewards(self, *, start_ms: int, end_ms: int, size: int = 100) -> Any:
+    def earn_locked_rewards(self, *, start_ms: int, end_ms: int, size: int = 100,
+                            current: int = 1) -> Any:
         return self.signed_get(SPOT_BASE, "/sapi/v1/simple-earn/locked/history/rewardsRecord",
-                               {"startTime": start_ms, "endTime": end_ms, "size": size})
+                               {"startTime": start_ms, "endTime": end_ms, "size": size,
+                                "current": current})
+
+    def earn_rewards_history(self, product: str, *, start_ms: int, end_ms: int,
+                             size: int = 100, max_pages: int = 20) -> dict:
+        """flexible / locked 派息记录的全量：按 ≤30 天切窗，每窗逐页取完，合并成 `{rows, total}`。
+
+        单次查询跨度超过 30 天回 HTTP 400 -6021（Query time range too large）。逐日盈亏按
+        90 天问，2026-09-05 起 `flows.earn_*` 每次都失败，派息整个没进逐日盈亏（生产缓存实测）。
+        每页最多 100 条：活期按币按日派息，几个币一个月就能超过一页，所以要翻页。
+        取不全就整体失败，不返回截断的数据。
+        """
+        fetch = {"flexible": self.earn_flexible_rewards,
+                 "locked": self.earn_locked_rewards}[product]
+        rows: list[dict] = []
+        window_start = start_ms
+        while window_start <= end_ms:
+            window_end = min(window_start + EARN_REWARDS_WINDOW_MS, end_ms)
+            got = 0
+            for current in range(1, max_pages + 1):
+                payload = fetch(start_ms=window_start, end_ms=window_end, size=size,
+                                current=current)
+                page = payload.get("rows") if isinstance(payload, dict) else None
+                if not isinstance(page, list):
+                    raise BinanceError("unsupported", "派息记录的 rows 不是数组，拒绝使用。")
+                rows.extend(page)
+                got += len(page)
+                total = payload.get("total")
+                if len(page) < size or (isinstance(total, int) and got >= total):
+                    break
+            else:
+                raise BinanceError("unsupported",
+                                   f"派息记录超过分页上限（{max_pages} 页），拒绝使用不完整的数据。")
+            window_start = window_end + 1
+        return {"rows": rows, "total": len(rows)}
 
     def margin_interest_history(self, *, start_ms: int, end_ms: int, size: int = 100) -> Any:
         return self.signed_get(SPOT_BASE, "/sapi/v1/margin/interestHistory",

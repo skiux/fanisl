@@ -220,13 +220,14 @@ def _flow_jobs(client: BinanceClient, start_ms: int, end_ms: int
     `dailypnl` 会把受影响的天报成空，而不是给一个错的数。
     """
     return [
+        # 派息记录单次最多查 30 天，90 天窗要切开问（见 client.earn_rewards_history）
         ("flows.earn_flexible", TTL["flows"],
-         lambda: client.earn_flexible_rewards(start_ms=start_ms, end_ms=end_ms)),
+         lambda: client.earn_rewards_history("flexible", start_ms=start_ms, end_ms=end_ms)),
         # 正股成交：买入当天的持仓量要能回滚，否则买入那天会被当成"白涨这么多"
         ("flows.equity_trades", TTL["flows"],
          lambda: client.equity_trade_history(start_ms=start_ms, end_ms=end_ms)),
         ("flows.earn_locked", TTL["flows"],
-         lambda: client.earn_locked_rewards(start_ms=start_ms, end_ms=end_ms)),
+         lambda: client.earn_rewards_history("locked", start_ms=start_ms, end_ms=end_ms)),
         ("flows.interest", TTL["flows"],
          lambda: client.margin_interest_history(start_ms=start_ms, end_ms=end_ms)),
         ("flows.convert", TTL["flows"],
