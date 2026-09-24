@@ -1,0 +1,110 @@
+{
+ "merger_version": "merge-v1",
+ "nodes": [
+  {
+   "kind": "concept",
+   "title": "个人智能体不会破坏 Airbnb、Expedia 这类平台",
+   "canonical": "个人智能体改变的是预订渠道，不是需求：旅游需求不因 AI Agent 增减，用户只是经由 Muse 再到 Airbnb；这类平台只要核心业务不依赖广告费就不受影响。要被替代，得每个房东都有自己的智能体，且出现能搞定打扫、服务、各地牌照的 AI 原生公司——作者认为距离那一天还很远。",
+   "tags": [
+    "ai-agent",
+    "abnb",
+    "expe"
+   ],
+   "notes": "投资TALK君 c129。2026-09-25 归并",
+   "units": [
+    {
+     "id": 1832,
+     "relation": "restates"
+    },
+    {
+     "id": 1834,
+     "relation": "refines",
+     "note": "被替代的前提与距离"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 923,
+   "title": "市场对加息的定价比美联储更鹰",
+   "canonical": "利率期货对这一轮加息的定价明显比美联储自己的预测更鹰：9-16 议息后定价还有约 3.2 次、利率到 4.7%，比点阵图的 4.1% 高 0.6 个百分点；到 9-23 定价升到约 3.8 次（合计约五次）、终点约 4.8%，10 月加息概率 71%，而 SEP 预测整个周期两次。作者称其鹰派程度已超出他的理解。",
+   "notes": "单例标题原为机械截取，随 c129 挂靠改写。2026-09-25 归并",
+   "units": [
+    {
+     "id": 1824,
+     "relation": "refines",
+     "note": "c129：9-23 的定价，差距继续扩大"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 930,
+   "title": "麦当劳估值跌到多年低位",
+   "canonical": "麦当劳 forward PE 跌到多年低位：9-17 收盘 18.19 倍，上一次更低在 2020 年；9-23 下调指引后 17.4 倍，从最高 25 倍以上下降 31.5%，离 2020 年 3 月约 16 倍已经很近。作者判这是非常有吸引力的位置。",
+   "notes": "单例标题原为机械截取，随 c129 挂靠改写。2026-09-25 归并",
+   "units": [
+    {
+     "id": 1837,
+     "relation": "refines",
+     "note": "c129：9-23 收盘 17.4 倍"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 587,
+   "units": [
+    {
+     "id": 1836,
+     "relation": "refines",
+     "note": "c129：三季度美国增速指引为负，说明促销策略的错误没有在短期内扭转营收"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 99,
+   "units": [
+    {
+     "id": 1833,
+     "relation": "refines",
+     "note": "c129：年初 Anthropic 发模型软件股就跌，6 个月后多数软件公司营收增速没放缓"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 23,
+   "units": [
+    {
+     "id": 1827,
+     "relation": "refines",
+     "note": "c129：AI 公司盈利增速与利率上升等宏观逆风相互抵消，哪个占主导决定股价"
+    }
+   ]
+  },
+  {
+   "kind": "concept",
+   "node_id": 1,
+   "units": [
+    {
+     "id": 1820,
+     "relation": "refines",
+     "note": "TALK君 c129：不必强行解释每天的走势，数据能解释方向、解释不了幅度"
+    }
+   ]
+  },
+  {
+   "kind": "method",
+   "node_id": 959,
+   "units": [
+    {
+     "id": 1829,
+     "relation": "refines",
+     "note": "c129：指数创新高而参与度停在悲观区时持股"
+    }
+   ]
+  }
+ ]
+}

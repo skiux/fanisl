@@ -143,6 +143,15 @@ _ASSETS: list[Asset] = [
     _e("DBA", "农产品 ETF"),
     _e("FCG", "天然气板块 ETF"),
     _e("UFOX", "太空算力主题 ETF"),
+    # 2026-09-25 补登：Andy c108 的大类资产风向标与风格因子（原先只能判 D 或在标的页不可见）、
+    # 投资TALK君 c106 的必需消费板块
+    _e("PICK", "全球矿企 ETF", note="语料里用作剔除金银之后的全球矿企代理（Andy c108）"),
+    _e("GUNR", "全球上游自然资源 ETF"),
+    _e("SETM", "关键矿产 ETF"),
+    _e("URA", "铀矿 ETF"),
+    _e("IWD", "罗素1000价值 ETF"),
+    _e("USMV", "美股最小波动 ETF"),
+    _e("XLP", "必需消费板块 ETF"),
     Asset("QQQ", "etf", "纳斯达克100 ETF", instrument="QQQ", related=("NDX",),
           note="可路由可交易，但无知识单元、未采日线"),
     Asset("SPY", "etf", "标普500 ETF", instrument="SPY", related=("SPX",),
@@ -195,6 +204,11 @@ _ASSETS: list[Asset] = [
     # 2026-09-24 体检补登：语料早已出现、一直漏登记（LULU 16 条单元、CRDO 2 条）
     _s("LULU", "露露乐蒙"),
     _s("CRDO", "Credo"),
+    # 2026-09-25 补登：语料已出现（PANW c17、DELL c107），以及 c129 的在线旅游平台
+    _s("PANW", "Palo Alto Networks"),
+    _s("DELL", "戴尔"),
+    _s("EXPE", "Expedia"),
+    _s("ABNB", "Airbnb"),
     # 伯克希尔：id 不带点号（URL 安全），yf 用交易所写法 BRK-B。
     Asset("BRKB", "stock", "伯克希尔 B 类", yf="BRK-B",
           aliases=("BRK.B", "BRK-B", "BRK/B")),

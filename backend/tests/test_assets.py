@@ -12,7 +12,7 @@ from fanisl import assets
 from fanisl.data import instruments
 from fanisl.knowledge import prices
 
-# --- 冻结：daily_bars 的采集口径（2026-09-24 快照，98 个 yfinance 符号 + 3 条 FRED）---
+# --- 冻结：daily_bars 的采集口径（2026-09-25 快照，109 个 yfinance 符号 + 3 条 FRED）---
 
 # 非同名映射（代理关系/指数代码），逐条写死
 _EXPLICIT_YF = {
@@ -43,6 +43,7 @@ _SELF_YF = {
     "ORCL", "PCOR", "PLTR", "PYPL", "QCOM", "RSP", "SEMI", "SHOP", "SMH", "SNDK", "SNOW",
     "MCD", "NKE", "WMT",
     "COST", "KO", "PG", "VIK", "ADBE", "ARM", "LULU", "CRDO",
+    "PICK", "GUNR", "SETM", "URA", "IWD", "USMV", "XLP", "PANW", "DELL", "EXPE", "ABNB",
     "SOXX", "SPCX", "TEAM", "TLT", "TSLA", "TSM", "TWLO", "UBER", "UFOX", "UNH", "V",
     "VST", "XLI", "XLU", "XLV",
 }

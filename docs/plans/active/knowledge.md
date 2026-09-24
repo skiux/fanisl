@@ -1,7 +1,7 @@
 # knowledge — active
 
 知识引擎（`backend/fanisl/knowledge/` + `assets.py` + 语料）。
-席位说明见 `backend/fanisl/knowledge/AGENTS.md`。最后核对 2026-09-24。
+席位说明见 `backend/fanisl/knowledge/AGENTS.md`。最后核对 2026-09-25。
 
 ## Now
 用户 2026-09-24 说「按你建议的来」，按下面顺序做，每步验证后单独提交：
@@ -17,9 +17,8 @@
   重点在新闻与学习价值，不做提取与判断**——入库即 `status='reference'`（`store.REFERENCE_HANDLES`），不算提取积压。
   约每个交易日一期。历史补到 2026-06-01：服务器上手动跑 `backfill_transcripts @MeiTouNews --since-days 116`
   （旧→新，Gemini 当天额度用尽即停，次日重跑同一条命令接着补）
-- 第 1 条剩下的登记缺口（D 级 claim 里的 PICK、IWD 等）
 - 第 2 条抽查欠账（历史存量）
-- Andy 回填 25 期：用户 2026-09-10 说暂不做
+- Andy 回填 25 期：用户 2026-09-10 说暂不做；2026-09-25 再次说暂不做（准备调整项目定位）
 - 验证页列表每条带完整 `payload`（约 760 字节/条，卡片只用标的、方向与原话）：列表只回卡片字段、浮层按 id 取详情，还能再减一半（frontend 09-23 提的次要项，改在 `browser.py`）。等线上 gzip 生效后再测是否还需要
 
 ## Blocked on
@@ -51,8 +50,10 @@
 active claim 的 `asset_symbol` 已全部登记（体检第 3 项为 0）。LULU、CRDO 于 2026-09-24 登记并回填日线；
 DFEDTARU 是 FRED 序列，以 rate 类登记（与 T10Y2Y、T10YIE 同）。
 
-剩下的是只出现在 D 级 claim 的 `asset_text` 里、没填 symbol 的：
-PICK、IWD、USMV、GUNR、URA、SETM、PANW、DELL、XLP。登记之后这些 claim 才可能升到 D 以上。
+2026-09-25：原先只出现在 `asset_text` 或正文里的 PICK、IWD、USMV、GUNR、URA、SETM、PANW、DELL、XLP，
+加上 c129 带入的 EXPE、ABNB，共 11 个已登记（日线 109 个 yfinance 符号 + 3 条 FRED）。随之修改（记录 #29–#35）：
+#1337 PICK 按 v3 重判 D→B（target_touch 69.02＝发布前历史最高价，只用发布前数据定，定级时没看发布后走势）；
+#1338 IWD 补 asset_symbol、维持 D；#1340 #1341 #206 #1324 #1312 补资产标签。#1347 已有 5 个标签，没加。
 
 2026-09-23：COST、KO、PG、VIK、ADBE、ARM 与 FRED 的 T10YIE 已登记并回填日线；D 级 claim 漏填
 asset_symbol 而标的已登记的单一标的 7 条已补（#1188 #1203 #1218 #1219 #519 #520 #565；修改记录 #6–#12），
@@ -62,7 +63,7 @@ asset_symbol 而标的已登记的单一标的 7 条已补（#1188 #1203 #1218 #
 ## 2. 抽查欠账
 
 §10 要求每批抽满 20%，v3 起 A/B/C 全取。**按批次是结清的**（c125–c128 15/75），但历史存量欠着：
-累计 155/1764 = **8.8%**，v1 时期那 798 条尤其稀。
+累计 160/1786 = **9.0%**（2026-09-25，含 c129 的 5/22），v1 时期那 798 条尤其稀。
 
 ## 3. 规范 v3（2026-09-24 已改，`pending-v3`）
 
