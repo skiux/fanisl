@@ -935,6 +935,57 @@ def test_unregistered_channel_is_an_ordinary_error_for_daily(kstore, monkeypatch
         bt.run("@not-registered", since_days=2)
 
 
+def test_capped_ingest_takes_the_oldest_first_so_the_next_window_still_covers_the_rest(kstore, monkeypatch):
+    """上限截断时从最旧的开始转录，剩下的仍在下一轮窗口里。
+
+    原先新→旧转录：最新几期一入库，按"最新一期距今"算的窗口就缩回 2 天，更早的几期
+    永远进不了窗口。2026-09-24 @MeiTouNews 首轮回看 30 天只入库了最新 5 期，其余约 20 期被留下。
+    """
+    import datetime as _dt
+
+    import fanisl.knowledge.backfill_transcripts as bt
+    import fanisl.knowledge.daily as dailymod
+
+    now = _dt.datetime.now(_dt.timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
+    days_ago = {f"v{k}": k for k in range(8)}            # v0 今天 … v7 七天前；清单新→旧
+
+    class _Pool:
+        def __init__(self, pool):
+            self._pool = pool
+
+        def connection(self):
+            return self._pool.connection()
+
+        def close(self):
+            pass
+
+    class _Client:
+        model, last_usage = "fake", {}
+
+    cid = kstore.ensure_creator("日更信源")
+    kstore.ensure_handle(cid, "youtube", "@catchup")
+    monkeypatch.setattr(bt, "make_pool", lambda *a, **k: _Pool(kstore.pool))
+    monkeypatch.setattr(bt, "make_client", lambda *a, **k: _Client())
+    monkeypatch.setattr(bt, "list_videos", lambda h, **k: [
+        {"video_id": v, "title": v, "url": ""} for v in sorted(days_ago, key=days_ago.get)])
+    monkeypatch.setattr(bt, "fetch_transcript", lambda v: {
+        "published_at": now - _dt.timedelta(days=days_ago[v]), "title": v})
+    monkeypatch.setattr(bt, "_transcribe_with_retry",
+                        lambda c, url: {"transcript": f"转录 {url}", "visual_notes": []})
+    monkeypatch.setattr(bt, "render_l0_text", lambda tr: tr["transcript"])
+    monkeypatch.setattr(bt, "grab_for_content", lambda *a, **k: 0)
+    monkeypatch.setattr(bt, "SLEEP_BETWEEN_S", 0)
+
+    bt.run("@catchup", since_days=10, max_new=3)
+    with kstore.pool.connection() as conn:
+        got = [r["title"] for r in conn.execute(
+            "SELECT title FROM contents WHERE handle='@catchup' ORDER BY published_at").fetchall()]
+    assert got == ["v7", "v6", "v5"], f"截断时要先入库最旧的，实得 {got}"
+
+    days = dailymod.ingest_since_days(kstore.pool, "@catchup", now=now)
+    assert days >= 5, f"剩下的 v0–v4 必须仍在下一轮窗口里，实得 {days} 天"
+
+
 def test_ingest_window_is_per_channel_not_per_creator(kstore):
     """一个信源两个频道时，缺口按频道算（美投君：@MeiTouJun 周更、@MeiTouNews 日更）。
 

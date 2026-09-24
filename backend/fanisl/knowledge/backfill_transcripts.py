@@ -3,6 +3,10 @@
 用法：python -m fanisl.knowledge.backfill_transcripts <handle>
       [--since-days 60] [--limit N] [--max-new N] [--models a,b,c]
 - 频道 /videos 按新→旧列出；URL 已入库的跳过（不重复付 Gemini）；发布早于窗口即停止。
+- **先收齐窗口内缺的视频，再从最旧的开始转录。** 日维护的窗口按该频道已入库的最新一期算
+  （daily.ingest_since_days），若新→旧转录又被 --max-new 截断，最新几期一入库窗口就缩回
+  2 天，更早的那几期永远进不了窗口。2026-09-24 @MeiTouNews 首轮就是这样：回看 30 天、
+  入库最新 5 期，8-25 至 9-16 的约 20 期被留在窗口外。旧→新转录时截断只推后最新一期的入库。
 - --limit 限制列多少个视频，--max-new 限制这一轮实际转录多少条新内容。
 - --models 是模型阶梯：免费额度按模型独立计，主模型当天用尽就换下一个继续，全部用尽才停。
   **阶梯里不要放 lite 档**：2026-08-13 实测 gemini-3.5-flash-lite 转录会丢数字
@@ -109,6 +113,7 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None,
         vids = list_videos(handle, limit=limit)
         print(f"{handle}: 频道列出 {len(vids)} 个视频，窗口 {since_days} 天（≥{cutoff.date()}）", flush=True)
         n_new = n_skip = n_fail = 0
+        todo = []                                   # 窗口内缺的视频，新→旧
         for i, v in enumerate(vids, 1):
             url = f"https://www.youtube.com/watch?v={v['video_id']}"
             if store.content_url_exists(url):
@@ -124,6 +129,9 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None,
             if pub is not None and pub < cutoff:
                 print(f"  [{i}] {pub.date()} 早于窗口，停止（频道按新→旧）", flush=True)
                 break
+            todo.append((i, v, url, meta, pub))
+        print(f"  窗口内缺 {len(todo)} 期，从最旧的开始转录", flush=True)
+        for i, v, url, meta, pub in reversed(todo):
             while True:
                 try:
                     tr = _transcribe_with_retry(client, url)
