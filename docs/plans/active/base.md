@@ -4,7 +4,7 @@
 `backend/api.md`、`shared/**`、`deploy/**`）。
 
 ## Now
-- 2026-09-24 这批已完成、**未提交、未推送**：`api.md` 补齐 console 与 knowledge 的契约请求、nginx gzip（仓库侧）、
+- 2026-09-24 这批已完成，已提交（ec99e66）：`api.md` 补齐 console 与 knowledge 的契约请求、nginx gzip（仓库侧）、
   `write_changed` 限定回看窗口、几份文档的事实更正
 
 ## Next

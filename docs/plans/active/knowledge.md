@@ -16,6 +16,7 @@
 - 第 1 条剩下的登记缺口（D 级 claim 里的 PICK、IWD 等）
 - 第 2 条抽查欠账（历史存量）
 - Andy 回填 25 期：用户 2026-09-10 说暂不做
+- 验证页列表每条带完整 `payload`（约 760 字节/条，卡片只用标的、方向与原话）：列表只回卡片字段、浮层按 id 取详情，还能再减一半（frontend 09-23 提的次要项，改在 `browser.py`）。等线上 gzip 生效后再测是否还需要
 
 ## Blocked on
 - 无
@@ -31,7 +32,7 @@
   `list_relations`，归知识席位；`main.py` 那条路由只是转调，不用动。发现页现在为挑"重点发现"逐条取两侧节点详情
   （9 条对立边 = 18 次请求，本机经隧道最后一个 6.8s 才返回）。改完在 `base.md` 说一声，base 更新 `api.md` §5.3
 - **base 已处理（2026-09-24）**：`api.md` §5.0 补了 v3 的三处新增（`grade_note`、按阶梯日给值的 magnitude、
-  scoring_spec 的机器判据）；console 的两条管理员接口也补进了契约，`test_api_doc` 恢复通过（未提交）
+  scoring_spec 的机器判据）；console 的两条管理员接口也补进了契约，`test_api_doc` 恢复通过（ec99e66）
 - **frontend 席位**：标的页为空多半是标的未登记（见下面第 1 条），不是前端问题
 - **frontend 席位（2026-09-14）**：单元详情与判定档案的「标的」只显示 `asset_symbol`，`asset_text` 以
   「标的说明」另起一段完整显示。v3 起理由写进 `grade_note`，`asset_text` 回到原文表述

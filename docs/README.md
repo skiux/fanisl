@@ -36,7 +36,7 @@
 | `backend/README.md` | 后端总览：运行、结构、采集与持久化、可插拔数据源 |
 | `backend/api.md` | 全部端点的传输契约 + 真实样例（端点总数写在它头部，由 `tests/test_api_doc.py` 核对）。**合约跟着生产方走，所以不在 docs/** |
 | `backend/fanisl/knowledge/README.md` | 知识引擎模块地图 |
-| `backend/fanisl/knowledge/extraction-guide.md` | L1 提取规范 **v2，冻结**（改它必须升 extractor_version） |
+| `backend/fanisl/knowledge/extraction-guide.md` | L1 提取规范 **v3，冻结**（改它必须升 extractor_version） |
 | `backend/fanisl/knowledge/merge-guide.md` | K5 归并规范 v1，同样冻结 |
 | `backend/fanisl/auth/README.md` · `binance/README.md` | 登录 / 交易所对接 |
 | `deploy/README.md` | 部署与排障全流程 + 自动更新 + 备份 + 本机快照 |
