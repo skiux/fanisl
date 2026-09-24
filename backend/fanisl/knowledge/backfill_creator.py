@@ -44,8 +44,8 @@ def main() -> None:
             else:
                 _, created = store.upsert_content(
                     creator["id"], platform="youtube", url=tr["url"] or v["url"],
-                    content_type="video", title=tr["title"], published_at=tr["published_at"],
-                    raw=tr["text"], lang=tr["lang"])
+                    content_type="video", title=v["title"] or tr["title"],
+                    published_at=tr["published_at"], raw=tr["text"], lang=tr["lang"], handle=handle)
                 n_new += created
                 print(f"  [{i}] {'新' if created else '重复'} [{tr['lang']}/{tr['sub_source']}] "
                       f"{(tr['title'] or '')[:40]}  {len(tr['text'])}字 "

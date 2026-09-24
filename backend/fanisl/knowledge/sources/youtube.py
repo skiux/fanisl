@@ -36,8 +36,18 @@ def _ydl(opts: dict) -> yt_dlp.YoutubeDL:
 
 
 def list_videos(handle: str, *, limit: int | None = None) -> list[dict]:
+    """频道清单，新→旧。标题取中文版本（`lang=zh-CN`）。
+
+    @MeiTouNews 给视频配了英文译名，不指定语言时 YouTube 按请求方的地区回英文标题
+    （2026-09-24 实测）。这个参数只加在清单上：加在单个视频的元数据请求上会让
+    upload_date 变成 None，摄取窗口就判断不了日期了（同日实测，三个视频都是）。
+    """
     url = f"https://www.youtube.com/{handle}/videos"
-    opts = {"extract_flat": True, "playlistend": limit} if limit else {"extract_flat": True}
+    opts = {"extract_flat": True,
+            "extractor_args": {"youtube": {"player_client": ["web_embedded", "android", "web"],
+                                           "lang": ["zh-CN"]}}}
+    if limit:
+        opts["playlistend"] = limit
     with _ydl(opts) as y:
         info = y.extract_info(url, download=False)
     out = []

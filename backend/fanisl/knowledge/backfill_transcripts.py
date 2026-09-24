@@ -103,7 +103,9 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None,
         creator = next((c for c in store.creators()
                         if any(h["handle"] == handle for h in c["handles"])), None)
         if creator is None:
-            raise SystemExit(f"信源未登记：{handle}")
+            # 不能用 SystemExit：run() 也被日维护在调度线程里调用，SystemExit 会穿过两层
+            # except Exception，把整条调度线程静默结束（INGEST_HANDLES 先于 register 上线时就会触发）
+            raise LookupError(f"信源未登记：{handle}（先跑 register）")
         vids = list_videos(handle, limit=limit)
         print(f"{handle}: 频道列出 {len(vids)} 个视频，窗口 {since_days} 天（≥{cutoff.date()}）", flush=True)
         n_new = n_skip = n_fail = 0
@@ -145,8 +147,8 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None,
             raw = render_l0_text(tr)
             cid, created = store.upsert_content(
                 creator["id"], platform="youtube", url=url, content_type="video",
-                title=meta["title"], published_at=pub, raw=raw,
-                lang=tr.get("lang"),
+                title=v["title"] or meta["title"], published_at=pub, raw=raw,
+                lang=tr.get("lang"), handle=handle,
                 triage={"model": client.model, "channel": type(client).__name__,
                         "tokens": u.get("totalTokenCount")})
             n_new += created
@@ -156,7 +158,7 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None,
                 n_frames = grab_for_content(store, {"id": cid, "url": url, "raw": raw})
             except Exception as e:  # noqa: BLE001
                 print(f"    提帧失败（可用 backfill_keyframes 补）：{str(e)[:80]}", flush=True)
-            print(f"  [{i}] {'新' if created else '重复'} {(meta['title'] or '')[:36]}  "
+            print(f"  [{i}] {'新' if created else '重复'} {(v['title'] or meta['title'] or '')[:36]}  "
                   f"{len(tr['transcript'])}字/{len(tr.get('visual_notes', []))}笔记/{n_frames}帧  "
                   f"tok={u.get('totalTokenCount', '?')}  {pub.date() if pub else '?'}", flush=True)
             if max_new is not None and n_new >= max_new:
@@ -172,9 +174,12 @@ def main() -> None:
     handle = sys.argv[1]
     def _arg(flag, cast=int, default=None):
         return cast(sys.argv[sys.argv.index(flag) + 1]) if flag in sys.argv else default
-    run(handle, since_days=_arg("--since-days", default=60), limit=_arg("--limit"),
-        max_new=_arg("--max-new"),
-        models=_arg("--models", lambda v: [m.strip() for m in v.split(",")]))
+    try:
+        run(handle, since_days=_arg("--since-days", default=60), limit=_arg("--limit"),
+            max_new=_arg("--max-new"),
+            models=_arg("--models", lambda v: [m.strip() for m in v.split(",")]))
+    except LookupError as e:
+        raise SystemExit(str(e)) from None
 
 
 if __name__ == "__main__":

@@ -42,7 +42,7 @@ def main() -> None:
         cid, created = store.upsert_content(
             creator["id"], platform="youtube", url=url, content_type="video",
             title=meta["title"], published_at=meta["published_at"],
-            raw=raw, lang=tr.get("lang"))
+            raw=raw, lang=tr.get("lang"), handle=handle)
         print(f"L0 content#{cid} {'新建' if created else '已存在(同文去重)'}", flush=True)
         for n in tr.get("visual_notes", [])[:8]:
             print(f"  [{n['t']}] {n['kind']}: {n['note'][:60]}", flush=True)

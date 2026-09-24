@@ -28,8 +28,8 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 |---|---|
 | `models.py` | L1 单元 pydantic 模型（**schema SSOT**）：KnowledgeUnit 信封 + Claim/Method/Concept 载荷 + ScoringSpec，入库前强校验 |
 | `store.py` | 持久化（独立库 `fanisl_knowledge`，各模块的表结构写在自己的 `_SCHEMA` 里）：L0 追加式、(content_id, extractor_version) 唯一、版本化重放；单元核查三表 `unit_reviews` / `unit_review_messages` / `unit_amendments` 也在这里 |
-| `register.py` | 信源登记 CLI：`python -m fanisl.knowledge.register <名称> <平台> <handle>` |
-| `sources/youtube.py` | yt-dlp 封装：频道清单、元数据（+字幕白捡；三个已登记频道实测都取不到可用字幕轨）、cookies 注入 |
+| `register.py` | 信源登记 CLI：`python -m fanisl.knowledge.register <名称> <平台> <handle> [url]`。一个信源可登记多个频道：同一团队的频道登记在同一信源名下（美投君的 @MeiTouJun 与 @MeiTouNews），它们互相重申不算跨信源印证 |
+| `sources/youtube.py` | yt-dlp 封装：频道清单（标题取中文版本：@MeiTouNews 配了英文译名）、元数据（+字幕白捡；起步三个频道实测都取不到可用字幕轨）、cookies 注入 |
 | `llm.py` | GeminiClient：URL 直读转录（transcript + 带时间戳视觉笔记）、clip 二次细读（start/end offset）、`render_l0_text` L0 排版约定 |
 | `transcribe_video.py` | 单视频转录 CLI：`python -m fanisl.knowledge.transcribe_video <handle> <video_id>` |
 | `backfill_transcripts.py` | 批量转录回填 CLI（幂等、限速、429/5xx 退避）：`python -m fanisl.knowledge.backfill_transcripts <handle> --since-days 60` |
@@ -43,7 +43,7 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `league.py` | 联赛表的显著性口径：零假设取**各标的自身的无条件漂移**而非 50%，用泊松二项精确尾概率（各时点成功概率不等）；返回 excluded_hits/excluded_misses 以暴露排除偏差 |
 | `browser.py` | 知识库浏览的分页读模型（前端用） |
 | `overview.py` | 知识引擎总览计数（前端入口页用） |
-| `daily.py` | 每日维护封装（**自动摄取三个信源**→行情→盈利预期→评分→节点状态→补齐缺帧，best-effort）：`python -m fanisl.knowledge.daily`；已挂 collector 调度（knowledge_daily_interval_s，默认 86400s）。**摄取窗口按缺口算**：每源回看"最新一期距今多少天"（`ingest_since_days`，库里没有该源时回看 30 天），固定窗口在断更/断网后会漏掉中间几期 |
+| `daily.py` | 每日维护封装（**自动摄取 `INGEST_HANDLES` 里的四个频道**→行情→盈利预期→评分→节点状态→补齐缺帧，best-effort）：`python -m fanisl.knowledge.daily`；已挂 collector 调度（knowledge_daily_interval_s，默认 86400s）。**摄取窗口按缺口算**：每个频道回看"最新一期距今多少天"（`ingest_since_days`，按 `contents.handle` 算，库里没有该频道时回看 30 天），固定窗口在断更/断网后会漏掉中间几期；按信源算的话，同一信源的另一个频道一更新就会遮住缺口 |
 | `discovery.py` | K6 发现层：harness 候选（testability=A 的 method 节点，`discovery harness`）+ 周报生成（`discovery weekly [--days 7]`，落 data_export/reports/，collector 每周自动跑） |
 | `audit.py` | 体检（只读）：`python -m fanisl.knowledge.audit`，报出评分器解析不了的 A/B/C（v1/v2 连同覆盖表一起验）、到期未评的时点、未登记的标的与词表外标签、疑似漏填 asset_symbol。前两项非空时退出码 1。导入时的警告只响一次、没人汇总，这里一次报全（2026-09-24） |
 | `spotcheck.py` | K6 抽查队列（spot_checks 启用）：`spotcheck sample [n]` 随机抽未查单元 / `spotcheck record <unit_id> <verdict> [note]` / `spotcheck stats` |

@@ -53,6 +53,14 @@ CREATE TABLE IF NOT EXISTS contents (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_contents_status ON contents(status, published_at);
+-- 摄取自哪个频道。一个信源可以有几个频道（美投君：@MeiTouJun 与 @MeiTouNews，2026-09-24），
+-- 摄取缺口要按频道算——按信源算时，一个频道刚更新就会把另一个频道的缺口遮住。
+-- 老内容回填：只回填该平台上只登记了一个频道的信源，多频道的归属从 creator 推不出来。
+ALTER TABLE contents ADD COLUMN IF NOT EXISTS handle TEXT;
+UPDATE contents c SET handle = h.handle FROM creator_handles h
+ WHERE c.handle IS NULL AND h.creator_id = c.creator_id AND h.platform = c.platform
+   AND (SELECT count(*) FROM creator_handles h2
+         WHERE h2.creator_id = c.creator_id AND h2.platform = c.platform) = 1;
 
 -- 同一条 content 可以有多版提取（v1 / v2 …）全部留库不删，但**只有一版参与下游统计**：
 -- 否则升版重提之后，联赛表/含糊率/抽查覆盖率会把同一期内容数两遍。谁是当前那一版由
@@ -267,11 +275,13 @@ class KnowledgeStore:
     def upsert_content(self, creator_id: int, *, platform: str, url: str | None,
                        content_type: str, title: str | None, published_at,
                        raw: str, lang: str | None = None,
-                       triage: dict | None = None) -> tuple[int, bool]:
+                       triage: dict | None = None,
+                       handle: str | None = None) -> tuple[int, bool]:
         """按 dedup_hash 幂等插入。返回 (content_id, 是否新建)。已存在时不改原文。
 
         triage 记转录出处（model/channel）。2026-08 的教训：lite 档模型会改写数字，
         事后想圈出受影响的内容却发现库里没留通道记录，只能靠会话日志回溯。
+        handle 是摄取自哪个频道，每日摄取按它算缺口（见 daily.ingest_since_days）。
         """
         h = dedup_hash(raw)
         with self.pool.connection() as conn:
@@ -280,10 +290,10 @@ class KnowledgeStore:
                 return int(row["id"]), False
             row = conn.execute(
                 "INSERT INTO contents(creator_id, platform, url, content_type, title, "
-                "published_at, lang, raw, dedup_hash, triage) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                "published_at, lang, raw, dedup_hash, triage, handle) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
                 (creator_id, platform, url, content_type, title, published_at, lang, raw, h,
-                 Json(triage) if triage else None),
+                 Json(triage) if triage else None, handle),
             ).fetchone()
         return int(row["id"]), True
 

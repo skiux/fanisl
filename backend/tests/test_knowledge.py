@@ -826,7 +826,7 @@ def test_vertex_rejects_service_account_file(monkeypatch, tmp_path):
         c._access_token()
 
 
-def test_daily_ingests_all_three_sources_before_scoring(monkeypatch):
+def test_daily_ingests_every_channel_before_scoring(monkeypatch):
     """日维护要先摄取再评分：当天新入库的内容当天就能进后续环节。
 
     2026-08-19 之前 daily 完全不碰摄取，三个频道的新内容全靠手动跑
@@ -848,8 +848,8 @@ def test_daily_ingests_all_three_sources_before_scoring(monkeypatch):
 
     dailymod.run_daily(object())
 
-    assert [h for h, _ in ingested] == ["@andyleegogo", "@MeiTouJun", "@yttalkjun"], \
-        "三个信源都要扫，漏一个就是那个频道永久断更"
+    assert [h for h, _ in ingested] == ["@andyleegogo", "@MeiTouJun", "@MeiTouNews", "@yttalkjun"], \
+        "每个频道都要扫，漏一个就是那个频道永久断更"
     assert all(kw["since_days"] >= 2 for _, kw in ingested), "窗口按缺口算，且不低于下限 2 天"
     assert all(kw["max_new"] == 5 for _, kw in ingested), "护栏：异常放量时停下来让人看"
     assert order.index("ingest") < order.index("scorers"), "摄取必须排在评分之前"
@@ -896,7 +896,7 @@ def test_ingest_window_covers_the_whole_gap(kstore):
     kstore.ensure_handle(cid, "youtube", "@gaptest")
     kstore.upsert_content(cid, platform="youtube", url="https://y/gap1", content_type="video",
                           title="最新一期", published_at=_dt.datetime(2026, 8, 1, tzinfo=_dt.timezone.utc),
-                          raw="判断")
+                          raw="判断", handle="@gaptest")
     now = _dt.datetime(2026, 8, 20, tzinfo=_dt.timezone.utc)
 
     days = dailymod.ingest_since_days(kstore.pool, "@gaptest", now=now)
@@ -904,11 +904,79 @@ def test_ingest_window_covers_the_whole_gap(kstore):
 
     # 刚更新过也不会缩到 0——下限保证时区差不会造成漏抓
     kstore.upsert_content(cid, platform="youtube", url="https://y/gap2", content_type="video",
-                          title="今天这期", published_at=now, raw="今天的判断")
+                          title="今天这期", published_at=now, raw="今天的判断", handle="@gaptest")
     assert dailymod.ingest_since_days(kstore.pool, "@gaptest", now=now) == dailymod.INGEST_MIN_DAYS
 
     # 库里没有该信源的内容时给一个有限的起步窗口，而不是 0 或无穷
     assert dailymod.ingest_since_days(kstore.pool, "@never-seen", now=now) == 30
+
+
+def test_unregistered_channel_is_an_ordinary_error_for_daily(kstore, monkeypatch):
+    """频道未登记时 run() 抛普通异常，日维护能接住、继续下一个频道。
+
+    原先是 SystemExit：它不是 Exception 的子类，会穿过 daily 与调度器的 except，
+    在线程里静默结束整条调度线程。
+    """
+    import fanisl.knowledge.backfill_transcripts as bt
+
+    class _Pool:   # run() 结束时会 close 自己的池；这里借测试池，不能真关
+        def __init__(self, pool):
+            self._pool = pool
+
+        def connection(self):
+            return self._pool.connection()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(bt, "make_pool", lambda *a, **k: _Pool(kstore.pool))
+    monkeypatch.setattr(bt, "make_client", lambda *a, **k: object())
+    with pytest.raises(LookupError, match="未登记"):
+        bt.run("@not-registered", since_days=2)
+
+
+def test_ingest_window_is_per_channel_not_per_creator(kstore):
+    """一个信源两个频道时，缺口按频道算（美投君：@MeiTouJun 周更、@MeiTouNews 日更）。
+
+    按信源算的话，一个频道今天刚更新，另一个频道停了十天的缺口就被遮住，只回看下限 2 天。
+    """
+    import datetime as _dt
+
+    import fanisl.knowledge.daily as dailymod
+
+    now = _dt.datetime(2026, 8, 20, tzinfo=_dt.timezone.utc)
+    cid = kstore.ensure_creator("双频道信源")
+    kstore.ensure_handle(cid, "youtube", "@weekly")
+    kstore.ensure_handle(cid, "youtube", "@daily")
+    kstore.upsert_content(cid, platform="youtube", url="https://y/w1", content_type="video",
+                          title="周更", published_at=now, raw="周更判断", handle="@weekly")
+    kstore.upsert_content(cid, platform="youtube", url="https://y/d1", content_type="video",
+                          title="日更", published_at=_dt.datetime(2026, 8, 10, tzinfo=_dt.timezone.utc),
+                          raw="日更判断", handle="@daily")
+
+    assert dailymod.ingest_since_days(kstore.pool, "@weekly", now=now) == dailymod.INGEST_MIN_DAYS
+    assert dailymod.ingest_since_days(kstore.pool, "@daily", now=now) >= 10, \
+        "@weekly 今天更新过，不能遮住 @daily 停了十天的缺口"
+
+
+def test_old_contents_get_their_channel_only_when_it_is_unambiguous(kstore):
+    """迁移：只登记了一个频道的信源，老内容回填那个频道；多频道的信源推不出来，保持为空。"""
+    from fanisl.knowledge.store import KnowledgeStore
+
+    one = kstore.ensure_creator("单频道")
+    kstore.ensure_handle(one, "youtube", "@only")
+    two = kstore.ensure_creator("多频道")
+    kstore.ensure_handle(two, "youtube", "@a")
+    kstore.ensure_handle(two, "youtube", "@b")
+    a, _ = kstore.upsert_content(one, platform="youtube", url="https://y/o1", content_type="video",
+                                 title="t", published_at=None, raw="单频道老内容")
+    b, _ = kstore.upsert_content(two, platform="youtube", url="https://y/m1", content_type="video",
+                                 title="t", published_at=None, raw="多频道老内容")
+
+    KnowledgeStore(kstore.pool)   # 迁移在建库脚本里，每次初始化都跑（幂等）
+    with kstore.pool.connection() as conn:
+        rows = conn.execute("SELECT id, handle FROM contents WHERE id = ANY(%s)", ([a, b],)).fetchall()
+    assert {r["id"]: r["handle"] for r in rows} == {a: "@only", b: None}
 
 
 def test_v3_spec_problems_catch_what_used_to_fail_on_the_due_date():

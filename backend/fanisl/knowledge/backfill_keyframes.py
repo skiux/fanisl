@@ -202,8 +202,7 @@ def _select_contents(store: KnowledgeStore, *, handle: str | None, content_id: i
     else:                                     # 点名某条时照抓；批量时跳过被取代的旧稿
         conds.append(LIVE_CONTENT)
     if handle:
-        conds.append("EXISTS (SELECT 1 FROM creator_handles h WHERE h.creator_id=c.creator_id "
-                     "AND h.handle=%s)")
+        conds.append("c.handle=%s")
         params.append(handle)
     sql = (f"SELECT c.id, c.url, c.title, c.raw FROM contents c WHERE {' AND '.join(conds)} "
            f"ORDER BY c.published_at DESC NULLS LAST")

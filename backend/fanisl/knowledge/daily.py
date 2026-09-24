@@ -31,19 +31,21 @@ KEYFRAME_GAP_LIMIT = 20       # 每日最多补几条内容的帧（别让日维
 # 固定窗口（比如"近 3 天"）有个静默失效的模式：collector 停机或转录连续失败超过窗口长度，
 # 中间那几期就永久漏掉了，而且事后没有任何迹象——频道清单里它们仍在，库里却永远不会有。
 # 改成"从该信源最新一期的发布日算到现在"，停多久就补多久，自愈。
-INGEST_HANDLES = ["@andyleegogo", "@MeiTouJun", "@yttalkjun"]
+# 按频道列，不按信源：美投君有两个频道（@MeiTouNews 是每日新闻，2026-09-24 加入）。
+INGEST_HANDLES = ["@andyleegogo", "@MeiTouJun", "@MeiTouNews", "@yttalkjun"]
 INGEST_MIN_DAYS = 2      # 下限：至少回看两天，容忍发布时间与抓取时间的时区差
 INGEST_MAX_NEW = 5       # 每信源每轮上限。缺口很大时分几天追平，而不是一轮拉满
 
 
 def ingest_since_days(pool, handle: str, *, now: dt.datetime | None = None) -> int:
-    """该信源"最新一期距今多少天"，即需要回看的窗口。库里没有该信源的内容时回看 30 天。"""
+    """该频道"最新一期距今多少天"，即需要回看的窗口。库里没有该频道的内容时回看 30 天。
+
+    按频道（contents.handle）算，不按信源：同一信源的另一个频道刚更新，不能遮住这个频道的缺口。
+    """
     now = now or dt.datetime.now(dt.timezone.utc)
     with pool.connection() as conn:
         row = conn.execute(
-            """SELECT max(c.published_at) AS last FROM contents c
-               JOIN creator_handles h ON h.creator_id = c.creator_id
-               WHERE h.handle = %s""", (handle,)).fetchone()
+            "SELECT max(published_at) AS last FROM contents WHERE handle = %s", (handle,)).fetchone()
     last = row and row["last"]
     if last is None:
         return 30
