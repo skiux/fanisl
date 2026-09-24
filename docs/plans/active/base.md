@@ -8,11 +8,13 @@
   `write_changed` 限定回看窗口、几份文档的事实更正
 
 ## Next
-1. **要登服务器做的三件事**（本席位没有服务器权限，也不该不打招呼动线上）：
-   - 生效 nginx 配置补 gzip，步骤见 `deploy/README.md`「压缩（生效配置里补 gzip）」；顺带看
-     `sites-enabled/fanisl.bak` 在不在（早先的前缀脚本把备份放进了会被加载的目录）
-   - `binance-ed25519.pem` 权限：`sudo chown fanisl:fanisl /opt/fanisl/backend/binance-ed25519.pem && sudo chmod 600 …`
-   - 备份的 systemd 单元不在仓库里（只写在 `deploy/README.md` §8 的 heredoc）：取回线上那份再入库，否则一入库就报漂移
+1. **要登服务器做的事**（本席位没有服务器权限，也不该不打招呼动线上）。2026-09-25 knowledge 席位按用户要求登服务器核对：
+   - ~~生效 nginx 配置补 gzip~~：生效配置 09-24 05:08 UTC 已补（备份 `/etc/nginx/fanisl.conf.bak-gzip`），线上 JS 实测带
+     `Content-Encoding: gzip`。`sites-enabled/` 里确有 `fanisl.bak` 与 `fanisl.bak.2026-09-01` 两份（内容相同），`nginx -t`
+     因此报 4 条 conflicting server name；已挪到 `/etc/nginx/fanisl.conf.bak-routes-0901`、`fanisl.conf.bak-2026-09-01`，
+     `nginx -t` 干净后 reload，首页与 /console/ 均 200
+   - ~~`binance-ed25519.pem` 权限~~：已是 `fanisl:fanisl 600`，API 近 7 天日志没有 `Permission denied`
+   - 备份的 systemd 单元不在仓库里（只写在 `deploy/README.md` §8 的 heredoc）：取回线上那份再入库，否则一入库就报漂移（未做）
 2. **`main.py` 按产品拆 router**：console 已经这样做了（`binance/routes.py`，main 只 `include_router`）。
    knowledge（36 条）与 trading（16 条）仍写在 main 里；拆的话由各自席位在自己目录建 routes 模块、base 改装配，
    先约好时间窗口

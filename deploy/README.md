@@ -868,8 +868,10 @@ curl -s -o /dev/null -D - -H 'Accept-Encoding: gzip' "https://fanisl.skiuo.com/a
 > **顺带查一个遗留**：「先补 nginx 的 API 前缀」那段脚本 2026-09-24 之前把备份写成
 > `sites-enabled/fanisl.bak`。Debian 的 `nginx.conf` 会加载 `sites-enabled/` 下的**每一个**文件，那份
 > 备份等于第二份站点配置：同名 server 报 `conflicting server name` 后被忽略，现在无害，但改生效配置时
-> 容易被它搅乱。存在的话挪出去（写这条时没有登服务器核实它在不在）：
+> 容易被它搅乱。存在的话挪出去：
 > `sudo mv /etc/nginx/sites-enabled/fanisl.bak /etc/nginx/fanisl.conf.bak-routes-0902 && sudo nginx -t && sudo systemctl reload nginx`
+> 2026-09-25 核实：确有 `fanisl.bak` 与 `fanisl.bak.2026-09-01` 两份，`nginx -t` 报 4 条 conflicting server name；已挪到
+> `/etc/nginx/fanisl.conf.bak-routes-0901` 与 `fanisl.conf.bak-2026-09-01`，`nginx -t` 干净。
 
 ### 上线顺序（重要）
 

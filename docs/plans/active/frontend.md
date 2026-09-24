@@ -48,8 +48,7 @@
 ## Blocked on
 - ~~knowledge：`/knowledge/relations` 带两侧节点计数~~ —— knowledge 席位 2026-09-25 已实现（随 main 上线）：每条边新增
   `a_hit a_partial a_miss a_n_creators a_n_contents`，b 侧同名，口径同 `/knowledge/nodes` 的行。发现页简报可以改成只用关系边一次请求
-- **用户（登服务器）**：gzip 已由 base 写进仓库的 `deploy/nginx-fanisl.conf`，但线上生效的配置被 certbot 改过、与仓库
-  不同步，要按 `deploy/README.md`「压缩（生效配置里补 gzip）」在服务器上补上并 reload。这是验证页首屏的主要瓶颈
+- ~~用户（登服务器）：线上 gzip~~ —— 生效配置 09-24 已补，09-25 核对线上 JS 带 `Content-Encoding: gzip`。验证页首屏可以按线上重测
 
 ## Requests in
 - **knowledge 席位（2026-09-24）**：内容状态新增 `reference`——只入库供阅读、不做提取（@MeiTouNews 每日新闻，用户定
