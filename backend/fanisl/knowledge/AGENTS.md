@@ -31,6 +31,10 @@ meaning. Read them as-is.
   `baseline_date`, `condition`, `vs`). Import rejects a file whose A/B/C specs the
   scorer cannot parse. `scoring_overrides.json` holds the same rules for v1/v2
   units only; `success_def` remains the semantic arbiter.
+- **Contents with `status='reference'` are not extracted.** They are ingested
+  for reading only (channels in `store.REFERENCE_HANDLES`, currently
+  @MeiTouNews: daily news, kept for its news and learning value — the user's
+  call, 2026-09-24). Pick extraction work from `status='new'`.
 - **Look back when an episode refers to an earlier one.** Find the older units on
   the same asset and classify: misread → `review amend`; detail added before the
   outcome was known → may inform the old unit, cite it; changed view → new unit;

@@ -13,10 +13,10 @@
 5. ~~归并积压 504 条~~ —— 2026-09-24 清零，见第 9 条
 
 ## Next
-- **@MeiTouNews（美投侃新闻）2026-09-24 加入每日摄取**，登记在「美投君」名下（同一团队，互相重申不算跨信源）。
-  约每个交易日一期、15–30 分钟，提取量约为现在的两倍。首轮只入库了最新 5 期（c130–c134，9-17 至 9-24）：
-  当时转录是新→旧，截断后窗口缩回 2 天，8-25 至 9-16 留在窗口外。已改为从最旧的开始转录（决策 002 补充），
-  漏下的那段在服务器上手动补跑一次
+- **@MeiTouNews（美投侃新闻）2026-09-24 加入每日摄取**，登记在「美投君」名下（同一团队）。用户定：**只入 L0 供阅读，
+  重点在新闻与学习价值，不做提取与判断**——入库即 `status='reference'`（`store.REFERENCE_HANDLES`），不算提取积压。
+  约每个交易日一期。历史补到 2026-06-01：服务器上手动跑 `backfill_transcripts @MeiTouNews --since-days 116`
+  （旧→新，Gemini 当天额度用尽即停，次日重跑同一条命令接着补）
 - 第 1 条剩下的登记缺口（D 级 claim 里的 PICK、IWD 等）
 - 第 2 条抽查欠账（历史存量）
 - Andy 回填 25 期：用户 2026-09-10 说暂不做
@@ -26,6 +26,9 @@
 - 无
 
 ## Requests out
+- **frontend**：内容状态新增 `reference`（只入库供阅读、不做提取；@MeiTouNews 的内容都是这个状态）。请在 `docs/DOMAIN.md`
+  的 content.status 与 `labels.ts` 同时加 `reference=仅阅读`（两处要一起改，`labels.test.ts` 对着 DOMAIN 核）
+- **base**：`tools/check_ingest.py` 把非 extracted 的状态都标「待提取」，`reference` 不是待提取，请单列
 - **base**：`api.md` §5.0 的 claim payload 补 v3 的三处新增（`grade_note`、按阶梯日给值的 magnitude、
   scoring_spec 的机器字段）；另有 console 新增的两条接口没写进 `api.md`（`test_api_doc` 两条失败）
 - **frontend**：显示 `grade_note`（定级说明），magnitude 按阶梯日给值时取对应的值

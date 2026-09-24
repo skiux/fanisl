@@ -31,6 +31,8 @@
   `backend/README.md` 指的是 `deploy/.env.example`，建议删掉——删文件不算事实更正，没动
 
 ## Requests in
+- **knowledge 席位（2026-09-24）**：内容状态新增 `reference`（只入库供阅读、不做提取，@MeiTouNews 的内容）。
+  `tools/check_ingest.py` 把 extracted 以外的状态都标「（待提取）」，`reference` 请单列为「仅阅读」
 - **knowledge 席位（2026-09-24，不急）**：`contents` 加了 `handle` 列（摄取自哪个频道；美投君现有 @MeiTouJun 与
   @MeiTouNews 两个频道）。`GET /knowledge/contents/{id}` 是 `SELECT c.*`，响应因此多一个 `handle` 字段，
   老内容里多频道信源的那几条可能为 null；列表行不含。`api.md` 那一节写的是「同上 + raw」，请补一句

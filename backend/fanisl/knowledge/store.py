@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS contents (
     raw          TEXT NOT NULL,      -- 全文/转录，永存不改
     dedup_hash   TEXT NOT NULL UNIQUE,
     triage       JSONB,              -- L0 门卫结果
-    status       TEXT NOT NULL DEFAULT 'new',  -- new|triaged|awaiting_manual|extracted|skipped
+    status       TEXT NOT NULL DEFAULT 'new',  -- new|triaged|awaiting_manual|extracted|skipped|reference
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_contents_status ON contents(status, published_at);
@@ -207,6 +207,10 @@ ACTIVE_RUN = ("EXISTS (SELECT 1 FROM extraction_runs r "
 # content_url_exists）——那两处正需要看见旧稿，否则同一个视频会被反复付费转录。
 LIVE_CONTENT = "c.status <> 'superseded'"
 
+# 只入 L0、不做 L1 提取的频道：内容入库即为 status='reference'（供阅读，不算提取积压）。
+# @MeiTouNews 是每日新闻，用户 2026-09-24 定：重点在新闻与学习价值，不做提取与判断。
+REFERENCE_HANDLES = frozenset({"@MeiTouNews"})
+
 
 def dedup_hash(raw: str) -> str:
     return hashlib.sha256(raw.strip().encode()).hexdigest()[:32]
@@ -281,7 +285,8 @@ class KnowledgeStore:
 
         triage 记转录出处（model/channel）。2026-08 的教训：lite 档模型会改写数字，
         事后想圈出受影响的内容却发现库里没留通道记录，只能靠会话日志回溯。
-        handle 是摄取自哪个频道，每日摄取按它算缺口（见 daily.ingest_since_days）。
+        handle 是摄取自哪个频道，每日摄取按它算缺口（见 daily.ingest_since_days）；
+        REFERENCE_HANDLES 里的频道入库即为 status='reference'。
         """
         h = dedup_hash(raw)
         with self.pool.connection() as conn:
@@ -290,10 +295,11 @@ class KnowledgeStore:
                 return int(row["id"]), False
             row = conn.execute(
                 "INSERT INTO contents(creator_id, platform, url, content_type, title, "
-                "published_at, lang, raw, dedup_hash, triage, handle) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                "published_at, lang, raw, dedup_hash, triage, handle, status) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
                 (creator_id, platform, url, content_type, title, published_at, lang, raw, h,
-                 Json(triage) if triage else None, handle),
+                 Json(triage) if triage else None, handle,
+                 "reference" if handle in REFERENCE_HANDLES else "new"),
             ).fetchone()
         return int(row["id"]), True
 

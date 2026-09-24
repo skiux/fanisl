@@ -28,7 +28,7 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 |---|---|
 | `models.py` | L1 单元 pydantic 模型（**schema SSOT**）：KnowledgeUnit 信封 + Claim/Method/Concept 载荷 + ScoringSpec，入库前强校验 |
 | `store.py` | 持久化（独立库 `fanisl_knowledge`，各模块的表结构写在自己的 `_SCHEMA` 里）：L0 追加式、(content_id, extractor_version) 唯一、版本化重放；单元核查三表 `unit_reviews` / `unit_review_messages` / `unit_amendments` 也在这里 |
-| `register.py` | 信源登记 CLI：`python -m fanisl.knowledge.register <名称> <平台> <handle> [url]`。一个信源可登记多个频道：同一团队的频道登记在同一信源名下（美投君的 @MeiTouJun 与 @MeiTouNews），它们互相重申不算跨信源印证 |
+| `register.py` | 信源登记 CLI：`python -m fanisl.knowledge.register <名称> <平台> <handle> [url]`。一个信源可登记多个频道：同一团队的频道登记在同一信源名下（美投君的 @MeiTouJun 与 @MeiTouNews），它们互相重申不算跨信源印证。只入库供阅读、不做提取的频道列在 `store.REFERENCE_HANDLES`（现为 @MeiTouNews），内容入库即为 `status='reference'` |
 | `sources/youtube.py` | yt-dlp 封装：频道清单（标题取中文版本：@MeiTouNews 配了英文译名）、元数据（+字幕白捡；起步三个频道实测都取不到可用字幕轨）、cookies 注入 |
 | `llm.py` | GeminiClient：URL 直读转录（transcript + 带时间戳视觉笔记）、clip 二次细读（start/end offset）、`render_l0_text` L0 排版约定 |
 | `transcribe_video.py` | 单视频转录 CLI：`python -m fanisl.knowledge.transcribe_video <handle> <video_id>` |

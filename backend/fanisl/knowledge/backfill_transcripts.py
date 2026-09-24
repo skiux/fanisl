@@ -132,6 +132,11 @@ def run(handle: str, *, since_days: int = 60, limit: int | None = None,
             todo.append((i, v, url, meta, pub))
         print(f"  窗口内缺 {len(todo)} 期，从最旧的开始转录", flush=True)
         for i, v, url, meta, pub in reversed(todo):
+            # 清单是开头一次收齐的，长跑期间日维护可能已经把这一期入库了；
+            # 两边各转录一次得到的文字不同，按原文哈希去不了重
+            if store.content_url_exists(url):
+                n_skip += 1
+                continue
             while True:
                 try:
                     tr = _transcribe_with_retry(client, url)

@@ -986,6 +986,21 @@ def test_capped_ingest_takes_the_oldest_first_so_the_next_window_still_covers_th
     assert days >= 5, f"剩下的 v0–v4 必须仍在下一轮窗口里，实得 {days} 天"
 
 
+def test_reference_channel_contents_are_not_queued_for_extraction(kstore, monkeypatch):
+    """只供阅读的频道（store.REFERENCE_HANDLES）入库即为 reference，不进待提取；别的频道照旧 new。"""
+    import fanisl.knowledge.store as storemod
+
+    monkeypatch.setattr(storemod, "REFERENCE_HANDLES", frozenset({"@news"}))
+    cid = kstore.ensure_creator("新闻信源")
+    a, _ = kstore.upsert_content(cid, platform="youtube", url="https://y/n1", content_type="video",
+                                 title="新闻", published_at=None, raw="新闻原文", handle="@news")
+    b, _ = kstore.upsert_content(cid, platform="youtube", url="https://y/j1", content_type="video",
+                                 title="观点", published_at=None, raw="观点原文", handle="@views")
+    assert kstore.get_content(a)["status"] == "reference"
+    assert kstore.get_content(b)["status"] == "new"
+    assert {r["id"] for r in kstore.list_contents()} >= {a, b}, "reference 仍在内容列表里供阅读"
+
+
 def test_ingest_window_is_per_channel_not_per_creator(kstore):
     """一个信源两个频道时，缺口按频道算（美投君：@MeiTouJun 周更、@MeiTouNews 日更）。
 

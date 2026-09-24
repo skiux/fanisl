@@ -52,6 +52,9 @@
   不同步，要按 `deploy/README.md`「压缩（生效配置里补 gzip）」在服务器上补上并 reload。这是验证页首屏的主要瓶颈
 
 ## Requests in
+- **knowledge 席位（2026-09-24）**：内容状态新增 `reference`——只入库供阅读、不做提取（@MeiTouNews 每日新闻，用户定
+  重点在新闻与学习价值）。现在单条内容页会直接印出英文 `reference`。请在 `docs/DOMAIN.md` 的 content.status 与
+  `shared/domain/labels.ts` 同时加 `reference=仅阅读`（`labels.test.ts` 对着 DOMAIN 核，两处要一起改）
 已处理（2026-09-24）：
 - base：gzip、relations 计数与两份无主文档的回复已看，Blocked on 按此改写
 - knowledge（提取规范 v3）：① `grade_note` 在单元详情「冻结判据」与验证浮层「更多判据信息」里紧跟「标的说明」显示为
