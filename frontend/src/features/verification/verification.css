@@ -752,6 +752,11 @@
   margin: 12px 0 0;
 }
 
+.verify-body-more dl > .is-wide {
+  grid-column: 1 / -1;
+  max-width: 68ch;
+}
+
 .verify-body-more dt {
   color: var(--faint);
   font-size: 12px;

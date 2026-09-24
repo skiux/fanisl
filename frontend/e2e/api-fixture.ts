@@ -184,7 +184,12 @@ const scored = (scoreId: number, horizon: string, outcome: string, realized: Rec
 
 const verificationBuckets: Record<string, Array<Record<string, unknown>>> = {
   recent: [
-    { ...verificationClaim(3, { ...soxxPayload, asset_symbol: 'XAUUSD', magnitude: { low: 3900 }, scoring_spec: { method: 'range_hold', success_def: '阶梯日收盘 ≥ 3900 = hit' } }, '黄金 3900 是长期支撑。', '另一信源'),
+    // v3 的形状：判界按阶梯日分档（api.md §5.0），定级理由写在 grade_note
+    { ...verificationClaim(3, {
+      ...soxxPayload, asset_symbol: 'XAUUSD', magnitude: { low: { '2026-08-18': 3950, '2026-08-25': 3900 } },
+      grade_note: '原文「长期支撑」没有期限词，两级阶梯系我方指定。',
+      scoring_spec: { method: 'range_hold', success_def: '阶梯日收盘 ≥ 该档下沿 = hit' },
+    }, '黄金 3900 是长期支撑。', '另一信源'),
       ...scored(503, '2026-08-25', 'partial', { ref: 4010, eval_close: 3950.25, ladder: '2026-08-25' }) },
     { ...verificationClaim(1, soxxPayload, '半导体这一段还没走完，262 会到。'),
       ...scored(502, '2026-08-20', 'miss', { ref: 250, eval_close: 241.5, ladder: '2026-08-20' }) },

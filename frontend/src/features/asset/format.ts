@@ -169,30 +169,49 @@ export function industryLabel(raw: string | null | undefined) {
     : raw
 }
 
-const THRESHOLD_LABELS: Record<string, string> = {
+export const thresholdLabels: Record<string, string> = {
   target: '目标', low: '下界', high: '上界', support: '支撑', resistance: '压力', stop: '止损',
 }
 
+/** 按阶梯日分档的判界 {"YYYY-MM-DD": 数字}：取 day 那一档，没有正好那天的取之前最近一档，day 早于各档或没给就取最早一档。 */
+function tierValue(tiers: Record<string, unknown>, day: string | null | undefined) {
+  const entries = Object.entries(tiers)
+    .flatMap(([date, value]) => {
+      const number = asNumber(value)
+      return /^\d{4}-\d{2}-\d{2}$/.test(date) && number !== null ? [{ date, number }] : []
+    })
+    .sort((a, b) => a.date.localeCompare(b.date))
+  if (entries.length === 0) return null
+  const key = day?.slice(0, 10)
+  return (key ? entries.filter((entry) => entry.date <= key).pop() : undefined)?.number ?? entries[0].number
+}
+
 /**
- * 判断的结构化一行：标的 + 方向 + 阈值。
+ * magnitude 里的判界（目标、上下界等），按 thresholdLabels 的键取。
+ * v3 起 target / low / high 可以按阶梯日分档（api.md §5.0，例 #1596 的 low），所以要带上这次评分的阶梯日。
+ */
+export function magnitudeThresholds(magnitude: unknown, day?: string | null) {
+  const record = asRecord(magnitude)
+  if (!record) return []
+  return Object.entries(record).flatMap(([key, raw]) => {
+    if (!(key in thresholdLabels)) return []
+    const tiers = asRecord(raw)
+    const value = asNumber(raw) ?? (tiers ? tierValue(tiers, day) : null)
+    return value === null ? [] : [{ key, label: thresholdLabels[key], value }]
+  })
+}
+
+/**
+ * 判断的结构化一行：标的 + 方向 + 阈值。day 是这一行对应的阶梯日（分档判界按它取值）。
  *
  * 首页的到期列表原来直接给口语原句（"我们通过这样的多级别的跨周期的观察呢…"），扫不动。
  * 原句是证据，该留在详情里；列表要的是"谁、往哪、过哪个数"。
  */
-export function claimHeadline(payload: Record<string, unknown>): string {
+export function claimHeadline(payload: Record<string, unknown>, day?: string | null): string {
   const bits: string[] = []
   const direction = asText(payload.direction)
   if (direction) bits.push(directionLabels[direction] ?? direction)
-  const magnitude = asRecord(payload.magnitude)
-  if (magnitude) {
-    const parts = Object.entries(magnitude)
-      .filter(([key]) => key in THRESHOLD_LABELS)
-      .flatMap(([key, value]) => {
-        const number = asNumber(value)
-        return number === null ? [] : [`${THRESHOLD_LABELS[key]} ${number}`]
-      })
-    bits.push(...parts.slice(0, 2))
-  }
+  bits.push(...magnitudeThresholds(payload.magnitude, day).slice(0, 2).map((entry) => `${entry.label} ${entry.value}`))
   if (bits.length === 0) {
     const kind = asText(payload.claim_class)
     if (kind) bits.push(claimClassLabels[kind] ?? kind)

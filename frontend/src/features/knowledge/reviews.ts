@@ -141,7 +141,7 @@ export function announceReviewsChanged() {
 const payloadFieldLabels: Record<string, string> = {
   asset_text: '标的说明', asset_symbol: '标的', priceable: '可定价', claim_class: '判断类型',
   direction: '方向', magnitude: '幅度', horizon: '期限', condition_text: '前置条件',
-  condition_observable: '条件可观察', stance_strength: '承诺度', verifiability: '可验证性',
+  condition_observable: '条件可观察', stance_strength: '承诺度', verifiability: '可验证性', grade_note: '定级说明',
   scoring_spec: '评分规格', name: '名称', summary: '概要', family: '方法族', rules: '规则',
   claimed_performance: '自述战绩', data_requirements: '所需数据', overlap_with_killed: '与已杀假设重叠',
   testability: '可测试性', canonical_statement: '规范陈述', category: '类别', stance: '立场',

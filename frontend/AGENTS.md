@@ -48,7 +48,9 @@ showed. Keep it from drifting back:
 - Frame: the page root gets `app-page` (background and horizontal clipping;
   no texture images on app pages — only the home page keeps its artwork);
   the main column is `width: var(--site-width)` with `padding-top:
-  var(--page-top)`, so every page lines up with the nav bar.
+  var(--page-top)`, so every page lines up with the nav bar. The home page's
+  full-width scenes use `var(--site-gutter)` as their left padding for the
+  same reason; their right padding stays wider to clear the chapter rail.
 - Head: `.page-head` with an `h1`, optional `.page-tabs` (view switch),
   optional `.page-head-actions` holding `.page-stats`, `.page-count`,
   `.field-search`, `.field-select` or `.btn`.
@@ -115,6 +117,16 @@ first — one component, one state — and confirm that before wiring it in.
   card's fixed parts are budgeted in `CARD_CHROME`; adding a line to the card
   means updating it. `e2e/verification.spec.ts` asserts the page has no
   vertical scroll.
+- **Claim thresholds can be tiered by ladder date.** From extraction spec v3,
+  `magnitude.target` / `low` / `high` is either a number or
+  `{"YYYY-MM-DD": number}` (`api.md` §5.0; unit #1596 is the first). Read them
+  only through `magnitudeThresholds(magnitude, day)` in
+  `features/asset/format.ts`, passing the record's ladder date
+  (`horizon_label`). Reading them with `asNumber` skips tiered values
+  silently, and the threshold vanishes from the chart and the headline.
+  `grade_note` (why the claim got its grade; in v2 this lived in `asset_text`)
+  shows as 定级说明 right after 标的说明 in the unit dossier and the
+  verification dialog.
 - **e2e runs on a fixed clock** (`FIXTURE_NOW` in `e2e/api-fixture.ts`). Derive
   fixture dates from it, never from `Date.now()`, or screenshot baselines drift
   every day.

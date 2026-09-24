@@ -263,7 +263,7 @@ function ConflictRow({ index, relation, from = 'relations' }: { index: number; r
     <a className="discovery-conflict-row" href={detailHref('relation', relation.id, from)}>
       <span>{String(index + 1).padStart(2, '0')}</span>
       <div><b>对立</b><p>{relationSummary(relation)}</p></div>
-      <aside><strong>{relation.a_title}</strong><i>VS</i><strong>{relation.b_title}</strong></aside>
+      <aside><strong>{relation.a_title}</strong><i>↔</i><strong>{relation.b_title}</strong></aside>
       <em>→</em>
     </a>
   )

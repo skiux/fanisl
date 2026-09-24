@@ -230,7 +230,7 @@ export function RelationDossier({
             <NodeProposition detail={pair[0]} onOpenEvidence={setEvidenceUnitId} position="a" showEvidence={false} />
             <div aria-hidden="true" className="relation-axis">
               <i />
-              <span>{relation.relation === 'conflicts' ? 'VS' : '＋'}</span>
+              <span>{relation.relation === 'conflicts' ? '↔' : '＋'}</span>
               <i />
             </div>
             <NodeProposition detail={pair[1]} onOpenEvidence={setEvidenceUnitId} position="b" showEvidence={false} />

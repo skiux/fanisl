@@ -36,7 +36,7 @@ function RecordDialog({ item, onClose, onOpenUnit, onSelect, onStep, position, t
   }, [onStep, position, total])
 
   const symbol = asText(item.payload.asset_symbol)
-  const headline = claimHeadline(item.payload)
+  const headline = claimHeadline(item.payload, item.horizon_label)
 
   return (
     <div className="verify-dialog-layer" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>

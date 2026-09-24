@@ -98,6 +98,11 @@ export const tradeStatusLabels: Record<string, string> = {
 
 // ---- 前端补充（两份文档都没有定义）----
 
+/** horizon.type。有截止日或天数时直接写日期与天数，这里只在两者都没有时用 */
+export const horizonTypeLabels: Record<string, string> = {
+  by_date: '按日期', within_duration: '限期内', open_ended: '原文未给期限',
+}
+
 export const scoringMethodLabels: Record<string, string> = {
   sign: '方向符号', target_touch: '目标触及', target_close: '到期收盘',
   range_hold: '区间保持', relative_return: '相对收益',

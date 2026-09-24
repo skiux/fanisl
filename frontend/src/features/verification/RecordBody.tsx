@@ -102,12 +102,14 @@ function RecordBody({ item, onOpenUnit, onSelect, unitItems }: {
     { label: '承诺度', value: labelOf(stanceLabels, payload.stance_strength) },
     { label: '评分方法', value: labelOf(scoringMethodLabels, scoring?.method) },
     { label: '比较基准', value: asText(scoring?.benchmark) },
-    { label: '标的说明', value: assetText && assetText !== symbol ? assetText : null },
     { label: '条件能否机械观察', value: condition ? (payload.condition_observable ? '能' : '不能') : null },
     { label: '发布', value: formatDate(item.published_at, true) },
     { label: '判定', value: isScored(item) ? formatDate(item.eval_ts, true) : null },
     { label: '版本', value: detail ? `提取 ${detail.extractor_version} · 评分 ${detail.scorer_version}` : null },
-  ].filter((entry): entry is { label: string; value: string } => Boolean(entry.value))
+    // 这两项是整段话（定级说明常过百字），排在短项之后、各占一整行
+    { label: '标的说明', value: assetText && assetText !== symbol ? assetText : null, wide: true },
+    { label: '定级说明', value: asText(payload.grade_note), wide: true },
+  ].filter((entry): entry is { label: string; value: string; wide?: boolean } => Boolean(entry.value))
 
   return (
     <div className={`verify-body${showChart ? ' has-chart' : ''}`}>
@@ -161,7 +163,9 @@ function RecordBody({ item, onOpenUnit, onSelect, unitItems }: {
       <details className="verify-body-more">
         <summary>更多判据信息</summary>
         <dl>
-          {extraFacts.map((entry) => <div key={entry.label}><dt>{entry.label}</dt><dd>{entry.value}</dd></div>)}
+          {extraFacts.map((entry) => (
+            <div className={entry.wide ? 'is-wide' : undefined} key={entry.label}><dt>{entry.label}</dt><dd>{entry.value}</dd></div>
+          ))}
           {nodes.length > 0 && (
             <div>
               <dt>关联节点</dt>

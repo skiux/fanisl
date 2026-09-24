@@ -1,12 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
 import { outcomeLabels } from '../../shared/domain/labels'
-import { asNumber, asRecord } from '../asset/format'
+import { magnitudeThresholds } from '../asset/format'
 import type { VerificationOutcome, VerificationPriceWindow } from './types'
-
-const THRESHOLD_LABELS: Record<string, string> = {
-  target: '目标', low: '下界', high: '上界', support: '支撑', resistance: '压力', stop: '止损',
-}
 
 type Loaded = { key: string; data: VerificationPriceWindow | null; failed: boolean }
 
@@ -67,14 +63,8 @@ function RecordChart({ evalTs, horizon, magnitude, outcome, publishedAt, refPric
 
   const current = loaded?.key === key ? loaded : null
   const bars = useMemo(() => current?.data?.bars ?? [], [current])
-  const thresholds = useMemo(() => {
-    const record = asRecord(magnitude)
-    if (!record) return []
-    return Object.entries(record).flatMap(([name, value]) => {
-      const number = asNumber(value)
-      return name in THRESHOLD_LABELS && number !== null ? [{ name, value: number }] : []
-    }).slice(0, 3)
-  }, [magnitude])
+  // 判界按这次的阶梯日取：v3 的分档判界每个阶梯日一个数
+  const thresholds = useMemo(() => magnitudeThresholds(magnitude, horizon).slice(0, 3), [horizon, magnitude])
 
   const chart = useMemo(() => {
     if (bars.length === 0) return null
@@ -124,9 +114,9 @@ function RecordChart({ evalTs, horizon, magnitude, outcome, publishedAt, refPric
               )
             })}
             {thresholds.map((entry) => (
-              <g className="verify-chart-threshold" key={entry.name}>
+              <g className="verify-chart-threshold" key={entry.key}>
                 <line x1={chart.left} x2={width - chart.right} y1={chart.y(entry.value)} y2={chart.y(entry.value)} />
-                <text x={chart.left + 4} y={chart.y(entry.value) - 4}>{THRESHOLD_LABELS[entry.name]} {entry.value}</text>
+                <text x={chart.left + 4} y={chart.y(entry.value) - 4}>{entry.label} {entry.value}</text>
               </g>
             ))}
             {refPrice !== null && (

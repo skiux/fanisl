@@ -114,6 +114,17 @@ test('浮层里 ← → 逐条看，窗口跟着走', async ({ page }) => {
   await expect(page.locator('.verify-card[aria-current="true"]')).toContainText('纳指这里回踩就是买点')
 })
 
+test('分档判界按这次的阶梯日取值，定级说明跟在标的说明之后', async ({ page }) => {
+  await page.goto('/#/verification?score=503')
+  await expect(dialog(page).locator('header')).toContainText('下界 3900')
+  await expect(dialog(page).getByRole('img', { name: 'XAUUSD 价格走势' })).toContainText('下界 3900')
+  await dialog(page).getByText('更多判据信息').click()
+  const facts = dialog(page).locator('.verify-body-more dt')
+  await expect(facts.filter({ hasText: '定级说明' })).toBeVisible()
+  const labels = await facts.allTextContents()
+  expect(labels.indexOf('定级说明')).toBe(labels.indexOf('标的说明') + 1)
+})
+
 test('不可判的记录说明原因，不画价格', async ({ page }) => {
   await page.goto('/#/verification?score=505')
   await expect(dialog(page).getByText("无符号映射: ['FCG']")).toBeVisible()

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiJson } from '../../shared/api/client'
 import {
-  categoryLabels, claimClassLabels, directionLabels, familyLabels, gradeText, kindLabels, labelOf,
+  categoryLabels, claimClassLabels, directionLabels, familyLabels, gradeText, horizonTypeLabels, kindLabels, labelOf,
   outcomeLabels, realizedLabels, scoringMethodLabels, stanceLabels, testabilityLabels,
 } from '../../shared/domain/labels'
 import { nextTabIndex } from '../../shared/interaction/tabs'
@@ -63,10 +63,11 @@ function describeHorizon(value: unknown) {
   const horizon = asRecord(value)
   if (!horizon) return '未声明'
   const deadline = asText(horizon.deadline)
-  const duration = asText(horizon.duration_days)
+  // duration_days 在载荷里是数字
+  const duration = typeof horizon.duration_days === 'number' ? horizon.duration_days : asText(horizon.duration_days)
   if (deadline) return `截至 ${deadline}`
-  if (duration) return `发布后 ${duration} 天`
-  return asText(horizon.type) ?? '未声明'
+  if (duration !== null) return `发布后 ${duration} 天`
+  return labelOf(horizonTypeLabels, horizon.type) ?? '未声明'
 }
 
 function splitRaw(raw: string) {
@@ -122,11 +123,18 @@ function ClaimContract({ unit }: { unit: KnowledgeUnitDetail }) {
         <Fact label="可验证性" value={gradeText(payload.verifiability)} />
       </div>
 
-      {/* 「标的」只放规范符号。asset_text 在 v2 里装的是定级理由（平均 51 字），另起一行完整给出 */}
+      {/* 「标的」只放规范符号。asset_text 在 v2 里装的是定级理由（平均 51 字），另起一行完整给出；
+          v3 起理由改写在 grade_note，asset_text 只剩资产表述 */}
       {asText(payload.asset_text) && asText(payload.asset_text) !== asText(payload.asset_symbol) && (
         <div className="contract-asset-note">
           <span>标的说明</span>
           <p>{asText(payload.asset_text)}</p>
+        </div>
+      )}
+      {asText(payload.grade_note) && (
+        <div className="contract-asset-note">
+          <span>定级说明</span>
+          <p>{asText(payload.grade_note)}</p>
         </div>
       )}
 

@@ -64,6 +64,8 @@
 
   /* 页面框架：各页主体与顶栏同宽、同一个起点 */
   --site-width: min(1360px, calc(100% - 40px));
+  /* 顶栏左缘到视口左边的距离。首页各幕是全宽的，正文左边距用它，与顶栏和各页标题对齐；右边留给章节导航 */
+  --site-gutter: calc((100% - var(--site-width)) / 2);
   --page-top: 104px;
   --page-bg:
     radial-gradient(circle at 14% 2%, rgba(251, 249, 241, .9), transparent 32%),
@@ -591,7 +593,7 @@ body::-webkit-scrollbar-thumb {
   --visibility: 1;
   display: flex;
   align-items: center;
-  padding: 0 clamp(42px, 7vw, 112px);
+  padding: 0 clamp(42px, 7vw, 112px) 0 var(--site-gutter);
 }
 
 .entry-stage [data-animate] {
@@ -725,7 +727,7 @@ body::-webkit-scrollbar-thumb {
   grid-template-columns: minmax(330px, .86fr) minmax(450px, 1.14fr);
   align-items: center;
   gap: clamp(50px, 8vw, 130px);
-  padding: 0 clamp(44px, 7vw, 112px);
+  padding: 0 clamp(44px, 7vw, 112px) 0 var(--site-gutter);
 }
 
 .source-copy {
@@ -880,7 +882,7 @@ body::-webkit-scrollbar-thumb {
 }
 
 .units-stage {
-  padding: 2vh clamp(42px, 6.5vw, 104px) 0;
+  padding: 2vh clamp(42px, 6.5vw, 104px) 0 var(--site-gutter);
 }
 
 .units-heading {
@@ -1032,13 +1034,13 @@ body::-webkit-scrollbar-thumb {
 }
 
 .node-stage {
-  padding: 2vh clamp(42px, 7vw, 112px) 0;
+  padding: 2vh clamp(42px, 7vw, 112px) 0 var(--site-gutter);
 }
 
 .node-copy {
   position: absolute;
   top: 11vh;
-  left: clamp(42px, 7vw, 112px);
+  left: var(--site-gutter);
   z-index: 2;
   width: min(470px, 35vw);
 }
@@ -1191,7 +1193,7 @@ body::-webkit-scrollbar-thumb {
 }
 
 .relations-stage {
-  padding: 1.5vh clamp(42px, 7vw, 112px) 0;
+  padding: 1.5vh clamp(42px, 7vw, 112px) 0 var(--site-gutter);
 }
 
 .relation-heading {
@@ -1334,7 +1336,7 @@ body::-webkit-scrollbar-thumb {
   grid-template-columns: 1.2fr .8fr;
   align-items: center;
   gap: 6vw;
-  padding: 0 clamp(44px, 7vw, 112px);
+  padding: 0 clamp(44px, 7vw, 112px) 0 var(--site-gutter);
 }
 
 .library-copy {
@@ -1456,7 +1458,7 @@ body::-webkit-scrollbar-thumb {
 
 .library-status {
   position: absolute;
-  right: 7vw;
+  right: var(--site-gutter);
   bottom: 1vh;
   display: flex;
   align-items: center;
@@ -2018,7 +2020,7 @@ button.library-status {
   grid-template-columns: 1fr 1fr;
   align-items: center;
   min-height: 100svh;
-  padding: 110px clamp(28px, 7vw, 110px) 70px;
+  padding: 110px clamp(28px, 7vw, 110px) 70px var(--site-gutter);
   border-bottom: 1px solid var(--line);
   isolation: isolate;
 }

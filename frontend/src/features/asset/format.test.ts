@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   claimHeadline, classRank, countdown, daysFromToday, formatDate, industryLabel,
-  percent, rateDisplay,
+  magnitudeThresholds, percent, rateDisplay,
 } from './format'
 
 describe('asset formatting', () => {
@@ -67,5 +67,15 @@ describe('asset formatting', () => {
     expect(claimHeadline({ claim_class: 'relative' })).toBe('相对强弱')
     expect(claimHeadline({ direction: 'down', condition_text: '若跌破 150 则继续看空' }))
       .toBe('↓ · 条件：若跌破 150 则继续看空')
+  })
+
+  it('按阶梯日分档的判界取这次阶梯日那一档（v3，#1596 的形状）', () => {
+    const magnitude = { low: { '2026-09-19': 7503.84, '2026-10-12': 7350.7, '2026-12-11': 7197.56 } }
+    expect(magnitudeThresholds(magnitude, '2026-10-12')).toEqual([{ key: 'low', label: '下界', value: 7350.7 }])
+    expect(magnitudeThresholds(magnitude, '2026-11-01')[0].value).toBe(7350.7)     // 两档之间取之前那档
+    expect(magnitudeThresholds(magnitude, '2026-09-01')[0].value).toBe(7503.84)    // 早于各档取最早一档
+    expect(magnitudeThresholds(magnitude)[0].value).toBe(7503.84)
+    expect(claimHeadline({ direction: 'range', magnitude }, '2026-12-11')).toBe('↔ · 下界 7197.56')
+    expect(magnitudeThresholds({ low: { 某天: 1 }, pct: 5 })).toEqual([])
   })
 })

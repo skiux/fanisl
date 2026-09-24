@@ -106,7 +106,7 @@ function DeskOverview({ onOpenAsset }: { onOpenAsset: (asset: string) => void })
                     <time>{formatDate(item.horizon_label)}</time>
                     <em>{countdown(item.horizon_label)}</em>
                     <b>{asset ?? '未标定标的'}</b>
-                    <strong>{claimHeadline(item.payload) || item.quote}</strong>
+                    <strong>{claimHeadline(item.payload, item.horizon_label) || item.quote}</strong>
                     <i>{spec(item.payload) ?? item.creator}</i>
                   </button>
                 </li>

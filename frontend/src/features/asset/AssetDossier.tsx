@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import PriceEvidence from './PriceEvidence'
 import {
-  asNumber, asRecord, asText, count, countdown, directionLabels, formatDate, gradeText,
+  asNumber, asRecord, asText, count, countdown, directionLabels, formatDate, gradeText, magnitudeThresholds,
   industryLabel, kindLabels, outcomeLabels, outcomeMarks, pct, rateDisplay, ratio, relationLabels,
   sessionLabels, sideLabels, signedPct, stanceLabels, statusLabels, tradeOutcomeLabels,
   tradeStatusLabels, usd,
@@ -89,19 +89,15 @@ function Record({ dossier }: { dossier: AssetDossierData }) {
   )
 }
 
-function ClaimFacts({ payload }: { payload: Record<string, unknown> }) {
-  const magnitude = asRecord(payload.magnitude)
+function ClaimFacts({ day, payload }: { day: string; payload: Record<string, unknown> }) {
   const facts: Array<[string, string]> = []
   const direction = asText(payload.direction)
   if (direction) facts.push(['方向', directionLabels[direction] ?? direction])
-  if (magnitude) {
-    const parts = Object.entries(magnitude)
-      .flatMap(([key, value]) => {
-        const number = asNumber(value)
-        return number === null ? [] : [`${key} ${number}`]
-      })
-    if (parts.length) facts.push(['目标', parts.join(' / ')])
-  }
+  // 判界按这一条的阶梯日取（v3 可分档）。magnitude 里其余临时键名是英文（pe_low 等），数值在下面的判据里有中文写法，不单列
+  const bounds = magnitudeThresholds(payload.magnitude, day).map((entry) => `${entry.label} ${entry.value}`)
+  const percentValue = asNumber(asRecord(payload.magnitude)?.pct)
+  if (percentValue !== null) bounds.push(`${percentValue}%`)
+  if (bounds.length) facts.push(['幅度', bounds.join(' / ')])
   const stance = asText(payload.stance_strength)
   if (stance) facts.push(['承诺度', stanceLabels[stance] ?? stance])
   const grade = gradeText(payload.verifiability)
@@ -157,7 +153,7 @@ function OpenClaims({ items }: { items: OpenClaim[] }) {
                   {item.ref_price_at_publish !== null && <i>发布参考价 {item.ref_price_at_publish}</i>}
                 </span>
                 <blockquote>{item.quote}</blockquote>
-                <ClaimFacts payload={item.payload} />
+                <ClaimFacts day={horizon} payload={item.payload} />
                 {successDef && <p className="asset-open-spec"><em>判据</em>{successDef}</p>}
                 <span className="asset-open-source">{item.content_title}<b aria-hidden="true">↗</b></span>
               </a>
