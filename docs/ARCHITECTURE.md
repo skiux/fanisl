@@ -55,7 +55,7 @@ fanisl/
   ②标的新闻天更 + 财报日历天更 + 动态降噪天更 + 公司资料周更。单实例。
 - `worker_trader.py` — 交易进程：快线程盯市(15s) + 慢线程（setup 探测→闸门 1h；scan 已默认关）。单实例。
 - `worker_base.py` — worker 公共设施：PG advisory lock 单实例守卫 + 信号驱动运行。
-- `backfill.py` — 一次性历史回填（`python -m fanisl.collect.backfill`）。
+- `collect/backfill.py` — 一次性历史回填（`python -m fanisl.collect.backfill`）。
 
 ### 组合根 / 配置
 - `runtime.py` — **共享对象装配**（pool/store/resolver/agent/trading_service/ACCOUNT_ID
@@ -71,7 +71,8 @@ fanisl/
 详见 [`auth/README.md`](../backend/fanisl/auth/README.md)。
 
 ### 资产台数据层 `binance/`（2026-09-02，盈亏口径 09-06 重做）
-给 `console/` 供数的三组接口：`/portfolio` `/orders` `/ledger`。
+给 `console/` 供数的三组只读接口 `/portfolio` `/orders` `/ledger`，外加管理员录入持仓成本的
+`PUT /admin/stock-costs/{symbol}`、`PUT /admin/spot-costs/{asset}`（只写本地表，路由在 `binance/routes.py`）。
 **不用 ccxt**——它的统一模型会抹掉这三页要的字段（现货四种锁定态、ADL 分位、
 条件单的 workingType/closePosition、维持保证金档位、理财持仓）。
 签名支持 Ed25519 / RSA / HMAC 三种 key（官方已把 HMAC 标为 deprecated）。
@@ -110,28 +111,29 @@ fanisl/
 - `indicators/compute.py` — 技术指标：`compute_indicators`(快照取末值) + **`indicator_series`(整条序列，
   回填/快照单一定义)**。
 - `snapshot/builder.py` — 原始数 → 语义化 TimeframeView/Derivatives（阈值化标签）。
-- `analytics.py` — 时间序列摘要（时长加权的均值/分位/轨迹）。
-- `flatten.py` — MarketSnapshot → 入库行（**模型→metric 名的唯一映射**，逐周期用登记表）。
-- `metrics.py` — **metric 名 + 元信息的 SSOT**（登记表）。`catalog()` 给前端，`metric_vocab()` 给工具。
-- `assets.py` — **标的身份的 SSOT**（登记表，97 个）：中文名/类别/别名/各命名空间的符号。
+- `collect/analytics.py` — 时间序列摘要（时长加权的均值/分位/轨迹）。
+- `collect/flatten.py` — MarketSnapshot → 入库行（**模型→metric 名的唯一映射**，逐周期用登记表）。
+- `collect/metrics.py` — **metric 名 + 元信息的 SSOT**（登记表）。`catalog()` 给前端，`metric_vocab()` 给工具。
+- `assets.py` — **标的身份的 SSOT**（登记表）：中文名/类别/别名/各命名空间的符号。
   与 `data/instruments.py` 的分工：本表管"是什么"，那张表管"去哪取数"。
   `knowledge/prices.py` 的 SYMBOL_MAP 从这里派生——**改这里就是改每天的日线采集范围**。
-- `validate.py` — 入库前取值校验（挡 NaN/越界）。
+- `collect/validate.py` — 入库前取值校验（挡 NaN/越界）。
 
 ### 存储
 - `db.py` — psycopg3 连接池。
 - `marketstore.py` — 时间序列（`metric_samples` TimescaleDB hypertable）+ 催化剂（`catalyst_items`）
   + 采集日志。写入：`write_changed`(前向去重) / `write_history`(回填) / coverage 查询。
-- `storage.py` — 对话 + 消息（`conversations`/`messages`）。
-- 两个库：**`fanisl`**（行情时序 + 对话）、**`fanisl_trading`**（交易评测台）。
+- `chat/storage.py` — 对话 + 消息（`conversations`/`messages`）。
+- 三个库：**`fanisl`**（行情时序 + 对话 + 用户与会话 + Binance 缓存与成本录入）、**`fanisl_trading`**（交易评测台）、
+  **`fanisl_knowledge`**（知识引擎）。
 
 ### 采集 / 调度
-- `collector.py` — 复用 get_market_snapshot/catalysts + flatten 入库（best-effort）。
-- `scheduler.py` — 极简后台定时调度（单线程，多个 Scheduler 实例分车道）。
+- `collect/collector.py` — 复用 get_market_snapshot/catalysts + flatten 入库（best-effort）。
+- `scheduler.py` — 极简后台定时调度（单线程，多个 Scheduler 实例分车道）。job 抛出的异常打到 stderr 后照常继续。
 
 ### 对话 Agent
-- `agent.py` — Claude 多轮工具循环（prompt caching + adaptive thinking）。
-- `prompts.py` — 系统提示词（盘面读法 + 交易角色 + 进场/管理/复盘/扫描各阶段）。
+- `chat/agent.py` — Claude 多轮工具循环（prompt caching + adaptive thinking）。
+- `chat/prompts.py` — 系统提示词（盘面读法 + 交易角色 + 进场/管理/复盘/扫描各阶段）。
 - `models.py` — 全部 pydantic 模型（快照/衍生品/情绪/链上/催化剂/工具输入）。
 
 ### 交易评测台 `trading/`（2026-07 重定位后，见 [trading-eval-repositioning.md](trading-eval-repositioning.md)）
@@ -157,25 +159,18 @@ pytest（用 `fanisl_test` 库）：数据/快照/分析/校验/回填/metrics �
 
 ---
 
-## 前端 `frontend/src/`
+## 前端 `frontend/src/`（知识引擎站点，挂 `/`）
 
-React + TS + Vite + Tailwind；Geist 字体、Phosphor 图标、zinc+emerald 调色、recharts。
+React 19 + TS + Vite，按功能分目录；工程基线见 `frontend/README.md`，归属与做法见 `frontend/AGENTS.md`。
 
-- `App.tsx` — 外壳 + 顶部标签导航（对话 + 各数据页 + 交易）。
-- `main.tsx` / `index.css` / `styles/` — 入口与样式。
-- `api.ts` — 后端 API 封装（`VITE_API_BASE` 控制基址）。`types.ts` — 类型。
-- `components/` — `ChatView`/`Composer`/`MessageList`/`MarkdownRenderer`(Prism 高亮)/`Sidebar`/`PriceTicker`。
-- `useConversations.ts` — 对话状态。
-- `market/`：
-  - `ui.tsx` — 共享展示组件（Panel/Kpi/Badge/EmptyState/PageShell…）。PageShell 页头固定、内容区独立滚动（body 不滚）。
-  - `format.ts` — 数值/时间格式化。`trading.ts` — 交易评测领域标签映射 + 格式化。`useMarketData.ts` — 数据拉取 hook。
-  - `pages/` — `DataExplorer`(数据总览) / `Categories`(技术/衍生品/盘口/链上/情绪/宏观分类页) /
-    `Trading`(评测总览：5 账户切换+计分卡+权益曲线+持仓+记录) / `SetupsPanel`(playbook 评测板/你的 setup 表)
-    / `ManualPanel`(实盘录入表单) / `TradeDetail`(单笔详情：走势+决策依据+管理+事件+结果+复盘)。
+- `features/` — `knowledge`（L0/L1 浏览与单元档案，含核查 tab）· `verification`（验证中心、信源联赛表）·
+  `discovery`（发现页）· `asset`（标的工作台）· `archive`（研究档案）。
+- `shared/` — `api`（接口封装，`VITE_API_BASE` 控制基址）· `auth`（会话闸门与账号入口；登录页本身在仓库根
+  `shared/login/`，与资产台共用）· `navigation` · `domain` · `config` · `interaction`。
+- `App.tsx` / `Root.tsx` / `main.tsx` / `index.css` — 外壳、入口与全站样式。
 
-后端给前端的取数端点：`/metrics/catalog`(全量目录) · `/metrics/available?symbol`(覆盖) ·
-`/metrics?symbol&names`(序列) · `/watchlist` · `/price` · `/catalysts/stored` · `/trading/*` · `/chat[/stream]`
-· `/asset`(标的宇宙) · `/asset/{id}`(标的档案，含公司资料与按标的新闻)。
+资产台是另一个应用 `console/`（挂 `/console/`），见 `console/README.md`。两个前端用到的全部端点见
+`backend/api.md`。
 
 **`/asset` 是单数，不是 `/assets`**：Vite 的构建产物在 `/assets/index-*.js`，API 占用
 `/assets` 会让 nginx 把前端 JS/CSS 代理到后端、页面白屏。三处守着这条：

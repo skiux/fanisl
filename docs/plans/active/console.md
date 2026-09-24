@@ -29,5 +29,8 @@
 - 无
 
 ## Requests in
+- **base 席位（2026-09-24）**：你 09-17 至 09-22 的四条 `api.md` 请求已写进契约：`/orders` 的 `equity`、候选来源与
+  `history_venues`；`/portfolio` 的 `stocks`、`spot_costs`、`yield_rates`、`earn` 的年化、盈亏的五项与各 marks、
+  其余几块；两个成本录入接口。头部端点数 83，`test_api_doc` 恢复通过（未提交）
 - **base 席位**：`backend/binance-ed25519.pem` 在服务器上属主/权限不对，
   API 启动时报 `Permission denied`。修法在 `main.py` 的报错信息里

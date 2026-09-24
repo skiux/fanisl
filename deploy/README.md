@@ -791,9 +791,10 @@ src = LIVE.read_text()
 new, n = re.subn(r'(location ~ \^/\()[^)]+(\)\(/\|\$\))', rf'\g<1>{PREFIXES}\g<2>', src)
 if n != 1:
     raise SystemExit(f'预期改 1 处，实际匹配 {n} 处——先手动看一眼配置')
-LIVE.with_suffix('.bak').write_text(src)
+BAK = pathlib.Path('/etc/nginx/fanisl.conf.bak-routes')   # 别放进 sites-enabled：那里每个文件都会被加载
+BAK.write_text(src)
 LIVE.write_text(new)
-print('已更新，备份在', LIVE.with_suffix('.bak'))
+print('已更新，备份在', BAK)
 EOF
 
 # 校验生效配置（不是仓库那份！），通过再 reload
@@ -828,6 +829,47 @@ sudo nginx -t && sudo systemctl reload nginx
 不加这条，输 `fanisl.skiuo.com/console`（不带斜杠）会落到 SPA 兜底、返回**知识引擎**的
 index.html——人以为自己在资产台，其实一直在另一个应用里，登录和退出都发生在那边。
 2026-09-02 实测踩到。
+
+### 压缩（生效配置里补 gzip）
+
+仓库的 `nginx-fanisl.conf` 已为 JSON / JS / CSS / SVG 开压缩（理由与实测见该文件注释）。只写 `gzip on`
+不够：没有 `gzip_types` 时只压 `text/html`，2026-09-24 线上实测正是如此——首页压了，`/assets/index-*.js`
+与 API 的 JSON 都原样传。生效配置同样要补，照旧只插缺的那几行：
+
+```bash
+# ── 在【服务器】上跑 ──
+sudo python3 - <<'EOF'
+import pathlib
+LIVE = pathlib.Path('/etc/nginx/sites-enabled/fanisl')
+BAK = pathlib.Path('/etc/nginx/fanisl.conf.bak-gzip')   # 别放进 sites-enabled：那里每个文件都会被加载
+src = LIVE.read_text()
+if 'gzip_types' in src:
+    raise SystemExit('已有 gzip_types，跳过；与仓库 deploy/nginx-fanisl.conf 对一遍')
+marker = '    index index.html;\n'
+if marker not in src:
+    raise SystemExit('没找到 index index.html; 这一行，先手动看一眼配置')
+block = ('\n    gzip on;\n    gzip_vary on;\n    gzip_proxied any;\n    gzip_comp_level 5;\n'
+         '    gzip_min_length 1024;\n'
+         '    gzip_types application/json application/javascript text/css image/svg+xml;\n')
+BAK.write_text(src)
+LIVE.write_text(src.replace(marker, marker + block))
+print(f'已在 {src.count(marker)} 个 server 块里加上 gzip，备份在 {BAK}')
+EOF
+sudo python3 /opt/fanisl/deploy/check_nginx_routes.py /etc/nginx/sites-enabled/fanisl
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+验收（本机就能跑，应当看到 `content-encoding: gzip`）：
+
+```bash
+curl -s -o /dev/null -D - -H 'Accept-Encoding: gzip' "https://fanisl.skiuo.com/assets/$(curl -s https://fanisl.skiuo.com/ | grep -o 'index-[^"]*\.js' | head -1)" | grep -i content-encoding
+```
+
+> **顺带查一个遗留**：「先补 nginx 的 API 前缀」那段脚本 2026-09-24 之前把备份写成
+> `sites-enabled/fanisl.bak`。Debian 的 `nginx.conf` 会加载 `sites-enabled/` 下的**每一个**文件，那份
+> 备份等于第二份站点配置：同名 server 报 `conflicting server name` 后被忽略，现在无害，但改生效配置时
+> 容易被它搅乱。存在的话挪出去（写这条时没有登服务器核实它在不在）：
+> `sudo mv /etc/nginx/sites-enabled/fanisl.bak /etc/nginx/fanisl.conf.bak-routes-0902 && sudo nginx -t && sudo systemctl reload nginx`
 
 ### 上线顺序（重要）
 

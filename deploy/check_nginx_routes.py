@@ -85,7 +85,18 @@ def main(argv: list[str] | None = None) -> int:
               "  不带斜杠的 /console 会落到 SPA 兜底、返回知识引擎的 index.html，"
               "用户输这个地址进去的是另一个应用", file=sys.stderr)
         return 1
-    print(f"{path}: {len(REQUIRED_PREFIXES)} 个 API 前缀全部已代理")
+    # 压缩（2026-09-24）：只写 gzip on 时默认只压 text/html，API 的 JSON 与前端 JS 原样传
+    gzip_types = set()
+    for m in re.finditer(r"gzip_types\s+([^;]+);", config):
+        gzip_types |= set(m.group(1).split())
+    missing_types = sorted({"application/json", "application/javascript", "text/css"} - gzip_types)
+    if not re.search(r"^\s*gzip\s+on\s*;", config, re.M) or missing_types:
+        print(f"{path} 没有为 API 与前端资源开压缩（缺 gzip on 或 gzip_types 里的 "
+              f"{', '.join(missing_types) or '—'}）：\n"
+              f"  默认只压 text/html，验证页一次近 900KB 的 JSON 会原样传。配置见仓库 nginx-fanisl.conf",
+              file=sys.stderr)
+        return 1
+    print(f"{path}: {len(REQUIRED_PREFIXES)} 个 API 前缀全部已代理，JSON/JS/CSS 已开压缩")
     return 0
 
 

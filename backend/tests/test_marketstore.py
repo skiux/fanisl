@@ -98,3 +98,24 @@ def test_catalyst_coverage_counts_by_kind_and_symbol(pool):
     assert cov[("news", "BTC/USDT")]["n"] == 2
     assert cov[("macro", "GLOBAL")]["n"] == 1
     assert cov[("news", "BTC/USDT")]["fetched_at"] is not None
+
+
+def test_write_changed_looks_back_a_bounded_window(pool):
+    """找"上一条"只往回看 30 天（相对本轮 ts），查询才能在规划期就排除 chunk。
+
+    服务器上 3951 个 chunk，不设下界时单次规划 2.8 s（2026-09-24 实测）。
+    不装 timescaledb 也要能跑：这里验的是取值逻辑，不是分块。
+    """
+    st = MarketStore(pool)
+    with pool.connection() as conn:
+        conn.execute("TRUNCATE metric_samples, catalyst_items, collection_runs RESTART IDENTITY")
+    st.write_samples([Sample("symbol", "BTC/USDT", "price", 100.0)], "2026-06-01T00:00:00+00:00")
+    # 窗口内没变 → 不写
+    assert st.write_changed([Sample("symbol", "BTC/USDT", "price", 100.0)],
+                            "2026-06-20T00:00:00+00:00") == 0
+    # 上一条落在 30 天以外 → 当成没有上一条，同值再写一次（有意的代价）
+    assert st.write_changed([Sample("symbol", "BTC/USDT", "price", 100.0)],
+                            "2026-07-15T00:00:00+00:00") == 1
+    # 不带时区的 ts 按 UTC 理解
+    assert st.write_changed([Sample("symbol", "BTC/USDT", "price", 100.0)],
+                            "2026-07-16T00:00:00") == 0

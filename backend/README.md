@@ -94,20 +94,17 @@ PYTHONPATH=. .venv/bin/python -m pytest    # 或：uv run pytest
 
 ```
 fanisl/
-├── main.py          # FastAPI：/chat + 市场数据只读接口 + 采集器生命周期
-├── agent.py         # Claude 工具循环（含 prompt caching）
+├── main.py          # FastAPI：全部 HTTP 路由（不起后台调度，采集在 worker_collector）
 ├── config.py        # key / 默认值 / 指标阈值 / watchlist / 采集间隔
-├── prompts.py       # 系统提示词：角色与边界
 ├── models.py        # pydantic 快照契约
 ├── auth/            # 登录与用户管理（中间件默认拒绝 + users/sessions 两张表）
-├── storage.py       # PostgreSQL 对话/消息
+├── chat/            # 对话：agent.py（Claude 工具循环，含 prompt caching）/ prompts.py / storage.py（对话与消息）
+├── collect/         # 采集管线：metrics.py（metric 名 SSOT）/ collector.py / flatten.py / validate.py / analytics.py / backfill.py
 ├── marketstore.py   # PostgreSQL 时间序列/催化剂/采集日志。metric_samples 用 TimescaleDB
 │                    #   hypertable，但**扩展缺失时自动退化成普通表**（无分块/压缩/retention，
 │                    #   读写照常，只打一条 warning）——开发机因此不必装 timescaledb
 ├── db.py            # 连接池（psycopg_pool）
 ├── runtime.py       # 进程级单例：三个库的池 + agent/交易服务（import 时即建池）
-├── flatten.py       # 模型 → 入库行（纯函数）
-├── collector.py     # 采一轮 watchlist：复用工具函数 → flatten → 写库
 ├── scheduler.py     # 进程内后台线程调度（无新依赖、无 shell 脚本）
 ├── tools/           # get_market_snapshot / get_catalysts 编排 + 注册分发
 ├── data/            # 可插拔数据源 + 衍生品/情绪/链上/催化剂 provider
@@ -133,7 +130,8 @@ fanisl/
   `flatten` 摊平 → `marketstore` 入库（market 每 15min、catalysts 每天；`COLLECTOR_ENABLED=false` 可关）。
 - 读（前端）：`GET /watchlist`（最新概览）、`GET /metrics?symbol=&names=&since=`（时间序列，
   `symbol=GLOBAL` 取全市场）、`GET /catalysts/stored`、`GET /collection/status`。
-- 加新指标 = 在 `flatten.py` 加一行映射，采集/存储/接口都不用动。
+- 加新指标按 `../docs/data/data-sync.md` 的清单：`collect/metrics.py`（登记表，SSOT）加一行 + `collect/flatten.py`
+  加映射，采集/存储/接口不用动；漏了登记表 `tests/test_metrics.py` 会报错。
 
 ## 数据源（可插拔）
 
@@ -145,7 +143,7 @@ fanisl/
 
 **加密衍生品维度**（仅加密永续，正交于价格的信息）：
 - 按 symbol 取（同一所，`MarketDataSource` 上的方法）：资金费率、未平仓量、OI-价格背离、
-  多空比、**大户多空比**、**基差/期限结构**（永续溢价 + 季度年化基差）——均来自 OKX。
+  多空比、**大户多空比**、**基差/期限结构**（永续溢价 + 季度年化基差）——均来自 CCXT 接的交易所（`EXCHANGE`，默认 Binance；主动买卖量比只有 Binance 有）。
 - 按币种 base 取（跨所，`data/derivatives.py` 的 provider，独立于 OHLCV 源）：
   - **期权情绪**（`DeribitSource`，**无需 key**）：PCR / max pain / DVOL·ATM IV / IV skew / OI 行权价堆积。
   - **爆仓数据**（`CoinalyzeSource`，免费 key，聚合多所）：填 `COINALYZE_API_KEY` 才启用。
@@ -169,4 +167,4 @@ fanisl/
 2. 在 `data/factory.py` 的 `sources` 字典里加一项 `"xxx": XxxSource(...)`。
 3. 在 `data/instruments.py` 用 `_reg([...别名], Instrument(..., provider="xxx", ...))` 登记标的。
 
-当前：加密=OKX(CCXT)、美股/指数/ETF/原油=Polygon、金属=OANDA。缺口见 `../docs/data/data-gaps.md`。
+当前：加密=Binance（CCXT，`EXCHANGE` 可换；登记表里这个源的键名仍叫 `okx`）、美股/指数/ETF/原油=Polygon、金属=OANDA。缺口见 `../docs/data/data-gaps.md`。

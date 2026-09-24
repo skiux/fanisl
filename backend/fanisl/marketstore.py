@@ -13,6 +13,7 @@ import psycopg
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 from psycopg_pool import ConnectionPool
 
@@ -70,6 +71,16 @@ def _differs(old: float | None, new: float) -> bool:
 def _iso(ts) -> str:
     """timestamptz → ISO 字符串（给 JSON 消费方，保持与旧接口一致）。"""
     return ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
+
+
+# write_changed 找"上一条"的回看窗口，理由见该方法
+_CHANGED_LOOKBACK = timedelta(days=30)
+
+
+def _as_datetime(ts) -> datetime:
+    """采集周期的 ts（ISO 字符串或 datetime）→ 带时区的 datetime；不带时区的按 UTC。"""
+    dt = ts if isinstance(ts, datetime) else datetime.fromisoformat(str(ts))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 class MarketStore:
@@ -178,12 +189,19 @@ class MarketStore:
         """只写「与该指标最近一条值不同」的样本——让各指标按自身变化节奏落库。
 
         慢变量(稳定币/链TVL/恐惧贪婪/日线指标)日内不变 → 不重复写；价格等每周期都变 → 照写。
+
+        **"最近一条"只往回找 30 天（相对本轮 ts）。** 不设下界时规划器要展开全部 chunk：
+        2026-09-24 在服务器上实测 3951 个 chunk，每次查询规划 2.8 s（冷启动 10 s）、执行只要
+        0.45 s，一轮采集查 5 个标的加 GLOBAL，光规划就是半分钟。下界必须是算好的时间戳参数——
+        写成 `now() - interval` 要到执行期才排除 chunk，规划照样 3 s；传参后整条 0.14 s。
+        代价：30 天没变过的指标会被当成"没有上一条"再写一次同值，对 sample-and-hold 无害。
         """
         if not samples:
             return 0
+        since = _as_datetime(ts) - _CHANGED_LOOKBACK
         last: dict[tuple[str, str], float] = {}
         for symbol in {s.symbol for s in samples}:
-            for metric, info in self.latest_metrics(symbol).items():
+            for metric, info in self.latest_metrics(symbol, since=since).items():
                 last[(symbol, metric)] = info["value"]
         changed = [s for s in samples if _differs(last.get((s.symbol, s.metric)), s.value)]
         return self.write_samples(changed, ts)
@@ -226,14 +244,19 @@ class MarketStore:
             for r in rows
         ]
 
-    def latest_metrics(self, symbol: str) -> dict[str, dict]:
-        """某 symbol 每个 metric 的最新一条 {metric: {ts, value}}。"""
+    def latest_metrics(self, symbol: str, *, since: datetime | None = None) -> dict[str, dict]:
+        """某 symbol 每个 metric 的最新一条 {metric: {ts, value}}。
+
+        不给 `since` 就要扫全部历史，服务器上单次约 3 s（见 write_changed）。`/watchlist`
+        就是这样调的；两个前端目前都不调用它。
+        """
+        sql = "SELECT DISTINCT ON (metric) metric, ts, value FROM metric_samples WHERE symbol = %s"
+        params: list = [symbol]
+        if since is not None:
+            sql += " AND ts >= %s"
+            params.append(since)
         with self.pool.connection() as conn:
-            rows = conn.execute(
-                "SELECT DISTINCT ON (metric) metric, ts, value FROM metric_samples "
-                "WHERE symbol = %s ORDER BY metric, ts DESC",
-                (symbol,),
-            ).fetchall()
+            rows = conn.execute(sql + " ORDER BY metric, ts DESC", params).fetchall()
         return {r["metric"]: {"ts": _iso(r["ts"]), "value": r["value"]} for r in rows}
 
     # --- 催化剂列表 ------------------------------------------------------

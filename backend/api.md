@@ -2,7 +2,8 @@
 
 > 面向前端的完整接口契约。以运行中后端实测采样为准（2026-07-18 首版 50 个端点；2026-08-28 复核实际 60 个；
 > 2026-08-29 标的工作台 +2 = 62 个；2026-09-02 登录与用户管理 +11、资产台 +3 = 76 个；
-> 2026-09-13 单元核查 +5 = **81 个**）。总数与每条路由的路径由 `tests/test_api_doc.py` 对着路由表核对。
+> 2026-09-13 单元核查 +5 = 81 个；2026-09-21 资产台成本录入 +2 = **83 个**）。总数与每条路由的路径由
+> `tests/test_api_doc.py` 对着路由表核对。
 > 服务：FastAPI，默认 `http://127.0.0.1:8000`（前端用 `VITE_API_BASE` 覆盖）。
 >
 > 配套文档：`../docs/PRODUCT.md`（产品定义/信息架构/用户旅程）· `../docs/DOMAIN.md`（知识引擎
@@ -19,7 +20,7 @@
 - **CORS**：线上两个前端与 API 同源，用不到 CORS。本机跨端口开发时要带 cookie，
   浏览器不允许 `Access-Control-Allow-Origin: *`，所以来源要逐个列进 `CORS_ORIGINS`。
 - **错误**：非 2xx 返回 `{"detail": "人类可读的中文原因"}`。常见：400 参数问题、403 需要管理员
-  （§1.5 的管理员接口）、404 不存在、409 状态冲突（如撤已成交的单、关闭已关闭的核查）、
+  （§1.5 的用户管理、§1.8 的成本录入）、404 不存在、409 状态冲突（如撤已成交的单、关闭已关闭的核查）、
   502 Claude API 错误（同步调 Claude 的端点）。请求体结构不对（缺字段、类型错）是 FastAPI 的
   422，此时 `detail` 是字段错误列表而不是字符串。
 - **时间**：一律 ISO 8601 带时区（如 `2026-07-12T20:00:00+08:00`）；日线日期为 `YYYY-MM-DD`。
@@ -84,8 +85,9 @@ Body `{"username": str, "password": str}` → `{"user": {...}}`，并在响应�
 
 ## 1.8 资产台（Binance 只读）
 
-三组接口给 `console/` 供数。**形状的权威定义是 `console/src/api/types.ts`**，
-后端按它组装；实现与全部取舍见 `backend/fanisl/binance/README.md`。
+三组只读接口给 `console/` 供数，外加两个只写本地库的管理员成本录入接口。**形状的权威定义是
+`console/src/api/types.ts`**，后端按它组装；实现与全部取舍见 `backend/fanisl/binance/README.md`。
+这里写字段的含义与口径，逐字段的类型以 `types.ts` 为准。
 
 全员共用同一个 Binance 账户（凭据在服务器 `.env`，只开 Enable Reading）。
 
@@ -100,8 +102,9 @@ Body `{"username": str, "password": str}` → `{"user": {...}}`，并在响应�
 
 ### GET /portfolio
 Query：`force`（默认 false，界面上的"重新取数"，只有管理员看得到这个按钮）。
-返回 `PortfolioSnapshot`：`totals` / `wallets` / `spot` / `futures` / `earn` / `margin` /
-`income` / `transfers` / `pnl`。
+返回 `PortfolioSnapshot`：`as_of` / `base_currency` / `sources` / `totals` / `stable_assets` /
+`yield_rates` / `wallets` / `spot` / `spot_costs` / `stocks` / `capabilities` / `futures` / `earn` /
+`margin` / `isolated_margin` / `liquidation_loan` / `portfolio_margin` / `income` / `transfers` / `pnl`。
 
 `force` **不穿透提现历史**（单次权重 18000，是所有端点里最贵的一个）。
 
@@ -123,6 +126,56 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
 **欧元稳定币（EURI / AEUR）故意不在里面**：是稳定币但不是美元，按 1 美元计价直接算错，
 让它们走正常报价、算成一笔汇率敞口才对。
 
+#### `yield_rates` —— 公布年化
+
+`Record<asset, number | null>`。现在只有一个键 `BFUSD`，取自
+`/sapi/v1/bfusd/history/rateHistory` 最近一条的 `annualPercentageRate`；`null` 表示这次取不到。
+
+#### `stocks` —— 正股与代币化股票
+
+Binance 的 Stocks Trading **没有持仓接口**。直接买入的正股在资金钱包明细里记作 `EQ_` 开头的资产
+（SOXL → `EQ_SOXL`，文档没写，2026-09-17 线上实测）；`AAPLB` 之类是代币化股票，按官方映射认回股票代码。
+所以 `stocks` 有三块：
+
+- `equity_holdings[]`：正股。数量取钱包余额，市值由钱包的 BTC 估值换算，估值为 0 或缺失时 `null`；
+- `tokenized_assets[]`：代币化股票；
+- `positions[]`：按经济标的合并后的仓位，直接持有与代币化的数量分字段保留。`mark_price_usd` 是买一卖一的
+  中间价，单边缺失时为 `null`，不拿钱包估值或单边价顶替。
+
+**成本由管理员录入**（`PUT /admin/stock-costs/{symbol}`，见下）：Binance 不给完整的持仓成本与手续费，
+也不从成交历史倒推（转入、转出与公司行动会让倒推的数量静默失真）。
+
+- `cost_status`：`manual`（录入时的股数与当前总股数一致）/ `stale`（录过，但股数变了）/ `missing`（没录）；
+- `cost_price_usd`（单位成本，不含手续费）、`commission_usd`、`cost_position_qty`（录入时的股数）、
+  `cost_updated_at`：录过就原样返回；
+- `avg_cost_usd` / `cost_basis_usd` / `unrealized_pnl_usd` / `unrealized_pnl_pct` **只在 `manual` 时有值**，
+  `stale` 与 `missing` 一律 `null`，直到重新录入。总成本 = 单价 × 当前股数 + 手续费；
+- `cost_coverage: {manual, stale, total}` 是上面三种状态的计数。
+
+#### `spot_costs` —— 人工录入的币仓成本
+
+`Record<asset, {asset, cost_price_usd, commission_usd, position_qty, updated_at}>`，来自
+`PUT /admin/spot-costs/{asset}`。**只用于持仓行展示这笔币仓的成本与盈亏，不进 `pnl`。**
+后端原样返回录入值；console 把现货、合约钱包与全仓杠杆里的数量合起来与 `position_qty` 核对，
+对得上才用，数量不符或余额来源失败时不用。稳定币属于现金，不录成本。早先按整仓价值录入的旧记录
+（`trade_value_usd`）没有单价，不自动换算，要重新录入。
+
+#### `earn[]` —— 活期年化按阶梯加权
+
+- `apr`：**按当前金额加权后的年化**。活期是阶梯利率，落在档位区间里的部分按档位利率、超出的按实时年化；
+  locked 是固定年化。实时年化未知、又有超出档位的部分时为 `null`。原先直接给实时年化，小额活期因此一直显示偏低。
+- `apr_base`：实时年化，超出档位的那部分按它计息。
+- `apr_tiers: [{from, to, rate, amount}]`：档位；`amount` 是当前金额落在这一档的部分，0 表示没吃到。
+
+#### 其余几块
+
+| 字段 | 内容 | 为 `null` 时 |
+|---|---|---|
+| `capabilities` | 产品能力、API 权限、VIP 等级（`/sapi/v1/account/info` 与 `apiRestrictions`） | 来源失败 |
+| `isolated_margin` | 逐仓各交易对的风险率、强平价、两条腿的借贷（`/sapi/v1/margin/isolated/account`） | 来源失败 |
+| `liquidation_loan` | 强平后的穿仓借款（`/sapi/v1/margin/liquidation-loan`），`remaining_amount > 0` 才是要处理的风险 | **没有借款**：接口回空，来源状态照常 `ok` |
+| `portfolio_margin` | 统一账户 / SPAN（`mode` 为 `portfolio` 或 `span`） | 账户没开统一账户，或来源失败；看 `sources` 区分 |
+
 #### `pnl` —— 盈亏，按成交算，不由资产变化倒推
 
 这一块的口径是整份接口里最容易搞错的地方，2026-09 连着修过四轮，每一轮的错都写在
@@ -137,12 +190,16 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
 
   ```
   daily[]                 **每天到底赚了多少**，固定 90 格：
-                            date        YYYY-MM-DD，UTC 日切
-                            spot_usd    现货持仓当天的涨跌（含当天成交那部分）
-                            settled_usd 合约当天结算（已实现+资金费+手续费+返佣）
-                            pnl_usd     两者之和；算不出来时 null
-                            known       这天算不算得出来
-  today.{spot_usd,settled_usd,total_usd}
+                            date         YYYY-MM-DD，UTC 日切
+                            spot_usd     现货类持仓当天的涨跌（跨全部钱包，含当天成交那部分）
+                            stock_usd    正股当天的涨跌（昨收来自 Yahoo，见 equity_close_source）
+                            settled_usd  合约当天结算（已实现+资金费+手续费+返佣）
+                            earn_usd     理财派息（稳定币的也算）
+                            interest_usd 杠杆利息，负数
+                            pnl_usd      spot_usd + stock_usd + settled_usd + earn_usd + interest_usd；
+                                         算不出来时 null
+                            known        这天算不算得出来
+  today.{spot_usd,stock_usd,settled_usd,earn_usd,interest_usd,total_usd}
                           daily 最后一格。**同一个数只算一处**，两边不会对不上
   today.settled_parts     当天结算按类型拆开，字段同 `income`（realized_pnl /
                           funding_fee / commission / insurance_clear /
@@ -155,11 +212,20 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
   carry.*                 资金费 / 手续费 / 返佣，同样 90 天
   spot_marks[]            逐币今日涨跌：{asset, qty, price_usd, prev_close_usd,
                           value_usd, today_usd}
+  stock_marks[]           正股逐只今日涨跌，形状同 spot_marks
+  earn_marks[] / interest_marks[]
+                          今天的派息 / 利息按资产拆开：{asset, usd}
+  equity_missing[]        拿不到昨收、没计进今日盈亏的股票代码（按 0 计，页面要点名）
+  equity_close_source     正股昨收的出处（现为 "Yahoo 日线复权收盘"）
   unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖到），受影响的天已报 null
   ```
 
   `unrealized` 与 `realized` **各自只有 `futures_*`**，没有现货那一半，见下。
 
+- **派息与利息单列，不并进 `spot_usd`**（2026-09-22 起）。它们多记在稳定币上，而稳定币不参与盯市
+  （见 `stable_assets`），原先并进去的结果是整笔丢掉。
+- **`equity_close_source` 是整个 `/portfolio` 里唯一不来自 Binance 的数。** Binance 的股票接口
+  （`/sapi/v1/equity/*`）只给买一卖一，没有日线也没有前收，正股昨收取自 Yahoo 日线。
 - **现货这一侧没有"相对成本"的任何数**——未实现没有，已实现也没有。两者要的是
   同一段补不齐的买入历史：划转 / 理财派息 / 小额兑换进来的币从不出现在 `myTrades`
   里，`capital/deposit/hisrec` 又只回 90 天，更早的充值永远查不回来。卖得比重放
@@ -168,7 +234,8 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
   最后连同整套成本基础引擎一起删了：`Lot` / `replay` / `summarize` 没有了，
   响应里也不再有 `spot_assets` / `realized.spot_usd` / `coverage` /
   `incomplete_assets` / `failed_symbols`。
-  **别在客户端拿 `qty × (price − avg_cost)` 自己算一个补回去。**
+  **别在客户端用成交历史重放出一个均价补回去。** 持仓行显示的成本只来自人工录入（`spot_costs`、
+  `stocks.positions[].cost_*`），只用于那一行，**不进 `pnl`**。
   现货要回答的是"每天涨跌了多少"，见 `daily[].spot_usd`。
 - **持有量是跨全部钱包的**（`held_across_wallets`）：划进合约当保证金、存进理财的
   币都算在里面。所谓"现货数据取不到"往往只是币不在现货钱包，量一直都在——
@@ -202,7 +269,7 @@ Query：`force`（默认 false，界面上的"重新取数"，只有管理员看
 留着这一行是为了哪天有人把窗口放长时不必再想起来补。
 
 ### GET /orders
-Query：`symbol`、`venue`（`spot|usdm|margin`）、`force`。
+Query：`symbol`、`venue`（`spot|usdm|margin|equity`）、`force`。
 
 **当前挂单能一次拿全账户**，`open` 是完整的。**历史必须按交易对查**（`allOrders` /
 `myTrades` 的 symbol 必填），但那是接口的限制，不该变成"替调用方挑了一个"：
@@ -214,13 +281,22 @@ Query：`symbol`、`venue`（`spot|usdm|margin`）、`force`。
 - **`symbol` 指定 = 只问那一个**，`query.venue` 按该符号在哪边有仓位/挂单推断
   （`venue` 参数可显式覆盖）。
 - `query.max_window_hours` / `lookback_days` 取**最紧**的那一个：多个交易对合在
-  一起时能保证的只有交集（现货单次 ≤ 24 小时、无回溯上限；合约 < 7 天、回溯 90 天）。
+  一起时能保证的只有交集（现货单次 ≤ 24 小时、无回溯上限；合约 < 7 天、回溯 90 天；股票单次 90 天、无回溯上限）。
 - `order_history` / `trade_history` 两个来源状态是**整组**的：任何一个交易对没取到
   就不是 `ok`，取到的那部分照常返回（451 常常只打 fapi，现货那半边还在）。
-- 代价是一次 2N 个请求（N = 候选数）。候选由持仓与余额界定，各自按来源缓存。
+- **合约也逐个交易对问**，不用省略 symbol 的全账户 `allOrders`（官方 2026-08-25 起允许省略）：
+  「全部」与「选定一个」走同一条路、共用同一批缓存键，同一个交易对在两处看到的不会不一样。
+  理由见 `backend/fanisl/binance/README.md`「委托页的硬边界」。
+- 股票（`equity`）的委托与成交历史不带 symbol 一次取全，再按选定的代码过滤。
+- 代价是一次 2N 个请求（N = 加密候选数）。候选界定在挂单、持仓、收支与余额之内，各自按来源缓存。
 
-`history_symbols` 是从「有挂单 + 有持仓 + 现货余额能配出的交易对」推的候选——
-Binance 没有"我交易过哪些对"的接口，做不到真正的全量。
+`history_symbols` 是从「挂单 + 持仓 + 近 90 天合约收支 + 股票委托与成交 + 现货余额能配出的交易对」
+推的候选——Binance 没有"我交易过哪些对"的接口，做不到真正的全量。合约收支能把已经平掉的仓位找回来；
+股票代码一次取全，不会因为选了别的交易对就从候选里消失。
+
+`history_venues: {symbol: venue}` 标出每个候选归哪个 venue，前端按它给下拉框分组（股票代码 SOXL 没有
+计价币后缀，只按计价币分会落进「其他」）。取值实际只有 `spot` / `usdm` / `equity`：杠杆挂单的历史走现货端点，
+记作 `spot`。同一个代码出现在几处时，挂单与持仓先说了算，现货余额最后。
 
 `fills[].commission` 的单位是 `commission_asset`（现货常用 BNB 抵扣、合约结在 USDT），
 **求和只能用 `commission_usd`**。把两种币的数量直接相加等于把 0.0008 个 BNB 当成
@@ -237,6 +313,20 @@ Binance **没有统一的流水接口**，`entries` 是八个端点合并的时�
 它曾作为 `windows` 字段返回、在界面上画成一张表，那是接口的构造，属于文档不属于页面。
 现在写在 `backend/fanisl/binance/README.md` 的接口清单一节，
 `ledger.py:WINDOWS` 是唯一权威。
+
+### PUT /admin/stock-costs/{symbol} · PUT /admin/spot-costs/{asset}
+管理员录入当前持仓的成本（`role=admin`，否则 403），**只写本地表**（主库的 `binance_stock_costs` /
+`binance_spot_costs`），不碰 Binance。两个接口的 Body 相同：
+
+`{"cost_price_usd": number > 0, "commission_usd": number >= 0, "position_qty": number > 0}`
+
+- `cost_price_usd` 是单位平均成本价，不含手续费；总成本 = `cost_price_usd × position_qty + commission_usd`。
+- `position_qty` 是录入时的持仓数量。之后钱包里的数量变了：股票那边标 `stale`，币仓那边 console 不再使用，
+  平均成本与盈亏回到 `null`，直到重新录入——不按比例摊，也不沿用旧值。
+- 返回 `{"stock_cost": {symbol, cost_price_usd, commission_usd, position_qty, updated_at}}` /
+  `{"spot_cost": {asset, …同上}}`。同一个代码再录一次是覆盖。
+- 代码先转大写，须以字母开头、只含 `A-Z0-9.-`、1–16 位，否则 422，此时 `detail` 是一句中文字符串。
+  币仓接口拒绝稳定币（它们是现金），同样 422。数值不满足上面的约束是 FastAPI 的 422（字段错误列表）。
 
 ---
 
@@ -410,15 +500,27 @@ Body `{"reason": str|null}` — 市价全平镜像仓。
 {asset_text, asset_symbol|null, priceable: bool,
  claim_class: price_target|directional|relative|event_outcome|timing|risk_warning,
  direction: up|down|flat|range|vol_up|vol_down|null,
- magnitude: {target?|low?|high?|pct?|baseline_date?}|null,
+ magnitude: {target?|low?|high?|pct?|baseline_date?}|null,   // target/low/high：数字，或 {"YYYY-MM-DD": 数字}
  horizon: {type: by_date|within_duration|open_ended, deadline?, duration_days?},
  condition_text|null, condition_observable: bool,
  stance_strength: explicit|hedged(对冲表述)|speculative(试探表述),
  verifiability: A|B|C|D,        // A 全自动可评 / B 期限系我方阶梯 / C 带条件按约定 / D 不可评
+ grade_note?,                   // 定级说明（v3 起；为空时省略）
  scoring_spec: {method: sign|target_touch|target_close|range_hold|relative_return,
-                eval_ladder: ["YYYY-MM-DD"...], benchmark|null, success_def(中文判据)}|null}
+                eval_ladder: ["YYYY-MM-DD"...], benchmark|null, success_def(中文判据),
+                bounds?, op?, baseline_date?, condition?, vs?}|null}   // 后五项是 v3 的机器判据
 ```
 D 级无 scoring_spec；含糊率=D 占比，本身是信源指标。
+
+**提取规范 v3 的三处新增**（2026-09-24 起；都是新增，旧字段不变，v1/v2 的存量单元没有它们）：
+- `grade_note`：为什么判这一级、代理与口径怎么定。**v3 起 D 级的理由写在这里**，`asset_text` 回到只写
+  原文的资产表述；v2 的理由仍在 `asset_text` 里。为空时整个字段省略。
+- `magnitude` 的 `target` / `low` / `high` 可以是数字，也可以是按阶梯日给值的对象 `{"YYYY-MM-DD": 数字}`
+  （幅度词按期限分档时用，例：#1596 的 `magnitude.low`）。前端要按阶梯日取对应的值，不能只认数字。
+- `scoring_spec` 可带 `bounds`（`low_only` / `high_only` / `both`：range_hold 判哪一边）、`op`（`>` `>=`
+  `<` `<=` `==`）、`baseline_date`（起点改用该日收盘）、`condition`（前置条件的机器写法）、`vs`
+  （`condition_close`：方向对条件成立日收盘判）。这些是评分器的判据，前端一般不显示，判据的人话仍是
+  `success_def`。为空时省略。
 
 **method payload**：`{name, summary, family: trend|reversion|carry|event|flow|positioning|other,
 rules: [str], claimed_performance|null, data_requirements: [str],
@@ -804,12 +906,12 @@ BZ 实测 0 条知识单元、3 笔交易，只按知识单元筛它在工作台
 | 端点 | 常态现象 | 处理建议 |
 |---|---|---|
 | GET /price | crypto 项长期 `last:null` + `error`（Binance 区域封锁 451） | 行内占位 "—" + tooltip 错误摘要，不整屏报错 |
-| GET /watchlist | 响应可能 >5s（逐标的现取） | 骨架 + 较长超时；不放首屏关键路径 |
+| GET /watchlist | 很慢：逐标的取最新值不带时间下界，规划器要展开全部 chunk，2026-09-24 实测每个标的约 3 s（整条 6 个查询） | 两个前端目前都不调用；要用先给 `marketstore.latest_metrics` 传时间下界 |
 | GET /metrics | 未采集的 name 返回空数组 | 先查 /metrics/available 决定画什么 |
 | GET /trading/positions | 多数时间 `[]`（无持仓） | 空态："当前无持仓。开仓来自扫描/手动/信号。" |
 | GET /trading/setups | `signals` 仅指定 account 时非空 | 不传 account 时隐藏信号区 |
-| GET /knowledge/spot-checks | 当前 `checked:0` | 空态解释抽查流程（每周人工抽样） |
-| GET /knowledge/relations | 仅 6 条边（conflicts 1） | 页面为增长设计，但当下逐条完整呈现 |
+| GET /knowledge/spot-checks | 抽查只覆盖一小部分单元，`checked` 远小于 `total` | 覆盖率与 n 一起显示 |
+| GET /knowledge/relations | 边不多，conflicts 更少 | 页面为增长设计，但当下逐条完整呈现 |
 | GET /knowledge/nodes | 多数节点无评分聚合（hit/miss=0） | 无评分时不显示 0%，显示"未验证" |
 | GET /knowledge/weekly | 现算，1-2s | 骨架；markdown 直接渲染 |
 | GET /knowledge/reviews?status=answered | 多数时候是 `[]` | 「待确认」入口不显示角标，不要显示 0 |
@@ -820,7 +922,7 @@ BZ 实测 0 条知识单元、3 笔交易，只按知识单元筛它在工作台
 | GET /asset/{id} | ETF 与指数的 `events` 恒 `[]`（`has_earnings=false`） | 不渲染财报块 |
 | GET /asset/{id} | 多数标的 `trades` 为 `[]`（进场路径只覆盖少数符号） | 隐藏交易节，不留空面板 |
 | GET /asset/{id} | **后端比前端旧**（典型：改完代码没重启 uvicorn，响应里没有 news/events/trades） | `isAssetDossier` 在契约层挡下 → 走"读不到档案 + 重试"的可恢复失败态。**放进去会在渲染期抛 TypeError，整页变成"当前页面没有正确载入"**（2026-08-30 实测踩过） |
-| 各 claim 的 scores | 85 个时点未到期 → 空数组常见 | 空=「评分待到期（最近时点 YYYY-MM-DD）」 |
+| 各 claim 的 scores | 未到期的时点还没有评分行 → 空数组常见 | 空=「评分待到期（最近时点 YYYY-MM-DD）」 |
 | POST /chat*、/trading/open、scan、detect | 同步调 Claude，10s~2min；可能 502 | 等待态 + 明确的失败重试 |
 | Postgres 未启动时任意端点 | 500 | 全局错误页："后端数据库未就绪" |
 
