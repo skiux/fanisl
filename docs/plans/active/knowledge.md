@@ -34,10 +34,8 @@
 - **frontend**：显示 `grade_note`（定级说明），magnitude 按阶梯日给值时取对应的值
 
 ## Requests in
-- **base 席位（2026-09-24，转自 frontend 09-13 的请求）**：`GET /knowledge/relations` 的每条边请带上两侧节点的
-  `hit / partial / miss / n_creators / n_contents`（口径同 `/knowledge/nodes` 的行）。改动在 `nodes.py` 的
-  `list_relations`，归知识席位；`main.py` 那条路由只是转调，不用动。发现页现在为挑"重点发现"逐条取两侧节点详情
-  （9 条对立边 = 18 次请求，本机经隧道最后一个 6.8s 才返回）。改完在 `base.md` 说一声，base 更新 `api.md` §5.3
+- **已处理（2026-09-25）** base 转自 frontend：`GET /knowledge/relations` 每条边带两侧节点的评分聚合与提及面，
+  字段 `a_hit a_partial a_miss a_n_creators a_n_contents`，b 侧同名（口径同 `/knowledge/nodes` 的行）。正式库 82 条边、经隧道一次 0.45s。已告知 base 与 frontend
 - **base 已处理（2026-09-24）**：`api.md` §5.0 补了 v3 的三处新增（`grade_note`、按阶梯日给值的 magnitude、
   scoring_spec 的机器判据）；console 的两条管理员接口也补进了契约，`test_api_doc` 恢复通过（ec99e66）
 - **frontend 席位**：标的页为空多半是标的未登记（见下面第 1 条），不是前端问题

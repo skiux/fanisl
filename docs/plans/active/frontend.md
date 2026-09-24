@@ -46,8 +46,8 @@
   setState 等），不影响运行。改到哪个页面顺手清哪个，不单独开一轮
 
 ## Blocked on
-- **knowledge**：`/knowledge/relations` 带两侧节点计数（base 09-24 转交，实现在 `knowledge/nodes.py`）。发现页简报为挑
-  "重点发现"要逐条取对立边两侧的节点详情（9 条边 = 18 次请求），09-24 真实数据下简报约 10s 才出来；接口带上计数后改成一次请求
+- ~~knowledge：`/knowledge/relations` 带两侧节点计数~~ —— knowledge 席位 2026-09-25 已实现（随 main 上线）：每条边新增
+  `a_hit a_partial a_miss a_n_creators a_n_contents`，b 侧同名，口径同 `/knowledge/nodes` 的行。发现页简报可以改成只用关系边一次请求
 - **用户（登服务器）**：gzip 已由 base 写进仓库的 `deploy/nginx-fanisl.conf`，但线上生效的配置被 certbot 改过、与仓库
   不同步，要按 `deploy/README.md`「压缩（生效配置里补 gzip）」在服务器上补上并 reload。这是验证页首屏的主要瓶颈
 

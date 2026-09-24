@@ -406,6 +406,19 @@ def test_discovery_layer(kstore, pool, tmp_path, monkeypatch):
         {"a": n1, "b": n2, "relation": "conflicts", "note": "重复方向应去重"}]})
     edges = ns.list_relations(relation="conflicts")
     assert len(edges) == 1 and edges[0]["a_id"] == min(n1, n2)
+    # 两侧带评分聚合与提及面（发现页一次请求就够，不再逐条取节点详情）
+    kstore.record_score(u1, eval_ts=datetime(2026, 7, 18, tzinfo=timezone.utc), horizon_label="2026-07-18",
+                        outcome="hit", realized={}, scorer_version="t")
+    kstore.record_score(u1, eval_ts=datetime(2026, 8, 18, tzinfo=timezone.utc), horizon_label="2026-08-18",
+                        outcome="miss", realized={}, scorer_version="t")
+    e = ns.list_relations(relation="conflicts")[0]
+    side = "a" if e["a_id"] == n1 else "b"
+    other = "b" if side == "a" else "a"
+    assert (e[f"{side}_hit"], e[f"{side}_miss"], e[f"{side}_partial"]) == (1, 1, 0)
+    assert (e[f"{side}_n_creators"], e[f"{side}_n_contents"]) == (1, 1)
+    assert (e[f"{other}_hit"], e[f"{other}_miss"], e[f"{other}_n_contents"]) == (0, 0, 1)
+    row = next(r for r in ns.list_nodes() if r["id"] == n1)
+    assert (row["hit"], row["miss"], row["n_contents"]) == (1, 1, 1), "口径与 /knowledge/nodes 的行一致"
     assert ns.relations_for(n1)[0]["other_id"] == n2
     assert ns.get_node(n1)["relations"][0]["other_title"] == "乙"
 

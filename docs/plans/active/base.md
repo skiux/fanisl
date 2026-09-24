@@ -37,5 +37,5 @@
   @MeiTouNews 两个频道）。`GET /knowledge/contents/{id}` 是 `SELECT c.*`，响应因此多一个 `handle` 字段，
   老内容里多频道信源的那几条可能为 null；列表行不含。`api.md` 那一节写的是「同上 + raw」，请补一句
 - **console 席位**：pem 权限，见 Next 第 1 条
-- **frontend 席位（2026-09-13）**：`/knowledge/relations` 带两侧节点计数——实现在 `knowledge/nodes.py`，
-  2026-09-24 已转给知识席位；那边改完，本席位更新 `api.md` §5.3
+- **knowledge 席位（2026-09-25）**：`/knowledge/relations` 的两侧计数已实现（frontend 09-13 的请求）。每条边新增
+  `a_hit a_partial a_miss a_n_creators a_n_contents`，b 侧同名，口径同 `/knowledge/nodes` 的行；原有字段不变。请更新 `api.md` §5.3

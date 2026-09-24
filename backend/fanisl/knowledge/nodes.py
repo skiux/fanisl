@@ -216,16 +216,37 @@ class NodeStore:
         return n
 
     def list_relations(self, *, relation: str | None = None) -> list[dict]:
+        """关系边，两侧各带节点的评分聚合与提及面（口径同 list_nodes 的行）。
+
+        发现页挑"重点发现"要看两侧的命中与跨源情况；原先只有标题与状态，前端逐条取两侧
+        节点详情，9 条对立边 = 18 次请求（frontend 09-13 实测最后一个 6.8s 才返回）。
+        """
         cond = "WHERE r.relation=%s" if relation else ""
         params: tuple = (relation,) if relation else ()
+        side = ", ".join(f"COALESCE(s{x}.{f}, 0) AS {x}_{f}" for x in ("a", "b")
+                         for f in ("hit", "partial", "miss", "n_creators", "n_contents"))
         with self.pool.connection() as conn:
             return conn.execute(f"""
+                WITH st AS (
+                  SELECT a.node_id,
+                    count(DISTINCT u.creator_id) AS n_creators,
+                    count(DISTINCT u.content_id) AS n_contents,
+                    count(*) FILTER (WHERE s.outcome='hit') AS hit,
+                    count(*) FILTER (WHERE s.outcome='partial') AS partial,
+                    count(*) FILTER (WHERE s.outcome='miss') AS miss
+                  FROM node_attestations a
+                  JOIN knowledge_units u ON u.id=a.unit_id
+                  LEFT JOIN claim_scores s ON s.unit_id=u.id
+                  GROUP BY a.node_id)
                 SELECT r.id, r.relation, r.note, r.created_at,
                   a.id AS a_id, a.title AS a_title, a.kind AS a_kind, a.status AS a_status,
-                  b.id AS b_id, b.title AS b_title, b.kind AS b_kind, b.status AS b_status
+                  b.id AS b_id, b.title AS b_title, b.kind AS b_kind, b.status AS b_status,
+                  {side}
                 FROM node_relations r
                 JOIN knowledge_nodes a ON a.id=r.a_node
                 JOIN knowledge_nodes b ON b.id=r.b_node
+                LEFT JOIN st sa ON sa.node_id=r.a_node
+                LEFT JOIN st sb ON sb.node_id=r.b_node
                 {cond} ORDER BY r.relation, r.id""", params).fetchall()
 
     def relations_for(self, node_id: int) -> list[dict]:
