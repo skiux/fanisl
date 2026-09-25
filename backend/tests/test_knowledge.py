@@ -999,6 +999,29 @@ def test_capped_ingest_takes_the_oldest_first_so_the_next_window_still_covers_th
     assert days >= 5, f"剩下的 v0–v4 必须仍在下一轮窗口里，实得 {days} 天"
 
 
+def test_retired_model_raises_instead_of_counting_as_one_failed_video(monkeypatch):
+    """模型下线的 404 抛 ModelUnavailable；别的 404 仍按单条失败处理。"""
+    import httpx
+
+    import fanisl.knowledge.backfill_transcripts as bt
+
+    def _client(body):
+        class _C:
+            model = "gemini-old"
+
+            def transcribe_youtube(self, url):
+                req = httpx.Request("POST", "https://x")
+                raise httpx.HTTPStatusError("404", request=req,
+                                            response=httpx.Response(404, request=req, text=body))
+        return _C()
+
+    with pytest.raises(bt.ModelUnavailable, match="gemini-old"):
+        bt._transcribe_with_retry(_client(
+            "Publisher model `projects/p/locations/global/publishers/google/models/gemini-old` "
+            "was not found or your project does not have access to it."), "https://y/v")
+    assert bt._transcribe_with_retry(_client("Requested entity was not found."), "https://y/v") is None
+
+
 def test_reference_channel_contents_are_not_queued_for_extraction(kstore, monkeypatch):
     """只供阅读的频道（store.REFERENCE_HANDLES）入库即为 reference，不进待提取；别的频道照旧 new。"""
     import fanisl.knowledge.store as storemod

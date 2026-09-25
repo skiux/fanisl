@@ -141,6 +141,17 @@ python -m fanisl.knowledge.daily                                            # �
 成本是每轮一次调用）。这是权限所致、不是故障；随着新的公开内容入库，缺口窗口收窄，
 那条会员视频会自然滑出窗口。
 
+**不公开（unlisted）视频读得了**：2026-09-25 实测美投深度跟踪月报 `jnCSt3oDxRU`（@meitouYT，
+无公开视频列表），Gemini 转录 8877 字、视觉笔记 40 条，yt-dlp 元数据也正常。但频道清单列不出，
+日维护发现不了，只能拿到链接后用 `transcribe_video` 手动入库（handle 要先登记）。
+
+**模型下线**：转录模型是固定版本号 `GEMINI_MODEL`（现为 `gemini-3.5-flash`，2026-05-19 发布，
+至 2026-09-25 未公布下线日期）。固定版本 Google 不换权重，但会下线；下线后 Vertex 返回
+404「Publisher model … was not found」，`backfill_transcripts` 整轮抛 `ModelUnavailable`，
+日维护记一条异常，而不是逐条记失败。改好模型后，缺的期数按缺口窗口自动补回（前提是视频没删）。
+换模型前先拿同一期数字密集的内容对比转录（lite 档丢过数字，见模块 docstring）。每条内容用的
+模型记在 `contents.triage.model`；2026-08-21 及以前入库的 63 条 YouTube 内容没记。
+
 ## 部署形态（2026-08-18 起）
 
 服务器（GCE 新加坡）跑无人值守那半条：collector 的 knowledge daily/weekly、转录、API。

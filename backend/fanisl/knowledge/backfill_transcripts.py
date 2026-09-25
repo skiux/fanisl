@@ -14,6 +14,8 @@
   对数字密集的财报/估值类内容，L0 的数字就是内容本身，quote 又是评分争议的仲裁依据，
   丢一位数会一路污染到 ScoringSpec。宁可等次日额度重置，也只用 flash 档及以上。
 - Gemini 429/5xx 退避重试（视频转录是慢活，本脚本设计为后台慢跑）。
+- 模型 404（已下线或项目无权限）整轮抛 ModelUnavailable：模型是固定版本号（`GEMINI_MODEL`），
+  Google 下线后每条都会 404，逐条记失败会让日维护天天静默空转。
 """
 
 from __future__ import annotations
@@ -38,6 +40,10 @@ BACKOFF_S = 60.0          # 瞬时限流/5xx 的兜底退避（服务端给了 r
 
 class DailyQuotaExhausted(RuntimeError):
     """当天该模型的免费额度用尽——重试无意义，整轮停止。"""
+
+
+class ModelUnavailable(RuntimeError):
+    """模型 404：已下线或项目无权限。不是单条视频的问题，抛给调用方（日维护记异常）。"""
 
 
 def _quota_detail(e: httpx.HTTPStatusError) -> tuple[bool, float | None]:
@@ -82,6 +88,11 @@ def _transcribe_with_retry(client, url: str) -> dict | None:
                       f"（第 {attempt + 1} 次）", flush=True)
                 time.sleep(BACKOFF_S * (attempt + 1))
                 continue
+            elif code == 404 and "model" in e.response.text.lower():
+                # 2026-09-25 实测 Vertex 对已下线的 gemini-2.0-flash-001：
+                # 404 "Publisher model ... was not found or your project does not have access to it"
+                raise ModelUnavailable(f"模型 {client.model} 不可用（HTTP 404，已下线或无权限），"
+                                       f"需改 GEMINI_MODEL") from e
             print(f"    Gemini 失败：HTTP {code}", flush=True)
             return None
         except (httpx.HTTPError, KeyError, ValueError, TruncatedGeneration) as e:
@@ -191,7 +202,7 @@ def main() -> None:
         run(handle, since_days=_arg("--since-days", default=60), limit=_arg("--limit"),
             max_new=_arg("--max-new"),
             models=_arg("--models", lambda v: [m.strip() for m in v.split(",")]))
-    except LookupError as e:
+    except (LookupError, ModelUnavailable) as e:
         raise SystemExit(str(e)) from None
 
 
