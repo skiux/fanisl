@@ -256,6 +256,6 @@ describe('持仓页的股票', () => {
     // 行里不再列这个币在哪几个钱包：表本来就是跨钱包合并的，逐行重复位置
     // 会盖过总持仓与占用信息
     expect(host.textContent).not.toContain('合约钱包 · 全仓杠杆')
-    expect(host.textContent).toContain('现货钱包可用')
+    expect(host.textContent).toContain('杠杆账户')
   })
 })

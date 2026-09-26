@@ -135,10 +135,8 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
         </h1>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          {/* 这些数字有多新。**时刻按 UTC，后面缀上"UTC"两个字母。**
-              整页按 UTC 日切（日历的每一格、成交与结算的分桶都是 Binance 的结算日），
-              时刻自然也是 UTC。可读的人在 UTC+8，屏幕上写 13:09 而墙上是 21:09——
-              标上 UTC 才一眼看懂，那两个字母是数据的一部分，不是说明文字。
+          {/* 这些数字有多新。显示时刻按美东时间，并用 ET 同时涵盖 EST / EDT；
+              盈亏日历仍按 Binance 的 UTC 结算日分桶，两种口径各自明确。
               前面不写"截至"：一个时刻摆在报头上，本来就是"这些数字截到什么时候"。
 
               旁边原先还挂着「N 项取不到」/「数据已过期」，都删了：**同一件事
@@ -149,7 +147,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
               "截至 — · 0 个来源正常"，读着像故障）。 */}
           {sources.length > 0 && (
             <span className="tnum text-xs text-ink-2">
-              {clockTime(asOf)}<span className="text-ink-3"> UTC</span>
+              {clockTime(asOf)}<span className="text-ink-3"> ET</span>
             </span>
           )}
           {/* 重新取数是运维动作：它绕过缓存直接打交易所，而权重预算是共享的。

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { baseOf, clockTime, price, splitPair } from './format'
 
 describe('price', () => {
@@ -22,17 +22,23 @@ describe('price', () => {
 })
 
 describe('clockTime', () => {
-  it('按 UTC 读，不按本地时区', () => {
-    // 原先硬编码 Asia/Shanghai，而整页的日切是 UTC——跨零点那几个小时里
-    // "截至"与日历会指着不同的一天
-    expect(clockTime('2026-09-05T02:30:00Z')).toContain('02:30')
-    expect(clockTime('2026-09-04T23:45:00Z')).toContain('23:45')
+  afterEach(() => vi.useRealTimers())
+
+  it('按美东时间显示，并跟随夏令时', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-05T12:00:00Z'))
+    expect(clockTime('2026-09-05T13:30:00Z')).toBe('09:30')
+    expect(clockTime('2026-09-05T02:30:00Z')).toBe('09-04 22:30')
+
+    vi.setSystemTime(new Date('2026-01-05T12:00:00Z'))
+    expect(clockTime('2026-01-05T13:30:00Z')).toBe('08:30')
   })
 
-  it('不是今天就带上日期', () => {
-    // "今天"按 UTC 判，与日历同一条边界
-    const iso = new Date(Date.now() - 5 * 86_400_000).toISOString()
-    expect(clockTime(iso)).toMatch(/^\d{2}-\d{2} \d{2}:\d{2}$/)
+  it('是否显示日期也按美东自然日判断', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-05T02:45:00Z')) // 美东 09-04 22:45
+    expect(clockTime('2026-09-05T01:30:00Z')).toBe('21:30')
+    expect(clockTime('2026-09-05T04:30:00Z')).toBe('09-05 00:30')
   })
 
   it('取不到就是取不到', () => {

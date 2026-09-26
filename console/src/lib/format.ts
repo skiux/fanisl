@@ -119,29 +119,34 @@ export function relativeTime(asOf: string | null) {
   return `${Math.round(hours / 24)} 天前`
 }
 
+const EASTERN_CLOCK = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+})
+
+function easternParts(value: Date) {
+  return Object.fromEntries(EASTERN_CLOCK.formatToParts(value)
+    .filter((part) => part.type !== 'literal')
+    .map((part) => [part.type, part.value])) as Record<'year' | 'month' | 'day' | 'hour' | 'minute', string>
+}
+
 /**
- * 时刻，**一律 UTC**。只用在流水页逐行的时间上——那里外层是 UTC 日期分组，
- * 行内要的是"这笔在当天的哪个位置"，绝对时刻才排得出先后。
+ * 控制台显示时刻统一使用美东时间。`America/New_York` 会自动处理 EST / EDT，
+ * 不用固定偏移，否则每年夏令时切换都会错一小时。
  *
- * **"这些数字有多新"不要用它**，用 `relativeTime`：绝对时刻在别人的时区里
- * 没法读（屏幕上 13:09、墙上 21:09），而标上"UTC"两个字又是给每个人看的
- * 构造说明。相对时间两样问题都没有。
- *
- * 原先硬编码 Asia/Shanghai（UTC+8），而这一页别的地方全按 UTC 日切走：
- * 日历的每一格、成交与结算的分桶，都是 Binance 的 UTC 结算日。两套时区混在
- * 一起，跨零点的那几个小时里"截至"与日历会指着不同的一天。
- *
- * **不在字符串里缀时区。** 屏幕上不写"UTC"两个字——它是构造，属于本文件与
- * README。全站只有这一个时区，写出来对每一处读数都是重复的噪声。
+ * 日历的盈亏分桶仍按 Binance 的 UTC 结算日；这里只改变报头与流水逐行的可读时刻。
+ * 时区缩写由报头统一标一次，流水表不在每行重复。
  */
 export function clockTime(asOf: string | null) {
   if (!asOf) return '—'
   const date = new Date(asOf)
-  const dayOf = (value: Date) => value.toISOString().slice(0, 10)
-  // 当天的只给时分：一分钟前的数据再标上日期是噪音
-  const sameDay = dayOf(date) === dayOf(new Date())
-  const iso = date.toISOString()
-  return `${sameDay ? '' : `${iso.slice(5, 7)}-${iso.slice(8, 10)} `}${iso.slice(11, 16)}`
+  if (!Number.isFinite(date.getTime())) return '—'
+  const at = easternParts(date)
+  const now = easternParts(new Date())
+  // 当天的只给时分；跨过美东午夜才补日期。
+  const sameDay = at.year === now.year && at.month === now.month && at.day === now.day
+  return `${sameDay ? '' : `${at.month}-${at.day} `}${at.hour}:${at.minute}`
 }
 
 export const WALLET_LABEL: Record<string, string> = {

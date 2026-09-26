@@ -147,13 +147,9 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost
   const isAdmin = useIsAdmin()
   const holdings = spotHoldings(snapshot)
   const holdingsValue = holdings.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-  const spotValue = snapshot.spot.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-  const at = (pick: (item: PortfolioSnapshot['spot'][number]) => number) =>
-    snapshot.spot.reduce((sum, item) => sum + (item.price_usd ?? 0) * pick(item), 0)
-  const onOrder = at((item) => item.locked)
-  const frozen = at((item) => item.freeze)
-  const withdrawing = at((item) => item.withdrawing)
-  const unpriced = snapshot.spot.filter((item) => item.value_usd === null).length
+  const m = snapshot.margin
+  const liability = m && m.total_asset_usd > 0 ? m.total_liability_usd / m.total_asset_usd : null
+  const marginEnabled = snapshot.sources.find((source) => source.key === 'margin')?.status !== 'unsupported'
   const stockPositions = snapshot.stocks.positions
   const unresolvedStocks = snapshot.stocks.tokenized_assets
     .filter((row) => !row.multiplier_valid)
@@ -165,14 +161,20 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost
     && stockPnlRows.length === stockPositions.length
 
   const earnValue = snapshot.earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-  const rewards = snapshot.earn.reduce((sum, item) => sum + (item.cumulative_rewards_usd ?? 0), 0)
-  const priced = snapshot.earn.filter((item) => item.value_usd !== null && item.apr !== null)
-  const base = priced.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-  const apr = base > 0
-    ? priced.reduce((sum, item) => sum + (item.value_usd ?? 0) * (item.apr ?? 0), 0) / base
-    : null
-  const lockedEarn = snapshot.earn.filter((item) => item.kind === 'locked')
-  const lockedValue = lockedEarn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
+  // 持仓接口里的 cumulativeTotalRewards / rewardAmt 口径不一致，BFUSD 又完全不在
+  // Simple Earn 的持仓响应里。收益卡因此不用那些累计字段，统一按当前本金 × 正确年化
+  // 估算稳定币的一日收益；365 天口径简单、可复算，也不会暗示这是已经入账的派息。
+  const yielding = cash(snapshot).filter((row) => row.apr !== null && row.value_usd !== null)
+  const yieldValue = yielding.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
+  const annualYield = yielding.reduce(
+    (sum, row) => sum + (row.value_usd ?? 0) * (row.apr ?? 0), 0,
+  )
+  const yieldApr = yieldValue > 0 ? annualYield / yieldValue : null
+  const dailyYield = yieldValue > 0 ? annualYield / 365 : null
+  const lockedValue = yielding
+    .filter((row) => row.where === '理财 · 定期')
+    .reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
+  const liquidValue = yieldValue - lockedValue
 
   return (
     <div className={cn(veiled && 'veiled')}>
@@ -190,47 +192,29 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost
         </Module>
 
         <Stack span="lg:col-span-4">
-          {/* 逐行的锁定原因在表里，这里给的是合计——两者不是同一个数 */}
-          <Module
-            figure={money(spotValue - onOrder - frozen - withdrawing)}
-            note={unpriced > 0 ? `${unpriced} 项无报价` : '现货可动用'}
-            span=""
-            title="现货钱包可用"
-          >
-            <SplitBar
-              left={spotValue - onOrder - frozen - withdrawing}
-              leftLabel="可动用"
-              right={onOrder + frozen + withdrawing}
-              rightLabel="锁定"
-            />
-            <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-              <Figure label="挂单占用" value={money(onOrder)} />
-              <Figure label="风控冻结" value={money(frozen)} />
-              <Figure label="提现处理中" value={money(withdrawing)} />
-              <Figure label="锁定合计" value={money(onOrder + frozen + withdrawing)} />
-            </dl>
-          </Module>
+          {marginEnabled && <MarginAccountModule dense liability={liability} margin={m} span="" />}
 
           <Module
-            figure={apr === null ? '—' : percent(apr, 2)}
+            figure={yieldApr === null ? '—' : percent(yieldApr, 2)}
+            note={`${yielding.length} 项生息`}
             span=""
             title="理财收益"
             tone="gain"
           >
             <SplitBar
-              left={earnValue - lockedValue}
-              leftLabel="活期"
+              left={liquidValue}
+              leftLabel="流动"
               right={lockedValue}
-              rightLabel="定期"
+              rightLabel="锁定"
             />
             <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-              <Figure label="累计收益" value={money(rewards)} />
+              <Figure label="预计日收益" value={money(dailyYield)} />
               <Figure
                 label="占净值"
-                value={percent(snapshot.totals ? earnValue / snapshot.totals.equity_usd : null, 1)}
+                value={percent(snapshot.totals ? yieldValue / snapshot.totals.equity_usd : null, 1)}
               />
-              <Figure label="活期" value={money(earnValue - lockedValue)} />
-              <Figure label="定期" note={`${lockedEarn.length} 项`} value={money(lockedValue)} />
+              <Figure label="流动生息" value={money(liquidValue)} />
+              <Figure label="锁定生息" value={money(lockedValue)} />
             </dl>
           </Module>
         </Stack>
@@ -280,7 +264,6 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
   futuresMissing: boolean
 }) {
   const f = snapshot.futures
-  const m = snapshot.margin
   const longNotional = (f?.positions ?? [])
     .filter((p) => p.position_amt > 0).reduce((sum, p) => sum + p.notional_usd, 0)
   const shortNotional = (f?.positions ?? [])
@@ -290,14 +273,12 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
   // 「多空敞口」的读数，保证金余额是「保证金」的读数，看得见也验得了。
   // 合约的杠杆设置（那个 20×）只是开仓上限，不代表现在扛着多少倍。
   const realLeverage = f && f.total_margin_balance > 0 ? gross / f.total_margin_balance : null
-  const liability = m && m.total_asset_usd > 0 ? m.total_liability_usd / m.total_asset_usd : null
-  const marginEnabled = snapshot.sources.find((source) => source.key === 'margin')?.status !== 'unsupported'
 
   if (futuresMissing || !f) {
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>
-          <Module span="lg:col-span-7" title="合约账户不可用">
+          <Module span="lg:col-span-12" title="合约账户不可用">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
               仓位、保证金与多空敞口都出自同一组 fapi 接口，这次一起没取到。
               这里不拿上一次的数字顶替，也不用 0 充数。
@@ -315,9 +296,6 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
               ))}
             </ul>
           </Module>
-          {marginEnabled && (
-            <MarginAccountModule liability={liability} margin={m} span="lg:col-span-5" />
-          )}
           <AdditionalRiskModules snapshot={snapshot} />
         </ViewGrid>
       </div>
@@ -386,7 +364,6 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
             ) : <p className="text-sm text-ink-3">当前没有合约敞口。</p>}
           </Module>
 
-          {marginEnabled && <MarginAccountModule dense liability={liability} margin={m} span="" />}
         </Stack>
         <AdditionalRiskModules snapshot={snapshot} />
       </ViewGrid>
