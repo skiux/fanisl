@@ -23,17 +23,14 @@ const ISOLATED_STATUS: Record<string, string> = {
 }
 import { PositionsList, RiskGauges } from './RiskPanel'
 import { SourceHealth } from './SourceHealth'
-import { WalletSpread } from './WalletSpread'
 
 /**
- * 总览。四个分节里唯一的"整页"：日历（时间）、资产分布（空间）、合约收支
+ * 总览。四个分节里唯一的"整页"：日历（时间）、现金（流动性）、合约收支
  * （这 90 天的钱去哪了）、风险判断（越线与否），外加只在出问题时出现的取数状态。
  * 明细里的清单一律不在这里重复一份缩略版——那不是摘要，是把同一份内容印两遍。
  *
- * **原先「盈亏」是一个独立分节，已经并进来了。** 它只有三块：日历、合约收支、充提。
- * 而日历在这一页也有一份——同一张表在两个分节里各印一遍，切过去只是换个位置再看
- * 一次。剩下两块本来就属于"这段时间赚了多少"，和日历同一个问题，合在一页读起来
- * 反而连贯：上面是逐天，下面是这 90 天按项拆开。
+ * **原先「盈亏」是一个独立分节，已经并进来了。** 日历与合约收支留在总览；充提已从
+ * 总览移除。现金则从持仓页移到这里，避免同一份账户流动性与资产仓位混在一个分节。
  *
  * **「每日盈亏」不给跳转箭头。** 箭头只在"点开有别的东西"时才给；日历点开就是它
  * 自己，没有别的去处。
@@ -46,8 +43,7 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
   onOpen: (key: 'holdings' | 'perp') => void
 }) {
   const pnl = snapshot.pnl
-  const t = snapshot.transfers
-  const grossFlow = t ? Math.max(t.deposits_usd, t.withdrawals_usd, 1) : 1
+  const cashRows = cash(snapshot)
   const relevantSources = snapshot.sources.filter((source) => source.status !== 'unsupported')
   const missingCount = relevantSources.filter((source) => source.status !== 'ok').length
 
@@ -56,13 +52,13 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
       <ViewGrid>
         {/* 不给 figure：它原先放的是 today_usd，而摘要条上那个「今日盈亏」
             就是同一个数——同一屏里说两遍。日历自己有月合计和区间合计。 */}
-        <Module span="lg:col-span-8" title="每日盈亏">
+        <Module span={cashRows.length > 0 ? 'lg:col-span-7' : 'lg:col-span-12'} title="每日盈亏">
           <RealizedDays days={pnl?.daily ?? []} />
         </Module>
 
-        <Module onOpen={() => onOpen('holdings')} span="lg:col-span-4" title="资产分布">
-          <WalletSpread veiled={false} wallets={snapshot.wallets} />
-        </Module>
+        {cashRows.length > 0 && (
+          <CashModule rows={cashRows} snapshot={snapshot} span="lg:col-span-5" />
+        )}
 
         {/* 四行同一个窗口、同一个来源，条形才可比——旧的「盈亏构成」把 1 天、
             此刻、全历史、90 天四种窗口混在一张表里画对比条，见 PnlBreakdown。
@@ -71,53 +67,19 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
           <PnlBreakdown pnl={pnl} />
         </Module>
 
-        <Stack span="lg:col-span-4">
-          <Module
-            onOpen={() => onOpen('perp')}
-            span=""
-            title="风险仪表"
-          >
-            <RiskGauges
-              concentration={concentration}
-              exposureRatio={snapshot.totals?.gross_exposure_ratio ?? null}
-              futures={snapshot.futures}
-              margin={snapshot.margin}
-              unavailable={futuresMissing}
-            />
-          </Module>
-
-          {/* 充提不是盈亏，但"真实收益 = 期末 − 期初 − 净充提"要用到它，
-              所以它挨着合约收支放，而不是混进上面那张表里染成绿色。 */}
-          <Module
-            figure={t ? signedMoney(t.net_usd) : '—'}
-            span=""
-            title="充提"
-            tone="accent"
-          >
-            {t ? (
-              <ul className="space-y-3">
-                {([
-                  ['充值', t.deposits_usd, t.deposit_count],
-                  ['提现', t.withdrawals_usd, t.withdrawal_count],
-                ] as const).map(([label, value, count]) => (
-                  <li className="flex items-center gap-3" key={label}>
-                    <span className="w-[42px] shrink-0 text-xs text-ink-2">{label}</span>
-                    <span className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-rule">
-                      <span
-                        className="block h-full rounded-full bg-accent/70 transition-[width] duration-500"
-                        style={{ width: `${((value / grossFlow) * 100).toFixed(1)}%` }}
-                      />
-                    </span>
-                    <span className="tnum whitespace-nowrap text-sm text-ink">{money(value)}</span>
-                    {/* 去掉"笔"之后这里剩个裸数字，读不出是什么。摘要条上有标签
-                        （"条件单 5"）不需要单位，这里没有，用 ×n 表示次数 */}
-                    <span className="tnum w-[30px] shrink-0 text-right text-xs text-ink-3">×{count}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="text-sm text-ink-3">充提记录未取到。</p>}
-          </Module>
-        </Stack>
+        <Module
+          onOpen={() => onOpen('perp')}
+          span="lg:col-span-4"
+          title="风险仪表"
+        >
+          <RiskGauges
+            concentration={concentration}
+            exposureRatio={snapshot.totals?.gross_exposure_ratio ?? null}
+            futures={snapshot.futures}
+            margin={snapshot.margin}
+            unavailable={futuresMissing}
+          />
+        </Module>
 
         {/* **只在出问题时出现。** 全绿时这一块是纯运维信息——和流水页那张
             「取数窗口」端点表同一类，删了；但来源挂掉时它是有用的：页面上的数字
@@ -134,6 +96,45 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
         )}
       </ViewGrid>
     </div>
+  )
+}
+
+function CashModule({ rows, snapshot, span }: {
+  rows: ReturnType<typeof cash>
+  snapshot: PortfolioSnapshot
+  span: string
+}) {
+  const total = rows.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
+  const earning = rows.filter((row) => row.apr !== null)
+  const earningValue = earning.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
+  const apr = earningValue > 0
+    ? earning.reduce((sum, row) => sum + (row.value_usd ?? 0) * (row.apr ?? 0), 0)
+      / earningValue
+    : null
+
+  return (
+    <Module figure={money(total)} note={`${rows.length} 项`} span={span} title="现金">
+      <SplitBar
+        left={earningValue}
+        leftLabel="生息"
+        right={total - earningValue}
+        rightLabel="闲置"
+      />
+      <dl className="mb-5 grid grid-cols-2 gap-x-5 gap-y-5 xl:grid-cols-4 xl:gap-x-8">
+        <Figure label="生息部分" value={money(earningValue)} />
+        <Figure
+          label="加权年化"
+          tone={apr === null ? undefined : 'gain'}
+          value={apr === null ? '—' : percent(apr, 2)}
+        />
+        <Figure
+          label="占净值"
+          value={percent(snapshot.totals ? total / snapshot.totals.equity_usd : null, 1)}
+        />
+        <Figure label="闲置" value={money(total - earningValue)} />
+      </dl>
+      <CashTable rows={rows} />
+    </Module>
   )
 }
 
@@ -172,14 +173,6 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost
     : null
   const lockedEarn = snapshot.earn.filter((item) => item.kind === 'locked')
   const lockedValue = lockedEarn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-
-  const cashRows = cash(snapshot)
-  const cashTotal = cashRows.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
-  const earning = cashRows.filter((row) => row.apr !== null)
-  const earningValue = earning.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
-  const cashApr = earningValue > 0
-    ? earning.reduce((sum, row) => sum + (row.value_usd ?? 0) * (row.apr ?? 0), 0) / earningValue
-    : null
 
   return (
     <div className={cn(veiled && 'veiled')}>
@@ -265,41 +258,6 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost
               stocks={snapshot.stocks}
             />
           </>
-        )}
-
-        {/* **现金单独成一块。** 它不是「理财持仓」的缩略版，是另一刀：那张表按
-            产品列理财，这里按"钱在哪"横切整个账户——稳定币可以同时躺在现货、
-            理财里生息、和合约钱包里当保证金，而这三处原先分在三张表上，
-            "我一共有多少可动用的钱、其中多少已经压在保证金上"没人回答。
-            哪些算现金由后端给（`stable_assets`），前端不再自己维护名单。 */}
-        {cashRows.length > 0 && (
-          <Module
-            figure={money(cashTotal)}
-            note={`${cashRows.length} 项`}
-            span="lg:col-span-12"
-            title="现金"
-          >
-            <SplitBar
-              left={earningValue}
-              leftLabel="生息"
-              right={cashTotal - earningValue}
-              rightLabel="闲置"
-            />
-            <dl className="mb-5 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
-              <Figure label="生息部分" value={money(earningValue)} />
-              <Figure
-                label="加权年化"
-                tone={cashApr === null ? undefined : 'gain'}
-                value={cashApr === null ? '—' : percent(cashApr, 2)}
-              />
-              <Figure
-                label="占净值"
-                value={percent(snapshot.totals ? cashTotal / snapshot.totals.equity_usd : null, 1)}
-              />
-              <Figure label="闲置" value={money(cashTotal - earningValue)} />
-            </dl>
-            <CashTable rows={cashRows} />
-          </Module>
         )}
 
         <Module

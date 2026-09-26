@@ -14,9 +14,9 @@ const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 sm:grid-co
  * 行下面那一行小字**只留占用原因**。
  *
  * 原先它还列出这个币在哪几个钱包（"现货 · 合约钱包 · 全仓杠杆"）。那是一句解释——
- * 解释这一行的数量为什么比现货余额大；而这张表本来就是跨钱包合并的，钱在哪儿
- * 由「资产分布」与「现金」两处回答，不必每一行再说一遍。占用则不同：它是这笔数量
- * 里动不了的那部分，与数量本身不是一回事。
+ * 解释这一行的数量为什么比现货余额大；而这张表本来就是跨钱包合并的，逐行重复钱包
+ * 位置会遮住真正要看的总持仓。占用则不同：它是这笔数量里动不了的那部分，与数量
+ * 本身不是一回事。稳定币的位置统一由总览的「现金」回答。
  */
 function rowNote(item: SpotHoldingRow) {
   const parts: string[] = []
@@ -316,7 +316,7 @@ export function TokenizedStocksTable({ rows }: { rows: TokenizedStockAsset[] }) 
   )
 }
 
-const CASH_ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)]'
+const CASH_ROW = 'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)]'
 
 /**
  * 现金放在哪儿。**同一个币会同时出现在几行**（现货一行、理财一行、合约保证金
@@ -330,8 +330,8 @@ export function CashTable({ rows }: { rows: CashRow[] }) {
     <>
       <div className={cn(CASH_ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
         <span>资产</span>
-        <span className="hidden sm:block">账户</span>
-        <span className="hidden sm:block">年化</span>
+        <span className="hidden xl:block">账户</span>
+        <span>年化</span>
         <span className="text-right">价值</span>
       </div>
       <ul className="divide-y divide-rule">
@@ -340,11 +340,11 @@ export function CashTable({ rows }: { rows: CashRow[] }) {
             <span className="flex min-w-0 items-center gap-2.5">
               <Ticker asset={row.asset} size="sm" />
               <span className="truncate text-sm text-ink">{row.asset}</span>
-              {/* 窄屏没有「在哪」那一列，位置跟在代码后面 */}
-              <span className="shrink-0 text-micro text-ink-3 sm:hidden">{row.where}</span>
+              {/* 紧凑模块没有独立的「账户」列，位置跟在代码后面 */}
+              <span className="shrink-0 text-micro text-ink-3 xl:hidden">{row.where}</span>
             </span>
-            <span className="hidden text-sm text-ink-2 sm:block">{row.where}</span>
-            <span className={cn('tnum hidden text-sm sm:block',
+            <span className="hidden text-sm text-ink-2 xl:block">{row.where}</span>
+            <span className={cn('tnum text-sm',
               row.apr === null ? 'text-ink-3' : 'text-gain')}>
               {row.apr === null ? '—' : percent(row.apr, 2)}
             </span>

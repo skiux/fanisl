@@ -24,7 +24,7 @@ type Phase =
 export type ViewKey = 'overview' | 'holdings' | 'perp' | 'risk'
 
 // `#/assets/changes` 是删掉的那一节，落到这里会被 readView 退回 overview——
-// 它的内容（日历、合约收支、充提）现在全在 overview 上，退回去正好是同一份东西。
+// 日历与合约收支已经并入 overview，旧入口不再对应独立页面。
 const VIEW_KEYS: ViewKey[] = ['overview', 'holdings', 'perp', 'risk']
 
 function readView(): ViewKey {
