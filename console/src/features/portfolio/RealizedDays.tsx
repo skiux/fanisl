@@ -11,7 +11,7 @@ import type { DailyPnl } from '../../api/types'
  *
  * 两件事各管各的，不打架：
  *
- * - **区间**（7 / 30 / 90 天 / 自定义）决定统计哪些天。区间外的日子照常画出来，
+ * - **区间**（7 / 30 / 90 天 / 本月 / 自定义）决定统计哪些天。区间外的日子照常画出来，
  *   但压暗、不计入合计——日历该显示完整的月份，而不是被区间裁掉一半。
  * - **月份箭头**决定看哪个月。翻月不改区间。
  *
@@ -29,7 +29,13 @@ import type { DailyPnl } from '../../api/types'
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 const ROWS = 6
 const PRESETS = { '7': 7, '30': 30, '90': 90 } as const
-type Preset = keyof typeof PRESETS | 'custom'
+type Preset = keyof typeof PRESETS | 'month' | 'custom'
+const PRESET_ITEMS: { value: Exclude<Preset, 'custom'>; label: string }[] = [
+  { value: '7', label: '7 天' },
+  { value: '30', label: '30 天' },
+  { value: '90', label: '90 天' },
+  { value: 'month', label: '本月' },
+]
 
 type Cell = null | {
   date: string
@@ -80,6 +86,10 @@ function Calendar({ days }: { days: DailyPnl[] }) {
 
   const range = useMemo(() => {
     if (preset === 'custom') return custom ?? { from: first, to: last }
+    if (preset === 'month') {
+      const monthStart = `${last.slice(0, 7)}-01`
+      return { from: monthStart < first ? first : monthStart, to: last }
+    }
     return { from: shiftDays(last, -(PRESETS[preset] - 1)), to: last }
   }, [custom, first, last, preset])
 
@@ -156,8 +166,7 @@ function Calendar({ days }: { days: DailyPnl[] }) {
     <>
       <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
         <SegmentedControl
-          items={(Object.keys(PRESETS) as (keyof typeof PRESETS)[])
-            .map((k) => ({ value: k as Preset, label: `${k} 天` }))}
+          items={PRESET_ITEMS}
           label="统计区间"
           onValueChange={(next) => { setPreset(next); gotoMonth(last) }}
           size="sm"

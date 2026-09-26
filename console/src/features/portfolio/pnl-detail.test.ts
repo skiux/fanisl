@@ -29,7 +29,8 @@ function render(pnl: ReturnType<typeof buildSnapshot>['pnl']) {
   return document.body.textContent ?? ''
 }
 
-const snapshot = () => buildSnapshot(new Date('2026-09-19T12:00:00Z'))
+// 用有合约结算的工作日；周末当天本来就不会出现「已实现盈亏」分项。
+const snapshot = () => buildSnapshot(new Date('2026-09-18T12:00:00Z'))
 
 describe('今日盈亏明细', () => {
   it('一条一条平铺，不再有分组标题与两层小计', () => {

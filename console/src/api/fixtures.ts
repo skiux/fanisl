@@ -404,7 +404,7 @@ const INTEREST_MARKS = [{ asset: 'USDT', usd: -0.28 }]
  * **现货这一侧只有"每天涨跌了多少"**，没有任何相对成本的数。均价、现货已实现
  * 连同后端那套成本基础引擎一起删了：买入历史补不齐，算出来会无声出错。
  */
-function buildPnl(): Pnl {
+function buildPnl(asOf: Date): Pnl {
   const live = spot.filter((row) => row.value_usd !== null && row.total > 0)
 
   const marks = live
@@ -436,7 +436,7 @@ function buildPnl(): Pnl {
   const todayEarn = EARN_MARKS.reduce((sum, row) => sum + row.usd, 0)
   const todayInterest = INTEREST_MARKS.reduce((sum, row) => sum + row.usd, 0)
 
-  const daily = buildDaily(todayStock, todayEarn, todayInterest)
+  const daily = buildDaily(asOf, todayStock, todayEarn, todayInterest)
 
   return {
     today: {
@@ -493,11 +493,11 @@ function splitSettled(total: number): IncomeBreakdown {
   }
 }
 
-function buildDaily(todayStock = 0, todayEarn = 0, todayInterest = 0): DailyPnl[] {
+function buildDaily(asOf: Date, todayStock = 0, todayEarn = 0, todayInterest = 0): DailyPnl[] {
   const out: DailyPnl[] = []
   // **全程 UTC。** 原先是本地的 setDate/getDay 再 toISOString 出去，
   // UTC+8 的人在本地 08:00 之前打开，日期会整体差一天。
-  const todayMs = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`)
+  const todayMs = Date.parse(`${asOf.toISOString().slice(0, 10)}T00:00:00Z`)
   for (let back = 89; back >= 0; back -= 1) {
     const day = new Date(todayMs - back * 86_400_000)
     const weekday = day.getUTCDay()
@@ -563,7 +563,7 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
     liquidation_loan: liquidationLoan,
     portfolio_margin: null,
     income, transfers,
-    pnl: buildPnl(),
+    pnl: buildPnl(asOf),
     sources: [
       ...([
         'prices', 'wallets', 'spot', 'stocks', 'futures', 'account', 'earn', 'bfusd', 'margin',
