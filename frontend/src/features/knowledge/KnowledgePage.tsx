@@ -14,7 +14,7 @@ import { EVIDENCE_VIEWS, type EvidenceView } from './evidence-views'
 import UnitBrowser from './UnitBrowser'
 import { previewNodes } from './preview'
 import { previewSourceBundles, previewSourceContents } from './source-preview'
-import { creatorInitial, youtubeThumbnail } from './video'
+import { displayTitle, youtubeThumbnail } from './video'
 import type {
   KnowledgeContentDetail,
   KnowledgeContentSummary,
@@ -58,6 +58,9 @@ type HashState = {
   unitId: number | null
   view: KnowledgeView
 }
+
+// 内容列表一次取的上限。接近它之前要请接口加分页（offset 与 total），否则最老的内容又会被截掉
+const CONTENTS_LIMIT = 2000
 
 function positiveId(value: string | null) {
   const parsed = Number(value)
@@ -107,19 +110,6 @@ function formatDate(value: string | null | undefined, withYear = false) {
 function compactNumber(value: number) {
   if (!value) return '—'
   return new Intl.NumberFormat('zh-CN', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
-}
-
-function relativePublishedDate(value: string | null | undefined) {
-  if (!value) return '日期未知'
-  const published = new Date(value)
-  const now = new Date()
-  const days = Math.floor((now.getTime() - published.getTime()) / 86_400_000)
-  if (days >= 0 && days < 1) return '今天'
-  if (days === 1) return '昨天'
-  if (days > 1 && days < 30) return `${days} 天前`
-  if (days >= 30 && days < 365) return `${Math.max(1, Math.floor(days / 30))} 个月前`
-  if (days >= 365) return `${Math.floor(days / 365)} 年前`
-  return formatDate(value, true)
 }
 
 function asText(value: unknown) {
@@ -263,7 +253,8 @@ function KnowledgePage() {
     const nodesFirst = initial.view === 'nodes' || initial.nodeId !== null || initial.peekNodeId !== null
     if (nodesFirst) void loadNodes()
     Promise.all([
-      apiJson<KnowledgeContentSummary[]>('/knowledge/contents?limit=200', { signal: controller.signal }),
+      // 接口没有分页与总数，一次取全。原先 limit=200，09-25 内容到了 207 条，最老的 7 条被静默截掉
+      apiJson<KnowledgeContentSummary[]>(`/knowledge/contents?limit=${CONTENTS_LIMIT}`, { signal: controller.signal }),
       apiJson<KnowledgeCreator[]>('/knowledge/creators', { signal: controller.signal }),
     ]).then(([contentRows, creatorRows]) => {
       setContents(contentRows)
@@ -757,12 +748,13 @@ function SourceLibrary({
   return (
     <main className="source-library-stage">
       <KnowledgeHead onSwitch={onSwitch} view="sources">
+        <span className="page-count"><b>{visibleContents.length}</b> / {contents.length}</span>
         <label className="field-search">
           <span aria-hidden="true">⌕</span>
           <input
             aria-label="搜索内容"
             onChange={(event) => onChangeQuery(event.target.value)}
-            placeholder="视频标题或创作者"
+            placeholder="标题或信源"
             value={query}
           />
           {query && <button aria-label="清空搜索" onClick={() => onChangeQuery('')} type="button">×</button>}
@@ -775,7 +767,7 @@ function SourceLibrary({
 
       <section className="video-library">
         <div aria-label="按信源筛选" className="chips video-library-tabs" role="group">
-          <button aria-pressed={creatorId === null} onClick={() => onChangeCreator(null)} type="button">全部信源 <small>{contents.length}</small></button>
+          <button aria-pressed={creatorId === null} onClick={() => onChangeCreator(null)} type="button">全部 <small>{contents.length}</small></button>
           {creators.map((creator) => {
             const count = contents.filter((content) => content.creator_id === creator.id).length
             if (!count) return null
@@ -783,51 +775,34 @@ function SourceLibrary({
           })}
         </div>
 
-        <header className="video-library-heading">
-          <h2>{query ? `“${query}”的结果` : creatorId ? creators.find((creator) => creator.id === creatorId)?.name : '全部视频'}</h2>
-          <p>{visibleContents.length} 期</p>
-        </header>
-
         <div className="video-grid" aria-busy={loadMode === 'loading'}>
           {loadMode === 'loading' && Array.from({ length: 8 }, (_, item) => <div className="video-card video-card-skeleton" key={item}><i /><span /><span /></div>)}
           {loadMode !== 'loading' && visibleContents.map((content) => {
-            const thumbnail = youtubeThumbnail(content.url)
+            const thumbnail = youtubeThumbnail(content.url, loadMode === 'preview' ? 'local' : 'remote')
             const scored = content.n_hit + content.n_partial + content.n_miss
+            // 没提取过的（待提取、仅供阅读）写状态，不写一串 0
+            const units = content.n_units > 0
+              ? [
+                content.n_claims && `${content.n_claims} 判断`,
+                content.n_methods && `${content.n_methods} 方法`,
+                content.n_concepts && `${content.n_concepts} 认知`,
+                scored && `${scored} 个裁决`,
+              ].filter(Boolean).join(' · ')
+              : contentStatusLabels[content.status] ?? content.status
             return (
-              <article className="video-card" key={content.id}>
-                <button aria-label={`打开内容：${content.title}`} className="video-thumbnail" onClick={() => onOpenContent(content.id)} type="button">
-                  {thumbnail ? (
-                    <img
-                      alt=""
-                      loading="lazy"
-                      onError={(event) => {
-                        const image = event.currentTarget
-                        if (image.dataset.fallback === 'true') return
-                        image.dataset.fallback = 'true'
-                        image.src = youtubeThumbnail(content.url, 'medium') ?? ''
-                      }}
-                      src={thumbnail}
-                    />
-                  ) : <span aria-hidden="true" className="video-thumbnail-fallback" />}
-                  <span className="video-card-badges">
-                    <b>{content.n_units} 个知识单元</b>
-                    {scored > 0 && <b>{scored} 个裁决</b>}
-                  </span>
-                  <span className="video-card-play" aria-hidden="true">▶</span>
-                </button>
-                <div className="video-card-copy">
-                  <span className={`creator-avatar creator-${content.creator_id}`}>{creatorInitial(content.creator)}</span>
-                  <div>
-                    <button onClick={() => onOpenContent(content.id)} type="button"><strong>{content.title}</strong></button>
-                    <p>{content.creator}</p>
-                    <p>{relativePublishedDate(content.published_at)} · {content.n_claims} 判断 · {content.n_methods} 方法 · {content.n_concepts} 认知</p>
-                  </div>
-                </div>
-              </article>
+              // 整张卡片一个按钮：点缩略图和点标题去的是同一处，不必让键盘停两次
+              <button aria-label={`打开内容：${displayTitle(content.title)}`} className="video-card" key={content.id} onClick={() => onOpenContent(content.id)} type="button">
+                <span className="video-thumbnail">
+                  {thumbnail && <img alt="" loading="lazy" onError={(event) => { event.currentTarget.hidden = true }} src={thumbnail} />}
+                </span>
+                <strong>{displayTitle(content.title)}</strong>
+                <span className="video-card-meta">{content.creator} · {formatDate(content.published_at, true)}</span>
+                <span className="video-card-units">{units}</span>
+              </button>
             )
           })}
           {loadMode !== 'loading' && visibleContents.length === 0 && (
-            <div className="source-empty"><strong>没有匹配的视频内容</strong><button onClick={() => { onChangeQuery(''); onChangeCreator(null) }} type="button">清除条件</button></div>
+            <div className="source-empty"><strong>没有匹配的内容</strong><button onClick={() => { onChangeQuery(''); onChangeCreator(null) }} type="button">清除条件</button></div>
           )}
         </div>
       </section>
@@ -869,6 +844,7 @@ function SourceDocument({
     weight: node.tags.reduce((sum, tag) => sum + (topicCount.get(tag) ?? 0), 0),
   })).filter((item) => item.weight > 0).sort((a, b) => b.weight - a.weight || compareEvidence(a.node, b.node)).slice(0, 5)
   const raw = bundle ? splitRaw(bundle.detail.raw) : null
+  const thumbnail = youtubeThumbnail(content.url, isPreview ? 'local' : 'remote')
 
   useEffect(() => {
     viewScrollRef.current?.scrollTo({ top: 0 })
@@ -883,7 +859,7 @@ function SourceDocument({
     <article className="source-workspace">
       <header className="source-workspace-head">
         <div className="source-workspace-title">
-          <h1>{content.title}</h1>
+          <h1>{displayTitle(content.title)}</h1>
           <p>{content.creator} · {formatDate(content.published_at, true)} · {platformLabels[content.platform] ?? content.platform} · {contentStatusLabels[content.status] ?? content.status}</p>
         </div>
         {content.url && <a className="source-external-link" href={content.url} rel="noreferrer" target="_blank">打开原始视频 ↗</a>}
@@ -891,18 +867,10 @@ function SourceDocument({
 
       <div className="source-workspace-body">
         <aside className="source-context-pane">
-          {youtubeThumbnail(content.url) && (
+          {/* 这里的缩略图链到 YouTube 原视频，▶ 是真的能播 */}
+          {thumbnail && (
             <a className="source-context-media" href={content.url ?? undefined} rel="noreferrer" target="_blank">
-              <img
-                alt={`${content.title} 视频缩略图`}
-                onError={(event) => {
-                  const image = event.currentTarget
-                  if (image.dataset.fallback === 'true') return
-                  image.dataset.fallback = 'true'
-                  image.src = youtubeThumbnail(content.url, 'medium') ?? ''
-                }}
-                src={youtubeThumbnail(content.url) ?? ''}
-              />
+              <img alt={`${displayTitle(content.title)} 视频缩略图`} onError={(event) => { event.currentTarget.hidden = true }} src={thumbnail} />
               <span aria-hidden="true">▶</span>
             </a>
           )}
@@ -1038,7 +1006,7 @@ function UnitScores({ scores }: { scores: UnitScore[] }) {
 }
 
 function SourceReaderSkeleton({ content }: { content: KnowledgeContentSummary }) {
-  return <article className="source-workspace source-reader-skeleton"><h1>{content.title}</h1><i /><i /><i /><i /></article>
+  return <article className="source-workspace source-reader-skeleton"><h1>{displayTitle(content.title)}</h1><i /><i /><i /><i /></article>
 }
 
 function NodeLibrary({

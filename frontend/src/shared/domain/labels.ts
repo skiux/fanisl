@@ -87,7 +87,7 @@ export const categoryLabels: Record<string, string> = {
 }
 
 export const contentStatusLabels: Record<string, string> = {
-  new: '待提取', extracted: '已提取',
+  new: '待提取', extracted: '已提取', reference: '仅供阅读',
 }
 
 export const tradeOutcomeLabels: Record<string, string> = { win: '盈', loss: '亏' }

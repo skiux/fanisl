@@ -127,6 +127,16 @@ first — one component, one state — and confirm that before wiring it in.
   `grade_note` (why the claim got its grade; in v2 this lived in `asset_text`)
   shows as 定级说明 right after 标的说明 in the unit dossier and the
   verification dialog.
+- **The content list has no paging.** `/knowledge/contents` returns a plain
+  array, so the library asks for `CONTENTS_LIMIT` (`KnowledgePage.tsx`) at
+  once. At `limit=200` the oldest 7 of 207 contents silently disappeared on
+  2026-09-25; ask for `offset`/`total` before the corpus nears the limit.
+- **Content cards open the reader, not a video.** No play button, duration-style
+  badges, channel avatars or relative dates on them (the user objected to the
+  YouTube look). Thumbnails come straight from `i.ytimg.com`; the 18 local
+  jpgs under `public/assets/knowledge/thumbnails/` are only for the offline
+  sample. Titles go through `displayTitle` (drops hashtags, ✨ and a trailing
+  date); search still matches the raw title.
 - **e2e runs on a fixed clock** (`FIXTURE_NOW` in `e2e/api-fixture.ts`). Derive
   fixture dates from it, never from `Date.now()`, or screenshot baselines drift
   every day.

@@ -285,10 +285,10 @@ function UnitBrowser({
           <button onClick={onCloseFilters} type="button">完成</button>
         </header>
 
-        <section>
+        <section aria-label="按单元类型筛选" role="group">
           <p>单元类型</p>
           {([
-            ['all', '全部单元'],
+            ['all', '全部'],
             ['claim', '判断'],
             ['method', '方法'],
             ['concept', '认知'],
@@ -304,11 +304,11 @@ function UnitBrowser({
           ))}
         </section>
 
-        <section>
+        <section aria-label="按信源筛选" role="group">
           <p>信源</p>
           <button aria-pressed={creatorId === null} onClick={() => setCreatorId(null)} type="button">
             {/* 这一列读的是单元数（各信源之和），不是信源个数 */}
-            <span>全部信源</span><b>{kindCounts.all}</b>
+            <span>全部</span><b>{kindCounts.all}</b>
           </button>
           {creators.map((creator) => (
             <button

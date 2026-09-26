@@ -1438,169 +1438,83 @@
 }
 
 .video-library {
-  padding: 24px 0 72px;
+  padding: 18px 0 72px;
 }
 
-.video-library-heading {
-  display: flex;
-  min-height: 76px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.video-library-heading h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 650;
-  letter-spacing: -.025em;
-}
-
-.video-library-heading p {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-meta);
+.video-library-tabs {
+  margin-bottom: 24px;
 }
 
 .video-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 42px 18px;
+  gap: 36px 20px;
 }
 
+/* 整张卡片是一个按钮：缩略图、标题、信源与日期、单元数。不做播放键与时长角标——点开是读原文与单元，不是放视频 */
 .video-card {
+  display: flex;
   min-width: 0;
+  flex-direction: column;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
 .video-thumbnail {
-  position: relative;
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  padding: 0;
-  border: 0;
-  border-radius: 12px;
-  background: #d9d8d0;
-  cursor: pointer;
+  border-radius: var(--radius);
+  background: var(--paper-deep);
+  transition: box-shadow .18s ease, transform .18s ease;
 }
 
-.video-thumbnail img,
-.video-thumbnail-fallback {
+.video-thumbnail img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.video-thumbnail-fallback {
-  background:
-    linear-gradient(130deg, rgba(255, 255, 255, .38), transparent 46%),
-    linear-gradient(145deg, #aeb7a6, #747e72);
+.video-card:hover .video-thumbnail {
+  box-shadow: 0 1px 2px rgba(40, 49, 39, .05), 0 18px 36px -24px rgba(40, 49, 39, .5);
+  transform: translateY(-2px);
 }
 
-.video-card-badges {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  display: flex;
-  gap: 5px;
+.video-card:focus-visible {
+  border-radius: var(--radius);
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
 }
 
-.video-card-badges b {
-  padding: 4px 6px;
-  border-radius: 4px;
-  color: #fff;
-  background: rgba(24, 27, 24, .84);
-  backdrop-filter: blur(5px);
-  font-size: var(--text-meta);
-  font-weight: 600;
-}
-
-.video-card-play {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  display: grid;
-  width: 42px;
-  height: 30px;
-  place-items: center;
-  padding-left: 2px;
-  transform: translate(-50%, -50%);
-  border-radius: 8px;
-  color: white;
-  opacity: 0;
-  background: rgba(20, 23, 20, .72);
-  font-size: var(--text-ui);
-  transition: opacity .15s ease;
-}
-
-.video-thumbnail:hover .video-card-play,
-.video-thumbnail:focus-visible .video-card-play {
-  opacity: 1;
-}
-
-.video-card-copy {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
-  gap: 11px;
-  padding-top: 12px;
-}
-
-.creator-avatar {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border-radius: 50%;
-  color: #f6f5ef;
-  background: #556353;
-  font-size: var(--text-meta);
-  font-weight: 680;
-}
-
-.creator-avatar.creator-2 {
-  color: var(--ink-soft);
-  background: #d9dfcb;
-}
-
-.video-card-copy > div {
-  min-width: 0;
-}
-
-.video-card-copy > div > button {
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-}
-
-.video-card-copy strong {
+.video-card strong {
   display: -webkit-box;
+  margin-top: 12px;
   overflow: hidden;
   color: var(--ink);
   font-size: var(--text-card-title);
   font-weight: 630;
-  letter-spacing: -.015em;
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
-.video-card-copy p {
-  margin: 6px 0 0;
+.video-card-meta {
+  margin-top: 6px;
   color: var(--muted);
   font-size: var(--text-meta);
-  line-height: 1.35;
 }
 
-.video-card-copy p + p {
+.video-card-units {
   margin-top: 3px;
   color: var(--faint);
-  font-size: var(--text-ui);
+  font-size: var(--text-meta);
 }
 
 .video-card-skeleton > i,
@@ -1612,13 +1526,13 @@
 .video-card-skeleton > i {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 12px;
+  border-radius: var(--radius);
 }
 
 .video-card-skeleton > span {
   width: 74%;
   height: 12px;
-  margin: 13px 0 0 47px;
+  margin-top: 14px;
 }
 
 .video-card-skeleton > span:last-child {

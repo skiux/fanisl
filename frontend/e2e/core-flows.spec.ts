@@ -40,7 +40,7 @@ test('search modal traps focus, returns it, and opens a real result', async ({ p
 
 test('content close uses history and forward reopens the record', async ({ page }) => {
   await page.goto('/#/knowledge')
-  await page.getByRole('button', { name: '半导体研究样本', exact: true }).click()
+  await page.getByRole('button', { name: '打开内容：半导体研究样本' }).click()
   await expect(page).toHaveURL(/content=1/)
   await page.getByRole('button', { name: '← 返回原始内容' }).click()
   await expect(page).toHaveURL(/#\/knowledge$/)
@@ -63,9 +63,9 @@ test('unit filter rail counts units, not sources', async ({ page }) => {
   await expect(page.locator('.unit-row').first()).toBeVisible()
   const filterToggle = page.getByRole('button', { name: /^筛选/ })
   if (await filterToggle.isVisible()) await filterToggle.click() // 窄屏下筛选栏是抽屉
-  const allSources = page.getByRole('button', { name: /^全部信源/ })
+  const allSources = page.getByRole('group', { name: '按信源筛选' }).getByRole('button', { name: /^全部/ })
   await expect(allSources).toBeVisible()
-  // 这一列全是单元数；“全部信源”曾经错显示成信源个数（1），与同列的 120 对不上。
+  // 这一列全是单元数；信源一栏的「全部」曾经错显示成信源个数（1），与同列的 120 对不上。
   await expect(allSources.locator('b')).toHaveText('120')
 })
 

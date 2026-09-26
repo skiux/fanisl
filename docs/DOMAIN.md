@@ -167,7 +167,7 @@ positioning=仓位 · other=其他
 **method.testability**：A=可回测 · B=缺数据 · C=不可机械化
 **concept.category**：risk_mgmt=风控 · psychology=心理 · market_structure=市场结构 ·
 regime=市场环境 · execution=执行 · macro_framework=宏观框架 · other=其他
-**content.status**：new=待提取 · extracted=已提取
+**content.status**：new=待提取 · extracted=已提取 · reference=仅供阅读（只入库、不做提取的频道）
 **交易 outcome**：win=盈 · loss=亏；**trade.status**：planned=挂单 · open=持仓 ·
 closed=已平 · cancelled=已撤
 
