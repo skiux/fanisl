@@ -178,8 +178,11 @@ function Calendar({ days }: { days: DailyPnl[] }) {
           active={preset === 'custom'}
           first={first}
           last={last}
-          onChange={(next) => { setCustom(next); gotoMonth(next.to) }}
-          onOpen={() => setPreset('custom')}
+          onChange={(next) => {
+            setCustom(next)
+            setPreset('custom')
+            gotoMonth(next.to)
+          }}
           value={custom}
         />
       </div>

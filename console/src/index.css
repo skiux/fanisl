@@ -259,6 +259,8 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     /* 滚筒上不该有滚动条 */
     scrollbar-width: none;
   }
@@ -273,14 +275,13 @@
     font-size: 0.9375rem;
     color: var(--ink-2);
     outline: none;
-    transition: color 0.2s;
+    transition: color 180ms ease-out;
   }
-  .wheel-item[data-on="true"] { color: var(--ink); }
+  .wheel-item[data-on="true"] { color: var(--ink); font-weight: 500; }
 
   @supports (animation-timeline: view()) {
     .wheel {
-      /* 透视放近一点，倾倒才看得出来；620px 那一版几乎是平的 */
-      perspective: 440px;
+      perspective: 400px;
       /* 顶底渐隐。收在 12%/88%：再往里收就把上下第二格整个抹掉了，
          而那两格恰恰是倾倒看得最清楚的地方，iOS 上它们也是可见的。 */
       mask-image: linear-gradient(to bottom,
@@ -296,11 +297,55 @@
   }
 
   @keyframes wheel-drum {
-    /* 刚从底部进来：底边向后倒 */
-    0%   { opacity: 0.15; transform: rotateX(-52deg) scale(0.86); }
+    0%   { opacity: 0.12; transform: rotateX(-58deg) scale(0.82); }
+    25%  { opacity: 0.56; transform: rotateX(-27deg) scale(0.93); }
     50%  { opacity: 1;    transform: rotateX(0deg)   scale(1); }
-    /* 从顶上出去：顶边向后倒 */
-    100% { opacity: 0.15; transform: rotateX(52deg)  scale(0.86); }
+    75%  { opacity: 0.56; transform: rotateX(27deg)  scale(0.93); }
+    100% { opacity: 0.12; transform: rotateX(58deg)  scale(0.82); }
+  }
+
+  /* 日期选择在手机上从底部进入，桌面上在原位轻微缩放。进入与退出都使用同一条
+     空间路径，避免弹层出现得快、消失时却突然断掉。 */
+  .range-picker-overlay[data-state="open"] {
+    animation: range-picker-overlay-in 180ms ease-out both;
+  }
+  .range-picker-overlay[data-state="closed"] {
+    animation: range-picker-overlay-out 150ms ease-in both;
+  }
+  .range-picker-dialog[data-state="open"] {
+    animation: range-picker-sheet-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .range-picker-dialog[data-state="closed"] {
+    animation: range-picker-sheet-out 190ms cubic-bezier(0.4, 0, 1, 1) both;
+  }
+
+  @keyframes range-picker-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes range-picker-overlay-out { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes range-picker-sheet-in {
+    from { opacity: 0.35; transform: translate3d(0, 20px, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+  @keyframes range-picker-sheet-out {
+    from { opacity: 1; transform: translate3d(0, 0, 0); }
+    to { opacity: 0; transform: translate3d(0, 14px, 0); }
+  }
+
+  @media (min-width: 640px) {
+    .range-picker-dialog[data-state="open"] {
+      animation-name: range-picker-dialog-in;
+    }
+    .range-picker-dialog[data-state="closed"] {
+      animation-name: range-picker-dialog-out;
+    }
+  }
+
+  @keyframes range-picker-dialog-in {
+    from { opacity: 0; transform: translate3d(-50%, -48%, 0) scale(0.985); }
+    to { opacity: 1; transform: translate3d(-50%, -50%, 0) scale(1); }
+  }
+  @keyframes range-picker-dialog-out {
+    from { opacity: 1; transform: translate3d(-50%, -50%, 0) scale(1); }
+    to { opacity: 0; transform: translate3d(-50%, -49%, 0) scale(0.985); }
   }
 
   /* 纸。有边、有极轻的投影，桌面填满其余空间——超宽屏下版心不会被拉散。 */
