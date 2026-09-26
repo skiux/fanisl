@@ -42,7 +42,11 @@ describe('自定义日期区间', () => {
     })))
 
     act(() => button('自定义').click())
-    expect(document.body.textContent).toContain('自定义区间')
+    expect(document.querySelector('[role="dialog"] h2')?.classList).toContain('sr-only')
+    expect(button('2026年8月28日').getAttribute('aria-label'))
+      .toBe('开始日期 2026年8月28日')
+    expect(button('2026年9月26日').getAttribute('aria-label'))
+      .toBe('结束日期 2026年9月26日')
     act(() => button('取消').click())
     expect(onChange).not.toHaveBeenCalled()
 

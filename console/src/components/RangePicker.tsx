@@ -102,17 +102,17 @@ export function RangePicker({ first, last, value, active, onChange }: {
           )}
         >
           <div aria-hidden="true" className="mx-auto mb-1.5 h-1 w-9 rounded-full bg-rule-strong sm:hidden" />
-          <header className="grid grid-cols-[4rem_1fr_4rem] items-center">
+          <header className="flex items-center justify-between">
             <button
-              className="justify-self-start px-1 py-2 text-sm text-ink-3 outline-none transition-colors duration-200 hover:text-ink active:opacity-60"
+              className="px-1 py-2 text-sm text-ink-3 outline-none transition-colors duration-200 hover:text-ink active:opacity-60"
               onClick={() => setOpen(false)}
               type="button"
             >
               取消
             </button>
-            <Dialog.Title className="text-center text-sm font-medium text-ink">自定义区间</Dialog.Title>
+            <Dialog.Title className="sr-only">自定义日期区间</Dialog.Title>
             <button
-              className="justify-self-end px-1 py-2 text-sm font-medium text-accent outline-none transition-opacity duration-200 active:opacity-60"
+              className="px-1 py-2 text-sm font-medium text-accent outline-none transition-opacity duration-200 active:opacity-60"
               onClick={commit}
               type="button"
             >
@@ -126,9 +126,10 @@ export function RangePicker({ first, last, value, active, onChange }: {
               <span className="contents" key={which}>
                 {which === 'to' && <CaretRight aria-hidden="true" className="text-ink-3" size={13} />}
                 <button
+                  aria-label={`${which === 'from' ? '开始日期' : '结束日期'} ${displayDate(draft[which])}`}
                   aria-pressed={edit === which}
                   className={cn(
-                    'grid min-w-0 gap-0.5 rounded-[12px] border px-3 py-2.5 text-left outline-none',
+                    'min-w-0 rounded-[12px] border px-3 py-2.5 text-left outline-none',
                     'transition-[background-color,border-color,transform] duration-200 active:scale-[0.98]',
                     edit === which
                       ? 'border-rule-strong bg-sheet-2 text-ink'
@@ -137,7 +138,6 @@ export function RangePicker({ first, last, value, active, onChange }: {
                   onClick={() => setEdit(which)}
                   type="button"
                 >
-                  <span className="text-micro text-ink-3">{which === 'from' ? '开始' : '结束'}</span>
                   <span className="tnum truncate text-xs">{displayDate(draft[which])}</span>
                 </button>
               </span>
