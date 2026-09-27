@@ -2,6 +2,7 @@ import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildSnapshot } from '../../api/fixtures'
+import { signedMoney } from '../../lib/format'
 import { RiskControlView } from './RiskControl'
 import { HoldingsView, OverviewView, PerpRiskView } from './views'
 
@@ -59,8 +60,12 @@ describe('资产页模块分布', () => {
     expect(calendarSection.className).toContain('self-start')
     const dailyDetail = calendarSection.querySelector('aside')!
     expect(dailyDetail.className).not.toContain('lg:border-l')
-    expect(dailyDetail.querySelector('dl')?.className).toContain('sm:grid-cols-3')
-    expect(dailyDetail.querySelector('dl')?.className).toContain('xl:grid-cols-5')
+    expect(dailyDetail.querySelector('dl')?.className).toContain('divide-y')
+    expect(dailyDetail.querySelector('dl')?.className).not.toContain('grid-cols')
+    const fundingLabel = [...dailyDetail.querySelectorAll('dt')]
+      .find((node) => node.textContent === '资金费用')!
+    expect(fundingLabel.nextElementSibling?.textContent)
+      .toBe(signedMoney(snapshot.pnl!.today.settled_parts!.funding_fee))
     const settlementLabel = [...host.querySelectorAll('aside dt')]
       .find((node) => node.textContent === '合约结算')!
     const settlementValue = settlementLabel.nextElementSibling as HTMLElement

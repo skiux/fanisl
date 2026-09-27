@@ -51,6 +51,10 @@ export function OverviewView({ snapshot, veiled }: {
     setSelectedDate(pnlDays.at(-1)?.date ?? null)
   }, [pnlDays, selectedDate])
   const selectedDay = pnlDays.find((day) => day.date === selectedDate) ?? null
+  // settled_parts 只描述今天；历史日只有合约结算合计，不能反推其中的资金费用。
+  const selectedFundingFee = selectedDay?.date === pnlDays.at(-1)?.date
+    ? pnl?.today.settled_parts?.funding_fee ?? null
+    : null
   const incomeModule = (
     <Module
       note={`${WINDOW_DAYS} 天`}
@@ -72,7 +76,7 @@ export function OverviewView({ snapshot, veiled }: {
             onSelectDate={setSelectedDate}
             selectedDate={selectedDate}
           />
-          <DailyPnlBreakdown day={selectedDay} />
+          <DailyPnlBreakdown day={selectedDay} fundingFee={selectedFundingFee} />
         </Module>
 
         {/* 四行同一个窗口、同一个来源，条形才可比——旧的「盈亏构成」把 1 天、
@@ -111,7 +115,16 @@ const DAY_PARTS: { key: keyof Pick<DailyPnl, 'spot_usd' | 'stock_usd' | 'settled
   { key: 'interest_usd', label: '杠杆利息' },
 ]
 
-function DailyPnlBreakdown({ day }: { day: DailyPnl | null }) {
+function DailyPnlBreakdown({ day, fundingFee }: {
+  day: DailyPnl | null
+  fundingFee: number | null
+}) {
+  const rows = day ? [
+    ...DAY_PARTS.slice(0, 3).map(({ key, label }) => ({ key, label, value: day[key] })),
+    { key: 'funding_fee', label: '资金费用', value: fundingFee },
+    ...DAY_PARTS.slice(3).map(({ key, label }) => ({ key, label, value: day[key] })),
+  ] : []
+
   return (
     <aside className="mt-6 min-w-0 border-t border-rule pt-5">
       {day ? (
@@ -124,13 +137,12 @@ function DailyPnlBreakdown({ day }: { day: DailyPnl | null }) {
               {day.pnl_usd === null ? '—' : signedMoney(day.pnl_usd)}
             </span>
           </div>
-          <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 xl:grid-cols-5">
-            {DAY_PARTS.map(({ key, label }) => {
-              const value = day[key]
+          <dl className="mt-4 divide-y divide-rule/70 border-y border-rule/70">
+            {rows.map(({ key, label, value }) => {
               return (
-                <div className="min-w-0" key={key}>
+                <div className="flex min-w-0 items-baseline justify-between gap-6 py-3" key={key}>
                   <dt className="text-xs text-ink-3">{label}</dt>
-                  <dd className={cn('tnum mt-1.5 text-base', value === null
+                  <dd className={cn('tnum text-base', value === null
                     ? 'text-ink-3' : value > 0 ? 'text-gain'
                       : value < 0 ? 'text-loss' : 'text-ink-2')}>
                     {value === null ? '—' : signedMoney(value)}
