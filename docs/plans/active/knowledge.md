@@ -15,8 +15,10 @@
 ## Next
 - **@MeiTouNews（美投侃新闻）2026-09-24 加入每日摄取**，登记在「美投君」名下（同一团队）。用户定：**只入 L0 供阅读，
   重点在新闻与学习价值，不做提取与判断**——入库即 `status='reference'`（`store.REFERENCE_HANDLES`），不算提取积压。
-  约每个交易日一期。历史补到 2026-06-01：服务器上手动跑 `backfill_transcripts @MeiTouNews --since-days 116`
-  （旧→新，Gemini 当天额度用尽即停，次日重跑同一条命令接着补）
+  历史回补到 2026-06-01 已完成（2026-09-25：新 67、跳过 13、失败 0）
+- **关键帧自 8 月中起基本抓不到**：YouTube 切了 SABR 取流并要求登录验证，214 条 YouTube 内容里 53 条有帧，
+  8-17 之后入库的只有 1 条有（2026-09-27 实测）。转录与视觉笔记不受影响。服务器配了 cookies 文件仍被拦，
+  需要用户更新 cookies（本席位不碰 cookies）；`fill_gaps` 每天自动重试
 - 规范 v4 候选（第 2 条末尾）：抽查欠账 2026-09-25 已补到 20%，查出的四处口径问题待用户定
 - 转录模型 `gemini-3.5-flash` 是固定版本、未公布下线日期；Gemini API 已有 3.6 与 3.8 Flash。
   暂不换：换了同一频道前后转录口径不一致，要换先对比数字密集的几期（下线处理见 knowledge README「模型下线」）
@@ -29,12 +31,10 @@
 - 无
 
 ## Requests out
-- **frontend**：内容状态新增 `reference`（只入库供阅读、不做提取；@MeiTouNews 的内容都是这个状态）。请在 `docs/DOMAIN.md`
-  的 content.status 与 `labels.ts` 同时加 `reference=仅阅读`（两处要一起改，`labels.test.ts` 对着 DOMAIN 核）
 - **base**：`tools/check_ingest.py` 把非 extracted 的状态都标「待提取」，`reference` 不是待提取，请单列
-- **base**：`api.md` §5.0 的 claim payload 补 v3 的三处新增（`grade_note`、按阶梯日给值的 magnitude、
-  scoring_spec 的机器字段）；另有 console 新增的两条接口没写进 `api.md`（`test_api_doc` 两条失败）
-- **frontend**：显示 `grade_note`（定级说明），magnitude 按阶梯日给值时取对应的值
+- **base**：`api.md` §5.3 补 `/knowledge/relations` 的两侧计数字段，`GET /knowledge/contents/{id}` 补 `handle`（见 base.md Requests in）
+- ~~frontend：`reference` 标签、显示 `grade_note`~~ —— 已做（`labels.ts` 与 `docs/DOMAIN.md` §4；`RecordBody.tsx` 等）
+- ~~base：`api.md` §5.0 补 v3 字段~~ —— 已做（ec99e66）
 
 ## Requests in
 - **已处理（2026-09-25）** base 转自 frontend：`GET /knowledge/relations` 每条边带两侧节点的评分聚合与提及面，
