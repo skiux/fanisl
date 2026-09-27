@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>论证结构样板</title>
+<style>
+:root {
+  --bg: #f7f6f3; --panel: #ffffff; --ink: #1d1d1b; --ink2: #5b5a55; --ink3: #8d8b84; --line: #e3e1da;
+  --accent: #2f5d8a; --accent-soft: #e6eef6; --dim: .22;
+  --ok: #3f7d4e; --ok2: #7aa36f; --warn: #b7822b; --bad: #b0473a; --na: #b9b6ad;
+  --claim: #6b4f8a;
+  --serif: "Songti SC", "Noto Serif SC", "Source Han Serif SC", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --ink2: #b3b1aa; --ink3: #7f7d77; --line: #33322f;
+    --accent: #8cb4dc; --accent-soft: #24303c; --ok: #7fbf8c; --ok2: #a3c79a; --warn: #d9a650; --bad: #e0806f; --na: #5d5b56; --claim: #b49bd6;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 13px/1.5 -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; }
+.app { display: grid; grid-template-rows: auto auto 1fr auto; height: 100vh; }
+header { display: flex; align-items: baseline; gap: 20px; padding: 14px 20px 8px; }
+header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+.tabs { display: flex; gap: 4px; }
+.tabs button { border: 1px solid var(--line); background: var(--panel); color: var(--ink2); padding: 4px 12px; border-radius: 14px; font: inherit; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.meta { padding: 0 20px 10px; display: grid; grid-template-columns: 1fr auto; gap: 4px 24px; }
+.meta .title { color: var(--ink2); }
+.meta .thesis { grid-column: 1 / -1; font-family: var(--serif); font-size: 14px; max-width: 1100px; }
+.meta .counts { color: var(--ink3); white-space: nowrap; text-align: right; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) clamp(260px, 26vw, 360px); gap: 0; min-height: 0; border-top: 1px solid var(--line); }
+.board { position: relative; display: grid; grid-template-columns: 1fr 1.3fr .9fr; gap: clamp(24px, 3vw, 40px); padding: 12px 20px 0; overflow: auto; min-height: 0; }
+.col { min-width: 0; }
+.col h2 { font-size: 12px; font-weight: 600; color: var(--ink3); margin: 0 0 8px; letter-spacing: .02em; }
+.node { position: relative; z-index: 1; display: flex; gap: 6px; align-items: baseline; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; margin-bottom: 4px; font-size: 12.5px; cursor: pointer; transition: opacity .15s, border-color .15s; }
+.node .id { color: var(--ink3); font-size: 11px; min-width: 22px; font-variant-numeric: tabular-nums; }
+.node .t { flex: 1; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.35; }
+.node .tag { font-size: 11px; color: var(--ink3); white-space: nowrap; }
+.node .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; align-self: flex-start; margin-top: 5px; }
+.node.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.node.up, .node.down { border-color: var(--accent); }
+.board.focus .node:not(.sel):not(.up):not(.down):not(.mhit) { opacity: var(--dim); }
+.node.mhit { border-color: var(--warn); }
+.claim { font-size: 11px; color: var(--claim); white-space: nowrap; }
+.col.conc .node { flex-wrap: wrap; }
+.col.conc .claim:not(:empty) { flex-basis: 100%; padding-left: 28px; margin-top: -1px; }
+svg.edges { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 0; overflow: visible; }
+svg.edges path { fill: none; stroke: var(--accent); stroke-width: 1.3; opacity: .75; }
+aside { border-left: 1px solid var(--line); padding: 14px 18px; overflow: auto; background: var(--panel); min-height: 0; }
+aside .k { font-size: 11px; color: var(--ink3); margin: 14px 0 4px; }
+aside .k:first-child { margin-top: 0; }
+aside .label { font-size: 15px; font-weight: 600; }
+aside blockquote { margin: 0; font-family: var(--serif); font-size: 14px; line-height: 1.7; border-left: 2px solid var(--line); padding-left: 10px; }
+aside .link { font-family: var(--serif); color: var(--accent); }
+aside ul { margin: 0; padding-left: 16px; }
+aside li { margin-bottom: 3px; cursor: pointer; }
+aside li:hover { color: var(--accent); }
+aside .empty { color: var(--ink3); }
+.chk { display: inline-flex; gap: 6px; align-items: center; }
+.methods { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 10px 20px; border-top: 1px solid var(--line); }
+.methods .h { font-size: 12px; font-weight: 600; color: var(--ink3); margin-right: 4px; }
+.chip { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; font-size: 12px; border-radius: 12px; padding: 3px 10px; cursor: pointer; font-size: 12px; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip b { font-weight: 600; color: var(--ink3); margin-right: 4px; }
+.chip.sel { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn); }
+.chip .x { color: var(--accent); margin-left: 4px; }
+.legend { display: inline-flex; gap: 10px; color: var(--ink3); font-size: 11px; margin-left: auto; }
+.legend span { display: inline-flex; align-items: center; gap: 4px; }
+.s-一致 { background: var(--ok); } .s-大致一致 { background: var(--ok2); } .s-部分可核 { background: var(--warn); }
+.s-不一致 { background: var(--bad); } .s-无法核对 { background: var(--na); }
+@media (max-height: 860px) and (min-width: 901px) { .node .t { -webkit-line-clamp: 1; } }
+@media (max-width: 900px) {
+  .app { height: auto; }
+  main { grid-template-columns: 1fr; }
+  .board { grid-template-columns: 1fr; gap: 12px; padding: 12px 16px; overflow: visible; }
+  svg.edges { display: none; }
+  aside { border-left: 0; border-top: 1px solid var(--line); }
+  .meta, header, .methods { padding-left: 16px; padding-right: 16px; }
+  .legend { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header><h1>论证结构样板</h1><div class="tabs" role="tablist" id="tabs"></div>
+    <div class="legend"><span><i class="dot s-一致" style="display:inline-block;width:7px;height:7px;border-radius:50%"></i>一致</span><span><i class="s-大致一致" style="display:inline-block;width:7px;height:7px;border-radius:50%"></i>大致一致</span><span><i class="s-部分可核" style="display:inline-block;width:7px;height:7px;border-radius:50%"></i>部分可核</span><span><i class="s-不一致" style="display:inline-block;width:7px;height:7px;border-radius:50%"></i>不一致</span><span><i class="s-无法核对" style="display:inline-block;width:7px;height:7px;border-radius:50%"></i>无法核对</span></div>
+  </header>
+  <div class="meta" id="meta"></div>
+  <main>
+    <div class="board" id="board"></div>
+    <aside id="detail"></aside>
+  </main>
+  <div class="methods" id="methods"></div>
+</div>
+<script>
+const DATA = __DATA__;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const OUTCOME = {hit: "命中", partial: "部分命中", miss: "未中", condition_not_met: "条件未成立", condition_unverifiable: "不可评", unpriceable: "无法定价"};
+let cur = 0, sel = null, msel = null;
+
+function nodesOf(m) {
+  const all = {};
+  for (const k of ["facts", "reasoning", "conclusions", "methods"]) for (const n of m[k]) all[n.id] = {...n, col: k};
+  for (const n of Object.values(all)) n.to = [];
+  for (const n of Object.values(all)) for (const f of n.from || []) all[f].to.push(n.id);
+  return all;
+}
+function walk(all, id, dir, acc = new Set()) {
+  for (const x of all[id][dir] || []) if (!acc.has(x)) { acc.add(x); walk(all, x, dir, acc); }
+  return acc;
+}
+function claimTag(n) {
+  if (!n.claims?.length) return "";
+  return n.claims.map(c => {
+    const s = c.scores.map(([d, o]) => OUTCOME[o] || o).join("、");
+    return `${c.grade} 级${s ? " · " + s : ""}`;
+  }).filter((v, i, a) => a.indexOf(v) === i).join(" / ");
+}
+
+function render() {
+  const m = DATA[cur], all = nodesOf(m);
+  $("#tabs").innerHTML = DATA.map((d, i) => `<button role="tab" aria-selected="${i === cur}" data-i="${i}">${esc(d.creator)}</button>`).join("");
+  const nClaims = m.conclusions.flatMap(c => c.claims || []);
+  const checked = m.facts.filter(f => f.check.status !== "无法核对").length;
+  $("#meta").innerHTML = `<div class="title">c${m.content_id} · ${esc(m.published)} · ${esc(m.title)}</div>
+    <div class="counts">事实 ${m.facts.length}（可核 ${checked}）· 推理 ${m.reasoning.length} · 结论 ${m.conclusions.length} · 方法 ${m.methods.length}</div>
+    <div class="thesis">${esc(m.thesis)}</div>`;
+  const col = (k, title, cls) => `<div class="col ${cls}"><h2>${title}</h2>${m[k].map(n => `
+    <div class="node" data-id="${n.id}" title="${esc(n.text)}">
+      ${k === "facts" ? `<i class="dot s-${esc(n.check.status)}"></i>` : ""}
+      <span class="id">${n.id}</span><span class="t">${esc(n.text)}</span>
+      ${n.method ? `<span class="tag">${n.method}</span>` : ""}
+      ${k === "conclusions" ? `<span class="claim">${esc(claimTag(n))}</span>` : ""}
+    </div>`).join("")}</div>`;
+  $("#board").innerHTML = `<svg class="edges" id="edges"></svg>` + col("facts", "事实 / 数据", "") + col("reasoning", "推理", "") + col("conclusions", "观点 / 结论", "conc");
+  $("#methods").innerHTML = `<span class="h">方法</span>` + m.methods.map(x => {
+    const cross = (x.nodes || []).length ? `<span class="x">跨期</span>` : "";
+    return `<button class="chip" data-m="${x.id}" title="${esc(x.text)}"><b>${x.id}</b>${esc(x.text)}${cross}</button>`;
+  }).join("");
+  select(sel && all[sel] ? sel : null, all);
+}
+
+function select(id, all = nodesOf(DATA[cur])) {
+  sel = id;
+  const board = $("#board"), m = DATA[cur];
+  const up = id ? walk(all, id, "from") : new Set(), down = id ? walk(all, id, "to") : new Set();
+  const mUsed = msel ? new Set(all[msel].used_by) : new Set();
+  board.classList.toggle("focus", !!(id || msel));
+  for (const el of board.querySelectorAll(".node")) {
+    const x = el.dataset.id;
+    el.classList.toggle("sel", x === id);
+    el.classList.toggle("up", up.has(x));
+    el.classList.toggle("down", down.has(x));
+    el.classList.toggle("mhit", mUsed.has(x));
+  }
+  for (const el of document.querySelectorAll(".chip")) el.classList.toggle("sel", el.dataset.m === msel);
+  drawEdges(all, id ? new Set([id, ...up, ...down]) : new Set());
+  detail(id ? all[id] : msel ? all[msel] : null, all);
+}
+
+function drawEdges(all, keep) {
+  const board = $("#board"), svg = $("#edges"), box = board.getBoundingClientRect();
+  svg.setAttribute("width", 1); svg.setAttribute("height", 1);   // 路径靠 overflow:visible 画出，不撑大滚动区
+  const pos = id => {
+    const el = board.querySelector(`.node[data-id="${id}"]`); if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {l: r.left - box.left + board.scrollLeft, r: r.right - box.left + board.scrollLeft, y: r.top - box.top + board.scrollTop + r.height / 2, col: all[id].col};
+  };
+  let d = "";
+  for (const id of keep) for (const f of all[id].from || []) {
+    if (!keep.has(f)) continue;
+    const a = pos(f), b = pos(id); if (!a || !b) continue;
+    if (a.col === b.col) {           // 同列：从左侧绕
+      const x = a.l - 2, bend = Math.min(26, 10 + Math.abs(b.y - a.y) / 8);
+      d += `M${x},${a.y} C${x - bend},${a.y} ${x - bend},${b.y} ${x},${b.y} `;
+    } else {
+      const mx = (a.r + b.l) / 2;
+      d += `M${a.r},${a.y} C${mx},${a.y} ${mx},${b.y} ${b.l},${b.y} `;
+    }
+  }
+  svg.innerHTML = d ? `<path d="${d}"/>` : "";
+}
+
+function listOf(ids, all) {
+  return ids.length ? `<ul>${ids.map(x => `<li data-go="${x}"><span style="color:var(--ink3)">${x}</span> ${esc(all[x].text)}</li>`).join("")}</ul>` : `<div class="empty">无</div>`;
+}
+
+function detail(n, all) {
+  const m = DATA[cur], el = $("#detail");
+  if (!n) {
+    el.innerHTML = `<div class="k">录制时点</div><div>${esc(m.time_note)}</div>
+      <div class="k">事实核对</div>${m.facts.filter(f => f.check.status !== "无法核对").map(f =>
+        `<div style="margin-bottom:6px"><span class="chk"><i class="dot s-${esc(f.check.status)}" style="display:inline-block;width:7px;height:7px;border-radius:50%"></i><b>${f.id}</b> ${esc(f.check.status)}</span><div style="color:var(--ink2)">${esc(f.check.detail)}</div></div>`).join("")}`;
+    return;
+  }
+  const colName = {facts: "事实", reasoning: "推理", conclusions: "结论", methods: "方法"}[n.col];
+  let h = `<div class="k">${colName} ${n.id}${n.kind ? " · " + esc(n.kind) : ""}</div><div class="label">${esc(n.text)}</div>
+    <div class="k">原话</div><blockquote>${esc(n.quote)}</blockquote>`;
+  if (n.link && n.link !== n.quote) h += `<div class="k">作者的连接语</div><div class="link">「${esc(n.link)}」</div>`;
+  if (n.check) h += `<div class="k">核对</div><div class="chk"><i class="dot s-${esc(n.check.status)}" style="display:inline-block;width:7px;height:7px;border-radius:50%"></i>${esc(n.check.status)}</div><div style="color:var(--ink2)">${esc(n.check.detail)}</div>`;
+  if (n.col === "methods") {
+    h += `<div class="k">本期用到</div>${listOf(n.used_by, all)}`;
+    if (n.nodes?.length) h += `<div class="k">跨期节点</div><div>${n.nodes.map(x => "N" + x).join("、")}（在其他视频里也出现过）</div>`;
+  } else {
+    h += `<div class="k">依据</div>${listOf(n.from || [], all)}<div class="k">支撑</div>${listOf(n.to, all)}`;
+    if (n.method) h += `<div class="k">用到的方法</div>${listOf([n.method], all)}`;
+  }
+  if (n.claims?.length) h += `<div class="k">现有 claim 与验证</div>${n.claims.map(c => `<div>#${c.unit} · ${c.grade} 级${c.scores.length ? " · " + c.scores.map(([d, o]) => d + " " + (OUTCOME[o] || o)).join("，") : c.grade === "D" ? " · 不评分" : " · 未到期"}</div>`).join("")}`;
+  if (n.units?.length) h += `<div class="k">对应的现有单元</div><div style="color:var(--ink2)">${n.units.map(u => "#" + u).join(" ")}</div>`;
+  el.innerHTML = h;
+}
+
+document.addEventListener("click", e => {
+  const tab = e.target.closest(".tabs button");
+  if (tab) { cur = +tab.dataset.i; sel = null; msel = null; render(); return; }
+  const node = e.target.closest(".node");
+  if (node) { msel = null; select(sel === node.dataset.id ? null : node.dataset.id); return; }
+  const chip = e.target.closest(".chip");
+  if (chip) { sel = null; msel = msel === chip.dataset.m ? null : chip.dataset.m; select(null); return; }
+  const go = e.target.closest("[data-go]");
+  if (go) { const all = nodesOf(DATA[cur]); if (all[go.dataset.go].col === "methods") { sel = null; msel = go.dataset.go; select(null, all); } else { msel = null; select(go.dataset.go, all); } return; }
+  if (e.target.closest("#board") && !e.target.closest(".node")) { sel = null; msel = null; select(null); }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") { sel = null; msel = null; select(null); } });
+window.addEventListener("resize", () => select(sel));
+$("#board")?.addEventListener("scroll", () => select(sel));
+render();
+</script>
+</body>
+</html>
