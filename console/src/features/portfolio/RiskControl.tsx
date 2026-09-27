@@ -92,8 +92,6 @@ export function RiskControlView({ snapshot, veiled }: {
     }),
   ]), [snapshot, currentPosition])
 
-  const netExposure = rows.reduce((sum, row) => sum + row.net_usd, 0)
-
   if (snapshot.futures === null && rows.length === 0) {
     return (
       <div className={cn(veiled && 'veiled')}>
@@ -110,7 +108,7 @@ export function RiskControlView({ snapshot, veiled }: {
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
         <Module
-          figure={signedMoney(netExposure)}
+          figure={`${rows.length} 个持仓`}
           span="lg:col-span-12"
           title="持仓价值分布"
         >
@@ -205,7 +203,8 @@ export function RiskControlView({ snapshot, veiled }: {
             />
             <Figure
               label="合约未实现"
-              tone={(hit.unrealized_usd ?? 0) >= 0 ? 'gain' : 'loss'}
+              tone={hit.unrealized_usd === null || hit.unrealized_usd === 0
+                ? undefined : hit.unrealized_usd > 0 ? 'gain' : 'loss'}
               value={hit.unrealized_usd === null ? '—' : signedMoney(hit.unrealized_usd)}
             />
             <Figure

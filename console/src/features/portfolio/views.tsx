@@ -113,7 +113,8 @@ function DailyPnlBreakdown({ day }: { day: DailyPnl | null }) {
           <div className="flex items-baseline justify-between gap-4 border-b border-rule pb-4">
             <span className="tnum text-xs text-ink-3">{day.date}</span>
             <span className={cn('tnum text-lg', day.pnl_usd === null
-              ? 'text-ink-3' : day.pnl_usd >= 0 ? 'text-gain' : 'text-loss')}>
+              ? 'text-ink-3' : day.pnl_usd > 0 ? 'text-gain'
+                : day.pnl_usd < 0 ? 'text-loss' : 'text-ink-2')}>
               {day.pnl_usd === null ? '—' : signedMoney(day.pnl_usd)}
             </span>
           </div>
@@ -124,7 +125,8 @@ function DailyPnlBreakdown({ day }: { day: DailyPnl | null }) {
                 <div className="flex items-baseline justify-between gap-4 py-3" key={key}>
                   <dt className="text-xs text-ink-3">{label}</dt>
                   <dd className={cn('tnum text-sm', value === null
-                    ? 'text-ink-3' : value >= 0 ? 'text-gain' : 'text-loss')}>
+                    ? 'text-ink-3' : value > 0 ? 'text-gain'
+                      : value < 0 ? 'text-loss' : 'text-ink-2')}>
                     {value === null ? '—' : signedMoney(value)}
                   </dd>
                 </div>
@@ -317,10 +319,8 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
 
         <Stack span="lg:col-span-4">
           <Module
-            figure={signedMoney(f.total_unrealized_pnl)}
             span=""
             title="合约账户"
-            tone={f.total_unrealized_pnl >= 0 ? 'gain' : 'loss'}
           >
             {(() => {
               const estimated = f.estimated_funding_fee_usd
@@ -328,17 +328,24 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
               const todayRate = todayFunding !== null && gross > 0 ? todayFunding / gross : null
               return (
                 <dl className="grid grid-cols-1 gap-y-5 sm:grid-cols-3 lg:grid-cols-1">
-                  <Figure label="未实现盈亏" tone={f.total_unrealized_pnl >= 0 ? 'gain' : 'loss'} value={signedMoney(f.total_unrealized_pnl)} />
+                  <Figure
+                    label="未实现盈亏"
+                    tone={f.total_unrealized_pnl > 0 ? 'gain'
+                      : f.total_unrealized_pnl < 0 ? 'loss' : undefined}
+                    value={signedMoney(f.total_unrealized_pnl)}
+                  />
                   <Figure
                     label="预估资金费用"
                     note={f.estimated_funding_rate === null ? undefined : signedPercent(-f.estimated_funding_rate, 4)}
-                    tone={estimated === null ? undefined : estimated >= 0 ? 'gain' : 'loss'}
+                    tone={estimated === null || estimated === 0
+                      ? undefined : estimated > 0 ? 'gain' : 'loss'}
                     value={estimated === null ? '—' : signedMoney(estimated)}
                   />
                   <Figure
                     label="今日资金费用"
                     note={todayRate === null ? undefined : signedPercent(todayRate, 4)}
-                    tone={todayFunding === null ? undefined : todayFunding >= 0 ? 'gain' : 'loss'}
+                    tone={todayFunding === null || todayFunding === 0
+                      ? undefined : todayFunding > 0 ? 'gain' : 'loss'}
                     value={todayFunding === null ? '—' : signedMoney(todayFunding)}
                   />
                 </dl>
@@ -373,14 +380,12 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
                   leftLabel="多头"
                   right={shortNotional}
                   rightLabel="空头"
-                  tone="pnl"
                 />
                 <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-                  <Figure label="多头价值" tone="gain" value={money(longNotional)} />
-                  <Figure label="空头价值" tone="loss" value={money(shortNotional)} />
+                  <Figure label="多头价值" value={money(longNotional)} />
+                  <Figure label="空头价值" value={money(shortNotional)} />
                   <Figure
                     label="净价值"
-                    note={longNotional >= shortNotional ? '偏多' : '偏空'}
                     value={signedMoney(longNotional - shortNotional)}
                   />
                   {/* 逐仓那个 20× 是开仓上限，每一行自己已经写着；这里要的是
