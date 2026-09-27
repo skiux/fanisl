@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { cn } from '../../lib/cn'
 import type { SpotCostInput, StockCostInput } from '../../api/client'
-import { amount, money, percent, price, signedMoney, signedPercent, SOURCE_LABEL } from '../../lib/format'
+import { amount, baseOf, money, percent, price, signedMoney, signedPercent, SOURCE_LABEL } from '../../lib/format'
 import { cash, spotHoldings } from '../../lib/holdings'
 import type { DailyPnl, MarginAccount, PortfolioSnapshot } from '../../api/types'
+import { AllocationWheel } from '../../components/AllocationWheel'
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
+import { assetColor } from './ExposureDistribution'
 import { RealizedDays } from './RealizedDays'
 import { CashTable, SpotTable } from './Holdings'
 import { PnlBreakdown } from './PnlBreakdown'
@@ -56,7 +58,7 @@ export function OverviewView({ snapshot, veiled }: {
         {/* 不给 figure：它原先放的是 today_usd，而摘要条上那个「今日盈亏」
             就是同一个数——同一屏里说两遍。日历自己有月合计和区间合计。 */}
         <Module span="lg:col-span-12" title="每日盈亏">
-          <div className="grid min-w-0 gap-7 lg:grid-cols-[minmax(0,2fr)_minmax(220px,0.62fr)] lg:gap-9">
+          <div className="grid min-w-0 gap-7 lg:grid-cols-[minmax(0,1.55fr)_minmax(260px,0.75fr)] lg:gap-9">
             <div className="min-w-0">
               <RealizedDays
                 days={pnlDays}
@@ -68,16 +70,20 @@ export function OverviewView({ snapshot, veiled }: {
           </div>
         </Module>
 
-        {cashRows.length > 0 && (
-          <CashModule rows={cashRows} snapshot={snapshot} span="lg:col-span-12" />
-        )}
-
         {/* 四行同一个窗口、同一个来源，条形才可比——旧的「盈亏构成」把 1 天、
             此刻、全历史、90 天四种窗口混在一张表里画对比条，见 PnlBreakdown。
             现货那半边归日历（那里才有区间概念）。 */}
-        <Module note={`${WINDOW_DAYS} 天`} span="lg:col-span-12" title="合约收支">
+        <Module
+          note={`${WINDOW_DAYS} 天`}
+          span={cashRows.length > 0 ? 'lg:col-span-7' : 'lg:col-span-12'}
+          title="合约收支"
+        >
           <PnlBreakdown pnl={pnl} />
         </Module>
+
+        {cashRows.length > 0 && (
+          <CashModule rows={cashRows} snapshot={snapshot} span="lg:col-span-5" />
+        )}
 
         {/* **只在出问题时出现。** 全绿时这一块是纯运维信息——和流水页那张
             「取数窗口」端点表同一类，删了；但来源挂掉时它是有用的：页面上的数字
@@ -308,11 +314,9 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
         <Module
-          figure={signedMoney(f.total_unrealized_pnl)}
           note={`${f.positions.length} 项 · ${f.dual_side_position ? '双向' : '单向'}`}
           span="lg:col-span-8"
           title="合约仓位"
-          tone={f.total_unrealized_pnl >= 0 ? 'gain' : 'loss'}
         >
           <PositionsList futures={f} unavailable={false} />
         </Module>
@@ -395,6 +399,7 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
                     value={realLeverage === null ? '—' : `${realLeverage.toFixed(2)}×`}
                   />
                 </dl>
+                <ContractAllocation positions={f.positions} />
               </>
             ) : <p className="text-sm text-ink-3">当前没有合约仓位。</p>}
           </Module>
@@ -402,6 +407,42 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
         </Stack>
         <AdditionalRiskModules snapshot={snapshot} />
       </ViewGrid>
+    </div>
+  )
+}
+
+function ContractAllocation({ positions }: { positions: NonNullable<PortfolioSnapshot['futures']>['positions'] }) {
+  const [selection, setSelection] = useState<string | null>(null)
+  const items = positions.filter((position) => position.notional_usd > 0).map((position) => {
+    const asset = baseOf(position.symbol)
+    const short = position.position_amt < 0 || position.position_side === 'short'
+    return {
+      key: `${position.symbol}:${position.position_side}`,
+      asset,
+      label: `${short ? '−' : '+'} ${asset}`,
+      value: Math.abs(position.notional_usd),
+      color: assetColor(asset),
+    }
+  })
+
+  useEffect(() => {
+    const clearFromElsewhere = (event: PointerEvent) => {
+      const target = event.target
+      if (target instanceof Element && target.closest('[data-contract-allocation] [data-slice]')) return
+      setSelection(null)
+    }
+    document.addEventListener('pointerdown', clearFromElsewhere)
+    return () => document.removeEventListener('pointerdown', clearFromElsewhere)
+  }, [])
+
+  return (
+    <div className="mx-auto mt-7 w-full max-w-[420px] border-t border-rule pt-6" data-contract-allocation>
+      <AllocationWheel
+        accessibleTitle="合约仓位价值轮，+ 表示多头，− 表示空头"
+        items={items}
+        onSelect={setSelection}
+        selected={selection}
+      />
     </div>
   )
 }
@@ -436,7 +477,7 @@ function AdditionalRiskModules({ snapshot }: { snapshot: PortfolioSnapshot }) {
         <Module
           note={`${isolated.pairs.length} 个交易对`}
           span="lg:col-span-12"
-          title="逐仓杠杆"
+          title="逐仓杠杆账户"
         >
           <dl className="mb-5 grid grid-cols-2 gap-x-10 gap-y-5 sm:max-w-2xl sm:grid-cols-3">
             <Figure label="总资产" value={money(isolated.total_asset_usd)} />

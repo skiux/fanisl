@@ -7,7 +7,7 @@ import { money, signedMoney } from '../../lib/format'
 import type { Exposure } from '../../lib/holdings'
 
 /** 颜色绑定代码而非排名；金额刷新导致重新排序时，资产仍保持自己的颜色。 */
-function assetColor(asset: string) {
+export function assetColor(asset: string) {
   let hash = 5381
   for (const letter of asset) hash = ((hash << 5) + hash) ^ letter.charCodeAt(0)
   return `oklch(var(--allocation-tone) 0.058 ${(hash >>> 0) % 360})`

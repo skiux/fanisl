@@ -42,7 +42,7 @@ function labelMetrics(slice: AllocationSlice, inner: number, outer: number) {
   const markScale = compact ? 1.24 : 1.42
   const lineGap = compact ? 0.11 : 0.22
   const labelHeightEm = markScale + 0.91 + lineGap
-  const codeLineEm = markScale + (compact ? 0.22 : 0.28) + Math.max(1, slice.key.length) * 0.62
+  const codeLineEm = markScale + (compact ? 0.22 : 0.28) + Math.max(1, (slice.label ?? slice.key).length) * 0.62
   const valueLineEm = (compactValue.length + percent.length + 1) * 0.6 * 0.91 + 0.96
   const contentEm = Math.max(codeLineEm, valueLineEm)
   const contentFit = radialRoom * 0.96 / contentEm
@@ -115,6 +115,8 @@ function SliceLabel({ slice, center, inner, outer }: {
   outer: number
 }) {
   const metrics = labelMetrics(slice, inner, outer)
+  const label = slice.label ?? slice.key
+  const asset = slice.asset ?? slice.key
   const middle = (slice.start + slice.end) / 2
   const degrees = middle * 180 / Math.PI
   const readable = degrees > 90 && degrees < 270 ? degrees + 180 : degrees
@@ -144,8 +146,8 @@ function SliceLabel({ slice, center, inner, outer }: {
         }}
       >
         <span className="flex items-center justify-center font-semibold" style={{ gap: metrics.fontSize * 0.28 }}>
-          <AssetMark asset={slice.key} size={metrics.markSize} />
-          <span>{slice.key}</span>
+          <AssetMark asset={asset} size={metrics.markSize} />
+          <span>{label}</span>
         </span>
         <span className="tnum flex items-center whitespace-nowrap font-medium tracking-tight" style={{ fontSize: metrics.fontSize * 0.91, gap: metrics.fontSize * 0.48 }}>
           <span>{metrics.compactValue}</span>
@@ -161,10 +163,11 @@ function SliceLabel({ slice, center, inner, outer }: {
  * 一张带百分比刻度的持仓轮。连续扇区负责“合计 100%”的直觉，外沿 100 格刻度让
  * 3% 与 8% 这样的长尾也能按单位读取；标签沿径向排布，利用整段环宽而不是窄弧宽。
  */
-export function AllocationWheel({ items, selected, onSelect }: {
+export function AllocationWheel({ items, selected, onSelect, accessibleTitle = '多头持仓轮，扇区角度与外沿刻度表示多头占比' }: {
   items: AllocationItem[]
   selected: string | null
   onSelect: (key: string | null) => void
+  accessibleTitle?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const id = useId().replace(/:/g, '')
@@ -223,13 +226,13 @@ export function AllocationWheel({ items, selected, onSelect }: {
         style={{ height: geo.diameter, width: geo.diameter }}
         viewBox={`0 0 ${geo.diameter} ${geo.diameter}`}
       >
-        <title id={`${id}-title`}>多头持仓轮，扇区角度与外沿刻度表示多头占比</title>
+        <title id={`${id}-title`}>{accessibleTitle}</title>
         <circle className="allocation-wheel-bed" cx={geo.center} cy={geo.center} r={geo.outer} />
         {paintedSlices.map((slice, index) => {
           return (
             <g key={slice.key}>
               <path
-                aria-label={`${slice.key}，${money(slice.value)}，${allocationPercent(slice.share)}`}
+                aria-label={`${slice.label ?? slice.key}，${money(slice.value)}，${allocationPercent(slice.share)}`}
                 aria-pressed={selected === slice.key}
                 className="allocation-sector"
                 d={slice.path}
@@ -249,7 +252,7 @@ export function AllocationWheel({ items, selected, onSelect }: {
                 tabIndex={0}
               />
               <SliceLabel center={geo.center} inner={geo.inner} outer={geo.outer} slice={slice} />
-              <title>{`${index + 1}. ${slice.key} ${allocationPercent(slice.share)}`}</title>
+              <title>{`${index + 1}. ${slice.label ?? slice.key} ${allocationPercent(slice.share)}`}</title>
             </g>
           )
         })}
@@ -285,7 +288,7 @@ export function AllocationWheel({ items, selected, onSelect }: {
       <div
         className="allocation-center pointer-events-none absolute left-1/2 top-1/2 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-center"
         data-allocation-center
-        data-center-asset={selectedSlice?.key ?? ''}
+        data-center-asset={selectedSlice?.asset ?? selectedSlice?.key ?? ''}
         data-center-diameter={geo.inner * 2 - 1}
         style={{ height: geo.inner * 2 - 1, width: geo.inner * 2 - 1 }}
       >
@@ -296,7 +299,7 @@ export function AllocationWheel({ items, selected, onSelect }: {
           {selectedSlice ? (
             <>
               <span className="allocation-center-mark flex items-center justify-center" data-center-mark>
-                <AssetMark asset={selectedSlice.key} size={centerFontSize * 1.75} />
+                <AssetMark asset={selectedSlice.asset ?? selectedSlice.key} size={centerFontSize * 1.75} />
               </span>
               <span className="allocation-center-value tnum mt-[0.38em] font-semibold leading-none text-ink">{money(selectedSlice.value)}</span>
               <span className="allocation-center-meta tnum mt-[0.34em] leading-none text-ink-3">{allocationPercent(selectedSlice.share)}</span>

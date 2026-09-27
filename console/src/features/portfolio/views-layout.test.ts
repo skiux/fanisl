@@ -41,6 +41,7 @@ describe('资产页模块分布', () => {
     expect(titles()).not.toContain('风险仪表')
     const cashSection = [...host.querySelectorAll('h2')]
       .find((heading) => heading.textContent === '现金')!.closest('section')!
+    expect(cashSection.className).toContain('lg:col-span-5')
     expect(cashSection.querySelector('dl')?.className).toContain('xl:grid-cols-4')
     const cashTableHead = [...cashSection.querySelectorAll('div')]
       .find((row) => row.textContent === '资产账户年化价值')!
@@ -48,7 +49,13 @@ describe('资产页模块分布', () => {
     expect(cashSection.textContent).toContain('理财收益')
     const incomeSection = [...host.querySelectorAll('h2')]
       .find((heading) => heading.textContent === '合约收支')!.closest('section')!
-    expect(incomeSection.className).toContain('lg:col-span-12')
+    expect(incomeSection.className).toContain('lg:col-span-7')
+    expect(incomeSection.compareDocumentPosition(cashSection) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy()
+    const calendarLayout = [...host.querySelectorAll('h2')]
+      .find((heading) => heading.textContent === '每日盈亏')!.closest('section')!
+      .querySelector(':scope > div:last-child > div')!
+    expect(calendarLayout.className).toContain('minmax(0,1.55fr)')
     const settlementLabel = [...host.querySelectorAll('aside dt')]
       .find((node) => node.textContent === '合约结算')!
     const settlementValue = settlementLabel.nextElementSibling as HTMLElement
@@ -124,6 +131,7 @@ describe('资产页模块分布', () => {
     expect(account.textContent).toContain('预估资金费用')
     expect(account.textContent).toContain('今日资金费用')
     expect(account.textContent?.match(/\+\$597\.13/g)).toHaveLength(1)
+    expect(host.textContent?.match(/\+\$597\.13/g)).toHaveLength(1)
     const todayFundingLabel = [...account.querySelectorAll('dt')]
       .find((node) => node.textContent === '今日资金费用')!
     const todayFundingValue = todayFundingLabel.nextElementSibling!.querySelector('span')!
@@ -132,6 +140,32 @@ describe('资产页模块分布', () => {
     expect(host.textContent).not.toContain('排序')
     expect([...host.querySelectorAll('button')].some((button) => button.textContent === '杠杆')).toBe(false)
     expect([...host.querySelectorAll('button')].some((button) => button.textContent === '标的')).toBe(false)
+    const positionWheel = host.querySelector('[data-contract-allocation]')!
+    expect(positionWheel).not.toBeNull()
+    expect(positionWheel.querySelectorAll('[data-slice]')).toHaveLength(snapshot.futures!.positions.length)
+    expect([...positionWheel.querySelectorAll('[data-chart-label]')]
+      .every((label) => label.textContent?.includes('+ '))).toBe(true)
+    expect(titles()).toContain('逐仓杠杆账户')
+  })
+
+  it('合约价值轮用正负号表达多空方向', () => {
+    const snapshot = buildSnapshot(new Date('2026-09-26T12:00:00Z'))
+    const futures = snapshot.futures!
+    snapshot.futures = {
+      ...futures,
+      positions: futures.positions.map((position, index) => index === 0
+        ? { ...position, position_amt: -Math.abs(position.position_amt), position_side: 'short' }
+        : position),
+    }
+
+    act(() => root.render(createElement(PerpRiskView, {
+      futuresMissing: false, snapshot, veiled: false,
+    })))
+
+    const labels = [...host.querySelectorAll('[data-contract-allocation] [data-chart-label]')]
+    expect(labels.some((label) => label.textContent?.includes('− NVDA'))).toBe(true)
+    expect(labels.filter((label) => !label.textContent?.includes('NVDA'))
+      .every((label) => label.textContent?.includes('+ '))).toBe(true)
   })
 
   it('风险控制只在分布标题处显示一次持仓数量', () => {

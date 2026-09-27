@@ -1,4 +1,12 @@
-export type AllocationItem = { key: string; value: number; color: string }
+export type AllocationItem = {
+  key: string
+  value: number
+  color: string
+  /** 显示文字可以带方向等语义；key 只负责稳定标识。 */
+  label?: string
+  /** Logo 对应的资产代码；未传时沿用 key。 */
+  asset?: string
+}
 
 export type AllocationSlice = AllocationItem & {
   share: number
