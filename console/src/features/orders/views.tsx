@@ -114,7 +114,7 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
       <ViewGrid>
         <Module
           figure={money(rows.reduce((sum, order) => sum + (order.notional_usd ?? 0), 0))}
-          note={downVenues.length > 0 ? '不含未取到的账户' : '名义合计'}
+          note={downVenues.length > 0 ? '不含未取到的账户' : '价值合计'}
           span="lg:col-span-12"
           title="挂单"
         >

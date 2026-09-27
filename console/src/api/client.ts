@@ -281,7 +281,7 @@ export type SavedStockCost = StockCostInput & {
   updated_at: string
 }
 
-/** 合约那一项挂了，剩下的照算：持仓涨跌、正股、派息与利息都不经过 fapi */
+/** 合约那一项挂了，剩下的照算：持仓涨跌、正股、理财收益与利息都不经过 fapi */
 function withoutSettled(today: NonNullable<PortfolioSnapshot['pnl']>['today']) {
   return today.spot_usd === null ? null
     : today.spot_usd + (today.stock_usd ?? 0) + (today.earn_usd ?? 0)
@@ -301,8 +301,11 @@ function withScenarioStockCosts(snapshot: PortfolioSnapshot, scenario: Scenario)
     const saved = scenarioStockCosts.get(`${scenario}:${row.symbol}`)
     if (!saved) return row
     changed = true
-    const matches = Math.abs(saved.position_qty - row.total_qty) <= 1e-8
-    const total = matches ? saved.cost_price_usd * row.total_qty + saved.commission_usd : null
+    const matches = row.total_qty <= saved.position_qty + 1e-8
+    const retainedCommission = matches && saved.position_qty > 0
+      ? saved.commission_usd * row.total_qty / saved.position_qty : null
+    const total = matches
+      ? saved.cost_price_usd * row.total_qty + (retainedCommission ?? 0) : null
     const unrealized = total !== null && row.mark_price_usd !== null
       ? row.mark_price_usd * row.total_qty - total : null
     return {
@@ -484,8 +487,8 @@ export async function fetchOrders(
 /** 合约收支走 fapi，451 一来这四类损益整组消失，其余来源不受影响 */
 const FAPI_LEDGER_KINDS = new Set(['realized_pnl', 'funding_fee', 'commission', 'referral_kickback'])
 
-/** 单次区间被卡在 30 天的三个来源 */
-const CAPPED_LEDGER_SOURCES: SourceKey[] = ['earn_rewards', 'margin_interest', 'convert']
+/** 单次区间被卡在 30 天的两个来源 */
+const CAPPED_LEDGER_SOURCES: SourceKey[] = ['margin_interest', 'convert']
 
 function degradeLedger(
   snapshot: LedgerSnapshot,
@@ -579,7 +582,7 @@ export async function fetchLedger(
       signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
     })
   }
-  // 八个来源顺序拉一遍，真后端不会比这快
+  // 所有来源顺序拉一遍，真后端不会比这快
   await new Promise((resolve) => setTimeout(resolve, 520))
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
   if (scenario === 'down') {

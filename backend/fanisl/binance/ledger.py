@@ -1,10 +1,10 @@
 """组装 `/ledger`，形状对齐 console 契约的 LedgerSnapshot。
 
-**Binance 没有统一的流水接口。** 这条时间线是八个端点各拉一段合并出来的，
+**Binance 没有统一的流水接口。** 这条时间线是七类端点各拉一段合并出来的，
 所以每条记录都必须带着自己的出处（`source`），而每个端点的窗口上限还不一样。
 
 由此得到两条决定这一页形状的结论，都要如实报给前端：
-- **单次能查的上限 = 各来源上限的交集 = 30 天**，卡在理财派息/杠杆利息/闪兑三个。
+- **单次能查的上限 = 各来源上限的交集 = 30 天**，卡在杠杆利息与闪兑。
 - **刷一次不是免费的**：划转必须按 type 逐个问，提现单次权重 18000（10 次/秒）。
   界面上那格"取数成本"就是这么算出来的。
 
@@ -29,7 +29,7 @@ GROUP_OF = {
     "deposit": "external", "withdraw": "external",
     "realized_pnl": "income", "funding_fee": "income", "commission": "income",
     "insurance_clear": "income", "referral_kickback": "income",
-    "earn_reward": "income", "margin_interest": "income",
+    "margin_interest": "income",
     "transfer": "internal", "convert": "internal", "dust": "internal",
 }
 
@@ -74,10 +74,6 @@ WINDOWS: list[dict] = [
     {"key": "wallet_transfers", "endpoint": "GET /sapi/v1/asset/transfer",
      "weight": 1, "max_window_days": None, "lookback_days": 180,
      "fanout": f"type 必填，实取 {len(TRANSFER_TYPES)} 种常用", "calls": len(TRANSFER_TYPES)},
-    {"key": "earn_rewards",
-     "endpoint": "GET /sapi/v1/simple-earn/flexible/history/rewardsRecord",
-     "weight": 150, "max_window_days": 30, "lookback_days": None,
-     "fanout": "flexible 与 locked 分开两次", "calls": 2},
     {"key": "margin_interest", "endpoint": "GET /sapi/v1/margin/interestHistory",
      "weight": 1, "max_window_days": 30, "lookback_days": 90, "fanout": None, "calls": 1},
     {"key": "convert", "endpoint": "GET /sapi/v1/convert/tradeFlow",
@@ -189,19 +185,6 @@ def _transfers(by_type: dict[str, Any], prices: dict[str, float]) -> list[dict]:
     return out
 
 
-def _earn_rewards(flexible: Any, locked: Any, prices: dict[str, float]) -> list[dict]:
-    out = []
-    for row in (flexible or {}).get("rows", []) if isinstance(flexible, dict) else []:
-        asset = row.get("asset", "")
-        out.append(_entry("earn_reward", "earn_rewards", ms_to_iso(row.get("time")),
-                          asset, dec0(row.get("rewards")), prices, wallet="earn"))
-    for row in (locked or {}).get("rows", []) if isinstance(locked, dict) else []:
-        asset = row.get("asset", "")
-        out.append(_entry("earn_reward", "earn_rewards", ms_to_iso(row.get("time")),
-                          asset, dec0(row.get("amount")), prices, wallet="earn"))
-    return out
-
-
 def _margin_interest(payload: Any, prices: dict[str, float]) -> list[dict]:
     rows = (payload or {}).get("rows", []) if isinstance(payload, dict) else []
     out = []
@@ -250,8 +233,8 @@ def _dust(payload: Any, prices: dict[str, float]) -> list[dict]:
 def _ensure_unique_ids(entries: list[dict]) -> None:
     """保证 id 全局唯一。
 
-    有自然主键的（tranId / txId / orderId / positionId）直接用；剩下几类只能靠
-    来源+时刻+资产拼，理论上会撞——同一资产在同一时刻的两条理财派息就是一例。
+    有自然主键的（tranId / txId / orderId）直接用；剩下几类只能靠
+    来源+时刻+资产拼，理论上仍可能相撞。
     前端拿 id 当 React key，撞了不会报错，只会**渲染错行**，是那种看着正常的错。
     """
     seen: dict[str, int] = {}
@@ -279,10 +262,6 @@ def build_ledger(client: BinanceClient, cache: SourceCache, *, days: int = 7,
          lambda: client.withdrawals(start_ms=start_ms, end_ms=end_ms)),
         (f"ledger.income:{tag}", TTL["cheap"],
          lambda: client.futures_income(start_ms=start_ms, end_ms=end_ms)),
-        (f"ledger.earn_flex:{tag}", TTL["cheap"],
-         lambda: client.earn_flexible_rewards(start_ms=start_ms, end_ms=end_ms)),
-        (f"ledger.earn_locked:{tag}", TTL["cheap"],
-         lambda: client.earn_locked_rewards(start_ms=start_ms, end_ms=end_ms)),
         (f"ledger.interest:{tag}", TTL["cheap"],
          lambda: client.margin_interest_history(start_ms=start_ms, end_ms=end_ms)),
         (f"ledger.convert:{tag}", TTL["expensive"],
@@ -321,8 +300,6 @@ def build_ledger(client: BinanceClient, cache: SourceCache, *, days: int = 7,
                      lambda: _withdrawals(payload(f"ledger.withdrawals:{tag}"), prices))
     entries += parse("income", lambda: _income(payload(f"ledger.income:{tag}"), prices))
     entries += parse("wallet_transfers", lambda: _transfers(transfer_payloads, prices))
-    entries += parse("earn_rewards", lambda: _earn_rewards(
-        payload(f"ledger.earn_flex:{tag}"), payload(f"ledger.earn_locked:{tag}"), prices))
     entries += parse("margin_interest",
                      lambda: _margin_interest(payload(f"ledger.interest:{tag}"), prices))
     entries += parse("convert", lambda: _convert(payload(f"ledger.convert:{tag}"), prices))
@@ -339,7 +316,6 @@ def build_ledger(client: BinanceClient, cache: SourceCache, *, days: int = 7,
         "withdrawals": results[f"ledger.withdrawals:{tag}"],
         "income": results[f"ledger.income:{tag}"],
         "wallet_transfers": worst_transfer,
-        "earn_rewards": results[f"ledger.earn_flex:{tag}"],
         "margin_interest": results[f"ledger.interest:{tag}"],
         "convert": results[f"ledger.convert:{tag}"],
         "dust": results[f"ledger.dust:{tag}"],

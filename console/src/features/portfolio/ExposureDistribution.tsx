@@ -15,7 +15,7 @@ function assetColor(asset: string) {
 
 const smallMoney = (value: number) => value > 0 && value < 0.005 ? '<$0.01' : money(value)
 
-/** 持仓轮展示多头构成；列表同时保留净敞口及其占净值比例，分母分别标明。 */
+/** 持仓轮展示多头构成；列表同时保留净价值及其占净值比例。 */
 export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
   const [selection, setSelection] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -75,7 +75,7 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
       <div className="min-w-0">
         <div className="mb-3 flex min-h-11 items-end justify-between gap-3 text-xs">
           <div>
-            <div className="text-ink-2">多头构成 <span className="ml-1.5 tnum text-ink-3">{slices.length}</span></div>
+            <div className="text-ink-2">多头价值</div>
             <div className="tnum mt-1 text-sm font-medium" data-allocation-total>{money(total)}</div>
           </div>
           <button
@@ -93,16 +93,18 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
         <div aria-atomic="true" aria-live="polite" className="sr-only">
           {selected
             ? `${selected.asset}，多头 ${smallMoney(selected.long)}，${total > 0 ? allocationPercent(selected.long / total) : '0%'}`
-            : `${total > 0 ? '多头合计' : '暂无多头敞口'}，${money(total)}，${slices.length} 个标的`}
+            : `${total > 0 ? '多头合计' : '暂无多头仓位'}，${money(total)}`}
         </div>
         <div className="mt-4 grid min-h-16 grid-cols-2 gap-4 border-t border-rule pt-4">
           <div>
-            <div className="text-xs text-ink-3">{selected ? `${selected.asset} 净敞口` : '净敞口合计'}</div>
+            <div className="text-xs text-ink-3">{selected ? `${selected.asset} 净价值` : '净价值'}</div>
             <div className="tnum mt-1 text-sm">{signedMoney(selected?.net_usd ?? rows.reduce((sum, row) => sum + row.net_usd, 0))}</div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-ink-3">{selected ? '占净值' : '标的数量'}</div>
-            <div className="tnum mt-1 text-sm">{selected ? allocationPercent(selected.share) : rows.length}</div>
+            <div className="text-xs text-ink-3">占净值</div>
+            <div className="tnum mt-1 text-sm">{allocationPercent(
+              selected?.share ?? rows.reduce((sum, row) => sum + row.share, 0),
+            )}</div>
           </div>
         </div>
       </div>
@@ -110,10 +112,10 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
       <div className="allocation-list relative min-h-0 min-w-0">
         <div className="allocation-list-body flex min-h-0 flex-col">
           <div className="mb-1 flex items-center justify-between gap-4 px-3 py-2 text-xs text-ink-3">
-            <span>全部标的 <span className="tnum ml-1">{items.length}</span></span><span>多头金额 / 占多头</span>
+            <span>全部持仓</span><span>多头价值 / 占多头</span>
           </div>
           <div aria-label="标的列表滚动区域" className="allocation-scroll scroll-y rounded-lg" ref={listRef} role="region" tabIndex={0}>
-            <ul aria-label="全部敞口明细" className="divide-y divide-rule">
+            <ul aria-label="全部持仓明细" className="divide-y divide-rule">
               {items.map((row) => {
                 const on = selected?.asset === row.asset
                 return (

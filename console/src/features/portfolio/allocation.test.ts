@@ -55,7 +55,7 @@ describe('敞口分布', () => {
     }
     act(() => choices[3].click())
     expect(choices[3].getAttribute('aria-checked')).toBe('true')
-    expect(host.textContent).toContain('仓位 2× · 跌 30% 之后的净值')
+    expect(host.textContent).not.toContain('跌 30% 之后的净值')
   })
 
   it('保留下跌前后按 1×、2×、3×、5× 计算的可开仓位', () => {
@@ -86,7 +86,7 @@ describe('敞口分布', () => {
     const choices = [...host.querySelectorAll<HTMLButtonElement>('.stress-size-option')]
     expect(choices[0].disabled).toBe(false)
     expect(choices.slice(1).every((choice) => choice.disabled)).toBe(true)
-    expect(host.textContent).toContain('当前没有合约仓位，无法推导目标仓位的标的分布')
+    expect(host.textContent).not.toContain('当前没有合约仓位，无法推导目标仓位的标的分布')
   })
 
   it('仓位规模支持方向键切换，并只保留当前项进入 Tab 顺序', () => {
@@ -275,10 +275,10 @@ describe('敞口分布', () => {
     expect(host.querySelector('[data-selection-cursor]')!.getAttribute('data-active')).toBe('false')
   })
 
-  it('临界跌幅直接说明阈值含义和安全方向', () => {
+  it('临界跌幅直接以强平阈值命名，不再附加说明段落', () => {
     render()
-    expect(host.textContent).toContain('保证金率升至 100% 时开始强平')
-    expect(host.textContent).toContain('数值越高，缓冲越大')
+    expect(host.textContent).toContain('强平临界跌幅')
+    expect(host.textContent).not.toContain('数值越高，缓冲越大')
   })
 
   it('只有空头时明确显示没有多头，空头明细仍可选择', () => {
@@ -291,7 +291,7 @@ describe('敞口分布', () => {
       earn: [], margin: null,
       futures: { ...snapshot.futures!, assets: [], positions: [short] },
     })
-    expect(host.textContent).toContain('暂无多头敞口')
+    expect(host.textContent).toContain('暂无多头仓位')
     const button = [...host.querySelectorAll('button')].find((node) => node.textContent?.includes('MSTR'))!
     act(() => button.click())
     expect(button.getAttribute('aria-pressed')).toBe('true')

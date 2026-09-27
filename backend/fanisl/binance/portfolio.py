@@ -21,7 +21,7 @@ from typing import Any, Callable
 from .cache import SourceCache, SourceResult, fetch_all
 from .client import BinanceClient
 from .costbasis import held_across_wallets, split_symbol
-from .dailypnl import collect_flows, daily_credits, daily_spot_pnl
+from .dailypnl import collect_flows, daily_credits, daily_spot_pnl, estimated_yield_credits
 from .common import (
     STABLE_ASSETS, WALLET_KIND, dec, dec0, guard, ms_to_iso, price_map,
     usd_price, usd_value,
@@ -220,14 +220,9 @@ def _flow_jobs(client: BinanceClient, start_ms: int, end_ms: int
     `dailypnl` 会把受影响的天报成空，而不是给一个错的数。
     """
     return [
-        # 派息记录单次最多查 30 天，90 天窗要切开问（见 client.earn_rewards_history）
-        ("flows.earn_flexible", TTL["flows"],
-         lambda: client.earn_rewards_history("flexible", start_ms=start_ms, end_ms=end_ms)),
         # 正股成交：买入当天的持仓量要能回滚，否则买入那天会被当成"白涨这么多"
         ("flows.equity_trades", TTL["flows"],
          lambda: client.equity_trade_history(start_ms=start_ms, end_ms=end_ms)),
-        ("flows.earn_locked", TTL["flows"],
-         lambda: client.earn_rewards_history("locked", start_ms=start_ms, end_ms=end_ms)),
         ("flows.interest", TTL["flows"],
          lambda: client.margin_interest_history(start_ms=start_ms, end_ms=end_ms)),
         ("flows.convert", TTL["flows"],
@@ -270,6 +265,7 @@ def _jobs(client: BinanceClient, now: datetime) -> list[tuple[str, int, Callable
         ("futures.config", TTL["futures"], client.futures_account_config),
         ("futures.symbol_config", TTL["futures"], client.futures_symbol_config),
         ("futures.risk", TTL["futures"], client.futures_position_risk),
+        ("futures.premium", TTL["futures"], client.futures_mark_prices),
         ("futures.adl", TTL["futures"], client.futures_adl_quantile),
         ("futures.symbol_adl", TTL["futures_metadata"], client.futures_symbol_adl_risk),
         ("futures.exchange_info", TTL["futures_metadata"], client.futures_exchange_info),
@@ -317,7 +313,7 @@ _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
     "wallets": ("wallets", ()),
     "spot": ("spot", ()),
     "futures": ("futures.account", ("futures.config", "futures.symbol_config",
-                                      "futures.risk", "futures.adl",
+                                      "futures.risk", "futures.premium", "futures.adl",
                                       "futures.symbol_adl", "futures.exchange_info",
                                       "futures.schedule", "futures.brackets")),
     "stocks": ("equity.tokenized", (
@@ -332,9 +328,6 @@ _CONTRACT_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
     "portfolio_margin": ("portfolio_margin", ()),
     "income": ("income", ()),
     "transfers": ("transfers.deposits", ("transfers.withdrawals",)),
-    # 派息与利息**现在是「今日盈亏」里的独立一项**，取不到就等于那一项悄悄变成 0。
-    # 原先这几个来源不进状态表（它们只影响回滚的完整性），现在必须报出来。
-    "earn_rewards": ("flows.earn_flexible", ("flows.earn_locked",)),
     "margin_interest": ("flows.interest", ()),
 }
 
@@ -394,7 +387,7 @@ EQUITY_ASSET_PREFIX = "EQ_"
 STOCKS_COVERAGE = (
     "Binance Stocks 没有持仓查询接口。正股持仓取自钱包明细里 EQ_ 开头的资产，"
     "数量与钱包一致；市值沿用 Binance 钱包估值。Binance 暂未提供完整成本与手续费，"
-    "由管理员为当前持仓录入单位成本价和手续费；持仓数量变化后需重新录入。"
+    "由管理员为当前持仓录入单位成本价和手续费；持仓增加后需重新录入。"
 )
 
 
@@ -473,11 +466,15 @@ def _stock_positions(equities: list[dict], assets: list[dict],
         step_size = dec(metadata.get("stepSize"))
         tolerance = max(1e-9, step_size / 2 if step_size is not None and step_size > 0 else 1e-8)
         saved_qty = dec(saved.get("position_qty")) if saved else None
-        matches = saved_qty is not None and abs(saved_qty - total_qty) <= tolerance
+        # 减仓不改变剩余仓位的单位成本；只有数量超过录入时的仓位才需要更新。
+        matches = saved_qty is not None and total_qty <= saved_qty + tolerance
         status = "manual" if matches else "stale" if saved else "missing"
         cost_price = dec(saved.get("cost_price_usd")) if saved else None
         commission = dec(saved.get("commission_usd")) if saved else None
-        cost_basis = (cost_price * total_qty + commission
+        retained_commission = (commission * total_qty / saved_qty
+                               if (matches and commission is not None
+                                   and saved_qty is not None and saved_qty > 0) else None)
+        cost_basis = (cost_price * total_qty + retained_commission
                       if matches and cost_price is not None and commission is not None else None)
         average = cost_basis / total_qty if cost_basis is not None and total_qty > 0 else None
         unrealized = (mark * total_qty - cost_basis
@@ -794,7 +791,8 @@ def _schedule_session(schedule: Any, underlying_type: str | None, now_ms: int) -
 def _futures(account: Any, config: Any, risk: Any, adl: Any, brackets: Any,
              exchange_info: Any = None, schedule: Any = None, symbol_adl: Any = None,
              prices: dict[str, float] | None = None,
-             now: datetime | None = None, symbol_config: Any = None) -> dict | None:
+             now: datetime | None = None, symbol_config: Any = None,
+             premium: Any = None) -> dict | None:
     if not isinstance(account, dict):
         return None
 
@@ -808,6 +806,11 @@ def _futures(account: Any, config: Any, risk: Any, adl: Any, brackets: Any,
         for row in symbol_config or []
         if isinstance(row, dict) and row.get("symbol")
     } if isinstance(symbol_config, list) else {}
+    premium_by = {
+        row.get("symbol"): row
+        for row in premium or []
+        if isinstance(row, dict) and row.get("symbol")
+    } if isinstance(premium, list) else {}
     adl_by = {r.get("symbol"): r.get("adlQuantile", {}) for r in adl or []}
     metadata_by = {
         row.get("symbol"): row
@@ -869,6 +872,11 @@ def _futures(account: Any, config: Any, risk: Any, adl: Any, brackets: Any,
             underlying_subtypes = []
         entry = dec0(r.get("entryPrice"))
         sym_config = symbol_config_by.get(symbol, {})
+        premium_row = premium_by.get(symbol, {})
+        funding_rate = dec(premium_row.get("lastFundingRate"))
+        next_funding = dec(premium_row.get("nextFundingTime"))
+        estimated_funding = (-amt / abs(amt) * notional * funding_rate
+                             if funding_rate is not None and amt != 0 else None)
         margin_type = str(sym_config.get("marginType", "")).upper()
         positions.append({
             "symbol": symbol,
@@ -895,11 +903,25 @@ def _futures(account: Any, config: Any, risk: Any, adl: Any, brackets: Any,
             "underlying_subtypes": [str(value) for value in underlying_subtypes],
             "market_session": _schedule_session(schedule, underlying_type, now_ms),
             "symbol_adl_risk": symbol_adl_by.get(symbol),
+            "funding_rate": funding_rate,
+            "estimated_funding_fee_usd": estimated_funding,
+            "next_funding_time": int(next_funding) if next_funding is not None else None,
         })
 
     margin_balance = dec0(account.get("totalMarginBalance"))
     maint = dec0(account.get("totalMaintMargin"))
     cfg = config if isinstance(config, dict) else {}
+    funding_positions = [row for row in positions
+                         if row["estimated_funding_fee_usd"] is not None]
+    estimated_funding_fee = (sum(row["estimated_funding_fee_usd"]
+                                 for row in funding_positions)
+                             if funding_positions else None)
+    gross_funding_value = sum(row["notional_usd"] for row in funding_positions)
+    estimated_funding_rate = (-estimated_funding_fee / gross_funding_value
+                              if estimated_funding_fee is not None
+                              and gross_funding_value > 0 else None)
+    next_times = [row["next_funding_time"] for row in funding_positions
+                  if row["next_funding_time"] is not None and row["next_funding_time"] > now_ms]
     return {
         "dual_side_position": bool(cfg.get("dualSidePosition", False)),
         "multi_assets_margin": bool(account.get("multiAssetsMargin",
@@ -912,6 +934,9 @@ def _futures(account: Any, config: Any, risk: Any, adl: Any, brackets: Any,
         "available_balance": dec0(account.get("availableBalance")),
         "max_withdraw": dec0(account.get("maxWithdrawAmount")),
         "margin_ratio": (maint / margin_balance) if margin_balance > 0 else None,
+        "estimated_funding_fee_usd": estimated_funding_fee,
+        "estimated_funding_rate": estimated_funding_rate,
+        "next_funding_time": min(next_times) if next_times else None,
         "positions": positions,
         # 合约钱包里逐个币的余额。把 BNB 划进来当保证金 / 抵手续费是常见做法，
         # 只看现货余额的话这些币就凭空消失了——成本基础按"账户一共有多少"算，
@@ -1023,6 +1048,28 @@ def _bfusd_rate(payload: Any) -> float | None:
             continue
         candidates.append((dec0(row.get("time")), rate))
     return max(candidates, default=(0.0, None), key=lambda item: item[0])[1]
+
+
+def _yield_positions(earn: list[dict], spot: list[dict], futures: dict | None,
+                     margin: dict | None, bfusd_rate: float | None) -> list[dict]:
+    """当天理财估算所需的当前本金与年化。
+
+    USDT / USDC 取 Simple Earn 当前持仓；BFUSD 同时覆盖 Simple Earn 与各钱包中的
+    实际余额。这里保留每个产品一行，计提时再按资产汇总，避免把不同年化先粗暴平均。
+    """
+    rows = [
+        {"asset": row["asset"], "value_usd": row.get("value_usd"),
+         "apr": row.get("apr") if row.get("apr") is not None else bfusd_rate}
+        for row in earn
+        if row.get("asset") in {"USDT", "USDC", "BFUSD"} and dec0(row.get("amount")) > 0
+    ]
+    balances = [*spot, *((futures or {}).get("assets") or []),
+                *((margin or {}).get("assets") or [])]
+    for row in balances:
+        if row.get("asset") == "BFUSD":
+            rows.append({"asset": "BFUSD", "value_usd": row.get("value_usd"),
+                         "apr": bfusd_rate})
+    return rows
 
 
 def _margin(payload: Any, btc_usd: float | None,
@@ -1189,7 +1236,7 @@ def _daily(income_rows: Any, spot_days: dict[str, float | None],
 
         一天 = 持仓涨跌（现货与正股，含当天成交的那部分）
              + 当天结算掉的（合约）
-             + 理财派息 − 杠杆利息
+             + 当天计提的理财收益 − 杠杆利息
 
     "结算掉的"是合约那半边：已实现盈亏、资金费、手续费、返佣。它们是真金白银的
     进出，只报 REALIZED_PNL 会让"这天赚了多少"偏乐观。
@@ -1319,7 +1366,7 @@ def _pnl(spot_daily: dict, futures: dict | None, income: dict | None,
         # 逐币的今日涨跌。数量跨全部钱包（含资金钱包），划进合约当保证金的也算在里面；
         # 正股也在这张表里，它的价格另有出处，见 `equity_close_source`。
         "spot_marks": spot_daily.get("today_by_asset", []),
-        # 今天的派息与利息，按资产拆开。稳定币也在里面——它们不参与盯市，
+        # 今天的理财收益与利息，按资产拆开。稳定币也在里面——它们不参与盯市，
         # 利息却是实打实的收入，原先整个丢了。
         "earn_marks": ((credits or {}).get("earn") or {}).get("today_by_asset", []),
         "interest_marks": ((credits or {}).get("interest") or {}).get("today_by_asset", []),
@@ -1462,7 +1509,8 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         payload("futures.risk"), payload("futures.adl"),
         payload("futures.brackets"), payload("futures.exchange_info"),
         payload("futures.schedule"), payload("futures.symbol_adl"), prices, now,
-        symbol_config=payload("futures.symbol_config")))
+        symbol_config=payload("futures.symbol_config"),
+        premium=payload("futures.premium")))
     stock_fallback = {
             "standalone_positions_available": False,
             "coverage_detail": STOCKS_COVERAGE,
@@ -1548,8 +1596,6 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         deposits=payload("transfers.deposits"),
         withdrawals=payload("transfers.withdrawals"),
         income=payload("income"),
-        earn_flexible=payload("flows.earn_flexible"),
-        earn_locked=payload("flows.earn_locked"),
         margin_interest=payload("flows.interest"),
         convert=payload("flows.convert"),
         dust=payload("flows.dust"),
@@ -1564,11 +1610,17 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
     stock_daily = block("stock_daily", lambda: daily_spot_pnl(
         stock_held, equity_closes, flows, days=WINDOW_DAYS, now=now),
         fallback=_NO_DAILY) or _NO_DAILY if stock_held else _NO_DAILY
-    # 理财派息与杠杆利息各自成项：它们不是涨跌，而且稳定币不参与盯市，
-    # 放在盯市里等于把 USDT 活期的利息整个丢掉。见 `dailypnl.daily_credits`。
-    credits = {kind: block("spot_daily", lambda k=kind: daily_credits(
-        flows, closes, kind=k, days=WINDOW_DAYS, now=now), fallback=_NO_CREDITS)
-        or _NO_CREDITS for kind in ("earn", "interest")}
+    # 理财收益按当前本金与年化从 UTC 00:00 连续计提。旧实现读取派息历史，但那组
+    # 结果与账户实际收益对不上；当前数据也无法重建过去每天的本金和利率，所以只给
+    # 当天估算，历史日期保持 0。杠杆利息仍使用实际流水。
+    credits = {
+        "earn": block("spot_daily", lambda: estimated_yield_credits(
+            _yield_positions(earn, spot, futures, margin, bfusd_rate),
+            days=WINDOW_DAYS, now=now), fallback=_NO_CREDITS) or _NO_CREDITS,
+        "interest": block("spot_daily", lambda: daily_credits(
+            flows, closes, kind="interest", days=WINDOW_DAYS, now=now),
+            fallback=_NO_CREDITS) or _NO_CREDITS,
+    }
 
     # 净值以钱包分布为准：它是 Binance 自己给的、跨全部钱包的合计，
     # 比把各块自己加起来更不容易漏（漏一个钱包就少一块钱）。

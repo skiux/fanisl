@@ -115,15 +115,16 @@ export type SortState<K extends string> = { key: K; direction: 'asc' | 'desc' }
  * "取消选中"，`onValueChange` 收到的是空串（`RangePicker` 那个"自定义打不开"
  * 就是这条坑）；`onClick` 照常触发，键盘的 Enter / Space 也走它。
  */
-export function SortBy<K extends string>({ keys, value, onChange, label }: {
+export function SortBy<K extends string>({ keys, value, onChange, label, showLabel = true }: {
   keys: SortKey<K>[]
   value: SortState<K>
   onChange: (next: SortState<K>) => void
   label: string
+  showLabel?: boolean
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-      <span className="text-xs text-ink-3">{label}</span>
+      <span className={showLabel ? 'text-xs text-ink-3' : 'sr-only'}>{label}</span>
       <ToggleGroup.Root
         aria-label={label}
         className="flex flex-wrap items-center gap-4"

@@ -19,7 +19,7 @@ export function filterEntries(entries: LedgerEntry[], filter: LedgerFilter) {
 /** 每一类固定由哪几个接口供数。与本次取到几条无关 */
 const GROUP_SOURCES: Record<LedgerGroup, Set<SourceKey>> = {
   external: new Set(['deposits', 'withdrawals']),
-  income: new Set(['income', 'earn_rewards', 'margin_interest']),
+  income: new Set(['income', 'margin_interest']),
   internal: new Set(['wallet_transfers', 'convert', 'dust']),
 }
 
@@ -199,4 +199,3 @@ export function LedgerView({ snapshot, veiled, filter }: {
     </div>
   )
 }
-

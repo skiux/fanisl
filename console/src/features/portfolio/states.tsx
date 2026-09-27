@@ -156,7 +156,7 @@ export function NoOrdersState() {
 export function EmptyLedgerState({ days }: { days: number }) {
   return (
     <Frame
-      body={`最近 ${days} 天里，八个来源都没有返回任何记录：没有充提、没有派息、也没有合约收支。可以换一个更长的区间查看更早的记录。`}
+      body={`最近 ${days} 天里，各来源都没有返回任何记录：没有充提、钱包划转或合约收支。可以换一个更长的区间查看更早的记录。`}
       icon={<Receipt aria-hidden="true" size={19} />}
       title="该区间没有流水"
     />

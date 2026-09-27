@@ -25,7 +25,7 @@ export function OrdersStrip({ snapshot, veiled }: { snapshot: OrdersSnapshot; ve
   }, null)
 
   const cells: StripCell[] = [
-    { label: '名义合计', value: blind ? '—' : money(notional), tone: blind ? 'muted' : undefined },
+    { label: '价值合计', value: blind ? '—' : money(notional), tone: blind ? 'muted' : undefined },
     { label: '条件单', value: blind ? '—' : String(conditionals), tone: blind ? 'muted' : undefined },
     {
       label: '离成交最近',

@@ -1,4 +1,4 @@
-import { earn, income, margin, positions, transfers } from './fixtures'
+import { income, margin, positions, transfers } from './fixtures'
 import { PRICE } from './prices'
 import type {
   LedgerEntry, LedgerGroup, LedgerKind, LedgerSnapshot, LedgerSourceWindow,
@@ -42,7 +42,7 @@ const GROUP_OF: Record<LedgerKind, LedgerGroup> = {
   deposit: 'external', withdraw: 'external',
   realized_pnl: 'income', funding_fee: 'income', commission: 'income',
   referral_kickback: 'income', insurance_clear: 'income',
-  earn_reward: 'income', margin_interest: 'income',
+  margin_interest: 'income',
   transfer: 'internal', convert: 'internal', dust: 'internal',
 }
 
@@ -114,18 +114,6 @@ function buildDrafts(end: number): Draft[] {
       at: kickbackAt[index], wallet: 'usdm_futures',
     })
   })
-
-  // 理财派息：按各产品自己的年化逐日计息，不另编数
-  for (const product of earn) {
-    if (product.apr === null) continue
-    const daily = (product.amount * product.apr) / 365
-    for (let day = 1; day <= WINDOW_DAYS; day += 1) {
-      drafts.push({
-        kind: 'earn_reward', source: 'earn_rewards', asset: product.asset,
-        amount: daily, at: start + day * MS_DAY - 3 * 3600_000, wallet: 'earn',
-      })
-    }
-  }
 
   // 杠杆利息：按负债日息计，PERIODIC
   const dailyInterest = (margin.total_liability_usd * 0.073) / 365
@@ -226,7 +214,6 @@ export const LEDGER_WINDOWS: LedgerSourceWindow[] = [
   { calls: 1, key: 'withdrawals', endpoint: 'GET /sapi/v1/capital/withdraw/history', weight: 18000, max_window_days: 90, lookback_days: 90, fanout: null },
   { calls: 1, key: 'income', endpoint: 'GET /fapi/v1/income', weight: 30, max_window_days: null, lookback_days: 90, fanout: null },
   { calls: 40, key: 'wallet_transfers', endpoint: 'GET /sapi/v1/asset/transfer', weight: 1, max_window_days: null, lookback_days: 180, fanout: 'type 必填，约 40 种要逐个问' },
-  { calls: 2, key: 'earn_rewards', endpoint: 'GET /sapi/v1/simple-earn/flexible/history/rewardsRecord', weight: 150, max_window_days: 30, lookback_days: null, fanout: 'flexible 与 locked 分开两次' },
   { calls: 1, key: 'margin_interest', endpoint: 'GET /sapi/v1/margin/interestHistory', weight: 1, max_window_days: 30, lookback_days: 90, fanout: null },
   { calls: 1, key: 'convert', endpoint: 'GET /sapi/v1/convert/tradeFlow', weight: 3000, max_window_days: 30, lookback_days: null, fanout: '起止时间都必填' },
   { calls: 1, key: 'dust', endpoint: 'GET /sapi/v1/asset/dribblet', weight: 1, max_window_days: null, lookback_days: null, fanout: null },

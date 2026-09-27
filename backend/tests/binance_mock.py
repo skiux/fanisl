@@ -138,15 +138,17 @@ USER_ASSET = [
 ]
 
 FUT_ACCOUNT = {
-    "totalWalletBalance": "8426.13", "totalUnrealizedProfit": "380.45",
-    "totalMarginBalance": "8806.58", "totalInitialMargin": "8443.77",
-    "totalMaintMargin": "448.17", "availableBalance": "362.81",
-    "maxWithdrawAmount": "362.81", "multiAssetsMargin": False,
+    "totalWalletBalance": "11426.13", "totalUnrealizedProfit": "380.45",
+    "totalMarginBalance": "11806.58", "totalInitialMargin": "8443.77",
+    "totalMaintMargin": "448.17", "availableBalance": "3362.81",
+    "maxWithdrawAmount": "3362.81", "multiAssetsMargin": False,
     # 合约钱包里逐个币的余额。marginBalance 比 walletBalance 多出来的部分是浮盈，
     # 不是多出来的币——成本基础必须用 walletBalance。
     "assets": [
         {"asset": "USDT", "walletBalance": "8426.13", "marginBalance": "8806.58",
          "availableBalance": "362.81"},
+        {"asset": "BFUSD", "walletBalance": "3000", "marginBalance": "3000",
+         "availableBalance": "3000"},
         {"asset": "PAXG", "walletBalance": "0", "marginBalance": "0",
          "availableBalance": "0"},
     ],
@@ -189,6 +191,14 @@ FUT_RISK = [
      "entryPrice": "604.13", "markPrice": "618.74", "unRealizedProfit": "204.54",
      "liquidationPrice": "0", "isolatedMargin": "0", "isolatedWallet": "0",
      "notional": "8662.36", "marginAsset": "USDT"},
+]
+FUT_PREMIUM = [
+    {"symbol": "NVDAUSDT", "markPrice": "218.42", "lastFundingRate": "0.00010",
+     "nextFundingTime": int((NOW + timedelta(hours=4)).timestamp() * 1000),
+     "time": int(NOW.timestamp() * 1000)},
+    {"symbol": "QQQUSDT", "markPrice": "618.74", "lastFundingRate": "-0.00005",
+     "nextFundingTime": int((NOW + timedelta(hours=4)).timestamp() * 1000),
+     "time": int(NOW.timestamp() * 1000)},
 ]
 FUT_ADL = [{"symbol": "NVDAUSDT", "adlQuantile": {"BOTH": 1}},
            {"symbol": "QQQUSDT", "adlQuantile": {"BOTH": 2}}]
@@ -304,6 +314,7 @@ ROUTES = {
     "/fapi/v1/accountConfig": FUT_CONFIG,
     "/fapi/v1/symbolConfig": FUT_SYMBOL_CONFIG,
     "/fapi/v3/positionRisk": FUT_RISK,
+    "/fapi/v1/premiumIndex": FUT_PREMIUM,
     "/fapi/v1/adlQuantile": FUT_ADL,
     "/fapi/v1/symbolAdlRisk": FUT_SYMBOL_ADL,
     "/fapi/v1/exchangeInfo": FUT_EXCHANGE_INFO,
@@ -500,14 +511,6 @@ SPOT_MY_TRADES = [
      "time": int((NOW - timedelta(hours=10)).timestamp() * 1000)},
 ]
 
-# 今天入账的活期派息与杠杆利息，给"今日盈亏"那一组测试单独替换用（默认路由里的
-# 那两份记在昨天）。**稳定币**是故意的：它们不参与盯市，原先这两笔一分都看不到。
-EARN_REWARDS_TODAY = {"total": 2, "rows": [
-    {"asset": "USDT", "rewards": "0.42", "projectId": "USDT001", "type": "REALTIME",
-     "time": int(NOW.timestamp() * 1000)},
-    {"asset": "USDT", "rewards": "0.31", "projectId": "USDT001", "type": "BONUS",
-     "time": int(NOW.timestamp() * 1000)},
-]}
 MARGIN_INTEREST_TODAY = {"total": 1, "rows": [
     {"txId": 9100, "interestAccuredTime": int(NOW.timestamp() * 1000),
      "asset": "USDT", "principal": "5000", "interest": "0.11",
@@ -569,13 +572,6 @@ LEDGER_TRANSFERS = {
          "tranId": 8001, "timestamp": int((NOW - timedelta(days=2)).timestamp() * 1000)}]},
 }
 
-LEDGER_EARN_FLEX = {"total": 1, "rows": [
-    {"asset": "USDT", "rewards": "0.86", "projectId": "USDT001", "type": "REWARDS",
-     "time": int((NOW - timedelta(days=1)).timestamp() * 1000)}]}
-LEDGER_EARN_LOCKED = {"total": 1, "rows": [
-    {"positionId": 90210, "asset": "BNB", "amount": "0.0012", "lockPeriod": "30",
-     "time": int((NOW - timedelta(days=1)).timestamp() * 1000)}]}
-
 # 官方把这个字段拼错成 interestAccuredTime（少个 c），照着写才取得到
 LEDGER_INTEREST = {"total": 1, "rows": [
     {"txId": 9001, "interestAccuredTime": int((NOW - timedelta(days=1)).timestamp() * 1000),
@@ -607,8 +603,6 @@ LEDGER_DUST = {"total": 1, "userAssetDribblets": [
           "transferedAmount": "0.039", "fromAsset": "DOT"}]}]}
 
 ROUTES.update({
-    "/sapi/v1/simple-earn/flexible/history/rewardsRecord": LEDGER_EARN_FLEX,
-    "/sapi/v1/simple-earn/locked/history/rewardsRecord": LEDGER_EARN_LOCKED,
     "/sapi/v1/margin/interestHistory": LEDGER_INTEREST,
     "/sapi/v1/convert/tradeFlow": LEDGER_CONVERT,
     "/sapi/v1/asset/dribblet": LEDGER_DUST,
@@ -631,24 +625,8 @@ _BY_SYMBOL = {
 }
 
 
-# 派息记录按请求的时间窗过滤，与真接口一致。逐日盈亏把 90 天切成三段问（单次上限 30 天），
-# 不过滤的话每段都回同一批行，同一笔派息会被算三遍。
-_TIME_WINDOWED = {
-    "/sapi/v1/simple-earn/flexible/history/rewardsRecord",
-    "/sapi/v1/simple-earn/locked/history/rewardsRecord",
-}
-
-
 def windowed(request: httpx.Request, response: httpx.Response) -> httpx.Response:
-    params = dict(request.url.params)
-    if request.url.path not in _TIME_WINDOWED or "startTime" not in params:
-        return response
-    body = response.json()
-    if not isinstance(body, dict) or not isinstance(body.get("rows"), list):
-        return response
-    start, end = int(params["startTime"]), int(params.get("endTime", 2**63))
-    rows = [r for r in body["rows"] if start <= int(r.get("time", 0)) <= end]
-    return httpx.Response(response.status_code, json={**body, "rows": rows, "total": len(rows)})
+    return response
 
 
 def make_transport(*, fail: dict[str, int] | None = None, calls: list | None = None,

@@ -44,7 +44,7 @@ describe('盈亏日历统计区间', () => {
       days: days('2026-08-20', 17), // 最新日期为 2026-09-05
     })))
 
-    expect(host.textContent).toContain('区间 17 天')
+    expect(host.textContent).toContain('30 天 · 17 天为正')
     const month = [...host.querySelectorAll<HTMLButtonElement>('button')]
       .find((button) => button.textContent === '本月')!
     expect(month).toBeDefined()
@@ -53,6 +53,8 @@ describe('盈亏日历统计区间', () => {
 
     expect(month.getAttribute('data-state')).toBe('on')
     expect(host.textContent).toContain('2026 年 9 月')
-    expect(host.textContent).toContain('区间 5 天')
+    expect(host.textContent).toContain('5 天 · 5 天为正')
+    expect(host.textContent).not.toContain('区间')
+    expect(host.textContent).not.toContain('合计')
   })
 })

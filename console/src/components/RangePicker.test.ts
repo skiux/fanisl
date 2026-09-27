@@ -38,6 +38,7 @@ describe('自定义日期区间', () => {
       first: '2026-06-29',
       last: '2026-09-26',
       onChange,
+      today: '2026-09-26',
       value: null,
     })))
 
@@ -53,5 +54,38 @@ describe('自定义日期区间', () => {
     act(() => button('自定义').click())
     act(() => button('完成').click())
     expect(onChange).toHaveBeenCalledWith({ from: '2026-08-28', to: '2026-09-26' })
+  })
+
+  it('日期范围是当前日前后一年，日轮首尾循环', () => {
+    act(() => root.render(createElement(RangePicker, {
+      active: false,
+      first: '2026-06-29',
+      last: '2026-09-26',
+      onChange: vi.fn(),
+      today: '2026-09-26',
+      value: null,
+    })))
+    act(() => button('自定义').click())
+
+    const monthWheel = document.querySelector<HTMLElement>('[aria-label="年月"]')!
+    expect(monthWheel.textContent).toContain('2025 年 9 月')
+    expect(monthWheel.textContent).toContain('2027 年 9 月')
+    expect(monthWheel.textContent).not.toContain('2025 年 8 月')
+
+    const dayWheel = document.querySelector<HTMLElement>('[aria-label="日"]')!
+    const firstDay = [...dayWheel.querySelectorAll<HTMLButtonElement>('button')]
+      .find((item) => item.textContent === '1')!
+    act(() => firstDay.click())
+    expect(button('2026年8月1日')).toBeDefined()
+
+    act(() => dayWheel.dispatchEvent(new KeyboardEvent('keydown', {
+      bubbles: true, key: 'ArrowUp',
+    })))
+    expect(button('2026年8月31日')).toBeDefined()
+
+    const september = [...monthWheel.querySelectorAll<HTMLButtonElement>('button')]
+      .find((item) => item.textContent?.trim() === '2026 年 9 月')!
+    act(() => september.click())
+    expect(button('2026年8月31日')).toBeDefined()
   })
 })

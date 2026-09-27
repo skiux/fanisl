@@ -17,11 +17,11 @@
     成交            单位成本 = 成交价    → 买入当天只赚"成交价到收盘"那一段
     充值 / 提现     单位成本 = 当日收盘  → 钱进来不是赚的，当天贡献 0
     合约结算        单位成本 = 当日收盘  → 它已经在"当日结算"那半边算过一次
-    派息 / 利息     单位成本 = 当日收盘  → 另行成项，见 `daily_credits`
+    杠杆利息        单位成本 = 当日收盘  → 另行成项，见 `daily_credits`
 
-**理财派息与杠杆利息不在盯市里**（原先它们的单位成本是 0，等于并进某个币当天的
-涨跌）。改的理由是稳定币整个不参与盯市：USDT 活期的利息一分都没算进来，而它是
-这个账户上最大的一笔理财。现在它们各自成项，稳定币也照样算。
+**理财收益与杠杆利息不在盯市里**。稳定币整个不参与盯市，但理财收益仍然存在。
+理财历史派息接口与账户实际收益对不上，因此不再读取；当天收益由当前本金与年化
+从 UTC 00:00 连续计提，见 `estimated_yield_credits`。杠杆利息仍按实际流水成项。
 
 展开验一下买入：`(q+a)·close − q·close₋₁ − a·p = q·(close − close₋₁) + a·(close − p)`
 ——持仓那部分照涨跌算，新买的那部分从成交价算起。这正是想要的。
@@ -34,7 +34,9 @@
 
 关键是持仓量按**跨全部钱包**统计（`held_across_wallets`）。这样钱包之间的划转
 自动抵消——从现货挪进合约、存进理财都不改变总量，根本不用去查划转记录。
-真正会改变总量的只有：成交、充提、合约结算、理财派息、杠杆利息、闪兑、小额兑换。
+当前能可靠回滚的数量变化有：成交、充提、合约结算、杠杆利息、闪兑、小额兑换。
+理财派息历史已经停止读取，因为其结果与账户实际收益不一致；理财稳定币本身不参与
+盯市，当天收益另按本金与年化估算，不会借错误流水补历史数量。
 
 回滚出负数说明有一类进出没被覆盖到（这个账户上最可能是 90 天以外的充值，
 那个接口回不了那么远）。**那天报 `None`，不报一个错的数**——`unknown_days`
@@ -68,15 +70,14 @@ def flow(day: str, asset: str, dq: float, unit_usd: float | None,
     """一笔进出。`unit_usd=None` 表示按当日收盘计价（本身不产生盈亏）。
 
     `kind` 只区分**它的损益由谁报**：`move` 的落在盯市里（`daily_spot_pnl`），
-    `earn`（理财派息）与 `interest`（杠杆利息）另行成项（`daily_credits`）。
-    后两类在盯市里按当日收盘计价，因此不会被算两次。
+    `interest`（杠杆利息）由 `daily_credits` 另行成项。利息在盯市里按当日收盘
+    计价，因此不会被算两次。
     """
     return {"day": day, "asset": asset, "dq": dq, "unit_usd": unit_usd, "kind": kind}
 
 
 def collect_flows(*, trades: Iterable[dict] = (), deposits: Any = None,
                   withdrawals: Any = None, income: Any = None,
-                  earn_flexible: Any = None, earn_locked: Any = None,
                   margin_interest: Any = None, convert: Any = None,
                   dust: Any = None, equity_trades: Iterable[dict] = ()) -> list[dict]:
     """各来源的原始行 → 统一的进出清单。
@@ -126,18 +127,7 @@ def collect_flows(*, trades: Iterable[dict] = (), deposits: Any = None,
             # 单位成本按当日收盘：这笔的损益已经在"当日结算"那半边算过一次了
             out.append(flow(day, row.get("asset", ""), amount, None))
 
-    # 派息与利息**按当日收盘计价**（单位成本 None），损益由 `daily_credits` 单独给。
-    # 原先它们的单位成本是 0，等于把损益并进那个币当天的涨跌里：稳定币整个不参与
-    # 盯市，USDT 活期的利息因此一分都没算进来，而且它们在界面上也没有名字。
-    for row in _rows(earn_flexible):
-        day, amount = _day(row.get("time")), dec0(row.get("rewards"))
-        if day and amount > 0:
-            out.append(flow(day, row.get("asset", ""), amount, None, "earn"))
-    for row in _rows(earn_locked):
-        day, amount = _day(row.get("time")), dec0(row.get("amount"))
-        if day and amount > 0:
-            out.append(flow(day, row.get("asset", ""), amount, None, "earn"))
-
+    # 杠杆利息按当日收盘计价（单位成本 None），损益由 `daily_credits` 单独给。
     for row in _rows(margin_interest):
         day = _day(row.get("interestAccuredTime") or row.get("interestAccruedTime"))
         amount = dec0(row.get("interest"))
@@ -293,9 +283,51 @@ def daily_spot_pnl(held: dict[str, float], closes: dict[str, dict[str, float]],
     }
 
 
+def estimated_yield_credits(positions: Iterable[dict], *, days: int,
+                            now: datetime) -> dict:
+    """按当前本金与年化估算今天已计提的稳定币理财收益。
+
+    只支持产品页能确认本金与年化的 USDT / USDC / BFUSD。当前信息无法重建过去
+    每天的本金与利率，所以历史日期保持 0；今天从 UTC 00:00 按已过去的时间比例
+    连续计提，避免假定一个并不存在的派息时刻，也避免在凌晨一次计入整天收益。
+    """
+    today = now.astimezone(timezone.utc)
+    dates = [(today.date() - timedelta(days=back)).isoformat()
+             for back in range(days - 1, -1, -1)]
+    totals: dict[str, float] = {day: 0.0 for day in dates}
+    if not dates:
+        return {"days": totals, "today_by_asset": [], "unpriced_assets": []}
+
+    midnight = today.replace(hour=0, minute=0, second=0, microsecond=0)
+    elapsed = max(0.0, min(1.0, (today - midnight).total_seconds() / 86_400))
+    by_asset: dict[str, float] = {}
+    unpriced: set[str] = set()
+    supported = {"USDT", "USDC", "BFUSD"}
+    for row in positions:
+        asset = str(row.get("asset") or "")
+        if asset not in supported:
+            continue
+        value, apr = dec(row.get("value_usd")), dec(row.get("apr"))
+        if value is None or apr is None:
+            unpriced.add(asset)
+            continue
+        if value <= 0 or apr < 0:
+            continue
+        accrued = value * apr / 365 * elapsed
+        totals[dates[-1]] += accrued
+        by_asset[asset] = by_asset.get(asset, 0.0) + accrued
+
+    return {
+        "days": totals,
+        "today_by_asset": [{"asset": asset, "usd": by_asset[asset]}
+                           for asset in sorted(by_asset)],
+        "unpriced_assets": sorted(unpriced),
+    }
+
+
 def daily_credits(flows: Iterable[dict], closes: dict[str, dict[str, float]], *,
                   kind: str, days: int, now: datetime) -> dict:
-    """一类**白得或白付**的流水按天折成美元：理财派息（`earn`）、杠杆利息（`interest`）。
+    """一类**白得或白付**的实际流水按天折成美元。目前只用于杠杆利息。
 
     它们不是涨跌，是数量凭空多出来或少下去，所以单独成项而不是并进盯市。
     稳定币按 1 美元折算——它们没有日线，也不需要；其余按当天收盘。

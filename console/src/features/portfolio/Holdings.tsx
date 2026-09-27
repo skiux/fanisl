@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react'
-import { CaretDown } from '@phosphor-icons/react'
 import { cn } from '../../lib/cn'
 import { Ticker } from '../../components/Ticker'
 import { amount, DUST_THRESHOLD_USD, money, percent, price, signedMoney, signedPercent } from '../../lib/format'
 import type { SpotCostInput } from '../../api/client'
-import type { EarnPosition, EquityHolding, TokenizedStockAsset } from '../../api/types'
+import type { EquityHolding, TokenizedStockAsset } from '../../api/types'
 import type { CashRow, SpotHoldingRow } from '../../lib/holdings'
 import { PositionCostEditor } from './StockCostEditor'
 
@@ -51,7 +50,7 @@ function CostCell({ item, canEdit, onEdit }: {
         known ? 'text-ink-2' : 'text-ink-3 underline')}
       onClick={onEdit}
       title={known ? '修正成本'
-        : item.cost_status === 'stale' ? '持仓数量已变化，需要重新录入成本' : '录入成本'}
+        : item.cost_status === 'stale' ? '持仓增加，需要重新录入成本' : '录入成本'}
       type="button"
     >
       {known ? <><MobileLabel />{price(item.cost_price_usd)}</>
@@ -141,14 +140,11 @@ export function SpotTable({ spot, canEditCost = false, onSaveCost }: {
   canEditCost?: boolean
   onSaveCost?: (asset: string, input: SpotCostInput) => Promise<void>
 }) {
-  const [dustOpen, setDustOpen] = useState(false)
-  const { major, dust, dustValue, total } = useMemo(() => {
+  const { major, total } = useMemo(() => {
     const sorted = [...spot].sort((a, b) => (b.value_usd ?? -1) - (a.value_usd ?? -1))
     const isDusty = (item: SpotHoldingRow) => (item.value_usd ?? 0) < DUST_THRESHOLD_USD
     return {
       major: sorted.filter((item) => !isDusty(item)),
-      dust: sorted.filter(isDusty),
-      dustValue: sorted.filter(isDusty).reduce((sum, item) => sum + (item.value_usd ?? 0), 0),
       total: sorted.reduce((sum, item) => sum + (item.value_usd ?? 0), 0),
     }
   }, [spot])
@@ -171,76 +167,7 @@ export function SpotTable({ spot, canEditCost = false, onSaveCost }: {
       <ul className="divide-y divide-rule">
         {major.map((item) => <SpotRow canEditCost={canEditCost} item={item} key={item.asset} onSaveCost={onSaveCost} share={share(item)} />)}
       </ul>
-      {dust.length > 0 && (
-        <div className="border-t border-rule">
-          <button
-            aria-expanded={dustOpen}
-            className="flex w-full items-center gap-2.5 py-3 text-left transition-colors duration-200 hover:text-ink"
-            onClick={() => setDustOpen((open) => !open)}
-            type="button"
-          >
-            <CaretDown aria-hidden="true" className={cn('shrink-0 text-ink-3 transition-transform duration-300', dustOpen && 'rotate-180')} size={13} />
-            <span className="text-xs text-ink-2">{dust.length} 项小额余额</span>
-            <span className="tnum ml-auto text-xs text-ink-3">{money(dustValue)}</span>
-          </button>
-          <div className="collapsible" data-open={dustOpen}>
-            <div>
-              <ul className="divide-y divide-rule border-t border-rule">
-                {dust.map((item) => <SpotRow canEditCost={canEditCost} item={item} key={item.asset} onSaveCost={onSaveCost} share={share(item)} />)}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
     </>
-  )
-}
-
-/**
- * 活期的年化是**阶梯**的：区间内那部分按档位利率，超出的按实时年化。
- * `apr` 已经是按当前金额加权后的那个数（后端 `_apr_tiers`），这里把吃到的那一档
- * 说出来，否则页面上的年化与 Binance 首屏那个挂牌利率对不上，看着像错的。
- */
-function tierNote(item: EarnPosition) {
-  const tier = item.apr_tiers.find((row) => row.amount > 0)
-  if (!tier || item.apr_base === null) return null
-  return `前 ${amount(tier.to)} 按 ${percent(tier.rate, 2)} · 其余 ${percent(item.apr_base, 2)}`
-}
-
-export function EarnTable({ earn }: { earn: EarnPosition[] }) {
-  if (earn.length === 0) {
-    return <p className="py-10 text-center text-sm text-ink-3">没有理财持仓。</p>
-  }
-  return (
-    <ul className="grid gap-x-10 sm:grid-cols-2 xl:grid-cols-3">
-      {earn.map((item) => (
-        <li className="flex items-center gap-3 border-b border-rule py-3.5" key={item.product_id}>
-          <Ticker asset={item.asset} />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-ink">{item.asset}</span>
-              <span className="rounded-[4px] bg-sheet-2 px-1.5 py-px text-micro text-ink-2">
-                {item.kind === 'flexible' ? '活期' : '定期'}
-              </span>
-            </div>
-            <div className="tnum mt-0.5 text-micro text-ink-3">
-              {amount(item.amount)}
-              {item.redeem_date && ` · ${item.redeem_date} 到期`}
-              {!item.can_redeem && item.kind === 'locked' && ' · 锁定中'}
-            </div>
-            {tierNote(item) && (
-              <div className="tnum mt-0.5 truncate text-micro text-ink-3">{tierNote(item)}</div>
-            )}
-          </div>
-          <div className="shrink-0 text-right">
-            <div className="tnum text-sm text-ink">{money(item.value_usd)}</div>
-            <div className="tnum text-micro text-gain">
-              {item.apr === null ? '—' : `${percent(item.apr, 2)} 年化`}
-            </div>
-          </div>
-        </li>
-      ))}
-    </ul>
   )
 }
 

@@ -118,12 +118,16 @@ export const positions: FuturesPosition[] = RAW_POSITIONS.map((row) => {
     underlying_subtypes: row.base === 'XAU' ? ['PRECIOUS_METAL'] : ['US_EQUITY'],
     market_session: 'REGULAR',
     symbol_adl_risk: row.adl_quantile !== null && row.adl_quantile >= 2 ? 'medium' : 'low',
+    funding_rate: row.base === 'QQQ' ? -0.00005 : 0.0001,
+    estimated_funding_fee_usd: -(row.position_amt >= 0 ? 1 : -1)
+      * notional * (row.base === 'QQQ' ? -0.00005 : 0.0001),
+    next_funding_time: Date.parse('2026-09-26T16:00:00Z'),
   }
 })
 
 export const stocks: StocksAccount = {
   standalone_positions_available: false,
-  coverage_detail: '持仓数量来自钱包；成本由管理员为当前持仓录入，股数变化后需重新录入。',
+  coverage_detail: '持仓数量来自钱包；成本由管理员为当前持仓录入，股数增加后需重新录入。',
   // 用实际出现过的 SOXL 正股检验成本录入；代币化股票的换算另有降级态测试。
   equity_holdings: [{
     asset_code: 'EQ_SOXL',
@@ -180,6 +184,10 @@ export const futures: FuturesAccount = (() => {
   const marginBalance = FUTURES_WALLET + upnl
   const initial = positions.reduce((sum, p) => sum + p.initial_margin_usd, 0)
   const maint = positions.reduce((sum, p) => sum + p.maint_margin_usd, 0)
+  const estimatedFunding = positions.reduce(
+    (sum, p) => sum + (p.estimated_funding_fee_usd ?? 0), 0,
+  )
+  const fundingValue = positions.reduce((sum, p) => sum + p.notional_usd, 0)
   return {
     dual_side_position: false,
     multi_assets_margin: false,
@@ -191,6 +199,9 @@ export const futures: FuturesAccount = (() => {
     available_balance: marginBalance - initial,
     max_withdraw: marginBalance - initial,
     margin_ratio: marginBalance > 0 ? maint / marginBalance : null,
+    estimated_funding_fee_usd: estimatedFunding,
+    estimated_funding_rate: fundingValue > 0 ? -estimatedFunding / fundingValue : null,
+    next_funding_time: Date.parse('2026-09-26T16:00:00Z'),
     positions,
     // 合约钱包里躺着的币。把 BNB 划进来当保证金 / 抵手续费是常见做法——
     // 它们仍然是现货持仓，只是不在现货钱包里
@@ -390,12 +401,35 @@ const PREV_CLOSE_RATIO: Record<string, number> = {
   SOXL: 0.973,
 }
 
-/** 今天的活期派息与杠杆利息。**记在稳定币上**，所以它们不在逐币涨跌里 */
-const EARN_MARKS = [
-  { asset: 'USDT', usd: 1.04 },
-  { asset: 'USDC', usd: 0.32 },
-]
+/** 今天的杠杆利息。**记在稳定币上**，所以它不在逐币涨跌里 */
 const INTEREST_MARKS = [{ asset: 'USDT', usd: -0.28 }]
+
+/** 与后端相同：当前本金 × 年化 / 365，再按 UTC 当天已过去的时间连续计提。 */
+function estimatedYieldMarks(asOf: Date) {
+  const midnight = Date.parse(`${asOf.toISOString().slice(0, 10)}T00:00:00Z`)
+  const elapsed = Math.max(0, Math.min(1, (asOf.getTime() - midnight) / 86_400_000))
+  const rows = earn
+    .filter((row) => (row.asset === 'USDT' || row.asset === 'USDC' || row.asset === 'BFUSD')
+      && row.value_usd !== null && (row.apr !== null || row.asset === 'BFUSD'))
+    .map((row) => ({
+      asset: row.asset,
+      value: row.value_usd!,
+      apr: row.apr ?? 0.0736,
+    }))
+  const bfusd = [
+    ...spot.map((row) => ({ asset: row.asset, value: row.value_usd })),
+    ...futures.assets.map((row) => ({ asset: row.asset, value: row.value_usd })),
+    ...margin.assets.map((row) => ({ asset: row.asset, value: row.value_usd })),
+  ].filter((row) => row.asset === 'BFUSD' && row.value !== null)
+    .map((row) => ({ asset: 'BFUSD', value: row.value!, apr: 0.0736 }))
+
+  const totals = new Map<string, number>()
+  for (const row of [...rows, ...bfusd]) {
+    totals.set(row.asset, (totals.get(row.asset) ?? 0) + row.value * row.apr / 365 * elapsed)
+  }
+  return [...totals].sort(([a], [b]) => a.localeCompare(b))
+    .map(([asset, usd]) => ({ asset, usd }))
+}
 
 /**
  * 盈亏构成。和后端同一套口径。**没有残差项**——旧的归因表用"期末 − 期初 −
@@ -433,7 +467,8 @@ function buildPnl(asOf: Date): Pnl {
     }
   })
   const todayStock = stockMarks.reduce((sum, row) => sum + (row.today_usd ?? 0), 0)
-  const todayEarn = EARN_MARKS.reduce((sum, row) => sum + row.usd, 0)
+  const earnMarks = estimatedYieldMarks(asOf)
+  const todayEarn = earnMarks.reduce((sum, row) => sum + row.usd, 0)
   const todayInterest = INTEREST_MARKS.reduce((sum, row) => sum + row.usd, 0)
 
   const daily = buildDaily(asOf, todayStock, todayEarn, todayInterest)
@@ -466,7 +501,7 @@ function buildPnl(asOf: Date): Pnl {
     daily,
     spot_marks: marks,
     stock_marks: stockMarks,
-    earn_marks: EARN_MARKS,
+    earn_marks: earnMarks,
     interest_marks: INTEREST_MARKS,
     equity_missing: [],
     equity_close_source: 'Yahoo 日线复权收盘',
@@ -513,11 +548,11 @@ function buildDaily(asOf: Date, todayStock = 0, todayEarn = 0, todayInterest = 0
       ? Math.round(Math.sin(back * 2.1 + 0.9) * 180 * 100) / 100 : 0
     // 最早那两天故意算不出来：日历要能画出"这天没有数"的样子
     const known = back < 88
-    // 正股：周末没有行情，那天不动。派息天天有，利息按日计。
+    // 正股：周末没有行情，那天不动。当前本金与年化只能估算今天，不回填历史。
     const weekend = weekday === 0 || weekday === 6
     const stock = back === 0 ? todayStock
       : weekend ? 0 : Math.round(Math.sin(back * 0.83) * 21 * 100) / 100
-    const earn = back === 0 ? todayEarn : 1.31
+    const earn = back === 0 ? todayEarn : 0
     const interest = back === 0 ? todayInterest : -0.28
     out.push({
       date: day.toISOString().slice(0, 10),
@@ -568,8 +603,7 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
       ...([
         'prices', 'wallets', 'spot', 'stocks', 'futures', 'account', 'earn', 'bfusd', 'margin',
         'isolated_margin', 'liquidation_loan', 'income', 'transfers',
-        // 派息与利息是「今日盈亏」里的独立一项，取不到要能在状态里看见
-        'earn_rewards', 'margin_interest',
+        'margin_interest',
       ] as const).map((key) => okSource(key, iso)),
       {
         key: 'portfolio_margin', status: 'unsupported', as_of: iso,

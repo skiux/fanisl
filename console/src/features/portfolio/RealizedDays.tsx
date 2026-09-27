@@ -66,14 +66,31 @@ function shiftDays(day: string, delta: number) {
  * 合约域名 451 时 `pnl` 整块为空，正好踩上（实测 fapi_blocked / no_history
  * 两个场景六个页面全白）。守卫必须在 hook 之前，那就只能提到外面来。
  */
-export function RealizedDays({ days }: { days: DailyPnl[] }) {
+export function RealizedDays({ days, selectedDate, onSelectDate, today }: {
+  days: DailyPnl[]
+  selectedDate?: string | null
+  onSelectDate?: (date: string) => void
+  today?: string
+}) {
   if (days.length === 0) {
     return <p className="py-10 text-center text-sm text-ink-3">还没有可用的成交记录。</p>
   }
-  return <Calendar days={days} />
+  return (
+    <Calendar
+      days={days}
+      onSelectDate={onSelectDate}
+      selectedDate={selectedDate}
+      today={today ?? new Date().toISOString().slice(0, 10)}
+    />
+  )
 }
 
-function Calendar({ days }: { days: DailyPnl[] }) {
+function Calendar({ days, selectedDate, onSelectDate, today }: {
+  days: DailyPnl[]
+  selectedDate?: string | null
+  onSelectDate?: (date: string) => void
+  today: string
+}) {
   const last = days.at(-1)!.date
   const first = days[0]!.date
 
@@ -139,7 +156,10 @@ function Calendar({ days }: { days: DailyPnl[] }) {
   // 合计描述的是**区间**，不是当前这个月——区间可能横跨好几个月
   const scope = useMemo(() => {
     const live = days.filter((d) => d.known && d.date >= range.from && d.date <= range.to)
-    const span = days.filter((d) => d.date >= range.from && d.date <= range.to).length
+    const span = Math.max(1, Math.round(
+      (Date.parse(`${range.to}T00:00:00Z`) - Date.parse(`${range.from}T00:00:00Z`))
+      / 86_400_000,
+    ) + 1)
     return {
       span,
       computed: live.length,
@@ -150,9 +170,12 @@ function Calendar({ days }: { days: DailyPnl[] }) {
   }, [days, range])
 
   const key = monthKey(cursor)
-  // 数据只有 90 天，翻到头就把箭头禁掉——而不是翻出一片空月历
-  const canPrev = key > monthKey(new Date(`${first}T00:00:00Z`))
-  const canNext = key < monthKey(new Date(`${last}T00:00:00Z`))
+  const lower = new Date(`${today}T00:00:00Z`)
+  lower.setUTCFullYear(lower.getUTCFullYear() - 1)
+  const upper = new Date(`${today}T00:00:00Z`)
+  upper.setUTCFullYear(upper.getUTCFullYear() + 1)
+  const canPrev = key > monthKey(lower)
+  const canNext = key < monthKey(upper)
   const step = (delta: number) => setCursor((at) =>
     new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() + delta, 1)))
 
@@ -184,6 +207,7 @@ function Calendar({ days }: { days: DailyPnl[] }) {
             gotoMonth(next.to)
           }}
           value={custom}
+          today={today}
         />
       </div>
 
@@ -222,7 +246,9 @@ function Calendar({ days }: { days: DailyPnl[] }) {
                 cell={cell}
                 key={cell?.date ?? `${week.key}-${index}`}
                 peak={scope.peak}
-                today={last}
+                today={today}
+                selected={cell?.date === selectedDate}
+                onSelect={onSelectDate}
               />
             ))}
             <span className={cn(
@@ -240,10 +266,9 @@ function Calendar({ days }: { days: DailyPnl[] }) {
       {/* 这一行描述的是**区间**，不是当前这个月：区间可以横跨几个月 */}
       <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-rule pt-3">
         <span className="tnum text-xs text-ink-3">
-          区间 {scope.span} 天 · {scope.wins} 天为正
+          {scope.span} 天 · {scope.wins} 天为正
         </span>
         <span className="tnum text-xs text-ink-3">
-          合计
           <span className={cn('ml-2 text-sm',
             scope.computed === 0 ? 'text-ink-3'
               : scope.total >= 0 ? 'text-gain' : 'text-loss')}>
@@ -279,10 +304,12 @@ function Arrow({ onClick, disabled, label, forward }: {
   )
 }
 
-function DayCell({ cell, peak, today }: {
+function DayCell({ cell, peak, today, selected, onSelect }: {
   cell: Cell
   peak: number
   today: string
+  selected: boolean
+  onSelect?: (date: string) => void
 }) {
   // 月首月末的补位格：不属于这个月，**整格不画**（不是画一个空色块）
   if (cell === null) return <span aria-hidden="true" className="min-h-[54px]" />
@@ -296,7 +323,8 @@ function DayCell({ cell, peak, today }: {
   return (
     // 每天一块独立的圆角色块，靠间距分隔而不是描边——三十多个方框会把这一页
     // 压成一张表单。
-    <div
+    <button
+      aria-pressed={selected}
       // 窄屏一格只有 41px 宽，px-2 的内边距就吃掉 16px——金额放不下。
       // 内边距和字号都跟着断点走，别指望 truncate 兜底：截断的金额是错的数字。
       className={cn('flex min-h-[54px] w-full flex-col justify-between rounded-[5px]',
@@ -306,12 +334,16 @@ function DayCell({ cell, peak, today }: {
         !inRange && 'opacity-40',                     // 不在统计区间里：整格压暗
         // 今天：一圈细环。这是所有格子里最先被找的那一个
         cell.date === today && 'ring-1 ring-inset ring-rule-strong',
+        selected && 'outline outline-1 outline-offset-1 outline-ink/45',
       )}
+      disabled={!known || !computed || !onSelect}
+      onClick={() => onSelect?.(cell.date)}
       style={weight > 0 ? {
         backgroundColor: `color-mix(in oklab, var(--${value >= 0 ? 'gain' : 'loss'}) ${
           (9 + weight * 20).toFixed(1)}%, transparent)`,
       } : undefined}
       title={computed ? `${cell.date} ${signedMoney(value)}` : cell.date}
+      type="button"
     >
       {/* 日期是这张表的索引，要一眼找得到——原先 11px 的灰字比金额还轻，
           翻月的时候要盯着找。金额在下面，颜色与符号各是一重编码。 */}
@@ -325,7 +357,7 @@ function DayCell({ cell, peak, today }: {
           {compact(value)}
         </span>
       )}
-    </div>
+    </button>
   )
 }
 

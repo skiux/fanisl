@@ -10,7 +10,7 @@ import { cash, exposures } from '../../lib/holdings'
 import {
   breakingDrop, openingCapacity, positionSize, positionTarget, resize, shock,
 } from '../../lib/stress'
-import { marginRatioRisk, riskBar, riskText } from '../../lib/risk'
+import { marginRatioRisk, riskBar } from '../../lib/risk'
 import type { PortfolioSnapshot } from '../../api/types'
 
 const DROPS = { '10': 0.1, '20': 0.2, '30': 0.3, '50': 0.5 } as const
@@ -26,8 +26,7 @@ const SIZES = { now: null, '1': 1, '1.5': 1.5, '2': 2 } as const
 type SizeKey = keyof typeof SIZES
 
 /**
- * 风险控制。原先这些东西散在两处：总览的「风险仪表」是三个此刻的读数，
- * 合约页是逐个仓位的距强平。**两处都回答不了"再跌多少我出局"**——
+ * 风险控制。合约页逐仓显示距强平，但它回答不了"所有仓位一起跌多少会出局"——
  * 逐个仓位各看各的距离，而账户是共用一份保证金的，多个仓位一起亏才是真实情形，
  * 分开看会系统性地低估。
  *
@@ -99,10 +98,8 @@ export function RiskControlView({ snapshot, veiled }: {
     return (
       <div className={cn(veiled && 'veiled')}>
         <ViewGrid>
-          <Module span="lg:col-span-7" title="没有可评估的风险">
-            <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
-              这一节要的是仓位与保证金，两样这次都没有。
-            </p>
+          <Module span="lg:col-span-7" title="风险控制">
+            <p className="text-sm text-ink-3">当前没有可评估仓位。</p>
           </Module>
         </ViewGrid>
       </div>
@@ -114,28 +111,20 @@ export function RiskControlView({ snapshot, veiled }: {
       <ViewGrid>
         <Module
           figure={signedMoney(netExposure)}
-          note={`净敞口 · ${rows.length} 个标的`}
           span="lg:col-span-12"
-          title="敞口分布"
+          title="持仓价值分布"
         >
           {rows.length === 0 ? (
-            <p className="py-10 text-center text-sm text-ink-3">当前没有敞口。</p>
+            <p className="py-10 text-center text-sm text-ink-3">当前没有持仓。</p>
           ) : (
             <ExposureDistribution rows={rows} />
           )}
         </Module>
 
-        <Module
-          figure={hit.equity_usd === null ? '—' : money(hit.equity_usd)}
-          note={activeSize === 'now' ? `跌 ${drop}% 之后的净值` : `仓位 ${activeSize}× · 跌 ${drop}% 之后的净值`}
-          span="lg:col-span-7"
-          title="压力测试"
-          tone={hit.liquidated.length > 0 ? 'loss' : undefined}
-        >
+        <Module span="lg:col-span-7" title="压力测试" tone={hit.liquidated.length > 0 ? 'loss' : undefined}>
           <div className="mb-5">
             <div className="mb-2.5 flex items-baseline justify-between gap-4">
-              <span className="text-xs text-ink-2">合约总仓位</span>
-              <span className="text-[11px] text-ink-3">倍数以账户净值为基准</span>
+              <span className="text-xs text-ink-2">合约总价值</span>
             </div>
             <div
               aria-label="仓位规模"
@@ -193,11 +182,6 @@ export function RiskControlView({ snapshot, veiled }: {
                 )
               })}
             </div>
-            {!canProjectPosition && (
-              <p className="mt-2 text-[11px] leading-relaxed text-ink-3">
-                当前没有合约仓位，无法推导目标仓位的标的分布；目标压力场景暂不可选。
-              </p>
-            )}
             <div className="mt-3 flex items-center gap-3">
               <span className="w-[40px] shrink-0 text-xs text-ink-2">下跌</span>
               <SegmentedControl
@@ -228,7 +212,6 @@ export function RiskControlView({ snapshot, veiled }: {
               label="保证金率"
               tone={hit.margin_ratio !== null && hit.margin_ratio >= 0.8 ? 'loss' : undefined}
               value={hit.margin_ratio === null ? '—' : percent(hit.margin_ratio, 1)}
-              note={hit.margin_ratio === null ? undefined : marginRatioRisk(hit.margin_ratio).label}
             />
             <Figure
               label="可用余额"
@@ -239,8 +222,8 @@ export function RiskControlView({ snapshot, veiled }: {
 
           {hit.margin_ratio !== null && (
             <div className="mt-5">
-              <div className="flex items-center gap-3">
-                <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-rule">
+              <div>
+                <span className="block h-[3px] w-full overflow-hidden rounded-full bg-rule">
                   <span
                     // 条不做宽度过渡：数字是立刻变的，条却滑上大半秒，两者对不上
                     className={cn('block h-full rounded-full',
@@ -248,23 +231,13 @@ export function RiskControlView({ snapshot, veiled }: {
                     style={{ width: `${Math.min(100, hit.margin_ratio * 100).toFixed(1)}%` }}
                   />
                 </span>
-                <span className={cn('tnum shrink-0 text-xs',
-                  riskText(marginRatioRisk(hit.margin_ratio).tone))}>
-                  {percent(hit.margin_ratio, 1)}
-                </span>
               </div>
-              <p className="mt-2 text-[11px] text-ink-3">
-                维持保证金 ÷ 保证金余额 · {hit.margin_ratio_estimated ? '按当前有效比率估算' : '逐标的按档位重算'}
-              </p>
             </div>
           )}
 
           <div className="mt-5 border-t border-rule pt-4" data-open-capacity>
             <div className="mb-3 flex items-baseline justify-between gap-4">
               <span className="text-sm text-ink-2">剩余开仓能力</span>
-              <span className="text-[11px] text-ink-3">
-                净值 × 目标总杠杆 − 当时合约仓位
-              </span>
             </div>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               {OPEN_LEVERAGES.map((leverage) => {
@@ -315,46 +288,33 @@ export function RiskControlView({ snapshot, veiled }: {
 
         <Stack span="lg:col-span-5">
           <Module
-            figure={edge === null ? '—' : percent(edge, 1)}
-            note="保证金率升至 100% 的同步跌幅"
+            figure={edge === null ? '＞99.5%' : percent(edge, 1)}
             span=""
-            title="临界跌幅"
+            title="强平临界跌幅"
             tone={edge === null ? 'muted' : edge < 0.15 ? 'loss' : undefined}
           >
-            {edge === null ? (
-              <p className="text-sm leading-relaxed text-ink-3">
-                在本模型覆盖的 99.5% 合约同步下跌内，保证金率没有触及 100%。
-              </p>
-            ) : (
-              <>
-                <p className="mb-5 text-xs leading-relaxed text-ink-3">
-                  假设所有合约标记价同时下跌。保证金率升至 100% 时开始强平；数值越高，缓冲越大。
-                </p>
-                <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-                  <Figure label="未补现金" value={percent(edge, 1)} />
-                  <Figure
-                    label="补入现货现金后"
-                    note={spare > 0 ? money(spare) : undefined}
-                    value={edgeWithCash === null ? '不会强平' : percent(edgeWithCash, 1)}
-                  />
-                  <Figure
-                    label="维持保证金"
-                    value={snapshot.futures === null ? '—' : money(snapshot.futures.total_maint_margin)}
-                  />
-                  <Figure
-                    label="保证金余额"
-                    value={snapshot.futures === null ? '—' : money(snapshot.futures.total_margin_balance)}
-                  />
-                </dl>
-              </>
-            )}
+            <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
+              <Figure label="未补现金" value={edge === null ? '＞99.5%' : percent(edge, 1)} />
+              <Figure
+                label="补入现货现金后"
+                note={spare > 0 ? money(spare) : undefined}
+                value={edgeWithCash === null ? '＞99.5%' : percent(edgeWithCash, 1)}
+              />
+              <Figure
+                label="维持保证金"
+                value={snapshot.futures === null ? '—' : money(snapshot.futures.total_maint_margin)}
+              />
+              <Figure
+                label="保证金余额"
+                value={snapshot.futures === null ? '—' : money(snapshot.futures.total_margin_balance)}
+              />
+            </dl>
           </Module>
 
           {/* 逐行的现金明细在「持仓」页，这里只回答"还能补多少保证金"——
               按**能不能马上划过去**分三档，那才是这一页要的切法。 */}
           <Module
             figure={money(cashTotal)}
-            note="全部稳定币"
             span=""
             title="现金缓冲"
           >

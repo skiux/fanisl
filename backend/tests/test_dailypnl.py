@@ -7,7 +7,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from fanisl.binance.dailypnl import collect_flows, daily_credits, daily_spot_pnl, flow
+from fanisl.binance.dailypnl import (
+    collect_flows, daily_credits, daily_spot_pnl, estimated_yield_credits, flow,
+)
 
 NOW = datetime(2026, 9, 5, 12, tzinfo=timezone.utc)
 CLOSES = {"BNB": {"2026-09-02": 600.0, "2026-09-03": 610.0,
@@ -53,41 +55,6 @@ def test_a_deposit_is_not_profit():
     assert out["days"]["2026-09-04"] == pytest.approx(-15.0)  # 之后按 3 个算
 
 
-def test_an_earn_reward_is_not_a_price_move():
-    """派息不在盯市里：多出来的那 0.1 个按当日收盘计价，那天只剩原有持仓的涨跌。
-
-    白得的那部分照样算收益，只是由 `daily_credits` 单独报——见下一条。
-    分开的理由是稳定币整个不参与盯市，USDT 活期的利息原先一分都没算进来。
-    """
-    rewarded = [flow("2026-09-03", "BNB", 0.1, None, "earn")]
-    out = run({"BNB": 2.1}, rewarded)
-    assert out["days"]["2026-09-03"] == pytest.approx(2.0 * 10.0)
-
-
-def test_an_earn_reward_is_its_own_line_valued_at_that_days_close():
-    rewarded = [flow("2026-09-03", "BNB", 0.1, None, "earn")]
-    credits = daily_credits(rewarded, CLOSES, kind="earn", days=3, now=NOW)
-    assert credits["days"]["2026-09-03"] == pytest.approx(0.1 * 610.0)
-    # 两半加起来与旧口径一字不差：2×10 + 0.1×610
-    assert (run({"BNB": 2.1}, rewarded)["days"]["2026-09-03"]
-            + credits["days"]["2026-09-03"]) == pytest.approx(2.0 * 10.0 + 0.1 * 610.0)
-
-
-def test_stablecoin_interest_counts_although_it_never_moves():
-    """USDT 活期的利息是实打实的收入。**这是这次改口径的全部理由**——
-
-    稳定币不参与盯市（面值不动，算出来全是报价噪声），于是派息与利息原先整个丢了。
-    它们按 1 美元折算，不需要日线。
-    """
-    rows = [flow("2026-09-04", "USDT", 0.42, None, "earn"),
-            flow("2026-09-04", "USDT", 0.31, None, "earn")]
-    credits = daily_credits(rows, {}, kind="earn", days=3, now=NOW)
-    assert credits["days"]["2026-09-04"] == pytest.approx(0.73)
-    assert credits["today_by_asset"] == []          # 今天是 09-05，不是 09-04
-    # 盯市那一半一分钱都没有：稳定币不在里面，这一天的涨跌真的是 0
-    assert daily_spot_pnl({}, {}, rows, days=3, now=NOW)["days"]["2026-09-04"] == 0.0
-
-
 def test_margin_interest_is_a_cost_not_a_price_move():
     rows = [flow("2026-09-05", "USDT", -1.04, None, "interest")]
     credits = daily_credits(rows, {}, kind="interest", days=3, now=NOW)
@@ -95,9 +62,40 @@ def test_margin_interest_is_a_cost_not_a_price_move():
     assert credits["today_by_asset"] == [{"asset": "USDT", "usd": pytest.approx(-1.04)}]
 
 
+def test_current_yield_is_accrued_from_midnight_instead_of_faking_a_payout():
+    credits = estimated_yield_credits([
+        {"asset": "USDT", "value_usd": 3650, "apr": 0.10},
+        {"asset": "BFUSD", "value_usd": 3650, "apr": 0.20},
+    ], days=3, now=NOW)
+
+    # 12:00 UTC = 半个 UTC 日：完整日收益分别是 $1 与 $2，当天计提一半。
+    assert credits["days"] == {
+        "2026-09-03": 0,
+        "2026-09-04": 0,
+        "2026-09-05": pytest.approx(1.5),
+    }
+    assert credits["today_by_asset"] == [
+        {"asset": "BFUSD", "usd": pytest.approx(1.0)},
+        {"asset": "USDT", "usd": pytest.approx(0.5)},
+    ]
+    assert credits["unpriced_assets"] == []
+
+
+def test_current_yield_ignores_unsupported_or_incomplete_positions():
+    credits = estimated_yield_credits([
+        {"asset": "BNB", "value_usd": 680, "apr": 0.10},
+        {"asset": "USDC", "value_usd": None, "apr": 0.10},
+        {"asset": "USDT", "value_usd": 1000, "apr": None},
+    ], days=1, now=NOW)
+
+    assert credits["days"]["2026-09-05"] == 0
+    assert credits["today_by_asset"] == []
+    assert credits["unpriced_assets"] == ["USDC", "USDT"]
+
+
 def test_a_credit_in_a_coin_with_no_quote_is_named_not_guessed():
-    rows = [flow("2026-09-05", "ZBT", 3.0, None, "earn")]
-    credits = daily_credits(rows, CLOSES, kind="earn", days=3, now=NOW)
+    rows = [flow("2026-09-05", "ZBT", -3.0, None, "interest")]
+    credits = daily_credits(rows, CLOSES, kind="interest", days=3, now=NOW)
     assert credits["days"]["2026-09-05"] == 0.0
     assert credits["unpriced_assets"] == ["ZBT"]
 

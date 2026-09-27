@@ -15,8 +15,8 @@ import type { IncomeBreakdown, Pnl, SpotMarkRow } from '../../api/types'
  * 行里放的是**现价与涨跌幅**，不是「昨收 → 现价」那对箭头：箭头占掉半行宽度，
  * 而昨收本身没人要看，要看的是"涨了多少"。
  *
- * 五类东西按它们的来源排：持仓的币、正股、理财派息、杠杆利息、合约当日结算的分项。
- * **派息与利息记在稳定币上**，稳定币不参与盯市，所以它们原先在这张表里一分都看不到。
+ * 五类东西按它们的来源排：持仓的币、正股、理财收益、杠杆利息、合约当日结算的分项。
+ * **理财收益与利息记在稳定币上**，稳定币不参与盯市，所以它们原先在这张表里一分都看不到。
  *
  * **只放数字，不放说明。** 唯一的例外是两句：正股的昨收出处（资产页上只有这一项
  * 不来自 Binance），以及"哪只股票没算进来"。前者是数据的出处，后者是可信度警告。
@@ -92,9 +92,9 @@ export function PnlDetail({ topic, pnl, onClose }: {
     // 行情取不到时逐币那几行本来就是空的，这一行把"取不到"说出来
     ...(today?.spot_usd === null
       ? [{ key: 'spot', label: '持仓涨跌', value: null }] : []),
-    // 派息与利息各并成一行：逐个资产列出来的话，一行 USDT 看不出它是利息
+    // 理财收益与利息各并成一行：逐个资产列出来的话，一行 USDT 看不出它是什么
     ...(rounded(today?.earn_usd ?? 0) ? [] : [{
-      key: 'earn', label: '理财派息', value: today?.earn_usd ?? null,
+      key: 'earn', label: '理财收益', value: today?.earn_usd ?? null,
       detail: pnl.earn_marks.map((row) => row.asset).join(' · '),
     }]),
     ...(rounded(today?.interest_usd ?? 0) ? [] : [{

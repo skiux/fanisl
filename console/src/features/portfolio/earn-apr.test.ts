@@ -3,7 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildSnapshot } from '../../api/fixtures'
 import { percent } from '../../lib/format'
-import { HoldingsView } from './views'
+import { OverviewView } from './views'
 
 let host: HTMLDivElement
 let root: Root
@@ -29,12 +29,10 @@ describe('活期理财的阶梯年化', () => {
     expect(flexible.apr).toBeCloseTo((500 * 0.12 + 7500 * 0.0482) / 8000)
     expect(flexible.apr_base).toBeCloseTo(0.0482)
 
-    act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(OverviewView, { snapshot, veiled: false })))
     const text = host.textContent ?? ''
-    expect(text).toContain(`${percent(flexible.apr, 2)} 年化`)
-    // 吃到的那一档要说出来，否则与 Binance 首屏那个利率对不上，看着像错的
-    expect(text).toContain(`前 500 按 ${percent(0.12, 2)}`)
-    expect(text).toContain(`其余 ${percent(0.0482, 2)}`)
+    expect(text).toContain(percent(flexible.apr, 2))
+    expect(text).not.toContain('前 500 按')
   })
 
   it('定期是一口价，没有阶梯那一行', () => {

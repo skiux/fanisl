@@ -1,7 +1,7 @@
-"""/ledger 的组装：八个端点合并成一条时间线。
+"""/ledger 的组装：七类端点合并成一条时间线。
 
 Binance 没有统一的流水接口，所以这一组盯的是"合并"本身——每条记录带对出处、
-八种不同的响应壳都拆得开、以及三个只有读文档才知道的坑：
+不同的响应壳都拆得开、以及三个只有读文档才知道的坑：
 提现的 applyTime 是字符串、杠杆利息的字段官方拼错了、闪兑与小额兑换各有各的壳。
 """
 
@@ -48,18 +48,18 @@ def test_snapshot_shape_and_sources(cache):
     snap = build(cache)
     assert set(snap) == {"as_of", "sources", "window", "entries"}
     assert {s["key"] for s in snap["sources"]} == {
-        "deposits", "withdrawals", "income", "wallet_transfers", "earn_rewards",
+        "deposits", "withdrawals", "income", "wallet_transfers",
         "margin_interest", "convert", "dust"}
     assert all(s["status"] == "ok" for s in snap["sources"])
 
 
 def test_window_is_capped_by_the_tightest_source(cache):
     """能查多久由最紧的那个端点决定，不是想查多久就查多久。"""
-    assert MAX_WINDOW_DAYS == 30 and LIMITED_BY == "earn_rewards"
+    assert MAX_WINDOW_DAYS == 30 and LIMITED_BY == "margin_interest"
     snap = build(cache, days=90)          # 要 90 天
     assert snap["window"]["days"] == 30   # 只能给 30
     assert snap["window"]["max_days"] == 30
-    assert snap["window"]["limited_by"] == "earn_rewards"
+    assert snap["window"]["limited_by"] == "margin_interest"
 
 
 def test_window_cap_comes_from_the_tightest_source():
@@ -160,11 +160,6 @@ def test_entries_are_sorted_newest_first(cache):
     assert times == sorted(times, reverse=True)
 
 
-def test_earn_rewards_cover_both_flexible_and_locked(cache):
-    assets = {e["asset"] for e in kinds(build(cache))["earn_reward"]}
-    assert assets == {"USDT", "BNB"}       # 活期一条、定期一条
-
-
 # --- 降级 -----------------------------------------------------------------
 
 def test_fapi_451_removes_only_the_income_rows(cache):
@@ -213,15 +208,15 @@ def test_entry_ids_are_unique_even_without_a_natural_key(cache):
 
 
 def test_unique_id_pass_handles_real_collisions():
-    """同一资产在同一时刻的两条派息就会撞——直接构造出来验去重本身。"""
+    """没有自然主键的两条记录仍可能撞；直接构造出来验去重本身。"""
     from fanisl.binance.ledger import _ensure_unique_ids
 
-    rows = [{"id": "earn_rewards:T:USDT"}, {"id": "earn_rewards:T:USDT"},
-            {"id": "income:7001"}, {"id": "earn_rewards:T:USDT"}]
+    rows = [{"id": "dust:T:BNB"}, {"id": "dust:T:BNB"},
+            {"id": "income:7001"}, {"id": "dust:T:BNB"}]
     _ensure_unique_ids(rows)
     ids = [r["id"] for r in rows]
-    assert ids == ["earn_rewards:T:USDT", "earn_rewards:T:USDT#1",
-                   "income:7001", "earn_rewards:T:USDT#2"]
+    assert ids == ["dust:T:BNB", "dust:T:BNB#1",
+                   "income:7001", "dust:T:BNB#2"]
     assert len(set(ids)) == 4
 
 

@@ -1,42 +1,12 @@
 import { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Lightning } from '@phosphor-icons/react'
 import { compareBy, SortBy, type SortKey, type SortState } from '../../components/controls'
-import { Delta, Eyebrow } from '../../components/Primitives'
+import { Delta } from '../../components/Primitives'
 import { Ticker } from '../../components/Ticker'
 import { cn } from '../../lib/cn'
 import { amount, baseOf, money, percent, price, signedMoney, signedPercent } from '../../lib/format'
-import {
-  MARGIN_LEVEL_SAFE, MARGIN_LEVEL_WARN, MARGIN_RATIO_DANGER,
-  liqDistanceRisk, marginLevelRisk, marginRatioRisk, riskBar, riskText,
-} from '../../lib/risk'
-import type { FuturesAccount, FuturesPosition, MarginAccount } from '../../api/types'
-
-function Gauge({ label, value, hint, tone, fill, marker }: {
-  label: string
-  value: string
-  hint: string
-  tone: string
-  fill: number
-  marker?: number
-}) {
-  return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3">
-        <Eyebrow>{label}</Eyebrow>
-        <span className={cn('tnum text-sm', tone)}>{value} <span className="text-ink-3">· {hint}</span></span>
-      </div>
-      <div className="relative mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-rule">
-        <div
-          className={cn('h-full rounded-full transition-[width] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]', tone.replace('text-', 'bg-'))}
-          style={{ width: `${Math.min(100, Math.max(0, fill * 100)).toFixed(1)}%` }}
-        />
-        {marker !== undefined && (
-          <span className="absolute inset-y-0 w-px bg-ink-3/60" style={{ left: `${marker * 100}%` }} />
-        )}
-      </div>
-    </div>
-  )
-}
+import { liqDistanceRisk, riskBar } from '../../lib/risk'
+import type { FuturesAccount, FuturesPosition } from '../../api/types'
 
 function AdlPips({ quantile }: { quantile: number | null }) {
   if (quantile === null) return null
@@ -72,9 +42,9 @@ const SESSION_LABEL: Record<string, string> = {
 }
 
 const SYMBOL_ADL_LABEL: Record<string, string> = {
-  low: '标的 ADL 低',
-  medium: '标的 ADL 中',
-  high: '标的 ADL 高',
+  low: 'ADL 低',
+  medium: 'ADL 中',
+  high: 'ADL 高',
 }
 
 function PositionRow({ position }: { position: FuturesPosition }) {
@@ -115,7 +85,7 @@ function PositionRow({ position }: { position: FuturesPosition }) {
             {' · '}{position.leverage}× · {position.isolated ? '逐仓' : '全仓'} · {money(position.notional_usd)}
             {position.symbol_adl_risk && (
               <> · <span className={position.symbol_adl_risk === 'high' ? 'text-loss' : ''}>
-                {SYMBOL_ADL_LABEL[position.symbol_adl_risk] ?? `标的 ADL ${position.symbol_adl_risk}`}
+                {SYMBOL_ADL_LABEL[position.symbol_adl_risk] ?? `ADL ${position.symbol_adl_risk}`}
               </span></>
             )}
           </div>
@@ -158,91 +128,23 @@ function PositionRow({ position }: { position: FuturesPosition }) {
   )
 }
 
-export function RiskGauges({ futures, margin, exposureRatio, concentration, unavailable }: {
-  futures: FuturesAccount | null
-  margin: MarginAccount | null
-  exposureRatio: number | null
-  concentration: { asset: string; share: number } | null
-  unavailable: boolean
-}) {
-  if (unavailable) {
-    return (
-      <div className="mt-3.5 flex flex-col">
-        <p className="text-sm text-ink-2">本次未取到合约数据</p>
-        <p className="mt-1.5 text-xs leading-relaxed text-ink-3">
-          保证金率与强平距离都无法计算，这一节不做估算。
-        </p>
-      </div>
-    )
-  }
-  return (
-    <div className="mt-3.5 flex flex-col gap-4">
-      {futures?.margin_ratio != null && (
-        <Gauge
-          fill={futures.margin_ratio}
-          hint={marginRatioRisk(futures.margin_ratio).label}
-          label="合约保证金率"
-          // 标记线就是判红那条线，两者同源；小数位也与摘要条同一档，
-          // 否则同一个数在一屏上印成 4.5% 和 4.46%
-          marker={MARGIN_RATIO_DANGER}
-          tone={riskText(marginRatioRisk(futures.margin_ratio).tone)}
-          value={percent(futures.margin_ratio, 1)}
-        />
-      )}
-      {margin?.margin_level != null && (
-        <Gauge
-          fill={Math.max(0, Math.min(1, (MARGIN_LEVEL_SAFE + 1 - margin.margin_level) / 2))}
-          hint={marginLevelRisk(margin.margin_level).label}
-          label="杠杆账户风险率"
-          marker={(MARGIN_LEVEL_SAFE + 1 - MARGIN_LEVEL_WARN) / 2}
-          tone={riskText(marginLevelRisk(margin.margin_level).tone)}
-          value={margin.margin_level.toFixed(2)}
-        />
-      )}
-      <div className="space-y-2 border-t border-rule pt-3.5">
-        {exposureRatio !== null && (
-          <div className="flex items-baseline justify-between gap-3">
-            <Eyebrow>名义敞口 / 净值</Eyebrow>
-            {/* 不再缀一句"· 真实杠杆"：那个名字现在专指「合约与风险」里
-                名义敞口 / 保证金余额的那一个数，一名两数会对不上。
-                这里的分母是全账户净值，`名义敞口 / 净值` 本身已经说清了。 */}
-            <span className="tnum text-sm text-ink-2">{exposureRatio.toFixed(2)}×</span>
-          </div>
-        )}
-        {concentration && (
-          <div className="flex items-baseline justify-between gap-3">
-            <Eyebrow>最大单一敞口</Eyebrow>
-            <span className="tnum text-sm text-ink-2">
-              {percent(concentration.share, 1)}
-              <span className="text-ink-3"> · {concentration.asset}</span>
-            </span>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 /**
  * 仓位的排序键。**每个键自带"要紧的在哪一头"**，见 `SortKey.initial`——
  * 金额与盈亏是从大到小，而「距强平」是从近到远：那一列本来就是用来找最危险的
  * 那个仓位的，给它 `desc` 等于把最安全的顶到最上面。
  */
-type PositionSort = 'notional' | 'pnl' | 'liq' | 'leverage' | 'symbol'
+type PositionSort = 'notional' | 'pnl' | 'liq'
 
 const POSITION_KEYS: SortKey<PositionSort>[] = [
-  { value: 'notional', label: '名义', initial: 'desc' },
+  { value: 'notional', label: '价值', initial: 'desc' },
   { value: 'pnl', label: '未实现', initial: 'desc' },
   { value: 'liq', label: '距强平', initial: 'asc' },
-  { value: 'leverage', label: '杠杆', initial: 'desc' },
-  { value: 'symbol', label: '标的', initial: 'asc' },
 ]
 
-const POSITION_VALUE: Record<Exclude<PositionSort, 'symbol'>, (p: FuturesPosition) => number | null> = {
+const POSITION_VALUE: Record<PositionSort, (p: FuturesPosition) => number | null> = {
   notional: (p) => p.notional_usd,
   pnl: (p) => p.unrealized_pnl_usd,
   liq: (p) => p.liq_distance,
-  leverage: (p) => p.leverage,
 }
 
 /**
@@ -269,11 +171,6 @@ function SortedPositions({ positions }: { positions: FuturesPosition[] }) {
 
   const rows = useMemo(() => {
     const out = [...positions]
-    if (sort.key === 'symbol') {
-      out.sort((a, b) => (sort.direction === 'asc' ? 1 : -1)
-        * baseOf(a.symbol).localeCompare(baseOf(b.symbol)))
-      return out
-    }
     const pick = POSITION_VALUE[sort.key]
     out.sort((a, b) => compareBy(pick(a), pick(b), sort.direction))
     return out
@@ -284,7 +181,7 @@ function SortedPositions({ positions }: { positions: FuturesPosition[] }) {
       {/* 一个仓位的时候排序条是纯噪声：没有第二行可以换位置 */}
       {positions.length > 1 && (
         <div className="mb-1 border-b border-rule pb-2.5">
-          <SortBy keys={POSITION_KEYS} label="排序" onChange={setSort} value={sort} />
+          <SortBy keys={POSITION_KEYS} label="仓位顺序" onChange={setSort} showLabel={false} value={sort} />
         </div>
       )}
       <ul>

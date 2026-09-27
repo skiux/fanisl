@@ -1,13 +1,12 @@
+import { useEffect, useMemo, useState } from 'react'
 import { cn } from '../../lib/cn'
 import type { SpotCostInput, StockCostInput } from '../../api/client'
-import { amount, money, percent, price, signedMoney, SOURCE_LABEL } from '../../lib/format'
+import { amount, money, percent, price, signedMoney, signedPercent, SOURCE_LABEL } from '../../lib/format'
 import { cash, spotHoldings } from '../../lib/holdings'
-import type { MarginAccount, PortfolioSnapshot } from '../../api/types'
+import type { DailyPnl, MarginAccount, PortfolioSnapshot } from '../../api/types'
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
 import { RealizedDays } from './RealizedDays'
-import {
-  CashTable, EarnTable, SpotTable,
-} from './Holdings'
+import { CashTable, SpotTable } from './Holdings'
 import { PnlBreakdown } from './PnlBreakdown'
 import { StockPositionsList, StockSummary } from './StockPositions'
 import { useIsAdmin } from '../../lib/role'
@@ -21,7 +20,7 @@ const ISOLATED_STATUS: Record<string, string> = {
   PRE_LIQUIDATION: '接近强平',
   FORCE_LIQUIDATION: '强平中',
 }
-import { PositionsList, RiskGauges } from './RiskPanel'
+import { PositionsList } from './RiskPanel'
 import { SourceHealth } from './SourceHealth'
 
 /**
@@ -35,50 +34,49 @@ import { SourceHealth } from './SourceHealth'
  * **「每日盈亏」不给跳转箭头。** 箭头只在"点开有别的东西"时才给；日历点开就是它
  * 自己，没有别的去处。
  */
-export function OverviewView({ snapshot, veiled, futuresMissing, concentration, onOpen }: {
+export function OverviewView({ snapshot, veiled }: {
   snapshot: PortfolioSnapshot
   veiled: boolean
-  futuresMissing: boolean
-  concentration: { asset: string; share: number } | null
-  onOpen: (key: 'holdings' | 'perp') => void
 }) {
   const pnl = snapshot.pnl
   const cashRows = cash(snapshot)
   const relevantSources = snapshot.sources.filter((source) => source.status !== 'unsupported')
   const missingCount = relevantSources.filter((source) => source.status !== 'ok').length
+  const pnlDays = useMemo(() => pnl?.daily ?? [], [pnl])
+  const [selectedDate, setSelectedDate] = useState<string | null>(pnlDays.at(-1)?.date ?? null)
+  useEffect(() => {
+    if (selectedDate && pnlDays.some((day) => day.date === selectedDate)) return
+    setSelectedDate(pnlDays.at(-1)?.date ?? null)
+  }, [pnlDays, selectedDate])
+  const selectedDay = pnlDays.find((day) => day.date === selectedDate) ?? null
 
   return (
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
         {/* 不给 figure：它原先放的是 today_usd，而摘要条上那个「今日盈亏」
             就是同一个数——同一屏里说两遍。日历自己有月合计和区间合计。 */}
-        <Module span={cashRows.length > 0 ? 'lg:col-span-7' : 'lg:col-span-12'} title="每日盈亏">
-          <RealizedDays days={pnl?.daily ?? []} />
+        <Module span="lg:col-span-12" title="每日盈亏">
+          <div className="grid min-w-0 gap-7 lg:grid-cols-[minmax(0,2fr)_minmax(220px,0.62fr)] lg:gap-9">
+            <div className="min-w-0">
+              <RealizedDays
+                days={pnlDays}
+                onSelectDate={setSelectedDate}
+                selectedDate={selectedDate}
+              />
+            </div>
+            <DailyPnlBreakdown day={selectedDay} />
+          </div>
         </Module>
 
         {cashRows.length > 0 && (
-          <CashModule rows={cashRows} snapshot={snapshot} span="lg:col-span-5" />
+          <CashModule rows={cashRows} snapshot={snapshot} span="lg:col-span-12" />
         )}
 
         {/* 四行同一个窗口、同一个来源，条形才可比——旧的「盈亏构成」把 1 天、
             此刻、全历史、90 天四种窗口混在一张表里画对比条，见 PnlBreakdown。
             现货那半边归日历（那里才有区间概念）。 */}
-        <Module note={`${WINDOW_DAYS} 天`} span="lg:col-span-8" title="合约收支">
+        <Module note={`${WINDOW_DAYS} 天`} span="lg:col-span-12" title="合约收支">
           <PnlBreakdown pnl={pnl} />
-        </Module>
-
-        <Module
-          onOpen={() => onOpen('perp')}
-          span="lg:col-span-4"
-          title="风险仪表"
-        >
-          <RiskGauges
-            concentration={concentration}
-            exposureRatio={snapshot.totals?.gross_exposure_ratio ?? null}
-            futures={snapshot.futures}
-            margin={snapshot.margin}
-            unavailable={futuresMissing}
-          />
         </Module>
 
         {/* **只在出问题时出现。** 全绿时这一块是纯运维信息——和流水页那张
@@ -99,6 +97,46 @@ export function OverviewView({ snapshot, veiled, futuresMissing, concentration, 
   )
 }
 
+const DAY_PARTS: { key: keyof Pick<DailyPnl, 'spot_usd' | 'stock_usd' | 'settled_usd' | 'earn_usd' | 'interest_usd'>; label: string }[] = [
+  { key: 'spot_usd', label: '现货涨跌' },
+  { key: 'stock_usd', label: '正股涨跌' },
+  { key: 'settled_usd', label: '合约结算' },
+  { key: 'earn_usd', label: '理财收益' },
+  { key: 'interest_usd', label: '杠杆利息' },
+]
+
+function DailyPnlBreakdown({ day }: { day: DailyPnl | null }) {
+  return (
+    <aside className="min-w-0 border-t border-rule pt-5 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-1">
+      {day ? (
+        <>
+          <div className="flex items-baseline justify-between gap-4 border-b border-rule pb-4">
+            <span className="tnum text-xs text-ink-3">{day.date}</span>
+            <span className={cn('tnum text-lg', day.pnl_usd === null
+              ? 'text-ink-3' : day.pnl_usd >= 0 ? 'text-gain' : 'text-loss')}>
+              {day.pnl_usd === null ? '—' : signedMoney(day.pnl_usd)}
+            </span>
+          </div>
+          <dl className="divide-y divide-rule/70">
+            {DAY_PARTS.map(({ key, label }) => {
+              const value = day[key]
+              return (
+                <div className="flex items-baseline justify-between gap-4 py-3" key={key}>
+                  <dt className="text-xs text-ink-3">{label}</dt>
+                  <dd className={cn('tnum text-sm', value === null
+                    ? 'text-ink-3' : value >= 0 ? 'text-gain' : 'text-loss')}>
+                    {value === null ? '—' : signedMoney(value)}
+                  </dd>
+                </div>
+              )
+            })}
+          </dl>
+        </>
+      ) : <span className="text-sm text-ink-3">—</span>}
+    </aside>
+  )
+}
+
 function CashModule({ rows, snapshot, span }: {
   rows: ReturnType<typeof cash>
   snapshot: PortfolioSnapshot
@@ -111,9 +149,14 @@ function CashModule({ rows, snapshot, span }: {
     ? earning.reduce((sum, row) => sum + (row.value_usd ?? 0) * (row.apr ?? 0), 0)
       / earningValue
     : null
+  const dailyYield = earningValue > 0
+    ? earning.reduce((sum, row) => sum + (row.value_usd ?? 0) * (row.apr ?? 0), 0) / 365
+    : null
+  const lockedValue = earning.filter((row) => row.where === '理财 · 定期')
+    .reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
 
   return (
-    <Module figure={money(total)} note={`${rows.length} 项`} span={span} title="现金">
+    <Module figure={money(total)} span={span} title="现金">
       <SplitBar
         left={earningValue}
         leftLabel="生息"
@@ -134,6 +177,15 @@ function CashModule({ rows, snapshot, span }: {
         <Figure label="闲置" value={money(total - earningValue)} />
       </dl>
       <CashTable rows={rows} />
+      <div className="mt-5 border-t border-rule pt-4">
+        <div className="mb-3 text-xs text-ink-2">理财收益</div>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 sm:gap-x-10">
+          <Figure label="预计日收益" tone="gain" value={money(dailyYield)} />
+          <Figure label="加权年化" tone="gain" value={apr === null ? '—' : percent(apr, 2)} />
+          <Figure label="流动生息" value={money(earningValue - lockedValue)} />
+          <Figure label="锁定生息" value={money(lockedValue)} />
+        </dl>
+      </div>
     </Module>
   )
 }
@@ -160,28 +212,11 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost
     && unresolvedStocks.length === 0
     && stockPnlRows.length === stockPositions.length
 
-  const earnValue = snapshot.earn.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
-  // 持仓接口里的 cumulativeTotalRewards / rewardAmt 口径不一致，BFUSD 又完全不在
-  // Simple Earn 的持仓响应里。收益卡因此不用那些累计字段，统一按当前本金 × 正确年化
-  // 估算稳定币的一日收益；365 天口径简单、可复算，也不会暗示这是已经入账的派息。
-  const yielding = cash(snapshot).filter((row) => row.apr !== null && row.value_usd !== null)
-  const yieldValue = yielding.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
-  const annualYield = yielding.reduce(
-    (sum, row) => sum + (row.value_usd ?? 0) * (row.apr ?? 0), 0,
-  )
-  const yieldApr = yieldValue > 0 ? annualYield / yieldValue : null
-  const dailyYield = yieldValue > 0 ? annualYield / 365 : null
-  const lockedValue = yielding
-    .filter((row) => row.where === '理财 · 定期')
-    .reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
-  const liquidValue = yieldValue - lockedValue
-
   return (
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
         <Module
           figure={money(holdingsValue)}
-          note={`${holdings.length} 个币种`}
           span="lg:col-span-8"
           title="现货持仓"
         >
@@ -193,30 +228,6 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost
 
         <Stack span="lg:col-span-4">
           {marginEnabled && <MarginAccountModule dense liability={liability} margin={m} span="" />}
-
-          <Module
-            figure={yieldApr === null ? '—' : percent(yieldApr, 2)}
-            note={`${yielding.length} 项生息`}
-            span=""
-            title="理财收益"
-            tone="gain"
-          >
-            <SplitBar
-              left={liquidValue}
-              leftLabel="流动"
-              right={lockedValue}
-              rightLabel="锁定"
-            />
-            <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-              <Figure label="预计日收益" value={money(dailyYield)} />
-              <Figure
-                label="占净值"
-                value={percent(snapshot.totals ? yieldValue / snapshot.totals.equity_usd : null, 1)}
-              />
-              <Figure label="流动生息" value={money(liquidValue)} />
-              <Figure label="锁定生息" value={money(lockedValue)} />
-            </dl>
-          </Module>
         </Stack>
 
         {stockCount > 0 && (
@@ -244,15 +255,6 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost
           </>
         )}
 
-        <Module
-          figure={money(earnValue)}
-          note={`${snapshot.earn.length} 项`}
-          span="lg:col-span-12"
-          title="理财持仓"
-        >
-          <EarnTable earn={snapshot.earn} />
-        </Module>
-
       </ViewGrid>
     </div>
   )
@@ -269,8 +271,7 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
   const shortNotional = (f?.positions ?? [])
     .filter((p) => p.position_amt < 0).reduce((sum, p) => sum + p.notional_usd, 0)
   const gross = longNotional + shortNotional
-  // 真实杠杆 = 名义敞口 / 保证金余额。**两个操作数都在这一页上**——名义敞口是
-  // 「多空敞口」的读数，保证金余额是「保证金」的读数，看得见也验得了。
+  // 真实杠杆 = 合约总价值 / 保证金余额。
   // 合约的杠杆设置（那个 20×）只是开仓上限，不代表现在扛着多少倍。
   const realLeverage = f && f.total_margin_balance > 0 ? gross / f.total_margin_balance : null
 
@@ -280,8 +281,7 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
         <ViewGrid>
           <Module span="lg:col-span-12" title="合约账户不可用">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
-              仓位、保证金与多空敞口都出自同一组 fapi 接口，这次一起没取到。
-              这里不拿上一次的数字顶替，也不用 0 充数。
+              本次未取到合约账户数据。
             </p>
             <ul className="mt-5 divide-y divide-rule border-t border-rule">
               {snapshot.sources.filter((source) => (
@@ -307,7 +307,7 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
       <ViewGrid>
         <Module
           figure={signedMoney(f.total_unrealized_pnl)}
-          note={`${f.positions.length} 个仓位 · ${f.dual_side_position ? '双向' : '单向'}`}
+          note={`${f.positions.length} 项 · ${f.dual_side_position ? '双向' : '单向'}`}
           span="lg:col-span-8"
           title="合约仓位"
           tone={f.total_unrealized_pnl >= 0 ? 'gain' : 'loss'}
@@ -316,6 +316,36 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
         </Module>
 
         <Stack span="lg:col-span-4">
+          <Module
+            figure={signedMoney(f.total_unrealized_pnl)}
+            span=""
+            title="合约账户"
+            tone={f.total_unrealized_pnl >= 0 ? 'gain' : 'loss'}
+          >
+            {(() => {
+              const estimated = f.estimated_funding_fee_usd
+              const todayFunding = snapshot.pnl?.today?.settled_parts?.funding_fee ?? null
+              const todayRate = todayFunding !== null && gross > 0 ? todayFunding / gross : null
+              return (
+                <dl className="grid grid-cols-1 gap-y-5 sm:grid-cols-3 lg:grid-cols-1">
+                  <Figure label="未实现盈亏" tone={f.total_unrealized_pnl >= 0 ? 'gain' : 'loss'} value={signedMoney(f.total_unrealized_pnl)} />
+                  <Figure
+                    label="预估资金费用"
+                    note={f.estimated_funding_rate === null ? undefined : signedPercent(-f.estimated_funding_rate, 4)}
+                    tone={estimated === null ? undefined : estimated >= 0 ? 'gain' : 'loss'}
+                    value={estimated === null ? '—' : signedMoney(estimated)}
+                  />
+                  <Figure
+                    label="今日资金费用"
+                    note={todayRate === null ? undefined : signedPercent(todayRate, 4)}
+                    tone={todayFunding === null ? undefined : todayFunding >= 0 ? 'gain' : 'loss'}
+                    value={todayFunding === null ? '—' : signedMoney(todayFunding)}
+                  />
+                </dl>
+              )
+            })()}
+          </Module>
+
           <Module
             figure={money(f.total_margin_balance)}
             note="保证金余额"
@@ -332,9 +362,9 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
 
           <Module
             figure={money(gross)}
-            note="名义总敞口"
+            note="合约总价值"
             span=""
-            title="多空敞口"
+            title="多空价值"
           >
             {gross > 0 ? (
               <>
@@ -346,10 +376,10 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
                   tone="pnl"
                 />
                 <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
-                  <Figure label="多头名义" tone="gain" value={money(longNotional)} />
-                  <Figure label="空头名义" tone="loss" value={money(shortNotional)} />
+                  <Figure label="多头价值" tone="gain" value={money(longNotional)} />
+                  <Figure label="空头价值" tone="loss" value={money(shortNotional)} />
                   <Figure
-                    label="净敞口"
+                    label="净价值"
                     note={longNotional >= shortNotional ? '偏多' : '偏空'}
                     value={signedMoney(longNotional - shortNotional)}
                   />
@@ -361,7 +391,7 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
                   />
                 </dl>
               </>
-            ) : <p className="text-sm text-ink-3">当前没有合约敞口。</p>}
+            ) : <p className="text-sm text-ink-3">当前没有合约仓位。</p>}
           </Module>
 
         </Stack>

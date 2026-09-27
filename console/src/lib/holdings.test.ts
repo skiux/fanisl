@@ -71,6 +71,21 @@ describe('持仓跨钱包归并', () => {
     expect(unavailable.pnl_usd).toBeNull()
   })
 
+  it('减仓后沿用单位成本并按剩余数量保留手续费', () => {
+    const base = buildSnapshot(new Date('2026-09-19T12:00:00Z'))
+    const held = spotHoldings(base).find((row) => row.asset === 'BNB')!
+    const recorded = held.total + 1
+    const snapshot = { ...base, spot_costs: { BNB: {
+      asset: 'BNB', cost_price_usd: 600, commission_usd: 5,
+      position_qty: recorded, updated_at: '2026-09-19T12:00:00Z',
+    } } }
+
+    const row = spotHoldings(snapshot).find((item) => item.asset === 'BNB')!
+    expect(row.cost_status).toBe('manual')
+    expect(row.cost_basis_usd).toBeCloseTo(600 * held.total + 5 * held.total / recorded)
+    expect(row.avg_cost_usd).toBeCloseTo(600 + 5 / recorded)
+  })
+
   it('报价来源失败时仍保留录入成本，但不显示以旧价格计算的盈亏', () => {
     const base = buildSnapshot(new Date('2026-09-19T12:00:00Z'))
     const withoutPrices = { ...base, sources: base.sources.map((source) =>

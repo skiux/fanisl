@@ -185,7 +185,7 @@ describe('持仓页的股票', () => {
       .toEqual([...rows().map((row) => row.dataset.stockPosition)].sort())
   })
 
-  it('持仓股数变化后停用旧成本，主视图不显示录入状态说明', () => {
+  it('持仓股数增加后停用旧成本，主视图不显示录入状态说明', () => {
     const base = buildSnapshot(new Date('2026-09-17T12:00:00Z'))
     const stale = {
       ...base.stocks.positions[0],

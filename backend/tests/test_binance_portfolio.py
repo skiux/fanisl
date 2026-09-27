@@ -18,7 +18,7 @@ import pytest
 from fanisl.binance.cache import SourceCache, SourceResult
 from fanisl.binance.client import BinanceClient
 from fanisl.binance.portfolio import (
-    build_portfolio, _fresh_payload, _today_settled,
+    build_portfolio, _fresh_payload, _today_settled, _yield_positions,
 )
 
 from binance_mock import (
@@ -83,27 +83,10 @@ def test_snapshot_shape_matches_contract(cache):
         "prices", "wallets", "spot", "futures", "earn", "margin",
         "income", "transfers", "stocks", "account", "isolated_margin",
         "liquidation_loan", "portfolio_margin", "bfusd",
-        # 派息与利息是「今日盈亏」里的独立一项，取不到必须报出来，
-        # 否则那一项悄悄变成 0
-        "earn_rewards", "margin_interest"}
+        "margin_interest"}
     states = {s["key"]: s for s in snap["sources"]}
     assert all(states[key]["status"] == "ok" for key in states if key != "portfolio_margin")
     assert states["portfolio_margin"]["status"] == "unsupported"
-
-
-def test_a_failed_rewards_source_is_reported_not_silently_zero(cache):
-    """派息取不到时，「今日盈亏」里那一项会变成 0——**那一定要在状态里看得见**。
-
-    这几个来源原先不进状态表（它们只影响持仓量回滚的完整性）。现在派息与利息各自
-    成项，静默失败等于账面上凭空少一块钱。
-    """
-    snap = build_replacing(cache, {
-        "/sapi/v1/simple-earn/flexible/history/rewardsRecord":
-            lambda: httpx.Response(500, json={"code": -1000, "msg": "boom"}),
-    })
-    states = {s["key"]: s for s in snap["sources"]}
-    assert states["earn_rewards"]["status"] == "unreachable"
-    assert snap["pnl"]["today"]["earn_usd"] == 0
 
 
 def test_capabilities_gate_margin_risk_sources(cache):
@@ -461,7 +444,7 @@ def test_stock_cost_is_missing_until_an_admin_enters_it(cache):
     assert row["unrealized_pnl_usd"] is None
 
 
-def test_stock_cost_becomes_stale_when_current_quantity_changes(cache):
+def test_stock_cost_becomes_stale_when_current_quantity_increases(cache):
     cache.upsert_stock_cost(
         "SOXL", Decimal("23"), Decimal("4"), Decimal("39"), 7)
 
@@ -476,6 +459,18 @@ def test_stock_cost_becomes_stale_when_current_quantity_changes(cache):
     assert row["cost_basis_usd"] is None
     assert row["unrealized_pnl_usd"] is None
     assert stocks["cost_coverage"] == {"manual": 0, "stale": 1, "total": 2}
+
+
+def test_stock_cost_remains_valid_after_quantity_decreases(cache):
+    cache.upsert_stock_cost(
+        "SOXL", Decimal("23"), Decimal("4"), Decimal("50"), 7)
+
+    stocks = build(cache)["stocks"]
+    row = next(item for item in stocks["positions"] if item["symbol"] == "SOXL")
+
+    assert row["cost_status"] == "manual"
+    assert row["cost_basis_usd"] == pytest.approx(23 * 40 + 4 * 40 / 50)
+    assert row["avg_cost_usd"] == pytest.approx(23 + 4 / 50)
 
 
 def test_spot_cost_is_manual_input_not_replayed_trades(cache):
@@ -613,6 +608,12 @@ def test_tradfi_positions_use_exchange_metadata_schedule_and_symbol_adl(cache):
     assert nvda["market_session"] == "REGULAR"
     assert nvda["symbol_adl_risk"] == "medium"
     assert nvda["position_amt"] == 38
+    assert nvda["funding_rate"] == pytest.approx(0.0001)
+    assert nvda["estimated_funding_fee_usd"] == pytest.approx(-8299.96 * 0.0001)
+    assert snap["futures"]["estimated_funding_fee_usd"] == pytest.approx(
+        -8299.96 * 0.0001 + 8662.36 * 0.00005)
+    assert snap["futures"]["estimated_funding_rate"] == pytest.approx(
+        -snap["futures"]["estimated_funding_fee_usd"] / (8299.96 + 8662.36))
     assert nvda["maintenance_brackets"] == [
         {"notional_floor_usd": 0.0, "notional_cap_usd": 15000.0,
          "maint_margin_rate": 0.02, "maint_amount_usd": 0.0},
@@ -636,7 +637,7 @@ def test_no_liquidation_price_means_no_distance(cache):
 
 def test_margin_ratio_and_margin_account_conversion(cache):
     snap = build(cache)
-    assert snap["futures"]["margin_ratio"] == pytest.approx(448.17 / 8806.58)
+    assert snap["futures"]["margin_ratio"] == pytest.approx(448.17 / 11806.58)
     assert snap["margin"]["margin_level"] == pytest.approx(1.8134)
     assert snap["margin"]["total_asset_usd"] == pytest.approx(0.09994 * BTC)
 
@@ -1093,7 +1094,7 @@ def test_daily_counts_price_moves_not_just_settlements(cache):
     assert quiet, "样本里应当有不成交的日子"
     assert any(abs(d["spot_usd"]) > 1 for d in quiet), "不成交的日子也该有盈亏"
 
-    # 一天 = 持仓涨跌 + 正股涨跌 + 当日结算 + 理财派息 − 杠杆利息。
+    # 一天 = 持仓涨跌 + 正股涨跌 + 当日结算 + 当天计提的理财收益 − 杠杆利息。
     # 后三项各自有名字，不混进"现货涨跌"里，见 dailypnl.daily_credits。
     assert today["pnl_usd"] == pytest.approx(
         today["spot_usd"] + today["stock_usd"] + today["settled_usd"]
@@ -1231,38 +1232,51 @@ def test_a_stock_without_a_close_is_named_not_silently_dropped(cache, monkeypatc
     assert all(d["known"] for d in snap["pnl"]["daily"])
 
 
-def test_todays_earn_and_interest_are_their_own_lines(cache):
-    """活期派息与杠杆利息记在稳定币上，而稳定币不参与盯市——原先这两笔整个丢了。
-
-    活期的收益分实时年化与阶梯奖励两类，接口按 `type` 过滤；这里原先只问了
-    `REWARDS` 一类，阶梯那部分从来没被取到，所以样本里两类都给。
-    """
-    from binance_mock import EARN_REWARDS_TODAY, MARGIN_INTEREST_TODAY
+def test_todays_estimated_yield_and_interest_are_their_own_lines(cache):
+    """理财按当前本金与年化计提；杠杆利息仍取实际流水。"""
+    from binance_mock import MARGIN_INTEREST_TODAY
     snap = build_replacing(cache, {
-        "/sapi/v1/simple-earn/flexible/history/rewardsRecord":
-            lambda: httpx.Response(200, json=EARN_REWARDS_TODAY),
         "/sapi/v1/margin/interestHistory":
             lambda: httpx.Response(200, json=MARGIN_INTEREST_TODAY),
     })
     today = snap["pnl"]["today"]
-    assert today["earn_usd"] == pytest.approx(0.42 + 0.31)
+    usdt_apr = (500 * 0.12 + 6000 * 0.0482) / 6500
+    expected_usdt = 6500 * usdt_apr / 365 * 0.5
+    expected_bfusd = 3000 * 0.0736 / 365 * 0.5
+    assert today["earn_usd"] == pytest.approx(expected_usdt + expected_bfusd)
     assert today["interest_usd"] == pytest.approx(-0.11)
-    assert snap["pnl"]["earn_marks"] == [{"asset": "USDT", "usd": pytest.approx(0.73)}]
+    assert snap["pnl"]["earn_marks"] == [
+        {"asset": "BFUSD", "usd": pytest.approx(expected_bfusd)},
+        {"asset": "USDT", "usd": pytest.approx(expected_usdt)},
+    ]
     assert snap["pnl"]["interest_marks"] == [{"asset": "USDT", "usd": pytest.approx(-0.11)}]
     assert today["total_usd"] == pytest.approx(
         today["spot_usd"] + today["stock_usd"] + today["settled_usd"]
         + today["earn_usd"] + today["interest_usd"])
 
 
-def test_yesterdays_stablecoin_interest_lands_on_yesterday(cache):
-    """默认样本里的派息与利息记在昨天：它们该落在昨天那一格，不是今天。"""
+def test_yield_estimate_includes_bfusd_held_in_simple_earn_or_wallets():
+    rows = _yield_positions(
+        [{"asset": "BFUSD", "amount": 500, "value_usd": 500, "apr": None}],
+        [{"asset": "BFUSD", "value_usd": 300}],
+        {"assets": [{"asset": "BFUSD", "value_usd": 200}]},
+        None,
+        0.0736,
+    )
+
+    assert rows == [
+        {"asset": "BFUSD", "value_usd": 500, "apr": 0.0736},
+        {"asset": "BFUSD", "value_usd": 300, "apr": 0.0736},
+        {"asset": "BFUSD", "value_usd": 200, "apr": 0.0736},
+    ]
+
+
+def test_estimated_yield_is_not_backfilled_into_history(cache):
+    """当前本金与年化不能代表昨天；历史日期不伪造收益。"""
     daily = {d["date"]: d for d in build(cache)["pnl"]["daily"]}
-    # 活期 0.86 USDT 按 1 美元算，定期 0.0012 BNB 按当天收盘算——
-    # 稳定币不需要日线，其余按当天收盘，两条路径在同一格里
-    assert daily[_day(1)]["earn_usd"] == pytest.approx(
-        0.86 + 0.0012 * 682.15 * PREV_CLOSE_RATIO)
+    assert daily[_day(1)]["earn_usd"] == 0
     assert daily[_day(1)]["interest_usd"] == pytest.approx(-1.04)
-    assert daily[_day(0)]["earn_usd"] == 0
+    assert daily[_day(0)]["earn_usd"] > 0
 
 
 def test_flexible_apr_is_blended_over_the_tiers(cache):

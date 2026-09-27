@@ -30,7 +30,7 @@ export type SourceKey =
   | 'conditional_open' | 'equity_market' | 'equity_open'
   | 'order_history' | 'trade_history'
   // 流水页
-  | 'deposits' | 'withdrawals' | 'wallet_transfers' | 'earn_rewards'
+  | 'deposits' | 'withdrawals' | 'wallet_transfers'
   | 'margin_interest' | 'convert' | 'dust'
 
 export type SourceStatus = 'ok' | 'unreachable' | 'unauthorized' | 'rate_limited' | 'unsupported'
@@ -154,7 +154,7 @@ export type StockPosition = {
   /** 管理员录入的当前持仓单位成本价，不含手续费。 */
   cost_price_usd: number | null
   commission_usd: number | null
-  /** 保存成本时的钱包股数；与 total_qty 不同时 cost_status 为 stale。 */
+  /** 保存成本时的钱包股数；当前股数高于它时 cost_status 为 stale，减仓仍沿用单位成本。 */
   cost_position_qty: number | null
   cost_updated_at: string | null
   avg_cost_usd: number | null
@@ -215,6 +215,11 @@ export type FuturesPosition = {
   market_session: string | null
   /** 交易所按标的发布的 ADL 风险等级，与上面的账户排队分位不同。 */
   symbol_adl_risk: string | null
+  /** 最近一期公布费率；正数表示多头支付、空头收取。 */
+  funding_rate: number | null
+  /** 按当前方向与价值估算的下一次账户收支，收入为正、支出为负。 */
+  estimated_funding_fee_usd: number | null
+  next_funding_time: number | null
 }
 
 export type FuturesAccount = {
@@ -230,6 +235,10 @@ export type FuturesAccount = {
   max_withdraw: number
   /** totalMaintMargin / totalMarginBalance，越接近 1 越危险 */
   margin_ratio: number | null
+  estimated_funding_fee_usd: number | null
+  /** 以当前合约总价值加权；正数表示账户净支付。 */
+  estimated_funding_rate: number | null
+  next_funding_time: number | null
   positions: FuturesPosition[]
   /** 合约钱包里的币。持有量按"账户一共有多少"算，不认钱包，所以这些也是现货持仓 */
   assets: WalletAsset[]
@@ -409,7 +418,7 @@ export type DailyPnl = {
   /** 正股持仓的涨跌。昨收不在 Binance 上，见 Pnl.equity_close_source */
   stock_usd: number
   settled_usd: number
-  /** 理财派息。**稳定币也算**：它们不参与盯市，利息却是实打实的收入 */
+  /** 当前理财本金与年化从 UTC 00:00 起连续计提的收益；历史日期不反推 */
   earn_usd: number
   /** 杠杆利息，负数 */
   interest_usd: number
@@ -473,7 +482,7 @@ export type Pnl = {
      * income 取不到时为 null。
      */
     settled_parts: IncomeBreakdown | null
-    /** 今天的理财派息 */
+    /** 今天从 UTC 00:00 起按当前本金与年化计提的理财收益 */
     earn_usd: number | null
     /** 今天的杠杆利息，负数 */
     interest_usd: number | null
@@ -501,7 +510,7 @@ export type Pnl = {
   spot_marks: SpotMarkRow[]
   /** 正股逐只的今日涨跌。与 spot_marks 同一套算法，只是行情另有出处 */
   stock_marks: SpotMarkRow[]
-  /** 今天的派息与利息按资产拆开 */
+  /** 今天的理财收益估算与实际杠杆利息按资产拆开 */
   earn_marks: CreditMarkRow[]
   interest_marks: CreditMarkRow[]
   /** 拿不到昨收、因而没计进今日盈亏的股票代码。页面上要点名 */
@@ -520,7 +529,7 @@ export type Pnl = {
 
 export type PortfolioTotals = {
   equity_usd: number
-  /** 合约名义敞口 / 净值。衡量真实杠杆，比单笔的 leverage 有意义 */
+  /** 合约总价值 / 净值。衡量账户实际杠杆，比单笔的 leverage 有意义。 */
   gross_exposure_ratio: number | null
 }
 
@@ -726,21 +735,20 @@ export type OrdersSnapshot = {
 
 /* ------------------------------------------------------------------ *
  * 流水。这一页最要紧的事实：**Binance 没有统一的流水接口**。
- * 下面这条时间线是八个端点各拉一段合并出来的，每条记录都得带着自己的出处。
+ * 下面这条时间线是七类端点各拉一段合并出来的，每条记录都得带着自己的出处。
  * 接口对照（2026-08 复核官方文档）：
  *
  *   deposits          GET /sapi/v1/capital/deposit/hisrec          w1      区间 ≤ 90 天
  *   withdrawals       GET /sapi/v1/capital/withdraw/history        w18000  区间 ≤ 90 天，10 次/秒
  *   income            GET /fapi/v1/income                          w30     只存 3 个月，默认只给 7 天
  *   wallet_transfers  GET /sapi/v1/asset/transfer                  w1      回溯 6 个月，**type 必填**
- *   earn_rewards      GET /sapi/v1/simple-earn/flexible/history/…  w150    区间 ≤ 30 天
  *   margin_interest   GET /sapi/v1/margin/interestHistory          w1      区间 ≤ 30 天，回溯 90 天
  *   convert           GET /sapi/v1/convert/tradeFlow               w3000   区间 ≤ 30 天，起止必填
  *   dust              GET /sapi/v1/asset/dribblet                  w1      —
  *
  * 由此得到两条决定页面形状的结论：
- *   ① 整条时间线真正可信的窗口 = 各来源上限的交集 = 30 天（被理财派息 / 杠杆利息 /
- *      闪兑卡住），不是想翻多久就翻多久；
+ *   ① 整条时间线真正可信的窗口 = 各来源上限的交集 = 30 天（被杠杆利息与闪兑
+ *      卡住），不是想翻多久就翻多久；
  *   ② 钱包划转必须按 type 逐个问（约 40 种），一次"全量刷新"是几十次调用，
  *      提现那一个的 weight 还是 18000。刷新在这一页不是免费的，界面要说出来。
  * ------------------------------------------------------------------ */
@@ -752,7 +760,7 @@ export type LedgerKind =
   | 'transfer'
   // 真正的损益
   | 'realized_pnl' | 'funding_fee' | 'commission' | 'referral_kickback' | 'insurance_clear'
-  | 'earn_reward' | 'margin_interest'
+  | 'margin_interest'
   // 币种之间换手：净值基本不变，但两边资产都动
   | 'convert' | 'dust'
 
@@ -814,7 +822,7 @@ export type LedgerWindow = {
   from: string
   to: string
   days: number
-  /** 上限由最紧的那个端点定（理财派息 / 杠杆利息 / 闪兑都是 30 天） */
+  /** 上限由最紧的那个端点定（杠杆利息与闪兑都是 30 天） */
   max_days: number
   limited_by: SourceKey
 }

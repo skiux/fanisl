@@ -6,7 +6,6 @@ import {
 import { PortfolioError, type PortfolioSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
 import { freshnessOf, relativeTime } from '../../lib/format'
-import { exposures } from '../../lib/holdings'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { Masthead } from './Masthead'
 import { SectionTabs, type TabItem } from './SectionTabs'
@@ -213,19 +212,6 @@ function Loaded({ phase, view, onSelectView, onRetry, onSaveStockCost, onSaveSpo
   const futuresDown = snapshot.sources.find((source) => source.key === 'futures')?.status !== 'ok'
   const futuresMissing = futuresDown && snapshot.futures === null
 
-  // 最大单一敞口走 `lib/holdings` 的那一份，和「风险控制」页同源。
-  // 那里做了两件这里原先没做的事：**同一标的的现货与永续要相加**（原先各算各的，
-  // NVDA 现货和 NVDA 永续会被当成两笔），以及**空头带负号**（多空对锁时真实敞口
-  // 接近零，原先会报成两者里大的那个）。持有量也不只看现货钱包。
-  const equity = snapshot.totals?.equity_usd ?? 0
-  const ranked = exposures(snapshot, equity)
-  const biggest = ranked[0]
-  const concentration = biggest && equity > 0
-    ? { asset: biggest.asset, share: biggest.share }
-    : null
-
-  const shared = { snapshot, veiled, futuresMissing, concentration }
-
   return (
     <>
       {veiled && (
@@ -242,7 +228,7 @@ function Loaded({ phase, view, onSelectView, onRetry, onSaveStockCost, onSaveSpo
       {/* 明细区拿回整幅宽度；区域内部滚动，切换分节时页面高度不变 */}
       <div className="scroll-y min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8" key={view}>
         <div className="rise">
-          {view === 'overview' && <OverviewView {...shared} onOpen={onSelectView} />}
+          {view === 'overview' && <OverviewView snapshot={snapshot} veiled={veiled} />}
           {view === 'holdings' && (
             <HoldingsView
               onSaveStockCost={onSaveStockCost}

@@ -145,11 +145,12 @@ Binance 的 Stocks Trading **没有持仓接口**。直接买入的正股在资�
 **成本由管理员录入**（`PUT /admin/stock-costs/{symbol}`，见下）：Binance 不给完整的持仓成本与手续费，
 也不从成交历史倒推（转入、转出与公司行动会让倒推的数量静默失真）。
 
-- `cost_status`：`manual`（录入时的股数与当前总股数一致）/ `stale`（录过，但股数变了）/ `missing`（没录）；
+- `cost_status`：`manual`（当前股数不高于录入时股数）/ `stale`（录过，但后来加仓）/ `missing`（没录）；
 - `cost_price_usd`（单位成本，不含手续费）、`commission_usd`、`cost_position_qty`（录入时的股数）、
   `cost_updated_at`：录过就原样返回；
 - `avg_cost_usd` / `cost_basis_usd` / `unrealized_pnl_usd` / `unrealized_pnl_pct` **只在 `manual` 时有值**，
-  `stale` 与 `missing` 一律 `null`，直到重新录入。总成本 = 单价 × 当前股数 + 手续费；
+  `stale` 与 `missing` 一律 `null`，直到重新录入。减仓时沿用单位成本，手续费按剩余股数
+  占录入股数的比例保留；加仓才要求重新录入；
 - `cost_coverage: {manual, stale, total}` 是上面三种状态的计数。
 
 #### `spot_costs` —— 人工录入的币仓成本
@@ -157,7 +158,8 @@ Binance 的 Stocks Trading **没有持仓接口**。直接买入的正股在资�
 `Record<asset, {asset, cost_price_usd, commission_usd, position_qty, updated_at}>`，来自
 `PUT /admin/spot-costs/{asset}`。**只用于持仓行展示这笔币仓的成本与盈亏，不进 `pnl`。**
 后端原样返回录入值；console 把现货、合约钱包与全仓杠杆里的数量合起来与 `position_qty` 核对，
-对得上才用，数量不符或余额来源失败时不用。稳定币属于现金，不录成本。早先按整仓价值录入的旧记录
+当前数量不高于录入数量时使用；减仓沿用单位成本并按剩余数量保留手续费，加仓或余额来源
+失败时不用。稳定币属于现金，不录成本。早先按整仓价值录入的旧记录
 （`trade_value_usd`）没有单价，不自动换算，要重新录入。
 
 #### `earn[]` —— 活期年化按阶梯加权
@@ -172,6 +174,7 @@ Binance 的 Stocks Trading **没有持仓接口**。直接买入的正股在资�
 | 字段 | 内容 | 为 `null` 时 |
 |---|---|---|
 | `capabilities` | 产品能力、API 权限、VIP 等级（`/sapi/v1/account/info` 与 `apiRestrictions`） | 来源失败 |
+| `futures` | U 本位合约账户、仓位与资金费。`funding_rate` / `next_funding_time` 来自 `/fapi/v1/premiumIndex`；`estimated_funding_fee_usd` 以当前方向和价值估算下一次收支，收入为正、支出为负 | 任一合约来源失败 |
 | `isolated_margin` | 逐仓各交易对的风险率、强平价、两条腿的借贷（`/sapi/v1/margin/isolated/account`） | 来源失败 |
 | `liquidation_loan` | 强平后的穿仓借款（`/sapi/v1/margin/liquidation-loan`），`remaining_amount > 0` 才是要处理的风险 | **没有借款**：接口回空，来源状态照常 `ok` |
 | `portfolio_margin` | 统一账户 / SPAN（`mode` 为 `portfolio` 或 `span`） | 账户没开统一账户，或来源失败；看 `sources` 区分 |
@@ -194,7 +197,8 @@ Binance 的 Stocks Trading **没有持仓接口**。直接买入的正股在资�
                             spot_usd     现货类持仓当天的涨跌（跨全部钱包，含当天成交那部分）
                             stock_usd    正股当天的涨跌（昨收来自 Yahoo，见 equity_close_source）
                             settled_usd  合约当天结算（已实现+资金费+手续费+返佣）
-                            earn_usd     理财派息（稳定币的也算）
+                            earn_usd     当天理财收益估算；当前本金×年化÷365，按 UTC
+                                         当日已过时间连续计提。历史日期为 0，不用当前值反推
                             interest_usd 杠杆利息，负数
                             pnl_usd      spot_usd + stock_usd + settled_usd + earn_usd + interest_usd；
                                          算不出来时 null
@@ -214,7 +218,7 @@ Binance 的 Stocks Trading **没有持仓接口**。直接买入的正股在资�
                           value_usd, today_usd}
   stock_marks[]           正股逐只今日涨跌，形状同 spot_marks
   earn_marks[] / interest_marks[]
-                          今天的派息 / 利息按资产拆开：{asset, usd}
+                          今天的理财收益估算 / 实际利息按资产拆开：{asset, usd}
   equity_missing[]        拿不到昨收、没计进今日盈亏的股票代码（按 0 计，页面要点名）
   equity_close_source     正股昨收的出处（现为 "Yahoo 日线复权收盘"）
   unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖到），受影响的天已报 null
@@ -222,8 +226,10 @@ Binance 的 Stocks Trading **没有持仓接口**。直接买入的正股在资�
 
   `unrealized` 与 `realized` **各自只有 `futures_*`**，没有现货那一半，见下。
 
-- **派息与利息单列，不并进 `spot_usd`**（2026-09-22 起）。它们多记在稳定币上，而稳定币不参与盯市
-  （见 `stable_assets`），原先并进去的结果是整笔丢掉。
+- **理财收益与利息单列，不并进 `spot_usd`**。稳定币不参与盯市（见 `stable_assets`），
+  原先并进去的结果是整笔丢掉。理财收益不再读取 Binance 奖励历史：该结果与账户实际
+  收益不一致。现在只按 USDT / USDC / BFUSD Simple Earn 与各钱包 BFUSD 的当前本金和年化估算今天；
+  过去日期没有历史本金与利率，保持 0。杠杆利息仍取实际流水。
 - **`equity_close_source` 是整个 `/portfolio` 里唯一不来自 Binance 的数。** Binance 的股票接口
   （`/sapi/v1/equity/*`）只给买一卖一，没有日线也没有前收，正股昨收取自 Yahoo 日线。
 - **现货这一侧没有"相对成本"的任何数**——未实现没有，已实现也没有。两者要的是
@@ -243,7 +249,7 @@ Binance 的 Stocks Trading **没有持仓接口**。直接买入的正股在资�
 - **日历的每一天都是真实盈亏，不只是成交结算。** 一天 =
   `q_d × close_d − q_{d−1} × close_{d−1} − 当天进出`。历史持仓量没有接口，
   从今天的余额往回滚；跨钱包统计让划转自动抵消，所以只需要成交 / 充提 / 合约结算 /
-  理财派息 / 杠杆利息 / 闪兑 / 小额兑换这几类。算不出来的天 `pnl_usd` 是 `null`，
+  杠杆利息 / 闪兑 / 小额兑换这几类。算不出来的天 `pnl_usd` 是 `null`，
   **不是 0**——0 会被读成"这天没赚没亏"。
 - **`today` 就是 `daily` 的最后一格**，不另算一遍。上一版两处各算各的，
   屏幕上两个数对不上。
@@ -305,8 +311,8 @@ Query：`symbol`、`venue`（`spot|usdm|margin|equity`）、`force`。
 ### GET /ledger
 Query：`days`（默认 7）、`force`。
 
-Binance **没有统一的流水接口**，`entries` 是八个端点合并的时间线，每条带 `source`。
-`days` 超过 30 会被截到 30——那是各来源上限的**交集**，卡在理财派息/杠杆利息/闪兑。
+Binance **没有统一的流水接口**，`entries` 是七类端点合并的时间线，每条带 `source`。
+`days` 超过 30 会被截到 30——那是各来源上限的**交集**，卡在杠杆利息与闪兑。
 `window` 里带着本次实际的起止、天数、上限与卡住它的来源。
 
 端点清单（路径、权重、单次上限、回溯天数、调用次数）**不再出现在响应里**：
@@ -321,8 +327,8 @@ Binance **没有统一的流水接口**，`entries` 是八个端点合并的时�
 `{"cost_price_usd": number > 0, "commission_usd": number >= 0, "position_qty": number > 0}`
 
 - `cost_price_usd` 是单位平均成本价，不含手续费；总成本 = `cost_price_usd × position_qty + commission_usd`。
-- `position_qty` 是录入时的持仓数量。之后钱包里的数量变了：股票那边标 `stale`，币仓那边 console 不再使用，
-  平均成本与盈亏回到 `null`，直到重新录入——不按比例摊，也不沿用旧值。
+- `position_qty` 是录入时的持仓数量。之后只有数量增加才失效；减仓继续沿用单位成本，
+  并按 `当前数量 / 录入数量` 保留手续费。这样减仓不会要求重复录入，加仓仍需重新确认成本。
 - 返回 `{"stock_cost": {symbol, cost_price_usd, commission_usd, position_qty, updated_at}}` /
   `{"spot_cost": {asset, …同上}}`。同一个代码再录一次是覆盖。
 - 代码先转大写，须以字母开头、只含 `A-Z0-9.-`、1–16 位，否则 422，此时 `detail` 是一句中文字符串。

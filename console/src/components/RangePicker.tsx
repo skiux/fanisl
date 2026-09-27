@@ -33,22 +33,33 @@ function clamp(day: string, first: string, last: string) {
   return day < first ? first : day > last ? last : day
 }
 
-export function RangePicker({ first, last, value, active, onChange }: {
-  /** 有数据的第一天 / 最后一天，选不出范围之外的日子 */
+function shiftYear(day: string, delta: number) {
+  const year = +day.slice(0, 4) + delta
+  const month = day.slice(5, 7)
+  const date = Math.min(+day.slice(8, 10), daysIn(`${year}-${month}`))
+  return `${year}-${month}-${String(date).padStart(2, '0')}`
+}
+
+export function RangePicker({ first, last, value, active, onChange, today = iso(new Date()) }: {
+  /** 有数据的第一天 / 最后一天，只用于默认区间；选择范围以当前日期前后一年为准。 */
   first: string
   last: string
   value: { from: string; to: string } | null
   active: boolean
   onChange: (range: { from: string; to: string }) => void
+  today?: string
 }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState({ from: first, to: last })
   const [edit, setEdit] = useState<'from' | 'to'>('from')
 
   // 默认：右边是最后一天（"现在"），左边往前推一个月
+  const lower = shiftYear(today, -1)
+  const upper = shiftYear(today, 1)
+  const fallbackTo = clamp(last, lower, upper)
   const fallback = {
-    from: clamp(iso(new Date(Date.parse(`${last}T00:00:00Z`) - 29 * MS_DAY)), first, last),
-    to: last,
+    from: clamp(iso(new Date(Date.parse(`${fallbackTo}T00:00:00Z`) - 29 * MS_DAY)), lower, upper),
+    to: fallbackTo,
   }
 
   const start = () => {
@@ -58,7 +69,7 @@ export function RangePicker({ first, last, value, active, onChange }: {
   }
 
   const months: string[] = []
-  for (let at = monthOf(first); at <= monthOf(last);) {
+  for (let at = monthOf(lower); at <= monthOf(upper);) {
     months.push(at)
     const next = new Date(Date.UTC(+at.slice(0, 4), +at.slice(5, 7), 1))
     at = iso(next).slice(0, 7)
@@ -66,17 +77,21 @@ export function RangePicker({ first, last, value, active, onChange }: {
 
   const current = draft[edit]
   const month = monthOf(current)
-  // 这个月里能选的日子：不能超出有数据的范围
+  // 日期轮保留完整月份；范围边界在写入时校验。
   const days: string[] = []
   for (let d = 1; d <= daysIn(month); d += 1) {
     const day = `${month}-${String(d).padStart(2, '0')}`
-    if (day >= first && day <= last) days.push(day)
+    days.push(day)
   }
 
-  const set = (day: string) => setDraft((it) => {
-    if (edit === 'from') return { from: day, to: day > it.to ? day : it.to }
-    return { from: day < it.from ? day : it.from, to: day }
-  })
+  const set = (day: string) => {
+    if (day < lower || day > upper) return false
+    setDraft((it) => {
+      if (edit === 'from') return { from: day, to: day > it.to ? day : it.to }
+      return { from: day < it.from ? day : it.from, to: day }
+    })
+    return true
+  }
 
   const commit = () => {
     const { from, to } = draft
@@ -158,18 +173,21 @@ export function RangePicker({ first, last, value, active, onChange }: {
               }))}
               label="年月"
               onChange={(next) => {
-                // 换月时保住"第几号"，那个月没有这天就退到最近的一天
+                // 保住日号。目标月份没有这一天，或日期超出边界时拒绝本次滚动；
+                // Wheel 会平滑回到上一个有效月份，不把 31 日偷偷改成 28 日。
                 const wanted = `${next}-${current.slice(8, 10)}`
-                const total = daysIn(next)
-                const day = +current.slice(8, 10) > total
-                  ? `${next}-${String(total).padStart(2, '0')}` : wanted
-                set(clamp(day, first, last))
+                if (+current.slice(8, 10) > daysIn(next) || wanted < lower || wanted > upper) {
+                  return false
+                }
+                set(wanted)
+                return true
               }}
               value={month}
             />
             <Wheel
               items={days.map((d) => ({ value: d, label: String(+d.slice(8, 10)) }))}
               label="日"
+              loop
               onChange={set}
               value={current}
             />
@@ -180,18 +198,21 @@ export function RangePicker({ first, last, value, active, onChange }: {
   )
 }
 
-function Wheel({ items, value, onChange, label }: {
+function Wheel({ items, value, onChange, label, loop = false }: {
   items: { value: string; label: string }[]
   value: string
-  onChange: (value: string) => void
+  onChange: (value: string) => boolean | void
   label: string
+  loop?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const timer = useRef<number | undefined>(undefined)
   const unlock = useRef<number | undefined>(undefined)
   /** 正在由程序滚动：这期间读位置读到的是动画中途的值 */
   const driving = useRef(false)
-  const index = Math.max(0, items.findIndex((item) => item.value === value))
+  const baseIndex = Math.max(0, items.findIndex((item) => item.value === value))
+  const rendered = loop ? [...items, ...items, ...items] : items
+  const index = loop ? items.length + baseIndex : baseIndex
 
   /**
    * 滚到某一格。
@@ -218,14 +239,25 @@ function Wheel({ items, value, onChange, label }: {
     el.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' })
   }
 
+  const choose = (next: string) => {
+    const accepted = onChange(next)
+    if (accepted === false) glide(index * ITEM, true)
+  }
+
   /** 滚停了：把停在哪一格回写成值 */
   const settle = () => {
     const el = ref.current
     if (!el) return
     if (driving.current) { driving.current = false; return }
-    const hit = items[Math.min(items.length - 1,
-                               Math.max(0, Math.round(el.scrollTop / ITEM)))]
-    if (hit && hit.value !== value) onChange(hit.value)
+    const raw = Math.min(rendered.length - 1,
+                         Math.max(0, Math.round(el.scrollTop / ITEM)))
+    const hit = rendered[raw]
+    if (hit && hit.value !== value) {
+      choose(hit.value)
+    } else if (loop && hit) {
+      // 同一天落在首尾副本时也回到中间副本，滚轮可继续双向滚动。
+      glide(index * ITEM, false)
+    }
   }
 
   // 事件回调要拿到最新的 `value` / `items`，而监听只挂一次——用 ref 转一道
@@ -274,11 +306,14 @@ function Wheel({ items, value, onChange, label }: {
         onKeyDown={(event) => {
           const delta = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0
           const target = event.key === 'Home' ? 0
-            : event.key === 'End' ? items.length - 1 : index + delta
+            : event.key === 'End' ? items.length - 1 : baseIndex + delta
           if (delta === 0 && event.key !== 'Home' && event.key !== 'End') return
           event.preventDefault()
-          const next = items[Math.min(items.length - 1, Math.max(0, target))]
-          if (next) onChange(next.value)
+          const normalized = loop
+            ? (target + items.length) % items.length
+            : Math.min(items.length - 1, Math.max(0, target))
+          const next = items[normalized]
+          if (next) choose(next.value)
         }}
         onPointerDown={() => {
           driving.current = false
@@ -296,14 +331,14 @@ function Wheel({ items, value, onChange, label }: {
         ref={ref}
       >
         <div className="wheel-track" style={{ paddingBlock: ((VISIBLE - 1) / 2) * ITEM }}>
-          {items.map((item) => (
+          {rendered.map((item, renderedIndex) => (
             <button
               // 鼠标上滚轮不好用，每一项同时是按钮
               className="wheel-item tnum"
               data-on={item.value === value}
-              key={item.value}
-              onClick={() => onChange(item.value)}
-              tabIndex={item.value === value ? 0 : -1}
+              key={`${item.value}:${renderedIndex}`}
+              onClick={() => choose(item.value)}
+              tabIndex={renderedIndex === index ? 0 : -1}
               style={{ height: ITEM }}
               type="button"
             >

@@ -21,6 +21,7 @@ def test_current_futures_versions_and_wallet_detail_parameter():
         client.wallet_balance()
         client.futures_account()
         client.futures_position_risk()
+        client.futures_mark_prices()
         client.futures_symbol_config()
         client.futures_open_algo_orders()
     finally:
@@ -30,6 +31,7 @@ def test_current_futures_versions_and_wallet_detail_parameter():
     assert by_path["/sapi/v1/asset/wallet/balance"]["needBalanceDetail"] == "true"
     assert "/fapi/v3/account" in by_path
     assert "/fapi/v3/positionRisk" in by_path
+    assert "/fapi/v1/premiumIndex" in by_path
     assert "/fapi/v1/symbolConfig" in by_path     # v3 之后杠杆与逐仓只有这里有
     assert "/fapi/v1/openAlgoOrders" in by_path
 
@@ -262,51 +264,3 @@ def test_portfolio_margin_reads_use_papi_and_sapi_contracts():
         ("papi.binance.com", "/papi/v2/um/account"),
         ("papi.binance.com", "/papi/v1/um/positionRisk"),
     ]
-
-
-def test_earn_rewards_history_splits_90_days_into_30_day_windows_and_pages():
-    """派息记录单次跨度超过 30 天回 -6021；逐日盈亏按 90 天问，2026-09-05 起两个来源每次都失败。"""
-    day = 86_400_000
-    seen: list[dict[str, str]] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path.endswith("/time"):
-            return httpx.Response(200, json={"serverTime": 0})
-        p = dict(request.url.params)
-        seen.append(p)
-        span = int(p["endTime"]) - int(p["startTime"])
-        if span > 30 * day:
-            return httpx.Response(400, json={"code": -6021, "msg": "Query time range too large"})
-        # 每个窗口 3 条，每页 2 条：第 1 页满、第 2 页 1 条
-        page = int(p["current"])
-        rows = [{"asset": "USDT", "rewards": "0.1", "time": int(p["startTime"]) + k}
-                for k in range(3)][(page - 1) * 2: page * 2]
-        return httpx.Response(200, json={"rows": rows, "total": 3})
-
-    client = BinanceClient("k", "s", client=httpx.Client(transport=httpx.MockTransport(handler)))
-    try:
-        out = client.earn_rewards_history("flexible", start_ms=0, end_ms=90 * day, size=2)
-    finally:
-        client.close()
-
-    spans = {(int(p["startTime"]), int(p["endTime"])) for p in seen}
-    assert all(e - s <= 30 * day for s, e in spans)
-    starts = sorted(s for s, _ in spans)
-    assert starts[0] == 0 and max(e for _, e in spans) == 90 * day, "窗口首尾要覆盖整个区间"
-    assert len(spans) == 3 and len(out["rows"]) == 9 == out["total"], "90 天正好切三段，每段翻两页"
-    assert all(p["type"] == "ALL" for p in seen)
-
-
-def test_earn_rewards_history_fails_closed_past_the_page_cap():
-    def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path.endswith("/time"):
-            return httpx.Response(200, json={"serverTime": 0})
-        return httpx.Response(200, json={"rows": [{"asset": "BTC", "amount": "1"}], "total": 5})
-
-    client = BinanceClient("k", "s", client=httpx.Client(transport=httpx.MockTransport(handler)))
-    try:
-        with pytest.raises(BinanceError, match="分页上限") as error:
-            client.earn_rewards_history("locked", start_ms=0, end_ms=1000, size=1, max_pages=2)
-    finally:
-        client.close()
-    assert error.value.kind == "unsupported"

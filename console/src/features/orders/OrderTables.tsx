@@ -154,7 +154,7 @@ export function OpenOrderTable({ orders }: { orders: Order[] }) {
         <span className="hidden sm:block">方向 / 类型</span>
         <span className="hidden sm:block">价格</span>
         <span className="hidden sm:block">数量</span>
-        <span className="text-right sm:text-left">名义</span>
+        <span className="text-right sm:text-left">价值</span>
         <span className="hidden sm:block">距触发</span>
       </div>
       <ul className="scroll-y max-h-[32rem] divide-y divide-rule">

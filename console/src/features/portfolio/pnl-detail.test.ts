@@ -48,11 +48,11 @@ describe('今日盈亏明细', () => {
     expect(text).toMatch(/0\.116797 · \$94,180\.22 · [+−]/)
   })
 
-  it('正股与理财都在里面：一个是持仓涨跌，一个是派息', () => {
+  it('正股与理财都在里面：一个是持仓涨跌，一个是按年化计提的收益', () => {
     const pnl = snapshot().pnl!
     const text = render(pnl)
     expect(text).toContain('SOXL')
-    expect(text).toContain('理财派息')
+    expect(text).toContain('理财收益')
     expect(text).toContain('杠杆利息')
     expect(text).toContain(signedMoney(pnl.today.earn_usd))
     // 正股的昨收不来自 Binance，出处要写出来

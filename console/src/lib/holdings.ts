@@ -138,8 +138,11 @@ export function spotHoldings(snapshot: PortfolioSnapshot): SpotHoldingRow[] {
     const saved = snapshot.spot_costs[row.asset]
     const status = !balancesAvailable ? 'unavailable'
       : !saved ? 'missing'
-      : Math.abs(saved.position_qty - row.total) <= 1e-8 ? 'manual' : 'stale'
-    const cost = status === 'manual' ? saved!.cost_price_usd * row.total + saved!.commission_usd : null
+      : row.total <= saved.position_qty + 1e-8 ? 'manual' : 'stale'
+    const retainedCommission = status === 'manual' && saved!.position_qty > 0
+      ? saved!.commission_usd * row.total / saved!.position_qty : null
+    const cost = status === 'manual'
+      ? saved!.cost_price_usd * row.total + (retainedCommission ?? 0) : null
     const pnl = cost !== null && value !== null && pricesAvailable ? value - cost : null
     return {
       ...row,

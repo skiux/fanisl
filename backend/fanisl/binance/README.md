@@ -21,17 +21,18 @@ Binance 2026 的文档里同时存在两条股票相关路径，接口与账户�
   不从成交历史反推持仓——转入、转出与公司行动会让倒推的数量静默失真。
   Binance 当前不给完整持仓成本与手续费，资产页不再用不完整历史反推。管理员为当前
   持仓录入单位平均成本价与手续费，总成本 = 单价 × 当前股数 + 手续费；保存时记录当前股数，钱包股数
-  变化后旧值标为 `stale`，平均成本与盈亏保持 `null`，直到重新录入。最新买卖价来自
+  增加后旧值标为 `stale`，平均成本与盈亏保持 `null`，直到重新录入；减仓沿用单位成本，
+  手续费按剩余股数占录入股数的比例保留。最新买卖价来自
   `/equity/market/quote`，交易方向、常规/延长时段碎股与隔夜能力来自 `exchangeInfo`。
   委托与成交历史仍供 `/orders` 展示，不参与 `/portfolio` 的成本计算。
-  **逐日盈亏仍不含正股**：`held_across_wallets` 不读资金钱包，股票也没有 REST 日线
-  （只有 WebSocket K 线）。
+  正股逐日盈亏用钱包数量和 Yahoo 日线复权收盘计算；这是资产页唯一不来自 Binance 的
+  行情，因为 Stocks Trading REST 只有买一卖一，没有日线或前收。
 - **现货币仓成本**同样由管理员为当前持仓填写单位平均成本价与手续费，保存到独立于 Binance
   响应缓存的 `binance_spot_costs` 表。`GET /portfolio` 的 `spot_costs` 按币种返回录入值与
   保存时的数量；console 在现货钱包、合约钱包和全仓杠杆合并后核对数量，匹配才显示
   平均成本和这笔持仓的盈亏（现货只是拿着，不叫未实现）。旧版整仓价值记录没有明确单价，不自动换算为新成本；
-  数量变化或余额来源失败时不沿用旧成本；稳定币在现金
-  模块，不录入成本。理财持仓仍在自己的模块，不计入这笔币仓的录入数量。
+  数量增加或余额来源失败时不沿用旧成本；减仓沿用单位成本；稳定币在现金
+  模块，不录入成本。理财资产仍单独建模，不计入这笔币仓的录入数量。
 - **TradFi Perps** 仍是 USDⓈ-M Futures，走 `/fapi/*`，代码如 `NVDAUSDT`。它继续使用
   合约保证金、强平价与 ADL 逻辑；`exchangeInfo` 的 `underlyingType` / `underlyingSubType`
   用来识别 TradFi，`tradingSchedule` 给出当前市场时段，`symbolAdlRisk` 给出标的级 ADL
@@ -181,8 +182,9 @@ IP 权重上限 **6000/分钟**。而：
 |---|---|
 | `/fapi/v3/account` **没有**标记价、强平价、ADL 分位 | 在 `positionRisk` 与 `adlQuantile` 上。少了它们"距强平多远"无从算起 |
 | v3 的 `account` 持仓行也**没有** `entryPrice` / `leverage` / `isolated`，v3 `positionRisk` 只补回了 `entryPrice` | 杠杆倍数与全仓/逐仓只在 `/fapi/v1/symbolConfig`。迁到 v3 后照 v2 字段读，线上每个仓位都成了开仓价 0、1×、全仓（2026-09-17 核对线上缓存） |
+| `positionRisk` 没有最近资金费率与下次结算时间 | `/fapi/v1/premiumIndex` 返回 `lastFundingRate` / `nextFundingTime`；按当前方向与价值估算下一次资金费，实际当日资金费仍以 `/fapi/v1/income` 为准 |
 | Stocks Trading 的 Account 文档没有持仓 GET | 持仓只能从钱包明细认：正股是资金钱包里的 `EQ_<代码>`（文档没写，2026-09-17 实测），代币化股票按 tokenized-assets 映射；不能用成交净额伪造持仓 |
-| 股票逐笔成交没有手续费，`order/history` 在线上又可能漏掉 `fee` 或对应成交 | `/orders` 原样保留可得历史；`/portfolio` 不拿残缺记录估算成本，由管理员录入单位平均成本价与手续费，股数变化后停用旧值 |
+| 股票逐笔成交没有手续费，`order/history` 在线上又可能漏掉 `fee` 或对应成交 | `/orders` 原样保留可得历史；`/portfolio` 不拿残缺记录估算成本，由管理员录入单位平均成本价与手续费，股数增加后停用旧值，减仓沿用单位成本 |
 | BFUSD 已移到 Simple Earn，账户余额接口不带当前年化 | 用 `/sapi/v1/bfusd/history/rateHistory` 的最近一条 `annualPercentageRate`，并应用到各钱包中的 BFUSD 现金行 |
 | 活期理财的年化是**阶梯**的，`latestAnnualPercentageRate` 只是超出阶梯之后的实时利率 | 用同一行里的 `tierAnnualPercentageRate`（形如 `{"0-500USDT": 0.12}`）按当前金额加权：档内那部分按档位利率，其余按实时利率（`_apr_tiers`）。实时利率未知而又有超出部分时报 `null`，不给半个数 |
 | Stocks Trading 行情要求 API key 但不要求签名 | 当公开端点调用会 401；当 USER_DATA 调用会多余地签名 |
@@ -348,21 +350,17 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
 | 现货成交 | `myTrades`（已有，全历史） | 成交价 |
 | 充提 | `capital/deposit,withdraw`（已有，90 天） | 当日收盘 |
 | 合约结算 | `fapi/v1/income`（已有，90 天） | 当日收盘（损益已计在 settled 里） |
-| 理财派息 | `simple-earn/*/history/rewardsRecord`（`type=ALL`） | 当日收盘（**另行成项**） |
 | 杠杆利息 | `margin/interestHistory` | 当日收盘（**另行成项**） |
 | 闪兑 | `convert/tradeFlow`（**只回 30 天**） | 当日收盘 |
 | 小额兑换 | `asset/dribblet`（**只回 30 天**） | 当日收盘 |
 | 正股成交 | `equity/trade/history` | 成交价 |
 
-**派息与利息不在盯市里，各自成项**（`dailypnl.daily_credits`）。原先它们的单位成本是
-0，等于把损益并进那个币当天的涨跌里；而**稳定币整个不参与盯市**，于是 USDT 活期的
-派息与杠杆利息在「今日盈亏」里一分都看不到——那恰恰是这个账户上金额最大的一块理财。
-现在它们按 1 美元折算（其余资产按当日收盘），在接口里是 `today.earn_usd` /
-`today.interest_usd`，日历每一格也各有一份。
-
-**活期派息要问 `type=ALL`。** 活期的收益分实时年化（`REALTIME`）与阶梯年化奖励
-（`BONUS`）两类，另有历史奖励（`REWARDS`）。这里原先只问 `REWARDS`，阶梯那部分
-从来没被取到。
+**理财收益与杠杆利息不在盯市里，各自成项。** 稳定币不参与盯市，但这两项仍然存在。
+理财奖励历史端点已经删除：线上结果与账户实际收益不一致，不能继续当作权威记录。
+`today.earn_usd` 现在只使用 USDT / USDC / BFUSD Simple Earn 当前本金和加权年化，以及
+各钱包 BFUSD 当前余额和最新公布年化，按 `本金 × 年化 ÷ 365 × UTC 当日已过比例` 连续计提。
+没有历史本金与利率，因此过去日期的 `earn_usd` 保持 0，不用今天的值伪造历史。
+杠杆利息仍由 `margin/interestHistory` 按实际流水计入。
 
 **回滚出负数 = 有一类进出没被覆盖到**（这个账户上最可能是 90 天以外的充值）。
 那天报 `null` 而不是一个错的数，`unbalanced_assets` 把是哪几个币说出来。
@@ -413,10 +411,10 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
 
 ## 流水页的两条硬边界
 
-**没有统一的流水接口**，时间线由八个端点合并，每条记录带 `source`。
+**没有统一的流水接口**，时间线由七类端点合并，每条记录带 `source`。
 
-**单次能查 30 天**，等于各来源上限的交集，卡在理财派息 / 杠杆利息 / 闪兑。这不是设计选的
-数字，是接口给的，所以 `windows` 表原样返回给前端显示。
+**单次能查 30 天**，等于各来源上限的交集，卡在杠杆利息与闪兑。这不是设计选的
+数字，是接口给的；端点限制保存在 `ledger.py:WINDOWS`，页面只提供 7 / 14 / 30 天。
 
 划转（`/sapi/v1/asset/transfer`）的 `type` 必填，官方枚举约 40 种。这里只问**这个账户可能
 用到的 12 种**——全问一遍是 40 次调用，其中大半（期权、币本位各种组合）恒为空。少问的代价
@@ -485,7 +483,7 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 封禁时长按累犯递增，**2 分钟到 3 天**。
 
 下表的权重，带 † 的是官方文档逐条核过的，其余取自文档但未逐条复核——
-真正驱动行为的那批（流水页八个端点）都钉在 `ledger.py:WINDOWS` 里，有测试盯着。
+真正驱动行为的那批（流水页七类端点）都钉在 `ledger.py:WINDOWS` 里，有测试盯着。
 
 ### 资产页 `/portfolio`
 
@@ -497,6 +495,7 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | `futures` | `GET /fapi/v3/account` | 5 † | 30s | 保证金与未实现盈亏 |
 | | `GET /fapi/v1/accountConfig` | 5 † | 30s | 双向持仓 / 联合保证金 |
 | | `GET /fapi/v3/positionRisk` | 5 | 30s | **标记价、强平价、开仓价只有这里有** |
+| | `GET /fapi/v1/premiumIndex` | 10 | 30s | 最近资金费率与下次结算时间；不传 symbol 时取全部 |
 | | `GET /fapi/v1/symbolConfig` | 5 | 30s | **杠杆倍数与全仓/逐仓只有这里有** |
 | | `GET /fapi/v1/adlQuantile` | 5 | 30s | 自动减仓队列 |
 | | `GET /fapi/v1/symbolAdlRisk` | 1 | 1800s | 标的级 ADL 风险，官方每 30 分钟更新 |
@@ -516,8 +515,6 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | | `GET /sapi/v1/capital/withdraw/history` | **18000** | 900s | UID 限速 10 次/秒，最贵的一个 |
 | `trades.*` | `GET /api/v3/myTrades` | 20 / 交易对 | 6h | `fromId` 翻页，**无时间上限** |
 | `close.*` | `GET /api/v3/klines` | 2 / 交易对 | 900s | 日线收盘，不签名；`limit=WINDOW_DAYS+2` |
-| `flows.earn_flexible` | `GET /sapi/v1/simple-earn/flexible/history/rewardsRecord` | 150 × 窗 × 页 | 1800s | UID 限速；`type=ALL`，只问 `REWARDS` 会漏掉阶梯奖励。**单次最多 30 天**，90 天窗按 ≤30 天切三段、每段翻页（`client.earn_rewards_history`）；2026-09-05 至 09-25 直接问 90 天，每次 -6021，派息没进逐日盈亏 |
-| `flows.earn_locked` | `GET /sapi/v1/simple-earn/locked/history/rewardsRecord` | 150 × 窗 × 页 | 1800s | UID 限速；切窗与翻页同上 |
 | `flows.interest` | `GET /sapi/v1/margin/interestHistory` | 1 | 1800s | 杠杆利息 |
 | `flows.convert` | `GET /sapi/v1/convert/tradeFlow` | **3000** | 1800s | **只回 30 天** |
 | `flows.dust` | `GET /sapi/v1/asset/dribblet` | 1 | 1800s | **只回 30 天** |
@@ -575,12 +572,11 @@ FAPI 池 **63**（上表 fapi 各行相加）。`withdrawals` 与 BFUSD 年化�
 | 提现 | `GET /sapi/v1/capital/withdraw/history` | **18000** | 90 天 | 90 天 | UID 10 次/秒 |
 | 合约损益 | `GET /fapi/v1/income` | 30 | 不限 | 90 天 | — |
 | 钱包划转 | `GET /sapi/v1/asset/transfer` | 1 | 不限 | 180 天 | **type 必填**，取 12 种常用 |
-| 理财派息 | `GET /sapi/v1/simple-earn/*/history/rewardsRecord` | 150 | **30 天** | — | 活期与定期各一次 |
 | 杠杆利息 | `GET /sapi/v1/margin/interestHistory` | 1 | 30 天 | 90 天 | — |
 | 闪兑 | `GET /sapi/v1/convert/tradeFlow` | **3000** | 30 天 | — | 起止时间都必填 |
 | 小额兑换 | `GET /sapi/v1/asset/dribblet` | 1 | 不限 | — | — |
 
-**流水页的窗口上限是 30 天**，由理财派息与闪兑这两个 30 天的端点决定——
+**流水页的窗口上限是 30 天**，由杠杆利息与闪兑这两个 30 天的端点决定——
 不是设计选的，是最紧的那个端点定的。界面上的 7 / 14 / 30 就是这么来的。
 
 ### 几个容易踩的点
