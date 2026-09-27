@@ -66,7 +66,7 @@ export function OverviewView({ snapshot, veiled }: {
       <ViewGrid>
         {/* 不给 figure：它原先放的是 today_usd，而摘要条上那个「今日盈亏」
             就是同一个数——同一屏里说两遍。日历自己有月合计和区间合计。 */}
-        <Module span={cashRows.length > 0 ? 'lg:col-span-7' : 'lg:col-span-12'} title="每日盈亏">
+        <Module span={cashRows.length > 0 ? 'self-start lg:col-span-7' : 'self-start lg:col-span-12'} title="每日盈亏">
           <RealizedDays
             days={pnlDays}
             onSelectDate={setSelectedDate}
@@ -116,21 +116,21 @@ function DailyPnlBreakdown({ day }: { day: DailyPnl | null }) {
     <aside className="mt-6 min-w-0 border-t border-rule pt-5">
       {day ? (
         <>
-          <div className="flex items-baseline justify-between gap-4 border-b border-rule pb-4">
+          <div className="flex items-baseline justify-between gap-4">
             <span className="tnum text-xs text-ink-3">{day.date}</span>
-            <span className={cn('tnum text-lg', day.pnl_usd === null
+            <span className={cn('tnum text-xl', day.pnl_usd === null
               ? 'text-ink-3' : day.pnl_usd > 0 ? 'text-gain'
                 : day.pnl_usd < 0 ? 'text-loss' : 'text-ink-2')}>
               {day.pnl_usd === null ? '—' : signedMoney(day.pnl_usd)}
             </span>
           </div>
-          <dl className="grid grid-cols-2 gap-x-6 sm:grid-cols-3">
+          <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 xl:grid-cols-5">
             {DAY_PARTS.map(({ key, label }) => {
               const value = day[key]
               return (
-                <div className="flex items-baseline justify-between gap-4 border-b border-rule/70 py-3" key={key}>
+                <div className="min-w-0" key={key}>
                   <dt className="text-xs text-ink-3">{label}</dt>
-                  <dd className={cn('tnum text-sm', value === null
+                  <dd className={cn('tnum mt-1.5 text-base', value === null
                     ? 'text-ink-3' : value > 0 ? 'text-gain'
                       : value < 0 ? 'text-loss' : 'text-ink-2')}>
                     {value === null ? '—' : signedMoney(value)}

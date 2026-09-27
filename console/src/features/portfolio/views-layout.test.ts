@@ -56,9 +56,11 @@ describe('资产页模块分布', () => {
     const calendarSection = [...host.querySelectorAll('h2')]
       .find((heading) => heading.textContent === '每日盈亏')!.closest('section')!
     expect(calendarSection.className).toContain('lg:col-span-7')
+    expect(calendarSection.className).toContain('self-start')
     const dailyDetail = calendarSection.querySelector('aside')!
     expect(dailyDetail.className).not.toContain('lg:border-l')
     expect(dailyDetail.querySelector('dl')?.className).toContain('sm:grid-cols-3')
+    expect(dailyDetail.querySelector('dl')?.className).toContain('xl:grid-cols-5')
     const settlementLabel = [...host.querySelectorAll('aside dt')]
       .find((node) => node.textContent === '合约结算')!
     const settlementValue = settlementLabel.nextElementSibling as HTMLElement
