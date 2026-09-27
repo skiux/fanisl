@@ -41,7 +41,8 @@ describe('资产页模块分布', () => {
     expect(titles()).not.toContain('风险仪表')
     const cashSection = [...host.querySelectorAll('h2')]
       .find((heading) => heading.textContent === '现金')!.closest('section')!
-    expect(cashSection.className).toContain('lg:col-span-5')
+    const rightStack = cashSection.parentElement!
+    expect(rightStack.className).toContain('lg:col-span-5')
     expect(cashSection.querySelector('dl')?.className).toContain('xl:grid-cols-4')
     const cashTableHead = [...cashSection.querySelectorAll('div')]
       .find((row) => row.textContent === '资产账户年化价值')!
@@ -49,13 +50,15 @@ describe('资产页模块分布', () => {
     expect(cashSection.textContent).toContain('理财收益')
     const incomeSection = [...host.querySelectorAll('h2')]
       .find((heading) => heading.textContent === '合约收支')!.closest('section')!
-    expect(incomeSection.className).toContain('lg:col-span-7')
-    expect(incomeSection.compareDocumentPosition(cashSection) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(incomeSection.parentElement).toBe(rightStack)
+    expect(cashSection.compareDocumentPosition(incomeSection) & Node.DOCUMENT_POSITION_FOLLOWING)
       .toBeTruthy()
-    const calendarLayout = [...host.querySelectorAll('h2')]
+    const calendarSection = [...host.querySelectorAll('h2')]
       .find((heading) => heading.textContent === '每日盈亏')!.closest('section')!
-      .querySelector(':scope > div:last-child > div')!
-    expect(calendarLayout.className).toContain('minmax(0,1.55fr)')
+    expect(calendarSection.className).toContain('lg:col-span-7')
+    const dailyDetail = calendarSection.querySelector('aside')!
+    expect(dailyDetail.className).not.toContain('lg:border-l')
+    expect(dailyDetail.querySelector('dl')?.className).toContain('sm:grid-cols-3')
     const settlementLabel = [...host.querySelectorAll('aside dt')]
       .find((node) => node.textContent === '合约结算')!
     const settlementValue = settlementLabel.nextElementSibling as HTMLElement
@@ -82,7 +85,7 @@ describe('资产页模块分布', () => {
     expect(titles()).not.toContain('杠杆账户')
   })
 
-  it('点击日历日期后在右侧切换当天明细', () => {
+  it('点击日历日期后在日历下方切换当天明细', () => {
     const snapshot = buildSnapshot(new Date('2026-09-26T12:00:00Z'))
     const day = snapshot.pnl!.daily.filter((row) => row.known).at(-3)!
     act(() => root.render(createElement(OverviewView, { snapshot, veiled: false })))

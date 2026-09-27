@@ -51,39 +51,39 @@ export function OverviewView({ snapshot, veiled }: {
     setSelectedDate(pnlDays.at(-1)?.date ?? null)
   }, [pnlDays, selectedDate])
   const selectedDay = pnlDays.find((day) => day.date === selectedDate) ?? null
+  const incomeModule = (
+    <Module
+      note={`${WINDOW_DAYS} 天`}
+      span={cashRows.length > 0 ? '' : 'lg:col-span-12'}
+      title="合约收支"
+    >
+      <PnlBreakdown pnl={pnl} />
+    </Module>
+  )
 
   return (
     <div className={cn(veiled && 'veiled')}>
       <ViewGrid>
         {/* 不给 figure：它原先放的是 today_usd，而摘要条上那个「今日盈亏」
             就是同一个数——同一屏里说两遍。日历自己有月合计和区间合计。 */}
-        <Module span="lg:col-span-12" title="每日盈亏">
-          <div className="grid min-w-0 gap-7 lg:grid-cols-[minmax(0,1.55fr)_minmax(260px,0.75fr)] lg:gap-9">
-            <div className="min-w-0">
-              <RealizedDays
-                days={pnlDays}
-                onSelectDate={setSelectedDate}
-                selectedDate={selectedDate}
-              />
-            </div>
-            <DailyPnlBreakdown day={selectedDay} />
-          </div>
+        <Module span={cashRows.length > 0 ? 'lg:col-span-7' : 'lg:col-span-12'} title="每日盈亏">
+          <RealizedDays
+            days={pnlDays}
+            onSelectDate={setSelectedDate}
+            selectedDate={selectedDate}
+          />
+          <DailyPnlBreakdown day={selectedDay} />
         </Module>
 
         {/* 四行同一个窗口、同一个来源，条形才可比——旧的「盈亏构成」把 1 天、
             此刻、全历史、90 天四种窗口混在一张表里画对比条，见 PnlBreakdown。
             现货那半边归日历（那里才有区间概念）。 */}
-        <Module
-          note={`${WINDOW_DAYS} 天`}
-          span={cashRows.length > 0 ? 'lg:col-span-7' : 'lg:col-span-12'}
-          title="合约收支"
-        >
-          <PnlBreakdown pnl={pnl} />
-        </Module>
-
-        {cashRows.length > 0 && (
-          <CashModule rows={cashRows} snapshot={snapshot} span="lg:col-span-5" />
-        )}
+        {cashRows.length > 0 ? (
+          <Stack span="lg:col-span-5">
+            <CashModule rows={cashRows} snapshot={snapshot} span="" />
+            {incomeModule}
+          </Stack>
+        ) : incomeModule}
 
         {/* **只在出问题时出现。** 全绿时这一块是纯运维信息——和流水页那张
             「取数窗口」端点表同一类，删了；但来源挂掉时它是有用的：页面上的数字
@@ -113,7 +113,7 @@ const DAY_PARTS: { key: keyof Pick<DailyPnl, 'spot_usd' | 'stock_usd' | 'settled
 
 function DailyPnlBreakdown({ day }: { day: DailyPnl | null }) {
   return (
-    <aside className="min-w-0 border-t border-rule pt-5 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-1">
+    <aside className="mt-6 min-w-0 border-t border-rule pt-5">
       {day ? (
         <>
           <div className="flex items-baseline justify-between gap-4 border-b border-rule pb-4">
@@ -124,11 +124,11 @@ function DailyPnlBreakdown({ day }: { day: DailyPnl | null }) {
               {day.pnl_usd === null ? '—' : signedMoney(day.pnl_usd)}
             </span>
           </div>
-          <dl className="divide-y divide-rule/70">
+          <dl className="grid grid-cols-2 gap-x-6 sm:grid-cols-3">
             {DAY_PARTS.map(({ key, label }) => {
               const value = day[key]
               return (
-                <div className="flex items-baseline justify-between gap-4 py-3" key={key}>
+                <div className="flex items-baseline justify-between gap-4 border-b border-rule/70 py-3" key={key}>
                   <dt className="text-xs text-ink-3">{label}</dt>
                   <dd className={cn('tnum text-sm', value === null
                     ? 'text-ink-3' : value > 0 ? 'text-gain'
