@@ -312,7 +312,9 @@ function DayCell({ cell, peak, today, selected, onSelect }: {
   onSelect?: (date: string) => void
 }) {
   // 月首月末的补位格：不属于这个月，**整格不画**（不是画一个空色块）
-  if (cell === null) return <span aria-hidden="true" className="min-h-[54px]" />
+  // 月末整行补位只负责稳定日历结构，不需要占满真实日期格的高度。
+  // 行内仍有日期时，同行的 54px 日期格会自然撑齐；整行为空时则收紧留白。
+  if (cell === null) return <span aria-hidden="true" className="min-h-6 sm:min-h-8" />
 
   const { day, known, inRange, computed, value } = cell
   const paint = known && inRange && computed && value !== 0
