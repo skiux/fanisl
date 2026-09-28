@@ -645,6 +645,30 @@ def test_grab_scenes_maps_showinfo_times_to_files_and_skips_existing(monkeypatch
     assert not (tmp_path / "vid123" / "00015s_h1080.jpg").exists()
 
 
+def test_grab_for_content_writes_under_configured_keyframe_root(kstore, monkeypatch, tmp_path):
+    """帧写到 settings.keyframe_root（API 从那里读）；库里记相对其上一级的路径。"""
+    from fanisl.knowledge import backfill_keyframes as bk
+    from fanisl.knowledge.keyframes import Frame
+
+    root = tmp_path / "data" / "keyframes"
+    seen = {}
+
+    def _scenes(vid, *, out_root, **kw):
+        seen["out_root"] = out_root
+        f = out_root / vid / "00003s_h1080.jpg"
+        return [Frame(3, f, 10, 1080, "ytdlp:default:scene")]
+
+    monkeypatch.setattr(bk, "keyframe_root", lambda: root)
+    monkeypatch.setattr(bk, "grab_scenes", _scenes)
+    creator = kstore.ensure_creator("测试创作者")
+    cid, _ = kstore.upsert_content(creator, platform="youtube",
+                                   url="https://www.youtube.com/watch?v=vid00000009",
+                                   content_type="video", title="一期", published_at=None, raw="正文")
+    assert bk.grab_for_content(kstore, {"id": cid, "url": "https://www.youtube.com/watch?v=vid00000009"}) == 1
+    assert seen["out_root"] == root
+    assert kstore.keyframes_for_content(cid)[0]["path"] == "keyframes/vid00000009/00003s_h1080.jpg"
+
+
 def test_grab_for_content_skips_contents_already_scene_captured(kstore, monkeypatch):
     from fanisl.knowledge import backfill_keyframes as bk
 

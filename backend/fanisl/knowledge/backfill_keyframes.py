@@ -19,7 +19,7 @@ import time
 
 from ..config import get_settings
 from ..db import make_pool
-from .keyframes import DEFAULT_HEIGHT, OUT_DIR, grab_scenes
+from .keyframes import DEFAULT_HEIGHT, grab_scenes, keyframe_root
 from .store import LIVE_CONTENT, KnowledgeStore
 
 # render_l0_text 写出的视觉笔记行：- [MM:SS] (kind) note
@@ -89,11 +89,14 @@ def grab_for_content(store: KnowledgeStore, content: dict, *, height: int = DEFA
     video_id_m = _VIDEO_ID_RE.search(content.get("url") or "")
     if not video_id_m or has_scene_frames(store, content["id"]):
         return 0
+    # 写到 settings.keyframe_root——API 从那里读图。2026-09-26 至 09-29 这里写的是按源码位置推的
+    # data_export/keyframes，而服务器配的是 /opt/fanisl/data/keyframes，新帧入了库却读不到
+    root = keyframe_root()
     n = 0
-    for f in grab_scenes(video_id_m.group(1), max_height=height,
+    for f in grab_scenes(video_id_m.group(1), max_height=height, out_root=root,
                          skip=store.keyframe_seconds(content["id"])):
         store.record_keyframe(content["id"], ts_s=f.ts_s,
-                              path=str(f.path.relative_to(OUT_DIR.parent)),
+                              path=str(f.path.relative_to(root.parent)),
                               height=f.height, bytes_=f.bytes, source=f.source, kind="scene")
         n += 1
     return n
@@ -106,12 +109,13 @@ def prune(store: KnowledgeStore, *, dry_run: bool = True, root=None) -> dict:
     重转录产生的 superseded 旧稿与取代它的新稿**共用同一批文件**，只按 content 删行
     会把还在用的图删掉。
 
-    `root` 指向 data_export（默认由 `__file__` 推出来）。**git worktree 里必须显式传**：
+    `root` 指向帧目录的上一级（默认 settings.keyframe_root 的上一级，未配置时由 `__file__` 推）。
+    **git worktree 里没配 keyframe_root 时必须显式传**：
     data_export 是 gitignore 的数据目录，只存在于主工作区，而 OUT_DIR 从 __file__ 推导
     会指向 worktree 里那个根本不存在的路径。不加下面这道闸的话，删库行会成功、删文件会
     静默跳过（f.exists() 恒为 False），结果是文件全成孤儿、一点空间没省。
     """
-    base = (root or OUT_DIR.parent)
+    base = (root or keyframe_root().parent)
     if not (base / "keyframes").is_dir():
         raise SystemExit(
             f"找不到帧目录 {base / 'keyframes'}——大概是在 git worktree 里跑的。"
