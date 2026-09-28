@@ -25,7 +25,9 @@ log = logging.getLogger("fanisl.knowledge")
 
 SINCE_FLOOR = dt.date(2026, 5, 1)   # 语料为空时的兜底起点
 SINCE_LEAD_DAYS = 30                # 行情要比最早那期再往前留出的缓冲
-KEYFRAME_GAP_LIMIT = 20       # 每日最多补几条内容的帧（别让日维护变成长批处理）
+# 每日最多补几条内容的帧。每条要整片下载 30-55MB：2026-09-28 服务器约 15 分钟连下近 40 期后，
+# 视频下载被 YouTube 要求登录验证（频道清单与摄取用的元数据不受影响）。所以存量慢慢补
+KEYFRAME_GAP_LIMIT = 10
 
 # 摄取新内容：窗口按**缺口**算，不用固定天数。
 # 固定窗口（比如"近 3 天"）有个静默失效的模式：collector 停机或转录连续失败超过窗口长度，

@@ -49,7 +49,7 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `spotcheck.py` | K6 抽查队列（spot_checks 启用）：`spotcheck sample [n]` 随机抽未查单元 / `spotcheck record <unit_id> <verdict> [note]` / `spotcheck stats` |
 | `review.py` | 单元核查的知识席位端：站上用户在单元详情里提意见（HTTP 接口归 base 席位），知识席位用 `review list / show / amend / answer` 处理。**答复只走这里**，网站写不了。见下方「单元核查」 |
 | `keyframes.py` | 提帧。`grab_scenes`：整片下载视频轨后只解关键帧、画面变化够大才留（摄取链用）；`grab`：按给定时刻 seek（CLI `keyframes <video_id> <MM:SS…> [--height 1080]`、体检用）。yt-dlp 须开 JS 运行时（node/deno + `yt-dlp-ejs`）；客户端先用 yt-dlp 默认组合，再 android_vr→tv→web_safari，用了哪个记进 `source`。墙会来回动，见下方"提帧的墙" |
-| `backfill_keyframes.py` | 整片按画面变化取帧的回填/记账（`kind='scene'`，已取过的内容跳过）：`backfill_keyframes [--handle @x] [--content-id N] [--height 1080] [--dry-run]`；`grab_for_content()` 同时挂在摄取链上（transcribe_video / backfill_transcripts 内 best-effort 调用，失败不影响 L0），日维护每天补 20 条 |
+| `backfill_keyframes.py` | 整片按画面变化取帧的回填/记账（`kind='scene'`，已取过的内容跳过）：`backfill_keyframes [--handle @x] [--content-id N] [--height 1080] [--dry-run]`；`grab_for_content()` 同时挂在摄取链上（transcribe_video / backfill_transcripts 内 best-effort 调用，失败不影响 L0），日维护每天补 10 条、每条间隔 60s（连下太多会被要求登录验证，见"提帧的墙"） |
 
 ## 日常运转（K4 起；K5 起自动化）
 
@@ -193,7 +193,8 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fani
   开启 node 后默认客户端给 1080p https 视频轨，任意时刻 seek 正常（本机与服务器实测）。**但视觉笔记的时间戳
   在长视频上会漂几分钟**（c123 抽 4 帧有 2 帧不是笔记说的那张图），所以 09-29 起改成整片下载（1080p 约 30-55MB、
   10 秒左右）后只解关键帧（约 6 秒一个）、按画面变化去重：Andy 27 分钟 42 张 7.8MB、TALK君 16 张、美投君 91 张，
-  覆盖全部画面；服务器 2 核上抽帧 7s（逐帧解码要 197s）。下面 08-14 那条对 SABR 的判断是误判，留作记录
+  覆盖全部画面；服务器 2 核上抽帧 7s（逐帧解码要 197s）。**别成批下**：09-28 服务器约 15 分钟连下近 40 期后，
+  视频下载被要求登录验证（web_embedded 取元数据、频道清单仍正常，摄取不受影响）；存量改由日维护每天补 10 条。下面 08-14 那条对 SABR 的判断是误判，留作记录
 
 - **2026-07-16**：yt-dlp 全客户端矩阵 × 有无 cookies 全被 "Sign in to confirm you're not a
   bot" 拦（PO Token 强制，与 IP 无关，用户终端同样被拦）→ 当时判定"提帧不可用"，视觉笔记
