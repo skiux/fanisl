@@ -140,9 +140,16 @@ def _download(video_id: str, max_height: int, dest_dir: pathlib.Path, *,
     """
     try:
         return _download_once(video_id, max_height, dest_dir)
-    except RuntimeError:
+    except RuntimeError as e:
+        if is_bot_check(e):          # 要求登录验证不是几十秒能过去的，重试只会延长它
+            raise
         time.sleep(retry_pause_s)
         return _download_once(video_id, max_height, dest_dir)
+
+
+def is_bot_check(err: Exception) -> bool:
+    """YouTube 要求登录验证（"Sign in to confirm you're not a bot"）：这台机器的 IP 被标记了。"""
+    return "confirm you" in str(err) and "not a bot" in str(err)
 
 
 def _download_once(video_id: str, max_height: int, dest_dir: pathlib.Path) -> tuple[pathlib.Path, dict, str]:

@@ -19,7 +19,7 @@ import time
 
 from ..config import get_settings
 from ..db import make_pool
-from .keyframes import DEFAULT_HEIGHT, grab_scenes, keyframe_root
+from .keyframes import DEFAULT_HEIGHT, grab_scenes, is_bot_check, keyframe_root
 from .store import LIVE_CONTENT, KnowledgeStore
 
 # render_l0_text 写出的视觉笔记行：- [MM:SS] (kind) note
@@ -165,6 +165,8 @@ def fill_gaps(store: KnowledgeStore, *, limit: int = 20,
         try:
             n += grab_for_content(store, c, height=height)
         except Exception as e:  # noqa: BLE001 — 单条失败不挡后面的内容
+            if is_bot_check(e):      # IP 被要求登录验证：后面每条都会一样，接着试只会延长它
+                raise RuntimeError(f"视频下载被要求登录验证，本轮停止（已补 {n} 帧）：#{c['id']}") from e
             errors.append(f"#{c['id']} {str(e)[:120]}")
         time.sleep(FILL_GAP_PAUSE_S)
     if errors and len(errors) == len(rows):

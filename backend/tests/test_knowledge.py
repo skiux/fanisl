@@ -639,6 +639,18 @@ def test_keyframe_fill_gaps_skips_a_failing_content_and_raises_only_when_all_fai
     with pytest.raises(RuntimeError, match="全部失败"):
         bk.fill_gaps(kstore, limit=10)
 
+    # 被要求登录验证：第一条就停，不再挨个试
+    tried = []
+
+    def _bot(store, c, **kw):
+        tried.append(c["id"])
+        raise RuntimeError("ERROR: [youtube] x: Sign in to confirm you’re not a bot. Use --cookies")
+
+    monkeypatch.setattr(bk, "grab_for_content", _bot)
+    with pytest.raises(RuntimeError, match="登录验证"):
+        bk.fill_gaps(kstore, limit=10)
+    assert len(tried) == 1
+
 
 def test_grab_scenes_maps_showinfo_times_to_files_and_skips_existing(monkeypatch, tmp_path):
     """整片取帧：第 k 张输出帧对应 showinfo 的第 k 个 pts_time（取整到秒）；已有帧的秒数不重复落盘。"""
