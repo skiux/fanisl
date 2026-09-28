@@ -12,13 +12,14 @@ from fanisl import assets
 from fanisl.data import instruments
 from fanisl.knowledge import prices
 
-# --- 冻结：daily_bars 的采集口径（2026-09-25 快照，109 个 yfinance 符号 + 3 条 FRED）---
+# --- 冻结：daily_bars 的采集口径（2026-09-29 快照，110 个 yfinance 符号 + 5 条 FRED）---
 
 # 非同名映射（代理关系/指数代码），逐条写死
 _EXPLICIT_YF = {
     "XAUUSD": ("GC=F", 1.0, "COMEX 金期货近月代理现货"),
     "XAGUSD": ("SI=F", 1.0, "COMEX 银期货近月代理现货"),
     "WTI": ("CL=F", 1.0, "NYMEX WTI 期货近月"),
+    "HG": ("HG=F", 1.0, "COMEX 铜期货近月（美元/磅）"),
     "NDX": ("^NDX", 1.0, ""),
     "SPX": ("^GSPC", 1.0, ""),
     "DJI": ("^DJI", 1.0, ""),
@@ -48,7 +49,7 @@ _SELF_YF = {
     "VST", "XLI", "XLU", "XLV",
 }
 
-_EXPECTED_FRED = {"DFEDTARU", "T10Y2Y", "T10YIE"}
+_EXPECTED_FRED = {"DFEDTARU", "T10Y2Y", "T10YIE", "DGS2", "DFII10"}
 
 
 def test_daily_bar_coverage_matches_frozen_snapshot():

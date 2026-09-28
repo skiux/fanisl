@@ -98,6 +98,12 @@ _ASSETS: list[Asset] = [
           yf_note="收益率%（直读口径）"),
     Asset("DFEDTARU", "rate", "联邦基金目标区间上限", fred="DFEDTARU",
           yf_note="联邦基金目标区间上限%"),
+    # 2026-09-29 加：TALK君按 2 年期讲加息预期（c127），此前只能用 10 年期减利差倒推；
+    # Andy 的黄金模型以 10 年期实际利率为输入（c123），此前用 10 年期减通胀预期近似
+    Asset("DGS2", "rate", "美国2年期国债收益率", aliases=("US2Y",), fred="DGS2",
+          yf_note="2年期国债收益率%（FRED 恒定期限）"),
+    Asset("DFII10", "rate", "10年期实际利率", aliases=("REAL10Y", "TIPS10Y"), fred="DFII10",
+          yf_note="10年期 TIPS 收益率%（FRED）"),
     Asset("T10Y2Y", "rate", "10年期减2年期国债利差", fred="T10Y2Y",
           yf_note="10年期减2年期国债利差%（牛陡/熊陡/倒挂的经典口径）"),
     # 2026-09-23 加：投资TALK君反复对 10 年期通胀预期（break-even）给方向判断（c124、c125），
@@ -112,6 +118,9 @@ _ASSETS: list[Asset] = [
           yf="SI=F", yf_note="COMEX 银期货近月代理现货", instrument="XAG/USD"),
     Asset("WTI", "commodity", "WTI 原油", aliases=("CL", "CL1!", "OIL", "USOIL", "CRUDE"),
           yf="CL=F", yf_note="NYMEX WTI 期货近月", instrument="CL", related=("BZ",)),
+    # 2026-09-29 加：Andy 以铜油比（HG1!/CL1!）为主线资产锚（c123），库里此前没有铜
+    Asset("HG", "commodity", "COMEX 铜", aliases=("HG1!", "COPPER", "XCU"),
+          yf="HG=F", yf_note="COMEX 铜期货近月（美元/磅）"),
     Asset("BZ", "commodity", "布伦特原油", aliases=("BRENT",), instrument="BZ",
           note="Polygon 无 Brent，分析与执行都走 Binance 永续；无日线源"),
 

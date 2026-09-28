@@ -63,6 +63,8 @@ DFEDTARU 是 FRED 序列，以 rate 类登记（与 T10Y2Y、T10YIE 同）。
 #1337 PICK 按 v3 重判 D→B（target_touch 69.02＝发布前历史最高价，只用发布前数据定，定级时没看发布后走势）；
 #1338 IWD 补 asset_symbol、维持 D；#1340 #1341 #206 #1324 #1312 补资产标签。#1347 已有 5 个标签，没加。
 
+2026-09-29：宏观背景先补三条——COMEX 铜 HG（Andy 的铜油比）、FRED 的 DGS2（2 年期）与 DFII10（10 年期实际利率），此前后两者只能由别的序列倒推或近似（日线 110 个 yfinance 符号 + 5 条 FRED）。
+
 2026-09-23：COST、KO、PG、VIK、ADBE、ARM 与 FRED 的 T10YIE 已登记并回填日线；D 级 claim 漏填
 asset_symbol 而标的已登记的单一标的 7 条已补（#1188 #1203 #1218 #1219 #519 #520 #565；修改记录 #6–#12），
 其余 15 条是多标的并列或标的本身未登记，保持为空。`import_units` 的 `check_vocabulary` 每次导入都会报出
