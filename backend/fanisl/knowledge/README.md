@@ -11,7 +11,7 @@
 ```
 YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读──▶ L0 contents（转录+视觉笔记，不可变）
                                                             │
-                        整片 1080p 视频轨 ──每 3 秒看一帧、按画面变化去重──▶ keyframes（画面凭据，可重抓）
+                        整片 1080p 视频轨 ──只解关键帧、按画面变化去重──▶ keyframes（画面凭据，可重抓）
                                                             │
                               Claude 会话/ClaudeBackend 按 extraction-guide.md 提取
                                                             ▼
@@ -48,7 +48,7 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `audit.py` | 体检（只读）：`python -m fanisl.knowledge.audit`，报出评分器解析不了的 A/B/C（v1/v2 连同覆盖表一起验）、到期未评的时点、未登记的标的与词表外标签、疑似漏填 asset_symbol。前两项非空时退出码 1。导入时的警告只响一次、没人汇总，这里一次报全（2026-09-24） |
 | `spotcheck.py` | K6 抽查队列（spot_checks 启用）：`spotcheck sample [n]` 随机抽未查单元 / `spotcheck record <unit_id> <verdict> [note]` / `spotcheck stats` |
 | `review.py` | 单元核查的知识席位端：站上用户在单元详情里提意见（HTTP 接口归 base 席位），知识席位用 `review list / show / amend / answer` 处理。**答复只走这里**，网站写不了。见下方「单元核查」 |
-| `keyframes.py` | 提帧。`grab_scenes`：整片下载视频轨后每 3 秒看一帧、画面变化够大才留（摄取链用）；`grab`：按给定时刻 seek（CLI `keyframes <video_id> <MM:SS…> [--height 1080]`、体检用）。yt-dlp 须开 JS 运行时（node/deno + `yt-dlp-ejs`）；客户端先用 yt-dlp 默认组合，再 android_vr→tv→web_safari，用了哪个记进 `source`。墙会来回动，见下方"提帧的墙" |
+| `keyframes.py` | 提帧。`grab_scenes`：整片下载视频轨后只解关键帧、画面变化够大才留（摄取链用）；`grab`：按给定时刻 seek（CLI `keyframes <video_id> <MM:SS…> [--height 1080]`、体检用）。yt-dlp 须开 JS 运行时（node/deno + `yt-dlp-ejs`）；客户端先用 yt-dlp 默认组合，再 android_vr→tv→web_safari，用了哪个记进 `source`。墙会来回动，见下方"提帧的墙" |
 | `backfill_keyframes.py` | 整片按画面变化取帧的回填/记账（`kind='scene'`，已取过的内容跳过）：`backfill_keyframes [--handle @x] [--content-id N] [--height 1080] [--dry-run]`；`grab_for_content()` 同时挂在摄取链上（transcribe_video / backfill_transcripts 内 best-effort 调用，失败不影响 L0），日维护每天补 20 条 |
 
 ## 日常运转（K4 起；K5 起自动化）
@@ -192,8 +192,8 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fani
   YouTube 的 JS 挑战要靠 node/deno + `yt-dlp-ejs`）。没有它只剩 android_vr 的 360p、且直链只给开头约 1MB。
   开启 node 后默认客户端给 1080p https 视频轨，任意时刻 seek 正常（本机与服务器实测）。**但视觉笔记的时间戳
   在长视频上会漂几分钟**（c123 抽 4 帧有 2 帧不是笔记说的那张图），所以 09-29 起改成整片下载（1080p 约 30-55MB、
-  10 秒左右）后每 3 秒看一帧、按画面变化去重：Andy 27 分钟 39 张 7.5MB 22s、TALK君 17 张、美投君 61-78 张，
-  覆盖全部画面。下面 08-14 那条对 SABR 的判断是误判，留作记录
+  10 秒左右）后只解关键帧（约 6 秒一个）、按画面变化去重：Andy 27 分钟 42 张 7.8MB、TALK君 16 张、美投君 91 张，
+  覆盖全部画面；服务器 2 核上抽帧 7s（逐帧解码要 197s）。下面 08-14 那条对 SABR 的判断是误判，留作记录
 
 - **2026-07-16**：yt-dlp 全客户端矩阵 × 有无 cookies 全被 "Sign in to confirm you're not a
   bot" 拦（PO Token 强制，与 IP 无关，用户终端同样被拦）→ 当时判定"提帧不可用"，视觉笔记

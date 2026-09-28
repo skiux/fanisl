@@ -16,10 +16,11 @@ YouTube 的 JS 挑战要靠外部运行时，默认只认 deno；没有它时 we
 
 两种取法：
 - `grab`：按给定时刻 seek 取帧（本 CLI、体检脚本用）。
-- `grab_scenes`：整片下载视频轨，每 SCENE_INTERVAL_S 秒看一帧，画面变化够大才留（摄取链用）。
+- `grab_scenes`：整片下载视频轨，只解码关键帧，与上一关键帧画面变化够大才留（摄取链用）。
   **不按视觉笔记的时间戳取**：Gemini 在长视频上的时间戳会漂几分钟，2026-09-28 在 c123 按笔记
   时间戳抽 4 帧，2 帧不是笔记说的那张图。整片取则不依赖它：c123（27 分钟、55MB、下载 13s）
-  39 张覆盖了所有展示过的图，TALK君一期 17 张，美投君一期 78 张（剪辑镜头多）。
+  42 张覆盖了所有展示过的图，TALK君一期 16 张，美投君一期 91 张（剪辑镜头多）。
+  只解关键帧（YouTube 约 6 秒一个）是为了服务器的 2 核：逐帧解码整片 1080p 要 197s，只解关键帧 7s。
 """
 
 from __future__ import annotations
@@ -58,10 +59,10 @@ PLAYER_CLIENTS = (None, "android_vr", "tv", "web_safari")
 # 解 YouTube JS 挑战的运行时，按 yt-dlp 的优先级取第一个装了的。服务器与本机都有 node
 JS_RUNTIMES = {"deno": {}, "node": {}}
 DEFAULT_HEIGHT = 1080   # 财经视频的画面主体是表格/图表，读数清晰度优先；单帧 ~230KB
-SCENE_INTERVAL_S = 3    # 整片取帧时每 3 秒看一帧
-# 与上一张采样帧的 ffmpeg scene 分数超过它才留。0.25 只抓到硬切换（c123 仅 4 张）——看盘录屏的
-# 图表是平移、缩放、换标的，变化是渐进的；0.06 下 c123 39 张、无遗漏，0.10 与之相差不大
-SCENE_THRESHOLD = 0.06
+# 与上一关键帧的 ffmpeg scene 分数超过它才留。0.25 只抓到硬切换（c123 仅 4 张）——看盘录屏的
+# 图表是平移、缩放、换标的，变化是渐进的。只解关键帧时 0.06 漏图（c123 27 张），0.04 为 42 张、
+# 与逐帧每 3 秒取样的 39 张覆盖相同（2026-09-29 对着缩略图逐张核过）
+SCENE_THRESHOLD = 0.04
 
 
 @dataclass(frozen=True)
@@ -152,10 +153,10 @@ def _download(video_id: str, max_height: int, dest_dir: pathlib.Path) -> tuple[p
 
 
 def grab_scenes(video_id: str, *, max_height: int = DEFAULT_HEIGHT,
-                interval_s: int = SCENE_INTERVAL_S, threshold: float = SCENE_THRESHOLD,
+                threshold: float = SCENE_THRESHOLD,
                 skip: frozenset[int] | set[int] = frozenset(),
                 out_root: pathlib.Path = OUT_DIR) -> list[Frame]:
-    """整片下载后按画面变化取帧：每 interval_s 秒看一帧，与上一张采样帧差异够大才留，首帧必留。
+    """整片下载后按画面变化取帧：只看关键帧，与上一关键帧差异够大才留，首帧必留。
 
     `skip` 是已经有帧的秒数（按笔记时间戳取过的旧帧），同一秒不重复落盘。视频文件抽完即删。
     """
@@ -166,8 +167,8 @@ def grab_scenes(video_id: str, *, max_height: int = DEFAULT_HEIGHT,
         src, info, label = _download(video_id, max_height, tmp)
         height = int(info.get("height") or 0)
         proc = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-loglevel", "info", "-i", str(src), "-vf",
-             f"fps=1/{interval_s},select='gt(scene,{threshold})+eq(n,0)',showinfo",
+            ["ffmpeg", "-hide_banner", "-loglevel", "info", "-skip_frame", "nokey",
+             "-i", str(src), "-vf", f"select='gt(scene,{threshold})+eq(n,0)',showinfo",
              "-fps_mode", "vfr", "-q:v", "3", str(tmp / "f%05d.jpg")],
             capture_output=True, text=True, timeout=1800, check=True)
         # showinfo 在 select 之后，一行对应一张输出帧；pts_time 是视频内秒数
@@ -175,10 +176,11 @@ def grab_scenes(video_id: str, *, max_height: int = DEFAULT_HEIGHT,
         files = sorted(tmp.glob("f*.jpg"))
         if len(files) != len(secs):
             raise RuntimeError(f"{video_id} 抽出 {len(files)} 张、时刻 {len(secs)} 个，对不上")
-        frames = []
+        frames, used = [], set(skip)
         for f, sec in zip(files, secs):
-            if sec in skip:
+            if sec in used:              # 已有旧帧，或两个关键帧落在同一秒
                 continue
+            used.add(sec)
             dest = out_dir / f"{sec:05d}s_h{height}.jpg"
             shutil.move(str(f), dest)
             frames.append(Frame(sec, dest, dest.stat().st_size, height, f"ytdlp:{label}:scene"))

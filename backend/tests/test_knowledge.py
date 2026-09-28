@@ -616,7 +616,7 @@ def test_keyframe_fill_gaps_only_touches_frameless_contents(kstore, monkeypatch)
 
 
 def test_grab_scenes_maps_showinfo_times_to_files_and_skips_existing(monkeypatch, tmp_path):
-    """整片取帧：第 k 张输出帧对应 showinfo 的第 k 个 pts_time；已有帧的秒数不重复落盘。"""
+    """整片取帧：第 k 张输出帧对应 showinfo 的第 k 个 pts_time（取整到秒）；已有帧的秒数不重复落盘。"""
     import types
 
     from fanisl.knowledge import keyframes
@@ -631,10 +631,11 @@ def test_grab_scenes_maps_showinfo_times_to_files_and_skips_existing(monkeypatch
         for k in (1, 2, 3):
             (pattern.parent / f"f{k:05d}.jpg").write_bytes(b"jpg" * k)
         vf = cmd[cmd.index("-vf") + 1]
-        assert "fps=1/3" in vf and "gt(scene,0.06)" in vf and "showinfo" in vf
+        assert cmd[cmd.index("-skip_frame") + 1] == "nokey" and cmd.index("-skip_frame") < cmd.index("-i")
+        assert "gt(scene,0.04)" in vf and "showinfo" in vf
         return types.SimpleNamespace(stderr="[Parsed_showinfo] n:0 pts:0 pts_time:0 \n"
                                             "[Parsed_showinfo] n:1 pts:5 pts_time:15 \n"
-                                            "[Parsed_showinfo] n:2 pts:9 pts_time:27 \n")
+                                            "[Parsed_showinfo] n:2 pts:9 pts_time:26.7 \n")
 
     monkeypatch.setattr(keyframes, "_download", _download)
     monkeypatch.setattr(keyframes.subprocess, "run", _run)
