@@ -188,6 +188,12 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fani
 
 ## 提帧的墙（会来回动，别把结论钉死）
 
+- **2026-09-28 真因与恢复**：08-14 以来的失效不是 SABR 本身，而是 yt-dlp 缺 JavaScript 运行时（2025-11 起解
+  YouTube 的 JS 挑战要靠 node/deno + `yt-dlp-ejs`）。没有它只剩 android_vr 的 360p、且直链只给开头约 1MB。
+  开启 node 后默认客户端给 1080p https 视频轨，任意时刻 seek 正常（本机与服务器实测）。**但视觉笔记的时间戳
+  在长视频上会漂几分钟**（c123 抽 4 帧有 2 帧不是笔记说的那张图），下一步改成整片下载（1080p 约 30-55MB、
+  10 秒左右）后每 3 秒取一帧、按画面变化去重：Andy 27 分钟 39 张、TALK君 17 张、美投君 61-78 张，覆盖全部画面
+
 - **2026-07-16**：yt-dlp 全客户端矩阵 × 有无 cookies 全被 "Sign in to confirm you're not a
   bot" 拦（PO Token 强制，与 IP 无关，用户终端同样被拦）→ 当时判定"提帧不可用"，视觉笔记
   是唯一画面记录。

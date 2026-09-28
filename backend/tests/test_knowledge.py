@@ -531,8 +531,31 @@ def test_keyframes_format_selector_prefers_dash_video_track(monkeypatch):
 
     monkeypatch.setattr(keyframes.yt_dlp, "YoutubeDL", _FakeYDL)
     st = keyframes.stream_url("vid123", max_height=1080)
-    assert captured["format"].startswith("bv*[vcodec^=avc1][height<=1080]")
-    assert st.source == "ytdlp:android_vr" and st.height == 1080 and st.duration_s == 1800
+    assert captured["format"].startswith("bv*[vcodec^=avc1][height<=1080][protocol=https]")
+    assert st.source == "ytdlp:default" and st.height == 1080 and st.duration_s == 1800
+    # 没有 JS 运行时，web 系客户端的格式全缺，只剩 android_vr 的 360p（2026-08-14 至 09-28 提帧失效的真因）
+    assert "node" in captured["js_runtimes"]
+    assert "extractor_args" not in captured, "先用 yt-dlp 的默认客户端组合，不强制指定"
+
+
+def test_keyframes_seek_passes_client_headers_to_ffmpeg(monkeypatch, tmp_path):
+    """直链绑 User-Agent：ffmpeg 必须带解析时的 UA，并在 -i 之前 -ss（输入级 seek，只取目标时刻附近）。"""
+    from fanisl.knowledge import keyframes
+
+    cmds = []
+
+    def _run(cmd, **kw):
+        cmds.append(cmd)
+        pathlib.Path(cmd[-1]).write_bytes(b"jpg")
+
+    monkeypatch.setattr(keyframes.subprocess, "run", _run)
+    st = keyframes.Stream("https://cdn/v", "ytdlp:default", 1080, 600,
+                          (("User-Agent", "UA/1"), ("Accept", "*/*")))
+    f = keyframes._grab_one(st, 154, tmp_path)
+    cmd = cmds[0]
+    assert f is not None and f.ts_s == 154 and f.height == 1080
+    assert cmd[cmd.index("-user_agent") + 1] == "UA/1"
+    assert cmd.index("-ss") < cmd.index("-i") and cmd[cmd.index("-i") + 1] == "https://cdn/v"
 
 
 def test_visual_notes_parse_from_l0():

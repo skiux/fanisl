@@ -9,6 +9,9 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "yt-dlp>=2026.1",
+    # yt-dlp 解 YouTube 的 JS 挑战要靠外部运行时（node/deno）加这份解题脚本。缺了它 web 系客户端的
+    # 格式全部缺失，只剩 360p，提帧因此失效了六周（2026-08-14 至 09-28），见 knowledge/keyframes.py 顶注
+    "yt-dlp-ejs>=0.8",
     "pandas>=2.2",
     "numpy>=1.26",
     "pydantic>=2.9",
