@@ -692,16 +692,17 @@ cd /opt/fanisl/backend && PYTHONPATH=. .venv/bin/python \
 数据中心段比住宅 IP 更容易吃 bot 验证。预期：
 
 - 清单/元数据：多半可用，被拦时才需要 cookies；
-- **提帧：本机今天就已经被拦**（`Sign in to confirm you're not a bot`），别指望服务器更好，
-  先留在本地按需跑。
+- **提帧：2026-09-28 起在服务器上正常**（1080p，无 cookies）。前提是 yt-dlp 有 JavaScript 运行时：
+  服务器用系统的 `/usr/bin/node`（v20），解题脚本 `yt-dlp-ejs` 随 `pyproject.toml` 安装。
+  08-14 至 09-28 提帧失效就是缺这两样，见 `backend/fanisl/knowledge/keyframes.py` 顶注。
 
-`yt-dlp` 要能随时升级：`/opt/fanisl/backend/.venv/bin/pip install -U yt-dlp`。
+`yt-dlp` 要能随时升级：`/opt/fanisl/backend/.venv/bin/pip install -U yt-dlp yt-dlp-ejs`（两个一起升）。
 
 #### cookies.txt：现在不需要传
 
 2026-08-19 实测（本机，三个已登记频道）：**取清单与取元数据在无 cookies 下全部成功**，
 与带 cookies 无差别。`transcribe_video` 依赖的两样——元数据（yt-dlp）与转录（Gemini URL 直读）
-——都不需要它。真正要 cookies 的只有提帧，而提帧当前被 SABR 挡着，给了也没用。
+——都不需要它。提帧 2026-09-28 在服务器上实测也不需要（开了 JS 运行时之后）。
 
 所以 `.env` 里 **`YOUTUBE_COOKIES_FILE` 留空**。
 

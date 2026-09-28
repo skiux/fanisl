@@ -11,7 +11,7 @@
 ```
 YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读──▶ L0 contents（转录+视觉笔记，不可变）
                                                             │
-                        视觉笔记时间戳 ──ffmpeg 流式 seek──▶ keyframes（画面凭据，可重抓）
+                        整片 1080p 视频轨 ──每 3 秒看一帧、按画面变化去重──▶ keyframes（画面凭据，可重抓）
                                                             │
                               Claude 会话/ClaudeBackend 按 extraction-guide.md 提取
                                                             ▼
@@ -48,8 +48,8 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `audit.py` | 体检（只读）：`python -m fanisl.knowledge.audit`，报出评分器解析不了的 A/B/C（v1/v2 连同覆盖表一起验）、到期未评的时点、未登记的标的与词表外标签、疑似漏填 asset_symbol。前两项非空时退出码 1。导入时的警告只响一次、没人汇总，这里一次报全（2026-09-24） |
 | `spotcheck.py` | K6 抽查队列（spot_checks 启用）：`spotcheck sample [n]` 随机抽未查单元 / `spotcheck record <unit_id> <verdict> [note]` / `spotcheck stats` |
 | `review.py` | 单元核查的知识席位端：站上用户在单元详情里提意见（HTTP 接口归 base 席位），知识席位用 `review list / show / amend / answer` 处理。**答复只走这里**，网站写不了。见下方「单元核查」 |
-| `keyframes.py` | 提帧（ffmpeg 对直链输入级 seek，不下载全片）：`keyframes <video_id> <MM:SS…> [--height 1080]`。客户端梯队 android_vr→tv→ios→web_safari→web，逐个试到解析出流，用了哪个记进 `source`。墙会来回动，当前状态见下方"提帧的墙" |
-| `backfill_keyframes.py` | 视觉笔记时间戳 → 关键帧回填/记账（幂等）：`backfill_keyframes [--handle @x] [--content-id N] [--height 1080] [--dry-run]`；`grab_for_content()` 同时挂在摄取链上（transcribe_video / backfill_transcripts 内 best-effort 调用，失败不影响 L0） |
+| `keyframes.py` | 提帧。`grab_scenes`：整片下载视频轨后每 3 秒看一帧、画面变化够大才留（摄取链用）；`grab`：按给定时刻 seek（CLI `keyframes <video_id> <MM:SS…> [--height 1080]`、体检用）。yt-dlp 须开 JS 运行时（node/deno + `yt-dlp-ejs`）；客户端先用 yt-dlp 默认组合，再 android_vr→tv→web_safari，用了哪个记进 `source`。墙会来回动，见下方"提帧的墙" |
+| `backfill_keyframes.py` | 整片按画面变化取帧的回填/记账（`kind='scene'`，已取过的内容跳过）：`backfill_keyframes [--handle @x] [--content-id N] [--height 1080] [--dry-run]`；`grab_for_content()` 同时挂在摄取链上（transcribe_video / backfill_transcripts 内 best-effort 调用，失败不影响 L0），日维护每天补 20 条 |
 
 ## 日常运转（K4 起；K5 起自动化）
 
@@ -191,8 +191,9 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fani
 - **2026-09-28 真因与恢复**：08-14 以来的失效不是 SABR 本身，而是 yt-dlp 缺 JavaScript 运行时（2025-11 起解
   YouTube 的 JS 挑战要靠 node/deno + `yt-dlp-ejs`）。没有它只剩 android_vr 的 360p、且直链只给开头约 1MB。
   开启 node 后默认客户端给 1080p https 视频轨，任意时刻 seek 正常（本机与服务器实测）。**但视觉笔记的时间戳
-  在长视频上会漂几分钟**（c123 抽 4 帧有 2 帧不是笔记说的那张图），下一步改成整片下载（1080p 约 30-55MB、
-  10 秒左右）后每 3 秒取一帧、按画面变化去重：Andy 27 分钟 39 张、TALK君 17 张、美投君 61-78 张，覆盖全部画面
+  在长视频上会漂几分钟**（c123 抽 4 帧有 2 帧不是笔记说的那张图），所以 09-29 起改成整片下载（1080p 约 30-55MB、
+  10 秒左右）后每 3 秒看一帧、按画面变化去重：Andy 27 分钟 39 张 7.5MB 22s、TALK君 17 张、美投君 61-78 张，
+  覆盖全部画面。下面 08-14 那条对 SABR 的判断是误判，留作记录
 
 - **2026-07-16**：yt-dlp 全客户端矩阵 × 有无 cookies 全被 "Sign in to confirm you're not a
   bot" 拦（PO Token 强制，与 IP 无关，用户终端同样被拦）→ 当时判定"提帧不可用"，视觉笔记
@@ -201,7 +202,7 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fani
   230KB。同时修掉两个自身缺陷：`--height` 的值被当成时间戳解析（IndexError），以及
   `best[ext=mp4]` 只能选到 640×360 的混流 fmt 18（`--height` 形同虚设）→ 改用 DASH 视频轨
   `bv*[vcodec^=avc1][height<=H]`。存量 52 期 1048 帧已回填。
-- **2026-08-14（当天稍晚）～至今：墙又起，这次是 SABR，且比 7 月那次更彻底。** 直链
+- **2026-08-14（当天稍晚）～09-28：当时判为墙又起、是 SABR（误判，见上）。** 直链
   **解析得到**，但按任意时刻取范围时 403：不带 Range 取 → 403；`Range: bytes=0-2MB` → 206；
   `bytes=2MB-4MB` / `10-11MB` → 403，即只有从偏移 0 开始的区间被服务。换 `&range=` 查询参数、
   加 rn/rbuf、换 6 个 itag、换 5 个 player client 全无效。**PO Token 解决不了**：token 服务的是
@@ -223,9 +224,9 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fani
 ## 约定
 
 - **L0 不可变**：contents.raw 永不改；重转录=新行（dedup_hash 幂等）。
-- **画面凭据**：每条视觉笔记配一帧（`keyframes` 表，(content_id, ts_s) 唯一）。笔记是模型对
-  画面的转述，帧是凭据——抽查读数忠实度、以及视频被删后的画面留存都靠它，所以**摄取当时
-  就抓**，不留到回填。
+- **画面凭据**：每期视频整片按画面变化留帧（`keyframes` 表，(content_id, ts_s) 唯一；
+  09-28 以前按视觉笔记时间戳取的旧帧保留）。笔记是模型对画面的转述、会读错数字，帧是凭据——
+  抽查读数忠实度、以及视频被删后的画面留存都靠它，所以**摄取当时就抓**，不留到回填。
 - **提取可重放**：改规范 → 升 extractor_version → 重跑出新行，旧行保留；同 (content, version) 重跑报错。
 - **验证语义冻结在提取时**：评分器只机械执行 ScoringSpec，不做任何现场解释。
 - **模型分工**：转录/triage=Gemini（`GEMINI_API_KEY`）；提取=Claude（官方 key 到位前由

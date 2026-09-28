@@ -13,13 +13,23 @@ YouTube 的 JS 挑战要靠外部运行时，默认只认 deno；没有它时 we
 
 客户端梯队（PLAYER_CLIENTS）：先用 yt-dlp 自己的默认客户端组合，失败再逐个强制指定。
 实际用了哪个记进 source，日后墙再动时能看出是哪一级在扛。
+
+两种取法：
+- `grab`：按给定时刻 seek 取帧（本 CLI、体检脚本用）。
+- `grab_scenes`：整片下载视频轨，每 SCENE_INTERVAL_S 秒看一帧，画面变化够大才留（摄取链用）。
+  **不按视觉笔记的时间戳取**：Gemini 在长视频上的时间戳会漂几分钟，2026-09-28 在 c123 按笔记
+  时间戳抽 4 帧，2 帧不是笔记说的那张图。整片取则不依赖它：c123（27 分钟、55MB、下载 13s）
+  39 张覆盖了所有展示过的图，TALK君一期 17 张，美投君一期 78 张（剪辑镜头多）。
 """
 
 from __future__ import annotations
 
 import argparse
 import pathlib
+import re
+import shutil
 import subprocess
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -48,6 +58,10 @@ PLAYER_CLIENTS = (None, "android_vr", "tv", "web_safari")
 # 解 YouTube JS 挑战的运行时，按 yt-dlp 的优先级取第一个装了的。服务器与本机都有 node
 JS_RUNTIMES = {"deno": {}, "node": {}}
 DEFAULT_HEIGHT = 1080   # 财经视频的画面主体是表格/图表，读数清晰度优先；单帧 ~230KB
+SCENE_INTERVAL_S = 3    # 整片取帧时每 3 秒看一帧
+# 与上一张采样帧的 ffmpeg scene 分数超过它才留。0.25 只抓到硬切换（c123 仅 4 张）——看盘录屏的
+# 图表是平移、缩放、换标的，变化是渐进的；0.06 下 c123 39 张、无遗漏，0.10 与之相差不大
+SCENE_THRESHOLD = 0.06
 
 
 @dataclass(frozen=True)
@@ -75,20 +89,12 @@ def stream_url(video_id: str, *, max_height: int = DEFAULT_HEIGHT) -> Stream:
     （YouTube 唯一的混流 mp4 是 640×360 的 fmt 18——旧实现用 best[ext=mp4] 选它，
     --height 给多少都出 360p）。
     """
-    s = get_settings()
-    # 只要 https 直链：m3u8 分片流在 ffmpeg 里 seek 会失败（2026-09-28 实测 fmt 270）
-    fmt = (f"bv*[vcodec^=avc1][height<={max_height}][protocol=https]"
-           f"/bv*[height<={max_height}][protocol=https]"
-           f"/b[height<={max_height}][protocol=https]/b[protocol=https]")
+    fmt = _format(max_height)
     url = f"https://www.youtube.com/watch?v={video_id}"
     errors = []
     for client in PLAYER_CLIENTS:
         label = client or "default"
-        opts = {"quiet": True, "no_warnings": True, "format": fmt, "js_runtimes": JS_RUNTIMES}
-        if client:
-            opts["extractor_args"] = {"youtube": {"player_client": [client]}}
-        if s.youtube_cookies_file:
-            opts["cookiefile"] = s.youtube_cookies_file
+        opts = _ydl_opts(client, fmt)
         try:
             with yt_dlp.YoutubeDL(opts) as y:
                 info = y.extract_info(url, download=False)
@@ -104,6 +110,79 @@ def stream_url(video_id: str, *, max_height: int = DEFAULT_HEIGHT) -> Stream:
                           tuple((info.get("http_headers") or {}).items()))
         errors.append(f"{label}: 无可用流")
     raise RuntimeError(f"{video_id} 全客户端解析失败 —— " + " | ".join(errors))
+
+
+def _format(max_height: int) -> str:
+    # 只要 https 直链：m3u8 分片流在 ffmpeg 里 seek 会失败（2026-09-28 实测 fmt 270）
+    return (f"bv*[vcodec^=avc1][height<={max_height}][protocol=https]"
+            f"/bv*[height<={max_height}][protocol=https]"
+            f"/b[height<={max_height}][protocol=https]/b[protocol=https]")
+
+
+def _ydl_opts(client: str | None, fmt: str) -> dict:
+    opts = {"quiet": True, "no_warnings": True, "noprogress": True, "format": fmt,
+            "js_runtimes": JS_RUNTIMES}
+    if client:
+        opts["extractor_args"] = {"youtube": {"player_client": [client]}}
+    cookies = get_settings().youtube_cookies_file
+    if cookies:
+        opts["cookiefile"] = cookies
+    return opts
+
+
+def _download(video_id: str, max_height: int, dest_dir: pathlib.Path) -> tuple[pathlib.Path, dict, str]:
+    """整片下载 ≤max_height 的视频轨到 dest_dir。返回 (文件, info, 用的客户端)。"""
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    errors = []
+    for client in PLAYER_CLIENTS:
+        label = client or "default"
+        opts = {**_ydl_opts(client, _format(max_height)),
+                "outtmpl": {"default": str(dest_dir / f"{label}.%(ext)s")}}
+        try:
+            with yt_dlp.YoutubeDL(opts) as y:
+                info = y.extract_info(url, download=True)
+        except yt_dlp.utils.YoutubeDLError as e:
+            errors.append(f"{label}: {str(e)[:80]}")
+            continue
+        got = sorted(dest_dir.glob(f"{label}.*"))
+        if got:
+            return got[0], info, label
+        errors.append(f"{label}: 下载后找不到文件")
+    raise RuntimeError(f"{video_id} 全客户端下载失败 —— " + " | ".join(errors))
+
+
+def grab_scenes(video_id: str, *, max_height: int = DEFAULT_HEIGHT,
+                interval_s: int = SCENE_INTERVAL_S, threshold: float = SCENE_THRESHOLD,
+                skip: frozenset[int] | set[int] = frozenset(),
+                out_root: pathlib.Path = OUT_DIR) -> list[Frame]:
+    """整片下载后按画面变化取帧：每 interval_s 秒看一帧，与上一张采样帧差异够大才留，首帧必留。
+
+    `skip` 是已经有帧的秒数（按笔记时间戳取过的旧帧），同一秒不重复落盘。视频文件抽完即删。
+    """
+    out_dir = out_root / video_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="fanisl-kf-") as tmp:
+        tmp = pathlib.Path(tmp)
+        src, info, label = _download(video_id, max_height, tmp)
+        height = int(info.get("height") or 0)
+        proc = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "info", "-i", str(src), "-vf",
+             f"fps=1/{interval_s},select='gt(scene,{threshold})+eq(n,0)',showinfo",
+             "-fps_mode", "vfr", "-q:v", "3", str(tmp / "f%05d.jpg")],
+            capture_output=True, text=True, timeout=1800, check=True)
+        # showinfo 在 select 之后，一行对应一张输出帧；pts_time 是视频内秒数
+        secs = [round(float(x)) for x in re.findall(r"pts_time:\s*([\d.]+)", proc.stderr)]
+        files = sorted(tmp.glob("f*.jpg"))
+        if len(files) != len(secs):
+            raise RuntimeError(f"{video_id} 抽出 {len(files)} 张、时刻 {len(secs)} 个，对不上")
+        frames = []
+        for f, sec in zip(files, secs):
+            if sec in skip:
+                continue
+            dest = out_dir / f"{sec:05d}s_h{height}.jpg"
+            shutil.move(str(f), dest)
+            frames.append(Frame(sec, dest, dest.stat().st_size, height, f"ytdlp:{label}:scene"))
+    return frames
 
 
 def _ffmpeg_header_args(stream: Stream) -> list[str]:

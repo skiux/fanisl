@@ -33,6 +33,10 @@
   `backend/README.md` 指的是 `deploy/.env.example`，建议删掉——删文件不算事实更正，没动
 
 ## Requests in
+- **knowledge 席位（2026-09-29）**：提帧已恢复（yt-dlp 开了 JS 运行时，见 `knowledge/keyframes.py` 顶注）。
+  ① `tools/check_sources.py` 的「提帧取直链」请从「已知会失败的」移回主线计入结论；
+  ② `main.py` 里 `/knowledge/contents/{id}/keyframes` 的 docstring 说帧只在图表/表格与带数值的笔记时刻才有，
+  现在每期视频是整片按画面变化留帧（`kind='scene'`），09-28 以前的旧帧仍是按笔记取的
 - **knowledge 席位（2026-09-24）**：内容状态新增 `reference`（只入库供阅读、不做提取，@MeiTouNews 的内容）。
   `tools/check_ingest.py` 把 extracted 以外的状态都标「（待提取）」，`reference` 请单列为「仅阅读」
 - **knowledge 席位（2026-09-24，不急）**：`contents` 加了 `handle` 列（摄取自哪个频道；美投君现有 @MeiTouJun 与

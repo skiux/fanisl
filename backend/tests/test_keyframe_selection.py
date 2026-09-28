@@ -10,6 +10,11 @@ def test_chart_and_table_always_kept_even_without_numbers():
     assert worth_a_frame("table", "板块涨跌一览")
 
 
+def test_scene_frames_always_kept():
+    """整片按画面变化取的帧没有对应笔记，每张都是一幅不同的画面，清理时不能当纯文字画面删掉。"""
+    assert worth_a_frame("scene", None)
+
+
 def test_chart_kept_when_note_is_empty():
     """笔记越空，帧越是唯一记录——不能因为笔记没写就丢掉画面。"""
     assert worth_a_frame("chart", "")

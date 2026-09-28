@@ -603,13 +603,59 @@ def test_keyframe_fill_gaps_only_touches_frameless_contents(kstore, monkeypatch)
             raw=f"正文{i}\n- [00:10] (chart) 画面")
         ids.append(cid)
     kstore.record_keyframe(ids[0], ts_s=10, path="keyframes/a/00010s_h1080.jpg", height=1080,
-                           bytes_=1, source="ytdlp:tv")
+                           bytes_=1, source="ytdlp:default:scene", kind="scene")
+    # 按笔记时间戳取的旧帧不算"整片取过"：这条仍要补
+    kstore.record_keyframe(ids[1], ts_s=10, path="keyframes/b/00010s_h1080.jpg", height=1080,
+                           bytes_=1, source="ytdlp:tv", kind="chart")
 
     touched = []
     monkeypatch.setattr(bk, "grab_for_content",
                         lambda store, c, **kw: touched.append(c["id"]) or 3)
-    assert bk.fill_gaps(kstore, limit=10) == 3      # 只跑没帧的那条
+    assert bk.fill_gaps(kstore, limit=10) == 3      # 只跑还没整片取过的那条
     assert touched == [ids[1]]
+
+
+def test_grab_scenes_maps_showinfo_times_to_files_and_skips_existing(monkeypatch, tmp_path):
+    """整片取帧：第 k 张输出帧对应 showinfo 的第 k 个 pts_time；已有帧的秒数不重复落盘。"""
+    import types
+
+    from fanisl.knowledge import keyframes
+
+    def _download(vid, h, dest):
+        f = dest / "default.mp4"
+        f.write_bytes(b"v")
+        return f, {"height": 1080}, "default"
+
+    def _run(cmd, **kw):
+        pattern = pathlib.Path(cmd[-1])                    # .../f%05d.jpg
+        for k in (1, 2, 3):
+            (pattern.parent / f"f{k:05d}.jpg").write_bytes(b"jpg" * k)
+        vf = cmd[cmd.index("-vf") + 1]
+        assert "fps=1/3" in vf and "gt(scene,0.06)" in vf and "showinfo" in vf
+        return types.SimpleNamespace(stderr="[Parsed_showinfo] n:0 pts:0 pts_time:0 \n"
+                                            "[Parsed_showinfo] n:1 pts:5 pts_time:15 \n"
+                                            "[Parsed_showinfo] n:2 pts:9 pts_time:27 \n")
+
+    monkeypatch.setattr(keyframes, "_download", _download)
+    monkeypatch.setattr(keyframes.subprocess, "run", _run)
+    frames = keyframes.grab_scenes("vid123", skip={15}, out_root=tmp_path)
+    assert [f.ts_s for f in frames] == [0, 27]
+    assert frames[1].path == tmp_path / "vid123" / "00027s_h1080.jpg" and frames[1].bytes == 9
+    assert frames[0].source == "ytdlp:default:scene"
+    assert not (tmp_path / "vid123" / "00015s_h1080.jpg").exists()
+
+
+def test_grab_for_content_skips_contents_already_scene_captured(kstore, monkeypatch):
+    from fanisl.knowledge import backfill_keyframes as bk
+
+    creator = kstore.ensure_creator("测试创作者")
+    cid, _ = kstore.upsert_content(creator, platform="youtube",
+                                   url="https://www.youtube.com/watch?v=vid00000001",
+                                   content_type="video", title="一期", published_at=None, raw="正文")
+    kstore.record_keyframe(cid, ts_s=0, path="keyframes/a/00000s_h1080.jpg", height=1080,
+                           bytes_=1, source="ytdlp:default:scene", kind="scene")
+    monkeypatch.setattr(bk, "grab_scenes", lambda *a, **k: pytest.fail("已整片取过，不该再下载"))
+    assert bk.grab_for_content(kstore, {"id": cid, "url": "https://www.youtube.com/watch?v=vid00000001"}) == 0
 
 
 def test_correct_canonical_keeps_an_audit_trail(kstore):

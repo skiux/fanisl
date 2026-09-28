@@ -1,14 +1,14 @@
-"""视觉笔记时间戳 → 关键帧回填：给"画面上写了什么"的文字记录配上可核验的像素。
+"""关键帧回填：给"画面上写了什么"的文字记录配上可核验的像素。
 
 用法：python -m fanisl.knowledge.backfill_keyframes [--handle @x] [--content-id N]
-      [--limit N] [--height 1080] [--workers 4] [--dry-run]
+      [--limit N] [--height 1080] [--dry-run]
 
-时间戳取自 L0 raw 的视觉笔记行（render_l0_text 的 `- [MM:SS] (kind) note` 约定），
-只处理 platform=youtube 的视频内容。幂等：keyframes 表里已有的 (content, ts) 跳过，
-磁盘上已存在的文件不重抓——所以中断后原地重跑即可。
+每期视频整片按画面变化取帧（keyframes.grab_scenes，kind='scene'），不按视觉笔记的时间戳取——
+Gemini 的时间戳在长视频上会漂几分钟（见 keyframes.py 顶注）。只处理 platform=youtube 的视频。
+幂等：已有 scene 帧的内容整条跳过；2026-09-28 以前按笔记时间戳取的旧帧保留，同一秒不重复落盘。
 
-抓下来的帧同时服务两件事：抽查视觉笔记的读数忠实度（Gemini 报的表格数字无从核对是
-K6 抽查现存的缺口），以及视频被删后画面信息的唯一像素留存。
+抓下来的帧同时服务两件事：核对视觉笔记与提取里的读数（Gemini 会读错数字，c123 把铜油比
+0.0640 记成 0.0736），以及视频被删后画面信息的唯一像素留存。
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import time
 
 from ..config import get_settings
 from ..db import make_pool
-from .keyframes import DEFAULT_HEIGHT, OUT_DIR, grab
+from .keyframes import DEFAULT_HEIGHT, OUT_DIR, grab_scenes
 from .store import LIVE_CONTENT, KnowledgeStore
 
 # render_l0_text 写出的视觉笔记行：- [MM:SS] (kind) note
@@ -27,8 +27,9 @@ _NOTE_RE = re.compile(r"^-\s*\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(?:\(([^)]*)\))?\s
 _VIDEO_ID_RE = re.compile(r"[?&]v=([A-Za-z0-9_-]{11})")
 SLEEP_BETWEEN_S = 1.0
 
-# 图表/表格：折线的形状、表格的格子，文字笔记天然装不下 → 帧永远有增量
-_EVIDENCE_KINDS = {"chart", "table"}
+# 图表/表格：折线的形状、表格的格子，文字笔记天然装不下 → 帧永远有增量。
+# scene：整片按画面变化取的帧，每张都是一幅不同的画面，没有对应笔记可比 → 一律留
+_EVIDENCE_KINDS = {"chart", "table", "scene"}
 # 精确数值 = 会被转录改写、且改写后无从发现的东西（小数/百分比/倍数万亿/货币/长整数）。
 # 刻意排除孤立年份（"2026年"）——它是叙述而不是读数。gemini-3.5-flash-lite 把 SOX 的
 # 19.94 倍转成 "9.94倍" 那次事故，正是这类数字，帧是唯一能翻案的凭据。
@@ -77,25 +78,23 @@ def visual_notes(raw: str) -> list[dict]:
     return [merged[k] for k in sorted(merged)]
 
 
-def grab_for_content(store: KnowledgeStore, content: dict, *, height: int = DEFAULT_HEIGHT,
-                     workers: int = 4) -> int:
-    """一条内容的提帧+记账（幂等）。返回新增/更新的帧数。摄取链上 best-effort 调用。"""
+def has_scene_frames(store: KnowledgeStore, content_id: int) -> bool:
+    with store.pool.connection() as conn:
+        return conn.execute("SELECT 1 FROM keyframes WHERE content_id=%s AND kind='scene' LIMIT 1",
+                            (content_id,)).fetchone() is not None
+
+
+def grab_for_content(store: KnowledgeStore, content: dict, *, height: int = DEFAULT_HEIGHT) -> int:
+    """一条内容整片按画面变化取帧 + 记账（幂等）。返回新增帧数。摄取链上 best-effort 调用。"""
     video_id_m = _VIDEO_ID_RE.search(content.get("url") or "")
-    if not video_id_m:
-        return 0
-    # 先按 worth_a_frame 筛，再去下载——省的是带宽，不只是磁盘
-    notes = {n["ts_s"]: n for n in visual_notes(content["raw"])
-             if worth_a_frame(n["kind"], n["note"])}
-    todo = sorted(set(notes) - store.keyframe_seconds(content["id"]))
-    if not todo:
+    if not video_id_m or has_scene_frames(store, content["id"]):
         return 0
     n = 0
-    for f in grab(video_id_m.group(1), todo, max_height=height, workers=workers):
-        note = notes.get(f.ts_s, {})
+    for f in grab_scenes(video_id_m.group(1), max_height=height,
+                         skip=store.keyframe_seconds(content["id"])):
         store.record_keyframe(content["id"], ts_s=f.ts_s,
                               path=str(f.path.relative_to(OUT_DIR.parent)),
-                              height=f.height, bytes_=f.bytes, source=f.source,
-                              kind=note.get("kind"), note=note.get("note"))
+                              height=f.height, bytes_=f.bytes, source=f.source, kind="scene")
         n += 1
     return n
 
@@ -141,7 +140,7 @@ def prune(store: KnowledgeStore, *, dry_run: bool = True, root=None) -> dict:
 
 def fill_gaps(store: KnowledgeStore, *, limit: int = 20,
               height: int = DEFAULT_HEIGHT) -> int:
-    """补一批"一帧都没有"的内容（日维护用）。返回新增帧数。
+    """补一批还没有整片取帧的内容（日维护用）。返回新增帧数。
 
     主要针对墙起来时摄取的那批：当时提帧整条失败，墙落下后这里自动补上。限量是为了
     别让日维护变成一跑几小时的批处理——真要成批补就手动跑 CLI。
@@ -152,43 +151,35 @@ def fill_gaps(store: KnowledgeStore, *, limit: int = 20,
             f"SELECT c.id, c.url, c.title, c.raw FROM contents c "
             f"WHERE c.platform='youtube' AND c.content_type='video' "
             f"AND {LIVE_CONTENT} "   # 旧稿的帧由取代它的那条负责，不重抓
-            "AND NOT EXISTS (SELECT 1 FROM keyframes k WHERE k.content_id=c.id) "
+            "AND NOT EXISTS (SELECT 1 FROM keyframes k WHERE k.content_id=c.id AND k.kind='scene') "
             "ORDER BY c.published_at DESC NULLS LAST LIMIT %s", (limit,)).fetchall()
     return sum(grab_for_content(store, c, height=height) for c in rows)
 
 
 def run(*, handle: str | None = None, content_id: int | None = None, limit: int | None = None,
-        height: int = DEFAULT_HEIGHT, workers: int = 4, dry_run: bool = False) -> None:
+        height: int = DEFAULT_HEIGHT, dry_run: bool = False) -> None:
     s = get_settings()
     pool = make_pool(s.pg_knowledge_conninfo)
     try:
         store = KnowledgeStore(pool)
         contents = _select_contents(store, handle=handle, content_id=content_id, limit=limit)
-        print(f"待处理内容 {len(contents)} 条（清晰度 h{height}，并发 {workers}）", flush=True)
-        n_frames = n_done = 0
-        for i, c in enumerate(contents, 1):
-            notes = visual_notes(c["raw"])
-            have = store.keyframe_seconds(c["id"])
-            todo = [n for n in notes if n["ts_s"] not in have]
-            head = f"  [{i}/{len(contents)}] #{c['id']} {(c['title'] or '')[:34]}"
-            if dry_run:
-                print(f"{head}  笔记 {len(notes)}，待抓 {len(todo)}", flush=True)
-                n_frames += len(todo)
-                continue
-            if not todo:
-                n_done += 1
-                continue
+        todo = [c for c in contents if not has_scene_frames(store, c["id"])]
+        print(f"内容 {len(contents)} 条，待整片取帧 {len(todo)} 条（清晰度 h{height}）", flush=True)
+        if dry_run:
+            return
+        n_frames = 0
+        for i, c in enumerate(todo, 1):
+            head = f"  [{i}/{len(todo)}] #{c['id']} {(c['title'] or '')[:34]}"
             t0 = time.time()
             try:
-                got = grab_for_content(store, c, height=height, workers=workers)
+                got = grab_for_content(store, c, height=height)
             except Exception as e:  # noqa: BLE001 — 单条失败不中断整轮回填
                 print(f"{head}  失败：{str(e)[:120]}", flush=True)
                 continue
             n_frames += got
-            print(f"{head}  +{got}/{len(todo)} 帧  {time.time() - t0:.0f}s", flush=True)
+            print(f"{head}  +{got} 帧  {time.time() - t0:.0f}s", flush=True)
             time.sleep(SLEEP_BETWEEN_S)
-        verb = "预计抓" if dry_run else "新增"
-        print(f"完成：{verb} {n_frames} 帧，{n_done} 条内容已齐", flush=True)
+        print(f"完成：新增 {n_frames} 帧", flush=True)
     finally:
         pool.close()
 
@@ -214,12 +205,11 @@ def _select_contents(store: KnowledgeStore, *, handle: str | None, content_id: i
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="按视觉笔记时间戳回填关键帧")
+    ap = argparse.ArgumentParser(description="整片按画面变化回填关键帧")
     ap.add_argument("--handle", help="只跑某个信源（如 @MeiTouJun）")
     ap.add_argument("--content-id", type=int)
     ap.add_argument("--limit", type=int)
     ap.add_argument("--height", type=int, default=DEFAULT_HEIGHT)
-    ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--dry-run", action="store_true", help="只统计，不抓/不删")
     ap.add_argument("--prune", action="store_true",
                     help="按 worth_a_frame 清理存量帧（规则定之前抓的是全量）")
@@ -241,7 +231,7 @@ def main() -> None:
             pool.close()
         return
     run(handle=a.handle, content_id=a.content_id, limit=a.limit, height=a.height,
-        workers=a.workers, dry_run=a.dry_run)
+        dry_run=a.dry_run)
 
 
 if __name__ == "__main__":
