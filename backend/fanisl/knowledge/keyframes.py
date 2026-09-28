@@ -131,8 +131,21 @@ def _ydl_opts(client: str | None, fmt: str) -> dict:
     return opts
 
 
-def _download(video_id: str, max_height: int, dest_dir: pathlib.Path) -> tuple[pathlib.Path, dict, str]:
-    """整片下载 ≤max_height 的视频轨到 dest_dir。返回 (文件, info, 用的客户端)。"""
+def _download(video_id: str, max_height: int, dest_dir: pathlib.Path, *,
+              retry_pause_s: float = 30.0) -> tuple[pathlib.Path, dict, str]:
+    """整片下载 ≤max_height 的视频轨到 dest_dir。返回 (文件, info, 用的客户端)。
+
+    全客户端都失败时停一会儿整轮再试一次：2026-09-28 服务器连下几期后，一期在所有客户端上都 403，
+    几分钟后同一期重下正常——是短时限流，不是这期视频拿不到。
+    """
+    try:
+        return _download_once(video_id, max_height, dest_dir)
+    except RuntimeError:
+        time.sleep(retry_pause_s)
+        return _download_once(video_id, max_height, dest_dir)
+
+
+def _download_once(video_id: str, max_height: int, dest_dir: pathlib.Path) -> tuple[pathlib.Path, dict, str]:
     url = f"https://www.youtube.com/watch?v={video_id}"
     errors = []
     for client in PLAYER_CLIENTS:

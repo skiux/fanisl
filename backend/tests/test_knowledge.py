@@ -609,10 +609,35 @@ def test_keyframe_fill_gaps_only_touches_frameless_contents(kstore, monkeypatch)
                            bytes_=1, source="ytdlp:tv", kind="chart")
 
     touched = []
+    monkeypatch.setattr(bk, "FILL_GAP_PAUSE_S", 0)
     monkeypatch.setattr(bk, "grab_for_content",
                         lambda store, c, **kw: touched.append(c["id"]) or 3)
     assert bk.fill_gaps(kstore, limit=10) == 3      # 只跑还没整片取过的那条
     assert touched == [ids[1]]
+
+
+def test_keyframe_fill_gaps_skips_a_failing_content_and_raises_only_when_all_fail(kstore, monkeypatch):
+    """一期拿不到的视频不能挡住它后面的内容；全部失败才抛（多半是墙又起了）。"""
+    from fanisl.knowledge import backfill_keyframes as bk
+
+    creator = kstore.ensure_creator("测试创作者")
+    ids = [kstore.upsert_content(creator, platform="youtube",
+                                 url=f"https://www.youtube.com/watch?v=vid0000010{i}",
+                                 content_type="video", title=f"第{i}期",
+                                 published_at=datetime(2026, 8, i, tzinfo=timezone.utc),
+                                 raw=f"正文{i}")[0] for i in (1, 2)]
+    monkeypatch.setattr(bk, "FILL_GAP_PAUSE_S", 0)
+
+    def _one_bad(store, c, **kw):
+        if c["id"] == ids[1]:              # 新的一期排在前面，它失败
+            raise RuntimeError("HTTP Error 403")
+        return 5
+
+    monkeypatch.setattr(bk, "grab_for_content", _one_bad)
+    assert bk.fill_gaps(kstore, limit=10) == 5
+    monkeypatch.setattr(bk, "grab_for_content", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("403")))
+    with pytest.raises(RuntimeError, match="全部失败"):
+        bk.fill_gaps(kstore, limit=10)
 
 
 def test_grab_scenes_maps_showinfo_times_to_files_and_skips_existing(monkeypatch, tmp_path):

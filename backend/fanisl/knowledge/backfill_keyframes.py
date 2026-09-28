@@ -26,6 +26,7 @@ from .store import LIVE_CONTENT, KnowledgeStore
 _NOTE_RE = re.compile(r"^-\s*\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(?:\(([^)]*)\))?\s*(.*)$")
 _VIDEO_ID_RE = re.compile(r"[?&]v=([A-Za-z0-9_-]{11})")
 SLEEP_BETWEEN_S = 1.0
+FILL_GAP_PAUSE_S = 5.0   # 日维护补帧时每期之间停一下：连下多期后会被短时限流（2026-09-28 实测 403）
 
 # 图表/表格：折线的形状、表格的格子，文字笔记天然装不下 → 帧永远有增量。
 # scene：整片按画面变化取的帧，每张都是一幅不同的画面，没有对应笔记可比 → 一律留
@@ -148,7 +149,8 @@ def fill_gaps(store: KnowledgeStore, *, limit: int = 20,
 
     主要针对墙起来时摄取的那批：当时提帧整条失败，墙落下后这里自动补上。限量是为了
     别让日维护变成一跑几小时的批处理——真要成批补就手动跑 CLI。
-    解析失败直接抛给调用方（daily 会记 log）：墙还立着时，20 条挨个撞墙没有意义。
+    单条失败跳过、接着补下一条；**全部失败才抛**给调用方（daily 会记 log），那多半是墙又起了。
+    此前第一条失败就整轮中止，而每天按同一顺序取，一期拿不到的视频会永远挡住它后面的所有内容。
     """
     with store.pool.connection() as conn:
         rows = conn.execute(
@@ -157,7 +159,18 @@ def fill_gaps(store: KnowledgeStore, *, limit: int = 20,
             f"AND {LIVE_CONTENT} "   # 旧稿的帧由取代它的那条负责，不重抓
             "AND NOT EXISTS (SELECT 1 FROM keyframes k WHERE k.content_id=c.id AND k.kind='scene') "
             "ORDER BY c.published_at DESC NULLS LAST LIMIT %s", (limit,)).fetchall()
-    return sum(grab_for_content(store, c, height=height) for c in rows)
+    n, errors = 0, []
+    for c in rows:
+        try:
+            n += grab_for_content(store, c, height=height)
+        except Exception as e:  # noqa: BLE001 — 单条失败不挡后面的内容
+            errors.append(f"#{c['id']} {str(e)[:120]}")
+        time.sleep(FILL_GAP_PAUSE_S)
+    if errors and len(errors) == len(rows):
+        raise RuntimeError(f"补帧 {len(rows)} 条全部失败（墙可能又起了）：{errors[0]}")
+    for err in errors:
+        print(f"    补帧失败，明天再试：{err}", flush=True)
+    return n
 
 
 def run(*, handle: str | None = None, content_id: int | None = None, limit: int | None = None,
