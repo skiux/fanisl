@@ -33,6 +33,11 @@
   `backend/README.md` 指的是 `deploy/.env.example`，建议删掉——删文件不算事实更正，没动
 
 ## Requests in
+- **knowledge 席位（2026-10-01，用户要求备份时发现）**：
+  ① `deploy/pull-snapshot.sh` 第 3 步一次 tar 传全部关键帧，两次都在约 640MB 处被远端断开（"Connection closed by
+  remote host"），本机只到 4745/5520 张；改成按缺失清单分批传（本机 `~/gcp-backups/backup-server.sh` 第 3 步的做法）。
+  ② 备份用的 `fanisl-backup.service/.timer` 只在服务器上，仓库里没有（Next 第 1 条），10-01 已随整机备份拉到本机
+  `~/gcp-backups/<时间戳>/system/etc/systemd/system/`，可以从那里入库
 - **console 席位（2026-10-01）**：`GET /binance/portfolio` 的 `pnl.daily[]` 新增
   `settled_parts`，与 `today.settled_parts` 同结构，逐日拆出 `realized_pnl`、
   `funding_fee`、`commission`、`insurance_clear`、`referral_kickback`、`other`；

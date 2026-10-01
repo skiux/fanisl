@@ -143,7 +143,9 @@ deploy/pull-snapshot.sh
 
 这些不是故障，是知道但还没做的，详见 `plans/active/`：
 
-- 备份的**恢复流程从未验证过**
+- 备份恢复 2026-10-01 部分验证：`fanisl_knowledge`、`fanisl_trading` 的导出恢复到本机后各表行数与线上一致；
+  `fanisl`（行情库，TimescaleDB 超表）本机没有扩展，未验证。用户要求的整机备份在本机 `~/gcp-backups/`
+  （`backup-server.sh` 重跑，README 写了迁移步骤），含密钥，不进仓库
 
 **安全（开发阶段暂缓，正式上线前做；2026-09-27 用户定）**：
 

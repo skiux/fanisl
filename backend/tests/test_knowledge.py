@@ -472,14 +472,17 @@ def test_gemini_request_assembly(monkeypatch):
                 '{"lang":"zh","transcript":"原油看多","visual_notes":'
                 '[{"t":"03:15","kind":"chart","note":"WTI 日线标注 75 阻力"}]}'}]}}]}
 
-    def fake_post(url, params=None, json=None, timeout=None):
-        captured.update({"url": url, "json": json})
+    def fake_post(url, params=None, headers=None, json=None, timeout=None):
+        captured.update({"url": url, "json": json, "params": params, "headers": headers})
         return FakeResp()
 
     monkeypatch.setattr(llm.httpx, "post", fake_post)
     out = llm.GeminiClient("k").transcribe_youtube(
         "https://www.youtube.com/watch?v=abc", start_s=190, end_s=210)
     parts = captured["json"]["contents"][0]["parts"]
+    # 密钥不进 URL：报错信息会原样带出 URL
+    assert captured["headers"] == {"x-goog-api-key": "k"} and not captured["params"]
+    assert "k" not in captured["url"].split("?", 1)[-1] or "?" not in captured["url"]
     assert parts[0]["file_data"]["file_uri"].endswith("v=abc")
     assert parts[0]["video_metadata"] == {"start_offset": "190s", "end_offset": "210s"}
     assert captured["json"]["generationConfig"]["response_schema"] is llm.TRANSCRIBE_SCHEMA

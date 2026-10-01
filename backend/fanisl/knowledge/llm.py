@@ -84,9 +84,11 @@ class GeminiClient:
 
     def generate_json(self, parts: list[dict], schema: dict) -> dict:
         """带 response_schema 的结构化生成。parts 由调用方组装（text/file_data）。"""
+        # 密钥走请求头而不是 ?key= 查询参数：httpx 的报错信息会带上完整 URL，2026-10-01 一次 503
+        # 就把密钥原样打进了输出（服务器上则会进 collector 日志）
         r = httpx.post(
             f"{_BASE}/{self.model}:generateContent",
-            params={"key": self.api_key},
+            headers={"x-goog-api-key": self.api_key},
             json={
                 "contents": [{"parts": parts}],
                 "generationConfig": {
