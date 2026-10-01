@@ -17,7 +17,7 @@ import logging
 
 from ..config import get_settings
 from ..db import make_pool
-from . import backfill_keyframes, backfill_transcripts, estimates, prices, scorers
+from . import backfill_keyframes, backfill_transcripts, estimates, frame_filter, prices, scorers
 from .nodes import NodeStore
 from .store import KnowledgeStore
 
@@ -28,6 +28,7 @@ SINCE_LEAD_DAYS = 30                # 行情要比最早那期再往前留出的
 # 每日最多补几条内容的帧。每条要整片下载 30-55MB：2026-09-28 服务器约 15 分钟连下近 40 期后，
 # 视频下载被 YouTube 要求登录验证（频道清单与摄取用的元数据不受影响）。所以存量慢慢补
 KEYFRAME_GAP_LIMIT = 10
+FRAME_FILTER_LIMIT = 30         # 每日最多精简几条内容的帧（每条约 1-2 分钟 Gemini 调用）
 
 # 摄取新内容：窗口按**缺口**算，不用固定天数。
 # 固定窗口（比如"近 3 天"）有个静默失效的模式：collector 停机或转录连续失败超过窗口长度，
@@ -110,6 +111,13 @@ def run_daily(pool) -> None:
             log.info("知识引擎日维护：补齐关键帧 %d 张", n)
     except Exception:
         log.exception("知识引擎日维护：关键帧补齐失败")
+    try:
+        # 帧精简：摄取时 Gemini 判不了的、以及 2026-10-01 以前的存量帧，在这里补判
+        st = frame_filter.filter_pending(KnowledgeStore(pool), limit=FRAME_FILTER_LIMIT)
+        if st["contents"]:
+            log.info("知识引擎日维护：帧精简 %d 条内容，%d → %d 张", st["contents"], st["before"], st["after"])
+    except Exception:
+        log.exception("知识引擎日维护：帧精简失败")
 
 
 def main() -> None:

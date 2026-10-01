@@ -120,7 +120,8 @@ class GeminiClient:
 
 
 _CAMEL = {"file_data": "fileData", "file_uri": "fileUri", "video_metadata": "videoMetadata",
-          "start_offset": "startOffset", "end_offset": "endOffset", "mime_type": "mimeType"}
+          "start_offset": "startOffset", "end_offset": "endOffset", "mime_type": "mimeType",
+          "inline_data": "inlineData"}
 
 
 def _camelize(obj):

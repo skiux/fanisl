@@ -19,6 +19,7 @@ import time
 
 from ..config import get_settings
 from ..db import make_pool
+from . import frame_filter
 from .keyframes import DEFAULT_HEIGHT, grab_scenes, is_bot_check, keyframe_root
 from .store import LIVE_CONTENT, KnowledgeStore
 
@@ -94,14 +95,19 @@ def grab_for_content(store: KnowledgeStore, content: dict, *, height: int = DEFA
     # 写到 settings.keyframe_root——API 从那里读图。2026-09-26 至 09-29 这里写的是按源码位置推的
     # data_export/keyframes，而服务器配的是 /opt/fanisl/data/keyframes，新帧入了库却读不到
     root = keyframe_root()
-    n = 0
-    for f in grab_scenes(video_id_m.group(1), max_height=height, out_root=root,
-                         skip=store.keyframe_seconds(content["id"])):
-        store.record_keyframe(content["id"], ts_s=f.ts_s,
-                              path=str(f.path.relative_to(root.parent)),
-                              height=f.height, bytes_=f.bytes, source=f.source, kind="scene")
-        n += 1
-    return n
+    frames = {f.path: f for f in grab_scenes(video_id_m.group(1), max_height=height, out_root=root,
+                                             skip=store.keyframe_seconds(content["id"]))}
+    # 精简：去空白、合并重复、只留有数据的画面（frame_filter 顶注）。Gemini 判不了时只做前两步，
+    # 帧标为待精简，日维护的 filter_pending 补判
+    sel = frame_filter.select_or_fallback(list(frames))
+    for p in sel.drop:
+        p.unlink(missing_ok=True)
+    for p, note in sel.keep:
+        f = frames[p]
+        store.record_keyframe(content["id"], ts_s=f.ts_s, path=str(p.relative_to(root.parent)),
+                              height=f.height, bytes_=f.bytes, source=f.source, kind="scene",
+                              note=note, filtered=sel.classified)
+    return len(sel.keep)
 
 
 def prune(store: KnowledgeStore, *, dry_run: bool = True, root=None) -> dict:

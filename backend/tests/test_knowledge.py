@@ -701,13 +701,17 @@ def test_grab_for_content_writes_under_configured_keyframe_root(kstore, monkeypa
 
     monkeypatch.setattr(bk, "keyframe_root", lambda: root)
     monkeypatch.setattr(bk, "grab_scenes", _scenes)
+    monkeypatch.setattr(bk.frame_filter, "select_or_fallback",
+                        lambda paths, **kw: bk.frame_filter.Selection([(p, "标普日线") for p in paths], {}, True))
     creator = kstore.ensure_creator("测试创作者")
     cid, _ = kstore.upsert_content(creator, platform="youtube",
                                    url="https://www.youtube.com/watch?v=vid00000009",
                                    content_type="video", title="一期", published_at=None, raw="正文")
     assert bk.grab_for_content(kstore, {"id": cid, "url": "https://www.youtube.com/watch?v=vid00000009"}) == 1
     assert seen["out_root"] == root
-    assert kstore.keyframes_for_content(cid)[0]["path"] == "keyframes/vid00000009/00003s_h1080.jpg"
+    row = kstore.keyframes_for_content(cid)[0]
+    assert row["path"] == "keyframes/vid00000009/00003s_h1080.jpg"
+    assert row["note"] == "标普日线" and row["filtered_at"] is not None
 
 
 def test_grab_for_content_skips_contents_already_scene_captured(kstore, monkeypatch):
