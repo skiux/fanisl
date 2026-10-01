@@ -3,7 +3,7 @@ import { cn } from '../../lib/cn'
 import type { SpotCostInput, StockCostInput } from '../../api/client'
 import { amount, baseOf, money, percent, price, signedMoney, signedPercent, SOURCE_LABEL } from '../../lib/format'
 import { cash, spotHoldings } from '../../lib/holdings'
-import type { DailyPnl, MarginAccount, PortfolioSnapshot } from '../../api/types'
+import type { DailyPnl, IncomeBreakdown, MarginAccount, PortfolioSnapshot } from '../../api/types'
 import { AllocationWheel } from '../../components/AllocationWheel'
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
 import { assetColor } from './ExposureDistribution'
@@ -51,10 +51,6 @@ export function OverviewView({ snapshot, veiled }: {
     setSelectedDate(pnlDays.at(-1)?.date ?? null)
   }, [pnlDays, selectedDate])
   const selectedDay = pnlDays.find((day) => day.date === selectedDate) ?? null
-  // settled_parts 只描述今天；历史日只有合约结算合计，不能反推其中的资金费用。
-  const selectedFundingFee = selectedDay?.date === pnlDays.at(-1)?.date
-    ? pnl?.today.settled_parts?.funding_fee ?? null
-    : null
   const incomeModule = (
     <Module
       note={`${WINDOW_DAYS} 天`}
@@ -76,7 +72,7 @@ export function OverviewView({ snapshot, veiled }: {
             onSelectDate={setSelectedDate}
             selectedDate={selectedDate}
           />
-          <DailyPnlBreakdown day={selectedDay} fundingFee={selectedFundingFee} />
+          <DailyPnlBreakdown day={selectedDay} />
         </Module>
 
         {/* 四行同一个窗口、同一个来源，条形才可比——旧的「盈亏构成」把 1 天、
@@ -107,22 +103,25 @@ export function OverviewView({ snapshot, veiled }: {
   )
 }
 
-const DAY_PARTS: { key: keyof Pick<DailyPnl, 'spot_usd' | 'stock_usd' | 'settled_usd' | 'earn_usd' | 'interest_usd'>; label: string }[] = [
-  { key: 'spot_usd', label: '现货涨跌' },
-  { key: 'stock_usd', label: '正股涨跌' },
-  { key: 'settled_usd', label: '合约结算' },
-  { key: 'earn_usd', label: '理财收益' },
-  { key: 'interest_usd', label: '杠杆利息' },
+const EXTRA_SETTLEMENTS: { key: keyof IncomeBreakdown; label: string }[] = [
+  { key: 'commission', label: '合约手续费' },
+  { key: 'referral_kickback', label: '合约返佣' },
+  { key: 'insurance_clear', label: '保险清算' },
+  { key: 'other', label: '其他合约收支' },
 ]
 
-function DailyPnlBreakdown({ day, fundingFee }: {
-  day: DailyPnl | null
-  fundingFee: number | null
-}) {
+function DailyPnlBreakdown({ day }: { day: DailyPnl | null }) {
+  const parts = day?.settled_parts ?? null
   const rows = day ? [
-    ...DAY_PARTS.slice(0, 3).map(({ key, label }) => ({ key, label, value: day[key] })),
-    { key: 'funding_fee', label: '资金费用', value: fundingFee },
-    ...DAY_PARTS.slice(3).map(({ key, label }) => ({ key, label, value: day[key] })),
+    { key: 'spot_usd', label: '现货涨跌', value: day.spot_usd },
+    { key: 'stock_usd', label: '正股涨跌', value: day.stock_usd },
+    { key: 'realized_pnl', label: '合约平仓', value: parts?.realized_pnl ?? null },
+    { key: 'funding_fee', label: '资金费用', value: parts?.funding_fee ?? null },
+    ...EXTRA_SETTLEMENTS
+      .filter(({ key }) => parts !== null && Math.abs(parts[key]) >= 0.005)
+      .map(({ key, label }) => ({ key, label, value: parts![key] })),
+    { key: 'earn_usd', label: '理财收益', value: day.earn_usd },
+    { key: 'interest_usd', label: '杠杆利息', value: day.interest_usd },
   ] : []
 
   return (

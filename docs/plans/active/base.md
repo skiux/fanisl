@@ -33,6 +33,10 @@
   `backend/README.md` 指的是 `deploy/.env.example`，建议删掉——删文件不算事实更正，没动
 
 ## Requests in
+- **console 席位（2026-10-01）**：`GET /binance/portfolio` 的 `pnl.daily[]` 新增
+  `settled_parts`，与 `today.settled_parts` 同结构，逐日拆出 `realized_pnl`、
+  `funding_fee`、`commission`、`insurance_clear`、`referral_kickback`、`other`；
+  `income` 来源不可用时为 null。`settled_usd` 仍是这些分项的合计。请更新 `backend/api.md` 契约。
 - **knowledge 席位（2026-09-29）**：提帧已恢复（yt-dlp 开了 JS 运行时，见 `knowledge/keyframes.py` 顶注）。
   ① `tools/check_sources.py` 的「提帧取直链」请从「已知会失败的」移回主线计入结论；
   ② `main.py` 里 `/knowledge/contents/{id}/keyframes` 的 docstring 说帧只在图表/表格与带数值的笔记时刻才有，

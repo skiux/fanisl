@@ -478,7 +478,7 @@ function buildPnl(asOf: Date): Pnl {
       spot_usd: daily.at(-1)?.spot_usd ?? null,
       stock_usd: daily.at(-1)?.stock_usd ?? null,
       settled_usd: daily.at(-1)?.settled_usd ?? null,
-      settled_parts: splitSettled(daily.at(-1)?.settled_usd ?? 0),
+      settled_parts: daily.at(-1)?.settled_parts ?? null,
       earn_usd: daily.at(-1)?.earn_usd ?? null,
       interest_usd: daily.at(-1)?.interest_usd ?? null,
       total_usd: daily.at(-1)?.pnl_usd ?? null,
@@ -509,17 +509,15 @@ function buildPnl(asOf: Date): Pnl {
   }
 }
 
-/**
- * 把当天的结算合计拆成四类。**余数落在已实现上**，四项之和精确等于合计——
- * 界面上「当日结算」那一行与它底下的明细必须对得起来，差一分都不行。
- */
-function splitSettled(total: number): IncomeBreakdown {
+/** 示例资金费独立于平仓发生，和真实 income 的分类口径一致。 */
+function dayIncome(back: number, traded: boolean): IncomeBreakdown {
   const round = (value: number) => Math.round(value * 100) / 100
-  const commission = -round(Math.abs(total) * 0.18)
-  const funding = round(total * 0.22)
-  const referral = round(Math.abs(total) * 0.03)
+  const realized = traded ? round(Math.sin(back * 2.1 + 0.9) * 180) : 0
+  const funding = round(-1.2 - Math.abs(Math.sin(back * 0.73)) * 2.3)
+  const commission = traded ? -round(1.2 + Math.abs(realized) * 0.005) : 0
+  const referral = traded ? round(Math.abs(commission) * 0.1) : 0
   return {
-    realized_pnl: round(total - commission - funding - referral),
+    realized_pnl: realized,
     funding_fee: funding,
     commission,
     insurance_clear: 0,
@@ -544,8 +542,9 @@ function buildDaily(asOf: Date, todayStock = 0, todayEarn = 0, todayInterest = 0
     const settledDay = weekday !== 0 && weekday !== 6 && Math.sin(back * 2.7) > -0.45
     // 相位不为 0：`sin(back * 2.1)` 在 back = 0 处恰好是 0，于是"今天"的结算
     // 永远是 $0.00，弹层里那张分项表在示例数据下一次也出不来
-    const settled = settledDay
-      ? Math.round(Math.sin(back * 2.1 + 0.9) * 180 * 100) / 100 : 0
+    const settledParts = dayIncome(back, settledDay)
+    const settled = settledParts.realized_pnl + settledParts.funding_fee
+      + settledParts.commission + settledParts.referral_kickback
     // 最早那两天故意算不出来：日历要能画出"这天没有数"的样子
     const known = back < 88
     // 正股：周末没有行情，那天不动。当前本金与年化只能估算今天，不回填历史。
@@ -559,6 +558,7 @@ function buildDaily(asOf: Date, todayStock = 0, todayEarn = 0, todayInterest = 0
       spot_usd: known ? spot : null,
       stock_usd: stock,
       settled_usd: settled,
+      settled_parts: settledParts,
       earn_usd: earn,
       interest_usd: interest,
       pnl_usd: known

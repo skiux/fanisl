@@ -406,7 +406,8 @@ export type Transfers = {
  * 日历的一格：**那天到底赚了多少**。
  *
  * `spot_usd` 是现货持仓当天的涨跌（含当天成交的那部分），按当天的持仓量与当天的
- * 收盘价算；`settled_usd` 是合约当天结算掉的（已实现 + 资金费 + 手续费 + 返佣）。
+ * 收盘价算；`settled_usd` 是合约当天结算掉的合计，`settled_parts` 将平仓盈亏、
+ * 资金费、手续费等分开。界面不能把合计和其中的资金费并列相加。
  *
  * 原先一格只有结算，于是不成交的日子全是 0——那不是"这天没赚没亏"，是"这天没成交"。
  */
@@ -418,6 +419,8 @@ export type DailyPnl = {
   /** 正股持仓的涨跌。昨收不在 Binance 上，见 Pnl.equity_close_source */
   stock_usd: number
   settled_usd: number
+  /** 同一天的合约收入分类；income 来源不可用时为 null。 */
+  settled_parts: IncomeBreakdown | null
   /** 当前理财本金与年化从 UTC 00:00 起连续计提的收益；历史日期不反推 */
   earn_usd: number
   /** 杠杆利息，负数 */

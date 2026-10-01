@@ -65,13 +65,11 @@ describe('资产页模块分布', () => {
     const fundingLabel = [...dailyDetail.querySelectorAll('dt')]
       .find((node) => node.textContent === '资金费用')!
     expect(fundingLabel.nextElementSibling?.textContent)
-      .toBe(signedMoney(snapshot.pnl!.today.settled_parts!.funding_fee))
-    const settlementLabel = [...host.querySelectorAll('aside dt')]
-      .find((node) => node.textContent === '合约结算')!
-    const settlementValue = settlementLabel.nextElementSibling as HTMLElement
-    expect(settlementValue.textContent).toBe('$0.00')
-    expect(settlementValue.className).not.toContain('text-gain')
-    expect(settlementValue.className).not.toContain('text-loss')
+      .toBe(signedMoney(snapshot.pnl!.daily.at(-1)!.settled_parts!.funding_fee))
+    const closingLabel = [...host.querySelectorAll('aside dt')]
+      .find((node) => node.textContent === '合约平仓')!
+    expect(closingLabel.nextElementSibling?.textContent)
+      .toBe(signedMoney(snapshot.pnl!.daily.at(-1)!.settled_parts!.realized_pnl))
 
     act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
     expect(titles()).not.toContain('现金')
@@ -104,7 +102,15 @@ describe('资产页模块分布', () => {
     const detail = [...host.querySelectorAll('aside')]
       .find((node) => node.textContent?.includes(day.date))!
     expect(detail.textContent).toContain('现货涨跌')
-    expect(detail.textContent).toContain('合约结算')
+    expect(detail.textContent).not.toContain('合约结算')
+    const fundingLabel = [...detail.querySelectorAll('dt')]
+      .find((node) => node.textContent === '资金费用')!
+    expect(fundingLabel.nextElementSibling?.textContent)
+      .toBe(signedMoney(day.settled_parts!.funding_fee))
+    const closingLabel = [...detail.querySelectorAll('dt')]
+      .find((node) => node.textContent === '合约平仓')!
+    expect(closingLabel.nextElementSibling?.textContent)
+      .toBe(signedMoney(day.settled_parts!.realized_pnl))
     expect(cell.getAttribute('aria-pressed')).toBe('true')
   })
 
@@ -145,8 +151,9 @@ describe('资产页模块分布', () => {
     const todayFundingLabel = [...account.querySelectorAll('dt')]
       .find((node) => node.textContent === '今日资金费用')!
     const todayFundingValue = todayFundingLabel.nextElementSibling!.querySelector('span')!
-    expect(todayFundingValue.className).not.toContain('text-gain')
-    expect(todayFundingValue.className).not.toContain('text-loss')
+    expect(todayFundingValue.textContent)
+      .toBe(signedMoney(snapshot.pnl!.today.settled_parts!.funding_fee))
+    expect(todayFundingValue.className).toContain('text-loss')
     expect(host.textContent).not.toContain('排序')
     expect([...host.querySelectorAll('button')].some((button) => button.textContent === '杠杆')).toBe(false)
     expect([...host.querySelectorAll('button')].some((button) => button.textContent === '标的')).toBe(false)

@@ -1252,17 +1252,11 @@ def _daily(income_rows: Any, spot_days: dict[str, float | None],
     现货算不出来的那天（缺收盘价、或持仓量回滚出负数）整格报 `null`，
     不拿"只有合约那半边"的数冒充当天的盈亏。
     """
-    settled: dict[str, float] = {}
+    income_by_day: dict[str, list[dict]] = {}
     for row in income_rows or []:
-        if row.get("incomeType") in ("TRANSFER", "INTERNAL_TRANSFER"):
-            continue
         day = (ms_to_iso(row.get("time")) or "")[:10]
-        if not day:
-            continue
-        usd = usd_value(row.get("asset", ""), dec0(row.get("income")), prices)
-        if usd is None:
-            continue
-        settled[day] = settled.get(day, 0.0) + usd
+        if day:
+            income_by_day.setdefault(day, []).append(row)
 
     # 用传进来的 now，不自己读时钟：`build_portfolio` 全程用同一个 now，
     # 这里另读一次的话，测试里固定的 NOW 与真实时钟一跨天就对不上——
@@ -1278,7 +1272,12 @@ def _daily(income_rows: Any, spot_days: dict[str, float | None],
     for back in range(days - 1, -1, -1):
         day = (today - timedelta(days=back)).isoformat()
         spot = spot_days.get(day)
-        settle = settled.get(day)
+        # 与 90 天汇总和今日弹层共用 _income 的分类、币种换算及划转排除规则。
+        # 历史日期也要保留分项，才能分别展示平仓盈亏与资金费用。
+        parts = _income(income_by_day.get(day, []), prices) if isinstance(income_rows, list) else None
+        settle = (sum(parts[field] for field in (
+            "realized_pnl", "funding_fee", "commission", "insurance_clear",
+            "referral_kickback", "other")) if parts is not None else 0.0)
         earn = earn_days.get(day) or 0.0
         interest = interest_days.get(day) or 0.0
         stock = stock_days.get(day) or 0.0
@@ -1288,6 +1287,7 @@ def _daily(income_rows: Any, spot_days: dict[str, float | None],
             "spot_usd": spot,
             "stock_usd": stock,
             "settled_usd": settle or 0.0,
+            "settled_parts": parts,
             "earn_usd": earn,
             "interest_usd": interest,
             "pnl_usd": total,

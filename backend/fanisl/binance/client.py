@@ -338,9 +338,19 @@ class BinanceClient:
         return self.signed_get(SPOT_BASE, "/sapi/v1/bfusd/history/rateHistory",
                                {"current": current, "size": size})
 
-    def futures_income(self, *, start_ms: int, end_ms: int, limit: int = 1000) -> Any:
-        return self.signed_get(FAPI_BASE, "/fapi/v1/income",
-                               {"startTime": start_ms, "endTime": end_ms, "limit": limit})
+    def futures_income(self, *, start_ms: int, end_ms: int, limit: int = 1000) -> list[dict]:
+        """按 page 取完整窗口；单次最多 1000 条，截断会漏掉历史资金费。"""
+        rows: list[dict] = []
+        for page in range(1, 21):
+            batch = self.signed_get(FAPI_BASE, "/fapi/v1/income",
+                                    {"startTime": start_ms, "endTime": end_ms,
+                                     "limit": limit, "page": page})
+            if not isinstance(batch, list) or any(not isinstance(row, dict) for row in batch):
+                raise BinanceError("unreachable", "合约收入历史响应格式异常")
+            rows.extend(batch)
+            if len(batch) < limit:
+                return rows
+        raise BinanceError("unsupported", "合约收入历史超过 20 页，拒绝使用不完整数据")
 
     def deposits(self, *, start_ms: int, end_ms: int, limit: int = 1000) -> Any:
         return self.signed_get(SPOT_BASE, "/sapi/v1/capital/deposit/hisrec",

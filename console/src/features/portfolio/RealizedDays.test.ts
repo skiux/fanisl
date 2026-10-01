@@ -17,6 +17,7 @@ function days(from: string, count: number): DailyPnl[] {
       spot_usd: index + 1,
       stock_usd: 0,
       settled_usd: 0,
+      settled_parts: null,
       earn_usd: 0,
       interest_usd: 0,
       pnl_usd: index + 1,

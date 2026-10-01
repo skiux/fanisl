@@ -18,7 +18,7 @@ import pytest
 from fanisl.binance.cache import SourceCache, SourceResult
 from fanisl.binance.client import BinanceClient
 from fanisl.binance.portfolio import (
-    build_portfolio, _fresh_payload, _today_settled, _yield_positions,
+    build_portfolio, _daily, _fresh_payload, _today_settled, _yield_positions,
 )
 
 from binance_mock import (
@@ -696,6 +696,28 @@ def test_today_settled_is_the_utc_day_not_the_last_24_hours():
 def test_today_settled_is_null_when_income_is_unavailable():
     """取不到不是 0。income 挂掉时这一格留空，不能印成"今天没有结算"。"""
     assert _today_settled(None, {}, NOW) is None
+
+
+def test_daily_income_parts_keep_funding_separate_from_closing_pnl():
+    today = NOW.date().isoformat()
+    yesterday = (NOW - timedelta(days=1)).date().isoformat()
+    at = lambda offset: int((NOW + timedelta(days=offset)).timestamp() * 1000)
+    rows = [
+        {"incomeType": "REALIZED_PNL", "income": "25.40", "asset": "USDT", "time": at(-1)},
+        {"incomeType": "FUNDING_FEE", "income": "-3.00", "asset": "USDT", "time": at(-1)},
+        {"incomeType": "COMMISSION", "income": "-1.20", "asset": "USDT", "time": at(-1)},
+        {"incomeType": "TRANSFER", "income": "100", "asset": "USDT", "time": at(-1)},
+        {"incomeType": "SPECIAL_FUNDING_FEE", "income": "-2.00", "asset": "USDT", "time": at(0)},
+    ]
+    daily = _daily(rows, {yesterday: 0.0, today: 0.0}, {}, 2, NOW)
+
+    assert daily[0]["settled_parts"]["realized_pnl"] == pytest.approx(25.40)
+    assert daily[0]["settled_parts"]["funding_fee"] == pytest.approx(-3.00)
+    assert daily[0]["settled_parts"]["commission"] == pytest.approx(-1.20)
+    assert daily[0]["settled_usd"] == pytest.approx(21.20)
+    assert daily[1]["settled_parts"]["realized_pnl"] == 0
+    assert daily[1]["settled_parts"]["funding_fee"] == pytest.approx(-2.00)
+    assert daily[1]["settled_usd"] == pytest.approx(-2.00)
 
 
 def test_transfers_only_count_settled(cache):

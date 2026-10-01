@@ -259,10 +259,11 @@ USDT，`BFUSD` 是能当合约保证金的稳定币）。后者尤其要紧：�
 daily[]                 **每天到底赚了多少**，见 dailypnl.py：
                           spot_usd    现货持仓当天的涨跌（含当天成交那部分）
                           settled_usd 合约当天结算掉的（已实现+资金费+手续费+返佣）
+                          settled_parts 按日期拆开的平仓盈亏、资金费、手续费等；
+                                        income 取不到时是 null
                           pnl_usd     两者之和；算不出来时是 null
 today.*                 daily 最后一格，同一个数只算一处
-today.settled_parts     当天结算按类型拆开（`_today_settled`）。**复用 `_income`
-                        换一个窗口**，不另写一套分类——两套分类迟早对不上。
+today.settled_parts     当天结算按类型拆开（`_today_settled`），与 daily 最后一格同口径。
                         各项之和 == settled_usd；income 取不到时是 null
 unrealized.futures_usd  positionRisk 的 unRealizedProfit（交易所给的标记价）
 realized.futures_usd    income 的 REALIZED_PNL
@@ -270,6 +271,11 @@ carry.*                 资金费 / 手续费 / 返佣
 spot_marks[]            逐币今日涨跌，给详情抽屉用
 unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖到）
 ```
+
+日历明细分别显示 `REALIZED_PNL`（合约平仓）与 `FUNDING_FEE` /
+`SPECIAL_FUNDING_FEE`（资金费用），不把包含二者的 `settled_usd` 再列为一项。
+`/fapi/v1/income` 单页最多 1000 条，按 `page` 取完整个 90 天窗口；达到 20 页仍未取完时
+该来源报错，不用截断的历史数据计算每日盈亏。
 
 **`pnl.unrealized` 与 `pnl.realized` 里都只有合约。** 现货在持仓页另行显示管理员
 录入的当前币仓成本及相对成本的未实现盈亏，不并入日历与汇总。自动推导历史成本不可靠，
@@ -510,7 +516,7 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | `bfusd` | `GET /sapi/v1/bfusd/history/rateHistory` | 150 | 300s | 最近公布年化；重新取数不穿透 |
 | `margin` | `GET /sapi/v1/margin/account` | 10 | 60s | 全仓杠杆 |
 | `liquidation_loan` | `GET /sapi/v1/margin/liquidation-loan` | 100 †（UID） | 60s | 杠杆启用才取；没有借款时回空响应体 |
-| `income` | `GET /fapi/v1/income` | 30 † | 300s | 已实现 / 资金费 / 手续费 |
+| `income` | `GET /fapi/v1/income` | 30 † / 页 | 300s | 已实现 / 资金费 / 手续费；每页 1000 条，取全窗口 |
 | `transfers` | `GET /sapi/v1/capital/deposit/hisrec` | 1 | 300s | 充值 |
 | | `GET /sapi/v1/capital/withdraw/history` | **18000** | 900s | UID 限速 10 次/秒，最贵的一个 |
 | `trades.*` | `GET /api/v3/myTrades` | 20 / 交易对 | 6h | `fromId` 翻页，**无时间上限** |
