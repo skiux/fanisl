@@ -16,7 +16,7 @@ function Row({ height, children }: { height: number; children: ReactNode }) {
 export function StatementSkeleton() {
   return (
     // 骨架也钉在纸的高度里：不然加载时整页先长出一截，取完数又缩回去
-    <div aria-busy="true" aria-label="正在读取账户" className="min-h-0 flex-1 overflow-hidden">
+    <div aria-busy="true" aria-label="正在读取账户" className="skeleton-reveal min-h-0 flex-1 overflow-hidden">
       <section className="grid gap-7 border-b border-rule px-5 py-6 sm:px-9 sm:py-7 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] xl:gap-14">
         <div>
           <Skel className="h-3 w-32" />
@@ -223,12 +223,19 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
   )
 }
 
-export function StaleBanner({ asOfText }: { asOfText: string }) {
+/**
+ * 数据过期。页面在前台时会自动重取（lib/autoRefresh.ts），所以这条横幅出现，
+ * 要么是自动刷新一直失败，要么是这个标签页跑的还是旧版本的代码（新版本会在回到
+ * 前台时自动换上，见 lib/version.ts）。前一种把失败原因一并说出来——2026-10-02
+ * 用户看到「2 小时前」时，分不清是哪一种。
+ */
+export function StaleBanner({ asOfText, reason = null }: { asOfText: string; reason?: string | null }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-panel)] border border-loss/25 bg-loss/[0.06] px-4 py-3">
       <Eyebrow className="text-loss">已过期</Eyebrow>
       <p className="text-[12.5px] text-ink-2">
         下面全部数字来自 <span className="tnum text-ink">{asOfText}</span>的快照，不是当前余额。
+        {reason && <> 自动刷新失败：{reason}</>}
       </p>
     </div>
   )

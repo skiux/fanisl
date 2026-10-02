@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   fetchPortfolio, readScenario, saveSpotCost, saveStockCost, writeScenario,
   type Scenario, type SpotCostInput, type StockCostInput,
 } from '../../api/client'
-import { PortfolioError, type PortfolioSnapshot } from '../../api/types'
+import type { PortfolioSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
-import { useAutoRefresh } from '../../lib/autoRefresh'
+import { cn } from '../../lib/cn'
 import { freshnessOf, relativeTime } from '../../lib/format'
+import { usePageData, type Phase as PagePhase } from '../../lib/pageData'
 import { onRouteChange, readRoute } from '../../lib/router'
 import { Masthead } from './Masthead'
 import { PnlDetail, type PnlTopic } from './PnlDetail'
@@ -15,16 +16,7 @@ import { EmptyState, ErrorState, StatementSkeleton, StaleBanner, UnauthorizedSta
 import { HoldingsView, OverviewView, PerpRiskView } from './views'
 import { RiskControlView } from './RiskControl'
 
-type Phase =
-  | { kind: 'loading' }
-  | { kind: 'ready'; snapshot: PortfolioSnapshot }
-  | { kind: 'failed'; message: string }
-
-/**
- * 这一次取数是谁发起的。首次加载（含换场景）显示骨架；「重新取数」强制穿透缓存；
- * 后台刷新不打扰——旧数据留在原处，失败了也不换成错误页，真过期了横幅自己会出现。
- */
-type Load = { mode: 'initial' | 'force' | 'silent' }
+type Phase = PagePhase<PortfolioSnapshot>
 
 /** 页面在前台时多久静默重取一次。打不打 Binance 由后端缓存决定，见 lib/autoRefresh.ts */
 const REFRESH_EVERY_MS = 60_000
@@ -42,97 +34,44 @@ function readView(): ViewKey {
 
 export function StatementPage() {
   const [scenario, setScenario] = useState<Scenario>(readScenario)
-  const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
-  const [load, setLoad] = useState<Load>({ mode: 'initial' })
-  const [refreshing, setRefreshing] = useState(false)
   const [view, setView] = useState<ViewKey>(readView)
-  // 上一个请求还没回来时后台刷新不插队：它只补空档，不打断首次加载或手动的重新取数
-  const inFlight = useRef(false)
-  // 每落地一份快照加一。请求回来时若期间已有更新的一份落地（成本保存后的那一次），
-  // 就不拿这份旧的盖上去
-  const landed = useRef(0)
+  // 成本保存后那一次刷新进行中：和「重新取数」共用报头上那个转圈
+  const [saving, setSaving] = useState(false)
+  // 取数、缓存、后台刷新都在 usePageData：换页回来先显示上一次的数据，再静默更新
+  const { phase, revealed, refreshing, switching, refreshError, retry, accept } = usePageData({
+    scope: `assets|${scenario}`,
+    load: (signal, force) => fetchPortfolio(scenario, signal, { force }),
+    failure: '读取账户时发生未预期的错误',
+    refreshEveryMs: REFRESH_EVERY_MS,
+    // 示例数据场景是本地拼的，不需要轮询
+    autoRefresh: scenario === 'live',
+  })
 
   useEffect(() => onRouteChange(() => setView(readView())), [])
-
-  useEffect(() => {
-    const controller = new AbortController()
-    const started = landed.current
-    inFlight.current = true
-    if (load.mode === 'initial') setPhase({ kind: 'loading' })
-    if (load.mode === 'force') setRefreshing(true)
-
-    fetchPortfolio(scenario, controller.signal, { force: load.mode === 'force' })
-      .then((snapshot) => {
-        if (controller.signal.aborted) return
-        if (load.mode !== 'initial' && landed.current !== started) return
-        landed.current += 1
-        setPhase({ kind: 'ready', snapshot })
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted || load.mode === 'silent') return
-        setPhase({
-          kind: 'failed',
-          message: error instanceof PortfolioError ? error.message : '读取账户时发生未预期的错误',
-        })
-      })
-      .finally(() => {
-        if (controller.signal.aborted) return
-        inFlight.current = false
-        setRefreshing(false)
-      })
-
-    return () => {
-      controller.abort()
-      inFlight.current = false
-    }
-  }, [scenario, load])
-
-  const retry = useCallback(() => setLoad({ mode: 'force' }), [])
-  const refreshQuietly = useCallback(() => {
-    if (!inFlight.current) setLoad({ mode: 'silent' })
-  }, [])
-  // 示例数据场景是本地拼的，不需要轮询
-  useAutoRefresh(refreshQuietly, REFRESH_EVERY_MS, scenario === 'live')
 
   const changeScenario = useCallback((next: Scenario) => {
     writeScenario(next)
     setScenario(next)
-    setLoad({ mode: 'initial' })
-    setPhase({ kind: 'loading' })
   }, [])
-  const saveCost = useCallback(async (symbol: string, input: StockCostInput) => {
-    setRefreshing(true)
+  // 手工成本存在本地表里，不需要强制穿透 Binance 的高权重缓存。
+  const saveAndReload = useCallback(async (save: () => Promise<unknown>) => {
+    setSaving(true)
     try {
-      await saveStockCost(scenario, symbol, input)
-      // 手工成本存在本地表里，不需要强制穿透 Binance 的高权重缓存。
+      await save()
       try {
-        const snapshot = await fetchPortfolio(scenario, undefined, { force: false })
-        landed.current += 1
-        setPhase({ kind: 'ready', snapshot })
+        accept(await fetchPortfolio(scenario, undefined, { force: false }))
       } catch (cause) {
         const detail = cause instanceof Error ? `：${cause.message}` : ''
         throw new Error(`成本已保存，但账户快照刷新失败${detail}`, { cause })
       }
     } finally {
-      setRefreshing(false)
+      setSaving(false)
     }
-  }, [scenario])
-  const saveCryptoCost = useCallback(async (asset: string, input: SpotCostInput) => {
-    setRefreshing(true)
-    try {
-      await saveSpotCost(scenario, asset, input)
-      try {
-        const snapshot = await fetchPortfolio(scenario, undefined, { force: false })
-        landed.current += 1
-        setPhase({ kind: 'ready', snapshot })
-      } catch (cause) {
-        const detail = cause instanceof Error ? `：${cause.message}` : ''
-        throw new Error(`成本已保存，但账户快照刷新失败${detail}`, { cause })
-      }
-    } finally {
-      setRefreshing(false)
-    }
-  }, [scenario])
+  }, [scenario, accept])
+  const saveCost = useCallback((symbol: string, input: StockCostInput) =>
+    saveAndReload(() => saveStockCost(scenario, symbol, input)), [scenario, saveAndReload])
+  const saveCryptoCost = useCallback((asset: string, input: SpotCostInput) =>
+    saveAndReload(() => saveSpotCost(scenario, asset, input)), [scenario, saveAndReload])
 
   const snapshot = phase.kind === 'ready' ? phase.snapshot : null
 
@@ -148,7 +87,7 @@ export function StatementPage() {
           controls={<ScenarioSwitcher onChange={changeScenario} value={scenario} />}
           onRefresh={retry}
           page="assets"
-          refreshing={refreshing}
+          refreshing={refreshing || saving}
           sources={snapshot?.sources ?? []}
           title={{ overview: '资产报表', holdings: '持仓', perp: '合约', risk: '风险控制' }[view]}
         />
@@ -157,7 +96,10 @@ export function StatementPage() {
           onSaveStockCost={saveCost}
           onSaveSpotCost={saveCryptoCost}
           phase={phase}
+          refreshError={refreshError}
+          revealed={revealed}
           scenario={scenario}
+          switching={switching}
           view={view}
         />
       </div>
@@ -172,7 +114,16 @@ export function StatementPage() {
  * return 之后，hook 顺序会随 phase 变。同样的错在 `RealizedDays` 里已经造成过
  * 一次整页白屏，这次是 lint 抓到的（那时候这个项目还没有 lint）。
  */
-function Body({ phase, view, onRetry, onSaveStockCost, onSaveSpotCost, scenario }: {
+type Presence = {
+  /** 这份数据是从骨架屏后面出来的：只有这时才播一次入场 */
+  revealed: boolean
+  /** 换了条件、新数据还没到：旧画面压暗 */
+  switching: boolean
+  /** 最近一次后台刷新失败的原因，过期横幅里说出来 */
+  refreshError: string | null
+}
+
+function Body({ phase, view, onRetry, onSaveStockCost, onSaveSpotCost, scenario, ...presence }: Presence & {
   phase: Phase
   scenario: Scenario
   view: ViewKey
@@ -192,11 +143,14 @@ function Body({ phase, view, onRetry, onSaveStockCost, onSaveSpotCost, scenario 
       phase={phase}
       scenario={scenario}
       view={view}
+      {...presence}
     />
   )
 }
 
-function Loaded({ phase, view, onRetry, onSaveStockCost, onSaveSpotCost, scenario }: {
+function Loaded({
+  phase, view, onRetry, onSaveStockCost, onSaveSpotCost, scenario, revealed, switching, refreshError,
+}: Presence & {
   phase: Extract<Phase, { kind: 'ready' }>
   scenario: Scenario
   view: ViewKey
@@ -207,6 +161,12 @@ function Loaded({ phase, view, onRetry, onSaveStockCost, onSaveSpotCost, scenari
   // 详情抽屉的开关。放在这一层而不是页面顶层：只有拿到 snapshot 才有数据可给，
   // 往上提要么多传一层，要么在没数据时也挂着一个空对话框。
   const [detail, setDetail] = useState<PnlTopic | null>(null)
+  // 换分节时回到顶部。原先靠给滚动区加 key={view} 整块重建来做，代价是每切一次都
+  // 重播一遍入场动画；现在滚动区常驻，只把位置归零
+  const scroller = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = 0
+  }, [view])
   const { snapshot } = phase
   // 「一条数据都没有」与「为什么没有」是两件事，分开判。
   //
@@ -232,7 +192,7 @@ function Loaded({ phase, view, onRetry, onSaveStockCost, onSaveSpotCost, scenari
     <>
       {veiled && (
         <div className="border-b border-rule px-5 py-3 sm:px-10">
-          <StaleBanner asOfText={relativeTime(snapshot.as_of)} />
+          <StaleBanner asOfText={relativeTime(snapshot.as_of)} reason={refreshError} />
         </div>
       )}
 
@@ -240,8 +200,12 @@ function Loaded({ phase, view, onRetry, onSaveStockCost, onSaveSpotCost, scenari
       <PnlDetail onClose={() => setDetail(null)} pnl={snapshot.pnl} topic={detail} />
 
       {/* 明细区拿回整幅宽度；区域内部滚动，切换分节时页面高度不变 */}
-      <div className="scroll-y min-h-0 flex-1 px-5 py-7 pb-28 sm:px-10 sm:py-8 sm:pb-28" key={view}>
-        <div className="rise">
+      <div
+        aria-busy={switching || undefined}
+        className={cn('scroll-y min-h-0 flex-1 px-5 py-7 pb-28 sm:px-10 sm:py-8 sm:pb-28 pending-fade', switching && 'pending')}
+        ref={scroller}
+      >
+        <div className={revealed ? 'rise' : undefined}>
           {view === 'overview' && <OverviewView snapshot={snapshot} veiled={veiled} />}
           {view === 'holdings' && (
             <HoldingsView

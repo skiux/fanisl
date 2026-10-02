@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildSnapshot } from '../../api/fixtures'
 import { money } from '../../lib/format'
+import { clearPageData } from '../../lib/pageData'
 import { StatementPage } from './StatementPage'
 
 let host: HTMLDivElement
@@ -45,6 +46,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   window.localStorage.clear()               // 不带示例场景 = 真接口
+  clearPageData()                           // 页面数据缓存是模块级的，用例之间不能串
   host = document.createElement('div')
   document.body.append(host)
   root = createRoot(host)

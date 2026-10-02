@@ -57,7 +57,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
   const isAdmin = useIsAdmin()
 
   return (
-    <header className="rule-heavy px-5 pb-3.5 pt-4 sm:px-10 sm:pb-4 sm:pt-5">
+    <header className="vt-masthead rule-heavy px-5 pb-3.5 pt-4 sm:px-10 sm:pb-4 sm:pt-5">
       {/* 窄屏分两行：第一行是品牌与账号（各占一端），第二行才是导航与控件。
           原先三组东西挤在一个 flex-wrap 里，375px 下账号和主题被挤到下一行，
           落在哪儿全看内容长短——显示名一长就又是另一个样子。 */}

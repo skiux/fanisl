@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { fetchLedger, readScenario, writeScenario, type Scenario } from '../../api/client'
-import { PortfolioError, type LedgerSnapshot } from '../../api/types'
+import type { LedgerSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
-import { useAutoRefresh } from '../../lib/autoRefresh'
+import { cn } from '../../lib/cn'
 import { freshnessOf, relativeTime } from '../../lib/format'
+import { usePageData, type Phase as PagePhase } from '../../lib/pageData'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
+import { withViewTransition } from '../../lib/viewTransition'
 import { Masthead } from '../portfolio/Masthead'
 import { SectionTabs, type TabItem } from '../portfolio/SectionTabs'
 import { EmptyLedgerState, ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from '../portfolio/states'
@@ -14,16 +16,7 @@ import { FILTER_LABEL, filterEntries, LedgerView, type LedgerFilter } from './vi
 
 const FILTERS: LedgerFilter[] = ['all', 'external', 'income', 'internal']
 
-type Phase =
-  | { kind: 'loading' }
-  | { kind: 'ready'; snapshot: LedgerSnapshot }
-  | { kind: 'failed'; message: string }
-
-/**
- * 这一次取数是谁发起的。首次加载与换筛选条件显示骨架；「重新取数」强制穿透缓存；
- * 后台刷新不打扰——旧数据留在原处，失败了也不换成错误页。见 lib/autoRefresh.ts
- */
-type Load = { mode: 'initial' | 'force' | 'silent' }
+type Phase = PagePhase<LedgerSnapshot>
 
 /** 流水的来源本来就是 5–30 分钟才变一次，取得再勤也只是读同一份缓存 */
 const REFRESH_EVERY_MS = 5 * 60_000
@@ -35,62 +28,28 @@ function readFilter(): LedgerFilter {
 
 export function LedgerPage() {
   const [scenario, setScenario] = useState<Scenario>(readScenario)
-  const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
-  const [load, setLoad] = useState<Load>({ mode: 'initial' })
-  const [refreshing, setRefreshing] = useState(false)
-  // 上一个请求还没回来时后台刷新不插队
-  const inFlight = useRef(false)
   const [filter, setFilter] = useState<LedgerFilter>(readFilter)
   const [days, setDays] = useState(7)
+  // 取数、缓存、后台刷新都在 usePageData。换区间是同一页里换条件：有缓存直接用，
+  // 没有就把旧画面压暗留着，新数据到了再换
+  const { phase, revealed, refreshing, switching, refreshError, retry } = usePageData({
+    scope: `ledger|${scenario}`,
+    query: String(days),
+    load: (signal, force) => fetchLedger(scenario, days, signal, { force }),
+    failure: '读取流水时发生未预期的错误',
+    refreshEveryMs: REFRESH_EVERY_MS,
+    autoRefresh: scenario === 'live',
+  })
 
   useEffect(() => onRouteChange(() => setFilter(readFilter())), [])
 
-  useEffect(() => {
-    const controller = new AbortController()
-    inFlight.current = true
-    if (load.mode === 'initial') setPhase({ kind: 'loading' })
-    if (load.mode === 'force') setRefreshing(true)
-
-    fetchLedger(scenario, days, controller.signal, { force: load.mode === 'force' })
-      .then((snapshot) => { if (!controller.signal.aborted) setPhase({ kind: 'ready', snapshot }) })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted || load.mode === 'silent') return
-        setPhase({
-          kind: 'failed',
-          message: error instanceof PortfolioError ? error.message : '读取流水时发生未预期的错误',
-        })
-      })
-      .finally(() => {
-        if (controller.signal.aborted) return
-        inFlight.current = false
-        setRefreshing(false)
-      })
-
-    return () => {
-      controller.abort()
-      inFlight.current = false
-    }
-  }, [scenario, load, days])
-
-  const retry = useCallback(() => setLoad({ mode: 'force' }), [])
-  const refreshQuietly = useCallback(() => {
-    if (!inFlight.current) setLoad({ mode: 'silent' })
-  }, [])
-  useAutoRefresh(refreshQuietly, REFRESH_EVERY_MS, scenario === 'live')
-
-  // 换区间是一次新的查询：照首次加载走，失败要报出来，不能拿旧区间的数据冒充
-  const selectDays = useCallback((next: number) => {
-    setDays(next)
-    setLoad({ mode: 'initial' })
-  }, [])
   const changeScenario = useCallback((next: Scenario) => {
     writeScenario(next)
     setScenario(next)
-    setLoad({ mode: 'initial' })
-    setPhase({ kind: 'loading' })
   }, [])
+  // 分类是同一份流水的不同切法：和换页一样做一次短的交叉淡变
   const selectFilter = useCallback((next: LedgerFilter) => {
-    setFilter(next)
+    withViewTransition(() => setFilter(next))
     replaceSection('ledger', next)
   }, [])
 
@@ -108,8 +67,9 @@ export function LedgerPage() {
           sources={snapshot?.sources ?? []}
           title="资金流水"
         />
-        <Body days={days} filter={filter} onRetry={retry} onSelectDays={selectDays}
-              onSelectFilter={selectFilter} phase={phase} />
+        <Body days={days} filter={filter} onRetry={retry} onSelectDays={setDays}
+              onSelectFilter={selectFilter} phase={phase} refreshError={refreshError}
+              revealed={revealed} switching={switching} />
       </div>
     </div>
   )
@@ -124,19 +84,35 @@ function buildTabs(snapshot: LedgerSnapshot): TabItem<LedgerFilter>[] {
   }))
 }
 
-function Body({ phase, filter, onSelectFilter, onRetry, days, onSelectDays }: {
+type BodyProps = {
   phase: Phase
   filter: LedgerFilter
   onSelectFilter: (key: LedgerFilter) => void
   onRetry: () => void
   days: number
   onSelectDays: (days: number) => void
-}) {
+  revealed: boolean
+  switching: boolean
+  refreshError: string | null
+}
+
+function Body(props: BodyProps) {
+  const { phase, onRetry } = props
   if (phase.kind === 'loading') return <StatementSkeleton />
   if (phase.kind === 'failed') {
     return <div className="px-6 sm:px-10"><ErrorState message={phase.message} onRetry={onRetry} /></div>
   }
+  return <Loaded {...props} phase={phase} />
+}
 
+function Loaded({
+  phase, filter, onSelectFilter, onRetry, days, onSelectDays, revealed, switching, refreshError,
+}: BodyProps & { phase: Extract<Phase, { kind: 'ready' }> }) {
+  // 换分类时回到顶部；滚动区常驻，不再整块重建（那样每次都会重播入场）
+  const scroller = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = 0
+  }, [filter])
   const { snapshot } = phase
   // 与资产页同一条规则：没有任何记录 + 存在凭据问题 → 是 key 的事，不是"这段时间没流水"
   const allUnauthorized = snapshot.entries.length === 0
@@ -153,7 +129,7 @@ function Body({ phase, filter, onSelectFilter, onRetry, days, onSelectDays }: {
     <>
       {veiled && (
         <div className="border-b border-rule px-5 py-3 sm:px-10">
-          <StaleBanner asOfText={relativeTime(snapshot.as_of)} />
+          <StaleBanner asOfText={relativeTime(snapshot.as_of)} reason={refreshError} />
         </div>
       )}
 
@@ -170,8 +146,12 @@ function Body({ phase, filter, onSelectFilter, onRetry, days, onSelectDays }: {
         }
       />
 
-      <div className="scroll-y min-h-0 flex-1 px-5 py-7 pb-28 sm:px-10 sm:py-8 sm:pb-28" key={filter}>
-        <div className="rise">
+      <div
+        aria-busy={switching || undefined}
+        className={cn('scroll-y min-h-0 flex-1 px-5 py-7 pb-28 sm:px-10 sm:py-8 sm:pb-28 pending-fade', switching && 'pending')}
+        ref={scroller}
+      >
+        <div className={revealed ? 'rise' : undefined}>
           {snapshot.entries.length === 0 && allOk
             ? <EmptyLedgerState days={snapshot.window.days} />
             : <LedgerView filter={filter} snapshot={snapshot} veiled={veiled} />}

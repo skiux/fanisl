@@ -23,7 +23,7 @@ export function BottomNavigation({ current }: { current: MainDestination | null 
     <nav
       aria-label="资产主导航"
       className={cn(
-        'fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-1/2 z-30 -translate-x-1/2 rounded-full',
+        'vt-nav fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-1/2 z-30 -translate-x-1/2 rounded-full',
         'border border-rule-strong/70 bg-sheet/95 p-1.5 backdrop-blur-xl lg:bottom-10',
         'shadow-[0_12px_32px_-12px_rgba(0,0,0,0.30),0_2px_8px_rgba(0,0,0,0.08)]',
       )}

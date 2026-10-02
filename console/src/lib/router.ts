@@ -1,3 +1,5 @@
+import { withViewTransition } from './viewTransition'
+
 /**
  * 两级 hash 路由：`#/{页}/{分节}`。没有引入路由库——一共三页、每页几节，
  * 一个解析函数加一个 hashchange 监听就够了，装 react-router 反而是净负担。
@@ -65,7 +67,21 @@ export function replaceSection(page: PageKey, section: string) {
   window.history.replaceState(null, '', hrefOf(page, section))
 }
 
+/**
+ * 地址变了通知谁。**所有监听者在同一次视图过渡里一起更新**：App 换页、页面换分节
+ * 各自监听同一个 hashchange，分开各起一次过渡的话，后一次会把前一次打断。
+ */
+const handlers = new Set<() => void>()
+
+function dispatch() {
+  withViewTransition(() => handlers.forEach((handler) => handler()))
+}
+
 export function onRouteChange(handler: () => void) {
-  window.addEventListener('hashchange', handler)
-  return () => window.removeEventListener('hashchange', handler)
+  if (handlers.size === 0) window.addEventListener('hashchange', dispatch)
+  handlers.add(handler)
+  return () => {
+    handlers.delete(handler)
+    if (handlers.size === 0) window.removeEventListener('hashchange', dispatch)
+  }
 }

@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { fetchOrders, readScenario, writeScenario, type Scenario } from '../../api/client'
-import { PortfolioError, type OrdersSnapshot } from '../../api/types'
+import type { OrdersSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
-import { useAutoRefresh } from '../../lib/autoRefresh'
+import { cn } from '../../lib/cn'
 import { freshnessOf, relativeTime } from '../../lib/format'
+import { usePageData, type Phase as PagePhase } from '../../lib/pageData'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
+import { withViewTransition } from '../../lib/viewTransition'
 import { Masthead } from '../portfolio/Masthead'
 import { SectionTabs, type TabItem } from '../portfolio/SectionTabs'
 import { ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from '../portfolio/states'
@@ -15,16 +17,7 @@ type ViewKey = 'open' | 'history'
 
 const VIEW_KEYS: ViewKey[] = ['open', 'history']
 
-type Phase =
-  | { kind: 'loading' }
-  | { kind: 'ready'; snapshot: OrdersSnapshot }
-  | { kind: 'failed'; message: string }
-
-/**
- * 这一次取数是谁发起的。首次加载与换筛选条件显示骨架；「重新取数」强制穿透缓存；
- * 后台刷新不打扰——旧数据留在原处，失败了也不换成错误页。见 lib/autoRefresh.ts
- */
-type Load = { mode: 'initial' | 'force' | 'silent' }
+type Phase = PagePhase<OrdersSnapshot>
 
 /** 挂单的缓存是 30 秒，一分钟取一次足够让报头一直落在"刚刚"附近 */
 const REFRESH_EVERY_MS = 60_000
@@ -36,64 +29,30 @@ function readView(): ViewKey {
 
 export function OrdersPage() {
   const [scenario, setScenario] = useState<Scenario>(readScenario)
-  const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
-  const [load, setLoad] = useState<Load>({ mode: 'initial' })
-  const [refreshing, setRefreshing] = useState(false)
-  // 上一个请求还没回来时后台刷新不插队
-  const inFlight = useRef(false)
   const [view, setView] = useState<ViewKey>(readView)
   // **空串 = 全部**，不是“还没选”。后端不带 symbol 时会把候选里每个交易对
   // 都问一遍再合并；只有明确选了一个才收窄到那一个。
   const [symbol, setSymbol] = useState('')
+  // 取数、缓存、后台刷新都在 usePageData。换交易对是同一页里换条件：有缓存直接用，
+  // 没有就把旧画面压暗留着，新数据到了再换
+  const { phase, revealed, refreshing, switching, refreshError, retry } = usePageData({
+    scope: `orders|${scenario}`,
+    query: symbol,
+    load: (signal, force) => fetchOrders(scenario, symbol, signal, { force }),
+    failure: '读取委托时发生未预期的错误',
+    refreshEveryMs: REFRESH_EVERY_MS,
+    autoRefresh: scenario === 'live',
+  })
 
   useEffect(() => onRouteChange(() => setView(readView())), [])
 
-  useEffect(() => {
-    const controller = new AbortController()
-    inFlight.current = true
-    if (load.mode === 'initial') setPhase({ kind: 'loading' })
-    if (load.mode === 'force') setRefreshing(true)
-
-    fetchOrders(scenario, symbol, controller.signal, { force: load.mode === 'force' })
-      .then((snapshot) => { if (!controller.signal.aborted) setPhase({ kind: 'ready', snapshot }) })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted || load.mode === 'silent') return
-        setPhase({
-          kind: 'failed',
-          message: error instanceof PortfolioError ? error.message : '读取委托时发生未预期的错误',
-        })
-      })
-      .finally(() => {
-        if (controller.signal.aborted) return
-        inFlight.current = false
-        setRefreshing(false)
-      })
-
-    return () => {
-      controller.abort()
-      inFlight.current = false
-    }
-  }, [scenario, load, symbol])
-
-  const retry = useCallback(() => setLoad({ mode: 'force' }), [])
-  const refreshQuietly = useCallback(() => {
-    if (!inFlight.current) setLoad({ mode: 'silent' })
-  }, [])
-  useAutoRefresh(refreshQuietly, REFRESH_EVERY_MS, scenario === 'live')
-
-  // 换交易对是一次新的查询：照首次加载走，失败要报出来，不能拿旧交易对的数据冒充
-  const selectSymbol = useCallback((next: string) => {
-    setSymbol(next)
-    setLoad({ mode: 'initial' })
-  }, [])
   const changeScenario = useCallback((next: Scenario) => {
     writeScenario(next)
     setScenario(next)
-    setLoad({ mode: 'initial' })
-    setPhase({ kind: 'loading' })
   }, [])
+  // 挂单 / 历史是同一份数据的两种看法：和换页一样做一次短的交叉淡变
   const selectView = useCallback((next: ViewKey) => {
-    setView(next)
+    withViewTransition(() => setView(next))
     replaceSection('orders', next)
   }, [])
 
@@ -113,9 +72,12 @@ export function OrdersPage() {
         />
         <Body
           onRetry={retry}
-          onSelectSymbol={selectSymbol}
+          onSelectSymbol={setSymbol}
           onSelectView={selectView}
           phase={phase}
+          refreshError={refreshError}
+          revealed={revealed}
+          switching={switching}
           symbol={symbol}
           view={view}
         />
@@ -133,8 +95,13 @@ function buildTabs(snapshot: OrdersSnapshot): TabItem<ViewKey>[] {
   ]
 }
 
-function Body({ phase, view, symbol, onSelectView, onSelectSymbol, onRetry }: {
+function Body({
+  phase, view, symbol, onSelectView, onSelectSymbol, onRetry, revealed, switching, refreshError,
+}: {
   phase: Phase
+  revealed: boolean
+  switching: boolean
+  refreshError: string | null
   view: ViewKey
   symbol: string
   onSelectView: (key: ViewKey) => void
@@ -146,6 +113,27 @@ function Body({ phase, view, symbol, onSelectView, onSelectSymbol, onRetry }: {
     return <div className="px-6 sm:px-10"><ErrorState message={phase.message} onRetry={onRetry} /></div>
   }
 
+  return <Loaded {...{ phase, view, symbol, onSelectView, onSelectSymbol, onRetry, revealed, switching, refreshError }} />
+}
+
+function Loaded({
+  phase, view, symbol, onSelectView, onSelectSymbol, onRetry, revealed, switching, refreshError,
+}: {
+  phase: Extract<Phase, { kind: 'ready' }>
+  view: ViewKey
+  symbol: string
+  onSelectView: (key: ViewKey) => void
+  onSelectSymbol: (next: string) => void
+  onRetry: () => void
+  revealed: boolean
+  switching: boolean
+  refreshError: string | null
+}) {
+  // 换分节时回到顶部；滚动区常驻，不再整块重建（那样每次都会重播入场）
+  const scroller = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = 0
+  }, [view])
   const { snapshot } = phase
   // 与资产页同一条规则：没有任何数据 + 存在凭据问题 → 是 key 的事，不是"没有挂单"
   const allUnauthorized = snapshot.open.length === 0 && snapshot.history.length === 0
@@ -161,7 +149,7 @@ function Body({ phase, view, symbol, onSelectView, onSelectSymbol, onRetry }: {
     <>
       {veiled && (
         <div className="border-b border-rule px-5 py-3 sm:px-10">
-          <StaleBanner asOfText={relativeTime(snapshot.as_of)} />
+          <StaleBanner asOfText={relativeTime(snapshot.as_of)} reason={refreshError} />
         </div>
       )}
 
@@ -169,8 +157,12 @@ function Body({ phase, view, symbol, onSelectView, onSelectSymbol, onRetry }: {
 
       <SectionTabs current={view} items={buildTabs(snapshot)} onSelect={onSelectView} />
 
-      <div className="scroll-y min-h-0 flex-1 px-5 py-7 pb-28 sm:px-10 sm:py-8 sm:pb-28" key={view}>
-        <div className="rise">
+      <div
+        aria-busy={switching || undefined}
+        className={cn('scroll-y min-h-0 flex-1 px-5 py-7 pb-28 sm:px-10 sm:py-8 sm:pb-28 pending-fade', switching && 'pending')}
+        ref={scroller}
+      >
+        <div className={revealed ? 'rise' : undefined}>
           {view === 'open' && <OpenView snapshot={snapshot} veiled={veiled} />}
           {view === 'history' && (
             <HistoryView
