@@ -19,8 +19,8 @@ import { cn } from '../lib/cn'
  *   `items-start` + 每格内部同一个 `mt-2`
  *     → 标签同线、标签到数字的距离处处相等、数字顶也同线，一次全中。
  *
- * 每格只有标签和数字两行，没有第三行小注：三格里只有一格常年有字的话，
- * 那两个字既撑高整条又让这一格跟邻居不齐。需要提醒就让数字自己变色（tone）。
+ * 每格只有标签和数值组，不放解释小注。资金费用的费率是同一数值组的一部分，
+ * 窄屏容不下时可在格内换行；需要提醒就让数字自己变色（tone）。
  */
 export type StripTone = 'gain' | 'loss' | 'warn' | 'muted'
 
@@ -28,8 +28,12 @@ export type StripCell = {
   label: string
   value: string
   tone?: StripTone
+  /** 金额旁的同一指标费率；空间不足时在该格内换行。 */
+  detail?: string
   /** 长日期等辅助读数在窄屏降一档，避免压进相邻格。 */
   compact?: boolean
+  /** 窄屏把这一格放在主数字旁，仍保留桌面的原顺序。 */
+  mobileHeroAside?: boolean
   /** 点开看这个数怎么算的。给了才可点 */
   onOpen?: () => void
   /** 关闭详情后焦点要回到这个按钮，靠它找回来 */
@@ -44,34 +48,44 @@ const TONE: Record<StripTone, string> = {
   muted: 'text-ink-3',
 }
 
-export function Strip({ hero, cells, veiled }: {
+export function Strip({ hero, cells, veiled, dense = false }: {
   hero: StripCell
   cells: StripCell[]
   veiled?: boolean
+  dense?: boolean
 }) {
+  const mobileAside = cells.find((cell) => cell.mobileHeroAside)
   return (
     <div className={cn(
       // 窄屏用两列定宽网格，宽屏才换成 flex：窄屏若也用 flex，第二列的位置
       // 取决于第一格数字有多长，数一变列就挪。
       'grid grid-cols-2 items-start gap-x-8 gap-y-6',
-      'px-5 pb-4 pt-4 sm:flex sm:flex-wrap sm:gap-x-14 sm:px-10 sm:pb-5 sm:pt-5',
+      'px-5 pb-4 pt-4 sm:flex sm:flex-wrap sm:px-10 sm:pb-5 sm:pt-5',
+      dense ? 'sm:gap-x-8 xl:gap-x-10' : 'sm:gap-x-14',
       veiled && 'veiled',
     )}>
-      {/* 主数字独占一行：2rem 的数字旁边塞不下三个指标 */}
-      <Item cell={hero} className="col-span-2 sm:w-auto" hero />
-      {cells.map((cell) => <Item cell={cell} key={cell.label} />)}
+      <div className="col-span-2 flex items-start justify-between gap-4 sm:block">
+        <Item cell={hero} hero />
+        {mobileAside && <Item align="right" cell={mobileAside} className="shrink-0 sm:hidden" />}
+      </div>
+      {cells.map((cell) => <Item
+        cell={cell}
+        className={cell.mobileHeroAside ? 'hidden sm:block' : undefined}
+        key={cell.label}
+      />)}
     </div>
   )
 }
 
-function Item({ cell, hero = false, className }: {
+function Item({ cell, hero = false, className, align = 'left' }: {
   cell: StripCell
   hero?: boolean
   className?: string
+  align?: 'left' | 'right'
 }) {
   // 可点与不可点必须是**同一种盒子**，否则标签的行盒高度不同，一排里差几像素。
   // `block` 是为了这个：button 是 inline-block、span 是 inline，都显式压成块级。
-  const labelClass = cn('label block text-left', cell.onOpen && cn(
+  const labelClass = cn('label block', align === 'right' ? 'text-right' : 'text-left', cell.onOpen && cn(
     'cursor-pointer outline-none transition-colors duration-200 hover:text-ink-2',
     // 下划虚线是"这里能点"的最轻提示。摘要条是一排读数，不是一排按钮，
     // 不给它加边框或底色
@@ -96,7 +110,12 @@ function Item({ cell, hero = false, className }: {
           : cell.compact ? 'text-base sm:text-xl' : 'text-xl',
         cell.tone ? TONE[cell.tone] : 'text-ink',
       )}>
-        {cell.value}
+        {cell.detail ? (
+          <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="whitespace-nowrap">{cell.value}</span>
+            <span className="whitespace-nowrap text-xs font-normal text-ink-2">{cell.detail}</span>
+          </span>
+        ) : cell.value}
       </div>
     </div>
   )

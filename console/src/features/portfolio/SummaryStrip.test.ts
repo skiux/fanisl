@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildSnapshot } from '../../api/fixtures'
-import { money } from '../../lib/format'
+import { money, signedMoney, signedPercent } from '../../lib/format'
 import { spotHoldings } from '../../lib/holdings'
 import { positionSize } from '../../lib/stress'
 import { summaryForView } from './SummaryStrip'
@@ -38,6 +38,25 @@ describe('desktop page summaries', () => {
     const missing = summaryForView({ ...snapshot, futures: null }, 'perp', () => {})
     expect(missing.hero.value).toBe('—')
     expect(missing.cells.every((cell) => cell.value === '—')).toBe(true)
+  })
+
+  it('keeps funding amounts and rates beside the contract headline', () => {
+    const futures = snapshot.futures!
+    const funding = snapshot.pnl!.today.settled_parts!.funding_fee
+    const cells = summary('perp').cells
+
+    expect(cells.map((cell) => cell.label)).toEqual([
+      '未实现盈亏', '保证金余额', '真实杠杆', '预估资金费用', '今日资金费用',
+    ])
+    expect(cells[2].mobileHeroAside).toBe(true)
+    expect(cells[3]).toMatchObject({
+      value: signedMoney(futures.estimated_funding_fee_usd),
+      detail: signedPercent(-futures.estimated_funding_rate!, 4),
+    })
+    expect(cells[4]).toMatchObject({
+      value: signedMoney(funding),
+      detail: signedPercent(funding / positionSize(snapshot)!, 4),
+    })
   })
 
   it('does not turn an unreachable holdings source into a zero balance', () => {

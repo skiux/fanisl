@@ -1,5 +1,5 @@
 import { Strip, type StripCell } from '../../components/Strip'
-import { money, percent, signedMoney } from '../../lib/format'
+import { money, percent, signedMoney, signedPercent } from '../../lib/format'
 import { exposures, spotHoldings } from '../../lib/holdings'
 import { marginRatioRisk } from '../../lib/risk'
 import { breakingDrop, positionSize } from '../../lib/stress'
@@ -10,7 +10,7 @@ import type { ViewKey } from './StatementPage'
 /**
  * 常驻摘要条。版式与另外两页共用 `<Strip>`——三页应当像同一份文件的三章。
  *
- * **每格只有标签和数字，没有第三行。** 原先每格底下挂一行小注：保证金率下面写
+ * **每格只有标签和数值组，没有解释小注。** 原先每格底下挂一行小注：保证金率下面写
  * "安全"，未实现盈亏取不到时写"不可用"。三格里只有一格常年有字，那两个字既
  * 撑高了整条又把这一格弄得和邻居不齐；而"安全"说的是 12% 已经说过的事。
  * 需要提醒的时候改用颜色——同一个数字自己变色，不多占一行。
@@ -22,7 +22,7 @@ export function SummaryStrip({ snapshot, veiled, onOpenDetail, view }: {
   view: ViewKey
 }) {
   const { hero, cells } = summaryForView(snapshot, view, onOpenDetail)
-  return <Strip cells={cells} hero={hero} veiled={veiled} />
+  return <Strip cells={cells} dense={view === 'perp'} hero={hero} veiled={veiled} />
 }
 
 /** 各页只报本页数据；资金流水使用自己的 LedgerStrip。 */
@@ -78,13 +78,27 @@ export function summaryForView(snapshot: PortfolioSnapshot, view: ViewKey,
     const unreal = f?.total_unrealized_pnl ?? null
     const leverage = f && size !== null && f.total_margin_balance > 0
       ? size / f.total_margin_balance : null
+    const estimated = f?.estimated_funding_fee_usd ?? null
+    const estimatedRate = f?.estimated_funding_rate ?? null
+    const todayFunding = f ? pnl?.today?.settled_parts?.funding_fee ?? null : null
+    const todayRate = todayFunding !== null && size !== null && size > 0
+      ? todayFunding / size : null
     return {
       hero: { label: '仓位价值', value: size === null ? '—' : money(size) },
       cells: [
         { label: '未实现盈亏', value: unreal === null ? '—' : signedMoney(unreal),
           tone: unreal === null ? 'muted' : unreal >= 0 ? 'gain' : 'loss' },
         { label: '保证金余额', value: f ? money(f.total_margin_balance) : '—' },
-        { label: '真实杠杆', value: leverage === null ? '—' : `${leverage.toFixed(2)}×` },
+        { label: '真实杠杆', value: leverage === null ? '—' : `${leverage.toFixed(2)}×`,
+          compact: true, mobileHeroAside: true },
+        { label: '预估资金费用', value: estimated === null ? '—' : signedMoney(estimated),
+          detail: estimatedRate === null ? undefined : signedPercent(-estimatedRate, 4),
+          compact: true,
+          tone: estimated === null ? 'muted' : estimated > 0 ? 'gain' : estimated < 0 ? 'loss' : undefined },
+        { label: '今日资金费用', value: todayFunding === null ? '—' : signedMoney(todayFunding),
+          detail: todayRate === null ? undefined : signedPercent(todayRate, 4),
+          compact: true,
+          tone: todayFunding === null ? 'muted' : todayFunding > 0 ? 'gain' : todayFunding < 0 ? 'loss' : undefined },
       ],
     }
   }

@@ -136,25 +136,16 @@ describe('资产页模块分布', () => {
     expect(host.textContent).not.toContain('小额余额')
   })
 
-  it('合约右栏先显示账户盈亏与资金费用，排序只保留三个有效条件', () => {
+  it('合约右栏从保证金开始，不重复顶部的盈亏与资金费用', () => {
     const snapshot = buildSnapshot(new Date('2026-09-26T12:00:00Z'))
     act(() => root.render(createElement(PerpRiskView, {
       futuresMissing: false, scenario: 'ok', snapshot, veiled: false,
     })))
 
-    const account = [...host.querySelectorAll('h2')]
-      .find((heading) => heading.textContent === '合约账户')!.closest('section')!
-    expect(account.textContent).toContain('未实现盈亏')
-    expect(account.textContent).toContain('预估资金费用')
-    expect(account.textContent).toContain('今日资金费用')
-    expect(account.textContent?.match(/\+\$597\.13/g)).toHaveLength(1)
-    expect(host.textContent?.match(/\+\$597\.13/g)).toHaveLength(1)
-    const todayFundingLabel = [...account.querySelectorAll('dt')]
-      .find((node) => node.textContent === '今日资金费用')!
-    const todayFundingValue = todayFundingLabel.nextElementSibling!.querySelector('span')!
-    expect(todayFundingValue.textContent)
-      .toBe(signedMoney(snapshot.pnl!.today.settled_parts!.funding_fee))
-    expect(todayFundingValue.className).toContain('text-loss')
+    expect(titles()).not.toContain('合约账户')
+    expect(titles()).toContain('保证金')
+    expect(host.textContent).not.toContain('预估资金费用')
+    expect(host.textContent).not.toContain('今日资金费用')
     expect(host.textContent).not.toContain('排序')
     expect([...host.querySelectorAll('button')].some((button) => button.textContent === '杠杆')).toBe(false)
     expect([...host.querySelectorAll('button')].some((button) => button.textContent === '标的')).toBe(false)

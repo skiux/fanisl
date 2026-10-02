@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { cn } from '../../lib/cn'
 import type { Scenario, SpotCostInput, StockCostInput } from '../../api/client'
-import { amount, baseOf, money, percent, price, signedMoney, signedPercent, SOURCE_LABEL } from '../../lib/format'
+import { amount, baseOf, money, percent, price, signedMoney, SOURCE_LABEL } from '../../lib/format'
 import { cash, spotHoldings } from '../../lib/holdings'
 import type { DailyPnl, IncomeBreakdown, MarginAccount, PortfolioSnapshot } from '../../api/types'
 import { AllocationWheel } from '../../components/AllocationWheel'
@@ -403,41 +403,6 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing, scenario }: {
             <PerpOrders asOf={snapshot.as_of} key={scenario} scenario={scenario} />
           </div>}
           {panel !== 'orders' && <>
-          <Module
-            span=""
-            title="合约账户"
-          >
-            {(() => {
-              const estimated = f.estimated_funding_fee_usd
-              const todayFunding = snapshot.pnl?.today?.settled_parts?.funding_fee ?? null
-              const todayRate = todayFunding !== null && gross > 0 ? todayFunding / gross : null
-              return (
-                <dl className="grid grid-cols-1 gap-y-5 sm:grid-cols-3 lg:grid-cols-1">
-                  <Figure
-                    label="未实现盈亏"
-                    tone={f.total_unrealized_pnl > 0 ? 'gain'
-                      : f.total_unrealized_pnl < 0 ? 'loss' : undefined}
-                    value={signedMoney(f.total_unrealized_pnl)}
-                  />
-                  <Figure
-                    label="预估资金费用"
-                    note={f.estimated_funding_rate === null ? undefined : signedPercent(-f.estimated_funding_rate, 4)}
-                    tone={estimated === null || estimated === 0
-                      ? undefined : estimated > 0 ? 'gain' : 'loss'}
-                    value={estimated === null ? '—' : signedMoney(estimated)}
-                  />
-                  <Figure
-                    label="今日资金费用"
-                    note={todayRate === null ? undefined : signedPercent(todayRate, 4)}
-                    tone={todayFunding === null || todayFunding === 0
-                      ? undefined : todayFunding > 0 ? 'gain' : 'loss'}
-                    value={todayFunding === null ? '—' : signedMoney(todayFunding)}
-                  />
-                </dl>
-              )
-            })()}
-          </Module>
-
           <Module
             figure={money(f.total_margin_balance)}
             note="保证金余额"
