@@ -12,11 +12,11 @@ export const PAGES: { key: PageKey; label: string; enabled: boolean }[] = [
   { key: 'ledger', label: '流水', enabled: true },
 ]
 
-const EXTRA_TITLES: Partial<Record<PageKey, string>> = { account: '账号', admin: '用户管理' }
+const EXTRA_TITLES: Partial<Record<PageKey, string>> = { account: '账号', admin: '用户' }
 
 export function titleOf(page: PageKey, section: string | null = null) {
   const assetTitle: Record<string, string> = {
-    holdings: '持仓', perp: '合约', risk: '风险',
+    accounts: '账户', holdings: '持仓', perp: '合约', risk: '风险',
   }
   const label = (page === 'assets' && section ? assetTitle[section] : null)
     ?? EXTRA_TITLES[page]
@@ -25,9 +25,9 @@ export function titleOf(page: PageKey, section: string | null = null) {
   return `${label} · FANISL CONSOLE`
 }
 
-// 账号与用户管理都不在主导航里：前者是自己的事、后者只对管理员可见，
-// 两个入口都放在报头右上角（见 Masthead）。把用户管理放进 PAGES 的话，
-// 成员登录后会看到一个点进去就 403 的标签。
+// 账号与用户都不在报头的 PAGES 里：账号是自己的事，入口在右上角的账号菜单；
+// 用户只对管理员可见，入口在底部导航（components/BottomNavigation，只给管理员）。
+// 把用户放进 PAGES 的话，成员登录后会看到一个点进去就 403 的标签。
 const PAGE_KEYS: PageKey[] = [...PAGES.map((page) => page.key), 'account', 'admin']
 
 /** 旧地址 `#/overview` 这类直接落在资产页的分节上，不要让收藏的链接失效 */

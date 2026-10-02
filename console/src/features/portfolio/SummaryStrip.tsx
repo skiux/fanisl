@@ -3,7 +3,7 @@ import { money, percent, signedMoney, signedPercent } from '../../lib/format'
 import { exposures, spotHoldings } from '../../lib/holdings'
 import { marginRatioRisk } from '../../lib/risk'
 import { breakingDrop, positionSize } from '../../lib/stress'
-import type { PortfolioSnapshot } from '../../api/types'
+import type { FundSnapshot, PortfolioSnapshot } from '../../api/types'
 import type { PnlTopic } from './PnlDetail'
 import type { ViewKey } from './StatementPage'
 
@@ -15,19 +15,20 @@ import type { ViewKey } from './StatementPage'
  * 撑高了整条又把这一格弄得和邻居不齐；而"安全"说的是 12% 已经说过的事。
  * 需要提醒的时候改用颜色——同一个数字自己变色，不多占一行。
  */
-export function SummaryStrip({ snapshot, veiled, onOpenDetail, view }: {
+export function SummaryStrip({ snapshot, fund, onOpenDetail, view }: {
   snapshot: PortfolioSnapshot
-  veiled: boolean
+  fund: FundSnapshot | null
   onOpenDetail: (topic: PnlTopic) => void
-  view: ViewKey
+  view: Exclude<ViewKey, 'accounts'>
 }) {
-  const { hero, cells } = summaryForView(snapshot, view, onOpenDetail)
-  return <Strip cells={cells} dense={view === 'perp'} hero={hero} veiled={veiled} />
+  const { hero, cells } = summaryForView(snapshot, view, onOpenDetail, fund)
+  return <Strip cells={cells} dense={view === 'perp'} hero={hero} />
 }
 
 /** 各页只报本页数据；资金流水使用自己的 LedgerStrip。 */
-export function summaryForView(snapshot: PortfolioSnapshot, view: ViewKey,
-                               onOpenDetail: (topic: PnlTopic) => void): {
+export function summaryForView(snapshot: PortfolioSnapshot, view: Exclude<ViewKey, 'accounts'>,
+                               onOpenDetail: (topic: PnlTopic) => void,
+                               fund: FundSnapshot | null = null): {
   hero: StripCell; cells: StripCell[]
 } {
   const totals = snapshot.totals
@@ -35,6 +36,10 @@ export function summaryForView(snapshot: PortfolioSnapshot, view: ViewKey,
   const ratio = snapshot.futures?.margin_ratio ?? null
   const today = pnl?.today.total_usd ?? null
   const futUnreal = pnl?.unrealized.futures_usd ?? null
+  // 管理员录入的两项（见「用户」页）：交易所以外的现金、账户初始净值
+  const cash = fund?.settings.cash_usd ?? null
+  const initialNav = fund?.settings.initial_nav_usd ?? null
+  const sinceStart = totals && initialNav ? totals.equity_usd - initialNav : null
 
   const marginTone = ratio === null ? 'muted' as const
     : marginRatioRisk(ratio).tone === 'gain' ? undefined : marginRatioRisk(ratio).tone
@@ -136,8 +141,18 @@ export function summaryForView(snapshot: PortfolioSnapshot, view: ViewKey,
       value: futUnreal == null ? '—' : signedMoney(futUnreal),
       tone: futUnreal == null ? 'muted' : futUnreal >= 0 ? 'gain' : 'loss',
     },
-    marginCell,
+    // 原先这一格是合约保证金率，2026-10-03 换成账户相对初始净值的盈亏（初始净值在
+    // 「用户」页录入）。保证金率还在「风险」那一节的主数字上。
+    {
+      label: '盈亏',
+      value: sinceStart === null ? '—' : signedMoney(sinceStart),
+      detail: sinceStart === null ? undefined : signedPercent(sinceStart / initialNav!, 2),
+      tone: sinceStart === null ? 'muted' : sinceStart >= 0 ? 'gain' : 'loss',
+    },
+    { label: '现金', value: cash === null ? '—' : money(cash) },
   ]
 
-  return { hero: { label: '净值', value: totals ? money(totals.equity_usd) : '—' }, cells }
+  // **显示的净值 = 真实净值 + 现金**，只有这一个数加现金。盈亏、各种「占净值」、
+  // 风险与账户分配用的都是真实净值（totals.equity_usd），不含交易所以外的现金。
+  return { hero: { label: '净值', value: totals ? money(totals.equity_usd + (cash ?? 0)) : '—' }, cells }
 }

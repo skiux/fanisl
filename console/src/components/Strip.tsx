@@ -48,10 +48,9 @@ const TONE: Record<StripTone, string> = {
   muted: 'text-ink-3',
 }
 
-export function Strip({ hero, cells, veiled, dense = false }: {
+export function Strip({ hero, cells, dense = false }: {
   hero: StripCell
   cells: StripCell[]
-  veiled?: boolean
   dense?: boolean
 }) {
   const mobileAside = cells.find((cell) => cell.mobileHeroAside)
@@ -62,7 +61,6 @@ export function Strip({ hero, cells, veiled, dense = false }: {
       'grid grid-cols-2 items-start gap-x-8 gap-y-6',
       'px-5 pb-4 pt-4 sm:flex sm:flex-wrap sm:px-10 sm:pb-5 sm:pt-5',
       dense ? 'sm:gap-x-8 xl:gap-x-10' : 'sm:gap-x-14',
-      veiled && 'veiled',
     )}>
       <div className="col-span-2 flex items-start justify-between gap-4 sm:block">
         <Item cell={hero} hero />
@@ -85,7 +83,7 @@ function Item({ cell, hero = false, className, align = 'left' }: {
 }) {
   // 可点与不可点必须是**同一种盒子**，否则标签的行盒高度不同，一排里差几像素。
   // `block` 是为了这个：button 是 inline-block、span 是 inline，都显式压成块级。
-  const labelClass = cn('label block', align === 'right' ? 'text-right' : 'text-left', cell.onOpen && cn(
+  const labelClass = cn('label block normal-case', align === 'right' ? 'text-right' : 'text-left', cell.onOpen && cn(
     'cursor-pointer outline-none transition-colors duration-200 hover:text-ink-2',
     // 下划虚线是"这里能点"的最轻提示。摘要条是一排读数，不是一排按钮，
     // 不给它加边框或底色

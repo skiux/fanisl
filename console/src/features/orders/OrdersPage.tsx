@@ -3,13 +3,12 @@ import { fetchOrders, readScenario, writeScenario, type Scenario } from '../../a
 import type { OrdersSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
 import { cn } from '../../lib/cn'
-import { freshnessOf, relativeTime } from '../../lib/format'
 import { usePageData, type Phase as PagePhase } from '../../lib/pageData'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { withViewTransition } from '../../lib/viewTransition'
 import { Masthead } from '../portfolio/Masthead'
 import { SectionTabs, type TabItem } from '../portfolio/SectionTabs'
-import { ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from '../portfolio/states'
+import { ErrorState, StatementSkeleton, UnauthorizedState } from '../portfolio/states'
 import { OrdersStrip } from './OrdersStrip'
 import { HistoryView, OpenView } from './views'
 
@@ -35,7 +34,7 @@ export function OrdersPage() {
   const [symbol, setSymbol] = useState('')
   // 取数、缓存、后台刷新都在 usePageData。换交易对是同一页里换条件：有缓存直接用，
   // 没有就把旧画面压暗留着，新数据到了再换
-  const { phase, revealed, refreshing, switching, refreshError, retry } = usePageData({
+  const { phase, revealed, refreshing, switching, syncing, refreshError, retry } = usePageData({
     scope: `orders|${scenario}`,
     query: symbol,
     load: (signal, force) => fetchOrders(scenario, symbol, signal, { force }),
@@ -66,8 +65,10 @@ export function OrdersPage() {
           controls={<ScenarioSwitcher onChange={changeScenario} value={scenario} />}
           onRefresh={retry}
           page="orders"
+          refreshError={refreshError}
           refreshing={refreshing}
           sources={snapshot?.sources ?? []}
+          syncing={syncing}
           title="委托记录"
         />
         <Body
@@ -75,7 +76,6 @@ export function OrdersPage() {
           onSelectSymbol={setSymbol}
           onSelectView={selectView}
           phase={phase}
-          refreshError={refreshError}
           revealed={revealed}
           switching={switching}
           symbol={symbol}
@@ -96,12 +96,11 @@ function buildTabs(snapshot: OrdersSnapshot): TabItem<ViewKey>[] {
 }
 
 function Body({
-  phase, view, symbol, onSelectView, onSelectSymbol, onRetry, revealed, switching, refreshError,
+  phase, view, symbol, onSelectView, onSelectSymbol, onRetry, revealed, switching,
 }: {
   phase: Phase
   revealed: boolean
   switching: boolean
-  refreshError: string | null
   view: ViewKey
   symbol: string
   onSelectView: (key: ViewKey) => void
@@ -113,11 +112,11 @@ function Body({
     return <div className="px-6 sm:px-10"><ErrorState message={phase.message} onRetry={onRetry} /></div>
   }
 
-  return <Loaded {...{ phase, view, symbol, onSelectView, onSelectSymbol, onRetry, revealed, switching, refreshError }} />
+  return <Loaded {...{ phase, view, symbol, onSelectView, onSelectSymbol, onRetry, revealed, switching }} />
 }
 
 function Loaded({
-  phase, view, symbol, onSelectView, onSelectSymbol, onRetry, revealed, switching, refreshError,
+  phase, view, symbol, onSelectView, onSelectSymbol, onRetry, revealed, switching,
 }: {
   phase: Extract<Phase, { kind: 'ready' }>
   view: ViewKey
@@ -127,7 +126,6 @@ function Loaded({
   onRetry: () => void
   revealed: boolean
   switching: boolean
-  refreshError: string | null
 }) {
   // 换分节时回到顶部；滚动区常驻，不再整块重建（那样每次都会重播入场）
   const scroller = useRef<HTMLDivElement>(null)
@@ -142,18 +140,9 @@ function Loaded({
     return <div className="px-6 sm:px-10"><UnauthorizedState onRetry={onRetry} sources={snapshot.sources} /></div>
   }
 
-  const { level } = freshnessOf(snapshot.as_of)
-  const veiled = level === 'stale' || level === 'unknown'
-
   return (
     <>
-      {veiled && (
-        <div className="border-b border-rule px-5 py-3 sm:px-10">
-          <StaleBanner asOfText={relativeTime(snapshot.as_of)} reason={refreshError} />
-        </div>
-      )}
-
-      <OrdersStrip snapshot={snapshot} veiled={veiled} />
+      <OrdersStrip snapshot={snapshot} />
 
       <SectionTabs current={view} items={buildTabs(snapshot)} onSelect={onSelectView} />
 
@@ -163,13 +152,12 @@ function Loaded({
         ref={scroller}
       >
         <div className={revealed ? 'rise' : undefined}>
-          {view === 'open' && <OpenView snapshot={snapshot} veiled={veiled} />}
+          {view === 'open' && <OpenView snapshot={snapshot} />}
           {view === 'history' && (
             <HistoryView
               onSelectSymbol={onSelectSymbol}
               snapshot={snapshot}
               symbol={symbol}
-              veiled={veiled}
             />
           )}
         </div>

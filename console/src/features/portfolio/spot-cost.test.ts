@@ -40,7 +40,7 @@ describe('现货人工成本', () => {
       asset: 'BNB', cost_price_usd: 900 / row.total, commission_usd: 3,
       position_qty: row.total, updated_at: '2026-09-19T12:00:00Z',
     } } }
-    act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(HoldingsView, { snapshot })))
     const bnb = host.querySelector('[data-spot-position="BNB"]')!
     expect(bnb.textContent).toContain(price(900 / row.total))
     expect(bnb.textContent).toContain(signedMoney(row.value_usd! - 903))
@@ -61,7 +61,7 @@ describe('现货人工成本', () => {
     } } }
     await setRole('member')
     act(() => root.render(createElement(HoldingsView, {
-      snapshot, veiled: false, onSaveSpotCost: vi.fn(),
+      snapshot, onSaveSpotCost: vi.fn(),
     })))
     const bnb = host.querySelector('[data-spot-position="BNB"]')!
     expect(bnb.textContent).not.toContain('持仓数量已变化')
@@ -72,7 +72,7 @@ describe('现货人工成本', () => {
 
     await setRole('admin')
     act(() => root.render(createElement(HoldingsView, {
-      snapshot, veiled: false, onSaveSpotCost: vi.fn(),
+      snapshot, onSaveSpotCost: vi.fn(),
     })))
     const button = bnb.querySelector('button')!
     expect(button).not.toBeNull()
@@ -92,7 +92,7 @@ describe('现货人工成本', () => {
     const snapshot = { ...base, sources: base.sources.map((source) =>
       source.key === 'futures' ? { ...source, status: 'unreachable' as const } : source) }
     act(() => root.render(createElement(HoldingsView, {
-      snapshot, veiled: true, onSaveSpotCost: vi.fn(),
+      snapshot, onSaveSpotCost: vi.fn(),
     })))
     const bnb = host.querySelector('[data-spot-position="BNB"]')!
     expect(bnb.textContent).not.toContain('余额来源不可用')

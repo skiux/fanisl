@@ -4,6 +4,9 @@ import * as lfx from './ledger-fixtures'
 import * as ofx from './orders-fixtures'
 import {
   PortfolioError,
+  type FundMember,
+  type FundSettings,
+  type FundSnapshot,
   type LedgerSnapshot,
   type OrderVenue,
   type OrdersSnapshot,
@@ -376,6 +379,30 @@ export async function saveSpotCost(
     method: 'PUT', body: JSON.stringify(input),
   })
 }
+
+/* --------------------------- 账户规则 --------------------------- */
+
+/**
+ * 账户规则（初始净值、现金、每人的出资与比例）。示例场景用一份本地拼的，
+ * 让「账户」那一节在没有后端的时候也看得见；「空账户」「后端不可达」这些场景
+ * 下它跟着资产页一起出事，不另外演一遍。
+ */
+export async function fetchFund(scenario: Scenario, signal?: AbortSignal): Promise<FundSnapshot> {
+  if (scenario === 'live') return live<FundSnapshot>('/portfolio/fund', signal)
+  return fx.buildFund(new Date())
+}
+
+export type FundSettingsInput = Omit<FundSettings, 'updated_at'>
+export type FundMemberInput = Omit<FundMember, 'user_id' | 'username' | 'display_name' | 'updated_at'>
+
+export const saveFundSettings = (input: FundSettingsInput) =>
+  apiJson<{ settings: FundSettings }>('/admin/fund', { method: 'PUT', body: JSON.stringify(input) })
+
+/** 两个角色都不选就是把这个人移出分配，返回的 member 是 null */
+export const saveFundMember = (userId: number, input: FundMemberInput) =>
+  apiJson<{ member: FundMember | null }>(`/admin/fund/members/${userId}`, {
+    method: 'PUT', body: JSON.stringify(input),
+  })
 
 /* --------------------------- 委托 --------------------------- */
 

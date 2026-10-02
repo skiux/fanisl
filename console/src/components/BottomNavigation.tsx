@@ -1,10 +1,10 @@
 import {
-  ArrowsLeftRight, ChartPieSlice, ShieldCheck, SquaresFour, TrendUp,
+  ArrowsLeftRight, ChartPieSlice, ShieldCheck, SquaresFour, TrendUp, UsersThree,
 } from '@phosphor-icons/react'
 import { cn } from '../lib/cn'
 import { hrefOf } from '../lib/router'
 
-export type MainDestination = 'overview' | 'ledger' | 'holdings' | 'perp' | 'risk'
+export type MainDestination = 'overview' | 'ledger' | 'holdings' | 'perp' | 'risk' | 'users'
 
 const DESTINATIONS = [
   { key: 'overview', label: '资产', href: hrefOf('assets', 'overview'), icon: SquaresFour },
@@ -12,10 +12,16 @@ const DESTINATIONS = [
   { key: 'holdings', label: '持仓', href: hrefOf('assets', 'holdings'), icon: ChartPieSlice },
   { key: 'perp', label: '合约', href: hrefOf('assets', 'perp'), icon: TrendUp },
   { key: 'risk', label: '风险', href: hrefOf('assets', 'risk'), icon: ShieldCheck },
+  // 只给管理员：成员点进去只会被退回资产页（App 里的 canView）
+  { key: 'users', label: '用户', href: hrefOf('admin'), icon: UsersThree, adminOnly: true },
 ] as const
 
-/** 主导航保持挂载；选中层从目标入口的中心展开。 */
-export function BottomNavigation({ current }: { current: MainDestination | null }) {
+/** 主导航保持挂载；选中层从目标入口的中心展开。每一项宽度不变，项数多了导航条跟着变宽 */
+export function BottomNavigation({ current, admin = false }: {
+  current: MainDestination | null
+  admin?: boolean
+}) {
+  const items = DESTINATIONS.filter((item) => admin || !('adminOnly' in item))
   return (
     <nav
       aria-label="资产主导航"
@@ -25,8 +31,14 @@ export function BottomNavigation({ current }: { current: MainDestination | null 
         'shadow-[0_10px_26px_-14px_rgba(0,0,0,0.24),0_2px_6px_rgba(0,0,0,0.06)]',
       )}
     >
-      <div className="grid w-[min(550px,calc(100vw-2.25rem))] grid-cols-5 lg:w-[550px]">
-        {DESTINATIONS.map(({ key, label, href, icon: Icon }) => {
+      <div
+        className="grid w-[min(var(--nav-w),calc(100vw-2.25rem))] lg:w-[var(--nav-w)]"
+        style={{
+          gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
+          ['--nav-w' as string]: `${items.length * 110}px`,
+        }}
+      >
+        {items.map(({ key, label, href, icon: Icon }) => {
           const active = key === current
           return (
             <div className="relative min-w-0" key={key}>

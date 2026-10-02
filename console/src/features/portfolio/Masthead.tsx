@@ -6,6 +6,7 @@ import { cn } from '../../lib/cn'
 import { clockTime } from '../../lib/format'
 import { useIsAdmin } from '../../lib/role'
 import { hrefOf, PAGES, type PageKey } from '../../lib/router'
+import { dataStatus, type DataLevel } from '../../lib/status'
 import type { SourceState } from '../../api/types'
 
 const THEME_KEY = 'fanisl.console.theme'
@@ -42,11 +43,19 @@ function ThemeToggle() {
 }
 
 
+const LIGHT: Record<DataLevel, string> = {
+  ok: 'bg-gain',
+  warn: 'bg-accent',
+  error: 'bg-loss',
+}
+
 /**
  * 报头。走的是文件的规矩：先一行页眉（出处与导航），再是报表标题与出具时刻，
  * 底下压一条整份报表唯一的实心重线——层级由它定调，下面所有分隔线都比它轻。
  */
-export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page, title }: {
+export function Masthead({
+  sources, asOf, onRefresh, refreshing, controls, page, title, refreshError = null, syncing = false,
+}: {
   sources: SourceState[]
   asOf: string | null
   onRefresh: () => void
@@ -54,6 +63,10 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
   controls?: ReactNode
   page: PageKey
   title: ReactNode
+  /** 最近一次后台刷新失败的原因；灯的颜色与提示用它 */
+  refreshError?: string | null
+  /** 有请求在路上 */
+  syncing?: boolean
 }) {
   const isAdmin = useIsAdmin()
 
@@ -129,7 +142,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
       </div>
 
       <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2">
-        <h1 className="font-display text-xl font-medium tracking-[-0.015em] text-ink">
+        <h1 className="font-display text-lg font-medium leading-tight tracking-[-0.01em] text-ink">
           {title}
         </h1>
 
@@ -138,16 +151,13 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
               盈亏日历仍按 Binance 的 UTC 结算日分桶，两种口径各自明确。
               前面不写"截至"：一个时刻摆在报头上，本来就是"这些数字截到什么时候"。
 
-              旁边原先还挂着「N 项取不到」/「数据已过期」，都删了：**同一件事
-              说三遍**——取不到的那个数字本身就是 `—`，总览页还有一整块
-              「下面的数字不完整」逐个列出是哪个来源；过期则另有一条横幅。
+              右边那盏灯说这些数字现在可不可信（lib/status.ts），原因在悬停提示里。
+              它取代了原先压在页面顶上的「已过期」横幅和整页蒙灰。
 
               用户管理这类没有数据源的页面整条不出现（`sources=[]` 时原先会显示
               "截至 — · 0 个来源正常"，读着像故障）。 */}
           {sources.length > 0 && (
-            <span className="tnum text-xs text-ink-2">
-              {clockTime(asOf)}<span className="text-ink-3"> ET</span>
-            </span>
+            <StatusClock asOf={asOf} refreshError={refreshError} sources={sources} syncing={syncing} />
           )}
           {/* 重新取数是运维动作：它绕过缓存直接打交易所，而权重预算是共享的。
               成员点它既没有判断依据，也可能把预算打空让所有人一起 429。
@@ -166,5 +176,26 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
         </div>
       </div>
     </header>
+  )
+}
+
+function StatusClock({ asOf, sources, refreshError, syncing }: {
+  asOf: string | null
+  sources: SourceState[]
+  refreshError: string | null
+  syncing: boolean
+}) {
+  const status = dataStatus({ asOf, sources, refreshError, syncing })
+  return (
+    <span className="tnum flex items-center gap-2 text-xs text-ink-2">
+      <span>{clockTime(asOf)}<span className="text-ink-3"> ET</span></span>
+      <span
+        aria-label={status.text}
+        className={cn('size-[7px] shrink-0 rounded-full transition-colors duration-500', LIGHT[status.level])}
+        data-level={status.level}
+        role="img"
+        title={status.text}
+      />
+    </span>
   )
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSnapshot } from '../../api/fixtures'
+import { buildFund, buildSnapshot } from '../../api/fixtures'
 import { money, signedMoney, signedPercent } from '../../lib/format'
 import { spotHoldings } from '../../lib/holdings'
 import { positionSize } from '../../lib/stress'
@@ -68,5 +68,24 @@ describe('desktop page summaries', () => {
         ? { ...source, status: 'unreachable' as const } : source),
     }, 'holdings', () => {})
     expect(unavailable.hero).toEqual({ label: '已估值持仓', value: '—' })
+  })
+
+  it('资产页：净值加上录入的现金，最右是现金；原先的保证金率一格换成相对初始净值的盈亏', () => {
+    const fund = buildFund(new Date('2026-10-02T12:00:00Z'))
+    const { hero, cells } = summaryForView(snapshot, 'overview', () => {}, fund)
+    const equity = snapshot.totals!.equity_usd
+    expect(hero).toEqual({ label: '净值', value: money(equity + 3_000) })
+    expect(cells.map((cell) => cell.label)).toEqual(['今日盈亏', '合约未实现', '盈亏', '现金'])
+    // 盈亏用真实净值，不含现金
+    expect(cells[2]).toMatchObject({
+      value: signedMoney(equity - 72_000), detail: signedPercent((equity - 72_000) / 72_000, 2),
+    })
+    expect(cells[3].value).toBe(money(3_000))
+  })
+
+  it('没录现金和初始净值：净值就是真实净值，两格显示 —', () => {
+    const { hero, cells } = summaryForView(snapshot, 'overview', () => {}, null)
+    expect(hero.value).toBe(money(snapshot.totals!.equity_usd))
+    expect(cells.slice(2).map((cell) => cell.value)).toEqual(['—', '—'])
   })
 })

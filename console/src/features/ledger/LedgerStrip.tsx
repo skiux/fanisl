@@ -17,7 +17,7 @@ const shortDate = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slic
  * **报头那一行已经在说同一句话**（同一个 `sources`，同样数出取不到的个数）。
  * 一句警告说两遍不会更醒目，只会让人以为是两回事。
  */
-export function LedgerStrip({ snapshot, veiled }: { snapshot: LedgerSnapshot; veiled: boolean }) {
+export function LedgerStrip({ snapshot }: { snapshot: LedgerSnapshot }) {
   const blind = snapshot.sources.every((source) => source.status !== 'ok')
   const net = snapshot.entries.filter(countsToNet)
     .reduce((sum, entry) => sum + (entry.value_usd ?? 0), 0)
@@ -55,7 +55,6 @@ export function LedgerStrip({ snapshot, veiled }: { snapshot: LedgerSnapshot; ve
         value: blind ? '—' : signedMoney(net),
         tone: blind ? 'muted' : net >= 0 ? 'gain' : 'loss',
       }}
-      veiled={veiled}
     />
   )
 }

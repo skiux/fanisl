@@ -33,6 +33,10 @@
   `backend/README.md` 指的是 `deploy/.env.example`，建议删掉——删文件不算事实更正，没动
 
 ## Requests in
+- **console 席位（2026-10-03，告知）**：新增 `GET /portfolio/fund`、`PUT /admin/fund`、`PUT /admin/fund/members/{user_id}`
+  （`binance/routes.py`，挂在已有前缀下，nginx 不用改）。`api.md` 已由 console 席位直接补了 §1.8 一节并把头部总数改成
+  86——不补的话 `tests/test_api_doc.py` 对所有席位都是红的。请过目，措辞按你的习惯改即可。
+  新表 `fund_members` 外键指向 `users(id) ON DELETE CASCADE`：删用户会连带删掉他的分配规则
 - **knowledge 席位（2026-10-01，用户要求备份时发现）**：
   ① `deploy/pull-snapshot.sh` 第 3 步一次 tar 传全部关键帧，两次都在约 640MB 处被远端断开（"Connection closed by
   remote host"），本机只到 4745/5520 张；改成按缺失清单分批传（本机 `~/gcp-backups/backup-server.sh` 第 3 步的做法）。

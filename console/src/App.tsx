@@ -65,16 +65,23 @@ export default function App() {
         : page === 'account' ? <AccountPage key="account" />
           : page === 'admin' ? <AdminPage key="admin" />
             : <StatementPage key="assets" />
+  // 资产页的「账户」那一节没有自己的入口，算在「资产」下面（它在资产标题的右边）
   const destination: MainDestination | null = page === 'ledger' ? 'ledger'
-    : page === 'assets' && ['holdings', 'perp', 'risk'].includes(route.section ?? '')
-      ? route.section as MainDestination
-      : page === 'assets' ? 'overview' : null
+    : page === 'admin' ? 'users'
+      : page === 'assets' && ['holdings', 'perp', 'risk'].includes(route.section ?? '')
+        ? route.section as MainDestination
+        : page === 'assets' ? 'overview' : null
   useLayoutEffect(() => {
     if (destination) window.scrollTo(0, 0)
   }, [destination])
 
   return <AuthGate>
     {view}
-    {!denied && page !== 'account' && page !== 'admin' && <BottomNavigation current={destination} />}
+    {!denied && page !== 'account' && (
+      <BottomNavigation
+        admin={session.status === 'authenticated' && session.user.role === 'admin'}
+        current={destination}
+      />
+    )}
   </AuthGate>
 }

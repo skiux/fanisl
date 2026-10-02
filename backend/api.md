@@ -2,7 +2,7 @@
 
 > 面向前端的完整接口契约。以运行中后端实测采样为准（2026-07-18 首版 50 个端点；2026-08-28 复核实际 60 个；
 > 2026-08-29 标的工作台 +2 = 62 个；2026-09-02 登录与用户管理 +11、资产台 +3 = 76 个；
-> 2026-09-13 单元核查 +5 = 81 个；2026-09-21 资产台成本录入 +2 = **83 个**）。总数与每条路由的路径由
+> 2026-09-13 单元核查 +5 = 81 个；2026-09-21 资产台成本录入 +2 = 83 个；2026-10-03 资产台账户分配 +3 = **86 个**）。总数与每条路由的路径由
 > `tests/test_api_doc.py` 对着路由表核对。
 > 服务：FastAPI，默认 `http://127.0.0.1:8000`（前端用 `VITE_API_BASE` 覆盖）。
 >
@@ -334,6 +334,25 @@ Binance **没有统一的流水接口**，`entries` 是七类端点合并的时�
   `{"spot_cost": {asset, …同上}}`。同一个代码再录一次是覆盖。
 - 代码先转大写，须以字母开头、只含 `A-Z0-9.-`、1–16 位，否则 422，此时 `detail` 是一句中文字符串。
   币仓接口拒绝稳定币（它们是现金），同样 422。数值不满足上面的约束是 FastAPI 的 422（字段错误列表）。
+
+### GET /portfolio/fund · PUT /admin/fund · PUT /admin/fund/members/{user_id}
+账户分配规则（console 把 Binance 账户当成一只小基金来记）。**只读写本地表**（主库的 `fund_settings` /
+`fund_members`），不碰 Binance；分配怎么算在前端 `console/src/lib/fund.ts`。说明见
+`backend/fanisl/binance/README.md`「账户分配规则」。比例一律是小数（0.3 = 30%）。
+
+`GET /portfolio/fund`（登录用户）→
+`{"settings": {initial_nav_usd, inception_date, cash_usd, updated_at}, "management_fee_total": number, "members": [...]}`。
+`settings` 各字段没录时是 `null`；`inception_date` 是 `YYYY-MM-DD`。`members[]` 是
+`{user_id, username, display_name, is_manager, is_investor, invested_capital_usd, loss_allocation, management_fee, performance_fee, investor_return, updated_at}`。
+**管理员拿到全部参与者，成员只拿到自己那一行**（不是参与者就是空列表），在服务端筛。
+`management_fee_total` 是全部 Manager 的管理费率之和，成员也拿得到（算自己的账户要先扣管理费）。
+
+| 方法 | 路径 | Body | 说明 |
+|---|---|---|---|
+| PUT | `/admin/fund` | `{initial_nav_usd?: >0, inception_date?, cash_usd?: >=0}` | 整体覆盖，`null` 清空。返回 `{"settings": {...}}` |
+| PUT | `/admin/fund/members/{user_id}` | `{is_manager, is_investor, invested_capital_usd: >=0, loss_allocation, management_fee, performance_fee, investor_return}` | 比例 0–1。返回 `{"member": {...}}`；两个角色都为 false 时删掉这一行，返回 `{"member": null}`。不属于所选角色的比例存成 0。用户不存在 404，管理员 409 |
+
+两个 PUT 都要 `role=admin`，否则 403；数值越界是 FastAPI 的 422。
 
 ---
 

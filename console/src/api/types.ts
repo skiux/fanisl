@@ -837,3 +837,40 @@ export type LedgerSnapshot = {
   window: LedgerWindow
   entries: LedgerEntry[]
 }
+
+/**
+ * 账户规则。管理员录入，存在后端本地表，见 `backend/fanisl/binance/fund.py`。
+ * 比例一律是小数（0.3 = 30%）；怎么用它们算各人的账户见 `lib/fund.ts`。
+ */
+export type FundSettings = {
+  initial_nav_usd: number | null
+  /** YYYY-MM-DD。管理费从这天 UTC 零点起按天计提，账户日历也从这天开始 */
+  inception_date: string | null
+  /** 交易所以外的现金。只加在资产页显示的净值上，不参与盈亏和分配 */
+  cash_usd: number | null
+  updated_at: string | null
+}
+
+export type FundMember = {
+  user_id: number
+  username: string
+  display_name: string
+  is_manager: boolean
+  is_investor: boolean
+  invested_capital_usd: number
+  /** 账户亏损（低于初始净值的部分）里由这个人承担的比例 */
+  loss_allocation: number
+  /** 以下三项只对相应角色有意义，不属于这个角色时是 0 */
+  management_fee: number
+  performance_fee: number
+  investor_return: number
+  updated_at: string | null
+}
+
+export type FundSnapshot = {
+  settings: FundSettings
+  /** 全部 Manager 的管理费率之和。成员只拿到自己那一行，算账户仍要先扣掉它 */
+  management_fee_total: number
+  /** 管理员拿到全部参与者；成员只有自己（不是参与者就是空的） */
+  members: FundMember[]
+}

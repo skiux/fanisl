@@ -38,7 +38,7 @@ afterEach(() => {
 })
 
 function render(data = snapshot) {
-  act(() => root.render(createElement(RiskControlView, { snapshot: data, veiled: false })))
+  act(() => root.render(createElement(RiskControlView, { snapshot: data })))
 }
 
 describe('敞口分布', () => {

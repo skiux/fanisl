@@ -1,6 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { ArrowClockwise, Key, ListChecks, Lock, PlugsConnected, Receipt, Wallet } from '@phosphor-icons/react'
-import { Eyebrow } from '../../components/Primitives'
 import { useIsAdmin } from '../../lib/role'
 import type { SourceState } from '../../api/types'
 
@@ -220,23 +219,5 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
       icon={<PlugsConnected aria-hidden="true" size={19} />}
       title="无法读取账户数据"
     />
-  )
-}
-
-/**
- * 数据过期。页面在前台时会自动重取（lib/autoRefresh.ts），所以这条横幅出现，
- * 要么是自动刷新一直失败，要么是这个标签页跑的还是旧版本的代码（新版本会在回到
- * 前台时自动换上，见 lib/version.ts）。前一种把失败原因一并说出来——2026-10-02
- * 用户看到「2 小时前」时，分不清是哪一种。
- */
-export function StaleBanner({ asOfText, reason = null }: { asOfText: string; reason?: string | null }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-panel)] border border-loss/25 bg-loss/[0.06] px-4 py-3">
-      <Eyebrow className="text-loss">已过期</Eyebrow>
-      <p className="text-[12.5px] text-ink-2">
-        下面全部数字来自 <span className="tnum text-ink">{asOfText}</span>的快照，不是当前余额。
-        {reason && <> 自动刷新失败：{reason}</>}
-      </p>
-    </div>
   )
 }

@@ -6,6 +6,9 @@ import { RangePicker } from '../../components/RangePicker'
 import { signedMoney } from '../../lib/format'
 import type { DailyPnl } from '../../api/types'
 
+/** 日历只用到这三项。资产页给 DailyPnl，「账户」那一节给每个人自己的逐日盈亏 */
+export type CalendarDay = Pick<DailyPnl, 'date' | 'pnl_usd' | 'known'>
+
 /**
  * 每日盈亏日历。
  *
@@ -67,7 +70,7 @@ function shiftDays(day: string, delta: number) {
  * 两个场景六个页面全白）。守卫必须在 hook 之前，那就只能提到外面来。
  */
 export function RealizedDays({ days, selectedDate, onSelectDate, today }: {
-  days: DailyPnl[]
+  days: CalendarDay[]
   selectedDate?: string | null
   onSelectDate?: (date: string) => void
   today?: string
@@ -86,7 +89,7 @@ export function RealizedDays({ days, selectedDate, onSelectDate, today }: {
 }
 
 function Calendar({ days, selectedDate, onSelectDate, today }: {
-  days: DailyPnl[]
+  days: CalendarDay[]
   selectedDate?: string | null
   onSelectDate?: (date: string) => void
   today: string

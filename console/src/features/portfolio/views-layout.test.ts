@@ -34,7 +34,6 @@ describe('资产页模块分布', () => {
 
     act(() => root.render(createElement(OverviewView, {
       snapshot,
-      veiled: false,
     })))
     expect(titles()).toContain('现金')
     expect(titles()).not.toContain('资产分布')
@@ -71,14 +70,14 @@ describe('资产页模块分布', () => {
     expect(closingLabel.nextElementSibling?.textContent)
       .toBe(signedMoney(snapshot.pnl!.daily.at(-1)!.settled_parts!.realized_pnl))
 
-    act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(HoldingsView, { snapshot })))
     expect(titles()).not.toContain('现金')
   })
 
   it('杠杆账户从合约页迁到持仓页并替换现货钱包可用', () => {
     const snapshot = buildSnapshot(new Date('2026-09-26T12:00:00Z'))
 
-    act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(HoldingsView, { snapshot })))
     expect(titles()).toContain('杠杆账户')
     expect(titles()).not.toContain('现货钱包可用')
 
@@ -86,7 +85,6 @@ describe('资产页模块分布', () => {
       futuresMissing: false,
       scenario: 'ok',
       snapshot,
-      veiled: false,
     })))
     expect(titles()).not.toContain('杠杆账户')
   })
@@ -94,7 +92,7 @@ describe('资产页模块分布', () => {
   it('点击日历日期后在日历下方切换当天明细', () => {
     const snapshot = buildSnapshot(new Date('2026-09-26T12:00:00Z'))
     const day = snapshot.pnl!.daily.filter((row) => row.known).at(-3)!
-    act(() => root.render(createElement(OverviewView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(OverviewView, { snapshot })))
 
     const cell = host.querySelector<HTMLButtonElement>(`button[title^="${day.date} "]`)!
     expect(cell).toBeDefined()
@@ -123,14 +121,14 @@ describe('资产页模块分布', () => {
       + 3000 * snapshot.yield_rates.BFUSD!
     ) / 365
 
-    act(() => root.render(createElement(OverviewView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(OverviewView, { snapshot })))
     const section = [...host.querySelectorAll('h2')]
       .find((heading) => heading.textContent === '现金')!.closest('section')!
     expect(section.textContent).toContain('预计日收益')
     expect(section.textContent).toContain(`$${expected.toFixed(2)}`)
     expect(section.textContent).not.toContain('累计收益')
 
-    act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(HoldingsView, { snapshot })))
     expect(titles()).not.toContain('理财收益')
     expect(titles()).not.toContain('理财持仓')
     expect(host.textContent).not.toContain('小额余额')
@@ -139,7 +137,7 @@ describe('资产页模块分布', () => {
   it('合约右栏从保证金开始，不重复顶部的盈亏与资金费用', () => {
     const snapshot = buildSnapshot(new Date('2026-09-26T12:00:00Z'))
     act(() => root.render(createElement(PerpRiskView, {
-      futuresMissing: false, scenario: 'ok', snapshot, veiled: false,
+      futuresMissing: false, scenario: 'ok', snapshot,
     })))
 
     expect(titles()).not.toContain('合约账户')
@@ -168,7 +166,7 @@ describe('资产页模块分布', () => {
     }
 
     act(() => root.render(createElement(PerpRiskView, {
-      futuresMissing: false, scenario: 'ok', snapshot, veiled: false,
+      futuresMissing: false, scenario: 'ok', snapshot,
     })))
 
     const labels = [...host.querySelectorAll('[data-contract-allocation] [data-chart-label]')]
@@ -179,7 +177,7 @@ describe('资产页模块分布', () => {
 
   it('风险控制只在分布标题处显示一次持仓数量', () => {
     const snapshot = buildSnapshot(new Date('2026-09-26T12:00:00Z'))
-    act(() => root.render(createElement(RiskControlView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(RiskControlView, { snapshot })))
 
     const section = [...host.querySelectorAll('h2')]
       .find((heading) => heading.textContent === '持仓价值分布')!.closest('section')!

@@ -1,7 +1,6 @@
 import { Figure, Module, SplitBar, Stack, ViewGrid } from '../../components/layout'
 import { useState } from 'react'
 import { SegmentedControl } from '../../components/controls'
-import { cn } from '../../lib/cn'
 import {
   CONDITIONAL_KINDS, money, ORDER_KIND_LABEL, percent, price, relativeTime,
   baseOf, signedMoney, SOURCE_LABEL, splitPair, VENUE_LABEL,
@@ -23,7 +22,7 @@ const VENUE_SOURCE: Record<OrderVenue, SourceKey> = {
   equity: 'equity_open',
 }
 
-export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veiled: boolean }) {
+export function OpenView({ snapshot }: { snapshot: OrdersSnapshot }) {
   // 按账户筛。三个账户的挂单原先揉在一张表里，只能靠每行的小标签分辨——
   // 而"我现在只想看合约"是这一页最常见的问题。
   const [only, setOnly] = useState<OrderVenue | null>(null)
@@ -67,7 +66,7 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
   // 三个账户全取不到时，"0 笔挂单"是假话——这里不给表，只说取不到
   if (allDown) {
     return (
-      <div className={cn(veiled && 'veiled')}>
+      <div>
         <ViewGrid>
           <Module span="lg:col-span-7" title="挂单未取到">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
@@ -92,7 +91,7 @@ export function OpenView({ snapshot, veiled }: { snapshot: OrdersSnapshot; veile
   }
 
   return (
-    <div className={cn(veiled && 'veiled')}>
+    <div>
       {/* 一张表。每一条已经写着自己是限价还是条件了，按类型切块或者加类型筛选
           都是把同一件事说两遍——屏幕上已经有的信息不该再做一遍筛选器。
           账户不一样：那是行里的小标签，扫十条也看不出"合约一共几笔"。 */}
@@ -224,9 +223,8 @@ function VenueBreakdown({ rows, notional, span }: {
 const SPANS = { '7': 7, '30': 30, '90': 90 } as const
 type Span = keyof typeof SPANS
 
-export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
+export function HistoryView({ snapshot, symbol, onSelectSymbol }: {
   snapshot: OrdersSnapshot
-  veiled: boolean
   symbol: string
   onSelectSymbol: (next: string) => void
 }) {
@@ -263,7 +261,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
 
   if (down.length > 0 && blank) {
     return (
-      <div className={cn(veiled && 'veiled')}>
+      <div>
         <ViewGrid>
           <Module span="lg:col-span-7" title="历史查询不可用">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
@@ -299,7 +297,7 @@ export function HistoryView({ snapshot, veiled, symbol, onSelectSymbol }: {
   const realized = fills.reduce((sum, fill) => sum + (fill.realized_pnl ?? 0), 0)
 
   return (
-    <div className={cn(veiled && 'veiled')}>
+    <div>
       <ViewGrid>
         <Module
           figure={String(history.length)}

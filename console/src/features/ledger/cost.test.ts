@@ -47,7 +47,7 @@ describe('流水页的成本统计', () => {
 
   it('「成本」那一页给合计、日均与四类的拆分，右栏按标的', () => {
     const snap = snapshot()
-    act(() => root.render(createElement(LedgerView, { snapshot: snap, veiled: false, filter: 'cost' })))
+    act(() => root.render(createElement(LedgerView, { snapshot: snap, filter: 'cost' })))
     const text = host.textContent ?? ''
     const total = sum(filterEntries(snap.entries, 'cost'))
     expect(text).toContain(signedMoney(total))
@@ -60,7 +60,7 @@ describe('流水页的成本统计', () => {
 
   it('摘要条常驻一格本期成本；供数的来源没取到时变灰', () => {
     const snap = snapshot()
-    act(() => root.render(createElement(LedgerStrip, { snapshot: snap, veiled: false })))
+    act(() => root.render(createElement(LedgerStrip, { snapshot: snap })))
     expect(host.textContent).toContain('本期成本')
     expect(host.textContent).toContain(signedMoney(sum(filterEntries(snap.entries, 'cost'))))
 
@@ -69,7 +69,7 @@ describe('流水页的成本统计', () => {
       sources: snap.sources.map((source) => source.key === 'margin_interest'
         ? { ...source, status: 'unreachable' as const } : source),
     }
-    act(() => root.render(createElement(LedgerStrip, { snapshot: partial, veiled: false })))
+    act(() => root.render(createElement(LedgerStrip, { snapshot: partial })))
     const cell = [...host.querySelectorAll('*')]
       .find((node) => node.children.length === 0 && node.textContent === '本期成本')!
       .parentElement!

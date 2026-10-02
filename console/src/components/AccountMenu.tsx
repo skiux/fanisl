@@ -62,14 +62,11 @@ export function AccountMenu() {
             </div>
           </DropdownMenu.Label>
 
+          {/* 用户管理原先也在这里，2026-10-03 挪进了底部导航（只给管理员）。
+              两处入口只留一处 */}
           <DropdownMenu.Item asChild>
             <a className={item} href="#/account">账号</a>
           </DropdownMenu.Item>
-          {user.role === 'admin' && (
-            <DropdownMenu.Item asChild>
-              <a className={item} href="#/admin">用户管理</a>
-            </DropdownMenu.Item>
-          )}
 
           <DropdownMenu.Separator className="border-t border-rule" />
           <DropdownMenu.Item

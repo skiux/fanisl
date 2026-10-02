@@ -30,7 +30,8 @@ describe('路由', () => {
   })
 
   it('标签页标题与页面标题一致', () => {
-    expect(titleOf('admin')).toBe('用户管理 · FANISL CONSOLE')
+    expect(titleOf('admin')).toBe('用户 · FANISL CONSOLE')
+    expect(titleOf('assets', 'accounts')).toBe('账户 · FANISL CONSOLE')
     expect(titleOf('account')).toBe('账号 · FANISL CONSOLE')
     expect(titleOf('ledger')).toBe('流水 · FANISL CONSOLE')
     expect(titleOf('assets', 'perp')).toBe('合约 · FANISL CONSOLE')

@@ -78,7 +78,7 @@ describe('持仓页的股票', () => {
       },
     }
 
-    act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(HoldingsView, { snapshot })))
 
     const text = host.textContent ?? ''
     expect(host.querySelector('[data-stock-unresolved="AAPLB"]')).not.toBeNull()
@@ -132,7 +132,7 @@ describe('持仓页的股票', () => {
         cost_coverage: { manual: 1, stale: 0, total: 2 },
       },
     }
-    act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(HoldingsView, { snapshot })))
     const text = host.textContent ?? ''
     expect(host.querySelector('[data-stock-positions]')?.closest('section')?.className)
       .toContain('lg:col-span-8')
@@ -174,7 +174,7 @@ describe('持仓页的股票', () => {
         cost_coverage: { manual: 2, stale: 0, total: 2 },
       },
     }
-    act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(HoldingsView, { snapshot })))
     const rows = () => [...host.querySelectorAll<HTMLElement>('[data-stock-position]')]
     expect(rows().length).toBeGreaterThan(1)
     expect(rows()[0].dataset.stockPosition).toBe('TQQQ')
@@ -205,7 +205,7 @@ describe('持仓页的股票', () => {
       },
     }
 
-    act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(HoldingsView, { snapshot })))
 
     expect(host.querySelector('[data-stock-position="SOXL"]')?.textContent).toContain('成本价—')
     expect(host.querySelector('[data-stock-position="SOXL"]')?.textContent).not.toContain('成本价$24')
@@ -233,7 +233,7 @@ describe('持仓页的股票', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json('member')))
     await act(async () => { await refreshSession() })
     act(() => root.render(createElement(HoldingsView, {
-      snapshot, veiled: false, onSaveStockCost: vi.fn(),
+      snapshot, onSaveStockCost: vi.fn(),
     })))
     expect(host.textContent).not.toContain('管理员尚未录入')
     expect(host.textContent).not.toContain('暂不合计盈亏')
@@ -250,7 +250,7 @@ describe('持仓页的股票', () => {
 
   it('合约与全仓杠杆里的币直接并入现货持仓，不再单列旧模块', () => {
     const snapshot = buildSnapshot(new Date('2026-09-17T12:00:00Z'))
-    act(() => root.render(createElement(HoldingsView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(HoldingsView, { snapshot })))
 
     expect(host.textContent).not.toContain('合约中的现货持仓')
     // 行里不再列这个币在哪几个钱包：表本来就是跨钱包合并的，逐行重复位置

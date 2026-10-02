@@ -29,6 +29,12 @@ export function signedPercent(value: number | null | undefined, digits = 2) {
   return `${sign}${(Math.abs(value) * 100).toFixed(digits)}%`
 }
 
+/** 录入的比例（30%、2.5%、0.75%）：原样写出来，不补零，最多两位小数 */
+export function ratio(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—'
+  return `${Number((value * 100).toFixed(2))}%`
+}
+
 export function percent(value: number | null | undefined, digits = 1) {
   if (value === null || value === undefined || !Number.isFinite(value)) return '—'
   return `${(value * 100).toFixed(digits)}%`

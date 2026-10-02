@@ -36,6 +36,10 @@ class CostStore:
         }
 
 
+class NoFund:
+    """成本那几条用不到账户规则；给一个空的，免得 build_router 去连库。"""
+
+
 def client_for(role: str) -> tuple[TestClient, CostStore]:
     store = CostStore()
     app = FastAPI()
@@ -45,7 +49,7 @@ def client_for(role: str) -> tuple[TestClient, CostStore]:
         request.state.user = {"id": 7, "username": "tester", "role": role}
         return await call_next(request)
 
-    app.include_router(routes.build_router(store))
+    app.include_router(routes.build_router(store, NoFund()))
     return TestClient(app), store
 
 

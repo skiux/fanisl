@@ -39,9 +39,8 @@ type SizeKey = keyof typeof SIZES
  *
  * 敞口分布由 ExposureDistribution 展示：多头构成与带方向的净敞口分别保留。
  */
-export function RiskControlView({ snapshot, veiled }: {
+export function RiskControlView({ snapshot }: {
   snapshot: PortfolioSnapshot
-  veiled: boolean
 }) {
   const [drop, setDrop] = useState<keyof typeof DROPS>('30')
   const equity = snapshot.totals?.equity_usd ?? 0
@@ -94,7 +93,7 @@ export function RiskControlView({ snapshot, veiled }: {
 
   if (snapshot.futures === null && rows.length === 0) {
     return (
-      <div className={cn(veiled && 'veiled')}>
+      <div>
         <ViewGrid>
           <Module span="lg:col-span-7" title="风险控制">
             <p className="text-sm text-ink-3">当前没有可评估仓位。</p>
@@ -105,7 +104,7 @@ export function RiskControlView({ snapshot, veiled }: {
   }
 
   return (
-    <div className={cn(veiled && 'veiled')}>
+    <div>
       <ViewGrid>
         <Module
           figure={`${rows.length} 个持仓`}

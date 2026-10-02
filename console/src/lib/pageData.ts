@@ -59,6 +59,8 @@ export function usePageData<T>({ scope, query = '', load, failure, refreshEveryM
   const [refreshing, setRefreshing] = useState(false)
   const [switching, setSwitching] = useState(false)
   const [refreshError, setRefreshError] = useState<string | null>(null)
+  // 有请求在路上（哪一种取法都算）。报头那盏灯据此区分"旧了但正在更新"与"旧了且停住了"
+  const [syncing, setSyncing] = useState(false)
 
   // 查询变了：在这一次渲染里就决定怎么取，免得先闪一帧旧状态
   if (request.scope !== scope || request.query !== query) {
@@ -91,6 +93,7 @@ export function usePageData<T>({ scope, query = '', load, failure, refreshEveryM
     const controller = new AbortController()
     const started = landed.current
     inFlight.current = true
+    setSyncing(true)
     setRefreshing(mode === 'force')
     setSwitching(mode === 'switch')
     if (mode === 'initial') setPhase({ kind: 'loading' })
@@ -108,13 +111,14 @@ export function usePageData<T>({ scope, query = '', load, failure, refreshEveryM
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
         const message = error instanceof PortfolioError ? error.message : failure
-        // 后台刷新失败不换页：旧数据留在原处，过期横幅会说出原因
+        // 后台刷新失败不换页：旧数据留在原处，报头的灯变色并在提示里说出原因
         if (mode === 'silent') setRefreshError(message)
         else setPhase({ kind: 'failed', message })
       })
       .finally(() => {
         if (controller.signal.aborted) return
         inFlight.current = false
+        setSyncing(false)
         setRefreshing(false)
         setSwitching(false)
       })
@@ -142,5 +146,5 @@ export function usePageData<T>({ scope, query = '', load, failure, refreshEveryM
     setPhase({ kind: 'ready', snapshot })
   }, [])
 
-  return { phase, revealed, refreshing, switching, refreshError, retry, accept }
+  return { phase, revealed, refreshing, switching, syncing, refreshError, retry, accept }
 }

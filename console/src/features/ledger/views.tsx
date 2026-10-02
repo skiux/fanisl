@@ -182,9 +182,8 @@ function BarList({ rows, limit = false }: { rows: BarRow[]; limit?: boolean }) {
   )
 }
 
-export function LedgerView({ snapshot, veiled, filter }: {
+export function LedgerView({ snapshot, filter }: {
   snapshot: LedgerSnapshot
-  veiled: boolean
   filter: LedgerFilter
 }) {
   const rows = filterEntries(snapshot.entries, filter)
@@ -216,7 +215,7 @@ export function LedgerView({ snapshot, veiled, filter }: {
     filter === 'all' || GROUP_SOURCES[filter].has(source.key))
   if (relevant.length > 0 && down.length === relevant.length) {
     return (
-      <div className={cn(veiled && 'veiled')}>
+      <div>
         <ViewGrid>
           <Module span="lg:col-span-7" title="流水未取到">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
@@ -242,7 +241,7 @@ export function LedgerView({ snapshot, veiled, filter }: {
   }
 
   return (
-    <div className={cn(veiled && 'veiled')}>
+    <div>
       <ViewGrid>
         <Module
           note={`${snapshot.window.days} 天 · ${rows.length}`}

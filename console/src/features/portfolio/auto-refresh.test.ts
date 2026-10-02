@@ -15,7 +15,10 @@ function serve(responses: (ReturnType<typeof buildSnapshot> | number)[]) {
   calls = []
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
-    if (!url.includes('/portfolio')) return new Response('{}', { status: 404 })
+    // 账户规则另走一条，不占这里排好的快照顺序；取不到时净值不加现金，正好是快照里那个数
+    if (!url.includes('/portfolio') || url.includes('/portfolio/fund')) {
+      return new Response('{}', { status: 404 })
+    }
     calls.push(url.slice(url.indexOf('/portfolio')))
     const next = responses.shift()
     if (typeof next === 'number' || next === undefined) {
@@ -88,6 +91,20 @@ describe('资产页自动刷新', () => {
     expect(calls).toHaveLength(2)
     expect(host.textContent).toContain(equityOf(first))
     expect(host.textContent).not.toContain('无法读取账户数据')
+    // 不再有「已过期」横幅：失败只让报头那盏灯变黄，原因在提示里
+    expect(host.textContent).not.toContain('已过期')
+    const light = host.querySelector('[data-level]')!
+    expect(light.getAttribute('data-level')).toBe('warn')
+    expect(light.getAttribute('title')).toContain('上游暂时不可用')
+  })
+
+  it('数据停在 20 分钟以前、又没有在更新：灯是红的', async () => {
+    const old = buildSnapshot(new Date(Date.now() - 45 * 60_000))
+    serve([old])
+
+    act(() => root.render(createElement(StatementPage)))
+    await settle()
+    expect(host.querySelector('[data-level]')!.getAttribute('data-level')).toBe('error')
   })
 
   it('首次加载失败之后，后端恢复了页面会自己回来', async () => {

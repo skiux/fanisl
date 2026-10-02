@@ -29,7 +29,7 @@ describe('活期理财的阶梯年化', () => {
     expect(flexible.apr).toBeCloseTo((500 * 0.12 + 7500 * 0.0482) / 8000)
     expect(flexible.apr_base).toBeCloseTo(0.0482)
 
-    act(() => root.render(createElement(OverviewView, { snapshot, veiled: false })))
+    act(() => root.render(createElement(OverviewView, { snapshot })))
     const text = host.textContent ?? ''
     expect(text).toContain(percent(flexible.apr, 2))
     expect(text).not.toContain('前 500 按')

@@ -37,9 +37,8 @@ import { SourceHealth } from './SourceHealth'
  * **「每日盈亏」不给跳转箭头。** 箭头只在"点开有别的东西"时才给；日历点开就是它
  * 自己，没有别的去处。
  */
-export function OverviewView({ snapshot, veiled }: {
+export function OverviewView({ snapshot }: {
   snapshot: PortfolioSnapshot
-  veiled: boolean
 }) {
   const pnl = snapshot.pnl
   const cashRows = cash(snapshot)
@@ -63,7 +62,7 @@ export function OverviewView({ snapshot, veiled }: {
   )
 
   return (
-    <div className={cn(veiled && 'veiled')}>
+    <div>
       <ViewGrid>
         {/* 不给 figure：它原先放的是 today_usd，而摘要条上那个「今日盈亏」
             就是同一个数——同一屏里说两遍。日历自己有月合计和区间合计。 */}
@@ -210,9 +209,8 @@ function CashModule({ rows, snapshot, span }: {
   )
 }
 
-export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost }: {
+export function HoldingsView({ snapshot, onSaveStockCost, onSaveSpotCost }: {
   snapshot: PortfolioSnapshot
-  veiled: boolean
   onSaveStockCost?: (symbol: string, input: StockCostInput) => Promise<void>
   onSaveSpotCost?: (asset: string, input: SpotCostInput) => Promise<void>
 }) {
@@ -233,7 +231,7 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost
     && stockPnlRows.length === stockPositions.length
 
   return (
-    <div className={cn(veiled && 'veiled')}>
+    <div>
       <ViewGrid>
         <Module
           figure={money(holdingsValue)}
@@ -241,7 +239,7 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost
           title="现货持仓"
         >
           <SpotTable
-            canEditCost={isAdmin && Boolean(onSaveSpotCost) && !veiled}
+            canEditCost={isAdmin && Boolean(onSaveSpotCost)}
             onSaveCost={onSaveSpotCost} spot={holdings}
           />
         </Module>
@@ -280,9 +278,8 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost
   )
 }
 
-export function PerpRiskView({ snapshot, veiled, futuresMissing, scenario }: {
+export function PerpRiskView({ snapshot, futuresMissing, scenario }: {
   snapshot: PortfolioSnapshot
-  veiled: boolean
   futuresMissing: boolean
   scenario: Scenario
 }) {
@@ -304,7 +301,7 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing, scenario }: {
 
   if (futuresMissing || !f) {
     return (
-      <div className={cn(veiled && 'veiled')}>
+      <div>
         <div aria-label="合约内容" className="mb-6 flex gap-6 border-b border-rule" role="tablist">
           {(['account', 'orders'] as const).map((key) => (
             <button
@@ -350,7 +347,7 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing, scenario }: {
   }
 
   return (
-    <div className={cn(veiled && 'veiled')}>
+    <div>
       <div aria-label="合约内容" className="mb-7 flex gap-6 border-b border-rule lg:hidden" role="tablist">
         {([
           ['positions', '仓位'], ['account', '账户'], ['orders', '委托'],

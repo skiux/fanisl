@@ -486,12 +486,6 @@
     background: linear-gradient(90deg, transparent, var(--rule), transparent);
     animation: shimmer 1.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
-
-  /* 数据过期：整份数字面失色，把"这不是当前值"做成可感知的材质 */
-  .veiled {
-    filter: saturate(0.2) opacity(0.55);
-    transition: filter 420ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
 }
 
 /* ── 换页与换分节：整块交叉淡变（lib/viewTransition.ts）──────────────────

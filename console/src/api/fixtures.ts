@@ -1,7 +1,7 @@
 import { PRICE } from './prices'
 import { NVDA_ENTRY_PRICE, OPEN_POSITION_QTY, spotLockedByAsset } from './orders-fixtures'
 import type {
-  AccountCapabilities, DailyPnl, EarnPosition, FuturesAccount, FuturesPosition, Pnl,
+  AccountCapabilities, DailyPnl, EarnPosition, FundSnapshot, FuturesAccount, FuturesPosition, Pnl,
   IncomeBreakdown, IsolatedMarginAccount, LiquidationLoan, MarginAccount,
   PortfolioSnapshot, SourceState, SpotAsset, StocksAccount, Transfers, WalletBucket,
 } from './types'
@@ -608,6 +608,31 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
       {
         key: 'portfolio_margin', status: 'unsupported', as_of: iso,
         detail: '账户未启用统一账户，未请求该接口。',
+      },
+    ],
+  }
+}
+
+/**
+ * 示例账户规则：初始净值略低于示例净值（有盈利可分），出资合计等于初始净值，
+ * 盈利分成合计 85%（余下 15% 归公司），亏损由 Manager 全部承担。
+ */
+export function buildFund(asOf: Date): FundSnapshot {
+  const inception = new Date(asOf.getTime() - 45 * 86_400_000).toISOString().slice(0, 10)
+  const updated_at = asOf.toISOString()
+  return {
+    settings: { initial_nav_usd: 72_000, inception_date: inception, cash_usd: 3_000, updated_at },
+    management_fee_total: 0.02,
+    members: [
+      {
+        user_id: 2, username: 'alice', display_name: 'Alice', is_manager: true, is_investor: true,
+        invested_capital_usd: 20_000, loss_allocation: 1, management_fee: 0.02,
+        performance_fee: 0.2, investor_return: 0.05, updated_at,
+      },
+      {
+        user_id: 3, username: 'bob', display_name: 'Bob', is_manager: false, is_investor: true,
+        invested_capital_usd: 52_000, loss_allocation: 0, management_fee: 0,
+        performance_fee: 0, investor_return: 0.6, updated_at,
       },
     ],
   }

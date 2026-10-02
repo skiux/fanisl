@@ -10,7 +10,7 @@ import { isConditional } from './views'
  * 常驻摘要条。与资产页同一个位置、同一套字号——两页应当像同一份文件的两章，
  * 而不是两个各自为政的页面。版式见 `components/Strip.tsx`。
  */
-export function OrdersStrip({ snapshot, veiled }: { snapshot: OrdersSnapshot; veiled: boolean }) {
+export function OrdersStrip({ snapshot }: { snapshot: OrdersSnapshot }) {
   const open = snapshot.open
   // 三个挂单接口全挂时，"0 / $0.00" 是假话——摘要条一律留空
   const blind = ORDER_VENUE_SOURCES.every((key) => (
@@ -43,7 +43,6 @@ export function OrdersStrip({ snapshot, veiled }: { snapshot: OrdersSnapshot; ve
         value: blind ? '—' : String(open.length),
         tone: blind ? 'muted' : undefined,
       }}
-      veiled={veiled}
     />
   )
 }

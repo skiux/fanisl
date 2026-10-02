@@ -2,7 +2,7 @@
 
 给 `console/`（资产台）供数的三组只读接口：`/portfolio`、`/orders`、`/ledger`，以及只写
 本地数据库的管理员股票成本接口 `/admin/stock-costs/{symbol}` 与现货成本接口
-`/admin/spot-costs/{asset}`。形状由
+`/admin/spot-costs/{asset}`；账户分配规则另有一组（`fund.py`，见「账户分配规则」）。形状由
 `console/src/api/types.ts` 定义，那份契约**按 Binance 原始字段写**，不是想当然的余额模型。
 
 全员共用同一个 Binance 账户，凭据在服务器 `.env`，权限只开 Enable Reading。
@@ -131,7 +131,7 @@ fapi 上**，现货那半边不该跟着一起坏。
 |---|---|---|
 | 新鲜 | 数据 + `status=ok` + 取数时刻 | 正常 |
 | 过期但取到了 | 新数据 | 正常 |
-| 过期且失败 | **旧数据** + 真实失败原因 + **旧时刻** | 蒙上 `.veiled`，标红原因 |
+| 过期且失败 | **旧数据** + 真实失败原因 + **旧时刻** | 那个来源记成失败，报头的状态灯变黄（超过 20 分钟变红） |
 | 从未成功 | `null` | 留空，不是 0 |
 
 **取数抛出任何异常都只降级那一个来源。** `cache.fetch` 原先只接 `BinanceError`：
@@ -611,6 +611,35 @@ FAPI 池 **63**（上表 fapi 各行相加）。`withdrawals` 与 BFUSD 年化�
 - **服务器时间偏移**：`recvWindow` 默认 5000ms，本机时钟偏一点就全线 `-1021`。
   客户端会拉一次 `/api/v3/time` 或 `/fapi/v1/time` 校准后重试一次。
 
+## 账户分配规则（`fund.py`）
+
+console 把这个 Binance 账户当成一只小基金来记（2026-10-03）。这里只存管理员录入的规则，
+**分配怎么算在前端** `console/src/lib/fund.ts`——要用的真实净值与逐日盈亏只在 `/portfolio`
+的快照里。规则与口径写在那份文件的头注和 `console/README.md`「账户：一份净值分给谁」。
+
+两张表，在主库（与 `users`、成本表同库，`fund_members` 外键指向 `users`，删用户连带删掉）：
+
+| 表 | 内容 |
+|---|---|
+| `fund_settings` | 整个账户一行：初始净值、起始日、现金（交易所以外的钱） |
+| `fund_members` | 每个参与分配的成员一行：是否 Manager / Investor、Invested Capital、Loss Allocation、Management Fee、Performance Fee、Investor Return（比例存小数） |
+
+| 接口 | 谁 | 做什么 |
+|---|---|---|
+| `GET /portfolio/fund` | 登录用户 | `{settings, management_fee_total, members}`。管理员拿到全部参与者；**成员只拿到自己那一行**（不是参与者就是空列表），在服务端筛 |
+| `PUT /admin/fund` | 管理员 | `{initial_nav_usd, inception_date, cash_usd}`，可为 null（清空） |
+| `PUT /admin/fund/members/{user_id}` | 管理员 | 七个字段都要给；比例 0–1，出资 ≥ 0。返回 `{member}` |
+
+几条由接口保证：
+
+- **管理员不参与分配**：给管理员设角色回 409「管理员不参与分配」；读的时候只认
+  `role='member'` 的用户——成员被升成管理员后那一行留着但不参与计算，降回成员又回来。
+- **两个角色都不选就删掉那一行**（返回 `member: null`），不留一份不参与计算的出资。
+- **不属于所选角色的比例存成 0**：取消 Manager 之后，旧的业绩报酬不该还在分钱。
+- 路径挂在已有的 `/portfolio`、`/admin` 前缀下，nginx 不用加 location。
+- 比例合计超过 100%、出资合计对不上初始净值都**不拒绝**：录入时总要先改一个再改另一个，
+  中间态必然不平。用户页把合计摆出来，对不上时变色。
+
 ## 测试
 
 `tests/test_binance_cache.py` 钉缓存层的降级语义（取数抛任何异常都只降级那一个来源）。
@@ -624,6 +653,9 @@ FAPI 池 **63**（上表 fapi 各行相加）。`withdrawals` 与 BFUSD 年化�
 改了一处样本，另一处还在验旧形状，而两边都是绿的。
 
 样本按用户的实际持仓形态编（美股永续 NVDA/QQQ 为主，现货只留 BNB 与稳定币）。
+
+`tests/test_binance_fund.py` 走测试库：成员只看得到自己、管理员不能参与、越界的比例 422、
+两个角色都不选就删、升成管理员后不参与计算、删用户连带删掉。
 
 ```bash
 PYTHONPATH=. .venv/bin/python -m pytest tests/test_binance_*.py tests/test_dailypnl.py -q

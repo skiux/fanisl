@@ -1,0 +1,117 @@
+import { describe, expect, it } from 'vitest'
+import type { DailyPnl, FundMember, FundSnapshot } from '../api/types'
+import { accountDays, accountsAt } from './fund'
+
+const DAY = 86_400_000
+
+const member = (patch: Partial<FundMember>): FundMember => ({
+  user_id: 1, username: 'a', display_name: 'A', is_manager: false, is_investor: false,
+  invested_capital_usd: 0, loss_allocation: 0, management_fee: 0, performance_fee: 0,
+  investor_return: 0, updated_at: null, ...patch,
+})
+
+// 用户确认口径时的那个例子：A 是 Manager，B 是 Investor
+const A = member({ user_id: 1, display_name: 'A', is_manager: true, invested_capital_usd: 20_000,
+  loss_allocation: 1, management_fee: 0.02, performance_fee: 0.3 })
+const B = member({ user_id: 2, display_name: 'B', is_investor: true, invested_capital_usd: 80_000,
+  loss_allocation: 0, investor_return: 0.7 })
+
+function fund(members: FundMember[], { fee = true, inception = '2026-07-01' } = {}): FundSnapshot {
+  return {
+    settings: { initial_nav_usd: 100_000, inception_date: inception, cash_usd: null, updated_at: null },
+    management_fee_total: fee ? members.reduce((sum, m) => sum + (m.is_manager ? m.management_fee : 0), 0) : 0,
+    members: fee ? members : members.map((m) => ({ ...m, management_fee: 0 })),
+  }
+}
+
+const at = (date: string, days = 0) => Date.parse(`${date}T00:00:00Z`) + days * DAY
+const totals = (fundSnapshot: FundSnapshot, nav: number, ms: number) =>
+  accountsAt(fundSnapshot, nav, ms).accounts.map((account) => account.allocation!.total)
+
+describe('账户分配', () => {
+  it('管理费先扣，剩下的盈利按各自比例分（用户确认的例子）', () => {
+    // 73 天，100,000 × 2% × 73/365 = 400；可分 9,600
+    const [a, b] = totals(fund([A, B]), 110_000, at('2026-07-01', 73))
+    expect(a).toBeCloseTo(400 + 9_600 * 0.3)
+    expect(b).toBeCloseTo(9_600 * 0.7)
+    expect(a + b).toBeCloseTo(10_000)
+  })
+
+  it('低于初始净值才是亏损，按 Loss Allocation 承担', () => {
+    const [a, b] = totals(fund([A, B], { fee: false }), 95_000, at('2026-07-01', 10))
+    expect(a).toBeCloseTo(-5_000)
+    expect(b).toBe(0)
+  })
+
+  it('从高点回撤但仍在初始净值之上：只是盈利变少，不算亏损', () => {
+    const [a, b] = totals(fund([A, B], { fee: false }), 102_000, at('2026-07-01', 10))
+    expect(a).toBeCloseTo(600)
+    expect(b).toBeCloseTo(1_400)
+  })
+
+  it('同时是 Manager 和 Investor 的人两份都拿', () => {
+    const both = member({ is_manager: true, is_investor: true, invested_capital_usd: 50_000,
+      performance_fee: 0.2, investor_return: 0.3 })
+    const [account] = accountsAt(fund([both], { fee: false }), 110_000, at('2026-07-01', 1)).accounts
+    expect(account.allocation!.performance_fee).toBeCloseTo(2_000)
+    expect(account.allocation!.investor_return).toBeCloseTo(3_000)
+    expect(account.value).toBeCloseTo(55_000)
+    expect(account.return).toBeCloseTo(0.1)
+  })
+
+  it('没录初始净值或起始日、或者净值取不到：算不出来就是 null，不当成 0', () => {
+    const unset = { ...fund([A]), settings: { ...fund([A]).settings, inception_date: null } }
+    expect(accountsAt(unset, 110_000, at('2026-07-02')).accounts[0].value).toBeNull()
+    expect(accountsAt(fund([A]), null, at('2026-07-02')).accounts[0].value).toBeNull()
+  })
+})
+
+const day = (date: string, pnl: number | null): DailyPnl => ({
+  date, spot_usd: pnl, stock_usd: 0, settled_usd: 0, settled_parts: null, earn_usd: 0,
+  interest_usd: 0, pnl_usd: pnl, known: pnl !== null,
+})
+
+describe('账户日历', () => {
+  // 账户 7-03 起始；资产页日历从 7-01 开始，最后一格是今天 7-06（取数在 12:00）
+  const daily = [
+    day('2026-07-01', 50), day('2026-07-02', -20), day('2026-07-03', 300),
+    day('2026-07-04', -500), day('2026-07-05', 1_200), day('2026-07-06', 100),
+  ]
+  const now = at('2026-07-06') + DAY / 2
+  const snapshot = fund([A, B], { inception: '2026-07-03' })
+
+  it('起始日之前的日子不出现；起始日之后各天加起来就是此刻的账户盈亏', () => {
+    const nav = 101_000
+    const days = accountDays(B, snapshot, daily, nav, now)
+    expect(days.map((d) => d.date)).toEqual(['2026-07-03', '2026-07-04', '2026-07-05', '2026-07-06'])
+    expect(days.every((d) => d.known)).toBe(true)
+    const [account] = accountsAt({ ...snapshot, members: [B] }, nav, now).accounts
+    expect(days.reduce((sum, d) => sum + d.pnl_usd!, 0)).toBeCloseTo(account.allocation!.total)
+  })
+
+  it('每天的分项加起来等于那天的数', () => {
+    for (const d of accountDays(A, snapshot, daily, 101_000, now)) {
+      const p = d.parts!
+      expect(p.management_fee + p.performance_fee + p.investor_return + p.loss).toBeCloseTo(d.pnl_usd!)
+    }
+  })
+
+  it('某天算不出来：那天和更早的日子都留空，后面的照算', () => {
+    const broken = daily.map((d) => (d.date === '2026-07-04' ? day(d.date, null) : d))
+    const days = accountDays(B, snapshot, broken, 101_000, now)
+    expect(days.map((d) => d.known)).toEqual([false, false, true, true])
+    expect(days[0].pnl_usd).toBeNull()
+  })
+
+  it('跨过初始净值的那天，盈利与亏损按各自的规则分', () => {
+    // 无管理费：7-05 收盘 100,600 → 7-06 此刻 99,600，从盈利 600 掉到亏损 400
+    const flat = fund([A, B], { fee: false, inception: '2026-07-03' })
+    const falling = [...daily.slice(0, -1), day('2026-07-06', -1_000)]
+    const today = accountDays(A, flat, falling, 99_600, now).at(-1)!
+    expect(today.parts!.performance_fee).toBeCloseTo(-600 * 0.3)
+    expect(today.parts!.loss).toBeCloseTo(-400)
+    const investor = accountDays(B, flat, falling, 99_600, now).at(-1)!
+    // Loss Allocation 为 0：亏损那一截不承担，只失去原先那 600 里自己的 70%
+    expect(investor.pnl_usd).toBeCloseTo(-420)
+  })
+})
