@@ -187,7 +187,7 @@ export function StockPositionsList({
           <SortBy keys={STOCK_SORT_KEYS} label="排序" onChange={setSort} value={sort} />
         </div>
       )}
-      <ul>
+      <ul aria-label="股票持仓列表" className="scroll-y lg:max-h-[50dvh]" tabIndex={0}>
         {rows.map((row) => (
           <StockPositionRow
             canEditCost={canEditCost ?? false}

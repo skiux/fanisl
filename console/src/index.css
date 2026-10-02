@@ -242,15 +242,12 @@
 }
 
 @layer components {
-  /* 选中槽位向外扩散一次，底层胶囊继续平移；不会让图标或文字缩放。 */
-  .nav-diffusion {
-    animation: nav-diffusion 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* 新入口从自己的中心打开，旧入口同时向中心收拢；文字保持原位。 */
+  .nav-selection {
+    clip-path: circle(0% at 50% 50%);
+    transition: clip-path 460ms cubic-bezier(0.22, 1, 0.36, 1);
   }
-  @keyframes nav-diffusion {
-    0% { opacity: 0.28; transform: scale(0.82); filter: blur(1px); }
-    48% { opacity: 0.16; transform: scale(1.22); filter: blur(7px); }
-    100% { opacity: 0; transform: scale(1.55); filter: blur(13px); }
-  }
+  .nav-selection[data-active="true"] { clip-path: circle(150% at 50% 50%); }
 
   /* ── iOS 那种滚筒选择器 ──────────────────────────────────────────
      中间一项正对着你，上下的逐渐变小、变淡、绕 X 轴向后倒，顶底渐隐。
@@ -363,6 +360,10 @@
     background: var(--sheet);
     border: 1px solid var(--rule);
     box-shadow: var(--sheet-shadow);
+  }
+  /* 手机短页面的纸张底边紧挨悬浮导航；直角投影会被误读成导航的底色。 */
+  @media (max-width: 639px) {
+    .sheet { box-shadow: none; }
   }
   /* 报头下那条重线：整份报表唯一一条实心黑线，层级由它定调 */
   .rule-heavy {

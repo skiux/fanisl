@@ -7,6 +7,7 @@ import { cn } from '../../lib/cn'
 import { amount, baseOf, money, percent, price, signedMoney, signedPercent } from '../../lib/format'
 import { liqDistanceRisk, riskBar } from '../../lib/risk'
 import type { FuturesAccount, FuturesPosition } from '../../api/types'
+import { useViewportListHeight } from './useViewportListHeight'
 
 function AdlPips({ quantile }: { quantile: number | null }) {
   if (quantile === null) return null
@@ -168,6 +169,7 @@ function SortedPositions({ positions }: { positions: FuturesPosition[] }) {
   // 默认按名义从大到小。接口给的顺序是账户内部的次序，和"哪个仓位要紧"无关——
   // 让最大的那笔排在第一行，比原样照抄有意义。
   const [sort, setSort] = useState<SortState<PositionSort>>({ key: 'notional', direction: 'desc' })
+  const { ref, height } = useViewportListHeight()
 
   const rows = useMemo(() => {
     const out = [...positions]
@@ -184,7 +186,8 @@ function SortedPositions({ positions }: { positions: FuturesPosition[] }) {
           <SortBy keys={POSITION_KEYS} label="仓位顺序" onChange={setSort} showLabel={false} value={sort} />
         </div>
       )}
-      <ul>
+      <ul aria-label="合约仓位列表" className="scroll-y" data-scroll-region="perp-positions"
+        ref={ref} style={{ maxHeight: height ?? undefined }} tabIndex={height !== null ? 0 : undefined}>
         {rows.map((position) => (
           <PositionRow key={`${position.symbol}-${position.position_side}`} position={position} />
         ))}

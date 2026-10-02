@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { fetchOrders, type Scenario } from '../../api/client'
 import type { Fill, Order, OrdersSnapshot, SourceKey } from '../../api/types'
+import { CaretDown } from '@phosphor-icons/react'
 import { Ticker } from '../../components/Ticker'
 import { cn } from '../../lib/cn'
 import {
@@ -8,21 +9,33 @@ import {
   ORDER_STATUS_LABEL, percent, price, signedMoney, signedPercent,
 } from '../../lib/format'
 import { gapOf } from '../orders/OrderTables'
+import { useViewportListHeight } from './useViewportListHeight'
 
-type OrderView = 'open' | 'history' | 'fills'
+type OrderView = 'open' | 'history'
 type Phase = { kind: 'loading' } | { kind: 'ready'; snapshot: OrdersSnapshot } | { kind: 'failed' }
 
 const SOURCES: Record<OrderView, SourceKey[]> = {
   open: ['futures_open', 'conditional_open', 'algo_open'],
-  history: ['order_history'],
-  fills: ['trade_history'],
+  history: ['order_history', 'trade_history'],
 }
+const CLOSED_STATUSES = new Set<Order['status']>(['filled', 'canceled', 'expired', 'rejected'])
+type HistoryStatus = 'all' | 'filled' | 'canceled' | 'expired' | 'rejected'
+const HISTORY_FILTERS: { status: HistoryStatus; label: string }[] = [
+  { status: 'all', label: '全部' },
+  { status: 'filled', label: '已成交' },
+  { status: 'canceled', label: '已撤销' },
+  { status: 'expired', label: '已过期' },
+  { status: 'rejected', label: '已拒绝' },
+]
 
 /** Binance 的普通单、条件单和策略单已在 /orders 归一化，这里只取合约账户。 */
 export function futuresOrderRows(snapshot: OrdersSnapshot) {
+  const closed = snapshot.history.filter((order) => order.venue === 'usdm' && CLOSED_STATUSES.has(order.status))
+  const closedIds = new Set(closed.map((order) => order.id))
   return {
-    open: snapshot.open.filter((order) => order.venue === 'usdm'),
-    history: snapshot.history.filter((order) => order.venue === 'usdm'),
+    open: snapshot.open.filter((order) => order.venue === 'usdm'
+      && !CLOSED_STATUSES.has(order.status) && !closedIds.has(order.id)),
+    history: closed.sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
     fills: snapshot.fills.filter((fill) => fill.venue === 'usdm'),
   }
 }
@@ -34,7 +47,9 @@ function sourceMissing(snapshot: OrdersSnapshot, view: OrderView) {
 export function PerpOrders({ scenario, asOf }: { scenario: Scenario; asOf: string | null }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
   const [view, setView] = useState<OrderView>('open')
+  const [historyStatus, setHistoryStatus] = useState<HistoryStatus>('all')
   const [retry, setRetry] = useState(0)
+  const { ref: listRef, height: listHeight } = useViewportListHeight()
 
   useEffect(() => {
     const controller = new AbortController()
@@ -47,11 +62,23 @@ export function PerpOrders({ scenario, asOf }: { scenario: Scenario; asOf: strin
 
   const rows = phase.kind === 'ready' ? futuresOrderRows(phase.snapshot) : null
   const query = phase.kind === 'ready' ? phase.snapshot.query : null
-  const activeRows = rows?.[view] ?? []
+  const activeRows = view === 'history' && historyStatus !== 'all'
+    ? (rows?.history ?? []).filter((order) => order.status === historyStatus)
+    : rows?.[view] ?? []
+  const visibleFilters = HISTORY_FILTERS.filter(({ status }) => status === 'all' || status === 'filled'
+    || (rows?.history ?? []).some((order) => order.status === status))
   const missing = phase.kind === 'ready' && sourceMissing(phase.snapshot, view)
   const labels: { key: OrderView; label: string }[] = [
-    { key: 'open', label: '挂单' }, { key: 'history', label: '历史' }, { key: 'fills', label: '成交' },
+    { key: 'open', label: '当前委托' }, { key: 'history', label: '历史委托' },
   ]
+  const fillsByOrder = new Map<string, Fill[]>()
+  for (const fill of rows?.fills ?? []) {
+    const matches = fillsByOrder.get(fill.order_id) ?? []
+    matches.push(fill)
+    fillsByOrder.set(fill.order_id, matches)
+  }
+
+  useEffect(() => { if (listRef.current) listRef.current.scrollTop = 0 }, [view, historyStatus, listRef])
 
   return (
     <section className="min-w-0" aria-label="合约委托">
@@ -74,13 +101,29 @@ export function PerpOrders({ scenario, asOf }: { scenario: Scenario; asOf: strin
             </button>
           ))}
         </div>
-        {rows && <span className="tnum pb-2.5 text-xs text-ink-3">
+        {rows && !missing && <span className="tnum pb-2.5 text-xs text-ink-3" data-order-count>
           {view !== 'open' && query?.lookback_days && `${query.lookback_days} 天 · `}
           {activeRows.length}
         </span>}
+        {rows && missing && <button
+          aria-label="重新读取委托"
+          className="pb-2.5 text-xs text-ink-2 underline decoration-rule-strong underline-offset-4 transition-colors hover:text-ink"
+          onClick={() => setRetry((n) => n + 1)}
+          type="button"
+        >重试</button>}
       </div>
 
       <div aria-labelledby={`perp-order-${view}`} id="perp-order-panel" role="tabpanel">
+        {view === 'history' && rows && <div aria-label="历史委托状态" className="flex flex-wrap gap-1.5 pt-3" role="group">
+          {visibleFilters.map(({ status, label }) => <button
+            aria-pressed={historyStatus === status}
+            className={cn('rounded-full px-3 py-1.5 text-xs transition-colors duration-200',
+              historyStatus === status ? 'bg-ink text-sheet' : 'text-ink-3 hover:bg-sheet-2 hover:text-ink')}
+            key={status}
+            onClick={() => setHistoryStatus(status)}
+            type="button"
+          >{label}</button>)}
+        </div>}
         {phase.kind === 'loading' && <p className="py-10 text-sm text-ink-3">读取中…</p>}
         {phase.kind === 'failed' && (
           <div className="flex items-center justify-between gap-4 py-8 text-sm text-ink-3">
@@ -90,12 +133,20 @@ export function PerpOrders({ scenario, asOf }: { scenario: Scenario; asOf: strin
         )}
         {rows && (
           <>
-            {missing && <p className="border-b border-rule py-3 text-xs text-loss">部分{view === 'open' ? '挂单' : view === 'history' ? '历史' : '成交'}未取到</p>}
-            {activeRows.length === 0 && !missing && <p className="py-10 text-center text-sm text-ink-3">暂无{view === 'open' ? '挂单' : view === 'history' ? '委托历史' : '成交记录'}</p>}
-            <ul className="divide-y divide-rule lg:scroll-y lg:max-h-[min(52dvh,38rem)]">
-              {view === 'fills'
-                ? (activeRows as Fill[]).map((fill) => <FillRow fill={fill} key={fill.id} />)
-                : (activeRows as Order[]).map((order) => <OrderRow key={order.id} order={order} />)}
+            {activeRows.length === 0 && <p className="py-10 text-center text-sm text-ink-3">
+              {missing ? '委托暂不可用' : view === 'history' && historyStatus !== 'all'
+                ? `暂无${HISTORY_FILTERS.find(({ status }) => status === historyStatus)?.label}委托`
+                : `暂无${view === 'open' ? '当前委托' : '历史委托'}`}
+            </p>}
+            <ul aria-label={view === 'history' ? '历史委托列表' : '当前委托列表'}
+              className="scroll-y divide-y divide-rule" data-scroll-region="perp-orders"
+              ref={listRef} style={{ maxHeight: listHeight ?? undefined }}
+              tabIndex={listHeight !== null ? 0 : undefined}>
+              {activeRows.map((order) => <OrderRow
+                fills={view === 'history' ? fillsByOrder.get(order.id) ?? [] : []}
+                key={order.id}
+                order={order}
+              />)}
             </ul>
           </>
         )}
@@ -104,7 +155,9 @@ export function PerpOrders({ scenario, asOf }: { scenario: Scenario; asOf: strin
   )
 }
 
-function OrderRow({ order }: { order: Order }) {
+function OrderRow({ order, fills }: { order: Order; fills: Fill[] }) {
+  const [expanded, setExpanded] = useState(false)
+  const detailsId = useId()
   const trigger = order.stop_price ?? order.activate_price
   const target = trigger ?? order.price
   const active = order.status === 'new' || order.status === 'partially_filled'
@@ -130,7 +183,9 @@ function OrderRow({ order }: { order: Order }) {
           <div className="tnum text-sm text-ink">{active
             ? closeAll ? '全平仓位' : money(order.notional_usd)
             : ORDER_STATUS_LABEL[order.status] ?? order.status}</div>
-          <div className="tnum mt-1 text-xs text-ink-3">{clockTime(order.created_at)} ET</div>
+          <div className="tnum mt-1 text-xs text-ink-3">
+            {clockTime(active ? order.created_at : order.updated_at)} ET
+          </div>
         </div>
       </div>
       <div className="tnum mt-2.5 flex flex-wrap gap-x-3 gap-y-1 pl-[34px] text-xs text-ink-2">
@@ -155,25 +210,35 @@ function OrderRow({ order }: { order: Order }) {
           {order.status === 'partially_filled' && <span>部分成交</span>}
         </div>
       )}
+      {fills.length > 0 && <>
+        <button
+          aria-controls={detailsId}
+          aria-expanded={expanded}
+          className="ml-[34px] mt-2 flex items-center gap-1 text-xs text-ink-2 transition-colors hover:text-ink"
+          onClick={() => setExpanded((value) => !value)}
+          type="button"
+        >
+          成交明细 <span className="tnum">{fills.length}</span>
+          <CaretDown aria-hidden="true" className={cn('transition-transform duration-300', expanded && 'rotate-180')} size={12} />
+        </button>
+        <div aria-hidden={!expanded} className="collapsible" data-open={expanded} id={detailsId}>
+          <ul className="ml-[34px] divide-y divide-rule/70 overflow-hidden">
+            {fills.map((fill) => <FillDetail fill={fill} key={fill.id} />)}
+          </ul>
+        </div>
+      </>}
     </li>
   )
 }
 
-function FillRow({ fill }: { fill: Fill }) {
+function FillDetail({ fill }: { fill: Fill }) {
   return (
-    <li className="py-4 first:pt-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <Ticker asset={baseOf(fill.symbol)} size="sm" />
-          <div className="min-w-0">
-            <div className="truncate text-sm font-medium text-ink">{baseOf(fill.symbol)}</div>
-            <div className="text-xs text-ink-3">{fill.side === 'buy' ? '买入' : '卖出'} · {clockTime(fill.time)} ET</div>
-          </div>
-        </div>
-        <span className="tnum text-right text-sm text-ink">{money(fill.quote_qty)}</span>
+    <li className="py-2.5 text-xs">
+      <div className="tnum flex items-baseline justify-between gap-3 text-ink-2">
+        <span>{clockTime(fill.time)} ET · {price(fill.price)} × {amount(fill.qty)}</span>
+        <span className="shrink-0 text-ink">{money(fill.quote_qty)}</span>
       </div>
-      <div className="tnum mt-2.5 flex flex-wrap gap-x-4 gap-y-1 pl-[34px] text-xs text-ink-2">
-        <span>{price(fill.price)} × {amount(fill.qty)}</span>
+      <div className="tnum mt-1 flex flex-wrap gap-x-3 gap-y-1 text-ink-3">
         {fill.is_maker !== null && <span>{fill.is_maker ? '挂单成交' : '吃单成交'}</span>}
         {fill.commission !== null && <span>手续费 −{amount(fill.commission)} {fill.commission_asset}</span>}
         {fill.realized_pnl !== null && fill.realized_pnl !== 0 && <span className={fill.realized_pnl > 0 ? 'text-gain' : 'text-loss'}>已实现 {signedMoney(fill.realized_pnl)}</span>}

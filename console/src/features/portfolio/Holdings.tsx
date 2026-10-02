@@ -164,7 +164,7 @@ export function SpotTable({ spot, canEditCost = false, onSaveCost }: {
         <span className="text-right sm:text-left">价值</span>
         <span className="hidden text-right sm:block">占比</span>
       </div>
-      <ul className="divide-y divide-rule">
+      <ul aria-label="现货持仓列表" className="scroll-y divide-y divide-rule lg:max-h-[50dvh]" tabIndex={0}>
         {major.map((item) => <SpotRow canEditCost={canEditCost} item={item} key={item.asset} onSaveCost={onSaveCost} share={share(item)} />)}
       </ul>
     </>
@@ -261,7 +261,7 @@ export function CashTable({ rows }: { rows: CashRow[] }) {
         <span>年化</span>
         <span className="text-right">价值</span>
       </div>
-      <ul className="divide-y divide-rule">
+      <ul aria-label="现金明细列表" className="scroll-y divide-y divide-rule lg:max-h-[50dvh]" tabIndex={0}>
         {rows.map((row) => (
           <li className={cn(CASH_ROW, 'py-3')} key={`${row.where}:${row.asset}`}>
             <span className="flex min-w-0 items-center gap-2.5">
