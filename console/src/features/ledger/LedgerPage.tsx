@@ -14,7 +14,7 @@ import { LedgerStrip } from './LedgerStrip'
 import { WindowSwitcher } from './WindowSwitcher'
 import { FILTER_LABEL, filterEntries, LedgerView, type LedgerFilter } from './views'
 
-const FILTERS: LedgerFilter[] = ['all', 'external', 'income', 'internal']
+const FILTERS: LedgerFilter[] = ['all', 'external', 'income', 'internal', 'cost']
 
 type Phase = PagePhase<LedgerSnapshot>
 

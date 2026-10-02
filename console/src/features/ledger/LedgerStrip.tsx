@@ -2,6 +2,7 @@ import { Strip, type StripCell } from '../../components/Strip'
 import { signedMoney } from '../../lib/format'
 import type { LedgerSnapshot } from '../../api/types'
 import { countsToNet } from './Timeline'
+import { isCost } from './views'
 
 const shortDate = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`
 
@@ -20,6 +21,12 @@ export function LedgerStrip({ snapshot, veiled }: { snapshot: LedgerSnapshot; ve
   const blind = snapshot.sources.every((source) => source.status !== 'ok')
   const net = snapshot.entries.filter(countsToNet)
     .reduce((sum, entry) => sum + (entry.value_usd ?? 0), 0)
+  // 本期成本：资金费、手续费、杠杆利息，减去返佣。哪个分类页都看得见，不必点进「成本」
+  const cost = snapshot.entries.filter(isCost)
+    .reduce((sum, entry) => sum + (entry.value_usd ?? 0), 0)
+  // 供数的两个来源任一没取到，这个数就不全：变灰，不写成一个看着完整的数
+  const costPartial = snapshot.sources
+    .some((source) => (source.key === 'income' || source.key === 'margin_interest') && source.status !== 'ok')
 
   const cells: StripCell[] = [
     {
@@ -27,6 +34,11 @@ export function LedgerStrip({ snapshot, veiled }: { snapshot: LedgerSnapshot; ve
       compact: true,
       // 天数不再另起一行：它就在上面的区间选择器里选中着
       value: `${shortDate(snapshot.window.from)}–${shortDate(snapshot.window.to)}`,
+    },
+    {
+      label: '本期成本',
+      value: blind ? '—' : signedMoney(cost),
+      tone: blind || costPartial ? 'muted' : cost < 0 ? 'loss' : 'gain',
     },
     {
       label: '记录数',
