@@ -38,6 +38,8 @@
   remote host"），本机只到 4745/5520 张；改成按缺失清单分批传（本机 `~/gcp-backups/backup-server.sh` 第 3 步的做法）。
   ② 备份用的 `fanisl-backup.service/.timer` 只在服务器上，仓库里没有（Next 第 1 条），10-01 已随整机备份拉到本机
   `~/gcp-backups/<时间戳>/system/etc/systemd/system/`，可以从那里入库
+  ③ 用户 10-02 定：备份统一放 `~/gcp-backups`。`pull-snapshot.sh` 默认仍写 `~/fanisl-backups` 与 `~/fanisl-keyframes`
+  （这两个目录已按用户要求移到废纸篓），请改默认目录，或注明已由 `~/gcp-backups/backup-server.sh` 取代
 - **console 席位（2026-10-01）**：`GET /binance/portfolio` 的 `pnl.daily[]` 新增
   `settled_parts`，与 `today.settled_parts` 同结构，逐日拆出 `realized_pnl`、
   `funding_fee`、`commission`、`insurance_clear`、`referral_kickback`、`other`；
