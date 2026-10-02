@@ -5,7 +5,7 @@ import type { DailyPnl, FundMember, FundSettings, FundSnapshot } from '../api/ty
  * 录入的规则见 `backend/fanisl/binance/fund.py`。用户确认的口径（2026-10-03）：
  *
  *     管理费   = Σ Manager 的 Management Fee × 初始净值 × 起始日以来的天数 / 365
- *     可分配   = 真实净值 − 初始净值 − 管理费
+ *     可分配   = 显示的净值 − 初始净值 − 管理费
  *     盈利     = max(可分配, 0)
  *       Manager  分 盈利 × Performance Fee
  *       Investor 分 盈利 × (Invested Capital / 初始净值) × Investor Return
@@ -17,7 +17,9 @@ import type { DailyPnl, FundMember, FundSettings, FundSnapshot } from '../api/ty
  * Fee 同一个口径，结果两个出资差三倍的 Investor 填同一个比例会分到同样多——基金里
  * 投资人的收益本来就从自己那份出资的盈利里来。用户指出后改成上面这样。
  *
- * **真实净值**是交易所里的净值，不含管理员录入的现金。
+ * **显示的净值 = 真实净值 + 现金**，就是资产页上那个净值。真实净值是交易所里的净值
+ * （`totals.equity_usd`），现金是管理员录入的交易所以外的钱。原先分配只用真实净值，
+ * 2026-10-03 用户要求改成显示的净值。
  *
  * **亏损只按低于初始净值的部分算**，不是"比前一天少了"。净值从高点回撤、但仍在
  * 初始净值之上时，只是可分的盈利变少：Loss Allocation 为 0 的人照样按比例分到
@@ -31,6 +33,12 @@ import type { DailyPnl, FundMember, FundSettings, FundSnapshot } from '../api/ty
  */
 
 const DAY_MS = 86_400_000
+
+/** 显示的净值 = 真实净值 + 现金（没录现金按 0）。真实净值取不到就是 null */
+export function displayedNav(equity: number | null,
+                             fund: Pick<FundSnapshot, 'settings'> | null): number | null {
+  return equity === null ? null : equity + (fund?.settings.cash_usd ?? 0)
+}
 
 export type FundTerms = {
   initialNav: number
@@ -53,7 +61,7 @@ export function fundTerms(fund: Pick<FundSnapshot, 'settings' | 'management_fee_
 }
 
 export type FundState = {
-  /** 真实净值 − 初始净值 */
+  /** 显示的净值 − 初始净值 */
   pnl: number
   /** 起始日以来全部 Manager 的管理费 */
   fees: number
@@ -162,13 +170,14 @@ function minus(a: Allocation, b: Allocation): Allocation {
  * 一个人账户的逐日盈亏：每天收盘时账户价值减去前一天收盘时的。
  *
  * 过去每天收盘的净值没有存下来（见 `docs/plans/active/console.md` 的持久化一条），
- * 这里从此刻的真实净值往回减资产页日历的逐日盈亏倒推。所以：
+ * 这里从此刻显示的净值往回减资产页日历的逐日盈亏倒推。所以：
  *
  * - 只有起始日之后、且在资产页日历范围内（90 天）的日子有数；
  * - 某一天的盈亏算不出来，那天和它之前的日子都不知道当时的净值，一律留空，
  *   不拿 0 顶替——顶替会让更早的日子悄悄地错；
- * - 充值和提现会让真实净值跳一截，按口径它算进「真实净值 − 初始净值」，但不在
+ * - 充值和提现会让净值跳一截，按口径它算进「显示的净值 − 初始净值」，但不在
  *   资产页的逐日盈亏里，所以日历各天加起来与此刻的账户盈亏会差出这一截。
+ *   现金只有此刻录入的一个数，往回推时当它一直是这么多；改录现金同样差出一截。
  *
  * 起始日那天从 Invested Capital 起算：前一天的账户价值就是出资本身。
  */

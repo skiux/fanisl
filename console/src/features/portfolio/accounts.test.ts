@@ -73,6 +73,19 @@ describe('资产页「账户」', () => {
     }
   })
 
+  it('按显示的净值（真实净值 + 现金）分配，Current NAV 就是资产页上那个净值', () => {
+    const fund = buildFund(at)
+    const nav = snapshot.totals!.equity_usd + 3_000
+    const { model } = render(fund, true)
+    expect(model.state!.pnl).toBeCloseTo(nav - 72_000, 6)
+    expect(host.textContent).toContain(money(nav))
+
+    // 现金多录 1000：分配的基数跟着多 1000，有盈利可分的账户价值跟着变
+    const more = accountsModel(snapshot, { ...fund, settings: { ...fund.settings, cash_usd: 4_000 } })
+    expect(more.state!.pnl - model.state!.pnl).toBeCloseTo(1_000, 6)
+    expect(more.accounts[1].value).toBeGreaterThan(model.accounts[1].value!)
+  })
+
   it('还没有参与者：管理员看到去「用户」的入口', () => {
     render({ ...buildFund(at), members: [] }, true)
     expect(host.textContent).toContain('还没有参与分配的用户')

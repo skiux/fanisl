@@ -846,7 +846,7 @@ export type FundSettings = {
   initial_nav_usd: number | null
   /** YYYY-MM-DD。管理费从这天 UTC 零点起按天计提，账户日历也从这天开始 */
   inception_date: string | null
-  /** 交易所以外的现金。只加在资产页显示的净值上，不参与盈亏和分配 */
+  /** 交易所以外的现金。加在资产页显示的净值上，盈亏和账户分配也按这个净值算；持仓占比、风险读数不含它 */
   cash_usd: number | null
   updated_at: string | null
 }

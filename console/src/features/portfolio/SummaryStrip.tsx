@@ -1,5 +1,6 @@
 import { Strip, type StripCell } from '../../components/Strip'
 import { money, percent, signedMoney, signedPercent } from '../../lib/format'
+import { displayedNav } from '../../lib/fund'
 import { exposures, spotHoldings } from '../../lib/holdings'
 import { marginRatioRisk } from '../../lib/risk'
 import { breakingDrop, positionSize } from '../../lib/stress'
@@ -39,7 +40,10 @@ export function summaryForView(snapshot: PortfolioSnapshot, view: Exclude<ViewKe
   // 管理员录入的两项（见「用户」页）：交易所以外的现金、账户初始净值
   const cash = fund?.settings.cash_usd ?? null
   const initialNav = fund?.settings.initial_nav_usd ?? null
-  const sinceStart = totals && initialNav ? totals.equity_usd - initialNav : null
+  // **显示的净值 = 真实净值 + 现金**。资产这一节的净值和盈亏都用它；各处「占净值」、
+  // 风险读数仍用真实净值（totals.equity_usd），不含交易所以外的现金。
+  const nav = displayedNav(totals?.equity_usd ?? null, fund)
+  const sinceStart = nav !== null && initialNav ? nav - initialNav : null
 
   const marginTone = ratio === null ? 'muted' as const
     : marginRatioRisk(ratio).tone === 'gain' ? undefined : marginRatioRisk(ratio).tone
@@ -152,7 +156,5 @@ export function summaryForView(snapshot: PortfolioSnapshot, view: Exclude<ViewKe
     { label: '现金', value: cash === null ? '—' : money(cash) },
   ]
 
-  // **显示的净值 = 真实净值 + 现金**，只有这一个数加现金。盈亏、各种「占净值」、
-  // 风险与账户分配用的都是真实净值（totals.equity_usd），不含交易所以外的现金。
-  return { hero: { label: '净值', value: totals ? money(totals.equity_usd + (cash ?? 0)) : '—' }, cells }
+  return { hero: { label: '净值', value: nav === null ? '—' : money(nav) }, cells }
 }

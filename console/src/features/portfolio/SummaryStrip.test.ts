@@ -73,14 +73,20 @@ describe('desktop page summaries', () => {
   it('资产页：净值加上录入的现金，最右是现金；原先的保证金率一格换成相对初始净值的盈亏', () => {
     const fund = buildFund(new Date('2026-10-02T12:00:00Z'))
     const { hero, cells } = summaryForView(snapshot, 'overview', () => {}, fund)
-    const equity = snapshot.totals!.equity_usd
-    expect(hero).toEqual({ label: '净值', value: money(equity + 3_000) })
+    const nav = snapshot.totals!.equity_usd + 3_000
+    expect(hero).toEqual({ label: '净值', value: money(nav) })
     expect(cells.map((cell) => cell.label)).toEqual(['今日盈亏', '合约未实现', '盈亏', '现金'])
-    // 盈亏用真实净值，不含现金
+    // 盈亏用显示的净值（含现金），与左边的净值对得上
     expect(cells[2]).toMatchObject({
-      value: signedMoney(equity - 72_000), detail: signedPercent((equity - 72_000) / 72_000, 2),
+      value: signedMoney(nav - 72_000), detail: signedPercent((nav - 72_000) / 72_000, 2),
     })
     expect(cells[3].value).toBe(money(3_000))
+  })
+
+  it('录了现金：持仓的「占账户净值」仍按真实净值', () => {
+    const fund = buildFund(new Date('2026-10-02T12:00:00Z'))
+    const share = (f: typeof fund | null) => summaryForView(snapshot, 'holdings', () => {}, f).cells[2].value
+    expect(share(fund)).toBe(share(null))
   })
 
   it('没录现金和初始净值：净值就是真实净值，两格显示 —', () => {

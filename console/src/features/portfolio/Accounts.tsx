@@ -5,7 +5,7 @@ import { PersonMark } from '../../components/PersonMark'
 import { Strip } from '../../components/Strip'
 import { cn } from '../../lib/cn'
 import { money, percent, ratio, signedMoney, signedPercent } from '../../lib/format'
-import { accountDays, accountsAt, type Account, type AccountDay, type Allocation } from '../../lib/fund'
+import { accountDays, accountsAt, displayedNav, type Account, type AccountDay, type Allocation } from '../../lib/fund'
 import { hrefOf } from '../../lib/router'
 import { RealizedDays } from './RealizedDays'
 
@@ -18,11 +18,14 @@ import { RealizedDays } from './RealizedDays'
 
 export type AccountsModel = ReturnType<typeof accountsAt> & { atMs: number }
 
-/** 账户的数都按快照那一刻算：管理费按时间计提，用页面上的时刻才和净值对得上 */
+/**
+ * 账户的数都按快照那一刻算：管理费按时间计提，用页面上的时刻才和净值对得上。
+ * 净值用资产页显示的那个（真实净值 + 现金），见 `lib/fund.ts`。
+ */
 export function accountsModel(snapshot: PortfolioSnapshot, fund: FundSnapshot | null): AccountsModel {
   const parsed = snapshot.as_of ? Date.parse(snapshot.as_of) : NaN
   const atMs = Number.isFinite(parsed) ? parsed : Date.now()
-  return { ...accountsAt(fund, snapshot.totals?.equity_usd ?? null, atMs), atMs }
+  return { ...accountsAt(fund, displayedNav(snapshot.totals?.equity_usd ?? null, fund), atMs), atMs }
 }
 
 const tone = (value: number | null | undefined) => (value == null ? 'muted' as const
@@ -34,7 +37,8 @@ const roleLabel = (account: Account) => [
 
 function useDays(account: Account | null, snapshot: PortfolioSnapshot, fund: FundSnapshot | null, atMs: number) {
   return useMemo(() => (account
-    ? accountDays(account.member, fund, snapshot.pnl?.daily ?? [], snapshot.totals?.equity_usd ?? null, atMs)
+    ? accountDays(account.member, fund, snapshot.pnl?.daily ?? [],
+      displayedNav(snapshot.totals?.equity_usd ?? null, fund), atMs)
     : []), [account, fund, snapshot, atMs])
 }
 
@@ -225,7 +229,7 @@ function AllocationModule({ account, model }: { account: Account; model: Account
 }
 
 /**
- * 分配的基数：真实净值相对初始净值的盈亏，先扣管理费，剩下的才按比例分。
+ * 分配的基数：显示的净值（真实净值 + 现金）相对初始净值的盈亏，先扣管理费，剩下的才按比例分。
  * 不带标题（原先叫「可分配」），行名用基金的英文说法，最后一行 Net P&L 就是可分配的那个数。
  */
 function BaseModule({ model }: { model: AccountsModel }) {

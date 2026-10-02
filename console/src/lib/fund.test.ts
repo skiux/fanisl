@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DailyPnl, FundMember, FundSnapshot } from '../api/types'
-import { accountDays, accountsAt } from './fund'
+import { accountDays, accountsAt, displayedNav } from './fund'
 
 const DAY = 86_400_000
 
@@ -123,5 +123,15 @@ describe('账户日历', () => {
     const investor = accountDays(B, flat, falling, 99_600, now).at(-1)!
     // Loss Allocation 为 0：亏损那一截不承担，只失去原先那 600 里自己那份（80% 出资 × 70%）
     expect(investor.pnl_usd).toBeCloseTo(-600 * 0.8 * 0.7)
+  })
+})
+
+describe('显示的净值', () => {
+  it('真实净值 + 录入的现金；没录现金就是真实净值，真实净值取不到就是 null', () => {
+    const withCash = { settings: { ...fund([]).settings, cash_usd: 2_500 } }
+    expect(displayedNav(100_000, withCash)).toBe(102_500)
+    expect(displayedNav(100_000, fund([]))).toBe(100_000)
+    expect(displayedNav(100_000, null)).toBe(100_000)
+    expect(displayedNav(null, withCash)).toBeNull()
   })
 })
