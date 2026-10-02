@@ -15,8 +15,12 @@ export function assetColor(asset: string) {
 
 const smallMoney = (value: number) => value > 0 && value < 0.005 ? '<$0.01' : money(value)
 
-/** 持仓轮展示多头构成；列表同时保留净价值及其占净值比例。 */
-export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
+/**
+ * 持仓轮与持仓列表共用的状态：选中哪个标的、列表滚到哪。两者可以摆在一起
+ * （`ExposureDistribution`），也可以分开放——风险页把轮放在左栏、列表放进右栏的
+ * 「全部持仓」标签里（2026-10-03 用户画的布局），选中照样联动。
+ */
+export function useExposure(rows: Exposure[]) {
   const [selection, setSelection] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const items = rows.map((row) => ({
@@ -64,15 +68,32 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
     document.addEventListener('pointerdown', clearFromElsewhere)
     return () => document.removeEventListener('pointerdown', clearFromElsewhere)
   }, [])
+  return { rows, items, slices, total, selected, peak, listRef, select, toggle, selectFromChart }
+}
 
+type ExposureModel = ReturnType<typeof useExposure>
+
+/** 持仓轮展示多头构成；列表同时保留净价值及其占净值比例。 */
+export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
+  const model = useExposure(rows)
   return (
     <div
       className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,1fr)] lg:items-stretch lg:gap-10"
       onKeyDown={(event) => {
-        if (event.key === 'Escape') { event.preventDefault(); select(null) }
+        if (event.key === 'Escape') { event.preventDefault(); model.select(null) }
       }}
     >
-      <div className="min-w-0">
+      <ExposureWheel model={model} />
+      <ExposureList model={model} />
+    </div>
+  )
+}
+
+/** 左半：多头价值、持仓轮、选中标的的净价值与占净值 */
+export function ExposureWheel({ model }: { model: ExposureModel }) {
+  const { rows, slices, total, selected, select, selectFromChart } = model
+  return (
+    <div className="min-w-0">
         <div className="mb-3 flex min-h-11 items-end justify-between gap-3 text-xs">
           <div>
             <div className="text-ink-2">多头价值</div>
@@ -108,11 +129,22 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
           </div>
         </div>
       </div>
+  )
+}
 
-      <div className="allocation-list relative min-h-0 min-w-0">
+/** 右半：全部持仓的逐行明细，与持仓轮互相选中 */
+export function ExposureList({ model, heading = true, className }: {
+  model: ExposureModel
+  heading?: boolean
+  className?: string
+}) {
+  const { items, total, selected, peak, listRef, toggle } = model
+  return (
+    <div className={cn('allocation-list relative min-h-0 min-w-0', className)}>
         <div className="allocation-list-body flex min-h-0 flex-col">
           <div className="mb-1 flex items-center justify-between gap-4 px-3 py-2 text-xs text-ink-3">
-            <span>全部持仓</span><span>多头价值 / 占多头</span>
+            {/* 放进「全部持仓」标签里时，标签已经说了这是什么，左边不再重复 */}
+            <span>{heading ? '全部持仓' : '标的'}</span><span>多头价值 / 占多头</span>
           </div>
           <div aria-label="标的列表滚动区域" className="allocation-scroll scroll-y rounded-lg" ref={listRef} role="region" tabIndex={0}>
             <ul aria-label="全部持仓明细" className="divide-y divide-rule">
@@ -156,6 +188,5 @@ export function ExposureDistribution({ rows }: { rows: Exposure[] }) {
           </div>
         </div>
       </div>
-    </div>
   )
 }

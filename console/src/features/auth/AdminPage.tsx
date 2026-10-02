@@ -246,9 +246,9 @@ function FundModule({ fund, onEdit }: { fund: FundSnapshot; onEdit: () => void }
       title="账户"
     >
       <dl className="divide-y divide-rule/70 border-b border-rule/70">
-        <ReadRow label="初始净值" value={money(settings.initial_nav_usd)} />
+        <ReadRow label="Initial NAV" value={money(settings.initial_nav_usd)} />
         <ReadRow
-          label="起始日"
+          label="Inception Date"
           value={settings.inception_date
             ? `${settings.inception_date}${days !== null && days >= 0 ? ` · ${days} 天` : ''}` : '—'}
         />
@@ -474,12 +474,12 @@ function FundSheet({ fund, onClose, onSaved }: {
   return (
     <Sheet onClose={onClose} title="账户" width="26rem">
       <form className="grid gap-4" onSubmit={submit}>
-        <Field htmlFor="fund-initial" label="初始净值" unit="USD">
+        <Field htmlFor="fund-initial" label="Initial NAV" unit="USD">
           <input autoFocus className={cn(inputClass, 'pr-12')} disabled={busy} id="fund-initial" inputMode="decimal"
                  onChange={(e) => setInitial(e.target.value)} value={initial} />
         </Field>
-        <Field htmlFor="fund-inception" label="起始日">
-          <DatePicker disabled={busy} id="fund-inception" label="起始日" max={range.max} min={range.min}
+        <Field htmlFor="fund-inception" label="Inception Date">
+          <DatePicker disabled={busy} id="fund-inception" label="Inception Date" max={range.max} min={range.min}
                       onChange={setInception} value={inception} />
         </Field>
         <Field htmlFor="fund-cash" label="现金" unit="USD">

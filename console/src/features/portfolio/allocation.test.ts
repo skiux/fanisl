@@ -37,20 +37,36 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo')
 })
 
-function render(data = snapshot) {
+/** 压力测试在右栏的第二个标签里，多数用例直接切过去 */
+function render(data = snapshot, { stress = true } = {}) {
   act(() => root.render(createElement(RiskControlView, { snapshot: data })))
+  if (stress) act(() => host.querySelector<HTMLButtonElement>('#risk-tab-stress')?.click())
 }
 
 describe('敞口分布', () => {
-  it('持仓与压力测试并排，下方左右显示临界跌幅和现金缓冲', () => {
-    render()
+  it('上半左边持仓轮、右边「全部持仓 / 压力测试」两个标签，下半左右是临界跌幅和现金缓冲', () => {
+    render(snapshot, { stress: false })
     const upper = host.querySelector('[data-risk-main]')!
+    expect(upper.className).toContain('lg:grid-cols-2')
     expect([...upper.querySelectorAll('h2')].map((heading) => heading.textContent))
-      .toEqual(['持仓价值分布', '压力测试'])
+      .toEqual(['持仓价值分布'])
+    const tabs = [...upper.querySelectorAll('[role="tab"]')]
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['全部持仓', '压力测试'])
+    expect(tabs[0].getAttribute('aria-selected')).toBe('true')
+    expect(upper.querySelector('[aria-label="标的列表滚动区域"]')).not.toBeNull()
+    expect(upper.querySelector('[data-risk-stress-scroll]')).toBeNull()
+
+    act(() => (tabs[1] as HTMLButtonElement).click())
+    expect(upper.querySelector('[data-risk-stress-scroll]')).not.toBeNull()
+    // 列表只是藏起来，不卸载：切回来滚动位置和选中都还在
+    expect(upper.querySelector('#risk-panel-holdings')?.className).toContain('hidden')
+
     const lower = host.querySelector('[data-risk-support]')!
+    expect(lower.className).toContain('lg:grid-cols-2')
     expect([...lower.querySelectorAll('h2')].map((heading) => heading.textContent))
       .toEqual(['强平临界跌幅', '现金缓冲'])
-    expect(upper.querySelector('[aria-label="标的列表滚动区域"]')).not.toBeNull()
+    // 下半一行四格，压矮一点
+    expect([...lower.querySelectorAll('dl')].every((dl) => dl.className.includes('sm:grid-cols-4'))).toBe(true)
   })
 
   it('压力测试展示下跌后的仓位价值，并随仓位规模和跌幅更新', () => {

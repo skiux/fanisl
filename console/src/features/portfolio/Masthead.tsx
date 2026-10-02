@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { ArrowsClockwise, MoonStars, Sun } from '@phosphor-icons/react'
 import { AccountMenu } from '../../components/AccountMenu'
 import { BrandMark } from '../../components/BrandMark'
@@ -71,7 +71,9 @@ export function Masthead({
   const isAdmin = useIsAdmin()
 
   return (
-    <header className="vt-masthead rule-heavy px-5 pb-3.5 pt-4 sm:px-10 sm:pb-4 sm:pt-5">
+    // relative z-20：view-transition-name 让报头自成一个层叠上下文，不抬高的话，
+    // 状态灯的浮层会被后面的摘要条盖住（2026-10-03 实测只剩一层淡影）
+    <header className="vt-masthead rule-heavy relative z-20 px-5 pb-3.5 pt-4 sm:px-10 sm:pb-4 sm:pt-5">
       {/* 窄屏分两行：第一行是品牌与账号（各占一端），第二行才是导航与控件。
           原先三组东西挤在一个 flex-wrap 里，375px 下账号和主题被挤到下一行，
           落在哪儿全看内容长短——显示名一长就又是另一个样子。 */}
@@ -179,6 +181,13 @@ export function Masthead({
   )
 }
 
+/**
+ * 报头的时间与状态灯。灯的原因写在一个小浮层里：悬停、键盘聚焦、点一下都能看到。
+ *
+ * 第一版用的是 `title` 属性，用户说"鼠标悬停没有显示提示"（2026-10-03）：原生提示要停
+ * 将近一秒才出、只挂在 7px 的圆点上很难对准、触屏上根本没有，样子也是系统画的。
+ * 现在整组（时间 + 灯）都是触发区，浮层立即出现，贴右对齐不会伸出屏幕。
+ */
 function StatusClock({ asOf, sources, refreshError, syncing }: {
   asOf: string | null
   sources: SourceState[]
@@ -186,16 +195,40 @@ function StatusClock({ asOf, sources, refreshError, syncing }: {
   syncing: boolean
 }) {
   const status = dataStatus({ asOf, sources, refreshError, syncing })
+  const [pinned, setPinned] = useState(false)
+  const tipId = useId()
   return (
-    <span className="tnum flex items-center gap-2 text-xs text-ink-2">
-      <span>{clockTime(asOf)}<span className="text-ink-3"> ET</span></span>
+    <span className="group relative">
+      <button
+        aria-describedby={tipId}
+        className={cn('tnum flex items-center gap-2 rounded-[4px] text-xs text-ink-2 outline-none',
+          'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-accent')}
+        onBlur={() => setPinned(false)}
+        onClick={() => setPinned((on) => !on)}
+        type="button"
+      >
+        <span>{clockTime(asOf)}<span className="text-ink-3"> ET</span></span>
+        <span
+          aria-hidden="true"
+          className={cn('size-[7px] shrink-0 rounded-full transition-colors duration-500', LIGHT[status.level])}
+          data-level={status.level}
+        />
+      </button>
       <span
-        aria-label={status.text}
-        className={cn('size-[7px] shrink-0 rounded-full transition-colors duration-500', LIGHT[status.level])}
-        data-level={status.level}
-        role="img"
-        title={status.text}
-      />
+        className={cn(
+          'pointer-events-none absolute right-0 top-full z-40 mt-2 flex w-max max-w-[18rem] items-center gap-2',
+          'rounded-[var(--radius-control)] border border-rule bg-sheet px-3 py-2 text-xs text-ink-2',
+          'shadow-[var(--sheet-shadow)] transition-[opacity,transform] duration-150',
+          'translate-y-0.5 opacity-0 group-hover:translate-y-0 group-hover:opacity-100',
+          'group-focus-within:translate-y-0 group-focus-within:opacity-100',
+          pinned && 'translate-y-0 opacity-100',
+        )}
+        id={tipId}
+        role="tooltip"
+      >
+        <span aria-hidden="true" className={cn('size-[7px] shrink-0 rounded-full', LIGHT[status.level])} />
+        {status.text}
+      </span>
     </span>
   )
 }

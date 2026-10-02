@@ -64,8 +64,13 @@ describe('资产页「账户」', () => {
     render({ ...fund, members: fund.members.slice(1) }, false)
     const titles = [...host.querySelectorAll('h2')].map((h) => h.textContent)
     expect(titles).not.toContain('账户')
-    expect(titles).toContain('分配')
-    expect(host.textContent).toContain('Bob')
+    // 右栏标题就是这个人，不再写「分配」「可分配」；基数那几行用基金的英文说法
+    expect(titles).toContain('Bob')
+    expect(titles).not.toContain('分配')
+    expect(titles).not.toContain('可分配')
+    for (const label of ['Initial NAV', 'Current NAV', 'Gross P&L', 'Management Fee', 'Net P&L', 'Inception Date']) {
+      expect(host.textContent).toContain(label)
+    }
   })
 
   it('还没有参与者：管理员看到去「用户」的入口', () => {

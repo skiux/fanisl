@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { cn } from '../../lib/cn'
 import { Figure, Module, ViewGrid } from '../../components/layout'
-import { ExposureDistribution } from './ExposureDistribution'
+import { ExposureList, ExposureWheel, useExposure } from './ExposureDistribution'
 import { SegmentedControl } from '../../components/controls'
 import {
   money, percent, signedMoney, signedPercent,
@@ -22,6 +23,7 @@ const OPEN_LEVERAGES = [1, 2, 3, 5] as const
  */
 const SIZES = { now: null, '1': 1, '1.5': 1.5, '2': 2 } as const
 type SizeKey = keyof typeof SIZES
+type Panel = 'holdings' | 'stress'
 
 /**
  * 风险控制。合约页逐仓显示距强平，但它回答不了"所有仓位一起跌多少会出局"——
@@ -41,8 +43,10 @@ export function RiskControlView({ snapshot }: {
   snapshot: PortfolioSnapshot
 }) {
   const [drop, setDrop] = useState<keyof typeof DROPS>('30')
+  const [panel, setPanel] = useState<Panel>('holdings')
   const equity = snapshot.totals?.equity_usd ?? 0
   const rows = useMemo(() => exposures(snapshot, equity), [snapshot, equity])
+  const exposure = useExposure(rows)
   const cashRows = useMemo(() => cash(snapshot), [snapshot])
   // 现货钱包里的稳定币才是**随时能划进合约**的那部分：理财要赎回、
   // 合约里的那份本来就已经是保证金了
@@ -101,32 +105,79 @@ export function RiskControlView({ snapshot }: {
     )
   }
 
+  const tabs: { key: Panel; label: string }[] = [
+    { key: 'holdings', label: '全部持仓' }, { key: 'stress', label: '压力测试' },
+  ]
+
   return (
     <div className="space-y-7">
+      {/* 上半左右各一半，与下半「强平临界跌幅 / 现金缓冲」同一条中线（2026-10-03 用户画的）：
+          左边持仓轮，右边「全部持仓 / 压力测试」两个标签，同合约页的「账户 / 委托」。
+          右栏的高度跟着左边的轮走，内容多了在栏里滚，不把这一行撑高 */}
       <div
-        className="grid min-w-0 gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"
+        className="grid min-w-0 gap-x-12 gap-y-8 lg:grid-cols-2"
         data-risk-main
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') { event.preventDefault(); exposure.select(null) }
+        }}
       >
-        <Module
-          figure={`${rows.length} 个持仓`}
-          span=""
-          title="持仓价值分布"
-        >
+        <Module span="" title="持仓价值分布">
           {rows.length === 0 ? (
             <p className="py-10 text-center text-sm text-ink-3">当前没有持仓。</p>
           ) : (
-            <ExposureDistribution rows={rows} />
+            <ExposureWheel model={exposure} />
           )}
         </Module>
 
-        <Module span="" title="压力测试" tone={hit.liquidated.length > 0 ? 'loss' : undefined}>
-          <div
-            aria-label="压力测试数据"
-            className="scroll-y min-w-0 xl:max-h-[min(62dvh,560px)] xl:overflow-y-auto xl:pr-1"
-            data-risk-stress-scroll
-            role="region"
-            tabIndex={0}
-          >
+        <section aria-label="全部持仓与压力测试" className="flex min-w-0 flex-col">
+          <div className="flex items-end justify-between gap-3 border-b border-rule">
+            <div aria-label="风险内容" className="flex gap-6" role="tablist">
+              {tabs.map(({ key, label }) => (
+                <button
+                  aria-controls={`risk-panel-${key}`}
+                  aria-selected={panel === key}
+                  className={cn('relative pb-2.5 text-sm leading-6 transition-colors duration-200',
+                    panel === key ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}
+                  id={`risk-tab-${key}`}
+                  key={key}
+                  onClick={() => setPanel(key)}
+                  role="tab"
+                  type="button"
+                >
+                  {label}
+                  {panel === key && <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-ink" />}
+                </button>
+              ))}
+            </div>
+            <span className={cn('tnum pb-2.5 text-xs',
+              panel === 'stress' && hit.liquidated.length > 0 ? 'text-loss' : 'text-ink-3')}>
+              {panel === 'holdings' ? `${rows.length} 个`
+                : hit.liquidated.length > 0 ? `${hit.liquidated.length} 个触及强平` : `跌 ${drop}%`}
+            </span>
+          </div>
+          <div className="relative min-h-0 flex-1">
+            <div className="flex flex-col pt-3 lg:absolute lg:inset-0">
+              {/* 列表不卸载，只藏起来：切到压力测试再切回来，滚动位置和选中都还在 */}
+              <div
+                aria-labelledby="risk-tab-holdings"
+                className={cn('flex min-h-0 flex-1 flex-col', panel !== 'holdings' && 'hidden')}
+                id="risk-panel-holdings"
+                role="tabpanel"
+              >
+                {rows.length === 0
+                  ? <p className="py-10 text-center text-sm text-ink-3">当前没有持仓。</p>
+                  : <ExposureList className="flex-1" heading={false} model={exposure} />}
+              </div>
+              {panel === 'stress' && (
+                <div
+                  aria-label="压力测试数据"
+                  aria-labelledby="risk-tab-stress"
+                  className="scroll-y min-h-0 min-w-0 flex-1 lg:overflow-y-auto lg:pr-1"
+                  data-risk-stress-scroll
+                  id="risk-panel-stress"
+                  role="tabpanel"
+                  tabIndex={0}
+                >
             <div className="mb-5">
               <div className="mb-2.5 flex items-baseline justify-between gap-4">
                 <span className="text-xs text-ink-2">合约总价值</span>
@@ -271,8 +322,11 @@ export function RiskControlView({ snapshot }: {
                 ))}
               </ul>
             )}
+                </div>
+              )}
+            </div>
           </div>
-        </Module>
+        </section>
       </div>
 
       <div className="grid min-w-0 gap-x-12 gap-y-7 lg:grid-cols-2" data-risk-support>
@@ -282,7 +336,8 @@ export function RiskControlView({ snapshot }: {
           title="强平临界跌幅"
           tone={edge === null ? 'muted' : edge < 0.15 ? 'loss' : undefined}
         >
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+          {/* 一行四格（窄屏两行）：下半压矮一点，上半多露出几行持仓 */}
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
             <Figure label="未补现金" value={edge === null ? '＞99.5%' : percent(edge, 1)} />
             <Figure
               label="补入现货现金后"
@@ -310,7 +365,7 @@ export function RiskControlView({ snapshot }: {
           {cashRows.length === 0 ? (
             <p className="text-sm text-ink-3">账户里没有稳定币。</p>
           ) : (
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
               <Figure label="现货 · 可直接划转" value={money(spare)} />
               <Figure label="理财 · 需赎回" value={money(parked)} />
               <Figure label="已作保证金" value={money(asMargin)} />

@@ -206,7 +206,8 @@ function AllocationModule({ account, model }: { account: Account; model: Account
   const { member, allocation } = account
   const initial = model.terms?.initialNav ?? null
   return (
-    <Module figure={member.display_name} span="" title="分配">
+    // 标题就是这个人：原先写「分配」、名字放在右边，用户嫌多余（2026-10-03）
+    <Module span="" title={member.display_name}>
       <dl className="divide-y divide-rule/70 border-b border-rule/70">
         <Row
           label="Invested Capital"
@@ -223,25 +224,29 @@ function AllocationModule({ account, model }: { account: Account; model: Account
   )
 }
 
-/** 分配的基数：真实净值相对初始净值的盈亏，先扣管理费，剩下的才按比例分 */
+/**
+ * 分配的基数：真实净值相对初始净值的盈亏，先扣管理费，剩下的才按比例分。
+ * 不带标题（原先叫「可分配」），行名用基金的英文说法，最后一行 Net P&L 就是可分配的那个数。
+ */
 function BaseModule({ model }: { model: AccountsModel }) {
   const { terms, state } = model
   return (
-    <Module figure={signedMoney(state?.distributable)} span="" title="可分配" tone={tone(state?.distributable)}>
-      <dl className="divide-y divide-rule/70 border-b border-rule/70">
-        <Row label="初始净值" signed={false} value={terms?.initialNav} />
-        <Row label="真实净值" signed={false} value={state ? terms!.initialNav + state.pnl : null} />
-        <Row label="盈亏" value={state?.pnl} />
-        <Row label="管理费" rate={terms ? ratio(terms.feeRate) : undefined}
-             value={state ? -state.fees : null} />
+    <section aria-label="Net P&L" className="min-w-0">
+      <dl className="divide-y divide-rule/70 border-y border-rule/70">
         <div className="flex items-baseline justify-between gap-4 py-2.5">
-          <dt className="text-xs text-ink-3">起始日</dt>
+          <dt className="text-xs text-ink-3">Inception Date</dt>
           <dd className="tnum text-sm text-ink">
             {terms ? `${terms.inception} · ${Math.floor(state?.days ?? 0)} 天` : '—'}
           </dd>
         </div>
+        <Row label="Initial NAV" signed={false} value={terms?.initialNav} />
+        <Row label="Current NAV" signed={false} value={state ? terms!.initialNav + state.pnl : null} />
+        <Row label="Gross P&L" value={state?.pnl} />
+        <Row label="Management Fee" rate={terms ? ratio(terms.feeRate) : undefined}
+             value={state ? -state.fees : null} />
+        <Row label="Net P&L" strong value={state?.distributable} />
       </dl>
-    </Module>
+    </section>
   )
 }
 

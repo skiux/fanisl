@@ -176,12 +176,13 @@ describe('资产页模块分布', () => {
       .every((label) => label.textContent?.includes('+ '))).toBe(true)
   })
 
-  it('风险控制只在分布标题处显示一次持仓数量', () => {
+  it('风险控制的持仓数量只在「全部持仓」标签那一行显示一次', () => {
     const snapshot = buildSnapshot(new Date('2026-09-26T12:00:00Z'))
     act(() => root.render(createElement(RiskControlView, { snapshot })))
 
-    const section = [...host.querySelectorAll('h2')]
-      .find((heading) => heading.textContent === '持仓价值分布')!.closest('section')!
-    expect(section.textContent?.match(/12 个持仓/g)).toHaveLength(1)
+    // 2026-10-03 用户在图上划掉了分布标题旁的「12 个持仓」，换成右栏的两个标签
+    expect(host.textContent?.match(/12 个持仓/g)).toBeNull()
+    const panel = host.querySelector('[aria-label="全部持仓与压力测试"]')!
+    expect(panel.textContent?.match(/12 个/g)).toHaveLength(1)
   })
 })

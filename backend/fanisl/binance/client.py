@@ -391,8 +391,20 @@ class BinanceClient:
     def algo_open_orders(self) -> Any:
         """策略单（TWAP/VP）。多数账户是空的，但空与"没查"是两回事——
         不查就等于悄悄漏掉一类挂单。
+
+        **这个 key 没有策略单权限时记 `unsupported`，不记 `unauthorized`。** 生产上它从
+        2026-09-01 起一直回 -1002（You are not authorized），而同一个 key 别的接口都正常：
+        是这一类接口没开，不是凭据坏了。记成 unauthorized 的话合约页「委托」常年挂着
+        一个点了也不会好的「重试」（2026-10-03 用户问"是哪里出了问题"）。
         """
-        return self.signed_get(SPOT_BASE, "/sapi/v1/algo/futures/openOrders")
+        try:
+            return self.signed_get(SPOT_BASE, "/sapi/v1/algo/futures/openOrders")
+        except BinanceError as error:
+            if error.code == -1002:
+                raise BinanceError(
+                    "unsupported", "API key 没有策略单（TWAP / VP）的读取权限",
+                    status=error.status, code=error.code) from error
+            raise
 
     def spot_all_orders(self, symbol: str, *, start_ms: int, end_ms: int,
                         limit: int = 500) -> Any:

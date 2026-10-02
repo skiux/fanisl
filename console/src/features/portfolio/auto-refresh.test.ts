@@ -95,7 +95,8 @@ describe('资产页自动刷新', () => {
     expect(host.textContent).not.toContain('已过期')
     const light = host.querySelector('[data-level]')!
     expect(light.getAttribute('data-level')).toBe('warn')
-    expect(light.getAttribute('title')).toContain('上游暂时不可用')
+    // 原因写在浮层里（悬停、聚焦、点一下都能看到），不是原生 title
+    expect(host.querySelector('[role="tooltip"]')?.textContent).toContain('上游暂时不可用')
   })
 
   it('数据停在 20 分钟以前、又没有在更新：灯是红的', async () => {

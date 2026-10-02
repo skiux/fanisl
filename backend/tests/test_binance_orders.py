@@ -138,6 +138,29 @@ def test_algo_orders_are_not_silently_dropped(cache):
     assert order["orig_qty"] == 10 and order["executed_qty"] == 2
 
 
+def test_algo_permission_missing_is_not_a_retryable_failure(cache):
+    """生产上这个 key 读策略单一直回 -1002，同一个 key 别的接口都正常：是没开这一类权限，
+    不是凭据坏了。记成 unauthorized 的话合约页「委托」常年挂着一个点了也不会好的「重试」。"""
+    base = make_transport()
+
+    def handler(request):
+        if request.url.path == "/sapi/v1/algo/futures/openOrders":
+            return httpx.Response(401, json={
+                "code": -1002, "msg": "You are not authorized to execute this request."})
+        return base.handle_request(request)
+
+    client = BinanceClient("k", "s", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    try:
+        snap = build_orders(client, cache, force=True, now=NOW)
+    finally:
+        client.close()
+    algo = next(s for s in snap["sources"] if s["key"] == "algo_open")
+    assert algo["status"] == "unsupported"
+    assert "策略单" in algo["detail"]
+    # 其余挂单照常
+    assert next(s for s in snap["sources"] if s["key"] == "futures_open")["status"] == "ok"
+
+
 def test_current_futures_conditional_orders_are_not_silently_dropped(cache):
     """2025-12 起 TP/SL/追踪止损迁到 Algo Service，普通 openOrders 已不完整。"""
     orders = by_id(build(cache))
