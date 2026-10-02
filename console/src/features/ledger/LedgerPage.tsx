@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchLedger, readScenario, writeScenario, type Scenario } from '../../api/client'
 import { PortfolioError, type LedgerSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
+import { BottomNavigation } from '../../components/BottomNavigation'
 import { freshnessOf, relativeTime } from '../../lib/format'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { Masthead } from '../portfolio/Masthead'
@@ -80,6 +81,7 @@ export function LedgerPage() {
         />
         <Body days={days} filter={filter} onRetry={retry} onSelectDays={setDays}
               onSelectFilter={selectFilter} phase={phase} />
+        <BottomNavigation current="ledger" />
       </div>
     </div>
   )
@@ -140,7 +142,7 @@ function Body({ phase, filter, onSelectFilter, onRetry, days, onSelectDays }: {
         }
       />
 
-      <div className="scroll-y min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8" key={filter}>
+      <div className="scroll-y min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8 lg:pb-28" key={filter}>
         <div className="rise">
           {snapshot.entries.length === 0 && allOk
             ? <EmptyLedgerState days={snapshot.window.days} />

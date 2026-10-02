@@ -5,6 +5,7 @@ import {
 } from '../../api/client'
 import { PortfolioError, type PortfolioSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
+import { BottomNavigation } from '../../components/BottomNavigation'
 import { freshnessOf, relativeTime } from '../../lib/format'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { Masthead } from './Masthead'
@@ -118,7 +119,12 @@ export function StatementPage() {
           page="assets"
           refreshing={refreshing}
           sources={snapshot?.sources ?? []}
-          title="资产报表"
+          title={<>
+            <span className="lg:hidden">资产报表</span>
+            <span className="hidden lg:inline">{{
+              overview: '资产报表', holdings: '持仓', perp: '合约', risk: '风险控制',
+            }[view]}</span>
+          </>}
         />
         <Body
           onRetry={retry}
@@ -128,6 +134,7 @@ export function StatementPage() {
           phase={phase}
           view={view}
         />
+        <BottomNavigation current={view} />
       </div>
     </div>
   )
@@ -220,13 +227,15 @@ function Loaded({ phase, view, onSelectView, onRetry, onSaveStockCost, onSaveSpo
         </div>
       )}
 
-      <SummaryStrip onOpenDetail={setDetail} snapshot={snapshot} veiled={veiled} />
+      <SummaryStrip onOpenDetail={setDetail} snapshot={snapshot} veiled={veiled} view={view} />
       <PnlDetail onClose={() => setDetail(null)} pnl={snapshot.pnl} topic={detail} />
 
-      <SectionTabs current={view} items={buildTabs(futuresMissing)} onSelect={onSelectView} />
+      <div className="lg:hidden">
+        <SectionTabs current={view} items={buildTabs(futuresMissing)} onSelect={onSelectView} />
+      </div>
 
       {/* 明细区拿回整幅宽度；区域内部滚动，切换分节时页面高度不变 */}
-      <div className="scroll-y min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8" key={view}>
+      <div className="scroll-y min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8 lg:pb-28" key={view}>
         <div className="rise">
           {view === 'overview' && <OverviewView snapshot={snapshot} veiled={veiled} />}
           {view === 'holdings' && (

@@ -12,8 +12,12 @@ export const PAGES: { key: PageKey; label: string; enabled: boolean }[] = [
 
 const EXTRA_TITLES: Partial<Record<PageKey, string>> = { account: '账号', admin: '用户管理' }
 
-export function titleOf(page: PageKey) {
-  const label = EXTRA_TITLES[page]
+export function titleOf(page: PageKey, section: string | null = null) {
+  const assetTitle: Record<string, string> = {
+    holdings: '持仓', perp: '合约', risk: '风险',
+  }
+  const label = (page === 'assets' && section ? assetTitle[section] : null)
+    ?? EXTRA_TITLES[page]
     ?? PAGES.find((item) => item.key === page)?.label
     ?? '资产'
   return `${label} · FANISL CONSOLE`

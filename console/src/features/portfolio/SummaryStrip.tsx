@@ -1,8 +1,12 @@
+import { useEffect, useState } from 'react'
 import { Strip, type StripCell } from '../../components/Strip'
 import { money, percent, signedMoney } from '../../lib/format'
+import { exposures, spotHoldings } from '../../lib/holdings'
 import { marginRatioRisk } from '../../lib/risk'
+import { breakingDrop, positionSize } from '../../lib/stress'
 import type { PortfolioSnapshot } from '../../api/types'
 import type { PnlTopic } from './PnlDetail'
+import type { ViewKey } from './StatementPage'
 
 /**
  * 常驻摘要条。版式与另外两页共用 `<Strip>`——三页应当像同一份文件的三章。
@@ -12,16 +16,106 @@ import type { PnlTopic } from './PnlDetail'
  * 撑高了整条又把这一格弄得和邻居不齐；而"安全"说的是 12% 已经说过的事。
  * 需要提醒的时候改用颜色——同一个数字自己变色，不多占一行。
  */
-export function SummaryStrip({ snapshot, veiled, onOpenDetail }: {
+export function SummaryStrip({ snapshot, veiled, onOpenDetail, view }: {
   snapshot: PortfolioSnapshot
   veiled: boolean
   onOpenDetail: (topic: PnlTopic) => void
+  view: ViewKey
 }) {
+  // 手机仍用原有摘要；桌面主导航按页面切换报头口径。
+  const [desktop, setDesktop] = useState(() =>
+    typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1024px)').matches)
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+    const query = window.matchMedia('(min-width: 1024px)')
+    const update = () => setDesktop(query.matches)
+    query.addEventListener('change', update)
+    update()
+    return () => query.removeEventListener('change', update)
+  }, [])
+
+  const { hero, cells } = summaryForView(snapshot, desktop ? view : 'overview', onOpenDetail)
+  return <Strip cells={cells} hero={hero} veiled={veiled} />
+}
+
+/** 各页只报本页数据；资金流水使用自己的 LedgerStrip。 */
+export function summaryForView(snapshot: PortfolioSnapshot, view: ViewKey,
+                               onOpenDetail: (topic: PnlTopic) => void): {
+  hero: StripCell; cells: StripCell[]
+} {
   const totals = snapshot.totals
   const pnl = snapshot.pnl
   const ratio = snapshot.futures?.margin_ratio ?? null
   const today = pnl?.today.total_usd ?? null
   const futUnreal = pnl?.unrealized.futures_usd ?? null
+
+  const marginTone = ratio === null ? 'muted' as const
+    : marginRatioRisk(ratio).tone === 'gain' ? undefined : marginRatioRisk(ratio).tone
+  const marginCell: StripCell = {
+    label: '合约保证金率', value: ratio === null ? '—' : percent(ratio, 1), tone: marginTone,
+  }
+
+  if (view === 'holdings') {
+    // 股票钱包行也在 spotHoldings 中；股票单列后要按 asset_code 去重。
+    const stockAssets = new Set([...snapshot.stocks.equity_holdings, ...snapshot.stocks.tokenized_assets]
+      .map((row) => row.asset_code))
+    const cryptoRows = spotHoldings(snapshot).filter((row) => !stockAssets.has(row.asset))
+    const stockRows = [...snapshot.stocks.equity_holdings, ...snapshot.stocks.tokenized_assets]
+    const allRows = [...cryptoRows, ...stockRows]
+    const unavailableSource = snapshot.sources.some((source) =>
+      ['spot', 'futures', 'margin', 'stocks', 'prices'].includes(source.key)
+      && source.status !== 'ok' && source.status !== 'unsupported')
+    const cryptoValue = cryptoRows.length > 0 && cryptoRows.every((row) => row.value_usd === null)
+      ? null : cryptoRows.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
+    const stockValue = stockRows.length > 0 && stockRows.every((row) => row.value_usd === null)
+      ? null : stockRows.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
+    const knownRows = allRows.filter((row) => row.value_usd !== null)
+    const value = knownRows.length > 0
+      ? knownRows.reduce((sum, row) => sum + row.value_usd!, 0)
+      : allRows.length === 0 && !unavailableSource ? 0 : null
+    const incomplete = unavailableSource || knownRows.length !== allRows.length
+    return {
+      hero: { label: incomplete ? '已估值持仓' : '持仓价值', value: value === null ? '—' : money(value) },
+      cells: [
+        { label: '现货', value: cryptoValue === null ? '—' : money(cryptoValue) },
+        { label: '股票', value: stockValue === null ? '—' : money(stockValue) },
+        { label: '占账户净值', value: value === null || !totals || totals.equity_usd <= 0
+          ? '—' : percent(value / totals.equity_usd, 1) },
+      ],
+    }
+  }
+
+  if (view === 'perp') {
+    const f = snapshot.futures
+    const size = positionSize(snapshot)
+    const unreal = f?.total_unrealized_pnl ?? null
+    const leverage = f && size !== null && f.total_margin_balance > 0
+      ? size / f.total_margin_balance : null
+    return {
+      hero: { label: '仓位价值', value: size === null ? '—' : money(size) },
+      cells: [
+        { label: '未实现盈亏', value: unreal === null ? '—' : signedMoney(unreal),
+          tone: unreal === null ? 'muted' : unreal >= 0 ? 'gain' : 'loss' },
+        { label: '保证金余额', value: f ? money(f.total_margin_balance) : '—' },
+        { label: '真实杠杆', value: leverage === null ? '—' : `${leverage.toFixed(2)}×` },
+      ],
+    }
+  }
+
+  if (view === 'risk') {
+    const edge = breakingDrop(snapshot)
+    const largest = totals && totals.equity_usd > 0
+      ? exposures(snapshot, totals.equity_usd)[0]?.share ?? null : null
+    const leverage = totals?.gross_exposure_ratio ?? null
+    return {
+      hero: marginCell,
+      cells: [
+        { label: '临界跌幅', value: edge === null ? '—' : percent(edge, 1) },
+        { label: '最大净持仓 / 净值', value: largest === null ? '—' : percent(largest, 1) },
+        { label: '合约价值 / 净值', value: leverage === null ? '—' : `${leverage.toFixed(2)}×` },
+      ],
+    }
+  }
 
   const cells: StripCell[] = [
     {
@@ -41,22 +135,8 @@ export function SummaryStrip({ snapshot, veiled, onOpenDetail }: {
       value: futUnreal == null ? '—' : signedMoney(futUnreal),
       tone: futUnreal == null ? 'muted' : futUnreal >= 0 ? 'gain' : 'loss',
     },
-    {
-      label: '合约保证金率',
-      value: ratio === null ? '—' : percent(ratio, 1),
-      // 数字自己说安不安全。阈值与风险仪表同源（`lib/risk`）——两处各判一套的话，
-      // 摘要条还是黑的，仪表已经写着"偏紧"。安全区不上色：一排读数里
-      // 三个都染绿，绿色就不再是"赚了"的意思了。
-      tone: ratio === null ? 'muted'
-        : marginRatioRisk(ratio).tone === 'gain' ? undefined : marginRatioRisk(ratio).tone,
-    },
+    marginCell,
   ]
 
-  return (
-    <Strip
-      cells={cells}
-      hero={{ label: '净值', value: totals ? money(totals.equity_usd) : '—' }}
-      veiled={veiled}
-    />
-  )
+  return { hero: { label: '净值', value: totals ? money(totals.equity_usd) : '—' }, cells }
 }

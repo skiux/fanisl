@@ -9,9 +9,10 @@ import { OrdersPage } from './features/orders/OrdersPage'
 import { StatementPage } from './features/portfolio/StatementPage'
 
 export default function App() {
-  const [page, setPage] = useState(() => readRoute().page)
+  const [route, setRoute] = useState(readRoute)
+  const { page } = route
   const session = useSyncExternalStore(subscribe, getSession)
-  useEffect(() => onRouteChange(() => setPage(readRoute().page)), [])
+  useEffect(() => onRouteChange(() => setRoute(readRoute())), [])
 
   // 成员进不了用户管理。后端本来就会 403，但让成员先看见一个"用户管理"的
   // 标题再看见一屏错误，是把权限问题讲成了故障——直接退回资产页。
@@ -21,11 +22,11 @@ export default function App() {
   useEffect(() => {
     if (!denied) return
     window.history.replaceState(null, '', hrefOf('assets'))
-    setPage('assets')
+    setRoute({ page: 'assets', section: null })
   }, [denied])
 
   // 浏览器标签页得跟着换，不然停在"资产"上，多开几个标签就分不清了
-  useEffect(() => { document.title = titleOf(page) }, [page])
+  useEffect(() => { document.title = titleOf(page, route.section) }, [page, route.section])
 
   // 换页要整块重建：三页各自持有自己的取数与分节状态，复用同一棵树只会串味
   const view = denied ? null

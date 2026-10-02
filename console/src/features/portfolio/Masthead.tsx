@@ -52,7 +52,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
   refreshing: boolean
   controls?: ReactNode
   page: PageKey
-  title: string
+  title: ReactNode
 }) {
   const isAdmin = useIsAdmin()
 
@@ -94,6 +94,8 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
                 className={cn(
                   'whitespace-nowrap text-xs transition-colors duration-200',
                   current ? 'text-ink' : 'text-ink-3 hover:text-ink-2',
+                  (item.key === 'assets' || item.key === 'ledger')
+                    && page !== 'account' && page !== 'admin' && 'lg:hidden',
                 )}
                 href={hrefOf(item.key)}
                 key={item.key}

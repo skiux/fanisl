@@ -33,5 +33,7 @@ describe('路由', () => {
     expect(titleOf('admin')).toBe('用户管理 · FANISL CONSOLE')
     expect(titleOf('account')).toBe('账号 · FANISL CONSOLE')
     expect(titleOf('ledger')).toBe('流水 · FANISL CONSOLE')
+    expect(titleOf('assets', 'perp')).toBe('合约 · FANISL CONSOLE')
+    expect(titleOf('assets', 'risk')).toBe('风险 · FANISL CONSOLE')
   })
 })
