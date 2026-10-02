@@ -258,4 +258,4 @@ def build_router(store: UserStore, settings: Settings) -> APIRouter:
 def _public(row: dict) -> dict:
     """对外只给这几个字段——避免将来给 users 表加字段时把散列顺手漏出去。"""
     return {k: row[k] for k in ("id", "username", "role", "display_name", "is_active",
-                                "created_at", "updated_at", "last_login_at") if k in row}
+                                "created_at", "updated_at", "last_login_at", "last_seen_at") if k in row}

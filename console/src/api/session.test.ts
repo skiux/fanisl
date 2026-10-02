@@ -5,6 +5,7 @@ import { getSession, login, logout, markAnonymous, refreshSession, subscribe } f
 const USER = {
   id: 1, username: 'alice', role: 'admin' as const, display_name: '爱丽丝',
   is_active: true, created_at: null, updated_at: null, last_login_at: null,
+  last_seen_at: null,
 }
 
 function json(body: unknown, status = 200) {

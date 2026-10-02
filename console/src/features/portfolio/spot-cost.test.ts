@@ -27,7 +27,7 @@ afterEach(() => {
 async function setRole(role: 'admin' | 'member') {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ user: {
     id: 1, username: role, role, display_name: role, is_active: true,
-    created_at: null, updated_at: null, last_login_at: null,
+    created_at: null, updated_at: null, last_login_at: null, last_seen_at: null,
   } }), { status: 200, headers: { 'content-type': 'application/json' } })))
   await act(async () => { await refreshSession() })
 }

@@ -5,7 +5,7 @@
 httpx 在 http 下根本不会存它，用 http 测等于把生产配置绕过去了。
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
 from fastapi import FastAPI, Request
@@ -298,6 +298,32 @@ def test_admin_creates_lists_and_deletes_users(client, admin):
 
     assert client.delete(f"/admin/users/{created['id']}").status_code == 200
     assert [u["username"] for u in client.get("/admin/users").json()] == ["root"]
+
+
+def test_recent_online_tracks_activity_and_remains_after_logout(client, app, auth_store,
+                                                               admin, member):
+    login(client, "root", ADMIN_PW)
+    with TestClient(app, base_url="https://testserver") as bob:
+        login(bob, "bob", MEMBER_PW)
+        rows = {u["username"]: u for u in client.get("/admin/users").json()}
+        assert rows["bob"]["last_seen_at"] is not None
+        assert rows["bob"]["last_login_at"] is not None
+
+        with auth_store.pool.connection() as conn:
+            conn.execute("UPDATE sessions SET last_seen_at = now() - interval '6 minutes' "
+                         "WHERE user_id = %s", (member["id"],))
+            conn.execute("UPDATE users SET last_seen_at = now() - interval '6 minutes' "
+                         "WHERE id = %s", (member["id"],))
+        before = auth_store.get(member["id"])["last_seen_at"]
+        assert bob.get("/protected").status_code == 200
+        after = auth_store.get(member["id"])["last_seen_at"]
+        assert after > before
+
+        assert bob.post("/auth/logout").status_code == 200
+        row = next(u for u in client.get("/admin/users").json()
+                   if u["username"] == "bob")
+        assert datetime.fromisoformat(row["last_seen_at"]) == after
+        assert row["last_login_at"] == rows["bob"]["last_login_at"]
 
 
 def test_admin_cannot_create_duplicate_username(client, admin, member):

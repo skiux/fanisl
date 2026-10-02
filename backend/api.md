@@ -57,8 +57,9 @@ Body `{"username": str, "password": str}` → `{"user": {...}}`，并在响应�
 销毁会话并清 cookie。幂等：没有会话时也返回 `{"ok": true}`。
 
 ### GET /auth/me
-`{"user": {id, username, role, display_name, is_active, created_at, updated_at, last_login_at}}`。
+`{"user": {id, username, role, display_name, is_active, created_at, updated_at, last_login_at, last_seen_at}}`。
 `role` 是 `"admin" | "member"`。**前端启动时先打这一条**：200 就进主界面，401 就跳登录页。
+`last_login_at` 是最近成功登录，`last_seen_at` 是最近已认证访问；两者可能为 `null`。
 
 ### POST /auth/password
 `{"current_password": str, "new_password": str}`。当前口令不对 → 401；新口令太短 → 400。
@@ -73,7 +74,7 @@ Body `{"username": str, "password": str}` → `{"user": {...}}`，并在响应�
 
 | 方法 | 路径 | Body | 说明 |
 |---|---|---|---|
-| GET | `/admin/users` | — | 用户列表 |
+| GET | `/admin/users` | — | 用户列表，含 `last_login_at` 和 `last_seen_at` |
 | POST | `/admin/users` | `{username, password, role?, display_name?}` | 201；用户名重复 409；用户名只允许字母数字下划线连字符，口令 <10 位 400 |
 | PATCH | `/admin/users/{id}` | `{role?, is_active?, display_name?}` | 改角色或停用会踢掉该用户全部会话 |
 | POST | `/admin/users/{id}/password` | `{new_password}` | 重置，该用户全部会话作废 |

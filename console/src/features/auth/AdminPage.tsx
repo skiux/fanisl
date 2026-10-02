@@ -104,8 +104,7 @@ export function AdminPage() {
   )
 }
 
-// 窄屏收掉"最近登录"，但角色必须留着：改角色的按钮就在同一行，
-// 看不见现在是什么角色就没法判断该不该按。
+// 两个时间共用一列，避免把操作列挤窄；窄屏放到角色下方。
 const ROW = 'grid grid-cols-[minmax(0,1fr)] items-start gap-x-4 gap-y-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_236px] sm:items-center'
 
 function UserTable({ users, failed, meId, busy, onAct }: {
@@ -124,7 +123,7 @@ function UserTable({ users, failed, meId, busy, onAct }: {
       <div className={cn(ROW, 'hidden border-b border-rule pb-2 text-micro text-ink-3 sm:grid')}>
         <span>用户</span>
         <span>角色</span>
-        <span>最近登录</span>
+        <span>最近活动</span>
         <span className="text-right">操作</span>
       </div>
       <ul className="divide-y divide-rule">
@@ -151,13 +150,15 @@ function UserTable({ users, failed, meId, busy, onAct }: {
 
             <div className="text-xs text-ink-2">
               {ROLE_LABEL[user.role]}
-              <span className="tnum text-ink-3 sm:hidden">
-                {' · '}{user.last_login_at ? relativeTime(user.last_login_at) : '从未登录'}
-              </span>
+              <div className="tnum mt-1 space-y-0.5 text-micro text-ink-3 sm:hidden">
+                <div>登录 {user.last_login_at ? relativeTime(user.last_login_at) : '从未登录'}</div>
+                {user.last_seen_at && <div>在线 {relativeTime(user.last_seen_at)}</div>}
+              </div>
             </div>
 
-            <div className="tnum hidden truncate text-xs text-ink-3 sm:block">
-              {user.last_login_at ? relativeTime(user.last_login_at) : '从未登录'}
+            <div className="tnum hidden min-w-0 space-y-0.5 text-xs text-ink-3 sm:block">
+              <div className="truncate">登录 {user.last_login_at ? relativeTime(user.last_login_at) : '从未登录'}</div>
+              {user.last_seen_at && <div className="truncate">在线 {relativeTime(user.last_seen_at)}</div>}
             </div>
 
             <RowActions busy={busy} isMe={user.id === meId} onAct={onAct} user={user} />

@@ -21,6 +21,7 @@ export type User = {
   created_at: string | null
   updated_at: string | null
   last_login_at: string | null
+  last_seen_at: string | null
 }
 
 export type SessionState =

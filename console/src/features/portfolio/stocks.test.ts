@@ -228,7 +228,7 @@ describe('持仓页的股票', () => {
     }
     const json = (role: 'admin' | 'member') => new Response(JSON.stringify({ user: {
       id: 1, username: role, role, display_name: role, is_active: true,
-      created_at: null, updated_at: null, last_login_at: null,
+      created_at: null, updated_at: null, last_login_at: null, last_seen_at: null,
     } }), { status: 200, headers: { 'content-type': 'application/json' } })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json('member')))
     await act(async () => { await refreshSession() })

@@ -39,6 +39,7 @@ DISABLED_USER = {
     "created_at": None,
     "updated_at": None,
     "last_login_at": None,
+    "last_seen_at": None,
 }
 
 # 未登录也必须可达的路径。清单**只有三条**，加之前先想清楚为什么。
