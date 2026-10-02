@@ -200,6 +200,7 @@ IP 权重上限 **6000/分钟**。而：
 | 市价单的 `price` 是 `"0"` | 那不是"价格为零" |
 | 提现的 `applyTime` 是**字符串** `"2026-08-25 10:00:00"` | 当毫秒解析得到 1970 年，整段提现排到时间线最底下 |
 | 杠杆利息字段官方拼错成 `interestAccuredTime`（少个 c） | 照正确拼写取不到 |
+| 杠杆利息**按小时计**（`PERIODIC`），借一个币一天就是 24 条；`interestHistory` 单页最多 100 条、单次跨度最多 30 天 | `client.margin_interest_history` 按 ≤30 天切窗、每窗逐页取完；取不全整体失败。原先只问一页：资产页按 90 天问（超出跨度），流水页 7 天也超过一页，只剩最近两三天有利息（2026-10-03 修） |
 | 闪兑返回 `list`、小额兑换返回 `userAssetDribblets`、其余是 `rows` | 三种壳 |
 | `income` 里的 `TRANSFER` 不是损益 | 混进去净值仍对得上、盈亏全错 |
 | 策略单端点在 **sapi** 上，不在 fapi | fapi 451 时它照常可取——不是矛盾，是两个域名 |
@@ -527,7 +528,7 @@ BNB 抵扣、合约结在 USDT。**合并之后必然跨币种**，不换算就�
 | | `GET /sapi/v1/capital/withdraw/history` | **18000** | 900s | UID 限速 10 次/秒，最贵的一个 |
 | `trades.*` | `GET /api/v3/myTrades` | 20 / 交易对 | 6h | `fromId` 翻页，**无时间上限** |
 | `close.*` | `GET /api/v3/klines` | 2 / 交易对 | 900s | 日线收盘，不签名；`limit=WINDOW_DAYS+2` |
-| `flows.interest` | `GET /sapi/v1/margin/interestHistory` | 1 | 1800s | 杠杆利息 |
+| `flows.interest` | `GET /sapi/v1/margin/interestHistory` | 1 × 段数 × 页数 | 1800s | 杠杆利息；按 ≤30 天切窗、逐页取完 |
 | `flows.convert` | `GET /sapi/v1/convert/tradeFlow` | **3000** | 1800s | **只回 30 天** |
 | `flows.dust` | `GET /sapi/v1/asset/dribblet` | 1 | 1800s | **只回 30 天** |
 | `flows.equity_trades` | `GET /sapi/v1/equity/trade/history` | 1 | 1800s | 正股成交，用来回滚股数 |

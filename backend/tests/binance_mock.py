@@ -626,7 +626,23 @@ _BY_SYMBOL = {
 
 
 def windowed(request: httpx.Request, response: httpx.Response) -> httpx.Response:
-    return response
+    """替换进来的分页记录也照真接口按请求的时间窗过滤、按页切。
+
+    客户端会把长窗口切段再逐页取；替身不按窗口回的话，每一段都拿到同一批行，
+    合起来就被算成好几倍。目前用在杠杆利息（时间字段 interestAccuredTime）。
+    """
+    params = dict(request.url.params)
+    if "startTime" not in params or response.status_code != 200:
+        return response
+    body = response.json()
+    if not isinstance(body, dict) or not isinstance(body.get("rows"), list):
+        return response
+    start, end = int(params["startTime"]), int(params.get("endTime", 2**62))
+    hits = [row for row in body["rows"]
+            if start <= int(row.get("interestAccuredTime", row.get("time", start))) <= end]
+    size, current = int(params.get("size", 100)), int(params.get("current", 1))
+    return httpx.Response(200, json={**body, "total": len(hits),
+                                     "rows": hits[(current - 1) * size: current * size]})
 
 
 def make_transport(*, fail: dict[str, int] | None = None, calls: list | None = None,
@@ -654,6 +670,19 @@ def make_transport(*, fail: dict[str, int] | None = None, calls: list | None = N
         if path == "/api/v3/klines":
             return httpx.Response(200, json=_klines(
                 dict(request.url.params).get("symbol", "")))
+        # 杠杆利息按请求的时间窗过滤、按页切：真接口单次最多 30 天、每页最多 100 条，
+        # 客户端会切窗并翻页。不过滤的话每一段窗口都回同一批行，利息被算成好几倍
+        if path == "/sapi/v1/margin/interestHistory":
+            params = dict(request.url.params)
+            start, end = int(params.get("startTime", 0)), int(params.get("endTime", 2**62))
+            if end - start > 30 * DAY_MS:
+                return httpx.Response(400, json={"code": -1127, "msg": "More than 30 days."})
+            source = (LEDGER_ROUTES if ledger and path in LEDGER_ROUTES else ROUTES)[path]
+            hits = [row for row in source.get("rows", [])
+                    if start <= int(row.get("interestAccuredTime", 0)) <= end]
+            size, current = int(params.get("size", 10)), int(params.get("current", 1))
+            return httpx.Response(200, json={
+                "total": len(hits), "rows": hits[(current - 1) * size: current * size]})
         # 历史四个端点按 symbol 过滤。**不过滤的话每个交易对都会回同一批行**，
         # "不选交易对就把候选全问一遍"那条路会变成把同一份历史抄 N 遍，
         # 测不出合并是不是真的按交易对分开取的。

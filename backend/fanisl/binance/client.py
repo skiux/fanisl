@@ -34,6 +34,9 @@ PAPI_BASE = "https://papi.binance.com"
 # 与 console 契约里的 SourceStatus 一一对应
 ErrorKind = Literal["unauthorized", "unreachable", "rate_limited", "unsupported"]
 
+# 杠杆利息记录单次查询的最长跨度（官方："max interval between startTime and endTime is 30 days"）
+MARGIN_INTEREST_WINDOW_MS = 30 * 86_400_000
+
 
 class BinanceError(Exception):
     def __init__(self, kind: ErrorKind, detail: str, *,
@@ -548,9 +551,37 @@ class BinanceClient:
                                {"type": kind, "startTime": start_ms, "endTime": end_ms,
                                 "size": size})
 
-    def margin_interest_history(self, *, start_ms: int, end_ms: int, size: int = 100) -> Any:
-        return self.signed_get(SPOT_BASE, "/sapi/v1/margin/interestHistory",
-                               {"startTime": start_ms, "endTime": end_ms, "size": size})
+    def margin_interest_history(self, *, start_ms: int, end_ms: int, size: int = 100,
+                                max_pages: int = 50) -> dict:
+        """杠杆利息的全量：按 ≤30 天切窗，每窗逐页取完，合并成 `{rows, total}`。
+
+        利息**按小时计**（`PERIODIC`），借着一个币一天就是 24 条；接口单页最多 100 条、
+        单次跨度最多 30 天。原先只问一页：资产页按 90 天问（超出跨度），流水页 7 天
+        也超过一页——只剩最近两三天有利息，更早的日子全是 0。
+        取不全就整体失败，不返回截断的数据（同 `futures_income`）。
+        """
+        rows: list[dict] = []
+        window_start = start_ms
+        while window_start <= end_ms:
+            window_end = min(window_start + MARGIN_INTEREST_WINDOW_MS, end_ms)
+            got = 0
+            for current in range(1, max_pages + 1):
+                payload = self.signed_get(SPOT_BASE, "/sapi/v1/margin/interestHistory",
+                                          {"startTime": window_start, "endTime": window_end,
+                                           "size": size, "current": current})
+                page = payload.get("rows") if isinstance(payload, dict) else None
+                if not isinstance(page, list):
+                    raise BinanceError("unsupported", "杠杆利息记录的 rows 不是数组，拒绝使用。")
+                rows.extend(page)
+                got += len(page)
+                total = payload.get("total")
+                if len(page) < size or (isinstance(total, int) and got >= total):
+                    break
+            else:
+                raise BinanceError("unreachable",
+                                   f"杠杆利息超过 {max_pages} 页仍未取完，拒绝返回截断的数据。")
+            window_start = window_end + 1
+        return {"rows": rows, "total": len(rows)}
 
     def convert_trade_flow(self, *, start_ms: int, end_ms: int, limit: int = 100) -> Any:
         return self.signed_get(SPOT_BASE, "/sapi/v1/convert/tradeFlow",
