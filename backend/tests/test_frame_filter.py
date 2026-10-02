@@ -18,10 +18,34 @@ def kstore(pool):
     return st
 
 
-def _thumb(seed: int) -> bytes:
-    """一张有起伏的 9×8 缩略图；seed 不同，dHash 相差约一半的位。"""
+def _thumb(seed: int, n: int = 72) -> bytes:
+    """一张有起伏的灰度缩略图（n 字节）；seed 不同，dHash 相差约一半的位。"""
     r = random.Random(seed)
-    return bytes(r.randint(20, 230) for _ in range(72))
+    return bytes(r.randint(20, 230) for _ in range(n))
+
+
+def _from_bits(bits: list[bool], w: int, h: int) -> bytes:
+    """按给定的 dHash 位造一张 w×h 缩略图：位为真，下一格比这一格暗。"""
+    out = []
+    for r in range(h):
+        v = 128
+        out.append(v)
+        for c in range(w - 1):
+            v += -3 if bits[r * (w - 1) + c] else 3
+            out.append(v)
+    return bytes(out)
+
+
+def _flip(n_bits: int, n: int) -> list[bool]:
+    return [i < n for i in range(n_bits)]
+
+
+def _patch_thumbs(monkeypatch, coarse, fine=None):
+    """粗（9×8）、细（33×32）缩略图分开给。元素是 seed、None（白屏）或现成的 bytes；fine 缺省同 coarse。"""
+    def thumbs(paths, w=9, h=8):
+        return [x if isinstance(x, bytes) else bytes([250] * (w * h)) if x is None else _thumb(x, w * h)
+                for x in (coarse if (w, h) == (9, 8) else fine or coarse)]
+    monkeypatch.setattr(ff, "_thumbs", thumbs)
 
 
 def _files(tmp_path, n):
@@ -35,9 +59,7 @@ def _files(tmp_path, n):
 
 def test_blank_and_repeats_dropped_keeping_the_last_of_a_run(monkeypatch, tmp_path):
     files = _files(tmp_path, 5)
-    white = bytes([250] * 72)
-    a, b = _thumb(1), _thumb(2)
-    monkeypatch.setattr(ff, "_thumbs", lambda paths: [white, a, a, b, b])
+    _patch_thumbs(monkeypatch, [None, 1, 1, 2, 2])
     sel = ff.select(files, client=None)
     assert [p for p, _ in sel.keep] == [files[2], files[4]]          # 一串相同的留最后一张（最完整）
     assert sel.drop[files[0]] == "空白" and not sel.classified
@@ -45,7 +67,7 @@ def test_blank_and_repeats_dropped_keeping_the_last_of_a_run(monkeypatch, tmp_pa
 
 def test_gemini_drops_frames_without_data_and_writes_notes(monkeypatch, tmp_path):
     files = _files(tmp_path, 3)
-    monkeypatch.setattr(ff, "_thumbs", lambda paths: [_thumb(1), _thumb(2), _thumb(3)])
+    _patch_thumbs(monkeypatch, [1, 2, 3])
     monkeypatch.setattr(ff, "classify", lambda client, paths: {
         paths[0]: {"keep": True, "kind": "chart", "note": "SPX 4 小时 K 线 7551"},
         paths[1]: {"keep": False, "kind": "other"},
@@ -53,6 +75,24 @@ def test_gemini_drops_frames_without_data_and_writes_notes(monkeypatch, tmp_path
     sel = ff.select(files, client=object())
     assert sel.keep == [(files[0], "SPX 4 小时 K 线 7551"), (files[2], "table")]
     assert sel.drop[files[1]] == "没有数据" and sel.classified
+
+
+def test_same_template_different_pages_are_not_merged(monkeypatch, tmp_path):
+    """9×8 分不开同一版式的不同页（c218 两页 OpenAI 总结只差 4 位），33×32 不像就不并。"""
+    files = _files(tmp_path, 2)
+    _patch_thumbs(monkeypatch, coarse=[1, 1], fine=[1, 2])
+    assert [p for p, _ in ff.select(files, client=None).keep] == files
+
+
+def test_loose_merge_needs_the_fine_hash_to_agree_too(monkeypatch, tmp_path):
+    files = _files(tmp_path, 3)
+    c = [_from_bits(_flip(64, n), 9, 8) for n in (0, 8, 0)]                          # 相邻差 8 位：第 2 步不并
+    f = [_from_bits(_flip(1024, n), ff.FINE_W, ff.FINE_H) for n in (0, 100, 300)]    # 细 dHash 差 100、200
+    _patch_thumbs(monkeypatch, c, f)
+    monkeypatch.setattr(ff, "classify", lambda client, paths: {p: {"keep": True, "kind": "chart"} for p in paths})
+    sel = ff.select(files, client=object())
+    assert [p for p, _ in sel.keep] == files[1:]
+    assert sel.drop == {files[0]: "与后一张是同一张图"}
 
 
 def test_classify_retries_on_503_then_keeps_unanswered_frames(monkeypatch, tmp_path):
@@ -78,7 +118,7 @@ def test_classify_retries_on_503_then_keeps_unanswered_frames(monkeypatch, tmp_p
 
 def test_fallback_keeps_dedup_only_when_gemini_fails(monkeypatch, tmp_path):
     files = _files(tmp_path, 2)
-    monkeypatch.setattr(ff, "_thumbs", lambda paths: [_thumb(1), _thumb(2)])
+    _patch_thumbs(monkeypatch, [1, 2])
 
     def _boom(client, paths):
         raise RuntimeError("429")

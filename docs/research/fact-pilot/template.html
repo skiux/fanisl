@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TALK君事实层</title>
+<style>
+:root {
+  --bg: #fafaf8; --fg: #1d1d1b; --muted: #6b6b66; --line: #e3e2dc; --card: #ffffff; --quote: #f2f1ec;
+  --ok: #1f7a4d; --ok-bg: #e3f2ea; --near: #8a5a00; --near-bg: #fbefd6;
+  --bad: #b3261e; --bad-bg: #fbe3e1; --na: #66655f; --na-bg: #ecebe6; --link: #2457a6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171716; --fg: #e8e7e2; --muted: #9b9a94; --line: #34332f; --card: #1f1f1d; --quote: #262623;
+    --ok: #7fd1a5; --ok-bg: #1d3a2b; --near: #f0c46b; --near-bg: #3d3018; --bad: #f2a29b; --bad-bg: #45211e;
+    --na: #b5b4ad; --na-bg: #2d2c29; --link: #8fb3f0;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171716; --fg: #e8e7e2; --muted: #9b9a94; --line: #34332f; --card: #1f1f1d; --quote: #262623;
+  --ok: #7fd1a5; --ok-bg: #1d3a2b; --near: #f0c46b; --near-bg: #3d3018; --bad: #f2a29b; --bad-bg: #45211e;
+  --na: #b5b4ad; --na-bg: #2d2c29; --link: #8fb3f0;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.65 -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; }
+a { color: var(--link); text-decoration: none; }
+nav { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); }
+nav div { max-width: 960px; margin: 0 auto; padding: 0 16px; display: flex; gap: 4px; overflow-x: auto; }
+nav button { font: inherit; color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 12px 10px; cursor: pointer; white-space: nowrap; }
+nav button.on { color: var(--fg); border-bottom-color: var(--fg); }
+main { max-width: 960px; margin: 0 auto; padding: 8px 16px 64px; }
+.ep { display: none; }
+.ep.on { display: block; }
+.eh h2 { font-size: 19px; line-height: 1.4; margin: 20px 0 6px; }
+.eh h2 a { color: var(--fg); }
+.eh p { margin: 2px 0; color: var(--muted); font-size: 13.5px; }
+.counts { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 !important; }
+h3 { font-size: 15px; margin: 28px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.fact { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; margin: 8px 0; }
+.fh { display: flex; align-items: baseline; gap: 8px; }
+.fid { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.fh h4 { flex: 1; margin: 0; font-size: 15px; }
+.st { font-size: 12px; padding: 1px 7px; border-radius: 10px; white-space: nowrap; }
+.st.ok { color: var(--ok); background: var(--ok-bg); }
+.st.near { color: var(--near); background: var(--near-bg); }
+.st.bad { color: var(--bad); background: var(--bad-bg); }
+.st.na { color: var(--na); background: var(--na-bg); }
+.fact > p { margin: 6px 0; }
+blockquote { margin: 8px 0; padding: 6px 10px; background: var(--quote); border-left: 3px solid var(--line); font-size: 14px; }
+blockquote::before { content: "原话　"; color: var(--muted); font-size: 12px; }
+.meta { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--muted); }
+.meta b { font-weight: 600; color: var(--fg); margin-right: 6px; }
+.tbl { overflow-x: auto; margin: 8px 0; border: 1px solid var(--line); border-radius: 4px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { padding: 3px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; position: sticky; left: 0; background: var(--card); }
+th { color: var(--muted); font-weight: 500; }
+tbody tr:last-child td { border-bottom: 0; }
+.shot { margin-top: 6px; font-size: 13px; }
+.shot summary { cursor: pointer; color: var(--muted); }
+.shot summary a { margin-left: 10px; }
+.shot img { display: block; width: 100%; height: auto; margin-top: 6px; border: 1px solid var(--line); border-radius: 4px; }
+</style>
+</head>
+<body>
+<nav><div>__TABS__</div></nav>
+<main>__BODY__</main>
+<script>
+const IMG = __IMGS__;
+const tabs = document.querySelectorAll("nav button");
+function show(ep) {
+  if (!document.getElementById("ep" + ep)) ep = tabs[tabs.length - 1].dataset.ep;
+  document.querySelectorAll(".ep").forEach(s => s.classList.toggle("on", s.id === "ep" + ep));
+  tabs.forEach(b => b.classList.toggle("on", b.dataset.ep === ep));
+}
+tabs.forEach(b => b.onclick = () => { history.replaceState(null, "", "#" + b.dataset.ep); show(b.dataset.ep); window.scrollTo(0, 0); });
+document.querySelectorAll(".shot").forEach(d => d.addEventListener("toggle", () => {
+  const img = d.querySelector("img");
+  if (d.open && !img.src) img.src = IMG[img.dataset.k];
+}));
+show(location.hash.slice(1));
+</script>
+</body>
+</html>

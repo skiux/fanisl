@@ -4,13 +4,18 @@
 1. 去空白帧：9×8 灰度均值极暗或极亮、且几乎没有起伏（转场白屏、黑屏）。
 2. 相邻几乎重复只留后一张（dHash 距离 ≤ STRICT_BITS）：逐步画完的手绘、只换了字幕、淡入。
    留后一张，是因为手绘与逐条出现的列表，最后一张最完整。
+   9×8 的 dHash 分不开同一版式的不同页，所以还要 33×32 的 dHash（1024 位）也相近（≤ FINE_STRICT_BITS）
+   才合并。2026-10-02 实测：TALK君 c218 两页 OpenAI 总结 9×8 只差 4 位、被并掉一页，33×32 差 247 位（24%）；
+   加红框、换右下角人像只差 0.9%-2.0%，片头动画 3%，文字逐行出现的半成品 17%。
 3. Gemini 逐张判有没有数据：图表、表格、具体数字留下，并把一句说明（标的、图表类型、周期，**不含数字**——
    flash-lite 抄数会错，2026-10-01 实测把屏上的 2000 亿写成 200 亿；数字一律以原图为准）写进 keyframes.note；
-   插画、人物、素材照片、只有文字观点的幻灯片、广告与频道推广去掉。用 flash-lite：只判
+   插画、人物、素材照片、只有作者自己观点的文字页、广告与频道推广去掉。新闻、社媒、研报、官员讲话、
+   财报会要点的截图即使没有数字也留：它们是事实层的来源（2026-10-02：原提示词下 TALK君 c222 的
+   美联储副主席讲话推文、洛根讲话的彭博摘要、作者的财报会笔记都被判成没有数据，且同一张图两次判得不一样）。用 flash-lite：只判
    "有没有数据"、不让它读数（它转录会丢数字），8 张一批约 4 秒；flash 同样的批量 2026-10-01
    在 AI Studio 连续 503、在 Vertex 超时与 429。
-4. 留下的相邻帧按放宽的距离（≤ LOOSE_BITS）再合并一次：手在画面里移动，同一张图的半成品
-   第 2 步并不掉。阈值再松会开始把版式相近的不同图表并掉。
+4. 留下的相邻帧按放宽的距离（≤ LOOSE_BITS，33×32 ≤ FINE_LOOSE_BITS）再合并一次：手在画面里移动，
+   同一张图的半成品第 2 步并不掉。阈值再松会开始把版式相近的不同图表并掉。
 
 实测（2026-10-01）：美投君 c105 192 → 24 张（空白 2、几乎相同 41、没有数据 114、同一张图 11），65s；
 Andy c123 37 → 34 张（看盘录屏几乎全是图表，只并掉 3 张同一张图）。
@@ -44,12 +49,15 @@ BATCH = 8                 # 一次请求几张图
 SEND_WIDTH = 512          # 送判时缩到的宽度：判"有没有数据"够了，token 约为原图的五分之一
 STRICT_BITS = 5           # 第 2 步：相邻两张 64 位 dHash 相差不超过它算同一画面
 LOOSE_BITS = 10           # 第 4 步：留下的相邻帧放宽到这个距离再合并
+FINE_W, FINE_H = 33, 32   # 复核用的细 dHash：1024 位，分得开同一版式的不同页
+FINE_STRICT_BITS = 80     # 第 2 步的细 dHash 上限（约 8%）
+FINE_LOOSE_BITS = 160     # 第 4 步的细 dHash 上限（约 16%）
 RETRIES = 4
 RETRY_PAUSE_S = 20.0
 
 PROMPT = """下面是一期财经视频里按画面变化截下的 {n} 张图，按顺序编号 0 到 {last}。逐张判断：这张图对核对视频里的事实和数据有没有用。
-保留（keep=true）：价格或指标走势图、数据图表、表格、带具体数字的画面（价格、百分比、财务数据、估值、带数值的日期）、带数据的新闻或研报截图。
-不保留（keep=false）：人物出镜；没有具体数字的插画、漫画、示意图；素材照片（人拿着图表、装饰性的行情画面、看不清数字的图表照片）；Logo、片头片尾；只有标题或文字观点而没有数字的幻灯片；广告与推广（包括频道自己的会员、课程推广，即使有数字）；转场或空白画面。
+保留（keep=true）：价格或指标走势图、数据图表、表格、带具体数字的画面（价格、百分比、财务数据、估值、带数值的日期）；新闻、社交媒体帖子、研报、官员讲话或公告、财报会要点的截图，即使没有数字也保留；作者整理的要点页，只要里面有具体数字。
+不保留（keep=false）：人物出镜；没有具体数字的插画、漫画、示意图；素材照片（人拿着图表、装饰性的行情画面、看不清数字的图表照片）；Logo、片头片尾；只有标题或作者自己观点、既没有数字也不是引用第三方的文字页；广告与推广（包括频道自己的会员、课程推广，即使有数字）；转场或空白画面。
 对保留的图，用一句中文（不超过 30 字）写它展示的是什么：标的或主题、图表类型、周期。不要抄写数字（数字以原图为准）。"""
 
 SCHEMA = {
@@ -79,29 +87,30 @@ def make_filter_client():
     return make_client(get_settings(), model=FILTER_MODEL)
 
 
-def _thumbs(paths: list[pathlib.Path]) -> list[bytes]:
-    """一次 ffmpeg 把这批图缩成 9×8 灰度，按顺序每张 72 字节。"""
+def _thumbs(paths: list[pathlib.Path], w: int = 9, h: int = 8) -> list[bytes]:
+    """一次 ffmpeg 把这批图缩成 w×h 灰度，按顺序每张 w*h 字节。"""
     with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
         f.write("".join(f"file '{p}'\n" for p in paths))
         lst = f.name
     try:
         raw = subprocess.run(
             ["ffmpeg", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst,
-             "-vf", "scale=9:8:flags=area,format=gray", "-f", "rawvideo", "-"],
+             "-vf", f"scale={w}:{h}:flags=area,format=gray", "-f", "rawvideo", "-"],
             capture_output=True, check=True, timeout=600).stdout
     finally:
         pathlib.Path(lst).unlink(missing_ok=True)
-    out = [raw[i * 72:(i + 1) * 72] for i in range(len(raw) // 72)]
+    n = w * h
+    out = [raw[i * n:(i + 1) * n] for i in range(len(raw) // n)]
     if len(out) != len(paths):
         raise RuntimeError(f"缩略图 {len(paths)} 张只解出 {len(out)} 张")
     return out
 
 
-def _dhash(t: bytes) -> int:
+def _dhash(t: bytes, w: int = 9, h: int = 8) -> int:
     v = 0
-    for r in range(8):
-        for c in range(8):
-            v = (v << 1) | (t[r * 9 + c] > t[r * 9 + c + 1])
+    for r in range(h):
+        for c in range(w - 1):
+            v = (v << 1) | (t[r * w + c] > t[r * w + c + 1])
     return v
 
 
@@ -110,11 +119,11 @@ def _is_blank(t: bytes) -> bool:
     return (mean < 12 or mean > 243) and max(t) - min(t) < 25
 
 
-def _collapse(items: list[tuple[pathlib.Path, int]], bits: int, drop: dict, reason: str):
-    """相邻两张距离 ≤ bits 时去掉前一张（一串相近的只留最后一张）。"""
+def _collapse(items: list[tuple[pathlib.Path, tuple[int, int]]], bits: tuple[int, int], drop: dict, reason: str):
+    """相邻两张粗、细 dHash 的距离都不超过 bits 时去掉前一张（一串相近的只留最后一张）。"""
     kept = []
     for i, (p, h) in enumerate(items):
-        if i + 1 < len(items) and bin(h ^ items[i + 1][1]).count("1") <= bits:
+        if i + 1 < len(items) and all(bin(a ^ b).count("1") <= n for a, b, n in zip(h, items[i + 1][1], bits)):
             drop[p] = reason
         else:
             kept.append((p, h))
@@ -165,12 +174,12 @@ def select(paths: list[pathlib.Path], *, client=None) -> Selection:
         return Selection([], {}, client is not None)
     drop: dict[pathlib.Path, str] = {}
     stage = []
-    for p, t in zip(paths, _thumbs(paths)):
+    for p, t, f in zip(paths, _thumbs(paths), _thumbs(paths, FINE_W, FINE_H)):
         if _is_blank(t):
             drop[p] = "空白"
         else:
-            stage.append((p, _dhash(t)))
-    stage = _collapse(stage, STRICT_BITS, drop, "与后一张几乎相同")
+            stage.append((p, (_dhash(t), _dhash(f, FINE_W, FINE_H))))
+    stage = _collapse(stage, (STRICT_BITS, FINE_STRICT_BITS), drop, "与后一张几乎相同")
     if client is None:
         return Selection([(p, None) for p, _ in stage], drop, False)
     verdict = classify(client, [p for p, _ in stage])
@@ -180,7 +189,7 @@ def select(paths: list[pathlib.Path], *, client=None) -> Selection:
             kept.append((p, h))
         else:
             drop[p] = "没有数据"
-    kept = _collapse(kept, LOOSE_BITS, drop, "与后一张是同一张图")
+    kept = _collapse(kept, (LOOSE_BITS, FINE_LOOSE_BITS), drop, "与后一张是同一张图")
     return Selection([(p, (verdict[p].get("note") or verdict[p].get("kind") or "").strip() or None)
                       for p, _ in kept], drop, True)
 

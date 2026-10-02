@@ -49,7 +49,7 @@ YouTube 频道 ──yt-dlp──▶ 清单+元数据 ──Gemini URL 直读─
 | `spotcheck.py` | K6 抽查队列（spot_checks 启用）：`spotcheck sample [n]` 随机抽未查单元 / `spotcheck record <unit_id> <verdict> [note]` / `spotcheck stats` |
 | `review.py` | 单元核查的知识席位端：站上用户在单元详情里提意见（HTTP 接口归 base 席位），知识席位用 `review list / show / amend / answer` 处理。**答复只走这里**，网站写不了。见下方「单元核查」 |
 | `keyframes.py` | 提帧。`grab_scenes`：整片下载视频轨后只解关键帧、画面变化够大才留（摄取链用）；`grab`：按给定时刻 seek（CLI `keyframes <video_id> <MM:SS…> [--height 1080]`、体检用）。yt-dlp 须开 JS 运行时（node/deno + `yt-dlp-ejs`）；客户端先用 yt-dlp 默认组合，再 android_vr→tv→web_safari，用了哪个记进 `source`。墙会来回动，见下方"提帧的墙" |
-| `frame_filter.py` | 关键帧精简：去空白、合并相邻重复（留后一张）、Gemini flash-lite 逐张判有没有数据、留下的再按放宽距离合并。摄取时随 `grab_for_content` 跑，判不了的标为待精简（`keyframes.filtered_at` 为空），日维护每天补 30 条：`frame_filter [--content-id N] [--limit N] [--dry-run]`。说明（`note`）只写标的、图表类型、周期，不抄数字 |
+| `frame_filter.py` | 关键帧精简：去空白、合并相邻重复（留后一张；9×8 与 33×32 两级 dHash 都相近才算重复）、Gemini flash-lite 逐张判有没有数据（第三方的新闻、推文、讲话截图没有数字也留）、留下的再按放宽距离合并。摄取时随 `grab_for_content` 跑，判不了的标为待精简（`keyframes.filtered_at` 为空），日维护每天补 30 条：`frame_filter [--content-id N] [--limit N] [--dry-run]`。说明（`note`）只写标的、图表类型、周期，不抄数字 |
 | `backfill_keyframes.py` | 整片按画面变化取帧的回填/记账（`kind='scene'`，已取过的内容跳过）：`backfill_keyframes [--handle @x] [--content-id N] [--height 1080] [--dry-run]`；`grab_for_content()` 同时挂在摄取链上（transcribe_video / backfill_transcripts 内 best-effort 调用，失败不影响 L0），日维护每天补 10 条、每条间隔 60s（连下太多会被要求登录验证，见"提帧的墙"） |
 
 ## 日常运转（K4 起；K5 起自动化）
@@ -196,7 +196,10 @@ PG_KNOWLEDGE_CONNINFO=host=127.0.0.1 port=5433 dbname=fanisl_knowledge user=fani
   10 秒左右）后只解关键帧（约 6 秒一个）、按画面变化去重：Andy 27 分钟 42 张 7.8MB、TALK君 16 张、美投君 91 张，
   覆盖全部画面；服务器 2 核上抽帧 7s（逐帧解码要 197s）。**别成批下**：09-28 服务器约 15 分钟连下近 40 期后，
   视频下载被要求登录验证（web_embedded 取元数据、频道清单仍正常，摄取不受影响）；存量改由日维护每天补 10 条。
-- **2026-10-01 精简**：用户说美投君一期 150 多张看不过来。整片取帧之后加一道 `frame_filter`，只留有数据的画面：美投君 c105 192 → 24 张，Andy c123 37 → 34 张。存量由日维护逐日精简下面 08-14 那条对 SABR 的判断是误判，留作记录
+- **2026-10-01 精简**：用户说美投君一期 150 多张看不过来。整片取帧之后加一道 `frame_filter`，只留有数据的画面：美投君 c105 192 → 24 张，Andy c123 37 → 34 张。存量由日维护逐日精简
+- **2026-10-02 精简修正**：做 TALK君 事实层样板（`docs/research/fact-pilot/`）时发现三期共 7 张有事实的画面被删。本机全集重跑定位：一张是第 2 步把同一版式的两页 OpenAI 总结当成重复（9×8 dHash 只差 4 位，隔了 203 秒）；其余是第 3 步把美联储副主席讲话的推文、洛根讲话的彭博摘要、作者的财报会笔记判成没有数据，且同一张图两次判得不一样。改为第 2、4 步还要 33×32 dHash 相近（≤ 80、≤ 160 位，实测加红框与换人像 ≤ 2%、不同页 24%），提示词明确第三方文字截图没有数字也留。改后三期重跑两次结果一致：本机有全集可复测的 5 张找回 3 张（OpenAI 总结第 3 页、推文、彭博摘要），另 2 张是以作者观点为主的文字页，按规则仍去掉；原提示词下时留时去的两张笔记页（c220 00868s、c222 00665s）两次都留。**此前已精简的帧删掉的文件不可恢复**，要找回只能重新下载整片取帧
+
+下面 08-14 那条对 SABR 的判断是误判，留作记录
 
 - **2026-07-16**：yt-dlp 全客户端矩阵 × 有无 cookies 全被 "Sign in to confirm you're not a
   bot" 拦（PO Token 强制，与 IP 无关，用户终端同样被拦）→ 当时判定"提帧不可用"，视觉笔记
