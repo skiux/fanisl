@@ -385,7 +385,8 @@ class BinanceClient:
         return self.signed_get(SPOT_BASE, "/sapi/v1/equity/order/open-orders")
 
     def margin_open_orders(self) -> Any:
-        return self.signed_get(SPOT_BASE, "/sapi/v1/margin/openOrders")
+        return self.signed_get(SPOT_BASE, "/sapi/v1/margin/openOrders",
+                               {"isIsolated": "FALSE"})
 
     def algo_open_orders(self) -> Any:
         """策略单（TWAP/VP）。多数账户是空的，但空与"没查"是两回事——
@@ -506,20 +507,46 @@ class BinanceClient:
         ——这正是"历史那里完全没有数据"的原因。`orderId` 翻页没有时间上限，
         合约那边受接口本身只留 90 天所限。
         """
-        base = FAPI_BASE if venue == "usdm" else SPOT_BASE
-        path = "/fapi/v1/allOrders" if venue == "usdm" else "/api/v3/allOrders"
+        if venue == "usdm":
+            base, path, page_limit = FAPI_BASE, "/fapi/v1/allOrders", limit
+        elif venue == "margin":
+            base, path, page_limit = SPOT_BASE, "/sapi/v1/margin/allOrders", min(limit, 500)
+        elif venue == "spot":
+            base, path, page_limit = SPOT_BASE, "/api/v3/allOrders", limit
+        else:
+            raise ValueError(f"不支持的委托账户: {venue}")
         out: list[dict] = []
         cursor = from_id
         for _ in range(max_pages):
-            page = self.signed_get(base, path,
-                                   {"symbol": symbol, "orderId": cursor, "limit": limit})
+            params: dict[str, Any] = {"symbol": symbol, "orderId": cursor,
+                                      "limit": page_limit}
+            if venue == "margin":
+                params["isIsolated"] = "FALSE"
+            page = self.signed_get(base, path, params)
+            if not isinstance(page, list) or not page:
+                break
+            out.extend(page)
+            if len(page) < page_limit:
+                break
+            # orderId 是"**大于等于**"，不加一会把最后一条重复取一遍
+            cursor = max(int(o.get("orderId", 0)) for o in page) + 1
+        return out
+
+    def margin_trades_since(self, symbol: str, *, from_id: int = 0,
+                            limit: int = 1000, max_pages: int = 20) -> list[dict]:
+        """全仓杠杆成交；与现货同名交易对也要从独立的 SAPI 历史读取。"""
+        out: list[dict] = []
+        cursor = from_id
+        for _ in range(max_pages):
+            page = self.signed_get(SPOT_BASE, "/sapi/v1/margin/myTrades",
+                                   {"symbol": symbol, "isIsolated": "FALSE",
+                                    "fromId": cursor, "limit": limit})
             if not isinstance(page, list) or not page:
                 break
             out.extend(page)
             if len(page) < limit:
                 break
-            # orderId 是"**大于等于**"，不加一会把最后一条重复取一遍
-            cursor = max(int(o.get("orderId", 0)) for o in page) + 1
+            cursor = max(int(t.get("id", 0)) for t in page) + 1
         return out
 
     def futures_trades_since(self, symbol: str, *, from_id: int = 0,

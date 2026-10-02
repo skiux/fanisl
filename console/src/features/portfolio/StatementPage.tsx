@@ -267,6 +267,7 @@ function Loaded({
             <HoldingsView
               onSaveStockCost={onSaveStockCost}
               onSaveSpotCost={onSaveSpotCost}
+              scenario={scenario}
               snapshot={snapshot}
             />
           )}

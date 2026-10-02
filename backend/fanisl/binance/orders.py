@@ -3,7 +3,7 @@
 这一页的结构被接口的一条硬边界决定：
 
     **当前挂单能一次拿全账户**   openOrders 的 symbol 可省（现货 weight 80、合约 40）
-    **历史要按交易对问**         现货 allOrders / myTrades 与合约 userTrades 要 symbol；
+    **历史要按交易对问**         现货、全仓杠杆与合约成交历史要 symbol；
                                  股票委托与成交不要 symbol，一次拿全账户
 
 所以「挂单」是完整的，「历史」是把候选交易对逐个问完再合并，并且把窗口上限如实
@@ -308,9 +308,10 @@ def _history_candidates(open_orders: list[dict], positions: Any, income: Any,
                         prices: dict[str, float]) -> dict[str, str]:
     """能查历史的交易对 → 它在哪个 venue。
 
-    现货 allOrders / myTrades 与合约 userTrades 必须按交易对问，而 Binance 没有
+    现货、全仓杠杆的 allOrders / myTrades 与合约 userTrades 必须按交易对问，而 Binance 没有
     "我交易过哪些对"的接口，只能从手里的线索推：挂单、持仓、**合约收支**、
-    **股票委托**、现货余额。做不到真正的全量，这一点在界面上也要说明白。
+    **股票委托**、现货余额。全仓杠杆还从账户资产推候选。做不到真正的全量，
+    这一点在界面上也要说明白。
 
     合约收支与股票委托是 2026-09-17 加的：
     - 合约的每笔成交都有 COMMISSION、持仓期间有 FUNDING_FEE，平掉的仓位能从 90 天
@@ -318,9 +319,8 @@ def _history_candidates(open_orders: list[dict], positions: Any, income: Any,
     - 股票委托历史不带 symbol 一次拿全。原先股票代码只在碰巧出现在本次结果里时
       才进下拉框，选了别的交易对，SOXL 就从候选里消失了。
 
-    同一个代码出现在几处时，先登记的那处说了算：挂单与持仓在前，现货余额在最后
-    （BNBUSDT 既有合约仓位又有现货余额时算合约，与原先一致）。杠杆挂单仍按现货查——
-    历史走的是现货端点，这里不假装能分开。
+    同一个代码出现在几处时，先登记的那处说了算；指定 venue 的查询会另建候选，
+    以免同名现货、合约和杠杆交易对互相抢走。
     """
     out: dict[str, str] = {}
 
@@ -329,7 +329,7 @@ def _history_candidates(open_orders: list[dict], positions: Any, income: Any,
             out[symbol] = venue
 
     for order in open_orders:
-        add(order["symbol"], order["venue"] if order["venue"] in ("usdm", "equity") else "spot")
+        add(order["symbol"], order["venue"])
     for row in positions or []:
         if dec0(row.get("positionAmt")) != 0:
             add(row.get("symbol", ""), "usdm")
@@ -379,6 +379,9 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         ("orders.lists", TTL["lists"], client.spot_open_order_lists),
         ("orders.algo", TTL["algo"], client.algo_open_orders),
     ]
+    if not symbol and venue in (None, "margin"):
+        # 只有杠杆挂单不足以找到已撤掉挂单但仍有杠杆资产的交易对。
+        base_jobs.append(("margin", 60, client.margin_account))
     results = fetch_all(cache, base_jobs, force=force)
 
     def payload(key: str) -> Any:
@@ -434,6 +437,22 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
                                      [*equity_orders_raw, *equity_fills_raw],
                                      payload("spot"), prices)
 
+    spot_targets = {o["symbol"] for o in open_orders if o["venue"] == "spot"}
+    for row in payload("spot") or []:
+        if dec0(row.get("free")) + dec0(row.get("locked")) > 0:
+            pair = f"{row.get('asset', '')}USDT"
+            if pair in prices:
+                spot_targets.add(pair)
+
+    margin_targets = {o["symbol"] for o in open_orders if o["venue"] == "margin"}
+    margin_payload = payload("margin")
+    for row in (margin_payload.get("userAssets", [])
+                if isinstance(margin_payload, dict) else []):
+        if dec0(row.get("netAsset")) != 0:
+            pair = f"{row.get('asset', '')}USDT"
+            if pair in prices:
+                margin_targets.add(pair)
+
     def venue_of(sym: str) -> str:
         # 显式指定优先；其次是候选里登记的；都不在时按认得出的代码推断
         if symbol and venue:
@@ -468,9 +487,15 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
                          | {r.get("symbol", "") for r in payload("income") or []
                             if isinstance(r, dict)})
         targets = [s for s in targets if s]
-    else:
+    elif venue == "spot":
+        targets = sorted(spot_targets)
+    elif venue == "margin":
+        targets = sorted(margin_targets)
+    elif venue == "equity":
         targets = sorted(s for s, candidate_venue in candidates.items()
-                         if venue is None or candidate_venue == venue)
+                         if candidate_venue == "equity")
+    else:
+        targets = sorted(candidates)
     venues = {s: venue if venue and not symbol else venue_of(s) for s in targets}
     with_equity = (venue is None or venue == "equity") and (
         not symbol or venues[symbol] == "equity")
@@ -479,6 +504,10 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
     futures_candidate_results = [results[key] for key in (
         "futures.risk", "income", "orders.futures_open",
         "orders.conditional_open", "orders.algo")]
+    spot_candidate_results = [results[key] for key in (
+        "prices", "spot", "orders.spot_open")]
+    margin_candidate_results = [results[key] for key in (
+        "prices", "margin", "orders.margin_open") if key in results]
     query = None
     history: list[dict] = []
     fills: list[dict] = []
@@ -496,9 +525,10 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
             # 拿到的都是最后一个交易对
             jobs.append((f"orders.history:{v}:{sym}", TTL["history"],
                          lambda s=sym, vv=v: client.orders_since(s, venue=vv)))
-            jobs.append((f"orders.trades:{v}:{sym}", TTL["history"],
-                         (lambda s=sym: client.futures_trades_since(s)) if v == "usdm"
-                         else (lambda s=sym: client.spot_trades_since(s))))
+            trade_fetch = ((lambda s=sym: client.futures_trades_since(s)) if v == "usdm"
+                           else (lambda s=sym: client.margin_trades_since(s)) if v == "margin"
+                           else (lambda s=sym: client.spot_trades_since(s)))
+            jobs.append((f"orders.trades:{v}:{sym}", TTL["history"], trade_fetch))
         hist = fetch_all(cache, jobs, force=force)
 
         def _orders() -> list[dict]:
@@ -552,10 +582,13 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         if with_equity:
             history_results.append(results["orders.history:equity"])
             trade_results.append(results["orders.trades:equity"])
-        if not symbol and venue == "usdm":
-            history_results.extend(futures_candidate_results)
-            trade_results.extend(futures_candidate_results)
-        elif not symbol:
+        if not symbol and venue in ("usdm", "spot", "margin"):
+            dependencies = {"usdm": futures_candidate_results,
+                            "spot": spot_candidate_results,
+                            "margin": margin_candidate_results}[venue]
+            history_results.extend(dependencies)
+            trade_results.extend(dependencies)
+        elif not symbol and venue is None:
             # 「全部」的候选靠合约收支补上已平仓的交易对。收支没取到，合并出来的历史
             # 可能少了那几个交易对，不能报 ok
             history_results.append(results["income"])
@@ -564,10 +597,17 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
             {"key": "order_history", **_merge_states(history_results)},
             {"key": "trade_history", **_merge_states(trade_results)},
         ]
-    elif venue == "usdm" and not symbol:
-        candidate_state = _merge_states(futures_candidate_results)
-        history_states = [{"key": "order_history", **candidate_state},
-                          {"key": "trade_history", **candidate_state}]
+    elif not symbol and venue in ("usdm", "spot", "margin", "equity"):
+        if venue == "equity":
+            order_sources = [results["orders.history:equity"]]
+            trade_sources = [results["orders.trades:equity"]]
+        else:
+            dependencies = {"usdm": futures_candidate_results,
+                            "spot": spot_candidate_results,
+                            "margin": margin_candidate_results}[venue]
+            order_sources = trade_sources = dependencies
+        history_states = [{"key": "order_history", **_merge_states(order_sources)},
+                          {"key": "trade_history", **_merge_states(trade_sources)}]
     else:
         history_states = [{"key": "order_history", "status": "ok", "as_of": None,
                            "detail": "没有可查的交易对"},

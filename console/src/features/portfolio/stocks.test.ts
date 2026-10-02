@@ -134,8 +134,9 @@ describe('持仓页的股票', () => {
     }
     act(() => root.render(createElement(HoldingsView, { snapshot })))
     const text = host.textContent ?? ''
-    expect(host.querySelector('[data-stock-positions]')?.closest('section')?.className)
-      .toContain('lg:col-span-8')
+    // 股票持仓与现货持仓叠在左栏（7 栏），右栏是「账户 / 委托」
+    expect(host.querySelector('[data-stock-positions]')?.closest('section')?.parentElement?.className)
+      .toContain('lg:col-span-7')
     expect(host.querySelector('[data-stock-summary]')?.className).toContain('lg:col-span-4')
     expect(host.querySelectorAll('[data-stock-position]')).toHaveLength(2)
     expect(text).toContain('正股')

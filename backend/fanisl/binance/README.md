@@ -431,7 +431,7 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
 ## 委托页的硬边界
 
 **当前挂单能一次拿全账户**（`openOrders` 的 symbol 可省，现货 weight 80 / 合约 40）；
-**历史要按交易对问**：现货 `allOrders`/`myTrades` 与合约 `userTrades` 仍需 symbol；
+**历史要按交易对问**：现货、全仓杠杆与合约的委托/成交历史仍需 symbol；
 股票委托与成交不需要 symbol，一次拿全账户。
 
 **合约 `allOrders` 的 symbol 自 2026-08-25（官方 SDK 17.2.1）起可省，但这里不用那个
@@ -454,6 +454,15 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
 标为部分缺失；没有候选也不能据此断言没有委托。`closePosition=true` 且数量为 0 的
 保护单表示触发时全平，名义金额留空，不显示为零美元委托。
 
+持仓页分别用 `/orders?venue=spot`、`/orders?venue=margin`、`/orders?venue=equity`。
+现货候选只看现货挂单和现货余额；全仓杠杆候选看全仓挂单和杠杆账户仍持有的资产；
+股票历史本身就是全账户查询。同名 `BNBUSDT` 在现货和杠杆账户各有一单时，两份快照
+分别返回 `spot:<id>` 与 `margin:<id>`，杠杆历史明确走
+`/sapi/v1/margin/allOrders`、`/sapi/v1/margin/myTrades`，带 `isIsolated=FALSE`，
+不借用现货 `/api/v3/*`。已清仓、没有挂单也没有杠杆资产的交易对仍无法从账户列表反推；
+指定 `symbol` 可以直接查该交易对。任一候选来源失败会把相应 venue 的历史标为不完整，
+合约收支失败不会污染现货或股票历史状态。
+
 股票历史**一次取全账户，选定一只在本地筛**。原先选定时带 symbol 去问，却与「全部」共用
 `orders.history:equity` 一个缓存键，5 分钟内两种查询会拿到对方的结果。
 
@@ -463,7 +472,7 @@ unbalanced_assets[]     持仓量回滚不平的币（有一类进出没覆盖�
 
 三条随之而来的规矩：
 
-- **窗口取交集**：现货单次 24 小时 / 无回溯上限，合约 168 小时 / 90 天。合起来报
+- **窗口取交集**：现货与全仓杠杆单次 24 小时 / 无回溯上限，合约 168 小时 / 90 天。合起来报
   24 小时 + 90 天，报最宽的等于替另一半打包票。
 - **状态整组算**（`_merge_states`）：任何一个交易对没取到，`order_history` /
   `trade_history` 就不是 `ok`。合并出来的历史少一截，界面上分不出是"那个交易对没有
@@ -563,17 +572,19 @@ FAPI 池 **63**（上表 fapi 各行相加）。`withdrawals` 与 BFUSD 年化�
 | OCO | `GET /api/v3/openOrderList` | 6 † | 60s | — |
 | 合约挂单 | `GET /fapi/v1/openOrders` | **40**（不带 symbol） | 30s | — |
 | 合约条件单 | `GET /fapi/v1/openAlgoOrders` | **40**（不带 symbol） | 30s | TP/SL/追踪止损 |
-| 杠杆挂单 | `GET /sapi/v1/margin/openOrders` | 10 | 30s | — |
+| 全仓杠杆挂单 | `GET /sapi/v1/margin/openOrders` | 10 | 30s | `isIsolated=FALSE` |
 | 策略单 | `GET /sapi/v1/algo/futures/openOrders` | 1 | 300s | — |
 | 股票挂单 | `GET /sapi/v1/equity/order/open-orders` | 1 | 30s | 全部未完成委托；裸 ticker、USDC、股票时段 |
 | 现货历史 | `GET /api/v3/allOrders` | 20 † / symbol | 300s | **24 小时** |
+| 全仓杠杆历史 | `GET /sapi/v1/margin/allOrders` | 200 † / symbol / 页 | 300s | 按 `orderId` 翻页，每页最多 500；无 ID 时只回近 24 小时 |
 | 合约历史 | `GET /fapi/v1/allOrders` | 5 / symbol | 300s | 按 orderId 翻页，只回溯 90 天；symbol 可省但不用，见「委托页的硬边界」 |
 | 合约收支 | `GET /fapi/v1/income` | 30 † | 300s | 找候选交易对；与 `/portfolio` 共用 `income` 缓存键 |
 | 股票历史 | `GET /sapi/v1/equity/order/history` | 1 / 页 | 300s | 起止时间必填，不带 symbol 取全账户 90 天，最多 100 条/页 |
 | 成交 | `GET /api/v3/myTrades` · `/fapi/v1/userTrades` | 20 † / 5 † | 300s | 同上 |
+| 全仓杠杆成交 | `GET /sapi/v1/margin/myTrades` | 10 † / symbol / 页 | 300s | 按 `fromId` 翻页，每页最多 1000；`isIsolated=FALSE` |
 | 股票成交 | `GET /sapi/v1/equity/trade/history` | 1 / 页 | 300s | 逐笔成交；当前响应不含 maker 与逐笔手续费 |
 
-现货与合约的委托和成交都按候选交易对扇出、按 id 翻页，避免只看最近一个时间窗。
+现货、全仓杠杆与合约的委托和成交都按候选交易对扇出、按 id 翻页，避免只看最近一个时间窗。
 股票委托与成交使用全账户分页查询，不需要从余额猜 ticker；其响应没有提供的 maker /
 逐笔手续费保持 `null`。
 
@@ -643,7 +654,7 @@ console 把这个 Binance 账户当成一只小基金来记（2026-10-03）。�
 ## 测试
 
 `tests/test_binance_cache.py` 钉缓存层的降级语义（取数抛任何异常都只降级那一个来源）。
-`tests/test_binance_{signing,client_contract,portfolio,orders,ledger}.py` 走 `httpx.MockTransport`，
+`tests/test_binance_{signing,client_contract,portfolio,orders,order_venues,ledger}.py` 走 `httpx.MockTransport`，
 喂**真实形状**的响应，不联网；`tests/test_dailypnl.py` 与 `tests/test_costbasis.py`
 是纯逻辑，连 transport 都不需要——逐日盈亏的口径（持有、买入、充值、派息、手续费、
 回滚不平、无报价、"空账户的 0 是真的 vs 算不出来的空"）钉在那里。

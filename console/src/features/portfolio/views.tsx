@@ -10,7 +10,8 @@ import { assetColor } from './ExposureDistribution'
 import { RealizedDays } from './RealizedDays'
 import { CashTable, SpotTable } from './Holdings'
 import { PnlBreakdown } from './PnlBreakdown'
-import { PerpOrders } from './PerpOrders'
+import { HoldingsOrders, prefetchHoldingsOrders } from './HoldingsOrders'
+import { PerpOrders, prefetchPerpOrders } from './PerpOrders'
 import { StockPositionsList, StockSummary } from './StockPositions'
 import { useIsAdmin } from '../../lib/role'
 
@@ -175,7 +176,8 @@ function CashModule({ rows, snapshot, span }: {
     .reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
 
   return (
-    <Module figure={money(total)} span={span} title="现金">
+    // 标题原先是「现金」，和摘要条上管理员录入的「现金」重名，2026-10-03 按用户要求改名
+    <Module figure={money(total)} span={span} title="资产分布">
       <SplitBar
         left={earningValue}
         leftLabel="生息"
@@ -209,11 +211,20 @@ function CashModule({ rows, snapshot, span }: {
   )
 }
 
-export function HoldingsView({ snapshot, onSaveStockCost, onSaveSpotCost }: {
+export function HoldingsView({ snapshot, onSaveStockCost, onSaveSpotCost, scenario = 'ok' }: {
   snapshot: PortfolioSnapshot
+  scenario?: Scenario
   onSaveStockCost?: (symbol: string, input: StockCostInput) => Promise<void>
   onSaveSpotCost?: (asset: string, input: SpotCostInput) => Promise<void>
 }) {
+  const [panel, setPanel] = useState<'positions' | 'account' | 'orders'>('positions')
+  const [ordersOpened, setOrdersOpened] = useState(false)
+  const selectPanel = (next: 'positions' | 'account' | 'orders') => {
+    setPanel(next)
+    if (next === 'orders') setOrdersOpened(true)
+  }
+  // 「委托」在一次点击之外：进持仓页就先取好，点开时第一帧就有数据
+  useEffect(() => { prefetchHoldingsOrders(scenario) }, [scenario])
   const isAdmin = useIsAdmin()
   const holdings = spotHoldings(snapshot)
   const holdingsValue = holdings.reduce((sum, item) => sum + (item.value_usd ?? 0), 0)
@@ -229,33 +240,52 @@ export function HoldingsView({ snapshot, onSaveStockCost, onSaveSpotCost }: {
   const stockPnlComplete = stockCount > 0
     && unresolvedStocks.length === 0
     && stockPnlRows.length === stockPositions.length
+  const accountAvailable = marginEnabled || stockCount > 0
+  const sidePanel = panel === 'positions' ? accountAvailable ? 'account' : 'orders'
+    : panel === 'account' && !accountAvailable ? 'orders' : panel
+  const mobileTabs: { key: 'positions' | 'account' | 'orders'; label: string }[] = [
+    { key: 'positions', label: '持仓' },
+    ...(accountAvailable ? [{ key: 'account' as const, label: '账户' }] : []),
+    { key: 'orders', label: '委托' },
+  ]
 
   return (
     <div>
+      <div aria-label="持仓内容" className="mb-7 flex gap-6 border-b border-rule lg:hidden" role="tablist">
+        {mobileTabs.map(({ key, label }) => (
+          <button
+            aria-selected={panel === key}
+            className={cn('relative pb-2.5 text-sm transition-colors duration-200',
+              panel === key ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}
+            key={key}
+            onClick={() => selectPanel(key)}
+            role="tab"
+            type="button"
+          >
+            {label}
+            {panel === key && <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-ink" />}
+          </button>
+        ))}
+      </div>
       <ViewGrid>
-        <Module
-          figure={money(holdingsValue)}
-          span="lg:col-span-8"
-          title="现货持仓"
-        >
-          <SpotTable
-            canEditCost={isAdmin && Boolean(onSaveSpotCost)}
-            onSaveCost={onSaveSpotCost} spot={holdings}
-          />
-        </Module>
-
-        <Stack span="lg:col-span-4">
-          {marginEnabled && <MarginAccountModule dense liability={liability} margin={m} span="" />}
-        </Stack>
-
-        {stockCount > 0 && (
-          <>
+        <Stack span={cn('lg:col-span-7', panel !== 'positions' && 'max-lg:hidden')}>
+          <Module
+            figure={money(holdingsValue)}
+            span=""
+            title="现货持仓"
+          >
+            <SpotTable
+              canEditCost={isAdmin && Boolean(onSaveSpotCost)}
+              onSaveCost={onSaveSpotCost} spot={holdings}
+            />
+          </Module>
+          {stockCount > 0 && (
             <Module
               figure={stockPnlComplete ? signedMoney(stockPnl) : '—'}
               note={stockPnlComplete
                 ? `${stockCount} 个标的`
                 : `${stockPnlRows.length} / ${stockCount} 项盈亏可算`}
-              span="lg:col-span-8"
+              span=""
               title="股票持仓"
               tone={!stockPnlComplete ? 'muted' : stockPnl >= 0 ? 'gain' : 'loss'}
             >
@@ -266,13 +296,36 @@ export function HoldingsView({ snapshot, onSaveStockCost, onSaveSpotCost }: {
                 unresolved={unresolvedStocks}
               />
             </Module>
-            <StockSummary
+          )}
+        </Stack>
+        <Stack span={cn('lg:col-span-5', panel === 'positions' && 'max-lg:hidden')}>
+          {accountAvailable && <div aria-label="持仓侧栏" className="hidden gap-6 border-b border-rule lg:flex" role="tablist">
+            {([['account', '账户'], ['orders', '委托']] as const).map(([key, label]) => (
+              <button
+                aria-selected={sidePanel === key}
+                className={cn('relative pb-2.5 text-sm transition-colors duration-200',
+                  sidePanel === key ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}
+                key={key}
+                onClick={() => selectPanel(key)}
+                role="tab"
+                type="button"
+              >
+                {label}
+                {sidePanel === key && <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-ink" />}
+              </button>
+            ))}
+          </div>}
+          {(ordersOpened || !accountAvailable) && <div className={cn(sidePanel !== 'orders' && 'hidden')}>
+            <HoldingsOrders key={scenario} scenario={scenario} />
+          </div>}
+          {sidePanel === 'account' && <>
+            {marginEnabled && <MarginAccountModule dense liability={liability} margin={m} span="" />}
+            {stockCount > 0 && <StockSummary
               equityUsd={snapshot.totals?.equity_usd ?? null}
               stocks={snapshot.stocks}
-            />
-          </>
-        )}
-
+            />}
+          </>}
+        </Stack>
       </ViewGrid>
     </div>
   )
@@ -289,6 +342,8 @@ export function PerpRiskView({ snapshot, futuresMissing, scenario }: {
     setPanel(next)
     if (next === 'orders') setOrdersOpened(true)
   }
+  // 同持仓页：进合约页就先把委托取好
+  useEffect(() => { prefetchPerpOrders(scenario) }, [scenario])
   const f = snapshot.futures
   const longNotional = (f?.positions ?? [])
     .filter((p) => p.position_amt > 0).reduce((sum, p) => sum + p.notional_usd, 0)
@@ -320,7 +375,7 @@ export function PerpRiskView({ snapshot, futuresMissing, scenario }: {
           ))}
         </div>
         {ordersOpened && <div className={cn(panel !== 'orders' && 'hidden')}>
-          <PerpOrders asOf={snapshot.as_of} key={scenario} scenario={scenario} />
+          <PerpOrders key={scenario} scenario={scenario} />
         </div>}
         {panel !== 'orders' && <ViewGrid>
           <Module span="lg:col-span-12" title="合约账户不可用">
@@ -397,7 +452,7 @@ export function PerpRiskView({ snapshot, futuresMissing, scenario }: {
             ))}
           </div>
           {ordersOpened && <div className={cn(panel !== 'orders' && 'hidden')}>
-            <PerpOrders asOf={snapshot.as_of} key={scenario} scenario={scenario} />
+            <PerpOrders key={scenario} scenario={scenario} />
           </div>}
           {panel !== 'orders' && <>
           <Module

@@ -614,8 +614,9 @@ export function buildSnapshot(asOf: Date): PortfolioSnapshot {
 }
 
 /**
- * 示例账户规则：初始净值略低于示例净值（有盈利可分），出资合计等于初始净值，
- * 盈利分成合计 85%（余下 15% 归公司），亏损由 Manager 全部承担。
+ * 示例账户规则：初始净值略低于示例净值（有盈利可分），出资合计等于初始净值。
+ * Performance Fee 20% 按总盈利，两人的 Investor Return 都是 80%（按出资占比），
+ * 合计正好分完；亏损由 Manager 全部承担。
  */
 export function buildFund(asOf: Date): FundSnapshot {
   const inception = new Date(asOf.getTime() - 45 * 86_400_000).toISOString().slice(0, 10)
@@ -627,12 +628,12 @@ export function buildFund(asOf: Date): FundSnapshot {
       {
         user_id: 2, username: 'alice', display_name: 'Alice', is_manager: true, is_investor: true,
         invested_capital_usd: 20_000, loss_allocation: 1, management_fee: 0.02,
-        performance_fee: 0.2, investor_return: 0.05, updated_at,
+        performance_fee: 0.2, investor_return: 0.8, updated_at,
       },
       {
         user_id: 3, username: 'bob', display_name: 'Bob', is_manager: false, is_investor: true,
         invested_capital_usd: 52_000, loss_allocation: 0, management_fee: 0,
-        performance_fee: 0, investor_return: 0.6, updated_at,
+        performance_fee: 0, investor_return: 0.8, updated_at,
       },
     ],
   }

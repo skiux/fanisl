@@ -221,3 +221,28 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
     />
   )
 }
+
+/**
+ * 列表第一次取数时的占位：与委托行同高同构，数据到了不跳版。
+ * 原先写的是一行「读取中…」，合约与持仓的委托每次点开都先闪它一下（2026-10-03）。
+ * 现在委托有缓存、会预取，这个占位只在一个会话里第一次、且预取还没回来时出现。
+ */
+export function ListSkeleton({ rows = 4, label }: { rows?: number; label: string }) {
+  return (
+    <div aria-busy="true" aria-label={label} className="skeleton-reveal divide-y divide-rule">
+      {Array.from({ length: rows }, (_, index) => (
+        <div className="flex items-center gap-3 py-3.5" key={index}>
+          <Skel className="size-7 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skel className="h-3.5 w-28" />
+            <Skel className="h-3 w-40" />
+          </div>
+          <div className="space-y-2">
+            <Skel className="ml-auto h-3.5 w-20" />
+            <Skel className="ml-auto h-3 w-14" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}

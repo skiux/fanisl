@@ -6,13 +6,30 @@ import { Ticker } from '../../components/Ticker'
 import { cn } from '../../lib/cn'
 import {
   amount, baseOf, clockTime, CONDITIONAL_KINDS, money, ORDER_KIND_LABEL,
-  ORDER_STATUS_LABEL, percent, price, signedMoney, signedPercent,
+  ORDER_STATUS_LABEL, percent, price, signedMoney, signedPercent, SOURCE_LABEL,
 } from '../../lib/format'
+import { prefetchPageData, usePageData } from '../../lib/pageData'
 import { gapOf } from '../orders/OrderTables'
+import { ListSkeleton } from './states'
 import { useViewportListHeight } from './useViewportListHeight'
 
 type OrderView = 'open' | 'history'
-type Phase = { kind: 'loading' } | { kind: 'ready'; snapshot: OrdersSnapshot } | { kind: 'failed' }
+
+/**
+ * 合约委托的取数。走页面数据缓存（lib/pageData.ts）：点开过一次之后再点开，第一帧就是
+ * 上一次的数据，再在后台静默复核；面板开着时每分钟自己刷新。合约页一打开就预取
+ * （`prefetchPerpOrders`），所以点「委托」通常一个占位都看不到。
+ */
+const perpOrders = (scenario: Scenario) => ({
+  scope: `perp-orders|${scenario}`,
+  load: (signal: AbortSignal, force = false) =>
+    fetchOrders(scenario, '', signal, { venue: 'usdm', force }),
+})
+
+export function prefetchPerpOrders(scenario: Scenario) {
+  const { scope, load } = perpOrders(scenario)
+  prefetchPageData(scope, '', load)
+}
 
 const SOURCES: Record<OrderView, SourceKey[]> = {
   open: ['futures_open', 'conditional_open', 'algo_open'],
@@ -35,30 +52,33 @@ export function futuresOrderRows(snapshot: OrdersSnapshot) {
   return {
     open: snapshot.open.filter((order) => order.venue === 'usdm'
       && !CLOSED_STATUSES.has(order.status) && !closedIds.has(order.id)),
-    history: closed.sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
+    history: closed.sort((a, b) => b.created_at.localeCompare(a.created_at)),
     fills: snapshot.fills.filter((fill) => fill.venue === 'usdm'),
   }
 }
 
-function sourceMissing(snapshot: OrdersSnapshot, view: OrderView) {
-  return SOURCES[view].some((key) => snapshot.sources.find((source) => source.key === key)?.status !== 'ok')
+function missingSourceKeys(snapshot: OrdersSnapshot, view: OrderView) {
+  return SOURCES[view].filter((key) => {
+    const status = snapshot.sources.find((source) => source.key === key)?.status
+    // 该账户未启用的委托类型不是暂时读取失败；反复点重试也不会出现数据。
+    return status !== 'ok' && status !== 'unsupported'
+  })
 }
 
-export function PerpOrders({ scenario, asOf }: { scenario: Scenario; asOf: string | null }) {
-  const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
+export function sourceMissing(snapshot: OrdersSnapshot, view: OrderView) {
+  return missingSourceKeys(snapshot, view).length > 0
+}
+
+export function PerpOrders({ scenario }: { scenario: Scenario }) {
+  const { phase, retry } = usePageData({
+    ...perpOrders(scenario),
+    failure: '委托暂时无法读取',
+    refreshEveryMs: 60_000,
+    autoRefresh: scenario === 'live',
+  })
   const [view, setView] = useState<OrderView>('open')
   const [historyStatus, setHistoryStatus] = useState<HistoryStatus>('all')
-  const [retry, setRetry] = useState(0)
   const { ref: listRef, height: listHeight } = useViewportListHeight()
-
-  useEffect(() => {
-    const controller = new AbortController()
-    setPhase((current) => current.kind === 'ready' ? current : { kind: 'loading' })
-    fetchOrders(scenario, '', controller.signal, { venue: 'usdm' })
-      .then((snapshot) => { if (!controller.signal.aborted) setPhase({ kind: 'ready', snapshot }) })
-      .catch(() => { if (!controller.signal.aborted) setPhase({ kind: 'failed' }) })
-    return () => controller.abort()
-  }, [scenario, asOf, retry])
 
   const rows = phase.kind === 'ready' ? futuresOrderRows(phase.snapshot) : null
   const query = phase.kind === 'ready' ? phase.snapshot.query : null
@@ -67,7 +87,9 @@ export function PerpOrders({ scenario, asOf }: { scenario: Scenario; asOf: strin
     : rows?.[view] ?? []
   const visibleFilters = HISTORY_FILTERS.filter(({ status }) => status === 'all' || status === 'filled'
     || (rows?.history ?? []).some((order) => order.status === status))
-  const missing = phase.kind === 'ready' && sourceMissing(phase.snapshot, view)
+  const missingKeys = phase.kind === 'ready' ? missingSourceKeys(phase.snapshot, view) : []
+  const missing = missingKeys.length > 0
+  const missingNames = missingKeys.map((key) => SOURCE_LABEL[key] ?? key)
   const labels: { key: OrderView; label: string }[] = [
     { key: 'open', label: '当前委托' }, { key: 'history', label: '历史委托' },
   ]
@@ -108,7 +130,8 @@ export function PerpOrders({ scenario, asOf }: { scenario: Scenario; asOf: strin
         {rows && missing && <button
           aria-label="重新读取委托"
           className="pb-2.5 text-xs text-ink-2 underline decoration-rule-strong underline-offset-4 transition-colors hover:text-ink"
-          onClick={() => setRetry((n) => n + 1)}
+          onClick={retry}
+          title={`${missingNames.join('、')}未更新`}
           type="button"
         >重试</button>}
       </div>
@@ -124,11 +147,11 @@ export function PerpOrders({ scenario, asOf }: { scenario: Scenario; asOf: strin
             type="button"
           >{label}</button>)}
         </div>}
-        {phase.kind === 'loading' && <p className="py-10 text-sm text-ink-3">读取中…</p>}
+        {phase.kind === 'loading' && <ListSkeleton label="正在读取合约委托" />}
         {phase.kind === 'failed' && (
           <div className="flex items-center justify-between gap-4 py-8 text-sm text-ink-3">
             <span>委托暂时无法读取</span>
-            <button className="text-ink underline underline-offset-4" onClick={() => setRetry((n) => n + 1)} type="button">重试</button>
+            <button className="text-ink underline underline-offset-4" onClick={retry} type="button">重试</button>
           </div>
         )}
         {rows && (
@@ -184,7 +207,7 @@ function OrderRow({ order, fills }: { order: Order; fills: Fill[] }) {
             ? closeAll ? '全平仓位' : money(order.notional_usd)
             : ORDER_STATUS_LABEL[order.status] ?? order.status}</div>
           <div className="tnum mt-1 text-xs text-ink-3">
-            {clockTime(active ? order.created_at : order.updated_at)} ET
+            {clockTime(order.created_at)} ET
           </div>
         </div>
       </div>

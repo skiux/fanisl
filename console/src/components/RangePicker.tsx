@@ -17,23 +17,23 @@ import { cn } from '../lib/cn'
  * 吸附与惯性交给 `scroll-snap`，倾倒交给滚动驱动的关键帧；每一项同时是按钮，
  * 保证鼠标、触屏和键盘都能操作。
  */
-const ITEM = 44
+export const ITEM = 44
 const VISIBLE = 5
 
 const MS_DAY = 86_400_000
 
-const iso = (at: Date) => at.toISOString().slice(0, 10)
-const monthOf = (day: string) => day.slice(0, 7)
-const daysIn = (month: string) =>
+export const iso = (at: Date) => at.toISOString().slice(0, 10)
+export const monthOf = (day: string) => day.slice(0, 7)
+export const daysIn = (month: string) =>
   new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).getUTCDate()
-const displayDate = (day: string) =>
+export const displayDate = (day: string) =>
   `${day.slice(0, 4)}年${+day.slice(5, 7)}月${+day.slice(8, 10)}日`
 
 function clamp(day: string, first: string, last: string) {
   return day < first ? first : day > last ? last : day
 }
 
-function shiftYear(day: string, delta: number) {
+export function shiftYear(day: string, delta: number) {
   const year = +day.slice(0, 4) + delta
   const month = day.slice(5, 7)
   const date = Math.min(+day.slice(8, 10), daysIn(`${year}-${month}`))
@@ -198,7 +198,7 @@ export function RangePicker({ first, last, value, active, onChange, today = iso(
   )
 }
 
-function Wheel({ items, value, onChange, label, loop = false }: {
+export function Wheel({ items, value, onChange, label, loop = false }: {
   items: { value: string; label: string }[]
   value: string
   onChange: (value: string) => boolean | void

@@ -20,7 +20,8 @@ console 把这个 Binance 账户当成一只小基金来记：账户有一个初
 
     管理费   = Σ Manager 的 Management Fee × 初始净值 × 起始日以来的天数 / 365
     可分配   = 真实净值 − 初始净值 − 管理费
-    盈利     = max(可分配, 0)，每人分 盈利 × (Performance Fee + Investor Return)
+    盈利     = max(可分配, 0)：Manager 分 盈利 × Performance Fee，
+               Investor 分 盈利 × (Invested Capital / 初始净值) × Investor Return
     亏损     = max(−可分配, 0)，每人承担 亏损 × Loss Allocation
 
 亏损只按低于初始净值（加上管理费）的部分算：净值从高点回撤、但仍在初始净值之上时，

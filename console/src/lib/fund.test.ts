@@ -29,12 +29,21 @@ const totals = (fundSnapshot: FundSnapshot, nav: number, ms: number) =>
   accountsAt(fundSnapshot, nav, ms).accounts.map((account) => account.allocation!.total)
 
 describe('账户分配', () => {
-  it('管理费先扣，剩下的盈利按各自比例分（用户确认的例子）', () => {
+  it('管理费先扣；Performance Fee 按总盈利，Investor Return 按出资占比的那份盈利', () => {
     // 73 天，100,000 × 2% × 73/365 = 400；可分 9,600
     const [a, b] = totals(fund([A, B]), 110_000, at('2026-07-01', 73))
     expect(a).toBeCloseTo(400 + 9_600 * 0.3)
-    expect(b).toBeCloseTo(9_600 * 0.7)
-    expect(a + b).toBeCloseTo(10_000)
+    expect(b).toBeCloseTo(9_600 * 0.8 * 0.7)
+    // 没分完的 9,600 × (1 − 30% − 80% × 70%) 归公司
+    expect(a + b + 9_600 * (1 - 0.3 - 0.56)).toBeCloseTo(10_000)
+  })
+
+  it('用户给的例子：Manager 兼 Investor = 总利润 × Performance Fee + 总利润 × 出资占比 × Investor Return', () => {
+    const manager = member({ is_manager: true, is_investor: true, invested_capital_usd: 25_000,
+      performance_fee: 0.2, investor_return: 0.8 })
+    const [account] = accountsAt(fund([manager], { fee: false }), 110_000, at('2026-07-01', 1)).accounts
+    expect(account.allocation!.performance_fee).toBeCloseTo(10_000 * 0.2)
+    expect(account.allocation!.investor_return).toBeCloseTo(10_000 * 0.25 * 0.8)
   })
 
   it('低于初始净值才是亏损，按 Loss Allocation 承担', () => {
@@ -46,7 +55,7 @@ describe('账户分配', () => {
   it('从高点回撤但仍在初始净值之上：只是盈利变少，不算亏损', () => {
     const [a, b] = totals(fund([A, B], { fee: false }), 102_000, at('2026-07-01', 10))
     expect(a).toBeCloseTo(600)
-    expect(b).toBeCloseTo(1_400)
+    expect(b).toBeCloseTo(2_000 * 0.8 * 0.7)
   })
 
   it('同时是 Manager 和 Investor 的人两份都拿', () => {
@@ -54,9 +63,10 @@ describe('账户分配', () => {
       performance_fee: 0.2, investor_return: 0.3 })
     const [account] = accountsAt(fund([both], { fee: false }), 110_000, at('2026-07-01', 1)).accounts
     expect(account.allocation!.performance_fee).toBeCloseTo(2_000)
-    expect(account.allocation!.investor_return).toBeCloseTo(3_000)
-    expect(account.value).toBeCloseTo(55_000)
-    expect(account.return).toBeCloseTo(0.1)
+    // 出资 50,000 / 100,000：Investor Return 只作用在自己那一半盈利上
+    expect(account.allocation!.investor_return).toBeCloseTo(10_000 * 0.5 * 0.3)
+    expect(account.value).toBeCloseTo(53_500)
+    expect(account.return).toBeCloseTo(0.07)
   })
 
   it('没录初始净值或起始日、或者净值取不到：算不出来就是 null，不当成 0', () => {
@@ -111,7 +121,7 @@ describe('账户日历', () => {
     expect(today.parts!.performance_fee).toBeCloseTo(-600 * 0.3)
     expect(today.parts!.loss).toBeCloseTo(-400)
     const investor = accountDays(B, flat, falling, 99_600, now).at(-1)!
-    // Loss Allocation 为 0：亏损那一截不承担，只失去原先那 600 里自己的 70%
-    expect(investor.pnl_usd).toBeCloseTo(-420)
+    // Loss Allocation 为 0：亏损那一截不承担，只失去原先那 600 里自己那份（80% 出资 × 70%）
+    expect(investor.pnl_usd).toBeCloseTo(-600 * 0.8 * 0.7)
   })
 })

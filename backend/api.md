@@ -288,22 +288,25 @@ Query：`symbol`、`venue`（`spot|usdm|margin|equity`）、`force`。
 - **`symbol` 指定 = 只问那一个**，`query.venue` 按该符号在哪边有仓位/挂单推断
   （`venue` 参数可显式覆盖）。
 - `query.max_window_hours` / `lookback_days` 取**最紧**的那一个：多个交易对合在
-  一起时能保证的只有交集（现货单次 ≤ 24 小时、无回溯上限；合约 < 7 天、回溯 90 天；股票单次 90 天、无回溯上限）。
+  一起时能保证的只有交集（现货与全仓杠杆单次 ≤ 24 小时、无回溯上限；合约 < 7 天、回溯 90 天；股票单次 90 天、无回溯上限）。
 - `order_history` / `trade_history` 两个来源状态是**整组**的：任何一个交易对没取到
   就不是 `ok`，取到的那部分照常返回（451 常常只打 fapi，现货那半边还在）。
 - **合约也逐个交易对问**，不用省略 symbol 的全账户 `allOrders`（官方 2026-08-25 起允许省略）：
   「全部」与「选定一个」走同一条路、共用同一批缓存键，同一个交易对在两处看到的不会不一样。
   理由见 `backend/fanisl/binance/README.md`「委托页的硬边界」。
 - 股票（`equity`）的委托与成交历史不带 symbol 一次取全，再按选定的代码过滤。
+- 全仓杠杆（`margin`）的历史分别取 `/sapi/v1/margin/allOrders` 与
+  `/sapi/v1/margin/myTrades`，带 `isIsolated=FALSE`；不借用现货历史。
 - 代价是一次 2N 个请求（N = 加密候选数）。候选界定在挂单、持仓、收支与余额之内，各自按来源缓存。
 
-`history_symbols` 是从「挂单 + 持仓 + 近 90 天合约收支 + 股票委托与成交 + 现货余额能配出的交易对」
+`history_symbols` 是从「挂单 + 持仓 + 近 90 天合约收支 + 股票委托与成交 + 现货余额及全仓杠杆资产能配出的交易对」
 推的候选——Binance 没有"我交易过哪些对"的接口，做不到真正的全量。合约收支能把已经平掉的仓位找回来；
 股票代码一次取全，不会因为选了别的交易对就从候选里消失。
 
 `history_venues: {symbol: venue}` 标出每个候选归哪个 venue，前端按它给下拉框分组（股票代码 SOXL 没有
-计价币后缀，只按计价币分会落进「其他」）。取值实际只有 `spot` / `usdm` / `equity`：杠杆挂单的历史走现货端点，
-记作 `spot`。同一个代码出现在几处时，挂单与持仓先说了算，现货余额最后。
+计价币后缀，只按计价币分会落进「其他」）。取值为 `spot` / `usdm` / `margin` / `equity`。
+不带 `venue` 时同一个代码只归一个 venue，挂单与持仓先说了算；分别请求
+`venue=spot` / `venue=margin` 可保留同名交易对在两个账户中的独立历史。
 
 `fills[].commission` 的单位是 `commission_asset`（现货常用 BNB 抵扣、合约结在 USDT），
 **求和只能用 `commission_usd`**。把两种币的数量直接相加等于把 0.0008 个 BNB 当成

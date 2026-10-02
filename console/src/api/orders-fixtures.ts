@@ -172,6 +172,13 @@ const RAW_SPOT_HISTORY: RawOrder[] = [
   { venue: 'spot', symbol: 'BNBUSDT', side: 'buy', kind: 'limit', qty: 3.4, price: 512, tif: 'GTC', status: 'canceled', ageMin: 71 * 24 * 60, touchedMin: 70 * 24 * 60 },
 ]
 
+/** 同一 BNBUSDT 也在全仓杠杆交易；ID 与现货委托按 venue 分开。 */
+const RAW_MARGIN_HISTORY: RawOrder[] = [
+  { venue: 'margin', symbol: 'BNBUSDT', side: 'buy', kind: 'limit', qty: 1.25, filled: 1.25, price: 648.2, tif: 'GTC', status: 'filled', ageMin: 12_420 },
+  { venue: 'margin', symbol: 'BNBUSDT', side: 'sell', kind: 'limit', qty: 0.8, price: 735, tif: 'GTC', status: 'canceled', ageMin: 8_120, touchedMin: 7_980 },
+  { venue: 'margin', symbol: 'BNBUSDT', side: 'buy', kind: 'limit', qty: 0.9, filled: 0.35, price: 659.4, tif: 'GTC', status: 'canceled', ageMin: 3_080, touchedMin: 2_880 },
+]
+
 /** 股票委托：代码是裸 ticker，没有计价币后缀（线上账户的第一笔就是 SOXL） */
 const RAW_EQUITY_HISTORY: RawOrder[] = [
   { venue: 'equity', symbol: 'SOXL', side: 'buy', kind: 'market', qty: 40, filled: 40, status: 'filled', ageMin: 2 * 24 * 60 },
@@ -181,6 +188,7 @@ export function buildHistory(asOf: Date): Order[] {
   return [
     ...RAW_HISTORY.map((row, index) => toOrder(row, index + 90, asOf)),
     ...RAW_SPOT_HISTORY.map((row, index) => toOrder(row, index + 200, asOf)),
+    ...RAW_MARGIN_HISTORY.map((row, index) => toOrder(row, index + 400, asOf)),
     ...RAW_EQUITY_HISTORY.map((row, index) => ({
       ...toOrder(row, index + 300, asOf), quote_asset: 'USDC', trading_session: 'rth' as const,
     })),
@@ -216,6 +224,11 @@ const RAW_SPOT_FILLS = [
   { side: 'buy' as OrderSide, qty: 1.7, price: 668.4, maker: false, ageMin: 2015, orderIndex: 202 },
 ]
 
+const RAW_MARGIN_FILLS = [
+  { side: 'buy' as OrderSide, qty: 1.25, price: 648.2, maker: true, ageMin: 12_420, orderIndex: 400 },
+  { side: 'buy' as OrderSide, qty: 0.35, price: 659.4, maker: false, ageMin: 2_980, orderIndex: 402 },
+]
+
 export function buildFills(asOf: Date): Fill[] {
   const spot: Fill[] = RAW_SPOT_FILLS.map((row, index) => {
     const quote = row.qty * row.price
@@ -237,7 +250,27 @@ export function buildFills(asOf: Date): Fill[] {
       time: iso(asOf, row.ageMin),
     }
   })
-  return [...spot, ...RAW_FILLS.map((row, index) => {
+  const margin: Fill[] = RAW_MARGIN_FILLS.map((row, index) => {
+    const quote = row.qty * row.price
+    const commission = quote * (row.maker ? 0.00075 : 0.001)
+    return {
+      id: `margin:t${930_400 + index * 31}`,
+      order_id: `margin:${4_100_000 + row.orderIndex * 137}`,
+      venue: 'margin',
+      symbol: 'BNBUSDT',
+      side: row.side,
+      price: row.price,
+      qty: row.qty,
+      quote_qty: quote,
+      commission,
+      commission_asset: 'USDT',
+      commission_usd: commission,
+      is_maker: row.maker,
+      realized_pnl: null,
+      time: iso(asOf, row.ageMin),
+    }
+  })
+  return [...spot, ...margin, ...RAW_FILLS.map((row, index) => {
     const quote = row.qty * row.price
     return {
       id: `usdm:t${820_400 + index * 29}`,
@@ -279,7 +312,7 @@ export const HISTORY_VENUES: Record<string, OrderVenue> = Object.fromEntries(
  * `symbol` 为 null = 默认那一档：候选里的每个都问过一遍再合并，
  * 窗口取最紧的一个（现货 24 小时最紧，合约 90 天回溯最紧）。
  */
-export function buildQuery(asOf: Date, symbol: string | null = null): HistoryQuery {
+export function buildQuery(asOf: Date, symbol: string | null = null, venueOverride?: OrderVenue): HistoryQuery {
   // 回溯一律按 90 天算：现货接口没声明上限，后端也是拿 90 兜的底
   const from = iso(asOf, 90 * 24 * 60)
   if (symbol === null) {
@@ -291,7 +324,7 @@ export function buildQuery(asOf: Date, symbol: string | null = null): HistoryQue
       lookback_days: 90,
     }
   }
-  const venue = HISTORY_VENUES[symbol] ?? 'usdm'
+  const venue = venueOverride ?? HISTORY_VENUES[symbol] ?? 'usdm'
   // 与后端 orders.WINDOW 一致：合约单次 < 7 天、回溯 90 天；现货单次 24 小时、
   // 无回溯上限；股票接口没声明上限，按一次取 90 天报
   const window = { spot: [24, null], usdm: [7 * 24, 90], margin: [24, null], equity: [90 * 24, null] }[venue]

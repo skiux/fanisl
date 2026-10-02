@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildSnapshot } from '../../api/fixtures'
 import { exposures } from '../../lib/holdings'
 import { money } from '../../lib/format'
-import { openingCapacity, positionSize, positionTarget, shock } from '../../lib/stress'
+import { openingCapacity, positionSize, positionTarget, resize, shock } from '../../lib/stress'
 import { RiskControlView } from './RiskControl'
 import { ExposureDistribution } from './ExposureDistribution'
 
@@ -42,6 +42,31 @@ function render(data = snapshot) {
 }
 
 describe('敞口分布', () => {
+  it('持仓与压力测试并排，下方左右显示临界跌幅和现金缓冲', () => {
+    render()
+    const upper = host.querySelector('[data-risk-main]')!
+    expect([...upper.querySelectorAll('h2')].map((heading) => heading.textContent))
+      .toEqual(['持仓价值分布', '压力测试'])
+    const lower = host.querySelector('[data-risk-support]')!
+    expect([...lower.querySelectorAll('h2')].map((heading) => heading.textContent))
+      .toEqual(['强平临界跌幅', '现金缓冲'])
+    expect(upper.querySelector('[aria-label="标的列表滚动区域"]')).not.toBeNull()
+  })
+
+  it('压力测试展示下跌后的仓位价值，并随仓位规模和跌幅更新', () => {
+    render()
+    const label = [...host.querySelectorAll('dt')]
+      .find((item) => item.textContent === '仓位价值')!
+    const value = label.parentElement!.querySelector('dd')!
+    expect(value.textContent).toContain(money(shock(snapshot, 0.3).position_usd!))
+    expect([...host.querySelectorAll('dt')].some((item) => item.textContent === '保证金率')).toBe(false)
+
+    act(() => host.querySelector<HTMLButtonElement>('[data-size="2"]')!.click())
+    act(() => [...host.querySelectorAll<HTMLButtonElement>('[aria-label="下跌幅度"] [role="radio"]')]
+      .find((button) => button.textContent === '50%')!.click())
+    expect(value.textContent).toContain(money(shock(resize(snapshot, 2), 0.5).position_usd!))
+  })
+
   it('压力测试同时给出现在与 1×、1.5×、2× 的总仓位和相对当前增量', () => {
     render()
     const choices = [...host.querySelectorAll<HTMLElement>('.stress-size-option')]

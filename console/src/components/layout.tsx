@@ -9,7 +9,7 @@ import { percent } from '../lib/format'
  * 单列堆叠下每一节都得横跨整幅版心，窄内容于是被拉出上千像素的空档，
  * 或者被限宽后在右侧留一片空。模块按自己的天然宽度占列，并排铺满。
  */
-export function Module({ title, figure, tone, note, span, onOpen, children }: {
+export function Module({ title, figure, tone, note, span, onOpen, action, children }: {
   title: string
   figure?: string
   tone?: 'gain' | 'loss' | 'accent' | 'muted'
@@ -18,6 +18,8 @@ export function Module({ title, figure, tone, note, span, onOpen, children }: {
   /** 12 栏栅格里占几栏 */
   span: string
   onOpen?: () => void
+  /** 标题行最右边的一个动作（用户页的「新建」）。和 onOpen 不同时用 */
+  action?: ReactNode
   children: ReactNode
 }) {
   const hint = note
@@ -37,6 +39,7 @@ export function Module({ title, figure, tone, note, span, onOpen, children }: {
             {figure}
           </span>
         )}
+        {action}
         {onOpen && (
           <ArrowRight
             aria-hidden="true"

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ApiError } from '../../api/http'
 import {
   changePassword, getSession, listSessions, revokeAllSessions, type SessionRow,
@@ -6,7 +6,19 @@ import {
 import { Figure, Module, Stack, ViewGrid } from '../../components/layout'
 import { cn } from '../../lib/cn'
 import { relativeTime } from '../../lib/format'
+import { usePageData } from '../../lib/pageData'
 import { Masthead } from '../portfolio/Masthead'
+import { PortfolioError } from '../../api/types'
+
+/** 会话列表走页面数据缓存：回到这一页先显示上一次的，不再每次闪一行「正在读取…」 */
+async function loadSessions() {
+  try {
+    return await listSessions()
+  } catch (error) {
+    if (error instanceof ApiError && error.status !== 401) throw new PortfolioError('server', error.message)
+    throw error
+  }
+}
 
 const ROLE_LABEL = { admin: '管理员', member: '成员' } as const
 
@@ -20,25 +32,20 @@ export function AccountPage() {
   const session = getSession()
   const user = session.status === 'authenticated' ? session.user : null
 
-  const [rows, setRows] = useState<SessionRow[] | null>(null)
-  const [failed, setFailed] = useState(false)
+  // **失败要落地，但不能落成空列表**：落成 `[]` 会显示成"一个会话都没有"。usePageData
+  // 的 failed 是单独一态
+  const { phase, retry } = usePageData<SessionRow[]>({
+    scope: 'account-sessions',
+    load: () => loadSessions(),
+    failure: '读取会话列表失败',
+    refreshEveryMs: 60_000,
+    autoRefresh: user !== null,
+  })
+  const rows = phase.kind === 'ready' ? phase.snapshot : null
+  const failed = phase.kind === 'failed'
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-
-  const load = useCallback(async () => {
-    setFailed(false)
-    try {
-      setRows(await listSessions())
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : '读取会话列表失败')
-      // **失败要落地，但不能落成空列表。** 不动 rows 的话上面挂着报错、下面
-      // 还转着"正在读取…"；落成 `[]` 又会显示成"一个会话都没有"。
-      setFailed(true)
-    }
-  }, [])
-
-  useEffect(() => { void load() }, [load])
 
   if (!user) return null
 
@@ -46,11 +53,12 @@ export function AccountPage() {
     <div className="min-h-[100dvh] bg-desk px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-6">
       {/* 这两页内容不多，纸张按内容收——钉在视口高度只会在下面留一大片空白 */}
       <div className="sheet mx-auto flex max-w-[1420px] flex-col">
-        <Masthead asOf={null} onRefresh={() => { void load() }} page="account"
+        <Masthead asOf={null} onRefresh={retry} page="account"
                   refreshing={false} sources={[]} title="账号" />
 
         <div className="min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8">
-          <div className="rise">
+          {/* 不再播入场：口令表单与身份不等数据，会话列表晚到的话只是那一块从占位换成列表 */}
+          <div>
             {error && (
               <p className="mb-6 border-l-2 border-loss bg-loss/[0.07] px-3 py-2.5 text-xs text-loss"
                  role="alert">{error}</p>
@@ -92,7 +100,10 @@ export function AccountPage() {
                   {failed ? (
                     <p className="py-6 text-center text-sm text-ink-3">本次未取到。</p>
                   ) : rows === null ? (
-                    <p className="py-6 text-center text-sm text-ink-3">正在读取…</p>
+                    <div aria-busy="true" aria-label="正在读取会话" className="skeleton-reveal space-y-3 py-1">
+                      <div className="skel h-3.5 w-full" />
+                      <div className="skel h-3.5 w-4/5" />
+                    </div>
                   ) : (
                     <>
                       <ul className="space-y-2.5">

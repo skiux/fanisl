@@ -2,14 +2,20 @@ import type { DailyPnl, FundMember, FundSettings, FundSnapshot } from '../api/ty
 
 /**
  * 账户分配：把 Binance 账户当成一只小基金，算出每个参与者自己的账户。
- * 录入的规则见 `backend/fanisl/binance/fund.py`。2026-10-03 用户确认的口径：
+ * 录入的规则见 `backend/fanisl/binance/fund.py`。用户确认的口径（2026-10-03）：
  *
  *     管理费   = Σ Manager 的 Management Fee × 初始净值 × 起始日以来的天数 / 365
  *     可分配   = 真实净值 − 初始净值 − 管理费
- *     盈利     = max(可分配, 0)：Manager 分 盈利 × Performance Fee，
- *                Investor 分 盈利 × Investor Return，两个角色都有就两份都拿
+ *     盈利     = max(可分配, 0)
+ *       Manager  分 盈利 × Performance Fee
+ *       Investor 分 盈利 × (Invested Capital / 初始净值) × Investor Return
+ *       两个角色都有就两份都拿
  *     亏损     = max(−可分配, 0)：每人承担 亏损 × Loss Allocation
  *     账户价值 = Invested Capital + 管理费（Manager）+ 盈利分成 − 亏损承担
+ *
+ * **Investor Return 按出资占比算。** 第一版把它当成"占总盈利的比例"，与 Performance
+ * Fee 同一个口径，结果两个出资差三倍的 Investor 填同一个比例会分到同样多——基金里
+ * 投资人的收益本来就从自己那份出资的盈利里来。用户指出后改成上面这样。
  *
  * **真实净值**是交易所里的净值，不含管理员录入的现金。
  *
@@ -75,13 +81,27 @@ export type Allocation = {
 
 const ZERO: Allocation = { management_fee: 0, performance_fee: 0, investor_return: 0, loss: 0, total: 0 }
 
+/** 出资占初始净值的比例 */
+export const capitalShare = (member: FundMember, initialNav: number) =>
+  (initialNav > 0 ? member.invested_capital_usd / initialNav : 0)
+
+/**
+ * 这个人能分到总盈利的多少：Performance Fee + 出资占比 × Investor Return。
+ * 全部参与者加起来不到 1 的部分归公司，超过 1 就是规则录错了。
+ */
+export function profitShare(member: FundMember, initialNav: number) {
+  return (member.is_manager ? member.performance_fee : 0)
+    + (member.is_investor ? capitalShare(member, initialNav) * member.investor_return : 0)
+}
+
 export function allocate(member: FundMember, state: FundState, terms: FundTerms): Allocation {
   const profit = Math.max(0, state.distributable)
   const loss = Math.max(0, -state.distributable)
   const management_fee = member.is_manager
     ? member.management_fee * terms.initialNav * state.days / 365 : 0
   const performance_fee = member.is_manager ? profit * member.performance_fee : 0
-  const investor_return = member.is_investor ? profit * member.investor_return : 0
+  const investor_return = member.is_investor
+    ? profit * capitalShare(member, terms.initialNav) * member.investor_return : 0
   const lossShare = loss === 0 ? 0 : -loss * member.loss_allocation
   return {
     management_fee, performance_fee, investor_return, loss: lossShare,

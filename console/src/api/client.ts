@@ -501,17 +501,24 @@ export async function fetchOrders(
   }
   const raw = scenarioOrders(scenario)
   const venue = options?.venue
-  const symbols = venue ? raw.history_symbols.filter((item) => raw.history_venues[item] === venue) : raw.history_symbols
-  const snapshot = venue ? {
+  const symbols = venue ? [...new Set([
+    ...raw.history_symbols.filter((item) => raw.history_venues[item] === venue),
+    ...raw.open.filter((order) => order.venue === venue).map((order) => order.symbol),
+    ...raw.history.filter((order) => order.venue === venue).map((order) => order.symbol),
+    ...raw.fills.filter((fill) => fill.venue === venue).map((fill) => fill.symbol),
+  ])] : raw.history_symbols
+  const snapshot: OrdersSnapshot = venue ? {
     ...raw,
     open: raw.open.filter((order) => order.venue === venue),
     history: raw.history.filter((order) => order.venue === venue),
     fills: raw.fills.filter((fill) => fill.venue === venue),
     order_lists: raw.order_lists.filter((list) => list.venue === venue),
     history_symbols: symbols,
+    history_venues: Object.fromEntries(symbols.map((item) => [item, venue])),
     query: raw.query && {
       ...raw.query, venue, symbols,
-      max_window_hours: venue === 'usdm' ? 7 * 24 : raw.query.max_window_hours,
+      max_window_hours: venue === 'usdm' ? 7 * 24 : venue === 'equity' ? 90 * 24 : 24,
+      lookback_days: venue === 'usdm' ? 90 : null,
     },
   } : raw
   // **空 symbol = 全部**，不是"还没选过所以随便挑一个"：后端不选就把候选里的
@@ -521,7 +528,7 @@ export async function fetchOrders(
   // 交易对如实返回空区间，而不是把别人的记录改个名字套上去。
   return {
     ...snapshot,
-    query: ofx.buildQuery(new Date(snapshot.as_of ?? Date.now()), symbol),
+    query: ofx.buildQuery(new Date(snapshot.as_of ?? Date.now()), symbol, venue),
     history: snapshot.history.filter((order) => order.symbol === symbol),
     fills: snapshot.fills.filter((fill) => fill.symbol === symbol),
   }

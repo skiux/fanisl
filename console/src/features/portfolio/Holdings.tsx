@@ -7,7 +7,7 @@ import type { EquityHolding, TokenizedStockAsset } from '../../api/types'
 import type { CashRow, SpotHoldingRow } from '../../lib/holdings'
 import { PositionCostEditor } from './StockCostEditor'
 
-const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 sm:grid-cols-[minmax(0,1.7fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_112px]'
+const ROW = 'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 @xl:grid-cols-[minmax(0,1.7fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_112px]'
 
 /**
  * 行下面那一行小字**只留占用原因**。
@@ -40,7 +40,7 @@ function CostCell({ item, canEdit, onEdit }: {
     return known
       ? <span className="tnum text-sm text-ink-2"><MobileLabel />{price(item.cost_price_usd)}</span>
       // 窄屏没有列头，一个孤零零的破折号读不出是什么，那里索性不占位
-      : <span className="hidden text-sm text-ink-3 sm:block">—</span>
+      : <span className="hidden text-sm text-ink-3 @xl:block">—</span>
   }
   return (
     <button
@@ -55,14 +55,14 @@ function CostCell({ item, canEdit, onEdit }: {
     >
       {known ? <><MobileLabel />{price(item.cost_price_usd)}</>
         : item.cost_status === 'stale' ? '待更新'
-        : <>录入<span className="sm:hidden">成本</span></>}
+        : <>录入<span className="@xl:hidden">成本</span></>}
     </button>
   )
 }
 
 /** 窄屏把成本收到资产下面那一行，那里没有列头，得自己带一个 */
 function MobileLabel() {
-  return <span className="text-micro text-ink-3 sm:hidden">成本 </span>
+  return <span className="text-micro text-ink-3 @xl:hidden">成本 </span>
 }
 
 function SpotRow({ item, share, canEditCost, onSaveCost }: {
@@ -85,13 +85,13 @@ function SpotRow({ item, share, canEditCost, onSaveCost }: {
             {note && <div className="tnum truncate text-micro text-ink-3" title={note}>{note}</div>}
           </div>
         </div>
-        <div className="tnum hidden text-sm text-ink-2 sm:block">{amount(item.total)}</div>
-        <div className="tnum hidden text-sm text-ink-3 sm:block">{price(item.price_usd)}</div>
+        <div className="tnum hidden text-sm text-ink-2 @xl:block">{amount(item.total)}</div>
+        <div className="tnum hidden text-sm text-ink-3 @xl:block">{price(item.price_usd)}</div>
         {/* 窄屏只剩资产与价值两列，成本落到资产下面那一行，而不是跟着列一起消失 */}
-        <div className="col-start-1 row-start-2 min-w-0 sm:col-auto sm:row-auto">
+        <div className="col-start-1 row-start-2 min-w-0 @xl:col-auto @xl:row-auto">
           <CostCell canEdit={canEdit} item={item} onEdit={() => setEditing(true)} />
         </div>
-        <div className="col-start-2 row-start-1 text-right sm:col-auto sm:row-auto sm:text-left">
+        <div className="col-start-2 row-start-1 text-right @xl:col-auto @xl:row-auto @xl:text-left">
           {item.value_usd === null
             ? <span className="text-xs text-ink-3">无报价</span>
             : <span className="tnum text-sm text-ink">{money(item.value_usd)}</span>}
@@ -105,9 +105,9 @@ function SpotRow({ item, share, canEditCost, onSaveCost }: {
               <span className="text-ink-3"> {signedPercent(item.pnl_pct)}</span>
             </div>
           )}
-          <div className="tnum text-micro text-ink-3 sm:hidden">{amount(item.total)}</div>
+          <div className="tnum text-micro text-ink-3 @xl:hidden">{amount(item.total)}</div>
         </div>
-        <div className="hidden items-center gap-2 sm:flex">
+        <div className="hidden items-center gap-2 @xl:flex">
           <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-rule">
             <span
               className="block h-full rounded-full bg-ink-3 transition-[width] duration-500"
@@ -120,7 +120,7 @@ function SpotRow({ item, share, canEditCost, onSaveCost }: {
         </div>
       </div>
       {canEdit && onSaveCost && editing && (
-        <div className="sm:pl-[34px]">
+        <div className="@xl:pl-[34px]">
           <PositionCostEditor
             asset={item.asset} kind="spot" quantity={item.total} row={item} unit={item.asset}
             onCancel={() => setEditing(false)}
@@ -154,20 +154,22 @@ export function SpotTable({ spot, canEditCost = false, onSaveCost }: {
     return <p className="py-10 text-center text-sm text-ink-3">当前没有现货类资产。</p>
   }
 
+  // 列数跟着这张表自己的宽度走，不跟着视口走：持仓页左栏 1024 宽时只有 485px，
+  // 按视口的 sm 断点摊开六列，数量、现价、成本价会互相压字（2026-10-03）
   return (
-    <>
+    <div className="@container">
       <div className={cn(ROW, 'border-b border-rule pb-2 text-micro text-ink-3')}>
         <span>资产</span>
-        <span className="hidden sm:block">数量</span>
-        <span className="hidden sm:block">现价</span>
-        <span className="hidden sm:block">成本价</span>
-        <span className="text-right sm:text-left">价值</span>
-        <span className="hidden text-right sm:block">占比</span>
+        <span className="hidden @xl:block">数量</span>
+        <span className="hidden @xl:block">现价</span>
+        <span className="hidden @xl:block">成本价</span>
+        <span className="text-right @xl:text-left">价值</span>
+        <span className="hidden text-right @xl:block">占比</span>
       </div>
       <ul aria-label="现货持仓列表" className="scroll-y divide-y divide-rule lg:max-h-[50dvh]" tabIndex={0}>
         {major.map((item) => <SpotRow canEditCost={canEditCost} item={item} key={item.asset} onSaveCost={onSaveCost} share={share(item)} />)}
       </ul>
-    </>
+    </div>
   )
 }
 

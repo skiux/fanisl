@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FundSnapshot, PortfolioSnapshot } from '../../api/types'
 import { Module, Stack, ViewGrid } from '../../components/layout'
+import { PersonMark } from '../../components/PersonMark'
 import { Strip } from '../../components/Strip'
 import { cn } from '../../lib/cn'
 import { money, percent, ratio, signedMoney, signedPercent } from '../../lib/format'
@@ -138,20 +139,26 @@ function AccountList({ accounts, current, onSelect }: {
             <button
               aria-pressed={active}
               className={cn(
-                'grid w-full grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1 rounded-[var(--radius-control)] px-2 py-2.5 text-left',
+                'grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-[var(--radius-control)] px-2 py-2.5 text-left',
                 'transition-colors duration-200 hover:bg-sheet-2/60',
                 active && 'bg-sheet-2',
               )}
               onClick={() => onSelect(account.member.user_id)}
               type="button"
             >
-              <span className="truncate text-sm text-ink">{account.member.display_name}</span>
-              <span className="tnum text-right text-sm text-ink">{money(account.value)}</span>
-              <span className="truncate text-micro text-ink-3">{roleLabel(account)}</span>
-              <span className={cn('tnum text-right text-xs',
-                tone(account.allocation?.total) === 'gain' ? 'text-gain'
-                  : tone(account.allocation?.total) === 'loss' ? 'text-loss' : 'text-ink-3')}>
-                {account.return == null ? '—' : signedPercent(account.return, 2)}
+              {/* 与「用户」页同一个标记、同一个颜色 */}
+              <PersonMark name={account.member.display_name} username={account.member.username} />
+              <span className="min-w-0">
+                <span className="block truncate text-sm text-ink">{account.member.display_name}</span>
+                <span className="block truncate text-micro text-ink-3">{roleLabel(account)}</span>
+              </span>
+              <span className="text-right">
+                <span className="tnum block text-sm text-ink">{money(account.value)}</span>
+                <span className={cn('tnum block text-xs',
+                  tone(account.allocation?.total) === 'gain' ? 'text-gain'
+                    : tone(account.allocation?.total) === 'loss' ? 'text-loss' : 'text-ink-3')}>
+                  {account.return == null ? '—' : signedPercent(account.return, 2)}
+                </span>
               </span>
             </button>
           </li>

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchPortfolio, saveSpotCost, saveStockCost } from './client'
+import { fetchOrders, fetchPortfolio, saveSpotCost, saveStockCost } from './client'
 import { spotHoldings } from '../lib/holdings'
 
 function json(body: unknown, status = 200) {
@@ -79,5 +79,30 @@ describe('spot cost writes', () => {
     expect(fetchMock).not.toHaveBeenCalled()
     expect(refreshed.cost_basis_usd).toBeCloseTo(903)
     expect(refreshed.avg_cost_usd).toBeCloseTo(903 / bnb.total)
+  })
+})
+
+describe('order fixtures by account', () => {
+  it('keeps BNBUSDT spot and margin orders separate in current and history views', async () => {
+    const [spot, margin, marginSymbol] = await Promise.all([
+      fetchOrders('ok', '', undefined, { venue: 'spot' }),
+      fetchOrders('ok', '', undefined, { venue: 'margin' }),
+      fetchOrders('ok', 'BNBUSDT', undefined, { venue: 'margin' }),
+    ])
+
+    expect(spot.open.some((order) => order.symbol === 'BNBUSDT')).toBe(true)
+    expect(margin.open.some((order) => order.symbol === 'BNBUSDT')).toBe(true)
+    expect(spot.history.some((order) => order.symbol === 'BNBUSDT')).toBe(true)
+    expect(margin.history.some((order) => order.symbol === 'BNBUSDT')).toBe(true)
+    expect(spot.open.concat(spot.history).every((order) => order.venue === 'spot')).toBe(true)
+    expect(margin.open.concat(margin.history).every((order) => order.venue === 'margin')).toBe(true)
+    expect(margin.history_symbols).toContain('BNBUSDT')
+    expect(margin.history_venues.BNBUSDT).toBe('margin')
+    expect(margin.query).toMatchObject({ venue: 'margin', symbols: expect.arrayContaining(['BNBUSDT']) })
+    expect(marginSymbol.query).toMatchObject({ venue: 'margin', symbol: 'BNBUSDT', symbols: ['BNBUSDT'] })
+    expect(marginSymbol.history.every((order) => order.venue === 'margin')).toBe(true)
+    expect(marginSymbol.fills.length).toBeGreaterThan(0)
+    expect(marginSymbol.fills.every((fill) => marginSymbol.history.some((order) => order.id === fill.order_id))).toBe(true)
+    expect(spot.history.map((order) => order.id)).not.toEqual(margin.history.map((order) => order.id))
   })
 })

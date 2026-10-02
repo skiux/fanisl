@@ -29,18 +29,19 @@ afterEach(() => {
 const titles = () => [...host.querySelectorAll('h2')].map((heading) => heading.textContent)
 
 describe('资产页模块分布', () => {
-  it('现金只在总览，资产分布与充提不再占用总览模块', () => {
+  it('「资产分布」（交易所里的稳定币）只在总览，充提不再占用总览模块', () => {
     const snapshot = buildSnapshot(new Date('2026-09-26T12:00:00Z'))
 
     act(() => root.render(createElement(OverviewView, {
       snapshot,
     })))
-    expect(titles()).toContain('现金')
-    expect(titles()).not.toContain('资产分布')
+    // 这个模块原先叫「现金」，与摘要条上管理员录入的「现金」重名，2026-10-03 改名
+    expect(titles()).toContain('资产分布')
+    expect(titles()).not.toContain('现金')
     expect(titles()).not.toContain('充提')
     expect(titles()).not.toContain('风险仪表')
     const cashSection = [...host.querySelectorAll('h2')]
-      .find((heading) => heading.textContent === '现金')!.closest('section')!
+      .find((heading) => heading.textContent === '资产分布')!.closest('section')!
     const rightStack = cashSection.parentElement!
     expect(rightStack.className).toContain('lg:col-span-5')
     expect(cashSection.querySelector('dl')?.className).toContain('xl:grid-cols-4')
@@ -123,7 +124,7 @@ describe('资产页模块分布', () => {
 
     act(() => root.render(createElement(OverviewView, { snapshot })))
     const section = [...host.querySelectorAll('h2')]
-      .find((heading) => heading.textContent === '现金')!.closest('section')!
+      .find((heading) => heading.textContent === '资产分布')!.closest('section')!
     expect(section.textContent).toContain('预计日收益')
     expect(section.textContent).toContain(`$${expected.toFixed(2)}`)
     expect(section.textContent).not.toContain('累计收益')

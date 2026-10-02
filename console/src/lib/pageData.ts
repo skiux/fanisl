@@ -31,11 +31,30 @@ type Request = { scope: string; query: string; mode: Mode }
 
 // 模块级：页面卸载了它还在。键是 scope + query
 const cache = new Map<string, unknown>()
+// 预取发出、还没回来的请求。页面挂载时若正好撞上，等它而不是再发一次
+const inflight = new Map<string, Promise<unknown>>()
 const keyOf = (scope: string, query: string) => `${scope}\u0000${query}`
 
 /** 只给测试用：每个用例从空缓存开始 */
 export function clearPageData() {
   cache.clear()
+  inflight.clear()
+}
+
+/**
+ * 提前取一份放进缓存，页面真打开时第一帧就有数据。用在"点一下才出现"的面板上：
+ * 合约与持仓的「委托」原先点开才取，每次都先看到一行「读取中…」（2026-10-03）。
+ * 已有缓存或已在取就什么都不做；失败也不报——面板打开时会自己再取一次并说明原因。
+ */
+export function prefetchPageData<T>(scope: string, query: string,
+                                    load: (signal: AbortSignal) => Promise<T>) {
+  const key = keyOf(scope, query)
+  if (cache.has(key) || inflight.has(key)) return
+  const pending = load(new AbortController().signal)
+    .then((value) => { cache.set(key, value); return value })
+    .finally(() => inflight.delete(key))
+  inflight.set(key, pending)
+  pending.catch(() => {})
 }
 
 export function usePageData<T>({ scope, query = '', load, failure, refreshEveryMs, autoRefresh }: {
@@ -98,7 +117,9 @@ export function usePageData<T>({ scope, query = '', load, failure, refreshEveryM
     setSwitching(mode === 'switch')
     if (mode === 'initial') setPhase({ kind: 'loading' })
 
-    loadRef.current(controller.signal, mode === 'force')
+    // 第一次进来正好有一份预取在路上：等它，不再发第二个同样的请求
+    const pending = mode === 'initial' ? inflight.get(key) as Promise<T> | undefined : undefined
+    ;(pending ?? loadRef.current(controller.signal, mode === 'force'))
       .then((snapshot) => {
         if (controller.signal.aborted) return
         if ((mode === 'silent' || mode === 'force') && landed.current !== started) return

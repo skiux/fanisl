@@ -169,9 +169,13 @@
 /* 低饱和分类色不承担盈亏含义；色相按资产代码生成，深浅主题只切换明度。 */
 :root {
   --allocation-tone: 0.82;
+  /* 分配条里的人：比资产分类色深一档、饱和一档。只有两三个人的时候，
+     相邻色相（差 25°）在 0.82 / 0.058 下几乎分不开 */
+  --person-tone: 0.7;
 }
 .dark {
   --allocation-tone: 0.44;
+  --person-tone: 0.6;
 }
 
 /* 标的识别标记，见 components/Ticker.tsx。色相由组件按代码哈希传进来，
@@ -327,16 +331,16 @@
 
   /* 日期选择在手机上从底部进入，桌面上在原位轻微缩放。进入与退出都使用同一条
      空间路径，避免弹层出现得快、消失时却突然断掉。 */
-  .range-picker-overlay[data-state="open"] {
+  .range-picker-overlay[data-state="open"], .sheet-overlay[data-state="open"] {
     animation: range-picker-overlay-in 180ms ease-out both;
   }
-  .range-picker-overlay[data-state="closed"] {
+  .range-picker-overlay[data-state="closed"], .sheet-overlay[data-state="closed"] {
     animation: range-picker-overlay-out 150ms ease-in both;
   }
-  .range-picker-dialog[data-state="open"] {
+  .range-picker-dialog[data-state="open"], .sheet-panel[data-state="open"] {
     animation: range-picker-sheet-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  .range-picker-dialog[data-state="closed"] {
+  .range-picker-dialog[data-state="closed"], .sheet-panel[data-state="closed"] {
     animation: range-picker-sheet-out 190ms cubic-bezier(0.4, 0, 1, 1) both;
   }
 
@@ -352,21 +356,24 @@
   }
 
   @media (min-width: 640px) {
-    .range-picker-dialog[data-state="open"] {
+    .range-picker-dialog[data-state="open"], .sheet-panel[data-state="open"] {
       animation-name: range-picker-dialog-in;
     }
-    .range-picker-dialog[data-state="closed"] {
+    .range-picker-dialog[data-state="closed"], .sheet-panel[data-state="closed"] {
       animation-name: range-picker-dialog-out;
     }
   }
 
+  /* 居中靠元素自己的 `translate: -50% -50%`（Tailwind 的 -translate-x/y-1/2 写的是
+     独立的 translate 属性）。这里只动 transform 的位移与缩放——原先关键帧里也写了
+     translate(-50%, -50%)，两者叠加，弹层整个往左上偏出半个自身，2026-10-03 发现 */
   @keyframes range-picker-dialog-in {
-    from { opacity: 0; transform: translate3d(-50%, -48%, 0) scale(0.985); }
-    to { opacity: 1; transform: translate3d(-50%, -50%, 0) scale(1); }
+    from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.985); }
+    to { opacity: 1; transform: none; }
   }
   @keyframes range-picker-dialog-out {
-    from { opacity: 1; transform: translate3d(-50%, -50%, 0) scale(1); }
-    to { opacity: 0; transform: translate3d(-50%, -49%, 0) scale(0.985); }
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translate3d(0, 4px, 0) scale(0.985); }
   }
 
   /* 纸。有边、有极轻的投影，桌面填满其余空间——超宽屏下版心不会被拉散。 */
