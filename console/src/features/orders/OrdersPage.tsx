@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchOrders, readScenario, writeScenario, type Scenario } from '../../api/client'
 import { PortfolioError, type OrdersSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
 import { BottomNavigation } from '../../components/BottomNavigation'
+import { useAutoRefresh } from '../../lib/autoRefresh'
 import { freshnessOf, relativeTime } from '../../lib/format'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { Masthead } from '../portfolio/Masthead'
@@ -20,6 +21,15 @@ type Phase =
   | { kind: 'ready'; snapshot: OrdersSnapshot }
   | { kind: 'failed'; message: string }
 
+/**
+ * 这一次取数是谁发起的。首次加载与换筛选条件显示骨架；「重新取数」强制穿透缓存；
+ * 后台刷新不打扰——旧数据留在原处，失败了也不换成错误页。见 lib/autoRefresh.ts
+ */
+type Load = { mode: 'initial' | 'force' | 'silent' }
+
+/** 挂单的缓存是 30 秒，一分钟取一次足够让报头一直落在"刚刚"附近 */
+const REFRESH_EVERY_MS = 60_000
+
 function readView(): ViewKey {
   const { section } = readRoute()
   return (VIEW_KEYS as string[]).includes(section ?? '') ? (section as ViewKey) : 'open'
@@ -28,8 +38,10 @@ function readView(): ViewKey {
 export function OrdersPage() {
   const [scenario, setScenario] = useState<Scenario>(readScenario)
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
-  const [reloadKey, setReloadKey] = useState(0)
+  const [load, setLoad] = useState<Load>({ mode: 'initial' })
   const [refreshing, setRefreshing] = useState(false)
+  // 上一个请求还没回来时后台刷新不插队
+  const inFlight = useRef(false)
   const [view, setView] = useState<ViewKey>(readView)
   // **空串 = 全部**，不是“还没选”。后端不带 symbol 时会把候选里每个交易对
   // 都问一遍再合并；只有明确选了一个才收窄到那一个。
@@ -39,28 +51,46 @@ export function OrdersPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    if (reloadKey === 0) setPhase({ kind: 'loading' })
-    else setRefreshing(true)
+    inFlight.current = true
+    if (load.mode === 'initial') setPhase({ kind: 'loading' })
+    if (load.mode === 'force') setRefreshing(true)
 
-    fetchOrders(scenario, symbol, controller.signal, { force: reloadKey > 0 })
-      .then((snapshot) => setPhase({ kind: 'ready', snapshot }))
+    fetchOrders(scenario, symbol, controller.signal, { force: load.mode === 'force' })
+      .then((snapshot) => { if (!controller.signal.aborted) setPhase({ kind: 'ready', snapshot }) })
       .catch((error: unknown) => {
-        if (controller.signal.aborted) return
+        if (controller.signal.aborted || load.mode === 'silent') return
         setPhase({
           kind: 'failed',
           message: error instanceof PortfolioError ? error.message : '读取委托时发生未预期的错误',
         })
       })
-      .finally(() => { if (!controller.signal.aborted) setRefreshing(false) })
+      .finally(() => {
+        if (controller.signal.aborted) return
+        inFlight.current = false
+        setRefreshing(false)
+      })
 
-    return () => controller.abort()
-  }, [scenario, reloadKey, symbol])
+    return () => {
+      controller.abort()
+      inFlight.current = false
+    }
+  }, [scenario, load, symbol])
 
-  const retry = useCallback(() => setReloadKey((key) => key + 1), [])
+  const retry = useCallback(() => setLoad({ mode: 'force' }), [])
+  const refreshQuietly = useCallback(() => {
+    if (!inFlight.current) setLoad({ mode: 'silent' })
+  }, [])
+  useAutoRefresh(refreshQuietly, REFRESH_EVERY_MS, scenario === 'live')
+
+  // 换交易对是一次新的查询：照首次加载走，失败要报出来，不能拿旧交易对的数据冒充
+  const selectSymbol = useCallback((next: string) => {
+    setSymbol(next)
+    setLoad({ mode: 'initial' })
+  }, [])
   const changeScenario = useCallback((next: Scenario) => {
     writeScenario(next)
     setScenario(next)
-    setReloadKey(0)
+    setLoad({ mode: 'initial' })
     setPhase({ kind: 'loading' })
   }, [])
   const selectView = useCallback((next: ViewKey) => {
@@ -84,7 +114,7 @@ export function OrdersPage() {
         />
         <Body
           onRetry={retry}
-          onSelectSymbol={setSymbol}
+          onSelectSymbol={selectSymbol}
           onSelectView={selectView}
           phase={phase}
           symbol={symbol}

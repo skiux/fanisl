@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchLedger, readScenario, writeScenario, type Scenario } from '../../api/client'
 import { PortfolioError, type LedgerSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
 import { BottomNavigation } from '../../components/BottomNavigation'
+import { useAutoRefresh } from '../../lib/autoRefresh'
 import { freshnessOf, relativeTime } from '../../lib/format'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { Masthead } from '../portfolio/Masthead'
@@ -19,6 +20,15 @@ type Phase =
   | { kind: 'ready'; snapshot: LedgerSnapshot }
   | { kind: 'failed'; message: string }
 
+/**
+ * 这一次取数是谁发起的。首次加载与换筛选条件显示骨架；「重新取数」强制穿透缓存；
+ * 后台刷新不打扰——旧数据留在原处，失败了也不换成错误页。见 lib/autoRefresh.ts
+ */
+type Load = { mode: 'initial' | 'force' | 'silent' }
+
+/** 流水的来源本来就是 5–30 分钟才变一次，取得再勤也只是读同一份缓存 */
+const REFRESH_EVERY_MS = 5 * 60_000
+
 function readFilter(): LedgerFilter {
   const { section } = readRoute()
   return (FILTERS as string[]).includes(section ?? '') ? (section as LedgerFilter) : 'all'
@@ -27,8 +37,10 @@ function readFilter(): LedgerFilter {
 export function LedgerPage() {
   const [scenario, setScenario] = useState<Scenario>(readScenario)
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
-  const [reloadKey, setReloadKey] = useState(0)
+  const [load, setLoad] = useState<Load>({ mode: 'initial' })
   const [refreshing, setRefreshing] = useState(false)
+  // 上一个请求还没回来时后台刷新不插队
+  const inFlight = useRef(false)
   const [filter, setFilter] = useState<LedgerFilter>(readFilter)
   const [days, setDays] = useState(7)
 
@@ -36,28 +48,46 @@ export function LedgerPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    if (reloadKey === 0) setPhase({ kind: 'loading' })
-    else setRefreshing(true)
+    inFlight.current = true
+    if (load.mode === 'initial') setPhase({ kind: 'loading' })
+    if (load.mode === 'force') setRefreshing(true)
 
-    fetchLedger(scenario, days, controller.signal, { force: reloadKey > 0 })
-      .then((snapshot) => setPhase({ kind: 'ready', snapshot }))
+    fetchLedger(scenario, days, controller.signal, { force: load.mode === 'force' })
+      .then((snapshot) => { if (!controller.signal.aborted) setPhase({ kind: 'ready', snapshot }) })
       .catch((error: unknown) => {
-        if (controller.signal.aborted) return
+        if (controller.signal.aborted || load.mode === 'silent') return
         setPhase({
           kind: 'failed',
           message: error instanceof PortfolioError ? error.message : '读取流水时发生未预期的错误',
         })
       })
-      .finally(() => { if (!controller.signal.aborted) setRefreshing(false) })
+      .finally(() => {
+        if (controller.signal.aborted) return
+        inFlight.current = false
+        setRefreshing(false)
+      })
 
-    return () => controller.abort()
-  }, [scenario, reloadKey, days])
+    return () => {
+      controller.abort()
+      inFlight.current = false
+    }
+  }, [scenario, load, days])
 
-  const retry = useCallback(() => setReloadKey((key) => key + 1), [])
+  const retry = useCallback(() => setLoad({ mode: 'force' }), [])
+  const refreshQuietly = useCallback(() => {
+    if (!inFlight.current) setLoad({ mode: 'silent' })
+  }, [])
+  useAutoRefresh(refreshQuietly, REFRESH_EVERY_MS, scenario === 'live')
+
+  // 换区间是一次新的查询：照首次加载走，失败要报出来，不能拿旧区间的数据冒充
+  const selectDays = useCallback((next: number) => {
+    setDays(next)
+    setLoad({ mode: 'initial' })
+  }, [])
   const changeScenario = useCallback((next: Scenario) => {
     writeScenario(next)
     setScenario(next)
-    setReloadKey(0)
+    setLoad({ mode: 'initial' })
     setPhase({ kind: 'loading' })
   }, [])
   const selectFilter = useCallback((next: LedgerFilter) => {
@@ -79,7 +109,7 @@ export function LedgerPage() {
           sources={snapshot?.sources ?? []}
           title="资金流水"
         />
-        <Body days={days} filter={filter} onRetry={retry} onSelectDays={setDays}
+        <Body days={days} filter={filter} onRetry={retry} onSelectDays={selectDays}
               onSelectFilter={selectFilter} phase={phase} />
         <BottomNavigation current="ledger" />
       </div>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   fetchPortfolio, readScenario, saveSpotCost, saveStockCost, writeScenario,
   type Scenario, type SpotCostInput, type StockCostInput,
@@ -6,6 +6,7 @@ import {
 import { PortfolioError, type PortfolioSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
 import { BottomNavigation } from '../../components/BottomNavigation'
+import { useAutoRefresh } from '../../lib/autoRefresh'
 import { freshnessOf, relativeTime } from '../../lib/format'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
 import { Masthead } from './Masthead'
@@ -21,6 +22,15 @@ type Phase =
   | { kind: 'ready'; snapshot: PortfolioSnapshot }
   | { kind: 'failed'; message: string }
 
+/**
+ * 这一次取数是谁发起的。首次加载（含换场景）显示骨架；「重新取数」强制穿透缓存；
+ * 后台刷新不打扰——旧数据留在原处，失败了也不换成错误页，真过期了横幅自己会出现。
+ */
+type Load = { mode: 'initial' | 'force' | 'silent' }
+
+/** 页面在前台时多久静默重取一次。打不打 Binance 由后端缓存决定，见 lib/autoRefresh.ts */
+const REFRESH_EVERY_MS = 60_000
+
 export type ViewKey = 'overview' | 'holdings' | 'perp' | 'risk'
 
 // `#/assets/changes` 是删掉的那一节，落到这里会被 readView 退回 overview——
@@ -35,36 +45,61 @@ function readView(): ViewKey {
 export function StatementPage() {
   const [scenario, setScenario] = useState<Scenario>(readScenario)
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
-  const [reloadKey, setReloadKey] = useState(0)
+  const [load, setLoad] = useState<Load>({ mode: 'initial' })
   const [refreshing, setRefreshing] = useState(false)
   const [view, setView] = useState<ViewKey>(readView)
+  // 上一个请求还没回来时后台刷新不插队：它只补空档，不打断首次加载或手动的重新取数
+  const inFlight = useRef(false)
+  // 每落地一份快照加一。请求回来时若期间已有更新的一份落地（成本保存后的那一次），
+  // 就不拿这份旧的盖上去
+  const landed = useRef(0)
 
   useEffect(() => onRouteChange(() => setView(readView())), [])
 
   useEffect(() => {
     const controller = new AbortController()
-    if (reloadKey === 0) setPhase({ kind: 'loading' })
-    else setRefreshing(true)
+    const started = landed.current
+    inFlight.current = true
+    if (load.mode === 'initial') setPhase({ kind: 'loading' })
+    if (load.mode === 'force') setRefreshing(true)
 
-    fetchPortfolio(scenario, controller.signal, { force: reloadKey > 0 })
-      .then((snapshot) => setPhase({ kind: 'ready', snapshot }))
-      .catch((error: unknown) => {
+    fetchPortfolio(scenario, controller.signal, { force: load.mode === 'force' })
+      .then((snapshot) => {
         if (controller.signal.aborted) return
+        if (load.mode !== 'initial' && landed.current !== started) return
+        landed.current += 1
+        setPhase({ kind: 'ready', snapshot })
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted || load.mode === 'silent') return
         setPhase({
           kind: 'failed',
           message: error instanceof PortfolioError ? error.message : '读取账户时发生未预期的错误',
         })
       })
-      .finally(() => { if (!controller.signal.aborted) setRefreshing(false) })
+      .finally(() => {
+        if (controller.signal.aborted) return
+        inFlight.current = false
+        setRefreshing(false)
+      })
 
-    return () => controller.abort()
-  }, [scenario, reloadKey])
+    return () => {
+      controller.abort()
+      inFlight.current = false
+    }
+  }, [scenario, load])
 
-  const retry = useCallback(() => setReloadKey((key) => key + 1), [])
+  const retry = useCallback(() => setLoad({ mode: 'force' }), [])
+  const refreshQuietly = useCallback(() => {
+    if (!inFlight.current) setLoad({ mode: 'silent' })
+  }, [])
+  // 示例数据场景是本地拼的，不需要轮询
+  useAutoRefresh(refreshQuietly, REFRESH_EVERY_MS, scenario === 'live')
+
   const changeScenario = useCallback((next: Scenario) => {
     writeScenario(next)
     setScenario(next)
-    setReloadKey(0)
+    setLoad({ mode: 'initial' })
     setPhase({ kind: 'loading' })
   }, [])
   const selectView = useCallback((next: ViewKey) => {
@@ -78,6 +113,7 @@ export function StatementPage() {
       // 手工成本存在本地表里，不需要强制穿透 Binance 的高权重缓存。
       try {
         const snapshot = await fetchPortfolio(scenario, undefined, { force: false })
+        landed.current += 1
         setPhase({ kind: 'ready', snapshot })
       } catch (cause) {
         const detail = cause instanceof Error ? `：${cause.message}` : ''
@@ -93,6 +129,7 @@ export function StatementPage() {
       await saveSpotCost(scenario, asset, input)
       try {
         const snapshot = await fetchPortfolio(scenario, undefined, { force: false })
+        landed.current += 1
         setPhase({ kind: 'ready', snapshot })
       } catch (cause) {
         const detail = cause instanceof Error ? `：${cause.message}` : ''
