@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { ArrowsClockwise, MoonStars, Sun } from '@phosphor-icons/react'
 import { AccountMenu } from '../../components/AccountMenu'
+import { BrandMark } from '../../components/BrandMark'
 import { cn } from '../../lib/cn'
 import { clockTime } from '../../lib/format'
 import { useIsAdmin } from '../../lib/role'
@@ -63,10 +64,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
           落在哪儿全看内容长短——显示名一长就又是另一个样子。 */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
         <span className="order-1 flex items-center gap-2">
-          <svg aria-hidden="true" className="text-ink" height="15" viewBox="0 0 20 20" width="15">
-            <path d="M2 16.5 L8.2 3.5 L11 9.4 L13.4 5.1 L18 16.5" fill="none" stroke="currentColor" strokeLinecap="square" strokeWidth="1.5" />
-            <circle cx="13.4" cy="5.1" fill="var(--accent)" r="1.9" />
-          </svg>
+          <BrandMark className="text-ink" size={16} />
           <span className="text-xs font-semibold tracking-tight text-ink">FANISL</span>
           <span className="label">Console</span>
         </span>
