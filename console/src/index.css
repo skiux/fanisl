@@ -219,7 +219,13 @@
   html {
     color-scheme: light dark;
     -webkit-text-size-adjust: 100%;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
   }
+  html[data-scrolling="true"] { scrollbar-color: var(--rule-strong) transparent; }
+  html::-webkit-scrollbar { width: 7px; }
+  html::-webkit-scrollbar-thumb { background: transparent; border-radius: 99px; }
+  html[data-scrolling="true"]::-webkit-scrollbar-thumb { background: var(--rule-strong); }
   body {
     background: var(--desk);
     color: var(--ink);
@@ -242,12 +248,20 @@
 }
 
 @layer components {
-  /* 新入口从自己的中心打开，旧入口同时向中心收拢；文字保持原位。 */
+  /* 离开的入口收回；进入的入口每次从自身中心展开。显式入场关键帧避免
+     路由的页面快照跳过普通 transition 的起点。 */
   .nav-selection {
     clip-path: circle(0% at 50% 50%);
-    transition: clip-path 460ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: clip-path 220ms cubic-bezier(0.4, 0, 1, 1);
   }
-  .nav-selection[data-active="true"] { clip-path: circle(150% at 50% 50%); }
+  .nav-selection[data-active="true"] {
+    clip-path: circle(80% at 50% 50%);
+    animation: nav-expand 480ms cubic-bezier(0.4, 0, 0.2, 1) backwards;
+  }
+  @keyframes nav-expand {
+    from { clip-path: circle(0% at 50% 50%); }
+    to { clip-path: circle(80% at 50% 50%); }
+  }
 
   /* ── iOS 那种滚筒选择器 ──────────────────────────────────────────
      中间一项正对着你，上下的逐渐变小、变淡、绕 X 轴向后倒，顶底渐隐。
@@ -399,17 +413,19 @@
     overflow-y: auto;
     min-height: 0;
     scrollbar-width: thin;
-    scrollbar-color: var(--rule-strong) transparent;
+    scrollbar-color: transparent transparent;
     overscroll-behavior: contain;
   }
+  .scroll-y[data-scrolling="true"] { scrollbar-color: var(--rule-strong) transparent; }
   .scroll-y::-webkit-scrollbar { width: 7px; }
   .scroll-y::-webkit-scrollbar-track { background: transparent; }
   .scroll-y::-webkit-scrollbar-thumb {
-    background: var(--rule-strong);
+    background: transparent;
     border-radius: 99px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
+  .scroll-y[data-scrolling="true"]::-webkit-scrollbar-thumb { background: var(--rule-strong); }
   /* 行长上限。标签在最左、数值在最右的行，一旦拉满整幅宽度，
      中间会空出上千像素，眼睛要跨越那段距离才能把两端连起来。
      宽度省下来之后改排两列——纵向也随之变短。 */
@@ -478,14 +494,12 @@
   }
 }
 
-/* ── 换页与换分节：整块交叉淡变（lib/viewTransition.ts）──────────────────
-   内容区 180ms 交叉淡入淡出，不带位移。报头与底部导航不参与：它们在新旧两页里是
-   同一个东西，跟着淡一下反而像整页闪了一次；导航选中块自己的滑动照常播。 */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 180ms;
-  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
-}
+/* ── 换页与换分节：先淡出旧内容，再显出新内容 ─────────────────────────
+   数字密集的两幅报表若等强度交叉叠放，会在中段变成重影。 */
+::view-transition-old(root) { animation: page-leave 100ms linear both; }
+::view-transition-new(root) { animation: page-enter 160ms cubic-bezier(0, 0, 0.2, 1) 90ms both; }
+@keyframes page-leave { to { opacity: 0; } }
+@keyframes page-enter { from { opacity: 0; } }
 .vt-masthead { view-transition-name: masthead; }
 .vt-nav { view-transition-name: main-nav; }
 ::view-transition-group(masthead),

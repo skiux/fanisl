@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react'
 import { getSession, subscribe } from './api/session'
 import { BottomNavigation, type MainDestination } from './components/BottomNavigation'
 import { AccountPage } from './features/auth/AccountPage'
@@ -15,6 +15,31 @@ export default function App() {
   const { page } = route
   const session = useSyncExternalStore(subscribe, getSession)
   useEffect(() => onRouteChange(() => setRoute(readRoute())), [])
+  useEffect(() => {
+    const pending = new Map<HTMLElement, number>()
+    const revealScrollbar = (event: Event) => {
+      const root = event.target === window || event.target === document
+        || event.target === document.documentElement || event.target === document.body
+      const target = root ? document.documentElement : event.target
+      if (!(target instanceof HTMLElement)
+          || (target !== document.documentElement && !target.classList.contains('scroll-y'))) return
+      target.dataset.scrolling = 'true'
+      const previous = pending.get(target)
+      if (previous !== undefined) window.clearTimeout(previous)
+      pending.set(target, window.setTimeout(() => {
+        target.removeAttribute('data-scrolling')
+        pending.delete(target)
+      }, 1100))
+    }
+    window.addEventListener('scroll', revealScrollbar, true)
+    return () => {
+      window.removeEventListener('scroll', revealScrollbar, true)
+      for (const [target, timeout] of pending) {
+        window.clearTimeout(timeout)
+        target.removeAttribute('data-scrolling')
+      }
+    }
+  }, [])
   // 服务器上换了新版本，开着的标签页在回到前台时自己换上
   useReloadOnNewBuild()
 
@@ -44,6 +69,9 @@ export default function App() {
     : page === 'assets' && ['holdings', 'perp', 'risk'].includes(route.section ?? '')
       ? route.section as MainDestination
       : page === 'assets' ? 'overview' : null
+  useLayoutEffect(() => {
+    if (destination) window.scrollTo(0, 0)
+  }, [destination])
 
   return <AuthGate>
     {view}
