@@ -5,12 +5,10 @@ import {
 } from '../../api/client'
 import { PortfolioError, type PortfolioSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
-import { BottomNavigation } from '../../components/BottomNavigation'
 import { useAutoRefresh } from '../../lib/autoRefresh'
 import { freshnessOf, relativeTime } from '../../lib/format'
-import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
+import { onRouteChange, readRoute } from '../../lib/router'
 import { Masthead } from './Masthead'
-import { SectionTabs, type TabItem } from './SectionTabs'
 import { PnlDetail, type PnlTopic } from './PnlDetail'
 import { SummaryStrip } from './SummaryStrip'
 import { EmptyState, ErrorState, StatementSkeleton, StaleBanner, UnauthorizedState } from './states'
@@ -102,10 +100,6 @@ export function StatementPage() {
     setLoad({ mode: 'initial' })
     setPhase({ kind: 'loading' })
   }, [])
-  const selectView = useCallback((next: ViewKey) => {
-    setView(next)
-    replaceSection('assets', next)
-  }, [])
   const saveCost = useCallback(async (symbol: string, input: StockCostInput) => {
     setRefreshing(true)
     try {
@@ -156,41 +150,19 @@ export function StatementPage() {
           page="assets"
           refreshing={refreshing}
           sources={snapshot?.sources ?? []}
-          title={<>
-            <span className="lg:hidden">资产报表</span>
-            <span className="hidden lg:inline">{{
-              overview: '资产报表', holdings: '持仓', perp: '合约', risk: '风险控制',
-            }[view]}</span>
-          </>}
+          title={{ overview: '资产报表', holdings: '持仓', perp: '合约', risk: '风险控制' }[view]}
         />
         <Body
           onRetry={retry}
           onSaveStockCost={saveCost}
           onSaveSpotCost={saveCryptoCost}
-          onSelectView={selectView}
           phase={phase}
+          scenario={scenario}
           view={view}
         />
-        <BottomNavigation current={view} />
       </div>
     </div>
   )
-}
-
-function buildTabs(futuresMissing: boolean): TabItem<ViewKey>[] {
-  return [
-    // 短标签：导航要能一行放下，完整名称留在各视图的抬头里
-    // 三个分节。一路从六个减下来：理财只有 3 项、风险只有 2 个读数，各自填不满
-    // 一个视图（实测填充率 26% / 36%）；最后去掉的是「盈亏」——它的日历在总览
-    // 也有一份，同一张表在两个分节里各印一遍，剩下两块本来就和日历同一个问题。
-    { key: 'overview', label: '总览' },
-    { key: 'holdings', label: '持仓' },
-    // 「合约与风险」拆成两节：那一节原先既列仓位与保证金（现在是什么样），
-    // 又摆着风险读数（会怎样），两件事挤在一起谁也没说透。现在左边只讲仓位，
-    // 右边专管"再跌多少我出局"。
-    { key: 'perp', label: '合约', muted: futuresMissing },
-    { key: 'risk', label: '风险控制', muted: futuresMissing },
-  ]
 }
 
 /**
@@ -200,10 +172,10 @@ function buildTabs(futuresMissing: boolean): TabItem<ViewKey>[] {
  * return 之后，hook 顺序会随 phase 变。同样的错在 `RealizedDays` 里已经造成过
  * 一次整页白屏，这次是 lint 抓到的（那时候这个项目还没有 lint）。
  */
-function Body({ phase, view, onSelectView, onRetry, onSaveStockCost, onSaveSpotCost }: {
+function Body({ phase, view, onRetry, onSaveStockCost, onSaveSpotCost, scenario }: {
   phase: Phase
+  scenario: Scenario
   view: ViewKey
-  onSelectView: (key: ViewKey) => void
   onRetry: () => void
   onSaveStockCost: (symbol: string, input: StockCostInput) => Promise<void>
   onSaveSpotCost: (asset: string, input: SpotCostInput) => Promise<void>
@@ -217,17 +189,17 @@ function Body({ phase, view, onSelectView, onRetry, onSaveStockCost, onSaveSpotC
       onRetry={onRetry}
       onSaveStockCost={onSaveStockCost}
       onSaveSpotCost={onSaveSpotCost}
-      onSelectView={onSelectView}
       phase={phase}
+      scenario={scenario}
       view={view}
     />
   )
 }
 
-function Loaded({ phase, view, onSelectView, onRetry, onSaveStockCost, onSaveSpotCost }: {
+function Loaded({ phase, view, onRetry, onSaveStockCost, onSaveSpotCost, scenario }: {
   phase: Extract<Phase, { kind: 'ready' }>
+  scenario: Scenario
   view: ViewKey
-  onSelectView: (key: ViewKey) => void
   onRetry: () => void
   onSaveStockCost: (symbol: string, input: StockCostInput) => Promise<void>
   onSaveSpotCost: (asset: string, input: SpotCostInput) => Promise<void>
@@ -267,12 +239,8 @@ function Loaded({ phase, view, onSelectView, onRetry, onSaveStockCost, onSaveSpo
       <SummaryStrip onOpenDetail={setDetail} snapshot={snapshot} veiled={veiled} view={view} />
       <PnlDetail onClose={() => setDetail(null)} pnl={snapshot.pnl} topic={detail} />
 
-      <div className="lg:hidden">
-        <SectionTabs current={view} items={buildTabs(futuresMissing)} onSelect={onSelectView} />
-      </div>
-
       {/* 明细区拿回整幅宽度；区域内部滚动，切换分节时页面高度不变 */}
-      <div className="scroll-y min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8 lg:pb-28" key={view}>
+      <div className="scroll-y min-h-0 flex-1 px-5 py-7 pb-28 sm:px-10 sm:py-8 sm:pb-28" key={view}>
         <div className="rise">
           {view === 'overview' && <OverviewView snapshot={snapshot} veiled={veiled} />}
           {view === 'holdings' && (
@@ -284,7 +252,7 @@ function Loaded({ phase, view, onSelectView, onRetry, onSaveStockCost, onSaveSpo
             />
           )}
           {view === 'perp' && (
-            <PerpRiskView futuresMissing={futuresMissing} snapshot={snapshot} veiled={veiled} />
+            <PerpRiskView futuresMissing={futuresMissing} scenario={scenario} snapshot={snapshot} veiled={veiled} />
           )}
           {view === 'risk' && <RiskControlView snapshot={snapshot} veiled={veiled} />}
         </div>

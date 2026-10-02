@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { Strip, type StripCell } from '../../components/Strip'
 import { money, percent, signedMoney } from '../../lib/format'
 import { exposures, spotHoldings } from '../../lib/holdings'
@@ -22,19 +21,7 @@ export function SummaryStrip({ snapshot, veiled, onOpenDetail, view }: {
   onOpenDetail: (topic: PnlTopic) => void
   view: ViewKey
 }) {
-  // 手机仍用原有摘要；桌面主导航按页面切换报头口径。
-  const [desktop, setDesktop] = useState(() =>
-    typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1024px)').matches)
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return
-    const query = window.matchMedia('(min-width: 1024px)')
-    const update = () => setDesktop(query.matches)
-    query.addEventListener('change', update)
-    update()
-    return () => query.removeEventListener('change', update)
-  }, [])
-
-  const { hero, cells } = summaryForView(snapshot, desktop ? view : 'overview', onOpenDetail)
+  const { hero, cells } = summaryForView(snapshot, view, onOpenDetail)
   return <Strip cells={cells} hero={hero} veiled={veiled} />
 }
 

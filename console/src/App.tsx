@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { getSession, subscribe } from './api/session'
+import { BottomNavigation, type MainDestination } from './components/BottomNavigation'
 import { AccountPage } from './features/auth/AccountPage'
 import { AdminPage } from './features/auth/AdminPage'
 import { AuthGate } from './features/auth/AuthGate'
@@ -35,5 +36,13 @@ export default function App() {
         : page === 'account' ? <AccountPage key="account" />
           : page === 'admin' ? <AdminPage key="admin" />
             : <StatementPage key="assets" />
-  return <AuthGate>{view}</AuthGate>
+  const destination: MainDestination | null = page === 'ledger' ? 'ledger'
+    : page === 'assets' && ['holdings', 'perp', 'risk'].includes(route.section ?? '')
+      ? route.section as MainDestination
+      : page === 'assets' ? 'overview' : null
+
+  return <AuthGate>
+    {view}
+    {!denied && page !== 'account' && page !== 'admin' && <BottomNavigation current={destination} />}
+  </AuthGate>
 }

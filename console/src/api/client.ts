@@ -5,6 +5,7 @@ import * as ofx from './orders-fixtures'
 import {
   PortfolioError,
   type LedgerSnapshot,
+  type OrderVenue,
   type OrdersSnapshot,
   type PortfolioSnapshot, type SourceKey, type SourceState, type SourceStatus,
 } from './types'
@@ -410,7 +411,9 @@ function scenarioOrders(scenario: Scenario): OrdersSnapshot {
             }
             : source
         )),
-        open: base.open.filter((order) => order.venue !== 'usdm'),
+        // 策略单走 sapi；fapi 被 451 拒绝时，它仍可独立返回。
+        open: base.open.filter((order) => order.venue !== 'usdm'
+          || order.kind === 'twap' || order.kind === 'vp'),
         // 可查的交易对是从现货余额和挂单推出来的，这部分还在；
         // 但这次选中的是合约交易对，allOrders 打在 fapi 上，查不动。
         query: null, history: [], fills: [],
@@ -451,11 +454,12 @@ export async function fetchOrders(
   scenario: Scenario,
   symbol: string,
   signal?: AbortSignal,
-  options?: { force?: boolean },
+  options?: { force?: boolean; venue?: OrderVenue },
 ): Promise<OrdersSnapshot> {
   if (scenario === 'live') {
     const query = new URLSearchParams({ force: options?.force ? 'true' : 'false' })
     if (symbol) query.set('symbol', symbol)
+    if (options?.venue) query.set('venue', options.venue)
     return live<OrdersSnapshot>(`/orders?${query}`, signal)
   }
   if (scenario === 'loading') {
@@ -468,7 +472,21 @@ export async function fetchOrders(
   if (scenario === 'down') {
     throw new PortfolioError('network', '连不上 fanisl 后端（127.0.0.1:8000）')
   }
-  const snapshot = scenarioOrders(scenario)
+  const raw = scenarioOrders(scenario)
+  const venue = options?.venue
+  const symbols = venue ? raw.history_symbols.filter((item) => raw.history_venues[item] === venue) : raw.history_symbols
+  const snapshot = venue ? {
+    ...raw,
+    open: raw.open.filter((order) => order.venue === venue),
+    history: raw.history.filter((order) => order.venue === venue),
+    fills: raw.fills.filter((fill) => fill.venue === venue),
+    order_lists: raw.order_lists.filter((list) => list.venue === venue),
+    history_symbols: symbols,
+    query: raw.query && {
+      ...raw.query, venue, symbols,
+      max_window_hours: venue === 'usdm' ? 7 * 24 : raw.query.max_window_hours,
+    },
+  } : raw
   // **空 symbol = 全部**，不是"还没选过所以随便挑一个"：后端不选就把候选里的
   // 每个交易对都问一遍再合并，mock 也照这个来，否则演的是一件不会发生的事。
   if (!symbol || !snapshot.query) return snapshot

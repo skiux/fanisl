@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { cn } from '../../lib/cn'
-import type { SpotCostInput, StockCostInput } from '../../api/client'
+import type { Scenario, SpotCostInput, StockCostInput } from '../../api/client'
 import { amount, baseOf, money, percent, price, signedMoney, signedPercent, SOURCE_LABEL } from '../../lib/format'
 import { cash, spotHoldings } from '../../lib/holdings'
 import type { DailyPnl, IncomeBreakdown, MarginAccount, PortfolioSnapshot } from '../../api/types'
@@ -10,6 +10,7 @@ import { assetColor } from './ExposureDistribution'
 import { RealizedDays } from './RealizedDays'
 import { CashTable, SpotTable } from './Holdings'
 import { PnlBreakdown } from './PnlBreakdown'
+import { PerpOrders } from './PerpOrders'
 import { StockPositionsList, StockSummary } from './StockPositions'
 import { useIsAdmin } from '../../lib/role'
 
@@ -279,11 +280,18 @@ export function HoldingsView({ snapshot, veiled, onSaveStockCost, onSaveSpotCost
   )
 }
 
-export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
+export function PerpRiskView({ snapshot, veiled, futuresMissing, scenario }: {
   snapshot: PortfolioSnapshot
   veiled: boolean
   futuresMissing: boolean
+  scenario: Scenario
 }) {
+  const [panel, setPanel] = useState<'positions' | 'account' | 'orders'>('positions')
+  const [ordersOpened, setOrdersOpened] = useState(false)
+  const selectPanel = (next: 'positions' | 'account' | 'orders') => {
+    setPanel(next)
+    if (next === 'orders') setOrdersOpened(true)
+  }
   const f = snapshot.futures
   const longNotional = (f?.positions ?? [])
     .filter((p) => p.position_amt > 0).reduce((sum, p) => sum + p.notional_usd, 0)
@@ -297,7 +305,27 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
   if (futuresMissing || !f) {
     return (
       <div className={cn(veiled && 'veiled')}>
-        <ViewGrid>
+        <div aria-label="合约内容" className="mb-6 flex gap-6 border-b border-rule" role="tablist">
+          {(['account', 'orders'] as const).map((key) => (
+            <button
+              aria-selected={(panel === 'orders' ? 'orders' : 'account') === key}
+              className={cn('relative pb-2.5 text-sm transition-colors duration-200',
+                (panel === 'orders' ? 'orders' : 'account') === key ? 'text-ink' : 'text-ink-3')}
+              key={key}
+              onClick={() => selectPanel(key)}
+              role="tab"
+              type="button"
+            >
+              {key === 'account' ? '账户' : '委托'}
+              {(panel === 'orders' ? 'orders' : 'account') === key
+                && <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-ink" />}
+            </button>
+          ))}
+        </div>
+        {ordersOpened && <div className={cn(panel !== 'orders' && 'hidden')}>
+          <PerpOrders asOf={snapshot.as_of} key={scenario} scenario={scenario} />
+        </div>}
+        {panel !== 'orders' && <ViewGrid>
           <Module span="lg:col-span-12" title="合约账户不可用">
             <p className="max-w-[52ch] text-sm leading-relaxed text-ink-2">
               本次未取到合约账户数据。
@@ -316,23 +344,65 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
             </ul>
           </Module>
           <AdditionalRiskModules snapshot={snapshot} />
-        </ViewGrid>
+        </ViewGrid>}
       </div>
     )
   }
 
   return (
     <div className={cn(veiled && 'veiled')}>
+      <div aria-label="合约内容" className="mb-7 flex gap-6 border-b border-rule lg:hidden" role="tablist">
+        {([
+          ['positions', '仓位'], ['account', '账户'], ['orders', '委托'],
+        ] as const).map(([key, label]) => (
+          <button
+            aria-selected={panel === key}
+            className={cn('relative pb-2.5 text-sm transition-colors duration-200',
+              panel === key ? 'text-ink' : 'text-ink-3')}
+            key={key}
+            onClick={() => selectPanel(key)}
+            role="tab"
+            type="button"
+          >
+            {label}
+            {panel === key && <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-ink" />}
+          </button>
+        ))}
+      </div>
       <ViewGrid>
         <Module
           note={`${f.positions.length} 项 · ${f.dual_side_position ? '双向' : '单向'}`}
-          span="lg:col-span-8"
+          span={cn('lg:col-span-7', panel !== 'positions' && 'max-lg:hidden')}
           title="合约仓位"
         >
           <PositionsList futures={f} unavailable={false} />
         </Module>
 
-        <Stack span="lg:col-span-4">
+        <Stack span={cn('lg:col-span-5', panel === 'positions' && 'max-lg:hidden')}>
+          <div aria-label="合约侧栏" className="hidden gap-6 border-b border-rule lg:flex" role="tablist">
+            {([
+              ['account', '账户'], ['orders', '委托'],
+            ] as const).map(([key, label]) => (
+              <button
+                aria-selected={(panel === 'positions' ? 'account' : panel) === key}
+                className={cn('relative pb-2.5 text-sm transition-colors duration-200',
+                  (panel === 'positions' ? 'account' : panel) === key
+                    ? 'text-ink' : 'text-ink-3 hover:text-ink-2')}
+                key={key}
+                onClick={() => selectPanel(key)}
+                role="tab"
+                type="button"
+              >
+                {label}
+                {(panel === 'positions' ? 'account' : panel) === key
+                  && <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-px bg-ink" />}
+              </button>
+            ))}
+          </div>
+          {ordersOpened && <div className={cn(panel !== 'orders' && 'hidden')}>
+            <PerpOrders asOf={snapshot.as_of} key={scenario} scenario={scenario} />
+          </div>}
+          {panel !== 'orders' && <>
           <Module
             span=""
             title="合约账户"
@@ -414,9 +484,11 @@ export function PerpRiskView({ snapshot, veiled, futuresMissing }: {
               </>
             ) : <p className="text-sm text-ink-3">当前没有合约仓位。</p>}
           </Module>
-
+          </>}
         </Stack>
-        <AdditionalRiskModules snapshot={snapshot} />
+        <div className={cn('lg:col-span-12', panel !== 'account' && 'max-lg:hidden')}>
+          <ViewGrid><AdditionalRiskModules snapshot={snapshot} /></ViewGrid>
+        </div>
       </ViewGrid>
     </div>
   )

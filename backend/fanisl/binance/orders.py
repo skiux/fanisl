@@ -107,7 +107,9 @@ def _order(row: dict, venue: str, reference: float | None) -> dict:
         "orig_qty": orig,
         "executed_qty": executed,
         # 名义按**未成交部分**算：已经成交的那部分不再占用任何东西
-        "notional_usd": None if level is None else remaining * level,
+        # closePosition 的数量可为 0，意思是触发时全平，而非 0 美元委托。
+        "notional_usd": None if level is None or (row.get("closePosition") and orig == 0)
+                        else remaining * level,
         "time_in_force": row.get("timeInForce") or None,
         "good_till_date": ms_to_iso(row.get("goodTillDate"))
                           if row.get("goodTillDate") else None,
@@ -186,7 +188,8 @@ def _conditional_orders(payload: Any,
                 row.get("workingType", "")),
             "callback_rate": callback, "activate_price": activate,
             "orig_qty": qty, "executed_qty": 0.0,
-            "notional_usd": None if level is None else qty * level,
+            "notional_usd": None if level is None or (row.get("closePosition") and qty == 0)
+                            else qty * level,
             "time_in_force": row.get("timeInForce") or None,
             "good_till_date": (ms_to_iso(row.get("goodTillDate"))
                                if dec0(row.get("goodTillDate")) > 0 else None),
@@ -454,9 +457,28 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
     # 代价是一次要发 2N 个请求（N = 候选交易对数）。可以接受的理由：候选本身由
     # 持仓、余额与近 90 天的收支界定（不是全市场），每个都按 `TTL["history"]` 缓存，
     # 而现货成交那一半 `/portfolio` 本来就在按同样的粒度取。
-    targets = [symbol] if symbol else sorted(candidates)
-    venues = {s: venue_of(s) for s in targets}
-    with_equity = not symbol or venues[symbol] == "equity"
+    if symbol:
+        targets = [symbol]
+    elif venue == "usdm":
+        # 同一个 BNBUSDT 可以同时有现货和合约委托。全局候选表只能记录一个 venue，
+        # 合约页必须单独从合约挂单、持仓和收支构造候选，不能被现货记录抢走。
+        targets = sorted({o["symbol"] for o in open_orders if o["venue"] == "usdm"}
+                         | {r.get("symbol", "") for r in risk
+                            if dec0(r.get("positionAmt")) != 0}
+                         | {r.get("symbol", "") for r in payload("income") or []
+                            if isinstance(r, dict)})
+        targets = [s for s in targets if s]
+    else:
+        targets = sorted(s for s, candidate_venue in candidates.items()
+                         if venue is None or candidate_venue == venue)
+    venues = {s: venue if venue and not symbol else venue_of(s) for s in targets}
+    with_equity = (venue is None or venue == "equity") and (
+        not symbol or venues[symbol] == "equity")
+    # 合约页的历史候选也依赖这些来源。任一来源失效时，即使仍有部分候选，
+    # 也不能把剩余结果称为完整历史；没有候选更不能冒充「没有记录」。
+    futures_candidate_results = [results[key] for key in (
+        "futures.risk", "income", "orders.futures_open",
+        "orders.conditional_open", "orders.algo")]
     query = None
     history: list[dict] = []
     fills: list[dict] = []
@@ -508,7 +530,7 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         fills = parse("trade_history", _fills, fallback=[]) or []
 
         limits = [WINDOW.get(venues[s], WINDOW["spot"]) for s in targets]
-        if not symbol and "equity" not in venues.values():
+        if not symbol and venue is None and "equity" not in venues.values():
             limits.append(WINDOW["equity"])
         # 多个交易对合在一起时，能保证的只有**交集**：窗口取最紧的那一个，
         # 报成最宽的那个等于替另一半打了包票
@@ -519,7 +541,7 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
             # 没指定交易对时是 None，不是"碰巧第一个"——界面据此写「全部」
             "symbol": symbol or None,
             "symbols": targets,
-            "venue": venues[symbol] if symbol else None,
+            "venue": venues[symbol] if symbol else venue,
             "from": datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc).isoformat(),
             "to": now.isoformat(),
             "max_window_hours": min(x["max_hours"] for x in limits),
@@ -530,7 +552,10 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
         if with_equity:
             history_results.append(results["orders.history:equity"])
             trade_results.append(results["orders.trades:equity"])
-        if not symbol:
+        if not symbol and venue == "usdm":
+            history_results.extend(futures_candidate_results)
+            trade_results.extend(futures_candidate_results)
+        elif not symbol:
             # 「全部」的候选靠合约收支补上已平仓的交易对。收支没取到，合并出来的历史
             # 可能少了那几个交易对，不能报 ok
             history_results.append(results["income"])
@@ -539,6 +564,10 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
             {"key": "order_history", **_merge_states(history_results)},
             {"key": "trade_history", **_merge_states(trade_results)},
         ]
+    elif venue == "usdm" and not symbol:
+        candidate_state = _merge_states(futures_candidate_results)
+        history_states = [{"key": "order_history", **candidate_state},
+                          {"key": "trade_history", **candidate_state}]
     else:
         history_states = [{"key": "order_history", "status": "ok", "as_of": None,
                            "detail": "没有可查的交易对"},
@@ -563,17 +592,20 @@ def build_orders(client: BinanceClient, cache: SourceCache, *,
             state["detail"] = errors[state["key"]]
     fresh = [datetime.fromisoformat(s["as_of"]) for s in states
              if s["status"] == "ok" and s["as_of"]]
-    history_symbols = sorted(set(candidates) | {o["symbol"] for o in history if o["symbol"]})
+    history_symbols = sorted((set(candidates) if venue is None or symbol else set(targets))
+                             | {o["symbol"] for o in history if o["symbol"]})
 
     return {
         "as_of": min(fresh).isoformat() if fresh else None,
         "sources": states,
-        "open": open_orders,
-        "order_lists": parse("order_lists",
-                             lambda: _order_lists(payload("orders.lists")), fallback=[]) or [],
+        "open": [o for o in open_orders if venue is None or o["venue"] == venue],
+        "order_lists": [group for group in (parse("order_lists",
+                             lambda: _order_lists(payload("orders.lists")), fallback=[]) or [])
+                        if venue is None or group["venue"] == venue],
         "history_symbols": history_symbols,
         # 下拉框按它分组。股票代码没有计价币后缀，只按计价币分会落进「其他」
-        "history_venues": {s: candidates.get(s) or venue_of(s) for s in history_symbols},
+        "history_venues": {s: venues.get(s) or candidates.get(s) or venue_of(s)
+                           for s in history_symbols},
         "query": query,
         "history": history,
         "fills": fills,

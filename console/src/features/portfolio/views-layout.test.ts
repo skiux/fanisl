@@ -84,6 +84,7 @@ describe('资产页模块分布', () => {
 
     act(() => root.render(createElement(PerpRiskView, {
       futuresMissing: false,
+      scenario: 'ok',
       snapshot,
       veiled: false,
     })))
@@ -138,7 +139,7 @@ describe('资产页模块分布', () => {
   it('合约右栏先显示账户盈亏与资金费用，排序只保留三个有效条件', () => {
     const snapshot = buildSnapshot(new Date('2026-09-26T12:00:00Z'))
     act(() => root.render(createElement(PerpRiskView, {
-      futuresMissing: false, snapshot, veiled: false,
+      futuresMissing: false, scenario: 'ok', snapshot, veiled: false,
     })))
 
     const account = [...host.querySelectorAll('h2')]
@@ -176,7 +177,7 @@ describe('资产页模块分布', () => {
     }
 
     act(() => root.render(createElement(PerpRiskView, {
-      futuresMissing: false, snapshot, veiled: false,
+      futuresMissing: false, scenario: 'ok', snapshot, veiled: false,
     })))
 
     const labels = [...host.querySelectorAll('[data-contract-allocation] [data-chart-label]')]

@@ -242,6 +242,16 @@
 }
 
 @layer components {
+  /* 选中槽位向外扩散一次，底层胶囊继续平移；不会让图标或文字缩放。 */
+  .nav-diffusion {
+    animation: nav-diffusion 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes nav-diffusion {
+    0% { opacity: 0.28; transform: scale(0.82); filter: blur(1px); }
+    48% { opacity: 0.16; transform: scale(1.22); filter: blur(7px); }
+    100% { opacity: 0; transform: scale(1.55); filter: blur(13px); }
+  }
+
   /* ── iOS 那种滚筒选择器 ──────────────────────────────────────────
      中间一项正对着你，上下的逐渐变小、变淡、绕 X 轴向后倒，顶底渐隐。
      平着排一列文字加一块灰底不是这个东西。

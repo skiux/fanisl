@@ -57,6 +57,7 @@ const RAW_OPEN: RawOrder[] = [
   { venue: 'usdm', symbol: 'QQQUSDT', side: 'sell', kind: 'stop_market', qty: OPEN_POSITION_QTY.QQQ, stop: 572, trigger: 'mark', closePosition: true, positionSide: 'both', ageMin: 2641 },
   { venue: 'usdm', symbol: 'XAUUSDT', side: 'sell', kind: 'trailing_stop_market', qty: OPEN_POSITION_QTY.XAU, activate: 4300, callback: 0.015, trigger: 'mark', reduceOnly: true, positionSide: 'both', ageMin: 318 },
   { venue: 'usdm', symbol: 'AAPLUSDT', side: 'sell', kind: 'stop_market', qty: OPEN_POSITION_QTY.AAPL, stop: 250, trigger: 'mark', closePosition: true, positionSide: 'both', ageMin: 5921 },
+  { venue: 'usdm', symbol: 'QQQUSDT', side: 'buy', kind: 'twap', qty: 10, filled: 2, price: 618.74, positionSide: 'both', ageMin: 90 },
 
   { venue: 'margin', symbol: 'BNBUSDT', side: 'buy', kind: 'limit', qty: 1.5, price: 655, tif: 'GTC', ageMin: 8104 },
 ]

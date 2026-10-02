@@ -3,6 +3,8 @@ import { signedMoney } from '../../lib/format'
 import type { LedgerSnapshot } from '../../api/types'
 import { countsToNet } from './Timeline'
 
+const shortDate = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`
+
 /**
  * 常驻摘要条。版式见 `components/Strip.tsx`。
  *
@@ -22,8 +24,9 @@ export function LedgerStrip({ snapshot, veiled }: { snapshot: LedgerSnapshot; ve
   const cells: StripCell[] = [
     {
       label: '区间',
+      compact: true,
       // 天数不再另起一行：它就在上面的区间选择器里选中着
-      value: `${snapshot.window.from.slice(5, 10)} → ${snapshot.window.to.slice(5, 10)}`,
+      value: `${shortDate(snapshot.window.from)}–${shortDate(snapshot.window.to)}`,
     },
     {
       label: '记录数',

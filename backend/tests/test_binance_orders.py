@@ -12,9 +12,9 @@ import pytest
 
 from fanisl.binance.cache import SourceCache
 from fanisl.binance.client import BinanceClient
-from fanisl.binance.orders import build_orders
+from fanisl.binance.orders import _conditional_orders, _order, build_orders
 
-from binance_mock import EQUITY_HISTORY, INCOME, NOW, make_transport
+from binance_mock import EQUITY_HISTORY, FUT_OPEN, INCOME, NOW, make_transport
 
 
 @pytest.fixture
@@ -97,6 +97,16 @@ def test_notional_counts_only_the_unfilled_part(cache):
     order = by_id(build(cache))["spot:4100001"]
     assert order["orig_qty"] == 2.0 and order["executed_qty"] == 0.5
     assert order["notional_usd"] == pytest.approx((2.0 - 0.5) * 640.0)
+
+
+def test_close_all_with_zero_quantity_does_not_look_like_zero_value():
+    ordinary = _order({"orderId": 1, "symbol": "BTCUSDT", "origQty": "0",
+                       "closePosition": True, "stopPrice": "90000"}, "usdm", 91000)
+    conditional = _conditional_orders([{"algoId": 2, "symbol": "BTCUSDT",
+                                       "quantity": "0", "closePosition": True,
+                                       "triggerPrice": "90000"}], lambda _: 91000)[0]
+    assert ordinary["notional_usd"] is None
+    assert conditional["notional_usd"] is None
 
 
 def test_reference_price_prefers_mark_for_futures(cache):
@@ -244,6 +254,53 @@ def test_all_history_asks_each_futures_symbol_not_the_account_wide_query(cache):
     assert None not in seen
     assert {"NVDAUSDT", "QQQUSDT"} <= set(seen)
     assert [o["symbol"] for o in snap["history"] if o["venue"] == "usdm"] == ["NVDAUSDT", "NVDAUSDT"]
+
+
+def test_futures_page_queries_only_futures_history(cache):
+    calls = []
+    snap = build(cache, venue="usdm", calls=calls)
+
+    assert snap["query"]["venue"] == "usdm"
+    assert snap["query"]["symbols"] == ["NVDAUSDT", "QQQUSDT"]
+    assert snap["query"]["max_window_hours"] == 168
+    assert snap["query"]["lookback_days"] == 90
+    assert all(snap["history_venues"][s] == "usdm" for s in snap["history_symbols"])
+    assert all(row["venue"] == "usdm" for group in ("open", "history", "fills")
+               for row in snap[group])
+    assert not any("/api/v3/allOrders" in call or "/api/v3/myTrades" in call
+                   for call in calls)
+
+
+def test_futures_page_keeps_symbol_also_present_in_spot(cache):
+    seen = []
+    base = make_transport()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/fapi/v1/openOrders":
+            return httpx.Response(200, json=[*FUT_OPEN,
+                {**FUT_OPEN[0], "orderId": 5200999, "symbol": "BNBUSDT"}])
+        if request.url.path == "/fapi/v1/allOrders":
+            seen.append(dict(request.url.params).get("symbol"))
+        return base.handler(request)
+
+    client = _client(handler)
+    try:
+        snap = build_orders(client, cache, venue="usdm", force=True, now=NOW)
+    finally:
+        client.close()
+
+    assert "BNBUSDT" in snap["query"]["symbols"]
+    assert snap["history_venues"]["BNBUSDT"] == "usdm"
+    assert "BNBUSDT" in seen
+
+
+def test_futures_page_marks_history_partial_when_candidate_sources_fail(cache):
+    snap = build(cache, venue="usdm", fail={"/fapi": 451})
+    states = {source["key"]: source for source in snap["sources"]}
+
+    assert any(order["kind"] == "twap" for order in snap["open"])
+    assert states["order_history"]["status"] == "unreachable"
+    assert states["trade_history"]["status"] == "unreachable"
 
 
 def test_stock_symbols_stay_in_the_picker_whichever_pair_is_selected(cache):

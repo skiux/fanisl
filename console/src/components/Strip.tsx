@@ -28,6 +28,8 @@ export type StripCell = {
   label: string
   value: string
   tone?: StripTone
+  /** 长日期等辅助读数在窄屏降一档，避免压进相邻格。 */
+  compact?: boolean
   /** 点开看这个数怎么算的。给了才可点 */
   onOpen?: () => void
   /** 关闭详情后焦点要回到这个按钮，靠它找回来 */
@@ -90,7 +92,8 @@ function Item({ cell, hero = false, className }: {
       <div className={cn(
         // mt-2 两档共用——标签到数字的距离处处相等，见文件头
         'tnum mt-2 leading-none',
-        hero ? 'text-[2rem] font-medium tracking-[-0.03em] sm:text-[2.5rem]' : 'text-xl',
+        hero ? 'text-[2rem] font-medium tracking-[-0.03em] sm:text-[2.5rem]'
+          : cell.compact ? 'text-base sm:text-xl' : 'text-xl',
         cell.tone ? TONE[cell.tone] : 'text-ink',
       )}>
         {cell.value}

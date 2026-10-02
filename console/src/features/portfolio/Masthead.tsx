@@ -94,8 +94,7 @@ export function Masthead({ sources, asOf, onRefresh, refreshing, controls, page,
                 className={cn(
                   'whitespace-nowrap text-xs transition-colors duration-200',
                   current ? 'text-ink' : 'text-ink-3 hover:text-ink-2',
-                  (item.key === 'assets' || item.key === 'ledger')
-                    && page !== 'account' && page !== 'admin' && 'lg:hidden',
+                  (item.key === 'assets' || item.key === 'ledger') && 'hidden',
                 )}
                 href={hrefOf(item.key)}
                 key={item.key}

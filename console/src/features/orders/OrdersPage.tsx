@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchOrders, readScenario, writeScenario, type Scenario } from '../../api/client'
 import { PortfolioError, type OrdersSnapshot } from '../../api/types'
 import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
-import { BottomNavigation } from '../../components/BottomNavigation'
 import { useAutoRefresh } from '../../lib/autoRefresh'
 import { freshnessOf, relativeTime } from '../../lib/format'
 import { onRouteChange, readRoute, replaceSection } from '../../lib/router'
@@ -120,7 +119,6 @@ export function OrdersPage() {
           symbol={symbol}
           view={view}
         />
-        <BottomNavigation current={null} />
       </div>
     </div>
   )
@@ -171,7 +169,7 @@ function Body({ phase, view, symbol, onSelectView, onSelectSymbol, onRetry }: {
 
       <SectionTabs current={view} items={buildTabs(snapshot)} onSelect={onSelectView} />
 
-      <div className="scroll-y min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8 lg:pb-28" key={view}>
+      <div className="scroll-y min-h-0 flex-1 px-5 py-7 pb-28 sm:px-10 sm:py-8 sm:pb-28" key={view}>
         <div className="rise">
           {view === 'open' && <OpenView snapshot={snapshot} veiled={veiled} />}
           {view === 'history' && (
