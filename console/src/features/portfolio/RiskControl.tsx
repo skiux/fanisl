@@ -157,7 +157,8 @@ export function RiskControlView({ snapshot }: {
                 : hit.liquidated.length > 0 ? `${hit.liquidated.length} 个触及强平` : `跌 ${drop}%`}
             </span>
           </div>
-          <div className="relative min-h-0 flex-1">
+          {/* 高度跟左边的轮走；左边没有持仓、轮不出现时，至少留出压力测试的一屏 */}
+          <div className="relative min-h-0 flex-1 lg:min-h-[28rem]">
             <div className="flex flex-col pt-3 lg:absolute lg:inset-0">
               {/* 列表不卸载，只藏起来：切到压力测试再切回来，滚动位置和选中都还在 */}
               <div

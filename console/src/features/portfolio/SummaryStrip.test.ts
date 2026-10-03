@@ -96,7 +96,7 @@ describe('desktop page summaries', () => {
       .toBe(`${(snapshot.totals!.gross_exposure_ratio! * snapshot.totals!.equity_usd / nav).toFixed(2)}×`)
   })
 
-  it('没录现金和初始净值：净值就是真实净值，两格显示 —', () => {
+  it('没录现金和初始净值：净值就是交易所的净值，两格显示 —', () => {
     const { hero, cells } = summaryForView(snapshot, 'overview', () => {}, null)
     expect(hero.value).toBe(money(snapshot.totals!.equity_usd))
     expect(cells.slice(2).map((cell) => cell.value)).toEqual(['—', '—'])

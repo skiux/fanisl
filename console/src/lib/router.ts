@@ -9,9 +9,9 @@ import { withViewTransition } from './viewTransition'
  */
 export type PageKey = 'assets' | 'ledger' | 'account' | 'admin'
 
-export const PAGES: { key: PageKey; label: string; enabled: boolean }[] = [
-  { key: 'assets', label: '资产', enabled: true },
-  { key: 'ledger', label: '流水', enabled: true },
+export const PAGES: { key: PageKey; label: string }[] = [
+  { key: 'assets', label: '资产' },
+  { key: 'ledger', label: '流水' },
 ]
 
 const EXTRA_TITLES: Partial<Record<PageKey, string>> = { account: '账号', admin: '用户' }

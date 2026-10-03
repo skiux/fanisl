@@ -16,8 +16,8 @@
 - 2026-10-03 第四轮：用户定为**不再分两种净值**——现金是真实资产，取数时并进 `totals.equity_usd`
   （`lib/fund.ts` 的 withCash），占净值、风险、压力测试、分配一律用它；现金在资产分布与现金缓冲里各列一行。
   顶部「委托」页删除（委托在合约 / 持仓右栏），当前委托加「委托价值」。
-  **待办**：`backend/fanisl/binance/fund.py` 头注第 7、22 行还写着「盈亏和分配一律只用真实净值」「可分配 = 真实净值 − …」，
-  要改成「净值（含现金）」。没一起推：backend/ 一有改动 auto-update 就重启 collector、全部任务立即重跑，
+  **待办**：`backend/fanisl/binance/fund.py` 头注第 7、18、22 行与 `backend/fanisl/binance/README.md`「账户分配规则」
+  第一段还写着「盈亏和分配一律只用真实净值」「可分配 = 真实净值 − …」，要改成「净值（含现金）」。没一起推：backend/ 一有改动 auto-update 就重启 collector、全部任务立即重跑，
   为两行注释不值得。随下一次 backend 改动一起提交
 
 ## Next

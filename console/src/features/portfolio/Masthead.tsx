@@ -88,23 +88,24 @@ export function Masthead({
           <ThemeToggle />
         </div>
 
-        <nav aria-label="控制台导航"
-             className="order-3 flex w-full items-center gap-4 sm:order-2 sm:w-auto">
-          {/* 报头原先还排着各页的入口；资产、流水挪进底栏，「委托」页 2026-10-03 删了
-              （委托在合约页与持仓页的右栏），这里只剩另一个应用的入口，原先隔开两者的
-              那条竖线也就不要了。
+        {/* 报头原先还排着各页的入口；资产、流水挪进底栏，「委托」页 2026-10-03 删了
+            （委托在合约页与持仓页的右栏），这里只剩另一个应用的入口，原先隔开两者的
+            那条竖线也就不要了。
 
-              只给管理员：对成员来说资产台就是全部，给一个他用不上的入口
-              只会让"这是一个独立的东西"这件事变模糊。 */}
-          {isAdmin && (
+            只给管理员：对成员来说资产台就是全部，给一个他用不上的入口
+            只会让"这是一个独立的东西"这件事变模糊。成员那里整个 nav 不出现——
+            留一个空的，窄屏上它照样占一整行，报头平白高出一截。 */}
+        {isAdmin && (
+          <nav aria-label="控制台导航"
+               className="order-3 flex w-full items-center gap-4 sm:order-2 sm:w-auto">
             <a
               className="whitespace-nowrap text-xs text-ink-3 transition-colors duration-200 hover:text-ink-2"
               href="/"
             >
               知识库
             </a>
-          )}
-        </nav>
+          </nav>
+        )}
 
         {/* 页面自己的控件（流水页的区间选择器等）。窄屏另起一行，
             宽屏挤在导航右边、被账号那一组推到中间 */}
@@ -192,7 +193,8 @@ function StatusClock({ asOf, sources, refreshError, syncing }: {
           'rounded-[var(--radius-control)] border border-rule bg-sheet px-3 py-2 text-xs text-ink-2',
           'shadow-[var(--sheet-shadow)] transition-[opacity,transform] duration-150',
           'translate-y-0.5 opacity-0 group-hover:translate-y-0 group-hover:opacity-100',
-          'group-focus-within:translate-y-0 group-focus-within:opacity-100',
+          // 只认键盘聚焦：鼠标点一下按钮也会获得焦点，用 focus-within 的话再点一次关不掉
+          'group-has-[:focus-visible]:translate-y-0 group-has-[:focus-visible]:opacity-100',
           pinned && 'translate-y-0 opacity-100',
         )}
         id={tipId}
