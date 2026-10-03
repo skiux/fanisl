@@ -41,6 +41,9 @@ def cache(pool):
     cache = SourceCache(pool)
     with pool.connection() as conn:
         conn.execute("TRUNCATE binance_spot_costs, binance_stock_costs, binance_cache")
+        # 资产页的日历会并入存定的日子：别的用例存下的会混进来（history 一访问就建表）
+        cache.history
+        conn.execute("TRUNCATE account_snapshots, daily_pnl, binance_records")
     return cache
 
 

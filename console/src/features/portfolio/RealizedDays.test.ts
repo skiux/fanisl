@@ -22,6 +22,8 @@ function days(from: string, count: number): DailyPnl[] {
       interest_usd: 0,
       pnl_usd: index + 1,
       known: true,
+      frozen: false,
+      nav_close_usd: null,
     }
   })
 }

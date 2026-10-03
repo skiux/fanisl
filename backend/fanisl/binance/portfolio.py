@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import re
+import sys
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
@@ -22,6 +23,7 @@ from .cache import SourceCache, SourceResult, fetch_all
 from .client import BinanceClient
 from .costbasis import held_across_wallets, split_symbol
 from .dailypnl import collect_flows, daily_credits, daily_spot_pnl, estimated_yield_credits
+from .history import merge_daily
 from .common import (
     STABLE_ASSETS, WALLET_KIND, dec, dec0, guard, ms_to_iso, price_map,
     usd_price, usd_value,
@@ -1385,7 +1387,18 @@ def _pnl(spot_daily: dict, futures: dict | None, income: dict | None,
 
 
 def build_portfolio(client: BinanceClient, cache: SourceCache, *,
-                    force: bool = False, now: datetime | None = None) -> dict:
+                    force: bool = False, now: datetime | None = None,
+                    force_flows: bool = False, results_out: dict | None = None,
+                    merge_history: bool = True) -> dict:
+    """资产快照。后三个参数只给账户历史的任务用（`history_job.py`）：
+
+    - `force_flows`：第二轮（成交重放、日线收盘、正股日线）也强制刷新。页面上从不这样
+      做——成交缓存 6 小时是为了省翻页；但收盘那一次要它们都在零点之后取到，否则
+      日线还是前一天 23:5x 的价、成交缺最后几小时，存定的那天就是错的。
+    - `results_out`：把各来源的取数结果（含状态与取数时刻）交出去，任务据此判断
+      某一天的数据是否齐全、能不能存定。
+    - `merge_history`：日历里并入存定的日子（默认）。任务要的是现算的那份，关掉。
+    """
     now = now or datetime.now(timezone.utc)
     results = fetch_all(cache, _jobs(client, now), force=force, never_force=NEVER_FORCE)
 
@@ -1574,7 +1587,7 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
                                   _trade_jobs(client, cost_symbols)
                                   + _close_jobs(client, cost_symbols)
                                   + _equity_close_jobs(equity_symbols),
-                                  force=False, never_force=NEVER_FORCE)
+                                  force=force_flows, never_force=NEVER_FORCE)
         results.update(trade_results)
         closes = _closes(trade_results, cost_symbols)
         equity_closes = _equity_closes(trade_results, equity_symbols,
@@ -1634,6 +1647,18 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
     }
 
     states = _states(results, errors)
+    if results_out is not None:
+        results_out.update(results)
+
+    pnl = block("pnl", lambda: _pnl(
+        spot_daily, futures, income,
+        _daily(payload("income"), spot_daily.get("days", {}), prices,
+               WINDOW_DAYS, now, credits=credits, stock_daily=stock_daily),
+        _today_settled(payload("income"), prices, now),
+        credits=credits, stock_daily=stock_daily,
+        equity_symbols=equity_symbols))
+    if pnl is not None and merge_history:
+        pnl["daily"] = _with_history(cache, pnl["daily"])
 
     # 页面时刻 = **会变的那些来源里最旧的一个**。取最旧而不是最新，是因为报最新的
     # 会让整页显得比实际新鲜；只算 live 那一组，是因为日频数据的年龄不该拖垮整页。
@@ -1675,11 +1700,18 @@ def build_portfolio(client: BinanceClient, cache: SourceCache, *,
         "portfolio_margin": portfolio_margin,
         "income": income,
         "transfers": transfers,
-        "pnl": block("pnl", lambda: _pnl(
-            spot_daily, futures, income,
-            _daily(payload("income"), spot_daily.get("days", {}), prices,
-                   WINDOW_DAYS, now, credits=credits, stock_daily=stock_daily),
-            _today_settled(payload("income"), prices, now),
-            credits=credits, stock_daily=stock_daily,
-            equity_symbols=equity_symbols)),
+        "pnl": pnl,
     }
+
+
+def _with_history(cache: SourceCache, daily: list[dict]) -> list[dict]:
+    """日历并入存定的日子与每天的收盘净值，见 `history.merge_daily`。
+
+    读历史表出错不拖垮资产页：退回现算的 90 天，打一行日志。
+    """
+    try:
+        store = cache.history
+        return merge_daily(daily, store.frozen_days(), store.closes())
+    except Exception as e:  # noqa: BLE001
+        print(f"[fanisl] 读账户历史失败，日历只用现算的部分：{e!r}", file=sys.stderr, flush=True)
+        return [{**row, "frozen": False, "nav_close_usd": None} for row in daily]

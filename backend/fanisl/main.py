@@ -127,14 +127,10 @@ def _clip_for_member(snapshot: dict, request: Request) -> dict:
     **必须在服务端裁**：前端把数字藏起来不算数，接口原样返回的话，任何人打开
     开发者工具都能看到全部历史。
 
-    现在这里只剩 `daily` 一条要裁，而且**恰好裁不掉东西**——`pnl` 里的每一项
-    本来就在 90 天以内：`daily` 就是 `WINDOW_DAYS` 格，`realized.futures_usd`
+    现在这里只剩 `daily` 一条要裁。2026-10-03 起它真的在裁：账户历史把存定的日子
+    接在现算的 `WINDOW_DAYS` 格前面（见 `binance/history.py`），按条数留最后 90 条
+    就是现算的那 90 天。`pnl` 里其余各项本来就在 90 天以内：`realized.futures_usd`
     与 `carry.*` 受 `income` 接口 90 天硬限，`unrealized` 是"此刻"。
-    唯一超出 90 天的曾经是现货那个"相对终身均价"的已实现，它连同整套成本基础
-    引擎一起删了（见 `binance/costbasis.py`）。
-
-    留着这个裁剪不是走过场：哪天有人把窗口放长（比如现货日线其实能取更久），
-    成员这一侧仍然被这一行按住，不必再想起来补。
     """
     if _is_admin(request):
         return snapshot

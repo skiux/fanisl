@@ -78,9 +78,10 @@ describe('账户分配', () => {
   })
 })
 
-const day = (date: string, pnl: number | null): DailyPnl => ({
+const day = (date: string, pnl: number | null, close: number | null = null): DailyPnl => ({
   date, spot_usd: pnl, stock_usd: 0, settled_usd: 0, settled_parts: null, earn_usd: 0,
-  interest_usd: 0, pnl_usd: pnl, known: pnl !== null,
+  interest_usd: 0, pnl_usd: pnl, known: pnl !== null, frozen: close !== null,
+  nav_close_usd: close,
 })
 
 describe('账户日历', () => {
@@ -113,6 +114,23 @@ describe('账户日历', () => {
     const days = accountDays(B, snapshot, broken, 101_000, now)
     expect(days.map((d) => d.known)).toEqual([false, false, true, true])
     expect(days[0].pnl_usd).toBeNull()
+  })
+
+  it('有收盘快照的日子按存下的净值落点：链条在那里接上，充提不算进盈亏', () => {
+    const flat = fund([A, B], { fee: false, inception: '2026-07-03' })
+    // 7-04 收盘存的是 99,000，比 7-03 收盘减当天盈亏少 800（那天提走了 800）；
+    // 7-05 算不出来——没有快照的话，7-04 和更早的日子都会跟着留空
+    const stored = [
+      day('2026-07-03', 300, 100_300), day('2026-07-04', -500, 99_000),
+      day('2026-07-05', null), day('2026-07-06', 100),
+    ]
+    // 用 flat 里那份 A：管理费率清零了，总数里不混进 Manager 自己的管理费收入
+    const days = accountDays(flat.members[0], flat, stored, 101_000, now)
+    expect(days.map((d) => d.known)).toEqual([true, true, false, true])
+    // A 的 Loss Allocation 是 1：7-04 从 99,500 跌到 99,000，承担这 500
+    expect(days[1].pnl_usd).toBeCloseTo(-500)
+    // 起始日收在存下的 100,300：盈利 300 × 30%
+    expect(days[0].pnl_usd).toBeCloseTo(90)
   })
 
   it('跨过初始净值的那天，盈利与亏损按各自的规则分', () => {

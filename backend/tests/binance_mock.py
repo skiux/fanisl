@@ -608,6 +608,36 @@ ROUTES.update({
     "/sapi/v1/asset/dribblet": LEDGER_DUST,
 })
 
+# 派息记录：账户历史每天另取（history_job.capture_daily），不经过资产页。
+# 形状照 2026-10-03 生产账户的实际响应。三类都没有记录 id；活期同一时刻有
+# REALTIME 与 BONUS 两行，id 要能把它们分开
+def _ms_ago(days: float) -> int:
+    return int((NOW - timedelta(days=days)).timestamp() * 1000)
+
+
+EARN_FLEX_REWARDS = {"total": 3, "rows": [
+    {"asset": "USDT", "rewards": "0.86", "productId": "USDT001", "type": "REALTIME",
+     "time": _ms_ago(1)},
+    {"asset": "USDT", "rewards": "0.16", "productId": "USDT001", "type": "BONUS",
+     "time": _ms_ago(1)},
+    {"asset": "USDT", "rewards": "0.85", "productId": "USDT001", "type": "REALTIME",
+     "time": _ms_ago(45)},
+]}
+EARN_LOCKED_REWARDS = {"total": 1, "rows": [
+    {"positionId": 90210, "time": _ms_ago(2), "asset": "BNB", "lockPeriod": "30",
+     "amount": "0.0006"},
+]}
+BFUSD_REWARDS = {"total": 1, "rows": [
+    {"time": _ms_ago(1), "rewardsAmount": "0.42", "bfusdposition": "2100",
+     "annualPercentageRate": "0.0736"},
+]}
+
+ROUTES.update({
+    "/sapi/v1/simple-earn/flexible/history/rewardsRecord": EARN_FLEX_REWARDS,
+    "/sapi/v1/simple-earn/locked/history/rewardsRecord": EARN_LOCKED_REWARDS,
+    "/sapi/v1/bfusd/history/rewardsHistory": BFUSD_REWARDS,
+})
+
 # 流水页与资产页共用充提、收支两个端点，但窗口不同——用专门的样本覆盖
 LEDGER_ROUTES = {
     "/sapi/v1/capital/deposit/hisrec": LEDGER_DEPOSITS,

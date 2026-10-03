@@ -130,8 +130,9 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
           carry: { ...base.pnl.carry, funding_usd: null, commission_usd: null,
                    referral_usd: null },
           // 日历不清空：现货那半边照常算得出来，没了的只是合约结算。
-          // 后端就是这样（income 取不到时 settled 全是 0，pnl 只剩现货）。
-          daily: base.pnl.daily.map((day) => ({
+          // 后端就是这样（income 取不到时 settled 全是 0，pnl 只剩现货）；
+          // 已经存定的日子不受这次取数影响，原样保留。
+          daily: base.pnl.daily.map((day) => day.frozen ? day : ({
             ...day, settled_usd: 0, settled_parts: null, known: day.spot_usd !== null,
             pnl_usd: day.spot_usd === null ? null
               : day.spot_usd + day.stock_usd + day.earn_usd + day.interest_usd,
@@ -173,8 +174,9 @@ function scenarioSnapshot(scenario: Scenario): PortfolioSnapshot {
           carry: { ...base.pnl.carry, funding_usd: null, commission_usd: null,
                    referral_usd: null },
           // 日历不清空：现货那半边照常算得出来，没了的只是合约结算。
-          // 后端就是这样（income 取不到时 settled 全是 0，pnl 只剩现货）。
-          daily: base.pnl.daily.map((day) => ({
+          // 后端就是这样（income 取不到时 settled 全是 0，pnl 只剩现货）；
+          // 已经存定的日子不受这次取数影响，原样保留。
+          daily: base.pnl.daily.map((day) => day.frozen ? day : ({
             ...day, settled_usd: 0, settled_parts: null, known: day.spot_usd !== null,
             pnl_usd: day.spot_usd === null ? null
               : day.spot_usd + day.stock_usd + day.earn_usd + day.interest_usd,

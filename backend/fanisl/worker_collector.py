@@ -1,4 +1,4 @@
-"""collector 进程入口：只跑数据采集调度（market / catalysts），与 API、交易隔离。
+"""collector 进程入口：只跑数据采集调度（market / catalysts / 账户历史），与 API、交易隔离。
 
 时效优先：采集有自己独立的调度线程，不会被交易里分钟级的 Claude 调用拖住。
 启动：`python -m fanisl.worker_collector`（systemd: fanisl-collector.service）。
@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from . import runtime as rt
+from .binance.history_job import HistoryJob
 from .collect.collector import collect_catalysts, collect_market
 from .knowledge.daily import run_daily as knowledge_daily
 from .knowledge.discovery import weekly_report as knowledge_weekly
@@ -46,7 +47,13 @@ def main() -> None:
         ("asset_profiles", rt.settings.asset_profile_interval_s,
          lambda: refresh_profiles(rt.knowledge_pool)),
     ])
-    run_workers([sched, reference], name="collector")
+    # 账户历史（收盘快照、存定逐日盈亏、原始记录）也单独一条车道：收盘要在 UTC 零点后
+    # 尽快做，不能排在要跑几十分钟的知识库日报后面。它每 10 分钟醒一次，多数时候
+    # 什么都不做，见 binance/history_job.py
+    account = Scheduler([
+        ("binance_history", 600, HistoryJob(rt.binance_client, rt.binance_cache)),
+    ])
+    run_workers([sched, reference, account], name="collector")
 
 
 if __name__ == "__main__":

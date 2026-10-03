@@ -190,17 +190,19 @@ function minus(a: Allocation, b: Allocation): Allocation {
 }
 
 /**
- * 一个人账户的逐日盈亏：每天收盘时账户价值减去前一天收盘时的。
+ * 一个人账户的逐日盈亏：那天的盈亏让他的账户价值变了多少。
  *
- * 过去每天收盘的净值没有存下来（见 `docs/plans/active/console.md` 的持久化一条），
- * 这里从此刻的净值往回减资产页日历的逐日盈亏倒推。所以：
+ * 每天收盘时的净值：有收盘快照的用存下的（`nav_close_usd`，含当时的现金）；没有的
+ * 从后一天往回减资产页日历的逐日盈亏倒推；今天收在此刻。那天开盘 = 收盘 − 当天盈亏。
+ * 分配不是线性的（盈利才有 Performance Fee、低于初始净值才有亏损），所以两端都要
+ * 落在当时真实的净值上，不能只拿盈亏去乘一个比例。
  *
- * - 只有起始日之后、且在资产页日历范围内（90 天）的日子有数；
- * - 某一天的盈亏算不出来，那天和它之前的日子都不知道当时的净值，一律留空，
- *   不拿 0 顶替——顶替会让更早的日子悄悄地错；
- * - 充值和提现会让净值跳一截，按口径它算进「净值 − 初始净值」，但不在
- *   资产页的逐日盈亏里，所以日历各天加起来与此刻的账户盈亏会差出这一截。
- *   现金只有此刻录入的一个数，往回推时当它一直是这么多；改录现金同样差出一截。
+ * - 只有起始日之后、且在日历范围内的日子有数；
+ * - 某天的盈亏算不出来，那天留空；更早的日子要到下一个有收盘快照的日子才接得上，
+ *   中间一律留空，不拿 0 顶替——顶替会让更早的日子悄悄地错；
+ * - 充值、提现、改录现金会让净值跳一截。它们不是盈亏，不在任何一天里；按现行口径
+ *   却算进「净值 − 初始净值」，所以各天加起来与此刻的账户盈亏会差出这一截。
+ *   这是现行口径的问题，份额记账会改掉它（见 `docs/plans/active/console.md`）。
  *
  * 起始日那天从 Invested Capital 起算：前一天的账户价值就是出资本身。
  */
@@ -209,14 +211,13 @@ export function accountDays(member: FundMember, fund: FundSnapshot | null,
   const terms = fundTerms(fund)
   if (!terms || nav === null || daily.length === 0) return []
 
-  // 每天开盘、收盘时的净值，从最后一格（今天，收在此刻）往回减
+  const last = daily.length - 1
   const closes: (number | null)[] = Array(daily.length).fill(null)
   const opens: (number | null)[] = Array(daily.length).fill(null)
-  closes[daily.length - 1] = nav
-  for (let i = daily.length - 1; i >= 0; i -= 1) {
+  for (let i = last; i >= 0; i -= 1) {
+    closes[i] = i === last ? nav : daily[i].nav_close_usd ?? opens[i + 1]
     const pnl = daily[i].known ? daily[i].pnl_usd : null
     opens[i] = closes[i] === null || pnl === null ? null : closes[i]! - pnl
-    if (i > 0) closes[i - 1] = opens[i]
   }
   const at = (navAt: number | null, ms: number) => (navAt === null
     ? null : allocate(member, fundStateAt(navAt, terms, ms), terms))

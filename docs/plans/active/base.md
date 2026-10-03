@@ -33,6 +33,12 @@
   `backend/README.md` 指的是 `deploy/.env.example`，建议删掉——删文件不算事实更正，没动
 
 ## Requests in
+- **console 席位（2026-10-03 第二条，告知）**：账户历史（`binance/history_job.py`）挂到了采集进程，`worker_collector.py`
+  加了第三条调度车道 `account`（任务 `binance_history`，600 s）——收盘要在 UTC 零点后尽快做，不能排在知识库日报
+  后面。没配 Binance 凭据时任务直接返回。它往主库写三张新表 `account_snapshots` / `daily_pnl` / `binance_records`，
+  `backup.sh` 整库 dump，已覆盖。`api.md` 的 `/portfolio` 一节补了 `pnl.daily[].frozen`、`nav_close_usd`，并改了「成员只能
+  看 90 天」那段（存定的日子接在前面之后，`_clip_for_member` 真的在裁了）；`main.py` 里 `_clip_for_member` 的 docstring
+  同样改了，代码没动。请过目
 - **console 席位（2026-10-03，告知）**：新增 `GET /portfolio/fund`、`PUT /admin/fund`、`PUT /admin/fund/members/{user_id}`
   （`binance/routes.py`，挂在已有前缀下，nginx 不用改）。`api.md` 已由 console 席位直接补了 §1.8 一节并把头部总数改成
   86——不补的话 `tests/test_api_doc.py` 对所有席位都是红的。请过目，措辞按你的习惯改即可。

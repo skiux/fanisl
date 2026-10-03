@@ -96,8 +96,24 @@ def _now() -> datetime:
 class SourceCache:
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool = pool
+        self._history = None
         with pool.connection() as conn:
             conn.execute(_SCHEMA)
+
+    @property
+    def history(self):
+        """同库的账户历史（`history.py`）。用到时才建表，只建一次"""
+        if self._history is None:
+            from .history import HistoryStore
+            self._history = HistoryStore(self.pool)
+        return self._history
+
+    def payloads(self) -> list[tuple[str, Any]]:
+        """全部有内容的缓存行（键, 内容）。账户历史从这里把原始记录沉淀下来"""
+        with self.pool.connection() as conn:
+            rows = conn.execute("SELECT source_key, payload FROM binance_cache "
+                                "WHERE payload IS NOT NULL").fetchall()
+        return [(row["source_key"], row["payload"]) for row in rows]
 
     def read(self, key: str) -> dict | None:
         with self.pool.connection() as conn:

@@ -36,6 +36,9 @@ ErrorKind = Literal["unauthorized", "unreachable", "rate_limited", "unsupported"
 
 # 杠杆利息记录单次查询的最长跨度（官方："max interval between startTime and endTime is 30 days"）
 MARGIN_INTEREST_WINDOW_MS = 30 * 86_400_000
+# 理财派息记录单次跨度上限 30 天（超了回 -6021）；BFUSD 收益记录官方写 6 个月，按 90 天切更稳
+EARN_REWARDS_WINDOW_MS = 30 * 86_400_000
+BFUSD_REWARDS_WINDOW_MS = 90 * 86_400_000
 
 
 class BinanceError(Exception):
@@ -340,6 +343,68 @@ class BinanceClient:
         """BFUSD 已从 Futures 移到 Simple Earn；当前年化在独立历史端点。"""
         return self.signed_get(SPOT_BASE, "/sapi/v1/bfusd/history/rateHistory",
                                {"current": current, "size": size})
+
+    def earn_flexible_rewards(self, *, start_ms: int, end_ms: int, size: int = 100,
+                              current: int = 1) -> Any:
+        """活期派息记录。**type 要 ALL**：活期的收益分成实时年化（`REALTIME`）与阶梯年化
+        奖励（`BONUS`）两类，另有历史奖励（`REWARDS`）；每行自带 `type`，`ALL` 是并起来，
+        不是同一笔算三遍。只问 `REWARDS` 的话，阶梯那部分从来取不到（2026-09 踩过）。
+        """
+        return self.signed_get(SPOT_BASE, "/sapi/v1/simple-earn/flexible/history/rewardsRecord",
+                               {"type": "ALL", "startTime": start_ms, "endTime": end_ms,
+                                "size": size, "current": current})
+
+    def earn_locked_rewards(self, *, start_ms: int, end_ms: int, size: int = 100,
+                            current: int = 1) -> Any:
+        return self.signed_get(SPOT_BASE, "/sapi/v1/simple-earn/locked/history/rewardsRecord",
+                               {"startTime": start_ms, "endTime": end_ms, "size": size,
+                                "current": current})
+
+    def bfusd_rewards(self, *, start_ms: int, end_ms: int, size: int = 100,
+                      current: int = 1) -> Any:
+        """BFUSD 每日收益（结算进现货）。行里只有 time、rewardsAmount、bfusdposition
+        （小写）、annualPercentageRate，**没有记录 id，也没有币种**（2026-10-03 实测）。"""
+        return self.signed_get(SPOT_BASE, "/sapi/v1/bfusd/history/rewardsHistory",
+                               {"startTime": start_ms, "endTime": end_ms, "size": size,
+                                "current": current})
+
+    def rewards_history(self, product: str, *, start_ms: int, end_ms: int,
+                        size: int = 100, max_pages: int = 50) -> dict:
+        """派息记录的全量：flexible / locked / bfusd。按各自的跨度上限切窗、每窗逐页取完，
+        合并成 `{rows, total}`。取不全就整体失败，不返回截断的数据（同 `futures_income`）。
+
+        **只存不用**：账户历史（`history.py`）每天把它们沉淀成记录。逐日盈亏里的理财收益
+        按本金 × 年化估算——2026-09-27 发现派息记录与账户实际收益对不上，停用了。先存下来
+        是为了日后能拿它和收盘快照对账：这些接口能回溯的有限（实测活期最早到 2026-04-23，
+        约半年），不先存，到时候就只剩最近一段。
+        活期、定期单次跨度上限 30 天，超了报 -6021；BFUSD 按 90 天切。
+        """
+        fetch, window = {
+            "flexible": (self.earn_flexible_rewards, EARN_REWARDS_WINDOW_MS),
+            "locked": (self.earn_locked_rewards, EARN_REWARDS_WINDOW_MS),
+            "bfusd": (self.bfusd_rewards, BFUSD_REWARDS_WINDOW_MS),
+        }[product]
+        rows: list[dict] = []
+        window_start = start_ms
+        while window_start <= end_ms:
+            window_end = min(window_start + window, end_ms)
+            got = 0
+            for current in range(1, max_pages + 1):
+                payload = fetch(start_ms=window_start, end_ms=window_end, size=size,
+                                current=current)
+                page = payload.get("rows") if isinstance(payload, dict) else None
+                if not isinstance(page, list):
+                    raise BinanceError("unsupported", "派息记录的 rows 不是数组，拒绝使用。")
+                rows.extend(page)
+                got += len(page)
+                total = payload.get("total")
+                if len(page) < size or (isinstance(total, int) and got >= total):
+                    break
+            else:
+                raise BinanceError("unreachable",
+                                   f"派息记录超过 {max_pages} 页仍未取完，拒绝返回截断的数据。")
+            window_start = window_end + 1
+        return {"rows": rows, "total": len(rows)}
 
     def futures_income(self, *, start_ms: int, end_ms: int, limit: int = 1000) -> list[dict]:
         """按 page 取完整窗口；单次最多 1000 条，截断会漏掉历史资金费。"""

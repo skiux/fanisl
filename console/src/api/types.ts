@@ -428,6 +428,13 @@ export type DailyPnl = {
   pnl_usd: number | null
   /** 这天算不算得出来。算不出来时 pnl_usd 是 null，不是"亏了 0" */
   known: boolean
+  /**
+   * 存定的（那天结束、数据齐了之后存下，不再重算）还是现算的（从当前余额往回推）。
+   * 今天永远是现算的。存定的日子可以早于 90 天窗口，日历因此能往前翻
+   */
+  frozen: boolean
+  /** 那天 UTC 收盘时的净值（含现金），来自收盘快照；没有快照的日子是 null */
+  nav_close_usd: number | null
 }
 
 /** 逐币的今日涨跌。数量跨全部钱包——划进合约当保证金的那部分也算在里面 */

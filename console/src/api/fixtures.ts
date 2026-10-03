@@ -564,6 +564,9 @@ function buildDaily(asOf: Date, todayStock = 0, todayEarn = 0, todayInterest = 0
       pnl_usd: known
         ? Math.round((spot + stock + settled + earn + interest) * 100) / 100 : null,
       known,
+      // 示例里过去的日子都当作已存定；收盘净值留空，账户日历照旧从此刻往回推
+      frozen: back > 0 && known,
+      nav_close_usd: null,
     })
   }
   return out

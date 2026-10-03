@@ -25,7 +25,7 @@ def fund(pool, auth_store):
     # auth_store 已经 TRUNCATE users … CASCADE，fund_members 跟着清空
     store = FundStore(pool)
     with pool.connection() as conn:
-        conn.execute("TRUNCATE fund_settings")
+        conn.execute("TRUNCATE fund_settings, fund_audit RESTART IDENTITY")
     return store
 
 
@@ -150,3 +150,49 @@ def test_settings_can_be_cleared(fund, auth_store):
     fund.save_settings(initial_nav_usd=Decimal(100), inception_date=date(2026, 9, 1),
                        cash_usd=None, updated_by=admin["id"])
     assert fund.settings()["cash_usd"] is None
+
+
+def audit(pool) -> list[tuple]:
+    with pool.connection() as conn:
+        rows = conn.execute("SELECT table_name, op, user_id, actor, old_row, new_row "
+                            "FROM fund_audit ORDER BY id").fetchall()
+    return [(r["table_name"], r["op"], r["user_id"], r["actor"], r["old_row"], r["new_row"])
+            for r in rows]
+
+
+def test_every_change_to_the_rules_is_audited(fund, pool, auth_store):
+    """两张表覆盖写；份额记账要知道出资和比例哪天变的，靠这张审计表。"""
+    admin, alice, bob = make_users(auth_store)
+    fund.save_settings(initial_nav_usd=Decimal(100000), inception_date=date(2026, 9, 1),
+                       cash_usd=Decimal(0), updated_by=admin["id"])
+    # 原样再存一遍不算改动
+    fund.save_settings(initial_nav_usd=Decimal(100000), inception_date=date(2026, 9, 1),
+                       cash_usd=Decimal(0), updated_by=admin["id"])
+    fund.save_settings(initial_nav_usd=Decimal(100000), inception_date=date(2026, 9, 1),
+                       cash_usd=Decimal(2500), updated_by=admin["id"])
+    member = {k: Decimal(str(v)) if not isinstance(v, bool) else v for k, v in MEMBER.items()}
+    fund.save_member(alice["id"], **member, updated_by=admin["id"])
+    fund.save_member(alice["id"], **{**member, "invested_capital_usd": Decimal(30000)},
+                     updated_by=admin["id"])
+    fund.save_member(bob["id"], **member, updated_by=admin["id"])
+    # 两个角色都去掉 = 删掉那一行；删除没有 updated_by，操作人从会话变量来
+    fund.save_member(bob["id"], **{**member, "is_manager": False, "is_investor": False},
+                     updated_by=admin["id"])
+    # 删用户连带删掉的那一行同样留痕，只是不知道是谁删的
+    auth_store.delete_user(alice["id"])
+
+    rows = audit(pool)
+    assert [(t, op, uid, actor) for t, op, uid, actor, _, _ in rows] == [
+        ("fund_settings", "INSERT", None, admin["id"]),
+        ("fund_settings", "UPDATE", None, admin["id"]),
+        ("fund_members", "INSERT", alice["id"], admin["id"]),
+        ("fund_members", "UPDATE", alice["id"], admin["id"]),
+        ("fund_members", "INSERT", bob["id"], admin["id"]),
+        ("fund_members", "DELETE", bob["id"], admin["id"]),
+        ("fund_members", "DELETE", alice["id"], None),
+    ]
+    _, _, _, _, old, new = rows[3]
+    assert (old["invested_capital_usd"], new["invested_capital_usd"]) == (20000, 30000)
+    assert rows[1][4]["cash_usd"] == 0 and rows[1][5]["cash_usd"] == 2500
+    assert rows[6][5] is None and rows[6][4]["invested_capital_usd"] == 30000
+

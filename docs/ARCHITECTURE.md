@@ -49,10 +49,11 @@ fanisl/
 
 ### 进程入口（3 车道，见 deploy/README）
 - `main.py` — FastAPI app，**只服务请求**（不起后台调度），可多 worker。所有 HTTP 路由。
-- `worker_collector.py` — 采集进程。**两条调度车道**（Scheduler 是单线程顺序执行的，
+- `worker_collector.py` — 采集进程。**三条调度车道**（Scheduler 是单线程顺序执行的，
   刷公司资料受 Polygon 限速要跑十几分钟，与行情同车道会把 15 分钟一轮的采集顶掉）：
   ①market 15min / catalysts 每天 / 知识日维护 / 周报；
-  ②标的新闻天更 + 财报日历天更 + 动态降噪天更 + 公司资料周更。单实例。
+  ②标的新闻天更 + 财报日历天更 + 动态降噪天更 + 公司资料周更；
+  ③Binance 账户历史（收盘快照、存定逐日盈亏、原始记录，10 分钟醒一次，见 `binance/history_job.py`）。单实例。
 - `worker_trader.py` — 交易进程：快线程盯市(15s) + 慢线程（setup 探测→闸门 1h；scan 已默认关）。单实例。
 - `worker_base.py` — worker 公共设施：PG advisory lock 单实例守卫 + 信号驱动运行。
 - `collect/backfill.py` — 一次性历史回填（`python -m fanisl.collect.backfill`）。

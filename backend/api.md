@@ -193,17 +193,23 @@ Binance 的 Stocks Trading **没有持仓接口**。直接买入的正股在资�
 - 现在的口径：
 
   ```
-  daily[]                 **每天到底赚了多少**，固定 90 格：
+  daily[]                 **每天到底赚了多少**：现算的 90 格，前面接上更早的存定日子
+                          （账户历史，见 binance/README.md「账户历史」）：
                             date         YYYY-MM-DD，UTC 日切
                             spot_usd     现货类持仓当天的涨跌（跨全部钱包，含当天成交那部分）
                             stock_usd    正股当天的涨跌（昨收来自 Yahoo，见 equity_close_source）
                             settled_usd  合约当天结算（已实现+资金费+手续费+返佣）
                             earn_usd     当天理财收益估算；当前本金×年化÷365，按 UTC
-                                         当日已过时间连续计提。历史日期为 0，不用当前值反推
+                                         当日已过时间连续计提。历史日期为 0，不用当前值反推；
+                                         有收盘快照的存定日子按收盘时的本金与年化记整天
                             interest_usd 杠杆利息，负数
                             pnl_usd      spot_usd + stock_usd + settled_usd + earn_usd + interest_usd；
                                          算不出来时 null
                             known        这天算不算得出来
+                            frozen       true = 存定的（那天结束、数据齐了之后存下，不再重算）；
+                                         false = 按当前余额现算的。今天永远是 false
+                            nav_close_usd 那天 UTC 收盘时的净值（含现金），来自收盘快照；
+                                         没有快照的日子是 null
   today.{spot_usd,stock_usd,settled_usd,earn_usd,interest_usd,total_usd}
                           daily 最后一格。**同一个数只算一处**，两边不会对不上
   today.settled_parts     当天结算按类型拆开，字段同 `income`（realized_pnl /
@@ -270,10 +276,9 @@ Binance 的 Stocks Trading **没有持仓接口**。直接买入的正股在资�
 非管理员的响应经 `main.py:_clip_for_member` 裁过：`pnl.daily` 只留最近 90 天。
 **这一步在服务端做**——前端把数字藏起来不算数。
 
-现在它**恰好裁不掉东西**：`pnl` 里每一项本来就在 90 天以内（`daily` 就是 90 格，
-`realized.futures_usd` 与 `carry.*` 受 `income` 接口硬限，`unrealized` 是"此刻"）。
-唯一超出的曾经是现货那个"相对终身均价"的已实现，它已随成本基础引擎一起删除。
-留着这一行是为了哪天有人把窗口放长时不必再想起来补。
+2026-10-03 起它**真的在裁**：账户历史把存定的日子接在现算的 90 格前面，管理员能看到
+90 天以前，成员仍只拿到最后 90 格（现算的那 90 天）。`pnl` 里其余各项本来就在 90 天以内
+（`realized.futures_usd` 与 `carry.*` 受 `income` 接口硬限，`unrealized` 是"此刻"）。
 
 ### GET /orders
 Query：`symbol`、`venue`（`spot|usdm|margin|equity`）、`force`。

@@ -117,7 +117,7 @@ fanisl/
 └── ../tools/        # 运维脚本：check_db / check_sources / check_ingest / screen_node_canonicals
 ```
 
-三个进程：`main.py`(API，可多 worker) / `worker_collector.py`(采集+知识引擎日维护、周报)
+三个进程：`main.py`(API，可多 worker) / `worker_collector.py`(采集+知识引擎日维护、周报+Binance 账户历史)
 / `worker_trader.py`(交易)。后两个各自单实例，靠 PG advisory lock 防呆。
 
 加新能力（信号 / 回测 / 新闻）= 在 `tools/registry.py` 注册一个新工具，agent 不用动。
