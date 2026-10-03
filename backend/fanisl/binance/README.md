@@ -597,9 +597,9 @@ FAPI 池 **63**（上表 fapi 各行相加）。`withdrawals` 与 BFUSD 年化�
 |---|---|---:|---|---|---|
 | 充值 | `GET /sapi/v1/capital/deposit/hisrec` | 1 | 90 天 | 90 天 | — |
 | 提现 | `GET /sapi/v1/capital/withdraw/history` | **18000** | 90 天 | 90 天 | UID 10 次/秒 |
-| 合约损益 | `GET /fapi/v1/income` | 30 | 不限 | 90 天 | — |
+| 合约损益 | `GET /fapi/v1/income` | 30 | 不限 | 实测到 2026-03-09（文档写 3 个月） | — |
 | 钱包划转 | `GET /sapi/v1/asset/transfer` | 1 | 不限 | 180 天 | **type 必填**，取 12 种常用 |
-| 杠杆利息 | `GET /sapi/v1/margin/interestHistory` | 1 | 30 天 | 90 天 | — |
+| 杠杆利息 | `GET /sapi/v1/margin/interestHistory` | 1 | 30 天 | 实测到 2026-04-22 | — |
 | 闪兑 | `GET /sapi/v1/convert/tradeFlow` | **3000** | 30 天 | — | 起止时间都必填 |
 | 小额兑换 | `GET /sapi/v1/asset/dribblet` | 1 | 不限 | — | — |
 
@@ -636,7 +636,8 @@ FAPI 池 **63**（上表 fapi 各行相加）。`withdrawals` 与 BFUSD 年化�
 |---|---|---|---|
 | `account_snapshots` | 某个 UTC 日收盘时的账户全貌：净值（含现金）、各来源状态、整份资产快照（不含逐日那一串） | 任务，次日零点后 3 小时内 | 不变 |
 | `daily_pnl` | 某一天的盈亏与分项，`method` 记 `close`（有收盘快照）或 `no_close`（没有），`earn_method` 记理财一项怎么来的 | 任务，那天结束且相关来源都在那之后取到过 | 不变 |
-| `binance_records` | 交易所给的一条原始记录（9 类缓存来源 + 3 类派息），按记录 id 去重 | 任务，每小时扫缓存；派息每天另取 | 只在交易所改了它时更新（充提状态） |
+| `binance_records` | 交易所给的一条原始记录，按记录 id 去重（来源见下表） | 任务：上线时每类补取一次；之后每小时扫缓存，几类不经过缓存的每天另取 | 只在交易所改了它时更新（充提、P2P 状态） |
+| `history_backfills` | 一类原始记录已经补取过（从哪天起、多少条） | 任务，那一类补取完 | 不变 |
 
 **任务**挂在采集进程上，单独一条调度车道（`worker_collector.py`），每 10 分钟醒一次：
 
@@ -644,13 +645,24 @@ FAPI 池 **63**（上表 fapi 各行相加）。`withdrawals` 与 BFUSD 年化�
    写快照，再试着存定。钱包取不到就没有净值，不写，20 分钟后再试。过了 3 小时还没写成，
    那天就不算有收盘——再晚取的净值混进了第二天的涨跌（上线时记成 10-02 收盘的那份是
    10-03 13:11 取的，就是这种，已删）。
-2. 昨天还没存定 → 每小时按缓存重取一次，数据齐了就存定。**只存第一份收盘快照那天及以后**
-   （用户 2026-10-03 定：从现在开始存，不补以前）；开始之后某天没有收盘快照（任务停过），
-   那天照样存定，记 `no_close`，记录不留缺口。
+2. 昨天还没存定 → 每小时按缓存重取一次，数据齐了就存定。**只存第一份收盘快照那天及以后**；
+   开始之后某天没有收盘快照（任务停过），那天照样存定，记 `no_close`，记录不留缺口。
 3. 每小时把缓存里的原始记录沉淀下来。来源这次失败、缓存里是上一次成功的那份，照样
    沉淀：那份数据本身是对的。
-4. 每天一次取派息记录、刷一遍流水页的来源（钱包划转只在那里取）。刚做完收盘的那一轮
-   不取，推到下一轮——收盘强制刷新里闪兑一次就是 3000 权重，叠上去会逼近每分钟上限。
+4. 每天一次另取不经过缓存的几类（派息、P2P、Pay 的最近 30 天，交易所日快照三类轮着取一类），
+   并刷一遍流水页的来源（钱包划转只在那里取）。
+5. 还有没补取过的来源 → 补一类，每轮一类，按接口能回溯的最远处取（`BACKFILLS`，上线后约
+   16 轮、两个多小时补完）。补完记进 `history_backfills`，重启不重来；某一类失败，6 小时后
+   再试，期间先补别的。
+
+4、5 两步在刚做完收盘的那一轮都不做，推到下一轮——收盘强制刷新里闪兑一次就是 3000 权重，
+叠上去会逼近每分钟上限。
+
+**推算出来的不补，交易所给得出的原样存全**（用户 2026-10-03 定）。逐日盈亏、收盘净值是
+推算或取数时刻的状态，只能从现在开始存：上线之前的日子照旧现算显示，滑出 90 天就没了
+（上线时一次补存的 88 天与那份迟了 13 小时的 10-02 收盘已删，导出在服务器
+`/opt/fanisl/backups/history-derived-rows-20261003.json`）。原始记录是交易所自己留着的，
+能回溯多远就存多远——以后要重算过去，从这些记录出发。
 
 没配凭据时任务什么都不做。昨天存不定会打一行 `[history] … 暂未存定，来源未齐：…`
 （`journalctl -u fanisl-collector`）：一个来源一直失败，那天会在滑出 90 天窗口时永久丢掉。
@@ -674,21 +686,37 @@ FAPI 池 **63**（上表 fapi 各行相加）。`withdrawals` 与 BFUSD 年化�
   的 `accountDays`）有它就用它落点，不再全靠从此刻往回减。
 - **收盘快照写的是取数那一刻**（`taken_at`），最晚零点后 3 小时。
 
-原始记录的 id 规则见 `history.RECORD_SOURCES` / `REWARD_SOURCES`。2026-10-03 用生产缓存
-（156 个键）核过：9 类来源没有一行取不到 id，也没有同一个 id 对应两份不同内容；合约收支
-1420 行去重后 773 条，杠杆利息 1188 行去重后 459 条。
+原始记录的 id 规则见 `history.RECORD_SOURCES`（从缓存扫的）与 `DIRECT_SOURCES`（直接取的）。
+2026-10-03 用生产缓存（156 个键）核过：9 类来源没有一行取不到 id，也没有同一个 id 对应两份
+不同内容；合约收支 1420 行去重后 773 条，杠杆利息 1188 行去重后 459 条。
 
-派息接口（只在任务里用，不经过缓存）：
+各类原始记录能回溯多远（2026-10-03 在生产账户上逐段实测；补取一律往回问一年，账户最早的
+记录是 2026-03-09）：
 
-| 产品 | 端点 | 权重 | 单次跨度 | 实测能回溯到 |
-|---|---|---:|---|---|
-| 活期 | `GET /sapi/v1/simple-earn/flexible/history/rewardsRecord`（`type=ALL`） | 150 | 30 天，超了 -6021 | 2026-04-23（约 163 天，再往前一年都是空的） |
-| 定期 | `GET /sapi/v1/simple-earn/locked/history/rewardsRecord` | 150 | 30 天 | 账户没有定期派息 |
-| BFUSD | `GET /sapi/v1/bfusd/history/rewardsHistory` | 150 | 按 90 天切 | 2026-09-03 起每天一条 |
+| 来源 | 端点 | 单次跨度 | 实测 | 平时怎么接上 |
+|---|---|---|---|---|
+| `p2p_orders` | `GET /sapi/v1/c2c/orderMatch/listUserOrderHistory` | 按 90 天切 | 最早 2026-03-09，买 12 单、卖 14 单 | 每天取最近 30 天 |
+| `pay_transactions` | `GET /sapi/v1/pay/transactions` | **90 天**，超了 403004；没有翻页 | 最早 2026-04-24，共 4 条 | 每天取最近 30 天 |
+| `futures_income` | `GET /fapi/v1/income` | 按 90 天切 | 最早 2026-03-09（不是文档说的 3 个月） | 资产页缓存 |
+| `margin_interest` | `GET /sapi/v1/margin/interestHistory` | 30 天 | 最早 2026-04-22 | 资产页缓存 |
+| `wallet_transfers` | `GET /sapi/v1/asset/transfer` | 按 90 天切 | **只回 180 天**，再早 -5026 | 流水页缓存 |
+| `deposits` / `withdrawals` | `capital/deposit/hisrec`、`withdraw/history` | 90 天 | 两年内都是空的 | 资产页缓存 |
+| `convert` | `GET /sapi/v1/convert/tradeFlow` | 30 天，UID 权重 3000 | 至少到 2026-06-04 | 资产页缓存 |
+| `dust` | `GET /sapi/v1/asset/dribblet` | 按 90 天切 | 两年内都是空的 | 资产页缓存 |
+| `equity_trades` | `GET /sapi/v1/equity/trade/history` | 按 90 天切 | 一年内只有 1 条 | 资产页缓存 |
+| `earn_flexible_rewards` | `simple-earn/flexible/history/rewardsRecord`（`type=ALL`） | 30 天，超了 -6021 | 最早 2026-04-23 | 每天取最近 30 天 |
+| `earn_locked_rewards` | `simple-earn/locked/history/rewardsRecord` | 30 天 | 2026-04-26 至 04-30 共 5 条 | 每天取最近 30 天 |
+| `bfusd_rewards` | `GET /sapi/v1/bfusd/history/rewardsHistory` | 按 90 天切 | 2026-09-03 起每天一条 | 每天取最近 30 天 |
+| `account_snapshot_{spot,margin,futures}` | `GET /sapi/v1/accountSnapshot` | — | **只留 30 天**；IP 权重 2400 | 三类轮着取，每类三天一次 |
+| `spot_trades` | `GET /api/v3/myTrades` | — | 持有的币全部历史；已卖光的币取不到 | 资产页缓存 |
 
+**这个账户的钱从 P2P 进出**：链上充提、法币充提两年内都是空的，资金是用人民币在 P2P
+买卖 USDT，另有少量 Binance Pay。以后做份额记账，"出资"要从这两类里认。
 活期同一时刻有 `REALTIME` 与 `BONUS` 两行，每行带 `productId`；BFUSD 的行只有 `time`、
-`rewardsAmount`、`bfusdposition`（小写）、`annualPercentageRate`，没有币种。第一次取往回
-180 天，之后每天取最近 30 天。
+`rewardsAmount`、`bfusdposition`（小写）、`annualPercentageRate`，没有币种。
+
+没存的：合约与现货的委托、合约逐笔成交（`userTrades` 只回半年、每段 7 天、按交易对逐个问）。
+每笔成交的已实现盈亏与手续费已经在合约收支里，委托明细要的话再加。
 
 ## 账户分配规则（`fund.py`）
 

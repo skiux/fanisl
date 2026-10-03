@@ -649,11 +649,27 @@ class BinanceClient:
                                 "endTime": end_ms, "limit": limit})
 
     def universal_transfers(self, kind: str, *, start_ms: int, end_ms: int,
-                            size: int = 100) -> Any:
-        # type 是必填的：要看全部划转得按类型逐个问（约 40 种，见 ledger.py 的取舍）
+                            size: int = 100, current: int = 1) -> Any:
+        # type 是必填的：要看全部划转得按类型逐个问（约 40 种，见 ledger.py 的取舍）。
+        # 只回 180 天，再早报 -5026（2026-10-03 实测）
         return self.signed_get(SPOT_BASE, "/sapi/v1/asset/transfer",
                                {"type": kind, "startTime": start_ms, "endTime": end_ms,
-                                "size": size})
+                                "size": size, "current": current})
+
+    def p2p_orders(self, side: str, *, start_ms: int, end_ms: int, page: int = 1,
+                   rows: int = 100) -> Any:
+        """P2P（C2C）买卖币的订单，`side` 是 BUY / SELL。**这个账户的钱从这里进出**：
+        链上充提记录两年里是空的，法币充提也是空的，资金都是 P2P 用人民币买卖 USDT
+        （2026-10-03 实测，最早 2026-03-09）。按 UID 计权重"""
+        return self.signed_get(SPOT_BASE, "/sapi/v1/c2c/orderMatch/listUserOrderHistory",
+                               {"tradeType": side, "startTimestamp": start_ms,
+                                "endTimestamp": end_ms, "page": page, "rows": rows})
+
+    def pay_transactions(self, *, start_ms: int, end_ms: int, limit: int = 100) -> Any:
+        """Binance Pay 收付款。单次跨度超过 90 天报 403004；没有翻页，满 100 条要切小窗口。
+        按 UID 计权重（3000）"""
+        return self.signed_get(SPOT_BASE, "/sapi/v1/pay/transactions",
+                               {"startTime": start_ms, "endTime": end_ms, "limit": limit})
 
     def margin_interest_history(self, *, start_ms: int, end_ms: int, size: int = 100,
                                 max_pages: int = 50) -> dict:

@@ -638,6 +638,26 @@ ROUTES.update({
     "/sapi/v1/bfusd/history/rewardsHistory": BFUSD_REWARDS,
 })
 
+# 资金进出：这个账户的钱走 P2P 与 Binance Pay，链上充提是空的（2026-10-03 生产实测）。
+# 形状照实际响应，按请求的时间窗过滤
+P2P_ORDERS = [
+    {"orderNumber": "22800000000000000001", "tradeType": "BUY", "asset": "USDT", "fiat": "CNY",
+     "amount": "5000", "totalPrice": "36000", "unitPrice": "7.2", "orderStatus": "COMPLETED",
+     "createTime": _ms_ago(120)},
+    {"orderNumber": "22800000000000000002", "tradeType": "SELL", "asset": "USDT", "fiat": "CNY",
+     "amount": "1000", "totalPrice": "7150", "unitPrice": "7.15", "orderStatus": "COMPLETED",
+     "createTime": _ms_ago(10)},
+    {"orderNumber": "22800000000000000003", "tradeType": "BUY", "asset": "USDT", "fiat": "CNY",
+     "amount": "300", "totalPrice": "2160", "unitPrice": "7.2", "orderStatus": "CANCELLED",
+     "createTime": _ms_ago(200)},
+]
+PAY_TRANSACTIONS = [
+    {"transactionId": "P_A227UR95P6", "orderId": "434793146203", "orderType": "C2C",
+     "transactionTime": _ms_ago(5), "amount": "-20", "currency": "USDT", "walletType": 2},
+    {"transactionId": "P_B118QX20K1", "orderId": "434793146777", "orderType": "C2C",
+     "transactionTime": _ms_ago(150), "amount": "50", "currency": "USDT", "walletType": 2},
+]
+
 # 流水页与资产页共用充提、收支两个端点，但窗口不同——用专门的样本覆盖
 LEDGER_ROUTES = {
     "/sapi/v1/capital/deposit/hisrec": LEDGER_DEPOSITS,
@@ -722,10 +742,25 @@ def make_transport(*, fail: dict[str, int] | None = None, calls: list | None = N
                 return httpx.Response(200, json=_BY_SYMBOL[path])
             return httpx.Response(200, json=[row for row in _BY_SYMBOL[path]
                                              if row.get("symbol") == want])
+        if path == "/sapi/v1/c2c/orderMatch/listUserOrderHistory":
+            p = dict(request.url.params)
+            hits = [r for r in P2P_ORDERS if r["tradeType"] == p["tradeType"]
+                    and int(p["startTimestamp"]) <= r["createTime"] <= int(p["endTimestamp"])]
+            size, page = int(p.get("rows", 100)), int(p.get("page", 1))
+            return httpx.Response(200, json={"code": "000000", "success": True, "total": len(hits),
+                                             "data": hits[(page - 1) * size: page * size]})
+        if path == "/sapi/v1/pay/transactions":
+            p = dict(request.url.params)
+            start, end = int(p["startTime"]), int(p["endTime"])
+            if end - start > 90 * DAY_MS:
+                return httpx.Response(400, json={"code": 403004,
+                                                 "msg": "The request has an invalid parameter"})
+            return httpx.Response(200, json={"code": "000000", "success": True, "data": [
+                r for r in PAY_TRANSACTIONS if start <= r["transactionTime"] <= end]})
         if path == "/sapi/v1/asset/transfer":
             kind = dict(request.url.params).get("type", "")
-            return httpx.Response(200, json=LEDGER_TRANSFERS.get(
-                kind, {"total": 0, "rows": []}))
+            # 没有记录的类型真接口只回 {"total": 0}，连 rows 都没有
+            return httpx.Response(200, json=LEDGER_TRANSFERS.get(kind, {"total": 0}))
         if ledger and path in LEDGER_ROUTES:
             return httpx.Response(200, json=LEDGER_ROUTES[path])
         if path in ROUTES:

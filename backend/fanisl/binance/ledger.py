@@ -70,12 +70,14 @@ WINDOWS: list[dict] = [
      "weight": 18000, "max_window_days": 90, "lookback_days": 90,
      "fanout": "账户维度限速 10 次/秒", "calls": 1},
     {"key": "income", "endpoint": "GET /fapi/v1/income",
-     "weight": 30, "max_window_days": None, "lookback_days": 90, "fanout": None, "calls": 1},
+     # 回溯实测到 2026-03-09（账户最早的记录），不是文档写的 3 个月（2026-10-03）
+     "weight": 30, "max_window_days": None, "lookback_days": None, "fanout": None, "calls": 1},
     {"key": "wallet_transfers", "endpoint": "GET /sapi/v1/asset/transfer",
      "weight": 1, "max_window_days": None, "lookback_days": 180,
      "fanout": f"type 必填，实取 {len(TRANSFER_TYPES)} 种常用", "calls": len(TRANSFER_TYPES)},
     {"key": "margin_interest", "endpoint": "GET /sapi/v1/margin/interestHistory",
-     "weight": 1, "max_window_days": 30, "lookback_days": 90,
+     # 回溯实测到 2026-04-22，不止 90 天（2026-10-03）
+     "weight": 1, "max_window_days": 30, "lookback_days": None,
      "fanout": "按小时计息，单页 100 条，逐页取完", "calls": 1},
     {"key": "convert", "endpoint": "GET /sapi/v1/convert/tradeFlow",
      "weight": 3000, "max_window_days": 30, "lookback_days": None,

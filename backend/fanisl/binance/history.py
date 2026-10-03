@@ -12,12 +12,15 @@
 |---|---|---|---|
 | `account_snapshots` | 某个 UTC 日收盘时的账户全貌 | 次日零点后 3 小时内（`history_job.py`） | 不变 |
 | `daily_pnl` | 某一天的盈亏，各分项 | 那天结束、相关来源都在那之后取到过；从第一份收盘快照那天起 | 不变 |
-| `binance_records` | 交易所给的一条原始记录 | 每小时从缓存里扫，派息另取 | 只在交易所改了它时更新（充提状态） |
+| `binance_records` | 交易所给的一条原始记录 | 每小时从缓存里扫；派息、P2P、Pay、交易所日快照另取；上线时按各接口能回溯的范围补取一次 | 只在交易所改了它时更新（充提状态） |
+| `history_backfills` | 一类原始记录已经补取过 | 那一类补取完 | 不变 |
 
 ## 几条规矩
 
-- **从现在开始存，不补以前。** 存定从第一份收盘快照那天开始（用户 2026-10-03 定）；
-  上线那一刻窗口里的日子照旧现算显示，滑出 90 天就没了。
+- **推算出来的不补，交易所给得出的原样存全**（用户 2026-10-03 定）。逐日盈亏是从余额
+  往回推算的，只从第一份收盘快照那天开始存定；上线之前的日子照旧现算显示，滑出 90 天
+  就没了。原始记录不是推算，是交易所自己留着的，每一类都按接口能回溯的最远处补取一次
+  （`history_job.BACKFILLS`），以后要重算过去，从这些记录出发。
 - **存下的东西不重算。** 日历上一天一旦存定，之后的请求直接用存定的数，不再从当前余额
   倒推——倒推会随窗口滑动、来源失败、算法修改而变。要改只能删掉那一行，等任务重存
   （还在 90 天窗口内才能重存）。
@@ -87,6 +90,12 @@ CREATE TABLE IF NOT EXISTS binance_records (
     PRIMARY KEY (source, record_id)
 );
 CREATE INDEX IF NOT EXISTS idx_binance_records_time ON binance_records (source, occurred_at);
+CREATE TABLE IF NOT EXISTS history_backfills (
+    source   TEXT PRIMARY KEY,
+    done_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    since    TIMESTAMPTZ NOT NULL,
+    records  INTEGER NOT NULL
+);
 """
 
 _DAILY_COLS = ("day, spot_usd, stock_usd, settled_usd, settled_parts, earn_usd, "
@@ -209,6 +218,17 @@ class HistoryStore:
                         "RETURNING record_id", args)
                     changed += cur.fetchone() is not None
         return changed
+
+    def backfilled(self) -> set[str]:
+        """已经补取过的来源。补取一次就够：之后的由缓存沉淀与每天另取接上"""
+        with self.pool.connection() as conn:
+            return {row["source"] for row in conn.execute(
+                "SELECT source FROM history_backfills").fetchall()}
+
+    def mark_backfilled(self, source: str, *, since: datetime, records: int) -> None:
+        with self.pool.connection() as conn:
+            conn.execute("INSERT INTO history_backfills (source, since, records) VALUES (%s,%s,%s) "
+                         "ON CONFLICT (source) DO NOTHING", (source, since, records))
 
     def record_count(self, source: str) -> int:
         with self.pool.connection() as conn:
@@ -338,15 +358,43 @@ RECORD_SOURCES: tuple[RecordSource, ...] = (
                  lambda r: _ms(r.get("executionAt"))),
 )
 
-# 不经过缓存、由任务每天另取的派息记录。三类都没有现成的记录 id。
-# 字段按 2026-10-03 生产账户的实际响应：活期每行 asset / productId / rewards / time / type，
-# 同一时刻 REALTIME 与 BONUS 各一行；BFUSD 每天一行，只有 time / rewardsAmount /
-# bfusdposition / annualPercentageRate，没有币种字段
-REWARD_SOURCES: dict[str, Callable[[dict], str]] = {
-    "flexible": lambda r: f"{r.get('time')}:{r.get('asset')}:{r.get('type')}:{r.get('productId') or ''}",
-    "locked": lambda r: f"{r.get('positionId') or ''}:{r.get('time')}:{r.get('asset')}",
-    "bfusd": lambda r: str(r.get("time")),
+# 不经过缓存、由任务直接取的记录：(记录 id, 发生时刻)。字段按 2026-10-03 生产账户的实际响应：
+# - 派息三类都没有现成的 id。活期每行 asset / productId / rewards / time / type，同一时刻
+#   REALTIME 与 BONUS 各一行；BFUSD 每天一行，只有 time / rewardsAmount / bfusdposition /
+#   annualPercentageRate，没有币种字段
+# - P2P 订单号 orderNumber 唯一；状态会从进行中变成完成或取消，按 id 覆盖
+# - Pay 的 transactionId 形如 P_A227UR95P6
+# - 交易所日快照（accountSnapshot）每类每天一条，updateTime 是那天 23:59:59.999
+DIRECT_SOURCES: dict[str, tuple[Callable[[dict], str | None], Callable[[dict], datetime | None]]] = {
+    "earn_flexible_rewards": (
+        lambda r: f"{r.get('time')}:{r.get('asset')}:{r.get('type')}:{r.get('productId') or ''}",
+        lambda r: _ms(r.get("time"))),
+    "earn_locked_rewards": (
+        lambda r: f"{r.get('positionId') or ''}:{r.get('time')}:{r.get('asset')}",
+        lambda r: _ms(r.get("time"))),
+    "bfusd_rewards": (lambda r: str(r.get("time")), lambda r: _ms(r.get("time"))),
+    "p2p_orders": (lambda r: r.get("orderNumber"), lambda r: _ms(r.get("createTime"))),
+    "pay_transactions": (lambda r: r.get("transactionId") or r.get("orderId"),
+                         lambda r: _ms(r.get("transactionTime"))),
+    **{f"account_snapshot_{kind}": (lambda r: str(r.get("updateTime")),
+                                    lambda r: _ms(r.get("updateTime")))
+       for kind in ("spot", "margin", "futures")},
 }
+
+
+def record_items(source: str, rows: Iterable[Any]) -> list[tuple[str, datetime | None, dict]]:
+    """直接取到的一批行 → upsert 用的 (id, 时刻, 行)。缓存来源与直取来源用同一套 id 规则"""
+    by_name = {src.name: src for src in RECORD_SOURCES}
+    if source in by_name:
+        src = by_name[source]
+        make_id, at = (lambda r: src.record_id(r, "")), src.occurred_at
+    else:
+        make_id, at = DIRECT_SOURCES[source]
+    out = {}
+    for row in rows:
+        if isinstance(row, dict) and (rid := make_id(row)):
+            out[str(rid)] = (str(rid), at(row), row)
+    return list(out.values())
 
 
 def extract_records(cached: Iterable[tuple[str, Any]]
