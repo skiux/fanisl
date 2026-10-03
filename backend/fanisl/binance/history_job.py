@@ -2,6 +2,7 @@
 
     每次醒来
     ├─ 昨天的收盘快照还没有？  → 强制取一遍全部来源，写快照，再试着存定
+    │                           （零点后 3 小时内才写；过了就当那天没有收盘）
     ├─ 昨天还没存定？         → 每小时重取一次（不强制），数据齐了就存定
     ├─ 距上次扫缓存满 1 小时？ → 把缓存里的原始记录沉淀进 binance_records
     └─ 今天还没取过派息？     → 取理财派息与 BFUSD 收益、刷一遍流水页的来源
@@ -11,6 +12,10 @@
 采集进程单实例（advisory lock），API 每次部署都重启、开发机上还可能同时开着一份。
 收盘这件事要在 UTC 零点之后尽快做，所以它在采集进程里单独一个调度线程，
 不排在知识库日报这类要跑几十分钟的任务后面（见 `worker_collector.py`）。
+
+**从第一份收盘快照那天起才存定，不补存上线之前的日子**（用户 2026-10-03 定）。
+上线那一刻窗口里的日子照旧现算显示，滑出 90 天就没了。之后哪天任务停过、没赶上
+收盘快照，那天照样存定（`method='no_close'`），记录从开始那天起不留缺口。
 
 口径与表结构见 `history.py`。
 """
@@ -35,6 +40,9 @@ FRESH_EXACT = frozenset({"prices", "wallets", "spot", "income", "futures.account
 FRESH_PREFIX = ("transfers.", "flows.", "trades.", "close.", "earn.")
 
 CLOSE_RETRY = timedelta(minutes=20)     # 收盘快照写不进去（钱包取不到）时多久再试
+# 零点后多久之内的快照才算那天的收盘。再晚，净值里就混进了第二天的涨跌、理财按第二天
+# 的持仓估算——2026-10-03 上线时记成 10-02 收盘的那份是 13:11 取的，就是这种
+CLOSE_GRACE = timedelta(hours=3)
 FREEZE_RETRY = timedelta(hours=1)       # 数据还不齐时多久重取一次
 SWEEP_EVERY = timedelta(hours=1)
 REWARDS_RETRY = timedelta(hours=1)
@@ -88,15 +96,18 @@ def freeze_days(store: HistoryStore, live_daily: list[dict],
                 results: dict[str, SourceResult], now: datetime) -> list[str]:
     """把能存定的日子存定，返回这次存定了哪几天。
 
-    今天不存（还没结束）；已经存定的不碰；算不出来的那天（`known` 为假）不存——
-    它不是 0，存成 0 就把"不知道"变成了"没赚没亏"。
+    今天不存（还没结束）；第一份收盘快照之前的不存（不补存上线以前）；已经存定的不碰；
+    算不出来的那天（`known` 为假）不存——它不是 0，存成 0 就把"不知道"变成了"没赚没亏"。
     """
+    start = store.first_snapshot_day()
+    if start is None:
+        return []
     today = now.astimezone(timezone.utc).date().isoformat()
     frozen = store.frozen_days()
     done = []
     for row in live_daily:
         day = row["date"]
-        if day >= today or day in frozen or not row.get("known"):
+        if day < start or day >= today or day in frozen or not row.get("known"):
             continue
         if blocking_sources(results, day):
             continue
@@ -105,8 +116,8 @@ def freeze_days(store: HistoryStore, live_daily: list[dict],
         earn = row["earn_usd"] if earn is None else earn
         pnl = row["spot_usd"] + row["stock_usd"] + row["settled_usd"] + earn + row["interest_usd"]
         stored = {**row, "earn_usd": earn, "pnl_usd": pnl}
-        # 有收盘快照的那天是"收盘后存定"，没有的（上线时补存的、任务停过的）是"补存"
-        method = "close" if earn_method == "estimate_full_day" else "backfill"
+        # 有收盘快照的那天是"收盘后存定"；没有的（任务停过、零点后 3 小时内没写成）记 no_close
+        method = "close" if earn_method == "estimate_full_day" else "no_close"
         if store.freeze(stored, earn_method=earn_method, method=method):
             done.append(day)
     return done
@@ -130,6 +141,7 @@ class HistoryJob:
         self.last_sweep: datetime | None = None
         self.last_rewards: datetime | None = None
         self.rewards_day: date | None = None
+        self.missed_close: date | None = None
         # 这个进程里已经补取过的派息来源。账户没有定期派息时库里永远是 0 条，
         # 只看条数的话每天都会重新往回取 180 天
         self.backfilled: set[str] = set()
@@ -145,14 +157,27 @@ class HistoryJob:
         report: dict[str, Any] = {}
         today = now.astimezone(timezone.utc).date()
         yesterday = today - timedelta(days=1)
-        need_close = not store.has_snapshot(yesterday)
-        need_freeze = yesterday.isoformat() not in store.frozen_days()
+        in_grace = now < day_end(yesterday) + CLOSE_GRACE
+        need_close = in_grace and not store.has_snapshot(yesterday)
+        if not in_grace and self.missed_close != yesterday and not store.has_snapshot(yesterday):
+            self.missed_close = yesterday
+            print(f"[history] {yesterday} 没有收盘快照：零点后 3 小时内没写成，那天不算有收盘",
+                  file=sys.stderr, flush=True)
+        start = store.first_snapshot_day()
+        need_freeze = (start is not None and yesterday.isoformat() >= start
+                       and yesterday.isoformat() not in store.frozen_days())
         since = None if self.last_build is None else now - self.last_build
         closing = False
         if (need_close and (since is None or since >= CLOSE_RETRY)) or \
                 (need_freeze and (since is None or since >= FREEZE_RETRY)):
             report.update(self.build(now, close_day=yesterday if need_close else None))
             closing = need_close
+            # 昨天存不定要留下原因：一个来源一直失败，那天会在滑出 90 天窗口时永久丢掉。
+            # 收盘那一轮不报——提现记录不随强制刷新重取（NEVER_FORCE），缓存还是零点前的，
+            # 那一轮几乎总是差它；一小时后的重试还存不定才是该看的
+            if not closing and "pending" in report:
+                print(f"[history] {yesterday} 暂未存定，{report['pending']}",
+                      file=sys.stderr, flush=True)
 
         if self.last_sweep is None or now - self.last_sweep >= SWEEP_EVERY:
             report["records"] = sweep_records(self.cache, store)
@@ -188,15 +213,13 @@ class HistoryJob:
                 sources=snapshot.get("sources") or [], payload=trim_snapshot(snapshot))
         live = (snapshot.get("pnl") or {}).get("daily") or []
         report["frozen"] = freeze_days(store, live, results, now)
-        # 昨天存不定要留下原因：一个来源一直失败，那天会在滑出 90 天窗口时永久丢掉。
-        # 收盘那一轮不报——提现记录不随强制刷新重取（NEVER_FORCE），缓存还是零点前的，
-        # 那一轮几乎总是差它；一小时后的重试还存不定才是该看的
         day = (now.astimezone(timezone.utc).date() - timedelta(days=1)).isoformat()
-        if not closing and day not in store.frozen_days():
+        start = store.first_snapshot_day()
+        if start is not None and day >= start and day not in store.frozen_days():
             row = next((r for r in live if r["date"] == day), None)
-            why = ("那天算不出来（known=false）" if row is not None and not row.get("known")
-                   else f"来源未齐：{', '.join(blocking_sources(results, day)) or '无日历'}")
-            print(f"[history] {day} 暂未存定，{why}", file=sys.stderr, flush=True)
+            report["pending"] = (
+                "那天算不出来（known=false）" if row is not None and not row.get("known")
+                else f"来源未齐：{', '.join(blocking_sources(results, day)) or '无日历'}")
         return report
 
     def capture_daily(self, now: datetime, store: HistoryStore) -> dict[str, int | None]:

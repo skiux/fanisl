@@ -10,12 +10,14 @@
 
 | 表 | 一行是 | 写入 | 之后会变吗 |
 |---|---|---|---|
-| `account_snapshots` | 某个 UTC 日收盘时的账户全貌 | 次日零点后第一次跑（`history_job.py`） | 不变 |
-| `daily_pnl` | 某一天的盈亏，各分项 | 那天结束、相关来源都在那之后取到过 | 不变 |
+| `account_snapshots` | 某个 UTC 日收盘时的账户全貌 | 次日零点后 3 小时内（`history_job.py`） | 不变 |
+| `daily_pnl` | 某一天的盈亏，各分项 | 那天结束、相关来源都在那之后取到过；从第一份收盘快照那天起 | 不变 |
 | `binance_records` | 交易所给的一条原始记录 | 每小时从缓存里扫，派息另取 | 只在交易所改了它时更新（充提状态） |
 
 ## 几条规矩
 
+- **从现在开始存，不补以前。** 存定从第一份收盘快照那天开始（用户 2026-10-03 定）；
+  上线那一刻窗口里的日子照旧现算显示，滑出 90 天就没了。
 - **存下的东西不重算。** 日历上一天一旦存定，之后的请求直接用存定的数，不再从当前余额
   倒推——倒推会随窗口滑动、来源失败、算法修改而变。要改只能删掉那一行，等任务重存
   （还在 90 天窗口内才能重存）。
@@ -25,7 +27,7 @@
 - **理财收益按收盘时的本金与年化记一整天。** 逐日盈亏的理财一项只给"今天从零点起已过
   的比例"，过去的日子是 0（当前数据无法重建过去的本金）。收盘快照里存着当天的理财
   持仓，存定那一天时用它补上整天的估算，`earn_method` 记成 `estimate_full_day`；
-  没有收盘快照的日子（上线前补存的、任务停了的）记 `none`，仍是 0。派息记录从现在起
+  没有收盘快照的日子（任务停过、零点后 3 小时内没写成）记 `none`，仍是 0。派息记录从现在起
   也在存，但 2026-09-27 发现它与账户实际收益对不上、已从逐日盈亏里停用（见
   `dailypnl.py`）；要拿它替代估算，得先用存下的记录与收盘快照查清差在哪。
 - **快照的净值含交易所以外的现金**（`fund_settings.cash_usd`），与资产页同一个口径。
@@ -124,6 +126,12 @@ class HistoryStore:
                  json.dumps(sources, ensure_ascii=False),
                  json.dumps(payload, ensure_ascii=False))).fetchone()
         return row is not None
+
+    def first_snapshot_day(self) -> str | None:
+        """开始记录的那天：第一份收盘快照的日子。存定从这天起，不往前补"""
+        with self.pool.connection() as conn:
+            row = conn.execute("SELECT min(day) AS day FROM account_snapshots").fetchone()
+        return row["day"].isoformat() if row and row["day"] else None
 
     def snapshot_payload(self, day: str | date) -> dict | None:
         with self.pool.connection() as conn:

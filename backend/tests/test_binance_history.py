@@ -21,6 +21,8 @@ from fanisl.binance.portfolio import build_portfolio
 from binance_mock import NOW, _day, equity_daily, make_transport
 
 YESTERDAY = _day(1)
+# 收盘那一轮：零点刚过。假 Binance 的样本以 NOW（12:00）为准，同一天，日历一样
+CLOSE_AT = day_end(YESTERDAY) + timedelta(minutes=10)
 
 
 @pytest.fixture(autouse=True)
@@ -131,7 +133,7 @@ def test_job_writes_the_close_and_freezes_closed_days(cache, pool, auth_store):
     FundStore(pool).save_settings(initial_nav_usd=None, inception_date=None, cash_usd=500,
                                   updated_by=1)
     job = HistoryJob(client(), cache)
-    report = job.run(NOW)
+    report = job.run(CLOSE_AT)
     store = cache.history
 
     assert report["snapshot"] is True
@@ -145,9 +147,8 @@ def test_job_writes_the_close_and_freezes_closed_days(cache, pool, auth_store):
         methods = {r["day"].isoformat(): (r["method"], r["earn_method"]) for r in conn.execute(
             "SELECT day, method, earn_method FROM daily_pnl").fetchall()}
     assert methods[YESTERDAY] == ("close", "estimate_full_day")
-    # 上线时窗口里更早的日子按现算的补存：没有收盘快照，理财一项仍是 0
-    assert methods[_day(5)] == ("backfill", "none")
-    assert frozen[_day(5)]["earn_usd"] == 0
+    # 不补存：第一份收盘快照之前的日子照旧现算，不存
+    assert list(methods) == [YESTERDAY]
 
     # 收盘那天的理财按收盘持仓记一整天：今天 12:00 已计提半天，同样的持仓
     today = next(r for r in live["pnl"]["daily"] if r["date"] == _day(0))
@@ -163,14 +164,38 @@ def test_job_writes_the_close_and_freezes_closed_days(cache, pool, auth_store):
     assert page[_day(0)]["frozen"] is False and page[_day(0)]["nav_close_usd"] is None
 
 
+def test_a_late_close_is_not_written_and_nothing_is_backfilled(cache):
+    """零点后 3 小时内没写成的收盘不补：12:00 取的不是收盘。还没有任何收盘快照时什么都不存"""
+    calls: list[str] = []
+    job = HistoryJob(BinanceClient("k", "s", client=httpx.Client(
+        transport=make_transport(calls=calls))), cache)
+    report = job.run(NOW)
+    assert "snapshot" not in report and "frozen" not in report
+    assert cache.history.closes() == {} and cache.history.frozen_days() == {}
+    assert "/sapi/v1/asset/wallet/balance" not in calls     # 没有去取资产快照
+
+
+def test_days_after_recording_started_are_kept_even_without_a_close(cache):
+    """开始记录之后，任务停过、没赶上收盘的日子照样存定（no_close），记录不留缺口"""
+    store = cache.history
+    store.write_snapshot(day=_day(3), taken_at=NOW, as_of=None, equity_usd=1000.0,
+                         cash_usd=0.0, complete=True, sources=[], payload={"earn": []})
+    report = HistoryJob(client(), cache).run(NOW)
+    assert sorted(report["frozen"]) == [_day(3), _day(2), _day(1)]
+    with cache.pool.connection() as conn:
+        methods = {r["day"].isoformat(): r["method"] for r in conn.execute(
+            "SELECT day, method FROM daily_pnl").fetchall()}
+    assert methods == {_day(3): "close", _day(2): "no_close", _day(1): "no_close"}
+
+
 def test_job_does_nothing_more_once_the_day_is_stored(cache):
     calls: list[str] = []
     job = HistoryJob(BinanceClient("k", "s", client=httpx.Client(
         transport=make_transport(calls=calls))), cache)
-    job.run(NOW)
-    assert "rewards" in job.run(NOW + timedelta(minutes=10))   # 收盘那一轮之后再取
+    job.run(CLOSE_AT)
+    assert "rewards" in job.run(CLOSE_AT + timedelta(minutes=10))   # 收盘那一轮之后再取
     calls.clear()
-    report = job.run(NOW + timedelta(minutes=20))
+    report = job.run(CLOSE_AT + timedelta(minutes=20))
     assert report == {}
     assert calls == []
 
@@ -178,17 +203,17 @@ def test_job_does_nothing_more_once_the_day_is_stored(cache):
 def test_failed_source_blocks_the_freeze_until_a_later_fetch(cache):
     store = cache.history
     job = HistoryJob(client(fail={"/fapi/v1/income": 500}), cache)
-    report = job.run(NOW)
+    report = job.run(CLOSE_AT)
     # 快照照写（钱包是好的），但标成不完整；那天不存定
     assert report["snapshot"] is True and report["frozen"] == []
     with cache.pool.connection() as conn:
         assert conn.execute("SELECT complete FROM account_snapshots").fetchone()["complete"] is False
 
     # 半小时后：收盘已有，存定的重试按小时，不动
-    assert "frozen" not in job.run(NOW + timedelta(minutes=30))
+    assert "frozen" not in job.run(CLOSE_AT + timedelta(minutes=30))
     # 一小时后接口恢复：不强制刷新，但失败的来源没有可用缓存，会重取
     job.client = client()
-    report = job.run(NOW + timedelta(minutes=61))
+    report = job.run(CLOSE_AT + timedelta(minutes=61))
     assert YESTERDAY in report["frozen"]
     assert "snapshot" not in report                  # 收盘只写一次
     assert YESTERDAY in store.frozen_days()
@@ -197,17 +222,17 @@ def test_failed_source_blocks_the_freeze_until_a_later_fetch(cache):
 def test_job_sweeps_cached_records_and_captures_rewards(cache):
     store = cache.history
     job = HistoryJob(client(), cache)
-    report = job.run(NOW)
+    report = job.run(CLOSE_AT)
     assert report["records"]["futures_income"] > 0
     assert report["records"]["withdrawals"] == 1
     # 收盘那一轮刚强制取过全部来源，派息推到下一轮，免得权重挤在同一分钟
     assert "rewards" not in report
-    report = job.run(NOW + timedelta(minutes=10))
+    report = job.run(CLOSE_AT + timedelta(minutes=10))
     # 活期同一时刻的 REALTIME 与 BONUS 是两条；45 天前那条在首次补取的 180 天里
     assert report["rewards"] == {"earn_flexible_rewards": 3, "earn_locked_rewards": 1,
                                  "bfusd_rewards": 1, "ledger": 0}
     # 钱包划转只在流水页的来源里：任务每天刷一遍流水页，下一次扫缓存就沉淀下来
-    later = job.run(NOW + timedelta(hours=1, minutes=1))
+    later = job.run(CLOSE_AT + timedelta(hours=1, minutes=1))
     assert later["records"]["wallet_transfers"] > 0
     assert later["records"]["futures_income"] == 0  # 已经存过的不重复计
     assert "rewards" not in later                    # 一天一次
