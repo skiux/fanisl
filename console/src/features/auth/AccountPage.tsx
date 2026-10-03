@@ -53,7 +53,7 @@ export function AccountPage() {
     <div className="min-h-[100dvh] bg-desk px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-6">
       {/* 这两页内容不多，纸张按内容收——钉在视口高度只会在下面留一大片空白 */}
       <div className="sheet mx-auto flex max-w-[1420px] flex-col">
-        <Masthead asOf={null} onRefresh={retry} page="account"
+        <Masthead asOf={null} onRefresh={retry}
                   refreshing={false} sources={[]} title="账号" />
 
         <div className="min-h-0 flex-1 px-5 py-7 sm:px-10 sm:py-8">

@@ -1,14 +1,16 @@
 import { withViewTransition } from './viewTransition'
 
 /**
- * 两级 hash 路由：`#/{页}/{分节}`。没有引入路由库——一共三页、每页几节，
+ * 两级 hash 路由：`#/{页}/{分节}`。没有引入路由库——一共几页、每页几节，
  * 一个解析函数加一个 hashchange 监听就够了，装 react-router 反而是净负担。
+ *
+ * 原先还有一页「委托」（`#/orders`，报头上的入口）。委托后来分别放进了合约页与持仓页的
+ * 右栏，2026-10-03 那一页删了；旧地址落到合约页，见 readRoute。
  */
-export type PageKey = 'assets' | 'orders' | 'ledger' | 'account' | 'admin'
+export type PageKey = 'assets' | 'ledger' | 'account' | 'admin'
 
 export const PAGES: { key: PageKey; label: string; enabled: boolean }[] = [
   { key: 'assets', label: '资产', enabled: true },
-  { key: 'orders', label: '委托', enabled: true },
   { key: 'ledger', label: '流水', enabled: true },
 ]
 
@@ -44,6 +46,8 @@ export function readRoute(): Route {
   if (LEGACY_ASSET_SECTIONS.includes(first)) {
     return { page: 'assets', section: first }
   }
+  // 删掉的「委托」页：收藏的链接落到合约页，那里的右栏就是合约委托
+  if (first === 'orders') return { page: 'assets', section: 'perp' }
   return { page: 'assets', section: null }
 }
 

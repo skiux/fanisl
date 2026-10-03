@@ -7,7 +7,6 @@ import { AuthGate } from './features/auth/AuthGate'
 import { canView, hrefOf, onRouteChange, readRoute, titleOf } from './lib/router'
 import { useReloadOnNewBuild } from './lib/version'
 import { LedgerPage } from './features/ledger/LedgerPage'
-import { OrdersPage } from './features/orders/OrdersPage'
 import { StatementPage } from './features/portfolio/StatementPage'
 
 export default function App() {
@@ -57,14 +56,13 @@ export default function App() {
   // 浏览器标签页得跟着换，不然停在"资产"上，多开几个标签就分不清了
   useEffect(() => { document.title = titleOf(page, route.section) }, [page, route.section])
 
-  // 换页要整块重建：三页各自持有自己的取数与分节状态，复用同一棵树只会串味。
+  // 换页要整块重建：各页各自持有自己的取数与分节状态，复用同一棵树只会串味。
   // 重建不等于重新加载：数据留在 usePageData 的缓存里，切回来先显示上一次的
   const view = denied ? null
-    : page === 'orders' ? <OrdersPage key="orders" />
-      : page === 'ledger' ? <LedgerPage key="ledger" />
-        : page === 'account' ? <AccountPage key="account" />
-          : page === 'admin' ? <AdminPage key="admin" />
-            : <StatementPage key="assets" />
+    : page === 'ledger' ? <LedgerPage key="ledger" />
+      : page === 'account' ? <AccountPage key="account" />
+        : page === 'admin' ? <AdminPage key="admin" />
+          : <StatementPage key="assets" />
   // 资产页的「账户」那一节没有自己的入口，算在「资产」下面（它在资产标题的右边）
   const destination: MainDestination | null = page === 'ledger' ? 'ledger'
     : page === 'admin' ? 'users'

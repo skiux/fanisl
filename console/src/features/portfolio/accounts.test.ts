@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildFund, buildSnapshot } from '../../api/fixtures'
 import type { FundSnapshot } from '../../api/types'
 import { money } from '../../lib/format'
+import { withCash } from '../../lib/fund'
 import { AccountsStrip, AccountsView, accountsModel } from './Accounts'
 
 let host: HTMLDivElement
@@ -25,13 +26,15 @@ afterEach(() => {
 const at = new Date('2026-10-02T12:00:00Z')
 const snapshot = buildSnapshot(at)
 
+/** 页面拿到的是并好现金的快照（StatementPage 的 loadStatement），测试也照这样喂 */
 function render(fund: FundSnapshot, admin: boolean, selected = fund.members[0]?.user_id ?? null) {
-  const model = accountsModel(snapshot, fund)
+  const merged = withCash(snapshot, fund)
+  const model = accountsModel(merged, fund)
   const account = model.accounts.find((row) => row.member.user_id === selected) ?? model.accounts[0] ?? null
   const onSelect = vi.fn()
   act(() => root.render(createElement('div', null,
-    createElement(AccountsStrip, { account, atMs: model.atMs, fund, snapshot }),
-    createElement(AccountsView, { account, admin, fund, model, onSelect, snapshot }),
+    createElement(AccountsStrip, { account, atMs: model.atMs, fund, snapshot: merged }),
+    createElement(AccountsView, { account, admin, fund, model, onSelect, snapshot: merged }),
   )))
   return { model, onSelect }
 }
@@ -73,7 +76,7 @@ describe('资产页「账户」', () => {
     }
   })
 
-  it('按显示的净值（真实净值 + 现金）分配，Current NAV 就是资产页上那个净值', () => {
+  it('按含现金的净值分配，Current NAV 就是资产页上那个净值', () => {
     const fund = buildFund(at)
     const nav = snapshot.totals!.equity_usd + 3_000
     const { model } = render(fund, true)
@@ -81,7 +84,8 @@ describe('资产页「账户」', () => {
     expect(host.textContent).toContain(money(nav))
 
     // 现金多录 1000：分配的基数跟着多 1000，有盈利可分的账户价值跟着变
-    const more = accountsModel(snapshot, { ...fund, settings: { ...fund.settings, cash_usd: 4_000 } })
+    const richer = { ...fund, settings: { ...fund.settings, cash_usd: 4_000 } }
+    const more = accountsModel(withCash(snapshot, richer), richer)
     expect(more.state!.pnl - model.state!.pnl).toBeCloseTo(1_000, 6)
     expect(more.accounts[1].value).toBeGreaterThan(model.accounts[1].value!)
   })

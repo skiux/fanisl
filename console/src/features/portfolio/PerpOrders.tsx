@@ -9,7 +9,7 @@ import {
   ORDER_STATUS_LABEL, percent, price, signedMoney, signedPercent, SOURCE_LABEL,
 } from '../../lib/format'
 import { prefetchPageData, usePageData } from '../../lib/pageData'
-import { gapOf } from '../orders/OrderTables'
+import { gapOf, orderValue } from '../../lib/orders'
 import { ListSkeleton } from './states'
 import { useViewportListHeight } from './useViewportListHeight'
 
@@ -123,9 +123,17 @@ export function PerpOrders({ scenario }: { scenario: Scenario }) {
             </button>
           ))}
         </div>
-        {rows && !missing && <span className="tnum pb-2.5 text-xs text-ink-3" data-order-count>
-          {view !== 'open' && query?.lookback_days && `${query.lookback_days} 天 · `}
-          {activeRows.length}
+        {/* 当前委托加一个委托价值（名义金额合计；「全平仓位」那种没有数量的保护单不计）。
+            原先这个数在单独的「委托」页摘要条上，那一页 2026-10-03 删了。
+            来源不全时和笔数一样不报——一个不完整的合计比不报更糟 */}
+        {rows && !missing && <span className="tnum flex items-baseline gap-3 pb-2.5 text-xs text-ink-3">
+          {view === 'open' && <span data-order-value>
+            委托价值 <span className="text-ink-2">{money(orderValue(activeRows))}</span>
+          </span>}
+          <span data-order-count>
+            {view !== 'open' && query?.lookback_days && `${query.lookback_days} 天 · `}
+            {activeRows.length}
+          </span>
         </span>}
         {rows && missing && <button
           aria-label="重新读取委托"

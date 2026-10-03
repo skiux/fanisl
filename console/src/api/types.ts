@@ -537,6 +537,11 @@ export type PortfolioTotals = {
 }
 
 export type PortfolioSnapshot = {
+  /**
+   * **不是 `/portfolio` 的字段**：资产页取数时把管理员录入的交易所以外的现金并进来
+   * （`lib/fund.ts` 的 withCash），`totals.equity_usd` 此时已含它。没录就是 0 或不存在
+   */
+  external_cash_usd?: number
   as_of: string | null
   base_currency: 'USD'
   sources: SourceState[]
@@ -846,7 +851,7 @@ export type FundSettings = {
   initial_nav_usd: number | null
   /** YYYY-MM-DD。管理费从这天 UTC 零点起按天计提，账户日历也从这天开始 */
   inception_date: string | null
-  /** 交易所以外的现金。加在资产页显示的净值上，盈亏和账户分配也按这个净值算；持仓占比、风险读数不含它 */
+  /** 交易所以外的现金。资产页取数时并进净值（`lib/fund.ts` 的 withCash），之后所有用净值的地方都含它 */
   cash_usd: number | null
   updated_at: string | null
 }

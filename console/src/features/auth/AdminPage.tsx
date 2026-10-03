@@ -74,7 +74,7 @@ export function AdminPage() {
   return (
     <div className="min-h-[100dvh] bg-desk px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-6">
       <div className="sheet mx-auto flex max-w-[1420px] flex-col">
-        <Masthead asOf={null} onRefresh={retry} page="admin" refreshing={refreshing} sources={[]} title="用户" />
+        <Masthead asOf={null} onRefresh={retry} refreshing={refreshing} sources={[]} title="用户" />
 
         {!isAdmin ? (
           <div className="px-6 sm:px-10">

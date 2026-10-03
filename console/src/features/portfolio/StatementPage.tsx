@@ -8,6 +8,7 @@ import { ScenarioSwitcher } from '../../components/ScenarioSwitcher'
 import { cn } from '../../lib/cn'
 import { usePageData, type Phase as PagePhase } from '../../lib/pageData'
 import { useIsAdmin } from '../../lib/role'
+import { withCash } from '../../lib/fund'
 import { hrefOf, onRouteChange, readRoute } from '../../lib/router'
 import { AccountsStrip, AccountsView, accountsModel } from './Accounts'
 import { Masthead } from './Masthead'
@@ -20,6 +21,7 @@ import { RiskControlView } from './RiskControl'
 /**
  * 资产页的数据：Binance 快照 + 管理员录入的账户规则（初始净值、现金、各人的分配比例）。
  * 两份一起取、一起缓存。规则那一份取不到不拖垮整页：现金、盈亏与「账户」显示 `—`。
+ * 现金在这里并进净值（withCash），下游读到的 `totals.equity_usd` 已经含它。
  */
 type Statement = PortfolioSnapshot & { fund: FundSnapshot | null }
 type Phase = PagePhase<Statement>
@@ -29,7 +31,7 @@ async function loadStatement(scenario: Scenario, signal: AbortSignal | undefined
     fetchPortfolio(scenario, signal, { force }),
     fetchFund(scenario, signal).catch(() => null),
   ])
-  return { ...portfolio, fund }
+  return { ...withCash(portfolio, fund), fund }
 }
 
 /** 页面在前台时多久静默重取一次。打不打 Binance 由后端缓存决定，见 lib/autoRefresh.ts */
@@ -105,7 +107,6 @@ export function StatementPage() {
           asOf={snapshot?.as_of ?? null}
           controls={<ScenarioSwitcher onChange={changeScenario} value={scenario} />}
           onRefresh={retry}
-          page="assets"
           refreshError={refreshError}
           refreshing={refreshing || saving}
           sources={snapshot?.sources ?? []}

@@ -56,6 +56,8 @@ export function RiskControlView({ snapshot }: {
   const spare = sumWhere((where) => where === '现货')
   const parked = sumWhere((where) => where.startsWith('理财'))
   const asMargin = sumWhere((where) => where === '合约保证金')
+  // 管理员录入的交易所以外的现金：算在净值与现金里，要用得先转进交易所
+  const external = sumWhere((where) => where === '交易所外')
   const cashTotal = cashRows.reduce((sum, row) => sum + (row.value_usd ?? 0), 0)
 
   const currentPosition = useMemo(() => positionSize(snapshot), [snapshot])
@@ -365,10 +367,11 @@ export function RiskControlView({ snapshot }: {
           {cashRows.length === 0 ? (
             <p className="text-sm text-ink-3">账户里没有稳定币。</p>
           ) : (
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+            <dl className={cn('grid grid-cols-2 gap-x-6 gap-y-3', external > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4')}>
               <Figure label="现货 · 可直接划转" value={money(spare)} />
               <Figure label="理财 · 需赎回" value={money(parked)} />
               <Figure label="已作保证金" value={money(asMargin)} />
+              {external > 0 && <Figure label="交易所外 · 需转入" value={money(external)} />}
               <Figure
                 label="占净值"
                 value={percent(equity > 0 ? cashTotal / equity : null, 1)}

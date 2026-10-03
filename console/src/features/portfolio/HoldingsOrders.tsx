@@ -9,6 +9,7 @@ import {
   splitPair, VENUE_LABEL,
 } from '../../lib/format'
 import { prefetchPageData, usePageData } from '../../lib/pageData'
+import { orderValue } from '../../lib/orders'
 import { ListSkeleton } from './states'
 import { useViewportListHeight } from './useViewportListHeight'
 
@@ -147,7 +148,13 @@ export function HoldingsOrders({ scenario }: { scenario: Scenario }) {
             </button>
           ))}
         </div>
-        {rows && !incomplete && <span className="tnum pb-2.5 text-xs text-ink-3" data-order-count>{activeRows.length}</span>}
+        {/* 与合约页同一个写法：当前委托带委托价值（按上面选的账户筛过），来源不全时不报 */}
+        {rows && !incomplete && <span className="tnum flex items-baseline gap-3 pb-2.5 text-xs text-ink-3">
+          {view === 'open' && <span data-order-value>
+            委托价值 <span className="text-ink-2">{money(orderValue(activeRows))}</span>
+          </span>}
+          <span data-order-count>{activeRows.length}</span>
+        </span>}
         {rows && incomplete && <button
           aria-label="重新读取委托"
           className="pb-2.5 text-xs text-ink-2 underline decoration-rule-strong underline-offset-4 transition-colors hover:text-ink"

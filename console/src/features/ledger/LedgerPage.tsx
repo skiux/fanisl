@@ -61,7 +61,6 @@ export function LedgerPage() {
           asOf={snapshot?.as_of ?? null}
           controls={<ScenarioSwitcher onChange={changeScenario} value={scenario} />}
           onRefresh={retry}
-          page="ledger"
           refreshError={refreshError}
           refreshing={refreshing}
           sources={snapshot?.sources ?? []}

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { DailyPnl, FundMember, FundSnapshot } from '../api/types'
-import { accountDays, accountsAt, displayedNav } from './fund'
+import { accountDays, accountsAt, withCash } from './fund'
+import { buildSnapshot } from '../api/fixtures'
+import { cash } from './holdings'
 
 const DAY = 86_400_000
 
@@ -126,12 +128,28 @@ describe('账户日历', () => {
   })
 })
 
-describe('显示的净值', () => {
-  it('真实净值 + 录入的现金；没录现金就是真实净值，真实净值取不到就是 null', () => {
-    const withCash = { settings: { ...fund([]).settings, cash_usd: 2_500 } }
-    expect(displayedNav(100_000, withCash)).toBe(102_500)
-    expect(displayedNav(100_000, fund([]))).toBe(100_000)
-    expect(displayedNav(100_000, null)).toBe(100_000)
-    expect(displayedNav(null, withCash)).toBeNull()
+describe('现金并进净值', () => {
+  const portfolio = buildSnapshot(new Date('2026-10-02T12:00:00Z'))
+  const exchange = portfolio.totals!.equity_usd
+  const withSettings = (cash_usd: number | null) => ({ settings: { ...fund([]).settings, cash_usd } })
+
+  it('净值 = 交易所的净值 + 现金；合约价值 / 净值按新分母重算', () => {
+    const merged = withCash(portfolio, withSettings(2_500))
+    expect(merged.totals!.equity_usd).toBeCloseTo(exchange + 2_500)
+    expect(merged.external_cash_usd).toBe(2_500)
+    expect(merged.totals!.gross_exposure_ratio)
+      .toBeCloseTo(portfolio.totals!.gross_exposure_ratio! * exchange / (exchange + 2_500))
+  })
+
+  it('现金也是一行现金：资产分布与现金缓冲都列出它', () => {
+    const rows = cash(withCash(portfolio, withSettings(2_500)))
+    expect(rows.find((row) => row.where === '交易所外')).toMatchObject({ asset: 'USD', value_usd: 2_500 })
+    expect(cash(withCash(portfolio, withSettings(null))).some((row) => row.where === '交易所外')).toBe(false)
+  })
+
+  it('没录现金就是交易所的净值；交易所的净值取不到时不拿现金冒充', () => {
+    expect(withCash(portfolio, withSettings(null)).totals!.equity_usd).toBe(exchange)
+    expect(withCash(portfolio, null).totals!.equity_usd).toBe(exchange)
+    expect(withCash({ ...portfolio, totals: null }, withSettings(2_500)).totals).toBeNull()
   })
 })

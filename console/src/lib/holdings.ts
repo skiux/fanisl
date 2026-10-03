@@ -194,5 +194,8 @@ export function cash(snapshot: PortfolioSnapshot): CashRow[] {
   for (const row of snapshot.futures?.assets ?? []) {
     push(row.asset, '合约保证金', row.wallet_balance, row.value_usd, published(row.asset))
   }
+  // 管理员录入的交易所以外的现金：也是现金，也算在净值里（lib/fund.ts 的 withCash）
+  const external = snapshot.external_cash_usd ?? 0
+  if (external > 0) rows.push({ asset: 'USD', where: '交易所外', amount: external, value_usd: external, apr: null })
   return rows.sort((a, b) => (b.value_usd ?? 0) - (a.value_usd ?? 0))
 }

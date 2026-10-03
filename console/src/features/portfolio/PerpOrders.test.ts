@@ -2,6 +2,8 @@ import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchOrders } from '../../api/client'
+import { money } from '../../lib/format'
+import { orderValue } from '../../lib/orders'
 import { clearPageData } from '../../lib/pageData'
 import { PerpOrders, futuresOrderRows, prefetchPerpOrders, sourceMissing } from './PerpOrders'
 
@@ -106,6 +108,17 @@ describe('合约页委托', () => {
     expect(host.querySelector('[aria-busy="true"]')).toBeNull()
     expect(host.textContent).not.toContain('读取中')
     expect(host.querySelectorAll('#perp-order-panel > ul > li').length).toBeGreaterThan(0)
+  })
+
+  it('当前委托带委托价值（名义金额合计），历史委托不带', async () => {
+    act(() => root.render(createElement(PerpOrders, { scenario: 'ok' })))
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 450)) })
+    const snapshot = await fetchOrders('ok', '', undefined, { venue: 'usdm' })
+    const value = orderValue(futuresOrderRows(snapshot).open)
+    expect(value).toBeGreaterThan(0)
+    expect(host.querySelector('[data-order-value]')?.textContent).toBe(`委托价值 ${money(value)}`)
+    act(() => host.querySelector<HTMLButtonElement>('#perp-order-history')!.click())
+    expect(host.querySelector('[data-order-value]')).toBeNull()
   })
 
   it('没有缓存时第一次打开是同构的占位行，不是一行「读取中」', () => {

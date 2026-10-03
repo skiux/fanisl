@@ -5,7 +5,6 @@ import { BrandMark } from '../../components/BrandMark'
 import { cn } from '../../lib/cn'
 import { clockTime } from '../../lib/format'
 import { useIsAdmin } from '../../lib/role'
-import { hrefOf, PAGES, type PageKey } from '../../lib/router'
 import { dataStatus, type DataLevel } from '../../lib/status'
 import type { SourceState } from '../../api/types'
 
@@ -54,14 +53,13 @@ const LIGHT: Record<DataLevel, string> = {
  * 底下压一条整份报表唯一的实心重线——层级由它定调，下面所有分隔线都比它轻。
  */
 export function Masthead({
-  sources, asOf, onRefresh, refreshing, controls, page, title, refreshError = null, syncing = false,
+  sources, asOf, onRefresh, refreshing, controls, title, refreshError = null, syncing = false,
 }: {
   sources: SourceState[]
   asOf: string | null
   onRefresh: () => void
   refreshing: boolean
   controls?: ReactNode
-  page: PageKey
   title: ReactNode
   /** 最近一次后台刷新失败的原因；灯的颜色与提示用它 */
   refreshError?: string | null
@@ -92,45 +90,19 @@ export function Masthead({
 
         <nav aria-label="控制台导航"
              className="order-3 flex w-full items-center gap-4 sm:order-2 sm:w-auto">
-          {PAGES.map((item) => {
-            const current = item.key === page
-            if (!item.enabled) {
-              return (
-                <span className="cursor-default whitespace-nowrap text-xs text-ink-3/50" key={item.key} title="尚未实现">
-                  {item.label}
-                </span>
-              )
-            }
-            return (
-              <a
-                aria-current={current ? 'page' : undefined}
-                className={cn(
-                  'whitespace-nowrap text-xs transition-colors duration-200',
-                  current ? 'text-ink' : 'text-ink-3 hover:text-ink-2',
-                  (item.key === 'assets' || item.key === 'ledger') && 'hidden',
-                )}
-                href={hrefOf(item.key)}
-                key={item.key}
-              >
-                {item.label}
-              </a>
-            )
-          })}
-          {/* 另一个应用的入口属于**导航**，不属于右侧那堆控件——
-              它去的是另一个地方，不是这一份报表的另一节。用一条竖线分开。
+          {/* 报头原先还排着各页的入口；资产、流水挪进底栏，「委托」页 2026-10-03 删了
+              （委托在合约页与持仓页的右栏），这里只剩另一个应用的入口，原先隔开两者的
+              那条竖线也就不要了。
 
               只给管理员：对成员来说资产台就是全部，给一个他用不上的入口
               只会让"这是一个独立的东西"这件事变模糊。 */}
           {isAdmin && (
-            <>
-              <i aria-hidden="true" className="h-3 w-px bg-rule-strong" />
-              <a
-                className="whitespace-nowrap text-xs text-ink-3 transition-colors duration-200 hover:text-ink-2"
-                href="/"
-              >
-                知识库
-              </a>
-            </>
+            <a
+              className="whitespace-nowrap text-xs text-ink-3 transition-colors duration-200 hover:text-ink-2"
+              href="/"
+            >
+              知识库
+            </a>
           )}
         </nav>
 

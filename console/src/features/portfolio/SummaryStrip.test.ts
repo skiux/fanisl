@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildFund, buildSnapshot } from '../../api/fixtures'
-import { money, signedMoney, signedPercent } from '../../lib/format'
+import { money, percent, signedMoney, signedPercent } from '../../lib/format'
+import { withCash } from '../../lib/fund'
 import { spotHoldings } from '../../lib/holdings'
 import { positionSize } from '../../lib/stress'
 import { summaryForView } from './SummaryStrip'
@@ -72,21 +73,27 @@ describe('desktop page summaries', () => {
 
   it('资产页：净值加上录入的现金，最右是现金；原先的保证金率一格换成相对初始净值的盈亏', () => {
     const fund = buildFund(new Date('2026-10-02T12:00:00Z'))
-    const { hero, cells } = summaryForView(snapshot, 'overview', () => {}, fund)
+    // 页面拿到的快照已经并好现金（StatementPage 的 loadStatement）
+    const { hero, cells } = summaryForView(withCash(snapshot, fund), 'overview', () => {}, fund)
     const nav = snapshot.totals!.equity_usd + 3_000
     expect(hero).toEqual({ label: '净值', value: money(nav) })
     expect(cells.map((cell) => cell.label)).toEqual(['今日盈亏', '合约未实现', '盈亏', '现金'])
-    // 盈亏用显示的净值（含现金），与左边的净值对得上
+    // 盈亏用含现金的净值，与左边的净值对得上
     expect(cells[2]).toMatchObject({
       value: signedMoney(nav - 72_000), detail: signedPercent((nav - 72_000) / 72_000, 2),
     })
     expect(cells[3].value).toBe(money(3_000))
   })
 
-  it('录了现金：持仓的「占账户净值」仍按真实净值', () => {
+  it('录了现金：持仓的「占账户净值」、风险的各项比例也按含现金的净值（不再分两种净值）', () => {
     const fund = buildFund(new Date('2026-10-02T12:00:00Z'))
-    const share = (f: typeof fund | null) => summaryForView(snapshot, 'holdings', () => {}, f).cells[2].value
-    expect(share(fund)).toBe(share(null))
+    const merged = withCash(snapshot, fund)
+    const nav = snapshot.totals!.equity_usd + 3_000
+    const holdings = summaryForView(merged, 'holdings', () => {}, fund)
+    const value = Number(holdings.hero.value.replace(/[$,]/g, ''))
+    expect(holdings.cells[2].value).toBe(percent(value / nav, 1))
+    expect(summaryForView(merged, 'risk', () => {}, fund).cells[2].value)
+      .toBe(`${(snapshot.totals!.gross_exposure_ratio! * snapshot.totals!.equity_usd / nav).toFixed(2)}×`)
   })
 
   it('没录现金和初始净值：净值就是真实净值，两格显示 —', () => {

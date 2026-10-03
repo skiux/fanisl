@@ -1,6 +1,5 @@
 import { Strip, type StripCell } from '../../components/Strip'
 import { money, percent, signedMoney, signedPercent } from '../../lib/format'
-import { displayedNav } from '../../lib/fund'
 import { exposures, spotHoldings } from '../../lib/holdings'
 import { marginRatioRisk } from '../../lib/risk'
 import { breakingDrop, positionSize } from '../../lib/stress'
@@ -40,9 +39,9 @@ export function summaryForView(snapshot: PortfolioSnapshot, view: Exclude<ViewKe
   // 管理员录入的两项（见「用户」页）：交易所以外的现金、账户初始净值
   const cash = fund?.settings.cash_usd ?? null
   const initialNav = fund?.settings.initial_nav_usd ?? null
-  // **显示的净值 = 真实净值 + 现金**。资产这一节的净值和盈亏都用它；各处「占净值」、
-  // 风险读数仍用真实净值（totals.equity_usd），不含交易所以外的现金。
-  const nav = displayedNav(totals?.equity_usd ?? null, fund)
+  // 净值已经含现金（取数时并进来的，见 lib/fund.ts 的 withCash），这里和各处「占净值」、
+  // 风险读数用的是同一个数
+  const nav = totals?.equity_usd ?? null
   const sinceStart = nav !== null && initialNav ? nav - initialNav : null
 
   const marginTone = ratio === null ? 'muted' as const
